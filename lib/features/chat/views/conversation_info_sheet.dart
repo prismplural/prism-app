@@ -27,6 +27,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Full-screen sheet for viewing and managing conversation details.
 ///
@@ -63,6 +64,9 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
   bool _isEditing = false;
   final _titleController = TextEditingController();
   bool _saving = false;
+
+  bool _hasUnsavedTitle(Conversation conversation) =>
+      _isEditing && _titleController.text != (conversation.title ?? '');
 
   @override
   void dispose() {
@@ -289,117 +293,137 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         );
         final isDirectMessage = permissions.isDirectMessage;
 
-        return SafeArea(
-          child: ClipRect(
-            child: Column(
-              children: [
-                PrismSheetTopBar(
-                  title:
-                      conversation.title ?? context.l10n.chatConversationInfo,
-                  trailing: _saving
-                      ? PrismSpinner(
-                          color: Theme.of(context).colorScheme.primary,
-                          size: 20,
-                        )
-                      : permissions.canEditTitleEmoji
-                      ? PrismButton(
-                          label: _isEditing
-                              ? context.l10n.done
-                              : context.l10n.edit,
-                          density: PrismControlDensity.compact,
-                          tone: PrismButtonTone.subtle,
-                          onPressed: () {
-                            if (_isEditing) {
-                              _saveTitle(conversation.id, conversation.emoji);
-                            } else {
-                              _titleController.text = conversation.title ?? '';
-                              setState(() => _isEditing = true);
-                            }
-                          },
-                        )
-                      : null,
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: ListView(
-                    controller: widget.scrollController,
-                    padding: const EdgeInsets.only(
-                      left: 16,
-                      right: 16,
-                      bottom: 32,
+        return ListenableBuilder(
+          listenable: _titleController,
+          builder: (context, _) => UnsavedChangesGuard<void>(
+            hasUnsavedChanges: _hasUnsavedTitle(conversation),
+            onDiscard: () => setState(() => _isEditing = false),
+            child: SafeArea(
+              child: ClipRect(
+                child: Column(
+                  children: [
+                    PrismSheetTopBar(
+                      title:
+                          conversation.title ??
+                          context.l10n.chatConversationInfo,
+                      trailing: _saving
+                          ? PrismSpinner(
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 20,
+                            )
+                          : permissions.canEditTitleEmoji
+                          ? PrismButton(
+                              label: _isEditing
+                                  ? context.l10n.done
+                                  : context.l10n.edit,
+                              density: PrismControlDensity.compact,
+                              tone: PrismButtonTone.subtle,
+                              onPressed: () {
+                                if (_isEditing) {
+                                  _saveTitle(
+                                    conversation.id,
+                                    conversation.emoji,
+                                  );
+                                } else {
+                                  _titleController.text =
+                                      conversation.title ?? '';
+                                  setState(() => _isEditing = true);
+                                }
+                              },
+                            )
+                          : null,
                     ),
-                    children: [
-                      // HEADER SECTION
-                      _buildHeader(context, conversation, permissions, theme),
-                      const Divider(height: 32),
-
-                      // PARTICIPANTS or DM SECTION
-                      if (!isDirectMessage)
-                        _buildParticipantsSection(
-                          context,
-                          conversation,
-                          permissions,
-                          speakingAsMemberId,
-                          speakingAsMember,
-                          theme,
-                        )
-                      else
-                        _buildDmSection(
-                          conversation,
-                          speakingAsMemberId,
-                          theme,
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: ListView(
+                        controller: widget.scrollController,
+                        padding: const EdgeInsets.only(
+                          left: 16,
+                          right: 16,
+                          bottom: 32,
                         ),
-
-                      const Divider(height: 32),
-
-                      // PERMISSION BANNER
-                      if (!permissions.canManage && !isDirectMessage) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest
-                                .withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(
-                              PrismShapes.of(context).radius(12),
-                            ),
+                        children: [
+                          // HEADER SECTION
+                          _buildHeader(
+                            context,
+                            conversation,
+                            permissions,
+                            theme,
                           ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                AppIcons.infoOutline,
-                                size: 18,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  context.l10n.chatInfoCannotManage(
-                                    speakingAsMember?.name ??
-                                        context.l10n.unknown,
-                                  ),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
+                          const Divider(height: 32),
+
+                          // PARTICIPANTS or DM SECTION
+                          if (!isDirectMessage)
+                            _buildParticipantsSection(
+                              context,
+                              conversation,
+                              permissions,
+                              speakingAsMemberId,
+                              speakingAsMember,
+                              theme,
+                            )
+                          else
+                            _buildDmSection(
+                              conversation,
+                              speakingAsMemberId,
+                              theme,
+                            ),
+
+                          const Divider(height: 32),
+
+                          // PERMISSION BANNER
+                          if (!permissions.canManage && !isDirectMessage) ...[
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(
+                                  PrismShapes.of(context).radius(12),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    AppIcons.infoOutline,
+                                    size: 18,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      context.l10n.chatInfoCannotManage(
+                                        speakingAsMember?.name ??
+                                            context.l10n.unknown,
+                                      ),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
 
-                      // ACTIONS SECTION
-                      _buildActionsSection(
-                        context,
-                        conversation,
-                        permissions,
-                        speakingAsMemberId,
-                        theme,
+                          // ACTIONS SECTION
+                          _buildActionsSection(
+                            context,
+                            conversation,
+                            permissions,
+                            speakingAsMemberId,
+                            theme,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         );

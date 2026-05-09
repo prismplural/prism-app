@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 enum _ImportState {
   idle,
@@ -49,6 +50,9 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   String? _passwordError;
+
+  bool get _isDirty =>
+      _state == _ImportState.password && _passwordController.text.isNotEmpty;
 
   @override
   void dispose() {
@@ -181,31 +185,37 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Column(
-      children: [
-        PrismSheetTopBar(title: context.l10n.dataManagementImportTitle),
-        const Divider(height: 1),
-        Expanded(
-          child: SingleChildScrollView(
-            controller: widget.scrollController,
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                switch (_state) {
-                  _ImportState.idle => _buildIdle(theme),
-                  _ImportState.password => _buildPassword(theme),
-                  _ImportState.decrypting => _buildImporting(theme),
-                  _ImportState.preview => _buildPreview(theme),
-                  _ImportState.importing => _buildImporting(theme),
-                  _ImportState.complete => _buildComplete(theme),
-                  _ImportState.error => _buildError(theme),
-                },
-              ],
+    return ListenableBuilder(
+      listenable: _passwordController,
+      builder: (context, _) => UnsavedChangesGuard<void>(
+        hasUnsavedChanges: _isDirty,
+        child: Column(
+          children: [
+            PrismSheetTopBar(title: context.l10n.dataManagementImportTitle),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: widget.scrollController,
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    switch (_state) {
+                      _ImportState.idle => _buildIdle(theme),
+                      _ImportState.password => _buildPassword(theme),
+                      _ImportState.decrypting => _buildImporting(theme),
+                      _ImportState.preview => _buildPreview(theme),
+                      _ImportState.importing => _buildImporting(theme),
+                      _ImportState.complete => _buildComplete(theme),
+                      _ImportState.error => _buildError(theme),
+                    },
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -310,7 +320,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           children: [
             Expanded(
               child: PrismButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.of(context).maybePop(),
                 label: context.l10n.cancel,
                 tone: PrismButtonTone.outlined,
               ),

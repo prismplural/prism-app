@@ -18,6 +18,7 @@ import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 enum _Step { enterMnemonic, verify, warn, newPin, success }
@@ -114,6 +115,17 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
 
   // Held between steps 2 and 4, zeroed on completion.
   List<int>? _secretKeyBytes;
+
+  bool get _hasUnsavedProgress {
+    if (_step == _Step.success) return false;
+    return _mnemonicController.text.isNotEmpty ||
+        _mnemonic != null ||
+        _step != _Step.enterMnemonic ||
+        !_currentPin.isEmpty ||
+        !_verifiedCurrentPin.isEmpty ||
+        !_newPin.isEmpty ||
+        !_confirmPin.isEmpty;
+  }
 
   @override
   void dispose() {
@@ -487,25 +499,31 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
         body = _buildSuccessStep(theme);
     }
 
-    return SecureScope(
-      allowAndroidScreenCapture: _step == _Step.enterMnemonic,
-      child: SafeArea(
-        child: Column(
-          children: [
-            PrismSheetTopBar(title: context.l10n.settingsChangePinTitle),
-            Expanded(
-              child: SingleChildScrollView(
-                controller: widget.scrollController,
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  8,
-                  20,
-                  16 + MediaQuery.of(context).viewInsets.bottom,
+    return ListenableBuilder(
+      listenable: _mnemonicController,
+      builder: (context, _) => UnsavedChangesGuard<void>(
+        hasUnsavedChanges: _hasUnsavedProgress,
+        child: SecureScope(
+          allowAndroidScreenCapture: _step == _Step.enterMnemonic,
+          child: SafeArea(
+            child: Column(
+              children: [
+                PrismSheetTopBar(title: context.l10n.settingsChangePinTitle),
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: widget.scrollController,
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      8,
+                      20,
+                      16 + MediaQuery.of(context).viewInsets.bottom,
+                    ),
+                    child: body,
+                  ),
                 ),
-                child: body,
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -625,7 +643,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
         PrismButton(
           label: context.l10n.cancel,
           tone: PrismButtonTone.subtle,
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).maybePop(),
         ),
       ],
     );

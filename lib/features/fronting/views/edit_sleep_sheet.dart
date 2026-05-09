@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Full-screen editor for an existing sleep session.
 class EditSleepSheet extends ConsumerStatefulWidget {
@@ -49,6 +50,16 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
   final _notesController = TextEditingController();
   bool _saving = false;
   bool _loaded = false;
+
+  bool get _isDirty {
+    if (!_loaded) return false;
+    final session = widget.session;
+    return _startTime != session.startTime ||
+        _endTime != session.endTime ||
+        _isActive != session.isActive ||
+        _quality != (session.quality ?? SleepQuality.unknown) ||
+        _notesController.text != (session.notes ?? '');
+  }
 
   @override
   void dispose() {
@@ -132,135 +143,141 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
 
     _initFromSession(widget.session);
 
-    return Column(
-      children: [
-        PrismSheetTopBar(
-          title: context.l10n.frontingEditSleepTitle,
-          trailing: PrismGlassIconButton(
-            icon: AppIcons.check,
-            tooltip: context.l10n.save,
-            onPressed: _saving ? null : _save,
-          ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: ListView(
-            controller: widget.scrollController,
-            padding: EdgeInsets.fromLTRB(
-              24,
-              24,
-              24,
-              24 + modalBottomInsetOf(context),
+    return ListenableBuilder(
+      listenable: _notesController,
+      builder: (context, _) => UnsavedChangesGuard<bool>(
+        hasUnsavedChanges: _isDirty,
+        child: Column(
+          children: [
+            PrismSheetTopBar(
+              title: context.l10n.frontingEditSleepTitle,
+              trailing: PrismGlassIconButton(
+                icon: AppIcons.check,
+                tooltip: context.l10n.save,
+                onPressed: _saving ? null : _save,
+              ),
             ),
-            children: [
-              PrismSurface(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+            const Divider(height: 1),
+            Expanded(
+              child: ListView(
+                controller: widget.scrollController,
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  24,
+                  24,
+                  24 + modalBottomInsetOf(context),
+                ),
+                children: [
+                  PrismSurface(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          AppIcons.bedtimeRounded,
-                          color: theme.colorScheme.tertiary,
+                        Row(
+                          children: [
+                            Icon(
+                              AppIcons.bedtimeRounded,
+                              color: theme.colorScheme.tertiary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              context.l10n.frontingEditSleepLabel,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(height: 12),
+                        PrismSwitchRow(
+                          title: context.l10n.frontingStillSleeping,
+                          subtitle: context.l10n.frontingStillSleepingSubtitle,
+                          value: _isActive,
+                          onChanged: (value) {
+                            setState(() {
+                              _isActive = value;
+                              if (value) {
+                                _endTime = null;
+                              } else {
+                                _endTime ??= DateTime.now();
+                              }
+                            });
+                          },
+                        ),
+                        const Divider(height: 24),
+                        PrismDateTimePills(
+                          label: context.l10n.frontingStart,
+                          dateTime: _startTime,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                          onChanged: (dt) => setState(() => _startTime = dt),
+                        ),
+                        if (!_isActive) ...[
+                          const SizedBox(height: 16),
+                          PrismDateTimePills(
+                            label: context.l10n.frontingEnd,
+                            dateTime: _endTime,
+                            firstDate: _startTime,
+                            lastDate: DateTime.now(),
+                            placeholder: 'Tap to set',
+                            onChanged: (dt) => setState(() {
+                              _endTime = dt;
+                              _isActive = false;
+                            }),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  PrismSurface(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          context.l10n.frontingEditSleepLabel,
+                          context.l10n.frontingInfoQuality,
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        const SizedBox(height: 12),
+                        PrismSelect<SleepQuality>(
+                          value: _quality,
+                          labelText: context.l10n.frontingSleepQualityLabel,
+                          enabled: !_saving,
+                          items: SleepQuality.values
+                              .map(
+                                (quality) => PrismSelectItem(
+                                  value: quality,
+                                  label: quality == SleepQuality.unknown
+                                      ? context.l10n.frontingInfoQualityUnrated
+                                      : quality.localizedLabel(context.l10n),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setState(() => _quality = value);
+                          },
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    PrismSwitchRow(
-                      title: context.l10n.frontingStillSleeping,
-                      subtitle: context.l10n.frontingStillSleepingSubtitle,
-                      value: _isActive,
-                      onChanged: (value) {
-                        setState(() {
-                          _isActive = value;
-                          if (value) {
-                            _endTime = null;
-                          } else {
-                            _endTime ??= DateTime.now();
-                          }
-                        });
-                      },
-                    ),
-                    const Divider(height: 24),
-                    PrismDateTimePills(
-                      label: context.l10n.frontingStart,
-                      dateTime: _startTime,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                      onChanged: (dt) => setState(() => _startTime = dt),
-                    ),
-                    if (!_isActive) ...[
-                      const SizedBox(height: 16),
-                      PrismDateTimePills(
-                        label: context.l10n.frontingEnd,
-                        dateTime: _endTime,
-                        firstDate: _startTime,
-                        lastDate: DateTime.now(),
-                        placeholder: 'Tap to set',
-                        onChanged: (dt) => setState(() {
-                          _endTime = dt;
-                          _isActive = false;
-                        }),
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 16),
+                  PrismTextField(
+                    controller: _notesController,
+                    labelText: context.l10n.frontingNotes,
+                    hintText: context.l10n.frontingEditSleepNotesHint,
+                    maxLines: 4,
+                    minLines: 2,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
-              const SizedBox(height: 16),
-              PrismSurface(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.l10n.frontingInfoQuality,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    PrismSelect<SleepQuality>(
-                      value: _quality,
-                      labelText: context.l10n.frontingSleepQualityLabel,
-                      enabled: !_saving,
-                      items: SleepQuality.values
-                          .map(
-                            (quality) => PrismSelectItem(
-                              value: quality,
-                              label: quality == SleepQuality.unknown
-                                  ? context.l10n.frontingInfoQualityUnrated
-                                  : quality.localizedLabel(context.l10n),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => _quality = value);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              PrismTextField(
-                controller: _notesController,
-                labelText: context.l10n.frontingNotes,
-                hintText: context.l10n.frontingEditSleepNotesHint,
-                maxLines: 4,
-                minLines: 2,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

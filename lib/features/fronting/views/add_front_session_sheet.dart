@@ -24,6 +24,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Modal for creating a new fronting session with full details.
 ///
@@ -86,6 +87,9 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   final _notesKey = GlobalKey();
   late DateTime _startTime;
   DateTime? _endTime;
+  late DateTime _initialStartTime;
+  DateTime? _initialEndTime;
+  late bool _initialIsHistorical;
   bool _isHistorical = false;
   bool _saving = false;
 
@@ -111,6 +115,14 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   List<String> get _memberIds =>
       _selectedIds.where((id) => id != _unknownId).toList();
   bool get _canSubmit => _selectedIds.isNotEmpty;
+  bool get _isDirty =>
+      _selectedIds.isNotEmpty ||
+      _confidence != null ||
+      _notesController.text.isNotEmpty ||
+      _isHistorical != _initialIsHistorical ||
+      (_isHistorical && _startTime != _initialStartTime) ||
+      (_isHistorical && _endTime != _initialEndTime) ||
+      _modeOverride != null;
 
   @override
   void initState() {
@@ -124,6 +136,9 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
       _startTime = DateTime.now();
       _endTime = null;
     }
+    _initialStartTime = _startTime;
+    _initialEndTime = _endTime;
+    _initialIsHistorical = _isHistorical;
   }
 
   @override
@@ -270,177 +285,183 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
         FrontStartBehavior.additive;
     final mode = _resolvedMode(settingDefault);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxHeight < 100) return const SizedBox.shrink();
-        return Column(
-          children: [
-            PrismSheetTopBar(
-              title: _isHistorical
-                  ? context.l10n.frontingLogPastSession
-                  : context.l10n.frontingNewSession,
-              trailing: PrismGlassIconButton(
-                icon: AppIcons.check,
-                tooltip: context.l10n.frontingStartSessionTooltip,
-                onPressed: (_saving || !_canSubmit)
-                    ? null
-                    : () => _submit(mode),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                controller: widget.scrollController,
-                padding: EdgeInsets.fromLTRB(
-                  24,
-                  8,
-                  24,
-                  24 + modalBottomInsetOf(context),
+    return ListenableBuilder(
+      listenable: _notesController,
+      builder: (context, _) => UnsavedChangesGuard<bool>(
+        hasUnsavedChanges: _isDirty,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxHeight < 100) return const SizedBox.shrink();
+            return Column(
+              children: [
+                PrismSheetTopBar(
+                  title: _isHistorical
+                      ? context.l10n.frontingLogPastSession
+                      : context.l10n.frontingNewSession,
+                  trailing: PrismGlassIconButton(
+                    icon: AppIcons.check,
+                    tooltip: context.l10n.frontingStartSessionTooltip,
+                    onPressed: (_saving || !_canSubmit)
+                        ? null
+                        : () => _submit(mode),
+                  ),
                 ),
-                children: [
-                  if (!_isHistorical)
-                    PrismSegmentedControl<FrontStartBehavior>(
-                      key: const Key('addFrontModeSegmentedControl'),
-                      segments: [
-                        PrismSegment(
-                          value: FrontStartBehavior.additive,
-                          label: context.l10n.frontingAddFrontModeAdditive,
+                Expanded(
+                  child: ListView(
+                    controller: widget.scrollController,
+                    padding: EdgeInsets.fromLTRB(
+                      24,
+                      8,
+                      24,
+                      24 + modalBottomInsetOf(context),
+                    ),
+                    children: [
+                      if (!_isHistorical)
+                        PrismSegmentedControl<FrontStartBehavior>(
+                          key: const Key('addFrontModeSegmentedControl'),
+                          segments: [
+                            PrismSegment(
+                              value: FrontStartBehavior.additive,
+                              label: context.l10n.frontingAddFrontModeAdditive,
+                            ),
+                            PrismSegment(
+                              value: FrontStartBehavior.replace,
+                              label: context.l10n.frontingAddFrontModeReplace,
+                            ),
+                          ],
+                          selected: mode,
+                          onChanged: (m) => setState(() => _modeOverride = m),
                         ),
-                        PrismSegment(
-                          value: FrontStartBehavior.replace,
-                          label: context.l10n.frontingAddFrontModeReplace,
+                      const SizedBox(height: 24),
+                      // Section header — multi-select replaces primary + co-fronter.
+                      // TODO(§2.5): Phase 3 — show "already fronting" members as
+                      // deselect-to-end with "— ends session" hint per spec §2.5.
+                      Text(
+                        context.l10n.frontingSelectFronter,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      membersAsync.when(
+                        loading: () => const PrismLoadingState(),
+                        error: (e, _) => Text('Error: $e'),
+                        data: (members) => _MemberGrid(
+                          members: members,
+                          selectedIds: _selectedIds,
+                          unknownId: _unknownId,
+                          pluralTerm: terms.pluralLower,
+                          frontingMemberIds: frontingMemberIds,
+                          onToggle: (id) {
+                            setState(() {
+                              if (id == _unknownId) {
+                                // Unknown is exclusive — clear other selections.
+                                _selectedIds
+                                  ..clear()
+                                  ..add(_unknownId);
+                              } else {
+                                // Deselect Unknown when picking a real member.
+                                _selectedIds.remove(_unknownId);
+                                if (_selectedIds.contains(id)) {
+                                  _selectedIds.remove(id);
+                                } else {
+                                  _selectedIds.add(id);
+                                }
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        context.l10n.frontingSessionTime,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      PrismSegmentedControl<bool>(
+                        key: const Key('sessionTimeSegmentedControl'),
+                        segments: [
+                          PrismSegment(
+                            value: false,
+                            label: context.l10n.frontingSessionTimeStartNow,
+                          ),
+                          PrismSegment(
+                            value: true,
+                            label: context.l10n.frontingSessionTimePastSession,
+                          ),
+                        ],
+                        selected: _isHistorical,
+                        onChanged: (isHistorical) {
+                          if (_saving) return;
+                          if (isHistorical) {
+                            _enterHistoricalMode();
+                          } else {
+                            _exitHistoricalMode();
+                          }
+                        },
+                      ),
+                      if (_isHistorical) ...[
+                        const SizedBox(height: 16),
+                        PrismDateTimePills(
+                          label: context.l10n.frontingStart,
+                          dateTime: _startTime,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                          onChanged: (dt) => setState(() => _startTime = dt),
+                        ),
+                        const SizedBox(height: 16),
+                        PrismDateTimePills(
+                          label: context.l10n.frontingEnd,
+                          dateTime: _endTime ?? DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                          onChanged: (dt) => setState(() => _endTime = dt),
                         ),
                       ],
-                      selected: mode,
-                      onChanged: (m) => setState(() => _modeOverride = m),
-                    ),
-                  const SizedBox(height: 24),
-                  // Section header — multi-select replaces primary + co-fronter.
-                  // TODO(§2.5): Phase 3 — show "already fronting" members as
-                  // deselect-to-end with "— ends session" hint per spec §2.5.
-                  Text(
-                    context.l10n.frontingSelectFronter,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  membersAsync.when(
-                    loading: () => const PrismLoadingState(),
-                    error: (e, _) => Text('Error: $e'),
-                    data: (members) => _MemberGrid(
-                      members: members,
-                      selectedIds: _selectedIds,
-                      unknownId: _unknownId,
-                      pluralTerm: terms.pluralLower,
-                      frontingMemberIds: frontingMemberIds,
-                      onToggle: (id) {
-                        setState(() {
-                          if (id == _unknownId) {
-                            // Unknown is exclusive — clear other selections.
-                            _selectedIds
-                              ..clear()
-                              ..add(_unknownId);
-                          } else {
-                            // Deselect Unknown when picking a real member.
-                            _selectedIds.remove(_unknownId);
-                            if (_selectedIds.contains(id)) {
-                              _selectedIds.remove(id);
-                            } else {
-                              _selectedIds.add(id);
-                            }
-                          }
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    context.l10n.frontingSessionTime,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  PrismSegmentedControl<bool>(
-                    key: const Key('sessionTimeSegmentedControl'),
-                    segments: [
-                      PrismSegment(
-                        value: false,
-                        label: context.l10n.frontingSessionTimeStartNow,
+                      const SizedBox(height: 24),
+
+                      // Confidence level picker
+                      Text(
+                        context.l10n.frontingConfidenceLevel,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      PrismSegment(
-                        value: true,
-                        label: context.l10n.frontingSessionTimePastSession,
+                      const SizedBox(height: 12),
+                      _ConfidencePicker(
+                        selected: _confidence,
+                        onSelect: (c) => setState(() => _confidence = c),
                       ),
+                      const SizedBox(height: 24),
+
+                      // Notes
+                      Text(
+                        context.l10n.frontingNotes,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      PrismTextField(
+                        key: _notesKey,
+                        controller: _notesController,
+                        focusNode: _notesFocus,
+                        hintText: context.l10n.frontingNotesHint,
+                        maxLines: 6,
+                        minLines: 3,
+                        textCapitalization: TextCapitalization.sentences,
+                      ),
+                      const SizedBox(height: 32),
                     ],
-                    selected: _isHistorical,
-                    onChanged: (isHistorical) {
-                      if (_saving) return;
-                      if (isHistorical) {
-                        _enterHistoricalMode();
-                      } else {
-                        _exitHistoricalMode();
-                      }
-                    },
                   ),
-                  if (_isHistorical) ...[
-                    const SizedBox(height: 16),
-                    PrismDateTimePills(
-                      label: context.l10n.frontingStart,
-                      dateTime: _startTime,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                      onChanged: (dt) => setState(() => _startTime = dt),
-                    ),
-                    const SizedBox(height: 16),
-                    PrismDateTimePills(
-                      label: context.l10n.frontingEnd,
-                      dateTime: _endTime ?? DateTime.now(),
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                      onChanged: (dt) => setState(() => _endTime = dt),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-
-                  // Confidence level picker
-                  Text(
-                    context.l10n.frontingConfidenceLevel,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _ConfidencePicker(
-                    selected: _confidence,
-                    onSelect: (c) => setState(() => _confidence = c),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Notes
-                  Text(
-                    context.l10n.frontingNotes,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  PrismTextField(
-                    key: _notesKey,
-                    controller: _notesController,
-                    focusNode: _notesFocus,
-                    hintText: context.l10n.frontingNotesHint,
-                    maxLines: 6,
-                    minLines: 3,
-                    textCapitalization: TextCapitalization.sentences,
-                  ),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 }

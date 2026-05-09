@@ -25,6 +25,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Bottom sheet for creating a new conversation (DM or group).
 ///
@@ -63,6 +64,14 @@ class _CreateConversationSheetState
   String? _selectedCategoryId;
   bool _isCreating = false;
   bool _didPreselect = false;
+  Set<String> _initialSelectedMemberIds = const {};
+
+  bool get _isDirty =>
+      _isGroupChat != widget.initialIsGroupChat ||
+      _titleController.text.isNotEmpty ||
+      _emojiController.text.isNotEmpty ||
+      _selectedCategoryId != null ||
+      !_setEquals(_selectedMemberIds, _initialSelectedMemberIds);
 
   bool _normalizeDmSelectionFor(
     String? speakingAs, {
@@ -282,6 +291,7 @@ class _CreateConversationSheetState
           widget.initialMemberIds!.where(activeIds.contains),
         );
       }
+      _initialSelectedMemberIds = Set<String>.from(_selectedMemberIds);
     }
 
     // Show warning only after the user has started choosing participants.
@@ -567,31 +577,40 @@ class _CreateConversationSheetState
       ),
     ];
 
-    return SafeArea(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxHeight < PrismTokens.topBarHeight) {
-            return CustomScrollView(
-              controller: widget.scrollController,
-              slivers: buildBodySlivers(includeTopBar: true),
-            );
-          }
-
-          return Column(
-            children: [
-              topBar,
-              Expanded(
-                child: CustomScrollView(
+    return ListenableBuilder(
+      listenable: Listenable.merge([_titleController, _emojiController]),
+      builder: (context, _) => UnsavedChangesGuard<String>(
+        hasUnsavedChanges: _isDirty,
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxHeight < PrismTokens.topBarHeight) {
+                return CustomScrollView(
                   controller: widget.scrollController,
-                  slivers: buildBodySlivers(),
-                ),
-              ),
-            ],
-          );
-        },
+                  slivers: buildBodySlivers(includeTopBar: true),
+                );
+              }
+
+              return Column(
+                children: [
+                  topBar,
+                  Expanded(
+                    child: CustomScrollView(
+                      controller: widget.scrollController,
+                      slivers: buildBodySlivers(),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
+
+  bool _setEquals(Set<String> left, Set<String> right) =>
+      left.length == right.length && left.containsAll(right);
 
   Widget _buildMemberPicker(
     BuildContext context,

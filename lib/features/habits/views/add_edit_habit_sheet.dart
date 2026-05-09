@@ -24,6 +24,7 @@ import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_picker_text_field_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 import 'package:prism_plurality/shared/widgets/weekday_picker.dart';
@@ -63,8 +64,34 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
   // Track initial notification state for save toast.
   bool _wasNotificationsEnabled = false;
   String? _initialReminderTime;
+  late final String _initialName;
+  late final String _initialDescription;
+  late final String _initialIcon;
+  late final String _initialNotificationMessage;
+  late final HabitFrequency _initialFrequency;
+  late final Set<int> _initialWeeklyDays;
+  late final int _initialIntervalDays;
+  late final String? _initialColorHex;
+  late final String? _initialAssignedMemberId;
+  late final bool _initialOnlyNotifyWhenFronting;
+  late final bool _initialIsPrivate;
 
   bool get _isEditing => widget.existingHabit != null;
+
+  bool get _isDirty =>
+      _nameController.text != _initialName ||
+      _descriptionController.text != _initialDescription ||
+      _iconController.text != _initialIcon ||
+      _notificationMessageController.text != _initialNotificationMessage ||
+      _frequency != _initialFrequency ||
+      !_setEquals(_weeklyDays, _initialWeeklyDays) ||
+      _intervalDays != _initialIntervalDays ||
+      _colorHex != _initialColorHex ||
+      _notificationsEnabled != _wasNotificationsEnabled ||
+      _reminderTime != _initialReminderTime ||
+      _assignedMemberId != _initialAssignedMemberId ||
+      _onlyNotifyWhenFronting != _initialOnlyNotifyWhenFronting ||
+      _isPrivate != _initialIsPrivate;
 
   @override
   void initState() {
@@ -90,6 +117,17 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
     _initialReminderTime = _reminderTime;
     _onlyNotifyWhenFronting = habit?.onlyNotifyWhenFronting ?? false;
     _isPrivate = habit?.isPrivate ?? false;
+    _initialName = _nameController.text;
+    _initialDescription = _descriptionController.text;
+    _initialIcon = _iconController.text;
+    _initialNotificationMessage = _notificationMessageController.text;
+    _initialFrequency = _frequency;
+    _initialWeeklyDays = Set<int>.from(_weeklyDays);
+    _initialIntervalDays = _intervalDays;
+    _initialColorHex = _colorHex;
+    _initialAssignedMemberId = _assignedMemberId;
+    _initialOnlyNotifyWhenFronting = _onlyNotifyWhenFronting;
+    _initialIsPrivate = _isPrivate;
   }
 
   @override
@@ -112,232 +150,250 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
 
     final canSave = _nameController.text.trim().isNotEmpty;
 
-    return SafeArea(
-      child: Column(
-        children: [
-          PrismSheetTopBar(
-            title: _isEditing
-                ? context.l10n.habitsEditHabit
-                : context.l10n.habitsNewHabit,
-            trailing: PrismGlassIconButton(
-              icon: AppIcons.check,
-              tooltip: context.l10n.save,
-              size: PrismTokens.topBarActionSize,
-              tint: canSave ? theme.colorScheme.primary : null,
-              accentIcon: canSave,
-              onPressed: canSave ? _save : null,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: ListView(
-              controller: widget.scrollController,
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        _nameController,
+        _descriptionController,
+        _iconController,
+        _notificationMessageController,
+      ]),
+      builder: (context, _) => UnsavedChangesGuard<bool>(
+        hasUnsavedChanges: _isDirty,
+        child: SafeArea(
+          child: Column(
+            children: [
+              PrismSheetTopBar(
+                title: _isEditing
+                    ? context.l10n.habitsEditHabit
+                    : context.l10n.habitsNewHabit,
+                trailing: PrismGlassIconButton(
+                  icon: AppIcons.check,
+                  tooltip: context.l10n.save,
+                  size: PrismTokens.topBarActionSize,
+                  tint: canSave ? theme.colorScheme.primary : null,
+                  accentIcon: canSave,
+                  onPressed: canSave ? _save : null,
+                ),
               ),
-              children: [
-                // ── Basic Info ─────────────────────────────────
-                PrismSectionHeader(
-                  title: context.l10n.habitsSectionBasicInfo,
-                  padding: const EdgeInsets.only(top: 8, bottom: 8),
-                ),
-                const SizedBox(height: 8),
-                PrismPickerTextFieldRow(
-                  pickerLabel: context.l10n.onboardingAddMemberFieldEmoji,
-                  picker: PrismEmojiPicker(
-                    emoji: _iconController.text.trim().isNotEmpty
-                        ? _iconController.text.trim()
-                        : null,
-                    onSelected: (emoji) {
-                      setState(() {
-                        _iconController.text = emoji;
-                      });
-                    },
-                    size: 48,
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView(
+                  controller: widget.scrollController,
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
                   ),
-                  field: PrismTextField(
-                    controller: _nameController,
-                    labelText: context.l10n.habitsFieldName,
-                    hintText: context.l10n.habitsFieldNameHint,
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                PrismTextField(
-                  controller: _descriptionController,
-                  labelText: context.l10n.habitsFieldDescription,
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 12),
-                _ColorPicker(
-                  selectedHex: _colorHex,
-                  onChanged: (hex) => setState(() => _colorHex = hex),
-                ),
+                  children: [
+                    // ── Basic Info ─────────────────────────────────
+                    PrismSectionHeader(
+                      title: context.l10n.habitsSectionBasicInfo,
+                      padding: const EdgeInsets.only(top: 8, bottom: 8),
+                    ),
+                    const SizedBox(height: 8),
+                    PrismPickerTextFieldRow(
+                      pickerLabel: context.l10n.onboardingAddMemberFieldEmoji,
+                      picker: PrismEmojiPicker(
+                        emoji: _iconController.text.trim().isNotEmpty
+                            ? _iconController.text.trim()
+                            : null,
+                        onSelected: (emoji) {
+                          setState(() {
+                            _iconController.text = emoji;
+                          });
+                        },
+                        size: 48,
+                      ),
+                      field: PrismTextField(
+                        controller: _nameController,
+                        labelText: context.l10n.habitsFieldName,
+                        hintText: context.l10n.habitsFieldNameHint,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    PrismTextField(
+                      controller: _descriptionController,
+                      labelText: context.l10n.habitsFieldDescription,
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 12),
+                    _ColorPicker(
+                      selectedHex: _colorHex,
+                      onChanged: (hex) => setState(() => _colorHex = hex),
+                    ),
 
-                const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                // ── Schedule ───────────────────────────────────
-                PrismSectionHeader(
-                  title: context.l10n.habitsSectionSchedule,
-                  padding: const EdgeInsets.only(top: 8, bottom: 8),
-                ),
-                const SizedBox(height: 8),
-                PrismSegmentedControl<HabitFrequency>(
-                  segments: HabitFrequency.values
-                      .map((f) => PrismSegment(value: f, label: f.label))
-                      .toList(),
-                  selected: _frequency,
-                  onChanged: (value) => setState(() => _frequency = value),
-                ),
-                const SizedBox(height: 12),
-                if (_frequency == HabitFrequency.weekly)
-                  WeekdayPicker(
-                    selected: _weeklyDays,
-                    onChanged: (days) => setState(() => _weeklyDays = days),
-                  ),
-                if (_frequency == HabitFrequency.interval)
-                  Row(
-                    children: [
-                      Text(context.l10n.habitsIntervalEvery),
-                      PrismIconButton(
-                        icon: AppIcons.remove,
-                        onPressed: () => setState(() => _intervalDays--),
-                        enabled: _intervalDays > 1,
-                        tooltip: context.l10n.habitsIntervalDecrease,
+                    // ── Schedule ───────────────────────────────────
+                    PrismSectionHeader(
+                      title: context.l10n.habitsSectionSchedule,
+                      padding: const EdgeInsets.only(top: 8, bottom: 8),
+                    ),
+                    const SizedBox(height: 8),
+                    PrismSegmentedControl<HabitFrequency>(
+                      segments: HabitFrequency.values
+                          .map((f) => PrismSegment(value: f, label: f.label))
+                          .toList(),
+                      selected: _frequency,
+                      onChanged: (value) => setState(() => _frequency = value),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_frequency == HabitFrequency.weekly)
+                      WeekdayPicker(
+                        selected: _weeklyDays,
+                        onChanged: (days) => setState(() => _weeklyDays = days),
                       ),
-                      Text(
-                        '$_intervalDays',
-                        style: Theme.of(context).textTheme.titleMedium,
+                    if (_frequency == HabitFrequency.interval)
+                      Row(
+                        children: [
+                          Text(context.l10n.habitsIntervalEvery),
+                          PrismIconButton(
+                            icon: AppIcons.remove,
+                            onPressed: () => setState(() => _intervalDays--),
+                            enabled: _intervalDays > 1,
+                            tooltip: context.l10n.habitsIntervalDecrease,
+                          ),
+                          Text(
+                            '$_intervalDays',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          PrismIconButton(
+                            icon: AppIcons.add,
+                            onPressed: () => setState(() => _intervalDays++),
+                            tooltip: context.l10n.habitsIntervalIncrease,
+                          ),
+                          Text(context.l10n.habitsIntervalDays),
+                        ],
                       ),
-                      PrismIconButton(
-                        icon: AppIcons.add,
-                        onPressed: () => setState(() => _intervalDays++),
-                        tooltip: context.l10n.habitsIntervalIncrease,
+
+                    const SizedBox(height: 24),
+
+                    // ── Notifications ──────────────────────────────
+                    PrismSectionHeader(
+                      title: context.l10n.habitsSectionNotifications,
+                      padding: const EdgeInsets.only(top: 8, bottom: 8),
+                    ),
+                    const SizedBox(height: 8),
+                    PrismSwitchRow(
+                      title: context.l10n.habitsEnableReminders,
+                      value: _notificationsEnabled,
+                      onChanged: (v) => setState(() {
+                        _notificationsEnabled = v;
+                        // Pre-populate 9:00 AM when enabling notifications for the first time.
+                        if (v && _reminderTime == null) {
+                          _reminderTime = '09:00';
+                        }
+                      }),
+                    ),
+                    if (_notificationsEnabled) ...[
+                      Builder(
+                        builder: (anchorContext) => PrismListRow(
+                          title: Text(context.l10n.habitsReminderTime),
+                          trailing: Text(_formatReminderTime(context)),
+                          onTap: () => _pickTime(anchorContext),
+                        ),
                       ),
-                      Text(context.l10n.habitsIntervalDays),
+                      PrismTextField(
+                        controller: _notificationMessageController,
+                        labelText: context.l10n.habitsCustomMessageField,
+                      ),
                     ],
-                  ),
 
-                const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                // ── Notifications ──────────────────────────────
-                PrismSectionHeader(
-                  title: context.l10n.habitsSectionNotifications,
-                  padding: const EdgeInsets.only(top: 8, bottom: 8),
-                ),
-                const SizedBox(height: 8),
-                PrismSwitchRow(
-                  title: context.l10n.habitsEnableReminders,
-                  value: _notificationsEnabled,
-                  onChanged: (v) => setState(() {
-                    _notificationsEnabled = v;
-                    // Pre-populate 9:00 AM when enabling notifications for the first time.
-                    if (v && _reminderTime == null) {
-                      _reminderTime = '09:00';
-                    }
-                  }),
-                ),
-                if (_notificationsEnabled) ...[
-                  Builder(
-                    builder: (anchorContext) => PrismListRow(
-                      title: Text(context.l10n.habitsReminderTime),
-                      trailing: Text(_formatReminderTime(context)),
-                      onTap: () => _pickTime(anchorContext),
+                    // ── Assignment ─────────────────────────────────
+                    PrismSectionHeader(
+                      title: context.l10n.habitsSectionAssignment,
+                      padding: const EdgeInsets.only(top: 8, bottom: 8),
                     ),
-                  ),
-                  PrismTextField(
-                    controller: _notificationMessageController,
-                    labelText: context.l10n.habitsCustomMessageField,
-                  ),
-                ],
-
-                const SizedBox(height: 24),
-
-                // ── Assignment ─────────────────────────────────
-                PrismSectionHeader(
-                  title: context.l10n.habitsSectionAssignment,
-                  padding: const EdgeInsets.only(top: 8, bottom: 8),
-                ),
-                const SizedBox(height: 8),
-                membersAsync.when(
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('Error: $e'),
-                  data: (members) {
-                    final selectedMember = _assignedMember(members);
-                    final searchGroups = watchMemberSearchGroups(ref, members);
-                    return PrismListRow(
-                      title: Text(
-                        context.l10n.habitsAssignedMember(terms.singular),
+                    const SizedBox(height: 8),
+                    membersAsync.when(
+                      loading: () => const LinearProgressIndicator(),
+                      error: (e, _) => Text('Error: $e'),
+                      data: (members) {
+                        final selectedMember = _assignedMember(members);
+                        final searchGroups = watchMemberSearchGroups(
+                          ref,
+                          members,
+                        );
+                        return PrismListRow(
+                          title: Text(
+                            context.l10n.habitsAssignedMember(terms.singular),
+                          ),
+                          subtitle: Text(
+                            selectedMember?.name ??
+                                context.l10n.habitsAssignedMemberAnyone,
+                          ),
+                          leading: selectedMember == null
+                              ? SizedBox(
+                                  width: 36,
+                                  height: 36,
+                                  child: Icon(AppIcons.peopleOutline),
+                                )
+                              : MemberAvatar(
+                                  avatarImageData:
+                                      selectedMember.avatarImageData,
+                                  memberName: selectedMember.name,
+                                  emoji: selectedMember.emoji,
+                                  customColorEnabled:
+                                      selectedMember.customColorEnabled,
+                                  customColorHex: selectedMember.customColorHex,
+                                  size: 36,
+                                ),
+                          trailing: Icon(AppIcons.chevronRight),
+                          onTap: () =>
+                              _openAssignedMemberPicker(members, searchGroups),
+                        );
+                      },
+                    ),
+                    if (_assignedMemberId != null) ...[
+                      PrismSwitchRow(
+                        title: context.l10n.habitsOnlyNotifyWhenFronting,
+                        value: _onlyNotifyWhenFronting,
+                        onChanged: (v) =>
+                            setState(() => _onlyNotifyWhenFronting = v),
                       ),
-                      subtitle: Text(
-                        selectedMember?.name ??
-                            context.l10n.habitsAssignedMemberAnyone,
-                      ),
-                      leading: selectedMember == null
-                          ? SizedBox(
-                              width: 36,
-                              height: 36,
-                              child: Icon(AppIcons.peopleOutline),
-                            )
-                          : MemberAvatar(
-                              avatarImageData: selectedMember.avatarImageData,
-                              memberName: selectedMember.name,
-                              emoji: selectedMember.emoji,
-                              customColorEnabled:
-                                  selectedMember.customColorEnabled,
-                              customColorHex: selectedMember.customColorHex,
-                              size: 36,
+                      if (_onlyNotifyWhenFronting)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 4,
+                          ),
+                          child: Text(
+                            context.l10n.habitsOnlyFrontingCaveat(
+                              terms.singularLower,
                             ),
-                      trailing: Icon(AppIcons.chevronRight),
-                      onTap: () =>
-                          _openAssignedMemberPicker(members, searchGroups),
-                    );
-                  },
-                ),
-                if (_assignedMemberId != null) ...[
-                  PrismSwitchRow(
-                    title: context.l10n.habitsOnlyNotifyWhenFronting,
-                    value: _onlyNotifyWhenFronting,
-                    onChanged: (v) =>
-                        setState(() => _onlyNotifyWhenFronting = v),
-                  ),
-                  if (_onlyNotifyWhenFronting)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 4,
-                      ),
-                      child: Text(
-                        context.l10n.habitsOnlyFrontingCaveat(
-                          terms.singularLower,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                         ),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
+                    ],
+
+                    const SizedBox(height: 24),
+
+                    // ── Privacy ────────────────────────────────────
+                    PrismSwitchRow(
+                      title: context.l10n.habitsPrivate,
+                      subtitle: context.l10n.habitsPrivateSubtitle,
+                      value: _isPrivate,
+                      onChanged: (v) => setState(() => _isPrivate = v),
                     ),
-                ],
 
-                const SizedBox(height: 24),
-
-                // ── Privacy ────────────────────────────────────
-                PrismSwitchRow(
-                  title: context.l10n.habitsPrivate,
-                  subtitle: context.l10n.habitsPrivateSubtitle,
-                  value: _isPrivate,
-                  onChanged: (v) => setState(() => _isPrivate = v),
+                    const SizedBox(height: 32),
+                  ],
                 ),
-
-                const SizedBox(height: 32),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
+
+  bool _setEquals(Set<int> left, Set<int> right) =>
+      left.length == right.length && left.containsAll(right);
 
   Member? _assignedMember(List<Member> members) {
     final assignedId = _assignedMemberId;

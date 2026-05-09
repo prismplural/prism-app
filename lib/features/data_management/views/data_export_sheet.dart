@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 enum _ExportState { idle, password, exporting, error, complete }
 
@@ -36,6 +37,11 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   String? _passwordError;
+
+  bool get _isDirty =>
+      _state == _ExportState.password &&
+      (_passwordController.text.isNotEmpty ||
+          _confirmController.text.isNotEmpty);
 
   @override
   void dispose() {
@@ -121,34 +127,40 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Column(
-      children: [
-        PrismSheetTopBar(title: context.l10n.dataManagementExportTitle),
-        const Divider(height: 1),
-        Expanded(
-          child: SingleChildScrollView(
-            controller: widget.scrollController,
-            padding: EdgeInsets.fromLTRB(
-              24,
-              24,
-              24,
-              24 + modalBottomInsetOf(context),
+    return ListenableBuilder(
+      listenable: Listenable.merge([_passwordController, _confirmController]),
+      builder: (context, _) => UnsavedChangesGuard<void>(
+        hasUnsavedChanges: _isDirty,
+        child: Column(
+          children: [
+            PrismSheetTopBar(title: context.l10n.dataManagementExportTitle),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: widget.scrollController,
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  24,
+                  24,
+                  24 + modalBottomInsetOf(context),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    switch (_state) {
+                      _ExportState.idle => _buildIdle(theme),
+                      _ExportState.password => _buildPassword(theme),
+                      _ExportState.exporting => _buildExporting(theme),
+                      _ExportState.error => _buildError(theme),
+                      _ExportState.complete => _buildComplete(theme),
+                    },
+                  ],
+                ),
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                switch (_state) {
-                  _ExportState.idle => _buildIdle(theme),
-                  _ExportState.password => _buildPassword(theme),
-                  _ExportState.exporting => _buildExporting(theme),
-                  _ExportState.error => _buildError(theme),
-                  _ExportState.complete => _buildComplete(theme),
-                },
-              ],
-            ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 

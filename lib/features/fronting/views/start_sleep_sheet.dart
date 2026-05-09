@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Bottom sheet to start a new sleep session, with an optional
 /// "Log past sleep" disclosure that flips the form into a historical
@@ -27,14 +28,22 @@ class StartSleepSheet extends ConsumerStatefulWidget {
 class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
   final _notesController = TextEditingController();
   late DateTime _startTime;
+  late DateTime _initialStartTime;
   DateTime? _endTime;
   bool _isHistorical = false;
   bool _saving = false;
+
+  bool get _isDirty =>
+      _notesController.text.isNotEmpty ||
+      _isHistorical ||
+      _startTime != _initialStartTime ||
+      _endTime != null;
 
   @override
   void initState() {
     super.initState();
     _startTime = DateTime.now();
+    _initialStartTime = _startTime;
   }
 
   @override
@@ -121,113 +130,119 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
     // Pull a window of recent sleep sessions for overlap detection.
     // When not in historical mode, we don't actually use this list,
     // but watching once keeps the cache warm if the user toggles in.
-    final recentAsync = ref.watch(
-      recentSleepSessionsPaginatedProvider(50),
-    );
-    final overlap = _isHistorical &&
-        _overlapsExisting(recentAsync.value ?? const []);
+    final recentAsync = ref.watch(recentSleepSessionsPaginatedProvider(50));
+    final overlap =
+        _isHistorical && _overlapsExisting(recentAsync.value ?? const []);
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              PrismButton(
-                label: l10n.cancel,
-                onPressed: () => Navigator.of(context).pop(),
-                enabled: !_saving,
-                tone: PrismButtonTone.subtle,
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+    return ListenableBuilder(
+      listenable: _notesController,
+      builder: (context, _) => UnsavedChangesGuard<bool>(
+        hasUnsavedChanges: _isDirty,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(
-                    AppIcons.bedtimeRounded,
-                    color: AppColors.sleep(theme.brightness),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    l10n.frontingStartSleepTitle,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              PrismButton(
-                label: l10n.frontingStartButton,
-                onPressed: _submit,
-                isLoading: _saving,
-                tone: PrismButtonTone.filled,
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: SingleChildScrollView(
-            controller: widget.scrollController,
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                PrismDateTimePills(
-                  label: l10n.frontingStart,
-                  dateTime: _startTime,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime.now(),
-                  onChanged: (dt) => setState(() => _startTime = dt),
-                ),
-                if (_isHistorical) ...[
-                  const SizedBox(height: 16),
-                  PrismDateTimePills(
-                    label: l10n.frontingEnd,
-                    dateTime: _endTime ?? DateTime.now(),
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime.now(),
-                    onChanged: (dt) => setState(() => _endTime = dt),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: PrismButton(
-                    label: _isHistorical
-                        ? l10n.cancelHistoricalSleep
-                        : l10n.logPastSleep,
-                    onPressed: _isHistorical ? _exitHistorical : _enterHistorical,
+                  PrismButton(
+                    label: l10n.cancel,
+                    onPressed: () => Navigator.of(context).maybePop(),
                     enabled: !_saving,
                     tone: PrismButtonTone.subtle,
-                    density: PrismControlDensity.compact,
                   ),
-                ),
-                if (overlap) ...[
-                  const SizedBox(height: 8),
-                  InfoBanner(
-                    icon: AppIcons.infoOutline,
-                    iconColor: theme.colorScheme.tertiary,
-                    title: l10n.sleepOverlapsExistingWarning,
-                    message: '',
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        AppIcons.bedtimeRounded,
+                        color: AppColors.sleep(theme.brightness),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.frontingStartSleepTitle,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  PrismButton(
+                    label: l10n.frontingStartButton,
+                    onPressed: _submit,
+                    isLoading: _saving,
+                    tone: PrismButtonTone.filled,
                   ),
                 ],
-                const SizedBox(height: 16),
-                PrismTextField(
-                  controller: _notesController,
-                  labelText: l10n.frontingNotes,
-                  hintText: l10n.frontingStartSleepNotesHint,
-                  maxLines: 3,
-                  minLines: 1,
-                  textCapitalization: TextCapitalization.sentences,
-                ),
-                const SizedBox(height: 24),
-              ],
+              ),
             ),
-          ),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: widget.scrollController,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PrismDateTimePills(
+                      label: l10n.frontingStart,
+                      dateTime: _startTime,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                      onChanged: (dt) => setState(() => _startTime = dt),
+                    ),
+                    if (_isHistorical) ...[
+                      const SizedBox(height: 16),
+                      PrismDateTimePills(
+                        label: l10n.frontingEnd,
+                        dateTime: _endTime ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                        onChanged: (dt) => setState(() => _endTime = dt),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: PrismButton(
+                        label: _isHistorical
+                            ? l10n.cancelHistoricalSleep
+                            : l10n.logPastSleep,
+                        onPressed: _isHistorical
+                            ? _exitHistorical
+                            : _enterHistorical,
+                        enabled: !_saving,
+                        tone: PrismButtonTone.subtle,
+                        density: PrismControlDensity.compact,
+                      ),
+                    ),
+                    if (overlap) ...[
+                      const SizedBox(height: 8),
+                      InfoBanner(
+                        icon: AppIcons.infoOutline,
+                        iconColor: theme.colorScheme.tertiary,
+                        title: l10n.sleepOverlapsExistingWarning,
+                        message: '',
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    PrismTextField(
+                      controller: _notesController,
+                      labelText: l10n.frontingNotes,
+                      hintText: l10n.frontingStartSleepNotesHint,
+                      maxLines: 3,
+                      minLines: 1,
+                      textCapitalization: TextCapitalization.sentences,
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

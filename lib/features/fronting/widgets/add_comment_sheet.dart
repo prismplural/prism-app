@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Create or edit a front session comment.
 ///
@@ -38,14 +39,20 @@ class AddCommentSheet extends ConsumerStatefulWidget {
 class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
   late final TextEditingController _bodyController;
   late DateTime _timestamp;
+  late final String _initialBody;
+  late final DateTime _initialTimestamp;
 
   bool get _isEditing => widget.comment != null;
+  bool get _isDirty =>
+      _bodyController.text != _initialBody || _timestamp != _initialTimestamp;
 
   @override
   void initState() {
     super.initState();
     _bodyController = TextEditingController(text: widget.comment?.body ?? '');
     _timestamp = widget.comment?.timestamp ?? widget.timestamp;
+    _initialBody = _bodyController.text;
+    _initialTimestamp = _timestamp;
   }
 
   @override
@@ -108,49 +115,58 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        PrismSheetTopBar(
-          title: _isEditing
-              ? context.l10n.frontingEditCommentTitle
-              : context.l10n.frontingAddCommentTitle,
-        ),
-        Expanded(
-          child: ListView(
-            controller: widget.scrollController,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            children: [
-              PrismTextField(
-                controller: _bodyController,
-                hintText: context.l10n.frontingCommentHint,
-                maxLines: 5,
-                autofocus: true,
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 16),
-              Builder(
-                builder: (anchorContext) => PrismListRow(
-                  padding: EdgeInsets.zero,
-                  leading: Icon(AppIcons.accessTime),
-                  title: Text(
-                    DateFormat.yMMMd(
-                      context.dateLocale,
-                    ).add_jm().format(_timestamp),
-                  ),
-                  trailing: Icon(AppIcons.chevronRight),
-                  onTap: () => _pickDateTime(anchorContext),
+    return ListenableBuilder(
+      listenable: _bodyController,
+      builder: (context, _) => UnsavedChangesGuard<void>(
+        hasUnsavedChanges: _isDirty,
+        child: Column(
+          children: [
+            PrismSheetTopBar(
+              title: _isEditing
+                  ? context.l10n.frontingEditCommentTitle
+                  : context.l10n.frontingAddCommentTitle,
+            ),
+            Expanded(
+              child: ListView(
+                controller: widget.scrollController,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
                 ),
+                children: [
+                  PrismTextField(
+                    controller: _bodyController,
+                    hintText: context.l10n.frontingCommentHint,
+                    maxLines: 5,
+                    autofocus: true,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 16),
+                  Builder(
+                    builder: (anchorContext) => PrismListRow(
+                      padding: EdgeInsets.zero,
+                      leading: Icon(AppIcons.accessTime),
+                      title: Text(
+                        DateFormat.yMMMd(
+                          context.dateLocale,
+                        ).add_jm().format(_timestamp),
+                      ),
+                      trailing: Icon(AppIcons.chevronRight),
+                      onTap: () => _pickDateTime(anchorContext),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  PrismButton(
+                    onPressed: _save,
+                    enabled: _isValid,
+                    label: _isEditing ? context.l10n.save : context.l10n.add,
+                  ),
+                ],
               ),
-              const SizedBox(height: 24),
-              PrismButton(
-                onPressed: _save,
-                enabled: _isValid,
-                label: _isEditing ? context.l10n.save : context.l10n.add,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

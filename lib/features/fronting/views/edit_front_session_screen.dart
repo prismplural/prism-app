@@ -31,6 +31,7 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Full-screen editor for an existing fronting session.
 class EditFrontSessionScreen extends ConsumerStatefulWidget {
@@ -57,6 +58,16 @@ class _EditFrontSessionScreenState
   bool _saving = false;
   bool _loaded = false;
   bool _redirectedToSleepEdit = false;
+
+  bool _isDirty(FrontingSession? session) {
+    if (!_loaded || session == null || session.isSleep) return false;
+    return _startTime != session.startTime ||
+        _endTime != session.endTime ||
+        _isActive != session.isActive ||
+        _memberId != session.memberId ||
+        _confidence != session.confidence ||
+        _notesController.text != (session.notes ?? '');
+  }
 
   @override
   void dispose() {
@@ -270,134 +281,148 @@ class _EditFrontSessionScreenState
     final sessionAsync = ref.watch(sessionByIdProvider(widget.sessionId));
     final membersAsync = ref.watch(activeMembersProvider);
 
-    return PrismPageScaffold(
-      topBar: PrismTopBar(
-        title: context.l10n.frontingEditSessionTitle,
-        showBackButton: true,
-        trailing: PrismGlassIconButton(
-          icon: AppIcons.check,
-          onPressed: _saving ? null : _save,
-          semanticLabel: context.l10n.frontingSaveSession,
-        ),
-      ),
-      bodyPadding: EdgeInsets.zero,
-      body: sessionAsync.when(
-        loading: () => const PrismLoadingState(),
-        error: (_, _) => Center(child: Text(context.l10n.error)),
-        data: (session) {
-          if (session == null) {
-            return Center(child: Text(context.l10n.frontingSessionNotFound));
-          }
+    return ListenableBuilder(
+      listenable: _notesController,
+      builder: (context, _) => UnsavedChangesGuard<bool>(
+        hasUnsavedChanges: _isDirty(sessionAsync.value),
+        child: PrismPageScaffold(
+          topBar: PrismTopBar(
+            title: context.l10n.frontingEditSessionTitle,
+            showBackButton: true,
+            trailing: PrismGlassIconButton(
+              icon: AppIcons.check,
+              onPressed: _saving ? null : _save,
+              semanticLabel: context.l10n.frontingSaveSession,
+            ),
+          ),
+          bodyPadding: EdgeInsets.zero,
+          body: sessionAsync.when(
+            loading: () => const PrismLoadingState(),
+            error: (_, _) => Center(child: Text(context.l10n.error)),
+            data: (session) {
+              if (session == null) {
+                return Center(
+                  child: Text(context.l10n.frontingSessionNotFound),
+                );
+              }
 
-          if (session.isSleep) {
-            if (!_redirectedToSleepEdit) {
-              _redirectedToSleepEdit = true;
-              WidgetsBinding.instance.addPostFrameCallback((_) async {
-                if (!mounted) return;
-                final navigator = Navigator.of(context);
-                await EditSleepSheet.show(context, session);
-                if (mounted && navigator.canPop()) {
-                  navigator.pop();
+              if (session.isSleep) {
+                if (!_redirectedToSleepEdit) {
+                  _redirectedToSleepEdit = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) async {
+                    if (!mounted) return;
+                    final navigator = Navigator.of(context);
+                    await EditSleepSheet.show(context, session);
+                    if (mounted && navigator.canPop()) {
+                      navigator.pop();
+                    }
+                  });
                 }
-              });
-            }
-            return const PrismLoadingState();
-          }
+                return const PrismLoadingState();
+              }
 
-          _initFromSession(session);
+              _initFromSession(session);
 
-          final navBarInset = NavBarInset.of(context);
-          return ListView(
-            padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + navBarInset),
-            children: [
-              // Start time
-              PrismDateTimePills(
-                label: context.l10n.frontingStart,
-                dateTime: _startTime,
-                firstDate: DateTime(2020),
-                lastDate: DateTime.now(),
-                onChanged: (dt) => setState(() => _startTime = dt),
-              ),
-              const SizedBox(height: 16),
+              final navBarInset = NavBarInset.of(context);
+              return ListView(
+                padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + navBarInset),
+                children: [
+                  // Start time
+                  PrismDateTimePills(
+                    label: context.l10n.frontingStart,
+                    dateTime: _startTime,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now(),
+                    onChanged: (dt) => setState(() => _startTime = dt),
+                  ),
+                  const SizedBox(height: 16),
 
-              // End time / Still active toggle
-              PrismSwitchRow(
-                title: context.l10n.frontingStillActive,
-                value: _isActive,
-                onChanged: (v) => setState(() {
-                  _isActive = v;
-                  if (v) _endTime = null;
-                }),
-              ),
-              if (!_isActive) ...[
-                const SizedBox(height: 8),
-                PrismDateTimePills(
-                  label: context.l10n.frontingEnd,
-                  dateTime: _endTime,
-                  firstDate: _startTime,
-                  lastDate: DateTime.now(),
-                  placeholder: 'Tap to set',
-                  onChanged: (dt) => setState(() {
-                    _endTime = dt;
-                    _isActive = false;
-                  }),
-                ),
-              ],
-              const SizedBox(height: 16),
-              const Divider(),
+                  // End time / Still active toggle
+                  PrismSwitchRow(
+                    title: context.l10n.frontingStillActive,
+                    value: _isActive,
+                    onChanged: (v) => setState(() {
+                      _isActive = v;
+                      if (v) _endTime = null;
+                    }),
+                  ),
+                  if (!_isActive) ...[
+                    const SizedBox(height: 8),
+                    PrismDateTimePills(
+                      label: context.l10n.frontingEnd,
+                      dateTime: _endTime,
+                      firstDate: _startTime,
+                      lastDate: DateTime.now(),
+                      placeholder: 'Tap to set',
+                      onChanged: (dt) => setState(() {
+                        _endTime = dt;
+                        _isActive = false;
+                      }),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  const Divider(),
 
-              // Member picker
-              Text(
-                context.l10n.frontingFronter,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              membersAsync.when(
-                loading: () => const PrismLoadingState(),
-                error: (_, _) => Text(context.l10n.error),
-                data: (members) {
-                  final selected = members.firstWhereOrNull(
-                    (m) => m.id == _memberId,
-                  );
-                  final searchGroups = watchMemberSearchGroups(ref, members);
-                  return _FronterPickerRow(
-                    selectedMember: selected,
-                    onPickerOpen: () =>
-                        _openFronterPicker(members, termPlural, searchGroups),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
+                  // Member picker
+                  Text(
+                    context.l10n.frontingFronter,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  membersAsync.when(
+                    loading: () => const PrismLoadingState(),
+                    error: (_, _) => Text(context.l10n.error),
+                    data: (members) {
+                      final selected = members.firstWhereOrNull(
+                        (m) => m.id == _memberId,
+                      );
+                      final searchGroups = watchMemberSearchGroups(
+                        ref,
+                        members,
+                      );
+                      return _FronterPickerRow(
+                        selectedMember: selected,
+                        onPickerOpen: () => _openFronterPicker(
+                          members,
+                          termPlural,
+                          searchGroups,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
 
-              // Confidence picker
-              Text(
-                context.l10n.frontingConfidenceLevel,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _ConfidenceEditor(
-                selected: _confidence,
-                onSelect: (c) => setState(() => _confidence = c),
-              ),
-              const SizedBox(height: 24),
+                  // Confidence picker
+                  Text(
+                    context.l10n.frontingConfidenceLevel,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _ConfidenceEditor(
+                    selected: _confidence,
+                    onSelect: (c) => setState(() => _confidence = c),
+                  ),
+                  const SizedBox(height: 24),
 
-              // Notes
-              PrismTextField(
-                controller: _notesController,
-                labelText: context.l10n.frontingNotes,
-                hintText: context.l10n.frontingNotesHintEdit,
-                maxLines: 4,
-                minLines: 2,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 32),
-            ],
-          );
-        },
+                  // Notes
+                  PrismTextField(
+                    controller: _notesController,
+                    labelText: context.l10n.frontingNotes,
+                    hintText: context.l10n.frontingNotesHintEdit,
+                    maxLines: 4,
+                    minLines: 2,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 32),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }

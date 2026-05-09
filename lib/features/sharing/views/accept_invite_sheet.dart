@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Bottom sheet for sending a sharing request from someone else's sharing code.
 class AcceptInviteSheet extends ConsumerStatefulWidget {
@@ -29,6 +30,12 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
   String? _error;
   ShareInvite? _parsedInvite;
 
+  bool get _isDirty =>
+      _inviteController.text.isNotEmpty ||
+      _nameController.text.isNotEmpty ||
+      _selectedScopes.length != 1 ||
+      !_selectedScopes.contains(ShareScope.frontStatusOnly);
+
   @override
   void dispose() {
     _inviteController.dispose();
@@ -41,131 +48,139 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
 
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 24,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              context.l10n.sharingUseSharingCode,
-              style: theme.textTheme.titleLarge,
+    return ListenableBuilder(
+      listenable: Listenable.merge([_inviteController, _nameController]),
+      builder: (context, _) => UnsavedChangesGuard<bool>(
+        hasUnsavedChanges: _isDirty,
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 24,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
             ),
-            const SizedBox(height: 16),
-            if (_error != null) ...[
-              PrismSurface(
-                padding: const EdgeInsets.all(12),
-                fillColor: theme.colorScheme.errorContainer,
-                borderColor: theme.colorScheme.error.withValues(alpha: 0.2),
-                child: Text(
-                  _error!,
-                  style: TextStyle(color: theme.colorScheme.onErrorContainer),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  context.l10n.sharingUseSharingCode,
+                  style: theme.textTheme.titleLarge,
                 ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            PrismTextField(
-              controller: _inviteController,
-              labelText: context.l10n.sharingSharingCodeLabel,
-              hintText: context.l10n.sharingSharingCodeHint,
-              maxLines: 4,
-              minLines: 3,
-              textInputAction: TextInputAction.newline,
-              onChanged: (_) => _parseInvite(),
-            ),
-            const SizedBox(height: 12),
-            if (_parsedInvite != null)
-              PrismSurface(
-                padding: const EdgeInsets.all(12),
-                child: Row(
+                const SizedBox(height: 16),
+                if (_error != null) ...[
+                  PrismSurface(
+                    padding: const EdgeInsets.all(12),
+                    fillColor: theme.colorScheme.errorContainer,
+                    borderColor: theme.colorScheme.error.withValues(alpha: 0.2),
+                    child: Text(
+                      _error!,
+                      style: TextStyle(
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                PrismTextField(
+                  controller: _inviteController,
+                  labelText: context.l10n.sharingSharingCodeLabel,
+                  hintText: context.l10n.sharingSharingCodeHint,
+                  maxLines: 4,
+                  minLines: 3,
+                  textInputAction: TextInputAction.newline,
+                  onChanged: (_) => _parseInvite(),
+                ),
+                const SizedBox(height: 12),
+                if (_parsedInvite != null)
+                  PrismSurface(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Icon(AppIcons.link, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _parsedInvite!.displayName != null
+                                ? context.l10n.sharingConnectingWith(
+                                    _parsedInvite!.displayName!,
+                                  )
+                                : context.l10n.sharingReadyToSend,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                PrismTextField(
+                  controller: _nameController,
+                  labelText: context.l10n.sharingYourDisplayName,
+                  hintText: context.l10n.sharingDisplayNameHint,
+                  textInputAction: TextInputAction.done,
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  context.l10n.sharingWhatToShare,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...ShareScope.values.map(
+                  (scope) => PrismCheckboxRow(
+                    dense: true,
+                    leading: Icon(scope.icon, size: 20),
+                    title: Text(scope.displayNameFor(termPlural: terms.plural)),
+                    subtitle: Text(
+                      scope.descriptionFor(termSingular: terms.singular),
+                    ),
+                    value: _selectedScopes.contains(scope),
+                    onChanged: (checked) {
+                      setState(() {
+                        if (checked) {
+                          _selectedScopes.add(scope);
+                        } else {
+                          _selectedScopes.remove(scope);
+                        }
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
                   children: [
-                    Icon(AppIcons.link, size: 20),
-                    const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        _parsedInvite!.displayName != null
-                            ? context.l10n.sharingConnectingWith(
-                                _parsedInvite!.displayName!,
-                              )
-                            : context.l10n.sharingReadyToSend,
-                        style: theme.textTheme.bodyMedium,
+                      child: PrismButton(
+                        label: context.l10n.cancel,
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        tone: PrismButtonTone.subtle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: PrismButton(
+                        label: _submitting
+                            ? context.l10n.sharingSending
+                            : context.l10n.sharingSendRequest,
+                        icon: AppIcons.personAdd,
+                        enabled:
+                            !_submitting &&
+                            _parsedInvite != null &&
+                            _nameController.text.trim().isNotEmpty &&
+                            _selectedScopes.isNotEmpty,
+                        onPressed: _submit,
+                        tone: PrismButtonTone.filled,
                       ),
                     ),
                   ],
                 ),
-              ),
-            const SizedBox(height: 16),
-            PrismTextField(
-              controller: _nameController,
-              labelText: context.l10n.sharingYourDisplayName,
-              hintText: context.l10n.sharingDisplayNameHint,
-              textInputAction: TextInputAction.done,
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              context.l10n.sharingWhatToShare,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...ShareScope.values.map(
-              (scope) => PrismCheckboxRow(
-                dense: true,
-                leading: Icon(scope.icon, size: 20),
-                title: Text(scope.displayNameFor(termPlural: terms.plural)),
-                subtitle: Text(
-                  scope.descriptionFor(termSingular: terms.singular),
-                ),
-                value: _selectedScopes.contains(scope),
-                onChanged: (checked) {
-                  setState(() {
-                    if (checked) {
-                      _selectedScopes.add(scope);
-                    } else {
-                      _selectedScopes.remove(scope);
-                    }
-                  });
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: PrismButton(
-                    label: context.l10n.cancel,
-                    onPressed: () => Navigator.of(context).pop(),
-                    tone: PrismButtonTone.subtle,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: PrismButton(
-                    label: _submitting
-                        ? context.l10n.sharingSending
-                        : context.l10n.sharingSendRequest,
-                    icon: AppIcons.personAdd,
-                    enabled:
-                        !_submitting &&
-                        _parsedInvite != null &&
-                        _nameController.text.trim().isNotEmpty &&
-                        _selectedScopes.isNotEmpty,
-                    onPressed: _submit,
-                    tone: PrismButtonTone.filled,
-                  ),
-                ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

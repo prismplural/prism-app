@@ -233,8 +233,22 @@ class _FullScreenSheetBodyState<T> extends State<_FullScreenSheetBody<T>> {
     // When the sheet is dragged below 40% height, dismiss the route.
     if (!_popping && _controller.size < 0.4) {
       _popping = true;
-      Navigator.of(context).pop();
+      _tryDismissFromDrag();
     }
+  }
+
+  Future<void> _tryDismissFromDrag() async {
+    final didPop = await Navigator.of(context).maybePop();
+    if (!mounted || didPop) return;
+
+    if (_controller.isAttached) {
+      await _controller.animateTo(
+        1.0,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    if (mounted) _popping = false;
   }
 
   @override
@@ -346,7 +360,7 @@ class PrismSheetTopBar extends StatelessWidget {
               child: PrismGlassIconButton(
                 icon: AppIcons.close,
                 size: PrismTokens.topBarActionSize,
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(context).maybePop(),
                 tooltip: context.l10n.close,
                 semanticLabel: context.l10n.close,
               ),

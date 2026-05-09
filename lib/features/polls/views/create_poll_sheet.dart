@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
@@ -48,6 +49,18 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
   bool _hasExpiration = false;
   DateTime? _expiresAt;
   bool _isCreating = false;
+
+  bool get _isDirty =>
+      _questionController.text.isNotEmpty ||
+      _descriptionController.text.isNotEmpty ||
+      _optionControllers.any((controller) => controller.text.isNotEmpty) ||
+      _optionControllers.length != 2 ||
+      _optionColors.any((color) => color != null) ||
+      _isAnonymous ||
+      _allowsMultipleVotes ||
+      _addOtherOption ||
+      _hasExpiration ||
+      _expiresAt != null;
 
   @override
   void dispose() {
@@ -164,169 +177,181 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
     final theme = Theme.of(context);
     _descriptionController.updateTheme(context);
 
-    return SafeArea(
-      child: Column(
-        children: [
-          PrismSheetTopBar(
-            title: context.l10n.pollsNewPoll,
-            trailing: PrismGlassIconButton(
-              icon: AppIcons.check,
-              tooltip: context.l10n.pollsCreateTooltip,
-              size: PrismTokens.topBarActionSize,
-              isLoading: _isCreating,
-              tint: _canCreate ? theme.colorScheme.primary : null,
-              accentIcon: _canCreate,
-              onPressed: _canCreate ? _createPoll : null,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: ListView(
-              controller: widget.scrollController,
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        _questionController,
+        _descriptionController,
+        ..._optionControllers,
+      ]),
+      builder: (context, _) => UnsavedChangesGuard<void>(
+        hasUnsavedChanges: _isDirty,
+        child: SafeArea(
+          child: Column(
+            children: [
+              PrismSheetTopBar(
+                title: context.l10n.pollsNewPoll,
+                trailing: PrismGlassIconButton(
+                  icon: AppIcons.check,
+                  tooltip: context.l10n.pollsCreateTooltip,
+                  size: PrismTokens.topBarActionSize,
+                  isLoading: _isCreating,
+                  tint: _canCreate ? theme.colorScheme.primary : null,
+                  accentIcon: _canCreate,
+                  onPressed: _canCreate ? _createPoll : null,
+                ),
               ),
-              children: [
-                // Question
-                PrismTextField(
-                  controller: _questionController,
-                  labelText: context.l10n.pollsQuestionLabel,
-                  hintText: context.l10n.pollsQuestionHint,
-                  maxLines: 2,
-                  textCapitalization: TextCapitalization.sentences,
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 12),
-
-                // Description (optional)
-                PrismTextField(
-                  controller: _descriptionController,
-                  labelText: context.l10n.pollsDescriptionLabel,
-                  hintText: context.l10n.pollsDescriptionHint,
-                  maxLines: 3,
-                  minLines: 1,
-                  textCapitalization: TextCapitalization.sentences,
-                ),
-                const SizedBox(height: 16),
-
-                // Options header
-                Text(
-                  context.l10n.pollsOptionsHeader,
-                  style: theme.textTheme.titleSmall,
-                ),
-                const SizedBox(height: 8),
-
-                // Option fields
-                for (var i = 0; i < _optionControllers.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        // Color dot
-                        _OptionColorDot(
-                          colorHex: _optionColors[i],
-                          onColorSelected: (hex) {
-                            setState(() => _optionColors[i] = hex);
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: PrismTextField(
-                            controller: _optionControllers[i],
-                            labelText: context.l10n.pollsOptionLabel(i + 1),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 12,
-                            ),
-                            textCapitalization: TextCapitalization.sentences,
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
-                        if (_optionControllers.length > 2)
-                          PrismIconButton(
-                            icon: AppIcons.removeCircleOutline,
-                            color: theme.colorScheme.error,
-                            size: 36,
-                            iconSize: 18,
-                            onPressed: () => _removeOption(i),
-                            tooltip: context.l10n.pollsRemoveOptionTooltip,
-                          ),
-                      ],
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView(
+                  controller: widget.scrollController,
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                  ),
+                  children: [
+                    // Question
+                    PrismTextField(
+                      controller: _questionController,
+                      labelText: context.l10n.pollsQuestionLabel,
+                      hintText: context.l10n.pollsQuestionHint,
+                      maxLines: 2,
+                      textCapitalization: TextCapitalization.sentences,
+                      onChanged: (_) => setState(() {}),
                     ),
-                  ),
+                    const SizedBox(height: 12),
 
-                // Add option button
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: PrismButton(
-                    label: context.l10n.pollsAddOption,
-                    onPressed: _addOption,
-                    icon: AppIcons.add,
-                    tone: PrismButtonTone.subtle,
-                  ),
-                ),
-                const SizedBox(height: 8),
+                    // Description (optional)
+                    PrismTextField(
+                      controller: _descriptionController,
+                      labelText: context.l10n.pollsDescriptionLabel,
+                      hintText: context.l10n.pollsDescriptionHint,
+                      maxLines: 3,
+                      minLines: 1,
+                      textCapitalization: TextCapitalization.sentences,
+                    ),
+                    const SizedBox(height: 16),
 
-                // Toggles
-                PrismSwitchRow(
-                  title: context.l10n.pollsAddOtherOption,
-                  subtitle: context.l10n.pollsAddOtherOptionSubtitle,
-                  value: _addOtherOption,
-                  onChanged: (v) => setState(() => _addOtherOption = v),
-                ),
-                PrismSwitchRow(
-                  title: context.l10n.pollsAnonymousVoting,
-                  subtitle: context.l10n.pollsAnonymousVotingSubtitle,
-                  value: _isAnonymous,
-                  onChanged: (v) => setState(() => _isAnonymous = v),
-                ),
-                PrismSwitchRow(
-                  title: context.l10n.pollsAllowMultipleVotes,
-                  subtitle: context.l10n.pollsAllowMultipleVotesSubtitle(
-                    watchTerminology(context, ref).plural,
-                  ),
-                  value: _allowsMultipleVotes,
-                  onChanged: (v) => setState(() => _allowsMultipleVotes = v),
-                ),
+                    // Options header
+                    Text(
+                      context.l10n.pollsOptionsHeader,
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
 
-                // Expiration
-                Builder(
-                  builder: (anchorContext) => PrismSwitchRow(
-                    title: context.l10n.pollsSetExpiration,
-                    subtitle: _hasExpiration && _expiresAt != null
-                        ? _formatDateTime(context, _expiresAt!)
-                        : context.l10n.pollsNoExpiration,
-                    value: _hasExpiration,
-                    onChanged: (v) {
-                      setState(() => _hasExpiration = v);
-                      if (v) _pickExpiration(anchorContext);
-                    },
-                  ),
-                ),
-                if (_hasExpiration)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Builder(
-                      builder: (anchorContext) => PrismButton(
-                        label: _expiresAt != null
-                            ? context.l10n.pollsChangeDateTime(
-                                _formatDateTime(context, _expiresAt!),
-                              )
-                            : context.l10n.pollsPickDateTime,
-                        onPressed: () => _pickExpiration(anchorContext),
-                        icon: AppIcons.schedule,
+                    // Option fields
+                    for (var i = 0; i < _optionControllers.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            // Color dot
+                            _OptionColorDot(
+                              colorHex: _optionColors[i],
+                              onColorSelected: (hex) {
+                                setState(() => _optionColors[i] = hex);
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: PrismTextField(
+                                controller: _optionControllers[i],
+                                labelText: context.l10n.pollsOptionLabel(i + 1),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                onChanged: (_) => setState(() {}),
+                              ),
+                            ),
+                            if (_optionControllers.length > 2)
+                              PrismIconButton(
+                                icon: AppIcons.removeCircleOutline,
+                                color: theme.colorScheme.error,
+                                size: 36,
+                                iconSize: 18,
+                                onPressed: () => _removeOption(i),
+                                tooltip: context.l10n.pollsRemoveOptionTooltip,
+                              ),
+                          ],
+                        ),
+                      ),
+
+                    // Add option button
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: PrismButton(
+                        label: context.l10n.pollsAddOption,
+                        onPressed: _addOption,
+                        icon: AppIcons.add,
                         tone: PrismButtonTone.subtle,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
 
-                const SizedBox(height: 32),
-              ],
-            ),
+                    // Toggles
+                    PrismSwitchRow(
+                      title: context.l10n.pollsAddOtherOption,
+                      subtitle: context.l10n.pollsAddOtherOptionSubtitle,
+                      value: _addOtherOption,
+                      onChanged: (v) => setState(() => _addOtherOption = v),
+                    ),
+                    PrismSwitchRow(
+                      title: context.l10n.pollsAnonymousVoting,
+                      subtitle: context.l10n.pollsAnonymousVotingSubtitle,
+                      value: _isAnonymous,
+                      onChanged: (v) => setState(() => _isAnonymous = v),
+                    ),
+                    PrismSwitchRow(
+                      title: context.l10n.pollsAllowMultipleVotes,
+                      subtitle: context.l10n.pollsAllowMultipleVotesSubtitle(
+                        watchTerminology(context, ref).plural,
+                      ),
+                      value: _allowsMultipleVotes,
+                      onChanged: (v) =>
+                          setState(() => _allowsMultipleVotes = v),
+                    ),
+
+                    // Expiration
+                    Builder(
+                      builder: (anchorContext) => PrismSwitchRow(
+                        title: context.l10n.pollsSetExpiration,
+                        subtitle: _hasExpiration && _expiresAt != null
+                            ? _formatDateTime(context, _expiresAt!)
+                            : context.l10n.pollsNoExpiration,
+                        value: _hasExpiration,
+                        onChanged: (v) {
+                          setState(() => _hasExpiration = v);
+                          if (v) _pickExpiration(anchorContext);
+                        },
+                      ),
+                    ),
+                    if (_hasExpiration)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Builder(
+                          builder: (anchorContext) => PrismButton(
+                            label: _expiresAt != null
+                                ? context.l10n.pollsChangeDateTime(
+                                    _formatDateTime(context, _expiresAt!),
+                                  )
+                                : context.l10n.pollsPickDateTime,
+                            onPressed: () => _pickExpiration(anchorContext),
+                            icon: AppIcons.schedule,
+                            tone: PrismButtonTone.subtle,
+                          ),
+                        ),
+                      ),
+
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

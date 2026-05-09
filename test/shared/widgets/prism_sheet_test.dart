@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 void main() {
@@ -278,5 +280,110 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(semanticsWithLabel('Cerrar'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('PrismSheetTopBar close action respects PopScope guards', (
+    tester,
+  ) async {
+    var popAttempts = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  PrismSheet.showFullScreen<void>(
+                    context: context,
+                    builder: (context, scrollController) => PopScope(
+                      canPop: false,
+                      onPopInvokedWithResult: (didPop, result) {
+                        if (!didPop) popAttempts++;
+                      },
+                      child: const Column(
+                        children: [
+                          PrismSheetTopBar(title: 'Guarded sheet'),
+                          Expanded(child: SizedBox.shrink()),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(PrismGlassIconButton).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Guarded sheet'), findsOneWidget);
+    expect(popAttempts, 1);
+  });
+
+  testWidgets('UnsavedChangesGuard confirms before closing dirty sheets', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  PrismSheet.showFullScreen<void>(
+                    context: context,
+                    builder: (context, scrollController) =>
+                        const UnsavedChangesGuard<void>(
+                          hasUnsavedChanges: true,
+                          child: Column(
+                            children: [
+                              PrismSheetTopBar(title: 'Dirty sheet'),
+                              Expanded(child: SizedBox.shrink()),
+                            ],
+                          ),
+                        ),
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(PrismGlassIconButton).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dirty sheet'), findsOneWidget);
+    expect(find.text('Discard changes?'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dirty sheet'), findsOneWidget);
+    expect(find.text('Discard changes?'), findsNothing);
+
+    await tester.tap(find.byType(PrismGlassIconButton).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dirty sheet'), findsNothing);
   });
 }

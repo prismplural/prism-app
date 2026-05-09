@@ -23,6 +23,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 import 'package:prism_plurality/shared/widgets/weekday_picker.dart';
 
 class CreateReminderSheet extends ConsumerStatefulWidget {
@@ -46,6 +47,15 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
   TimeOfDay? _timeOfDay;
   int? _delayHours;
   String? _targetMemberId;
+  late final String _initialName;
+  late final String _initialMessage;
+  late final ReminderTrigger _initialTrigger;
+  late final ReminderFrequency _initialFrequency;
+  late final Set<int> _initialWeeklyDays;
+  late final int? _initialIntervalDays;
+  late final TimeOfDay? _initialTimeOfDay;
+  late final int? _initialDelayHours;
+  late final String? _initialTargetMemberId;
 
   bool get _isEditing => widget.editing != null;
   bool get _canSave =>
@@ -53,6 +63,16 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
       !(_trigger == ReminderTrigger.scheduled &&
           _frequency == ReminderFrequency.weekly &&
           _weeklyDays.isEmpty);
+  bool get _isDirty =>
+      _nameController.text != _initialName ||
+      _messageController.text != _initialMessage ||
+      _trigger != _initialTrigger ||
+      _frequency != _initialFrequency ||
+      !_setEquals(_weeklyDays, _initialWeeklyDays) ||
+      _intervalDays != _initialIntervalDays ||
+      _timeOfDay != _initialTimeOfDay ||
+      _delayHours != _initialDelayHours ||
+      _targetMemberId != _initialTargetMemberId;
 
   @override
   void initState() {
@@ -85,6 +105,15 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
       }
     }
     _timeOfDay ??= const TimeOfDay(hour: 9, minute: 0);
+    _initialName = _nameController.text;
+    _initialMessage = _messageController.text;
+    _initialTrigger = _trigger;
+    _initialFrequency = _frequency;
+    _initialWeeklyDays = Set<int>.from(_weeklyDays);
+    _initialIntervalDays = _intervalDays;
+    _initialTimeOfDay = _timeOfDay;
+    _initialDelayHours = _delayHours;
+    _initialTargetMemberId = _targetMemberId;
   }
 
   @override
@@ -132,289 +161,304 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
     // reminder for the placeholder member.
     final membersAsync = ref.watch(userVisibleMembersProvider);
 
-    return SafeArea(
-      child: Column(
-        children: [
-          PrismSheetTopBar(
-            title: _isEditing
-                ? context.l10n.remindersEditTitle
-                : context.l10n.remindersNewTitle,
-            trailing: PrismGlassIconButton(
-              icon: AppIcons.check,
-              tooltip: context.l10n.save,
-              size: PrismTokens.topBarActionSize,
-              tint: canSave ? theme.colorScheme.primary : null,
-              accentIcon: canSave,
-              onPressed: canSave ? _save : null,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: ListView(
-              controller: widget.scrollController,
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+    return ListenableBuilder(
+      listenable: Listenable.merge([_nameController, _messageController]),
+      builder: (context, _) => UnsavedChangesGuard<void>(
+        hasUnsavedChanges: _isDirty,
+        child: SafeArea(
+          child: Column(
+            children: [
+              PrismSheetTopBar(
+                title: _isEditing
+                    ? context.l10n.remindersEditTitle
+                    : context.l10n.remindersNewTitle,
+                trailing: PrismGlassIconButton(
+                  icon: AppIcons.check,
+                  tooltip: context.l10n.save,
+                  size: PrismTokens.topBarActionSize,
+                  tint: canSave ? theme.colorScheme.primary : null,
+                  accentIcon: canSave,
+                  onPressed: canSave ? _save : null,
+                ),
               ),
-              children: [
-                PrismTextField(
-                  controller: _nameController,
-                  labelText: context.l10n.remindersNameLabel,
-                  autofocus: !_isEditing,
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 12),
-
-                PrismTextField(
-                  controller: _messageController,
-                  labelText: context.l10n.remindersMessageLabel,
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 16),
-
-                // Trigger type
-                Text(
-                  context.l10n.remindersTriggerLabel,
-                  style: theme.textTheme.labelLarge,
-                ),
-                const SizedBox(height: 8),
-                PrismSegmentedControl<ReminderTrigger>(
-                  segments: [
-                    PrismSegment(
-                      value: ReminderTrigger.scheduled,
-                      label: context.l10n.remindersScheduled,
-                    ),
-                    PrismSegment(
-                      value: ReminderTrigger.onFrontChange,
-                      label: context.l10n.remindersTriggerFrontChange,
-                    ),
-                  ],
-                  selected: _trigger,
-                  onChanged: (value) => setState(() => _trigger = value),
-                ),
-                const SizedBox(height: 16),
-
-                // Conditional fields
-                if (_trigger == ReminderTrigger.scheduled) ...[
-                  // Schedule section: frequency + frequency-specific fields.
-                  Text(
-                    context.l10n.remindersScheduleLabel,
-                    style: theme.textTheme.labelLarge,
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView(
+                  controller: widget.scrollController,
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
                   ),
-                  const SizedBox(height: 8),
-                  PrismSegmentedControl<ReminderFrequency>(
-                    segments: [
-                      PrismSegment(
-                        value: ReminderFrequency.daily,
-                        label: context.l10n.remindersSubtitleDaily,
-                      ),
-                      PrismSegment(
-                        value: ReminderFrequency.weekly,
-                        label: context.l10n.remindersFrequencyWeekly,
-                      ),
-                      PrismSegment(
-                        value: ReminderFrequency.interval,
-                        label: context.l10n.remindersFrequencyInterval,
-                      ),
-                    ],
-                    selected: _frequency,
-                    onChanged: (value) => setState(() {
-                      _frequency = value;
-                      // Keep interval dropdown on a valid option when
-                      // switching into the interval frequency.
-                      if (value == ReminderFrequency.interval &&
-                          (_intervalDays == null || _intervalDays! < 2)) {
-                        _intervalDays = 2;
-                      }
-                    }),
-                  ),
-                  const SizedBox(height: 12),
-                  if (_frequency == ReminderFrequency.weekly) ...[
-                    WeekdayPicker(
-                      selected: _weeklyDays,
-                      onChanged: (days) => setState(() => _weeklyDays = days),
-                    ),
-                    if (_weeklyDays.isEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        context.l10n.remindersWeeklyEmptyHelper,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.error,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                  ] else if (_frequency == ReminderFrequency.interval) ...[
-                    _LabeledRow(
-                      label: context.l10n.remindersRepeatEveryLabel,
-                      child: PrismSelect<int>.compact(
-                        value: _intervalDays ?? 2,
-                        menuWidth: 180,
-                        items: [
-                          PrismSelectItem(
-                            value: 2,
-                            label: context.l10n.remindersIntervalDays(2),
-                          ),
-                          PrismSelectItem(
-                            value: 3,
-                            label: context.l10n.remindersIntervalDays(3),
-                          ),
-                          PrismSelectItem(
-                            value: 7,
-                            label: context.l10n.remindersIntervalDays(7),
-                          ),
-                          PrismSelectItem(
-                            value: 14,
-                            label: context.l10n.remindersIntervalDays(14),
-                          ),
-                          PrismSelectItem(
-                            value: 30,
-                            label: context.l10n.remindersIntervalDays(30),
-                          ),
-                        ],
-                        onChanged: (v) => setState(() => _intervalDays = v),
-                      ),
+                  children: [
+                    PrismTextField(
+                      controller: _nameController,
+                      labelText: context.l10n.remindersNameLabel,
+                      autofocus: !_isEditing,
+                      onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 12),
-                  ],
-                  // Time picker (all scheduled frequencies have a time).
-                  _LabeledRow(
-                    label: context.l10n.remindersTimeLabel,
-                    child: Builder(
-                      builder: (anchorContext) => PrismButton(
-                        label: _timeOfDay?.format(context) ?? '9:00 AM',
-                        tone: PrismButtonTone.subtle,
-                        onPressed: () async {
-                          final picked = await showPrismTimePicker(
-                            context: context,
-                            anchorContext: anchorContext,
-                            initialTime:
-                                _timeOfDay ??
-                                const TimeOfDay(hour: 9, minute: 0),
-                          );
-                          if (picked != null) {
-                            setState(() => _timeOfDay = picked);
-                          }
-                        },
-                      ),
+
+                    PrismTextField(
+                      controller: _messageController,
+                      labelText: context.l10n.remindersMessageLabel,
+                      maxLines: 2,
                     ),
-                  ),
-                ] else ...[
-                  // Delay picker for front change
-                  _LabeledRow(
-                    label: context.l10n.remindersDelayLabel,
-                    child: PrismSelect<int>.compact(
-                      value: _delayHours ?? 0,
-                      menuWidth: 180,
-                      items: [
-                        PrismSelectItem(
-                          value: 0,
-                          label: context.l10n.remindersImmediately,
+                    const SizedBox(height: 16),
+
+                    // Trigger type
+                    Text(
+                      context.l10n.remindersTriggerLabel,
+                      style: theme.textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    PrismSegmentedControl<ReminderTrigger>(
+                      segments: [
+                        PrismSegment(
+                          value: ReminderTrigger.scheduled,
+                          label: context.l10n.remindersScheduled,
                         ),
-                        PrismSelectItem(
-                          value: 1,
-                          label: context.l10n.remindersDelayHours(1),
-                        ),
-                        PrismSelectItem(
-                          value: 2,
-                          label: context.l10n.remindersDelayHours(2),
-                        ),
-                        PrismSelectItem(
-                          value: 4,
-                          label: context.l10n.remindersDelayHours(4),
-                        ),
-                        PrismSelectItem(
-                          value: 8,
-                          label: context.l10n.remindersDelayHours(8),
-                        ),
-                        PrismSelectItem(
-                          value: 12,
-                          label: context.l10n.remindersDelayHours(12),
+                        PrismSegment(
+                          value: ReminderTrigger.onFrontChange,
+                          label: context.l10n.remindersTriggerFrontChange,
                         ),
                       ],
-                      onChanged: (v) => setState(() => _delayHours = v),
+                      selected: _trigger,
+                      onChanged: (value) => setState(() => _trigger = value),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // Optional member target. null = any front change (current
-                  // behavior). Non-null narrows firing to switches where this
-                  // member is in the current fronter set.
-                  Text(
-                    context.l10n.remindersTargetLabel,
-                    style: theme.textTheme.labelLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  membersAsync.when(
-                    loading: () =>
-                        const SizedBox(height: 56, child: PrismLoadingState()),
-                    error: (e, _) => Text(context.l10n.errorWithDetail(e)),
-                    data: (members) {
-                      final selectedMember = members.firstWhereOrNull(
-                        (member) => member.id == _targetMemberId,
-                      );
-                      final searchGroups = watchMemberSearchGroups(
-                        ref,
-                        members,
-                      );
-                      return PrismListRow(
-                        leading: selectedMember != null
-                            ? MemberAvatar(
-                                avatarImageData: selectedMember.avatarImageData,
-                                memberName: selectedMember.name,
-                                emoji: selectedMember.emoji,
-                                customColorEnabled:
-                                    selectedMember.customColorEnabled,
-                                customColorHex: selectedMember.customColorHex,
-                                size: 32,
-                              )
-                            : Icon(AppIcons.peopleOutline),
-                        title: Text(
-                          selectedMember?.name ??
-                              context.l10n.remindersTargetAny,
+                    // Conditional fields
+                    if (_trigger == ReminderTrigger.scheduled) ...[
+                      // Schedule section: frequency + frequency-specific fields.
+                      Text(
+                        context.l10n.remindersScheduleLabel,
+                        style: theme.textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      PrismSegmentedControl<ReminderFrequency>(
+                        segments: [
+                          PrismSegment(
+                            value: ReminderFrequency.daily,
+                            label: context.l10n.remindersSubtitleDaily,
+                          ),
+                          PrismSegment(
+                            value: ReminderFrequency.weekly,
+                            label: context.l10n.remindersFrequencyWeekly,
+                          ),
+                          PrismSegment(
+                            value: ReminderFrequency.interval,
+                            label: context.l10n.remindersFrequencyInterval,
+                          ),
+                        ],
+                        selected: _frequency,
+                        onChanged: (value) => setState(() {
+                          _frequency = value;
+                          // Keep interval dropdown on a valid option when
+                          // switching into the interval frequency.
+                          if (value == ReminderFrequency.interval &&
+                              (_intervalDays == null || _intervalDays! < 2)) {
+                            _intervalDays = 2;
+                          }
+                        }),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_frequency == ReminderFrequency.weekly) ...[
+                        WeekdayPicker(
+                          selected: _weeklyDays,
+                          onChanged: (days) =>
+                              setState(() => _weeklyDays = days),
                         ),
-                        subtitle: selectedMember != null
-                            ? Text(context.l10n.remindersTargetLabel)
-                            : null,
-                        trailing: Icon(AppIcons.expandMore),
-                        onTap: () => _openTargetPicker(members, searchGroups),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  // Honesty disclosure: Prism's relay only sees ciphertext, so
-                  // front-change reminders only fire when THIS device observes
-                  // the switch. That limitation applies whether the reminder
-                  // targets a specific member or any front change.
-                  InfoBanner(
-                    icon: AppIcons.infoOutlineRounded,
-                    iconColor: theme.colorScheme.primary,
-                    title: context.l10n.remindersTriggerFrontChange,
-                    message: context.l10n.remindersTargetDisclosure,
-                  ),
-                ],
+                        if (_weeklyDays.isEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            context.l10n.remindersWeeklyEmptyHelper,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.error,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                      ] else if (_frequency == ReminderFrequency.interval) ...[
+                        _LabeledRow(
+                          label: context.l10n.remindersRepeatEveryLabel,
+                          child: PrismSelect<int>.compact(
+                            value: _intervalDays ?? 2,
+                            menuWidth: 180,
+                            items: [
+                              PrismSelectItem(
+                                value: 2,
+                                label: context.l10n.remindersIntervalDays(2),
+                              ),
+                              PrismSelectItem(
+                                value: 3,
+                                label: context.l10n.remindersIntervalDays(3),
+                              ),
+                              PrismSelectItem(
+                                value: 7,
+                                label: context.l10n.remindersIntervalDays(7),
+                              ),
+                              PrismSelectItem(
+                                value: 14,
+                                label: context.l10n.remindersIntervalDays(14),
+                              ),
+                              PrismSelectItem(
+                                value: 30,
+                                label: context.l10n.remindersIntervalDays(30),
+                              ),
+                            ],
+                            onChanged: (v) => setState(() => _intervalDays = v),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      // Time picker (all scheduled frequencies have a time).
+                      _LabeledRow(
+                        label: context.l10n.remindersTimeLabel,
+                        child: Builder(
+                          builder: (anchorContext) => PrismButton(
+                            label: _timeOfDay?.format(context) ?? '9:00 AM',
+                            tone: PrismButtonTone.subtle,
+                            onPressed: () async {
+                              final picked = await showPrismTimePicker(
+                                context: context,
+                                anchorContext: anchorContext,
+                                initialTime:
+                                    _timeOfDay ??
+                                    const TimeOfDay(hour: 9, minute: 0),
+                              );
+                              if (picked != null) {
+                                setState(() => _timeOfDay = picked);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      // Delay picker for front change
+                      _LabeledRow(
+                        label: context.l10n.remindersDelayLabel,
+                        child: PrismSelect<int>.compact(
+                          value: _delayHours ?? 0,
+                          menuWidth: 180,
+                          items: [
+                            PrismSelectItem(
+                              value: 0,
+                              label: context.l10n.remindersImmediately,
+                            ),
+                            PrismSelectItem(
+                              value: 1,
+                              label: context.l10n.remindersDelayHours(1),
+                            ),
+                            PrismSelectItem(
+                              value: 2,
+                              label: context.l10n.remindersDelayHours(2),
+                            ),
+                            PrismSelectItem(
+                              value: 4,
+                              label: context.l10n.remindersDelayHours(4),
+                            ),
+                            PrismSelectItem(
+                              value: 8,
+                              label: context.l10n.remindersDelayHours(8),
+                            ),
+                            PrismSelectItem(
+                              value: 12,
+                              label: context.l10n.remindersDelayHours(12),
+                            ),
+                          ],
+                          onChanged: (v) => setState(() => _delayHours = v),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
 
-                if (_isEditing) ...[
-                  const SizedBox(height: 24),
-                  PrismButton(
-                    label: context.l10n.delete,
-                    tone: PrismButtonTone.destructive,
-                    onPressed: () {
-                      ref
-                          .read(remindersNotifierProvider.notifier)
-                          .deleteReminder(widget.editing!.id);
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                ],
-              ],
-            ),
+                      // Optional member target. null = any front change (current
+                      // behavior). Non-null narrows firing to switches where this
+                      // member is in the current fronter set.
+                      Text(
+                        context.l10n.remindersTargetLabel,
+                        style: theme.textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      membersAsync.when(
+                        loading: () => const SizedBox(
+                          height: 56,
+                          child: PrismLoadingState(),
+                        ),
+                        error: (e, _) => Text(context.l10n.errorWithDetail(e)),
+                        data: (members) {
+                          final selectedMember = members.firstWhereOrNull(
+                            (member) => member.id == _targetMemberId,
+                          );
+                          final searchGroups = watchMemberSearchGroups(
+                            ref,
+                            members,
+                          );
+                          return PrismListRow(
+                            leading: selectedMember != null
+                                ? MemberAvatar(
+                                    avatarImageData:
+                                        selectedMember.avatarImageData,
+                                    memberName: selectedMember.name,
+                                    emoji: selectedMember.emoji,
+                                    customColorEnabled:
+                                        selectedMember.customColorEnabled,
+                                    customColorHex:
+                                        selectedMember.customColorHex,
+                                    size: 32,
+                                  )
+                                : Icon(AppIcons.peopleOutline),
+                            title: Text(
+                              selectedMember?.name ??
+                                  context.l10n.remindersTargetAny,
+                            ),
+                            subtitle: selectedMember != null
+                                ? Text(context.l10n.remindersTargetLabel)
+                                : null,
+                            trailing: Icon(AppIcons.expandMore),
+                            onTap: () =>
+                                _openTargetPicker(members, searchGroups),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      // Honesty disclosure: Prism's relay only sees ciphertext, so
+                      // front-change reminders only fire when THIS device observes
+                      // the switch. That limitation applies whether the reminder
+                      // targets a specific member or any front change.
+                      InfoBanner(
+                        icon: AppIcons.infoOutlineRounded,
+                        iconColor: theme.colorScheme.primary,
+                        title: context.l10n.remindersTriggerFrontChange,
+                        message: context.l10n.remindersTargetDisclosure,
+                      ),
+                    ],
+
+                    if (_isEditing) ...[
+                      const SizedBox(height: 24),
+                      PrismButton(
+                        label: context.l10n.delete,
+                        tone: PrismButtonTone.destructive,
+                        onPressed: () {
+                          ref
+                              .read(remindersNotifierProvider.notifier)
+                              .deleteReminder(widget.editing!.id);
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
+
+  bool _setEquals(Set<int> left, Set<int> right) =>
+      left.length == right.length && left.containsAll(right);
 
   void _save() {
     final name = _nameController.text.trim();

@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Simple bottom sheet for adding co-fronters to the active session.
 class AddCoFronterSheet extends ConsumerStatefulWidget {
@@ -95,141 +96,144 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
         [];
     final searchGroups = watchMemberSearchGroups(ref, availableForSearch);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle bar
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 4),
-            child: Container(
-              width: 32,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant.withValues(
-                  alpha: 0.4,
-                ),
-                borderRadius: BorderRadius.circular(
-                  PrismShapes.of(context).radius(2),
+    return UnsavedChangesGuard<bool>(
+      hasUnsavedChanges: _selectedIds.isNotEmpty,
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 4),
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.4,
+                  ),
+                  borderRadius: BorderRadius.circular(
+                    PrismShapes.of(context).radius(2),
+                  ),
                 ),
               ),
             ),
-          ),
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                PrismButton(
-                  label: context.l10n.cancel,
-                  tone: PrismButtonTone.subtle,
-                  onPressed: () => Navigator.of(context).pop(),
-                  enabled: !_saving,
-                ),
-                Text(
-                  context.l10n.frontingAddCoFrontersTitle,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  PrismButton(
+                    label: context.l10n.cancel,
+                    tone: PrismButtonTone.subtle,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    enabled: !_saving,
                   ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (availableForSearch.isNotEmpty)
-                      IconButton(
-                        icon: Icon(AppIcons.search),
-                        tooltip: context.l10n.search,
-                        onPressed: _saving
-                            ? null
-                            : () => _openSearch(
-                                availableForSearch,
-                                terms.plural,
-                                searchGroups,
-                              ),
+                  Text(
+                    context.l10n.frontingAddCoFrontersTitle,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (availableForSearch.isNotEmpty)
+                        IconButton(
+                          icon: Icon(AppIcons.search),
+                          tooltip: context.l10n.search,
+                          onPressed: _saving
+                              ? null
+                              : () => _openSearch(
+                                  availableForSearch,
+                                  terms.plural,
+                                  searchGroups,
+                                ),
+                        ),
+                      PrismButton(
+                        onPressed: _add,
+                        enabled: !_saving && _selectedIds.isNotEmpty,
+                        isLoading: _saving,
+                        label: context.l10n.add,
+                        tone: PrismButtonTone.filled,
                       ),
-                    PrismButton(
-                      onPressed: _add,
-                      enabled: !_saving && _selectedIds.isNotEmpty,
-                      isLoading: _saving,
-                      label: context.l10n.add,
-                      tone: PrismButtonTone.filled,
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          // Member list
-          membersAsync.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.all(32),
-              child: PrismLoadingState(),
-            ),
-            error: (e, _) => Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text('Error: $e'),
-            ),
-            data: (members) {
-              final available = members
-                  .where((m) => !_excludedIds.contains(m.id))
-                  .toList();
+            const Divider(height: 1),
+            // Member list
+            membersAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.all(32),
+                child: PrismLoadingState(),
+              ),
+              error: (e, _) => Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text('Error: $e'),
+              ),
+              data: (members) {
+                final available = members
+                    .where((m) => !_excludedIds.contains(m.id))
+                    .toList();
 
-              if (available.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Text(
-                    context.l10n.frontingNoOtherMembers(terms.pluralLower),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                if (available.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Text(
+                      context.l10n.frontingNoOtherMembers(terms.pluralLower),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
+                  );
+                }
+
+                return Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: available.length,
+                    itemBuilder: (context, index) {
+                      final member = available[index];
+                      return PrismCheckboxRow(
+                        leading: MemberAvatar(
+                          avatarImageData: member.avatarImageData,
+                          memberName: member.name,
+                          emoji: member.emoji,
+                          customColorEnabled: member.customColorEnabled,
+                          customColorHex: member.customColorHex,
+                          size: 40,
+                        ),
+                        title: Text(member.name),
+                        subtitle: member.pronouns != null
+                            ? Text(member.pronouns!)
+                            : null,
+                        value: _selectedIds.contains(member.id),
+                        onChanged: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedIds.add(member.id);
+                            } else {
+                              _selectedIds.remove(member.id);
+                            }
+                          });
+                        },
+                      );
+                    },
                   ),
                 );
-              }
-
-              return Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: available.length,
-                  itemBuilder: (context, index) {
-                    final member = available[index];
-                    return PrismCheckboxRow(
-                      leading: MemberAvatar(
-                        avatarImageData: member.avatarImageData,
-                        memberName: member.name,
-                        emoji: member.emoji,
-                        customColorEnabled: member.customColorEnabled,
-                        customColorHex: member.customColorHex,
-                        size: 40,
-                      ),
-                      title: Text(member.name),
-                      subtitle: member.pronouns != null
-                          ? Text(member.pronouns!)
-                          : null,
-                      value: _selectedIds.contains(member.id),
-                      onChanged: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _selectedIds.add(member.id);
-                          } else {
-                            _selectedIds.remove(member.id);
-                          }
-                        });
-                      },
-                    );
-                  },
-                ),
-              );
-            },
-          ),
-          SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
-        ],
+              },
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
+          ],
+        ),
       ),
     );
   }

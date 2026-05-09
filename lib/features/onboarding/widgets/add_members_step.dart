@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 class AddMembersStep extends ConsumerWidget {
   const AddMembersStep({super.key});
@@ -249,6 +250,13 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
   bool _isSaving = false;
   String? _errorMessage;
 
+  bool get _isDirty =>
+      _nameController.text.isNotEmpty ||
+      _pronounsController.text.isNotEmpty ||
+      _emojiController.text != '\u{1F464}' ||
+      _ageController.text.isNotEmpty ||
+      _bioController.text.isNotEmpty;
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -272,126 +280,144 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
       customPlural: onboarding.customTermPlural,
       useEnglish: onboarding.terminologyUseEnglish,
     );
-    return Column(
-      children: [
-        PrismSheetTopBar(
-          title: context.l10n.onboardingAddMemberSheetTitle(
-            terms.singular,
-            terms.singularLower,
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            controller: widget.scrollController,
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Emoji
-                _buildField(
-                  context.l10n.onboardingAddMemberFieldEmoji,
-                  _emojiController,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-
-                // Name (required)
-                _buildField(
-                  context.l10n.onboardingAddMemberFieldName,
-                  _nameController,
-                  autofocus: true,
-                ),
-                const SizedBox(height: 12),
-
-                // Pronouns quick-select
-                Row(
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        _nameController,
+        _pronounsController,
+        _emojiController,
+        _ageController,
+        _bioController,
+      ]),
+      builder: (context, _) => UnsavedChangesGuard<void>(
+        hasUnsavedChanges: _isDirty,
+        child: Column(
+          children: [
+            PrismSheetTopBar(
+              title: context.l10n.onboardingAddMemberSheetTitle(
+                terms.singular,
+                terms.singularLower,
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: widget.scrollController,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final (label, value) in [
-                      (
-                        context.l10n.onboardingAddMemberPronounSheHer,
-                        'she/her',
+                    // Emoji
+                    _buildField(
+                      context.l10n.onboardingAddMemberFieldEmoji,
+                      _emojiController,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Name (required)
+                    _buildField(
+                      context.l10n.onboardingAddMemberFieldName,
+                      _nameController,
+                      autofocus: true,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Pronouns quick-select
+                    Row(
+                      children: [
+                        for (final (label, value) in [
+                          (
+                            context.l10n.onboardingAddMemberPronounSheHer,
+                            'she/her',
+                          ),
+                          (
+                            context.l10n.onboardingAddMemberPronounHeHim,
+                            'he/him',
+                          ),
+                          (
+                            context.l10n.onboardingAddMemberPronounTheyThem,
+                            'they/them',
+                          ),
+                        ]) ...[
+                          PrismChip(
+                            label: label,
+                            selected: _pronounsController.text == value,
+                            onTap: () => setState(
+                              () => _pronounsController.text = value,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildField(
+                      context.l10n.onboardingAddMemberFieldPronounsCustom,
+                      _pronounsController,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Age (optional)
+                    _buildField(
+                      context.l10n.onboardingAddMemberFieldAge,
+                      _ageController,
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Bio (optional)
+                    _buildField(
+                      context.l10n.onboardingAddMemberFieldBio,
+                      _bioController,
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 20),
+                    if (_errorMessage != null) ...[
+                      Text(
+                        _errorMessage!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      (context.l10n.onboardingAddMemberPronounHeHim, 'he/him'),
-                      (
-                        context.l10n.onboardingAddMemberPronounTheyThem,
-                        'they/them',
-                      ),
-                    ]) ...[
-                      PrismChip(
-                        label: label,
-                        selected: _pronounsController.text == value,
-                        onTap: () =>
-                            setState(() => _pronounsController.text = value),
-                      ),
-                      const SizedBox(width: 8),
+                      const SizedBox(height: 12),
                     ],
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _buildField(
-                  context.l10n.onboardingAddMemberFieldPronounsCustom,
-                  _pronounsController,
-                ),
-                const SizedBox(height: 12),
 
-                // Age (optional)
-                _buildField(
-                  context.l10n.onboardingAddMemberFieldAge,
-                  _ageController,
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 12),
-
-                // Bio (optional)
-                _buildField(
-                  context.l10n.onboardingAddMemberFieldBio,
-                  _bioController,
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 20),
-                if (_errorMessage != null) ...[
-                  Text(
-                    _errorMessage!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.error,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-
-                // Save button
-                GestureDetector(
-                  onTap: _isSaving ? null : _save,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: primary.withValues(alpha: _isSaving ? 0.25 : 0.5),
-                      borderRadius: BorderRadius.circular(
-                        PrismShapes.of(context).radius(12),
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        _isSaving
-                            ? context.l10n.loading
-                            : context.l10n.onboardingAddMemberSaveButton,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: isDark
-                              ? AppColors.warmWhite
-                              : AppColors.warmBlack,
-                          fontWeight: FontWeight.w600,
+                    // Save button
+                    GestureDetector(
+                      onTap: _isSaving ? null : _save,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: primary.withValues(
+                            alpha: _isSaving ? 0.25 : 0.5,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            PrismShapes.of(context).radius(12),
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            _isSaving
+                                ? context.l10n.loading
+                                : context.l10n.onboardingAddMemberSaveButton,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: isDark
+                                  ? AppColors.warmWhite
+                                  : AppColors.warmBlack,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 

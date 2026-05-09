@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 class CompleteHabitSheet extends ConsumerStatefulWidget {
   const CompleteHabitSheet({
@@ -30,15 +31,23 @@ class CompleteHabitSheet extends ConsumerStatefulWidget {
 
 class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
   late DateTime _completedAt;
+  late DateTime _initialCompletedAt;
   String? _completedByMemberId;
   bool _completedByMemberWasEdited = false;
   final _notesController = TextEditingController();
   int? _rating;
 
+  bool get _isDirty =>
+      _completedAt != _initialCompletedAt ||
+      _completedByMemberWasEdited ||
+      _notesController.text.isNotEmpty ||
+      _rating != null;
+
   @override
   void initState() {
     super.initState();
     _completedAt = DateTime.now();
+    _initialCompletedAt = _completedAt;
     // Pre-select immediately when the current fronter is already cached; the
     // build listener below fills it in later if the stream is still loading.
     _completedByMemberId = ref.read(currentFronterProvider).value?.id;
@@ -64,86 +73,92 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
     ref.watch(currentFronterProvider); // keep provider warm for _save()
     final theme = Theme.of(context);
 
-    return Column(
-      children: [
-        PrismSheetTopBar(
-          title: context.l10n.habitsCompleteHabit,
-          trailing: PrismGlassIconButton(
-            icon: AppIcons.check,
-            tooltip: context.l10n.save,
-            size: PrismTokens.topBarActionSize,
-            tint: theme.colorScheme.primary,
-            accentIcon: true,
-            onPressed: _save,
-          ),
+    return ListenableBuilder(
+      listenable: _notesController,
+      builder: (context, _) => UnsavedChangesGuard<void>(
+        hasUnsavedChanges: _isDirty,
+        child: Column(
+          children: [
+            PrismSheetTopBar(
+              title: context.l10n.habitsCompleteHabit,
+              trailing: PrismGlassIconButton(
+                icon: AppIcons.check,
+                tooltip: context.l10n.save,
+                size: PrismTokens.topBarActionSize,
+                tint: theme.colorScheme.primary,
+                accentIcon: true,
+                onPressed: _save,
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                controller: widget.scrollController,
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // ── Completed At ──────────────────────────────
+                  PrismDateTimePills(
+                    label: context.l10n.habitsCompletedAt,
+                    dateTime: _completedAt,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now(),
+                    onChanged: (dt) => setState(() => _completedAt = dt),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // ── Member Picker ──────────────────────────────
+                  HeadmatePicker(
+                    label: context.l10n.habitsCompletedBy,
+                    selectedMemberId: _completedByMemberId,
+                    includeUnknown: true,
+                    onSelected: (v) => setState(() {
+                      _completedByMemberWasEdited = true;
+                      _completedByMemberId = v;
+                    }),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // ── Rating ─────────────────────────────────────
+                  PrismSectionHeader(title: context.l10n.habitsSectionRating),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (i) {
+                      final starValue = i + 1;
+                      return Semantics(
+                        label: context.l10n.habitsRateNStars(i + 1),
+                        child: PrismIconButton(
+                          icon: _rating != null && starValue <= _rating!
+                              ? AppIcons.star
+                              : AppIcons.starBorder,
+                          color: Colors.amber,
+                          tooltip: context.l10n.habitsRateNStarsTooltip(i + 1),
+                          onPressed: () {
+                            setState(() {
+                              _rating = _rating == starValue ? null : starValue;
+                            });
+                          },
+                        ),
+                      );
+                    }),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // ── Notes ──────────────────────────────────────
+                  PrismTextField(
+                    controller: _notesController,
+                    labelText: context.l10n.habitsNotesField,
+                    maxLines: 5,
+                    minLines: 3,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        Expanded(
-          child: ListView(
-            controller: widget.scrollController,
-            padding: const EdgeInsets.all(16),
-            children: [
-              // ── Completed At ──────────────────────────────
-              PrismDateTimePills(
-                label: context.l10n.habitsCompletedAt,
-                dateTime: _completedAt,
-                firstDate: DateTime(2020),
-                lastDate: DateTime.now(),
-                onChanged: (dt) => setState(() => _completedAt = dt),
-              ),
-
-              const SizedBox(height: 24),
-
-              // ── Member Picker ──────────────────────────────
-              HeadmatePicker(
-                label: context.l10n.habitsCompletedBy,
-                selectedMemberId: _completedByMemberId,
-                includeUnknown: true,
-                onSelected: (v) => setState(() {
-                  _completedByMemberWasEdited = true;
-                  _completedByMemberId = v;
-                }),
-              ),
-
-              const SizedBox(height: 24),
-
-              // ── Rating ─────────────────────────────────────
-              PrismSectionHeader(title: context.l10n.habitsSectionRating),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (i) {
-                  final starValue = i + 1;
-                  return Semantics(
-                    label: context.l10n.habitsRateNStars(i + 1),
-                    child: PrismIconButton(
-                      icon: _rating != null && starValue <= _rating!
-                          ? AppIcons.star
-                          : AppIcons.starBorder,
-                      color: Colors.amber,
-                      tooltip: context.l10n.habitsRateNStarsTooltip(i + 1),
-                      onPressed: () {
-                        setState(() {
-                          _rating = _rating == starValue ? null : starValue;
-                        });
-                      },
-                    ),
-                  );
-                }),
-              ),
-
-              const SizedBox(height: 24),
-
-              // ── Notes ──────────────────────────────────────
-              PrismTextField(
-                controller: _notesController,
-                labelText: context.l10n.habitsNotesField,
-                maxLines: 5,
-                minLines: 3,
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 

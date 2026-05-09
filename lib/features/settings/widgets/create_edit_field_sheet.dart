@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Modal sheet for creating or editing a custom field definition.
 ///
@@ -49,6 +50,14 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   CustomFieldType _selectedType = CustomFieldType.text;
   DatePrecision _selectedPrecision = DatePrecision.full;
   bool _saving = false;
+  late final String _initialName;
+  late final CustomFieldType _initialType;
+  late final DatePrecision _initialPrecision;
+
+  bool get _isDirty =>
+      _nameController.text != _initialName ||
+      _selectedType != _initialType ||
+      _selectedPrecision != _initialPrecision;
 
   @override
   void initState() {
@@ -59,6 +68,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       _selectedType = f.fieldType;
       _selectedPrecision = f.datePrecision ?? DatePrecision.full;
     }
+    _initialName = _nameController.text;
+    _initialType = _selectedType;
+    _initialPrecision = _selectedPrecision;
   }
 
   @override
@@ -115,128 +127,136 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     final theme = Theme.of(context);
     final canSave = _nameController.text.trim().isNotEmpty;
 
-    return SafeArea(
-      child: Column(
-        children: [
-          PrismSheetTopBar(
-            title: widget.isEditing
-                ? context.l10n.settingsCreateEditFieldEditTitle
-                : context.l10n.settingsCreateEditFieldNewTitle,
-            trailing: _saving
-                ? SizedBox(
-                    width: PrismTokens.topBarActionSize,
-                    height: PrismTokens.topBarActionSize,
-                    child: Center(
-                      child: PrismSpinner(
-                        color: theme.colorScheme.primary,
-                        size: 20,
+    return ListenableBuilder(
+      listenable: _nameController,
+      builder: (context, _) => UnsavedChangesGuard<bool>(
+        hasUnsavedChanges: _isDirty,
+        child: SafeArea(
+          child: Column(
+            children: [
+              PrismSheetTopBar(
+                title: widget.isEditing
+                    ? context.l10n.settingsCreateEditFieldEditTitle
+                    : context.l10n.settingsCreateEditFieldNewTitle,
+                trailing: _saving
+                    ? SizedBox(
+                        width: PrismTokens.topBarActionSize,
+                        height: PrismTokens.topBarActionSize,
+                        child: Center(
+                          child: PrismSpinner(
+                            color: theme.colorScheme.primary,
+                            size: 20,
+                          ),
+                        ),
+                      )
+                    : PrismGlassIconButton(
+                        icon: AppIcons.check,
+                        tooltip: context.l10n.save,
+                        size: PrismTokens.topBarActionSize,
+                        onPressed: canSave ? _save : null,
+                      ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView(
+                  controller: widget.scrollController,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: PrismTokens.pageHorizontalPadding,
+                  ),
+                  children: [
+                    PrismTextField(
+                      controller: _nameController,
+                      labelText: context.l10n.settingsCreateEditFieldNameLabel,
+                      hintText: context.l10n.settingsCreateEditFieldNameHint,
+                      autofocus: !widget.isEditing,
+                      textCapitalization: TextCapitalization.words,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Type picker
+                    Text(
+                      context.l10n.settingsCreateEditFieldTypeHeading,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  )
-                : PrismGlassIconButton(
-                    icon: AppIcons.check,
-                    tooltip: context.l10n.save,
-                    size: PrismTokens.topBarActionSize,
-                    onPressed: canSave ? _save : null,
-                  ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: ListView(
-              controller: widget.scrollController,
-              padding: const EdgeInsets.symmetric(
-                horizontal: PrismTokens.pageHorizontalPadding,
+                    const SizedBox(height: 8),
+                    if (widget.isEditing) ...[
+                      // Immutable when editing — show read-only chips
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final type in _fieldTypeOptions)
+                            PrismChip(
+                              label: type.label,
+                              selected: type == _selectedType,
+                              onTap: null,
+                              avatar: Icon(_iconForType(type), size: 16),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.settingsCreateEditFieldTypeImmutable,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ] else ...[
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final type in _fieldTypeOptions)
+                            PrismChip(
+                              label: type.label,
+                              selected: type == _selectedType,
+                              onTap: () {
+                                setState(() => _selectedType = type);
+                                Haptics.selection();
+                              },
+                              avatar: Icon(_iconForType(type), size: 16),
+                            ),
+                        ],
+                      ),
+                    ],
+
+                    // Date precision picker
+                    if (_selectedType == CustomFieldType.date) ...[
+                      const SizedBox(height: 24),
+                      Text(
+                        context
+                            .l10n
+                            .settingsCreateEditFieldDatePrecisionHeading,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final precision in DatePrecision.values)
+                            PrismChip(
+                              label: precision.label,
+                              selected: precision == _selectedPrecision,
+                              onTap: () {
+                                setState(() => _selectedPrecision = precision);
+                                Haptics.selection();
+                              },
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              children: [
-                PrismTextField(
-                  controller: _nameController,
-                  labelText: context.l10n.settingsCreateEditFieldNameLabel,
-                  hintText: context.l10n.settingsCreateEditFieldNameHint,
-                  autofocus: !widget.isEditing,
-                  textCapitalization: TextCapitalization.words,
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 24),
-
-                // Type picker
-                Text(
-                  context.l10n.settingsCreateEditFieldTypeHeading,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (widget.isEditing) ...[
-                  // Immutable when editing — show read-only chips
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final type in _fieldTypeOptions)
-                        PrismChip(
-                          label: type.label,
-                          selected: type == _selectedType,
-                          onTap: null,
-                          avatar: Icon(_iconForType(type), size: 16),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    context.l10n.settingsCreateEditFieldTypeImmutable,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ] else ...[
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final type in _fieldTypeOptions)
-                        PrismChip(
-                          label: type.label,
-                          selected: type == _selectedType,
-                          onTap: () {
-                            setState(() => _selectedType = type);
-                            Haptics.selection();
-                          },
-                          avatar: Icon(_iconForType(type), size: 16),
-                        ),
-                    ],
-                  ),
-                ],
-
-                // Date precision picker
-                if (_selectedType == CustomFieldType.date) ...[
-                  const SizedBox(height: 24),
-                  Text(
-                    context.l10n.settingsCreateEditFieldDatePrecisionHeading,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final precision in DatePrecision.values)
-                        PrismChip(
-                          label: precision.label,
-                          selected: precision == _selectedPrecision,
-                          onTap: () {
-                            setState(() => _selectedPrecision = precision);
-                            Haptics.selection();
-                          },
-                        ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

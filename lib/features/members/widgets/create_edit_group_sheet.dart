@@ -20,6 +20,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 const _uuid = Uuid();
 
@@ -80,6 +81,18 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
   Color? _selectedColor;
   String? _parentGroupId;
   bool _saving = false;
+  late final String _initialName;
+  late final String _initialDescription;
+  late final String? _initialEmoji;
+  late final Color? _initialSelectedColor;
+  late final String? _initialParentGroupId;
+
+  bool get _isDirty =>
+      _nameController.text != _initialName ||
+      _descriptionController.text != _initialDescription ||
+      _emoji != _initialEmoji ||
+      _selectedColor != _initialSelectedColor ||
+      _parentGroupId != _initialParentGroupId;
 
   @override
   void initState() {
@@ -94,6 +107,11 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     }
     _emoji = g?.emoji;
     _parentGroupId = g?.parentGroupId ?? widget.initialParentGroupId;
+    _initialName = _nameController.text;
+    _initialDescription = _descriptionController.text;
+    _initialEmoji = _emoji;
+    _initialSelectedColor = _selectedColor;
+    _initialParentGroupId = _parentGroupId;
   }
 
   @override
@@ -270,166 +288,178 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
             ),
           );
 
-    return SafeArea(
-      child: ClipRect(
-        child: Column(
-          children: [
-            PrismSheetTopBar(
-              title: widget.isEditing
-                  ? l10n.memberGroupEditTitle
-                  : l10n.memberGroupNewTitle,
-              trailing: PrismGlassIconButton(
-                icon: AppIcons.check,
-                tooltip: context.l10n.save,
-                size: PrismTokens.topBarActionSize,
-                isLoading: _saving,
-                tint: canSave ? theme.colorScheme.primary : null,
-                accentIcon: canSave,
-                onPressed: canSave ? _save : null,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  controller: widget.scrollController,
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+    return ListenableBuilder(
+      listenable: Listenable.merge([_nameController, _descriptionController]),
+      builder: (context, _) => UnsavedChangesGuard<bool>(
+        hasUnsavedChanges: _isDirty,
+        child: SafeArea(
+          child: ClipRect(
+            child: Column(
+              children: [
+                PrismSheetTopBar(
+                  title: widget.isEditing
+                      ? l10n.memberGroupEditTitle
+                      : l10n.memberGroupNewTitle,
+                  trailing: PrismGlassIconButton(
+                    icon: AppIcons.check,
+                    tooltip: context.l10n.save,
+                    size: PrismTokens.topBarActionSize,
+                    isLoading: _saving,
+                    tint: canSave ? theme.colorScheme.primary : null,
+                    accentIcon: canSave,
+                    onPressed: canSave ? _save : null,
                   ),
-                  children: [
-                    // Emoji picker
-                    Center(
-                      child: PrismEmojiPicker(
-                        emoji: _emoji,
-                        size: 64,
-                        onSelected: (emoji) {
-                          setState(() => _emoji = emoji);
-                        },
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: Form(
+                    key: _formKey,
+                    child: ListView(
+                      controller: widget.scrollController,
+                      padding: EdgeInsets.only(
+                        left: 16,
+                        right: 16,
+                        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
                       ),
-                    ),
-                    const SizedBox(height: 24),
+                      children: [
+                        // Emoji picker
+                        Center(
+                          child: PrismEmojiPicker(
+                            emoji: _emoji,
+                            size: 64,
+                            onSelected: (emoji) {
+                              setState(() => _emoji = emoji);
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 24),
 
-                    // Name
-                    PrismTextField(
-                      controller: _nameController,
-                      labelText: l10n.memberGroupNameLabel,
-                      textCapitalization: TextCapitalization.words,
-                      onChanged: (_) => setState(() {}),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return l10n.memberGroupNameRequired;
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                        // Name
+                        PrismTextField(
+                          controller: _nameController,
+                          labelText: l10n.memberGroupNameLabel,
+                          textCapitalization: TextCapitalization.words,
+                          onChanged: (_) => setState(() {}),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return l10n.memberGroupNameRequired;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
 
-                    // Description
-                    PrismTextField(
-                      controller: _descriptionController,
-                      labelText: l10n.memberGroupDescriptionLabel,
-                      textCapitalization: TextCapitalization.sentences,
-                      minLines: 1,
-                      maxLines: 4,
-                    ),
-                    const SizedBox(height: 16),
+                        // Description
+                        PrismTextField(
+                          controller: _descriptionController,
+                          labelText: l10n.memberGroupDescriptionLabel,
+                          textCapitalization: TextCapitalization.sentences,
+                          minLines: 1,
+                          maxLines: 4,
+                        ),
+                        const SizedBox(height: 16),
 
-                    // Parent group selector
-                    InkWell(
-                      onTap: _openParentPicker,
-                      borderRadius: BorderRadius.circular(
-                        PrismShapes.of(context).radius(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Row(
-                          children: [
-                            Icon(
-                              AppIcons.folderOutlined,
-                              color: theme.colorScheme.onSurfaceVariant,
+                        // Parent group selector
+                        InkWell(
+                          onTap: _openParentPicker,
+                          borderRadius: BorderRadius.circular(
+                            PrismShapes.of(context).radius(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  AppIcons.folderOutlined,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l10n.memberGroupParentLabel,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                      ),
+                                      Text(
+                                        parentDisplayName ??
+                                            l10n.memberGroupParentNone,
+                                        style: theme.textTheme.bodyLarge,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  AppIcons.chevronRight,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  size: 18,
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    l10n.memberGroupParentLabel,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Color picker row
+                        InkWell(
+                          onTap: _openColorPicker,
+                          borderRadius: BorderRadius.circular(
+                            PrismShapes.of(context).radius(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        _selectedColor ??
+                                        theme
+                                            .colorScheme
+                                            .surfaceContainerHighest,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: theme.colorScheme.outlineVariant,
                                     ),
                                   ),
-                                  Text(
-                                    parentDisplayName ??
-                                        l10n.memberGroupParentNone,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    _selectedColor != null
+                                        ? l10n.memberGroupColorLabel
+                                        : l10n.memberGroupColorNone,
                                     style: theme.textTheme.bodyLarge,
                                   ),
-                                ],
-                              ),
-                            ),
-                            Icon(
-                              AppIcons.chevronRight,
-                              color: theme.colorScheme.onSurfaceVariant,
-                              size: 18,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Color picker row
-                    InkWell(
-                      onTap: _openColorPicker,
-                      borderRadius: BorderRadius.circular(
-                        PrismShapes.of(context).radius(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color:
-                                    _selectedColor ??
-                                    theme.colorScheme.surfaceContainerHighest,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: theme.colorScheme.outlineVariant,
                                 ),
-                              ),
+                                if (_selectedColor != null)
+                                  PrismButton(
+                                    label: l10n.cancel,
+                                    tone: PrismButtonTone.subtle,
+                                    density: PrismControlDensity.compact,
+                                    onPressed: () =>
+                                        setState(() => _selectedColor = null),
+                                  ),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _selectedColor != null
-                                    ? l10n.memberGroupColorLabel
-                                    : l10n.memberGroupColorNone,
-                                style: theme.textTheme.bodyLarge,
-                              ),
-                            ),
-                            if (_selectedColor != null)
-                              PrismButton(
-                                label: l10n.cancel,
-                                tone: PrismButtonTone.subtle,
-                                density: PrismControlDensity.compact,
-                                onPressed: () =>
-                                    setState(() => _selectedColor = null),
-                              ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
