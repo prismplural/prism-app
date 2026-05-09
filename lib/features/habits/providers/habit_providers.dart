@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/material.dart' show DateUtils;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -269,9 +270,13 @@ class HabitNotifier extends AsyncNotifier<void> {
 
       final completions = await repo.getCompletionsForHabit(habitId);
       final currentStreak = _calculateCurrentStreak(habit, completions);
-      final bestStreak = currentStreak > habit.bestStreak
-          ? currentStreak
-          : habit.bestStreak;
+      final isPastDated =
+          completedAt != null && !DateUtils.isSameDay(completedAt, now);
+      final bestAllTime = isPastDated
+          ? _calculateBestStreakAllTime(habit, completions)
+          : currentStreak;
+      final bestStreak =
+          bestAllTime > habit.bestStreak ? bestAllTime : habit.bestStreak;
 
       final updated = habit.copyWith(
         totalCompletions: habit.totalCompletions + 1,
@@ -310,16 +315,80 @@ class HabitNotifier extends AsyncNotifier<void> {
           ? currentStreak
           : habit.bestStreak;
 
-      await repo.updateHabit(
-        habit.copyWith(
-          totalCompletions: (habit.totalCompletions - 1).clamp(
-            0,
-            double.maxFinite.toInt(),
-          ),
-          currentStreak: currentStreak,
-          bestStreak: bestStreak,
-          modifiedAt: DateTime.now(),
+      final updatedHabit = habit.copyWith(
+        totalCompletions: (habit.totalCompletions - 1).clamp(
+          0,
+          double.maxFinite.toInt(),
         ),
+        currentStreak: currentStreak,
+        bestStreak: bestStreak,
+        modifiedAt: DateTime.now(),
+      );
+      await repo.updateHabit(updatedHabit);
+
+      // Reschedule notifications with a fresh skipCurrentPeriod check so the
+      // reminder fires again if today is no longer completed. Previously this
+      // relied on the 500ms debounced listener — the explicit call here keeps
+      // the two paths (complete / uncomplete) symmetric.
+      final notifService = ref.read(habitNotificationServiceProvider);
+      final now = DateTime.now();
+      final todayCompletions = completions
+          .where((c) => DateUtils.isSameDay(c.completedAt, now))
+          .toList();
+      final skipCurrentPeriod = isHabitCompletedForCurrentPeriod(
+        habit: updatedHabit,
+        todayCompletions: todayCompletions,
+        allCompletions: completions,
+        now: now,
+      );
+      await notifService.scheduleForHabit(
+        updatedHabit,
+        skipCurrentPeriod: skipCurrentPeriod,
+      );
+    });
+  }
+
+  /// Update an existing completion's fields. Recomputes both the current
+  /// streak (today-backwards) and the all-time best streak (full history),
+  /// and reschedules notifications based on FRESH skipCurrentPeriod state
+  /// (not the unconditional `true` that completeHabit uses on initial log).
+  Future<void> updateCompletion(HabitCompletion next) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(habitRepositoryProvider);
+      final updated = next.copyWith(modifiedAt: DateTime.now());
+      final affected = await repo.updateCompletion(updated);
+      if (affected != 1) return; // tombstoned/missing — silent no-op
+
+      final habit = await repo.getHabitById(updated.habitId);
+      if (habit == null) return;
+      final completions = await repo.getCompletionsForHabit(updated.habitId);
+
+      final currentStreak = _calculateCurrentStreak(habit, completions);
+      final bestAllTime = _calculateBestStreakAllTime(habit, completions);
+      final bestStreak =
+          bestAllTime > habit.bestStreak ? bestAllTime : habit.bestStreak;
+
+      final updatedHabit = habit.copyWith(
+        currentStreak: currentStreak,
+        bestStreak: bestStreak,
+        modifiedAt: DateTime.now(),
+      );
+      await repo.updateHabit(updatedHabit);
+
+      final notifService = ref.read(habitNotificationServiceProvider);
+      final now = DateTime.now();
+      final todayCompletions = completions
+          .where((c) => DateUtils.isSameDay(c.completedAt, now))
+          .toList();
+      final skipCurrentPeriod = isHabitCompletedForCurrentPeriod(
+        habit: updatedHabit,
+        todayCompletions: todayCompletions,
+        allCompletions: completions,
+        now: now,
+      );
+      await notifService.scheduleForHabit(
+        updatedHabit,
+        skipCurrentPeriod: skipCurrentPeriod,
       );
     });
   }
@@ -447,6 +516,143 @@ class HabitNotifier extends AsyncNotifier<void> {
       periodStart = periodEnd.subtract(Duration(days: intervalDays - 1));
     }
     return streak;
+  }
+
+  // ── All-time best streak helpers ────────────────────────────────────
+
+  /// Returns the longest contiguous streak found anywhere in the completion
+  /// history. Used by [updateCompletion] and by [completeHabit] when
+  /// `completedAt` is in the past — fixes the gap where the old
+  /// `max(currentStreak, bestStreak)` ratchet missed historical streaks
+  /// (e.g., logging a missed completion that fills a 30-day past run).
+  ///
+  /// Anchoring NOTE: this differs from [_calculateCurrentStreak]. Current
+  /// streak is "from today backwards"; all-time best is "longest contiguous
+  /// run anywhere in history." For interval frequency, windows here are
+  /// anchored to the FIRST completion (so historical edits update the
+  /// streak), not to today.
+  int _calculateBestStreakAllTime(
+    Habit habit,
+    List<HabitCompletion> completions,
+  ) {
+    if (completions.isEmpty) return 0;
+    return switch (habit.frequency) {
+      HabitFrequency.daily ||
+      HabitFrequency.custom => _bestDailyStreakAllTime(completions),
+      HabitFrequency.weekly => _bestWeeklyStreakAllTime(habit, completions),
+      HabitFrequency.interval => _bestIntervalStreakAllTime(habit, completions),
+    };
+  }
+
+  /// Build sorted unique day-keys, walk forward, run++ when next day is
+  /// exactly prev+1, reset to 1 on any larger gap, max-track.
+  int _bestDailyStreakAllTime(List<HabitCompletion> completions) {
+    if (completions.isEmpty) return 0;
+    final days = <DateTime>{};
+    for (final c in completions) {
+      days.add(
+        DateTime(c.completedAt.year, c.completedAt.month, c.completedAt.day),
+      );
+    }
+    final sorted = days.toList()..sort();
+    var run = 1;
+    var best = 1;
+    for (var i = 1; i < sorted.length; i++) {
+      final delta = sorted[i].difference(sorted[i - 1]).inDays;
+      if (delta == 1) {
+        run++;
+        if (run > best) best = run;
+      } else {
+        run = 1;
+      }
+    }
+    return best;
+  }
+
+  /// Walk weeks chronologically from the earliest completion-bearing week
+  /// to the latest. For each intermediate week (including weeks with no
+  /// completions), check if `requiredDays.every(weekHasDay)`; if yes,
+  /// increment run; if no, reset run to 0; track max.
+  int _bestWeeklyStreakAllTime(
+    Habit habit,
+    List<HabitCompletion> completions,
+  ) {
+    final requiredDays = habit.weeklyDays;
+    if (requiredDays == null || requiredDays.isEmpty) return 0;
+    if (completions.isEmpty) return 0;
+
+    // Group: weekKey -> set of weekday indices completed
+    // (0=Sun convention matching _calculateWeeklyStreak's `c.completedAt.weekday % 7`)
+    final completionsByWeek = <int, Set<int>>{};
+    for (final c in completions) {
+      final weekKey = _weekNumber(c.completedAt);
+      completionsByWeek
+          .putIfAbsent(weekKey, () => <int>{})
+          .add(c.completedAt.weekday % 7);
+    }
+    final weekKeys = completionsByWeek.keys.toList()..sort();
+    if (weekKeys.isEmpty) return 0;
+    final firstWeek = weekKeys.first;
+    final lastWeek = weekKeys.last;
+
+    var run = 0;
+    var best = 0;
+    for (var w = firstWeek; w <= lastWeek; w++) {
+      final dayset = completionsByWeek[w] ?? const <int>{};
+      if (requiredDays.every(dayset.contains)) {
+        run++;
+        if (run > best) best = run;
+      } else {
+        run = 0;
+      }
+    }
+    return best;
+  }
+
+  /// Anchor windows to the EARLIEST completion (so historical edits update
+  /// the streak). Iterate forward; increment run on satisfied windows,
+  /// reset on unsatisfied; track max.
+  int _bestIntervalStreakAllTime(
+    Habit habit,
+    List<HabitCompletion> completions,
+  ) {
+    final intervalDays = habit.intervalDays;
+    if (intervalDays == null || intervalDays <= 0) return 0;
+    if (completions.isEmpty) return 0;
+
+    final completionDates = completions
+        .map(
+          (c) => DateTime(
+            c.completedAt.year,
+            c.completedAt.month,
+            c.completedAt.day,
+          ),
+        )
+        .toSet()
+        .toList()
+      ..sort();
+    if (completionDates.isEmpty) return 0;
+
+    // Anchor at the earliest completion's day.
+    var windowStart = completionDates.first;
+    final lastDate = completionDates.last;
+    var run = 0;
+    var best = 0;
+
+    while (!windowStart.isAfter(lastDate)) {
+      final windowEnd = windowStart.add(Duration(days: intervalDays - 1));
+      final hasInRange = completionDates.any(
+        (d) => !d.isBefore(windowStart) && !d.isAfter(windowEnd),
+      );
+      if (hasInRange) {
+        run++;
+        if (run > best) best = run;
+      } else {
+        run = 0;
+      }
+      windowStart = windowEnd.add(const Duration(days: 1));
+    }
+    return best;
   }
 
   /// Returns an integer representing the ISO week number * year
