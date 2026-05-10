@@ -2184,6 +2184,32 @@ class SyncStatus {
   }
 }
 
+/// Pascal-case strings match the Rust `SyncErrorKind` Debug format emitted
+/// by `sync_result_to_json` in `prism-sync-ffi/src/api.rs`.
+@visibleForTesting
+bool isRetryableSyncErrorKind(String? errorKind) {
+  switch (errorKind) {
+    case 'Network':
+    case 'Server':
+    case 'Timeout':
+      return true;
+    default:
+      return false;
+  }
+}
+
+/// Whether a sync failure should be promoted into `SyncStatus.lastError`.
+///
+/// Retryable failures are already handled by Rust's inner retry loop and the
+/// outer auto-sync backoff driver. Keeping them out of `lastError` prevents a
+/// user-facing toast for a transient attempt that may recover on the next
+/// scheduled retry. Terminal retry exhaustion arrives as an `Error` event with
+/// `retryable: false`, and still surfaces.
+@visibleForTesting
+bool shouldSurfaceSyncError({required String? errorKind, bool? retryable}) {
+  return !(retryable ?? isRetryableSyncErrorKind(errorKind));
+}
+
 /// Whether the event-driven drain in `SyncStatusNotifier` should fire for
 /// a `SyncCompleted` event with the given structured `errorKind`.
 ///
@@ -2192,9 +2218,6 @@ class SyncStatus {
 /// single cycle fails. Returns `false` for credential-state errors
 /// (`Auth`, `KeyChanged`, `DeviceIdentityMismatch`) so the revoke cleanup
 /// path can wipe credentials without the drain writing them back.
-///
-/// Pascal-case strings match the Rust `SyncErrorKind` Debug format emitted
-/// by `sync_result_to_json` in `prism-sync-ffi/src/api.rs`.
 @visibleForTesting
 bool shouldDrainForCompletedErrorKind(String? errorKind) {
   if (errorKind == null) return true;
@@ -2297,6 +2320,7 @@ SyncStatus syncStatusAfterCompleted({
   required String? rawResultError,
   required int pendingOps,
   required bool hasQuarantinedItems,
+  bool surfaceResultError = true,
   DateTime? completedAt,
 }) {
   final resultError = rawResultError != null && rawResultError.isNotEmpty
@@ -2309,7 +2333,7 @@ SyncStatus syncStatusAfterCompleted({
         : previous.lastSyncAt,
     pendingOps: pendingOps,
     hasQuarantinedItems: hasQuarantinedItems,
-    lastError: resultError,
+    lastError: surfaceResultError ? resultError : null,
   );
 }
 
@@ -2525,12 +2549,20 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
               ? null
               : PrismSyncStructuredError.tryParseMessage(rawResultError);
           final completedError = structuredError?.userMessage ?? rawResultError;
+          final displayableCompletedError =
+              completedError != null && completedError.isNotEmpty
+              ? completedError
+              : null;
+          final surfaceCompletedError =
+              displayableCompletedError != null &&
+              shouldSurfaceSyncError(
+                errorKind: event.errorKind,
+                retryable: null,
+              );
           final previous = state;
           state = state.copyWith(
             isSyncing: false,
-            lastError: completedError != null && completedError.isNotEmpty
-                ? completedError
-                : null,
+            lastError: surfaceCompletedError ? displayableCompletedError : null,
           );
           // Re-query pending ops and quarantine state after sync completes.
           Future.wait([_queryPendingOps(), _queryQuarantine()]).then((results) {
@@ -2539,9 +2571,10 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
             }
             state = syncStatusAfterCompleted(
               previous: previous,
-              rawResultError: completedError,
+              rawResultError: displayableCompletedError,
               pendingOps: results[0] as int,
               hasQuarantinedItems: results[1] as bool,
+              surfaceResultError: surfaceCompletedError,
               completedAt: DateTime.now(),
             );
           });
@@ -2592,11 +2625,19 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
                 event.data['message'] as String? ?? '',
               );
           final errorMessage = event.data['message'] as String? ?? '';
+          final displayableError =
+              (structuredError?.userMessage ?? errorMessage).isNotEmpty
+              ? (structuredError?.userMessage ?? errorMessage)
+              : null;
+          final surfaceError =
+              displayableError != null &&
+              shouldSurfaceSyncError(
+                errorKind: event.errorKind,
+                retryable: event.data['retryable'] as bool?,
+              );
           state = state.copyWith(
             isSyncing: false,
-            lastError: (structuredError?.userMessage ?? errorMessage).isNotEmpty
-                ? (structuredError?.userMessage ?? errorMessage)
-                : null,
+            lastError: surfaceError ? displayableError : null,
           );
           if (structuredError?.isDeviceRevoked ?? false) {
             _handleDeviceRevokedFromAuthFailure(

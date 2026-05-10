@@ -28,6 +28,32 @@ void main() {
     expect(next.pendingOps, 2);
   });
 
+  test(
+    'syncStatusAfterCompleted can hide retryable errors without marking success',
+    () {
+      final previousSyncAt = DateTime.utc(2026, 3, 18, 12, 0, 0);
+      final completedAt = DateTime.utc(2026, 3, 18, 12, 5, 0);
+
+      final next = syncStatusAfterCompleted(
+        previous: SyncStatus(
+          isSyncing: true,
+          lastSyncAt: previousSyncAt,
+          pendingOps: 4,
+        ),
+        rawResultError: 'relay timeout',
+        pendingOps: 2,
+        hasQuarantinedItems: false,
+        surfaceResultError: false,
+        completedAt: completedAt,
+      );
+
+      expect(next.isSyncing, isFalse);
+      expect(next.lastSyncAt, previousSyncAt);
+      expect(next.lastError, isNull);
+      expect(next.pendingOps, 2);
+    },
+  );
+
   test('syncStatusAfterCompleted records a new sync time on success', () {
     final completedAt = DateTime.utc(2026, 3, 18, 12, 5, 0);
 
@@ -59,6 +85,38 @@ void main() {
     expect(next.isSyncing, isFalse);
     expect(next.lastSyncAt, completedAt);
     expect(next.lastError, isNull);
+  });
+
+  group('shouldSurfaceSyncError', () {
+    test('suppresses retryable attempt errors', () {
+      expect(
+        shouldSurfaceSyncError(errorKind: 'Network', retryable: true),
+        isFalse,
+      );
+      expect(
+        shouldSurfaceSyncError(errorKind: 'Server', retryable: true),
+        isFalse,
+      );
+      expect(
+        shouldSurfaceSyncError(errorKind: 'Timeout', retryable: true),
+        isFalse,
+      );
+    });
+
+    test('surfaces terminal and non-retryable errors', () {
+      expect(
+        shouldSurfaceSyncError(errorKind: 'Network', retryable: false),
+        isTrue,
+      );
+      expect(
+        shouldSurfaceSyncError(errorKind: 'Auth', retryable: false),
+        isTrue,
+      );
+      expect(
+        shouldSurfaceSyncError(errorKind: 'Protocol', retryable: null),
+        isTrue,
+      );
+    });
   });
 
   // --------------------------------------------------------------------

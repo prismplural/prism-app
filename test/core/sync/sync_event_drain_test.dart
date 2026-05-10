@@ -228,6 +228,8 @@ void main() {
     );
     await Future<void>.delayed(settleAfterDebounce);
     expect(ctx.drainCount(), 1);
+    expect(ctx.container.read(syncStatusProvider).lastError, isNull);
+    expect(ctx.container.read(syncStatusProvider).lastSyncAt, isNull);
   });
 
   test('5 rapid events coalesce into a single drain within the window',
@@ -292,6 +294,46 @@ void main() {
     await Future<void>.delayed(settleAfterDebounce);
     expect(ctx.drainCount(), 0);
   });
+
+  test(
+    'retryable Error events do not set lastError until terminal failure',
+    () async {
+      final ctx = bindContainer();
+      addTearDown(() async {
+        ctx.subscription.close();
+        ctx.eventSubscription.close();
+        ctx.container.dispose();
+        await ctx.controller.close();
+      });
+
+      ctx.controller.add(
+        SyncEvent('Error', {
+          'type': 'Error',
+          'kind': 'Network',
+          'message': 'relay timeout',
+          'retryable': true,
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(ctx.container.read(syncStatusProvider).lastError, isNull);
+
+      ctx.controller.add(
+        SyncEvent('Error', {
+          'type': 'Error',
+          'kind': 'Network',
+          'message': 'Sync failed repeatedly for over 10 minutes',
+          'retryable': false,
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        ctx.container.read(syncStatusProvider).lastError,
+        'Sync failed repeatedly for over 10 minutes',
+      );
+    },
+  );
 
   test('terminal Error wins over delayed SyncStarted status refresh', () async {
     final pendingOps = Completer<int>();
