@@ -215,7 +215,8 @@ class SpMapper {
     // 2b. If the front-history pass referenced the Unknown sentinel,
     //     append the sentinel member entity so the importer persists it.
     //     Id matches `unknownSentinelMemberId` so all devices converge.
-    if (_unknownSentinelSeen) {
+    if (_unknownSentinelSeen &&
+        !members.any((m) => m.id == unknownSentinelMemberId)) {
       members.add(
         domain.Member(
           id: unknownSentinelMemberId,

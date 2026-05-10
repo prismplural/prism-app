@@ -2,12 +2,14 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:prism_plurality/core/database/app_database.dart'
-    show AppDatabase;
+    show AppDatabase, SpIdMapTableCompanion;
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
@@ -688,6 +690,320 @@ void main() {
         expect(result.avatarsDownloaded, 0);
       },
     );
+
+    test(
+      'SP member with matching PluralKit short ID reuses existing local member',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+
+        await memberRepo.createMember(
+          domain.Member(
+            id: 'pk-local-alice',
+            name: 'Alice from PK',
+            createdAt: DateTime(2025, 1, 1),
+            pluralkitId: 'abcde',
+          ),
+        );
+
+        final result = await SpImporter(httpClient: _FakeHttpClient())
+            .executeImport(
+              db: db,
+              data: SpExportData(
+                members: const [
+                  SpMember(id: 'sp-alice', name: 'Alice', pkId: 'abcde'),
+                ],
+                customFronts: const [],
+                frontHistory: [
+                  SpFrontHistory(
+                    id: 'front-1',
+                    memberId: 'sp-alice',
+                    startTime: DateTime(2025, 1, 2),
+                    endTime: DateTime(2025, 1, 3),
+                  ),
+                ],
+                groups: const [],
+                channels: const [],
+                messages: const [],
+                polls: const [],
+              ),
+              memberRepo: memberRepo,
+              sessionRepo: sessionRepo,
+              conversationRepo: _FakeConversationRepository(),
+              messageRepo: _FakeChatMessageRepository(),
+              pollRepo: _FakePollRepository(),
+              spImportDao: db.spImportDao,
+              downloadAvatars: false,
+            );
+
+        final members = await memberRepo.getAllMembers();
+        final sessions = await sessionRepo.getAllSessions();
+        final mappings = await db.spImportDao.getAllMappings();
+
+        expect(result.membersImported, 0);
+        expect(result.sessionsImported, 1);
+        expect(members, hasLength(1));
+        expect(members.single.id, 'pk-local-alice');
+        expect(sessions.single.memberId, 'pk-local-alice');
+        expect(
+          mappings.any(
+            (row) =>
+                row.entityType == 'member' &&
+                row.spId == 'sp-alice' &&
+                row.prismId == 'pk-local-alice',
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'SP member with unique exact name reuses existing local member',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+
+        await memberRepo.createMember(
+          domain.Member(
+            id: 'existing-alice',
+            name: 'Alice',
+            createdAt: DateTime(2025, 1, 1),
+          ),
+        );
+
+        final result = await SpImporter(httpClient: _FakeHttpClient())
+            .executeImport(
+              db: db,
+              data: SpExportData(
+                members: const [SpMember(id: 'sp-alice', name: ' Alice ')],
+                customFronts: const [],
+                frontHistory: [
+                  SpFrontHistory(
+                    id: 'front-1',
+                    memberId: 'sp-alice',
+                    startTime: DateTime(2025, 1, 2),
+                    endTime: DateTime(2025, 1, 3),
+                  ),
+                ],
+                groups: const [],
+                channels: const [],
+                messages: const [],
+                polls: const [],
+              ),
+              memberRepo: memberRepo,
+              sessionRepo: sessionRepo,
+              conversationRepo: _FakeConversationRepository(),
+              messageRepo: _FakeChatMessageRepository(),
+              pollRepo: _FakePollRepository(),
+              spImportDao: db.spImportDao,
+              downloadAvatars: false,
+            );
+
+        final members = await memberRepo.getAllMembers();
+        final sessions = await sessionRepo.getAllSessions();
+
+        expect(result.membersImported, 0);
+        expect(members, hasLength(1));
+        expect(sessions.single.memberId, 'existing-alice');
+      },
+    );
+
+    test(
+      'SP member named Unknown does not collapse into the system sentinel',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+
+        await memberRepo.ensureUnknownSentinelMember();
+        await db.spImportDao.upsertMappings([
+          SpIdMapTableCompanion(
+            spId: const Value('sp-real-unknown'),
+            entityType: const Value('member'),
+            prismId: Value(unknownSentinelMemberId),
+          ),
+        ]);
+
+        final result = await SpImporter(httpClient: _FakeHttpClient())
+            .executeImport(
+              db: db,
+              data: SpExportData(
+                members: const [
+                  SpMember(id: 'sp-real-unknown', name: 'Unknown'),
+                ],
+                customFronts: const [],
+                frontHistory: [
+                  SpFrontHistory(
+                    id: 'front-real',
+                    memberId: 'sp-real-unknown',
+                    startTime: DateTime(2025, 1, 2),
+                    endTime: DateTime(2025, 1, 3),
+                  ),
+                  SpFrontHistory(
+                    id: 'front-literal-unknown',
+                    memberId: 'unknown',
+                    startTime: DateTime(2025, 1, 4),
+                    endTime: DateTime(2025, 1, 5),
+                  ),
+                ],
+                groups: const [],
+                channels: const [],
+                messages: const [],
+                polls: const [],
+              ),
+              memberRepo: memberRepo,
+              sessionRepo: sessionRepo,
+              conversationRepo: _FakeConversationRepository(),
+              messageRepo: _FakeChatMessageRepository(),
+              pollRepo: _FakePollRepository(),
+              spImportDao: db.spImportDao,
+              downloadAvatars: false,
+            );
+
+        final members = await memberRepo.getAllMembers();
+        final sessions = await sessionRepo.getAllSessions();
+        final mappings = await db.spImportDao.getAllMappings();
+        final realUnknownSession = sessions.singleWhere(
+          (s) => s.startTime == DateTime(2025, 1, 2),
+          orElse: () => throw StateError('front-real was not imported'),
+        );
+        final literalUnknownSession = sessions.singleWhere(
+          (s) => s.startTime == DateTime(2025, 1, 4),
+          orElse: () =>
+              throw StateError('front-literal-unknown was not imported'),
+        );
+
+        expect(result.membersImported, 1);
+        expect(members, hasLength(2));
+        expect(realUnknownSession.memberId, isNot(unknownSentinelMemberId));
+        expect(literalUnknownSession.memberId, unknownSentinelMemberId);
+        expect(
+          members.where((m) => m.id == unknownSentinelMemberId),
+          hasLength(1),
+        );
+        expect(
+          mappings
+              .singleWhere(
+                (row) =>
+                    row.entityType == 'member' && row.spId == 'sp-real-unknown',
+              )
+              .prismId,
+          realUnknownSession.memberId,
+        );
+      },
+    );
+
+    test(
+      'SP exact-name fallback does not match ambiguous local names',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+
+        await memberRepo.createMember(
+          domain.Member(
+            id: 'existing-alice-1',
+            name: 'Alice',
+            createdAt: DateTime(2025, 1, 1),
+          ),
+        );
+        await memberRepo.createMember(
+          domain.Member(
+            id: 'existing-alice-2',
+            name: 'alice',
+            createdAt: DateTime(2025, 1, 1),
+          ),
+        );
+
+        final result = await SpImporter(httpClient: _FakeHttpClient())
+            .executeImport(
+              db: db,
+              data: const SpExportData(
+                members: [SpMember(id: 'sp-alice', name: 'Alice')],
+                customFronts: [],
+                frontHistory: [],
+                groups: [],
+                channels: [],
+                messages: [],
+                polls: [],
+              ),
+              memberRepo: memberRepo,
+              sessionRepo: _FakeSessionRepository(),
+              conversationRepo: _FakeConversationRepository(),
+              messageRepo: _FakeChatMessageRepository(),
+              pollRepo: _FakePollRepository(),
+              spImportDao: db.spImportDao,
+              downloadAvatars: false,
+            );
+
+        final members = await memberRepo.getAllMembers();
+
+        expect(result.membersImported, 1);
+        expect(members, hasLength(3));
+      },
+    );
+
+    test('SP exact-name fallback does not match ambiguous SP names', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+
+      await memberRepo.createMember(
+        domain.Member(
+          id: 'existing-alice',
+          name: 'Alice',
+          createdAt: DateTime(2025, 1, 1),
+        ),
+      );
+
+      final result = await SpImporter(httpClient: _FakeHttpClient())
+          .executeImport(
+            db: db,
+            data: const SpExportData(
+              members: [
+                SpMember(id: 'sp-alice-1', name: 'Alice'),
+                SpMember(id: 'sp-alice-2', name: 'alice'),
+              ],
+              customFronts: [],
+              frontHistory: [],
+              groups: [],
+              channels: [],
+              messages: [],
+              polls: [],
+            ),
+            memberRepo: memberRepo,
+            sessionRepo: _FakeSessionRepository(),
+            conversationRepo: _FakeConversationRepository(),
+            messageRepo: _FakeChatMessageRepository(),
+            pollRepo: _FakePollRepository(),
+            spImportDao: db.spImportDao,
+            downloadAvatars: false,
+          );
+
+      final members = await memberRepo.getAllMembers();
+
+      expect(result.membersImported, 2);
+      expect(members, hasLength(3));
+    });
 
     test('empty export produces zero counts and no errors', () async {
       final repos = _makeFakeRepos();

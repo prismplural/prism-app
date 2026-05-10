@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' show TableUpdate, Value;
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
     show
         AppDatabase,
@@ -213,6 +214,14 @@ class SpImporter {
 
     // Load existing SP→Prism ID mappings so a re-import reuses stable UUIDs.
     final existingMappings = await _loadExistingMappings(spImportDao);
+    _discardUnknownSentinelMemberMappings(existingMappings, data.members);
+    if (!clearExistingData) {
+      await _seedMemberMappingsFromExistingLocals(
+        existingMappings,
+        data.members,
+        memberRepo,
+      );
+    }
 
     final mapper = SpMapper(
       existingMappings: existingMappings,
@@ -248,6 +257,8 @@ class SpImporter {
     // transaction is rolled back and the exception propagates to the caller.
     // When clearExistingData is true, the wipe happens inside the same
     // transaction so a failed import rolls back everything — no data loss.
+    var membersImported = 0;
+
     await db.transaction(() async {
       // Scrub stale CF-as-member persisted mappings (plan §Classification)
       // inside the transaction so a failed import rolls back the scrub too.
@@ -311,7 +322,13 @@ class SpImporter {
       // 1. Import members.
       for (final member in mapped.members) {
         onProgress?.call(currentItem, totalItems, 'Importing members...');
+        final existing = await memberRepo.getMemberById(member.id);
+        if (existing != null) {
+          await didImportOne();
+          continue;
+        }
         await memberRepo.createMember(member);
+        membersImported++;
         await didImportOne();
       }
 
@@ -598,7 +615,7 @@ class SpImporter {
     stopwatch.stop();
 
     return ImportResult(
-      membersImported: mapped.members.length,
+      membersImported: membersImported,
       sessionsImported: mapped.sessions.length,
       conversationsImported: mapped.conversations.length,
       messagesImported: mapped.messages.length,
@@ -759,5 +776,91 @@ class SpImporter {
           row.prismId;
     }
     return existingMappings;
+  }
+
+  void _discardUnknownSentinelMemberMappings(
+    Map<String, Map<String, String>> existingMappings,
+    List<SpMember> members,
+  ) {
+    final memberMappings = existingMappings['member'];
+    if (memberMappings == null || memberMappings.isEmpty) return;
+
+    final exportedMemberIds = {for (final member in members) member.id};
+    memberMappings.removeWhere(
+      (spId, prismId) =>
+          exportedMemberIds.contains(spId) &&
+          prismId == unknownSentinelMemberId,
+    );
+  }
+
+  Future<void> _seedMemberMappingsFromExistingLocals(
+    Map<String, Map<String, String>> existingMappings,
+    List<SpMember> members,
+    MemberRepository memberRepo,
+  ) async {
+    final memberMappings = existingMappings.putIfAbsent('member', () => {});
+    final unmappedPkIds = {
+      for (final member in members)
+        if (!memberMappings.containsKey(member.id) &&
+            member.pkId != null &&
+            member.pkId!.isNotEmpty)
+          member.pkId!,
+    };
+    final unmappedNames = <String, int>{};
+    for (final member in members) {
+      if (memberMappings.containsKey(member.id)) continue;
+      final normalized = _normalizedMemberName(member.name);
+      if (normalized == null) continue;
+      unmappedNames[normalized] = (unmappedNames[normalized] ?? 0) + 1;
+    }
+    if (unmappedPkIds.isEmpty && unmappedNames.isEmpty) return;
+
+    final localsByPkId = <String, String>{};
+    final localNameCounts = <String, int>{};
+    final localsByName = <String, String>{};
+    for (final local in await memberRepo.getAllMembers()) {
+      if (local.id == unknownSentinelMemberId) continue;
+
+      final pkId = local.pluralkitId;
+      if (pkId != null && pkId.isNotEmpty && unmappedPkIds.contains(pkId)) {
+        localsByPkId.putIfAbsent(pkId, () => local.id);
+      }
+
+      final normalizedName = _normalizedMemberName(local.name);
+      if (normalizedName != null && unmappedNames.containsKey(normalizedName)) {
+        localNameCounts[normalizedName] =
+            (localNameCounts[normalizedName] ?? 0) + 1;
+        localsByName.putIfAbsent(normalizedName, () => local.id);
+      }
+    }
+
+    for (final member in members) {
+      if (memberMappings.containsKey(member.id)) continue;
+      final pkId = member.pkId;
+      final localId = pkId == null || pkId.isEmpty ? null : localsByPkId[pkId];
+      if (localId != null) {
+        memberMappings[member.id] = localId;
+        continue;
+      }
+
+      final normalizedName = _normalizedMemberName(member.name);
+      if (normalizedName == null ||
+          unmappedNames[normalizedName] != 1 ||
+          localNameCounts[normalizedName] != 1) {
+        continue;
+      }
+      final nameMatchedLocalId = localsByName[normalizedName];
+      if (nameMatchedLocalId != null) {
+        memberMappings[member.id] = nameMatchedLocalId;
+      }
+    }
+  }
+
+  String? _normalizedMemberName(String name) {
+    final normalized = name
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .toLowerCase();
+    return normalized.isEmpty ? null : normalized;
   }
 }
