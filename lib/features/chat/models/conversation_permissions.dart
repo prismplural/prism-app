@@ -41,20 +41,24 @@ class ConversationPermissions {
   // imports produced this shape for channels that had no `members` field.
   bool get _isUnscopedDirectMessage =>
       isDirectMessage && conversation.participantIds.isEmpty;
+  bool get _isOrphanedDirectMessage =>
+      isDirectMessage && conversation.participantIds.length == 1;
   bool get canView =>
       !isDirectMessage || _isUnscopedDirectMessage || isParticipant;
   bool get canWrite =>
-      !isDirectMessage || _isUnscopedDirectMessage || isParticipant;
+      !isDirectMessage ||
+      _isUnscopedDirectMessage ||
+      (isParticipant && !_isOrphanedDirectMessage);
   bool get canManage => canWrite && (isCreator || isAdmin);
 
-  bool get canEditTitleEmoji => isDirectMessage ? isParticipant : canManage;
+  bool get canEditTitleEmoji => isDirectMessage ? canWrite : canManage;
   bool get canAddMembers => !isDirectMessage && canManage;
   bool get canRemoveMembers => !isDirectMessage && canManage;
-  bool get canDeleteConversation => isDirectMessage ? canWrite : canManage;
+  bool get canDeleteConversation => isDirectMessage ? canView : canManage;
   bool get canLeave => !isDirectMessage && isParticipant;
-  bool get canArchive => canWrite;
-  bool get canMute => canWrite;
-  bool get canMarkRead => canWrite;
+  bool get canArchive => isDirectMessage ? canView : canWrite;
+  bool get canMute => isDirectMessage ? canView : canWrite;
+  bool get canMarkRead => isDirectMessage ? canView : canWrite;
   bool get canSendMessages => canWrite;
   bool get canReact => canWrite;
 

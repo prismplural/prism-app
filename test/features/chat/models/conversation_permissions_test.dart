@@ -332,6 +332,51 @@ void main() {
     });
   });
 
+  group('ConversationPermissions — orphaned DM', () {
+    test('remaining participant can view, archive, mark read, and delete', () {
+      final perms = ConversationPermissions(
+        conversation: makeDmConversation(participantIds: ['member1']),
+        speakingAsMemberId: 'member1',
+        speakingAsMember: makeMember(id: 'member1'),
+      );
+
+      expect(perms.canView, isTrue);
+      expect(perms.canArchive, isTrue);
+      expect(perms.canMarkRead, isTrue);
+      expect(perms.canDeleteConversation, isTrue);
+    });
+
+    test(
+      'remaining participant cannot continue writing to the orphaned DM',
+      () {
+        final perms = ConversationPermissions(
+          conversation: makeDmConversation(participantIds: ['member1']),
+          speakingAsMemberId: 'member1',
+          speakingAsMember: makeMember(id: 'member1'),
+        );
+
+        expect(perms.canWrite, isFalse);
+        expect(perms.canEditTitleEmoji, isFalse);
+        expect(perms.canSendMessages, isFalse);
+        expect(perms.canReact, isFalse);
+        expect(perms.canEditMessage('member1'), isFalse);
+        expect(perms.canDeleteMessage('member1'), isFalse);
+      },
+    );
+
+    test('non-participant cannot view orphaned DM', () {
+      final perms = ConversationPermissions(
+        conversation: makeDmConversation(participantIds: ['member1']),
+        speakingAsMemberId: 'outsider',
+        speakingAsMember: makeMember(id: 'outsider'),
+      );
+
+      expect(perms.canView, isFalse);
+      expect(perms.canArchive, isFalse);
+      expect(perms.canDeleteConversation, isFalse);
+    });
+  });
+
   group('ConversationPermissions — legacy DM shape', () {
     test('untitled two-person conversation is treated as DM', () {
       final conv = Conversation(
