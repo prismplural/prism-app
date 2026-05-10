@@ -141,6 +141,7 @@ class MemberAvatar extends ConsumerWidget {
           tintStrength: PrismTokens.avatarTintAlpha,
           borderColor: accentBorderColor,
           borderWidth: 1,
+          showHighlight: false,
           child: ClipRRect(borderRadius: BorderRadius.zero, child: image),
         );
       } else {
@@ -150,6 +151,7 @@ class MemberAvatar extends ConsumerWidget {
           tintStrength: PrismTokens.avatarTintAlpha,
           borderColor: accentBorderColor,
           borderWidth: 1,
+          showHighlight: false,
           child: ClipOval(child: image),
         );
       }

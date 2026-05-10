@@ -28,6 +28,7 @@ class TintedGlassSurface extends ConsumerWidget {
     this.padding,
     this.borderColor,
     this.borderWidth = PrismTokens.hairlineBorderWidth,
+    this.showHighlight = true,
   });
 
   /// Convenience constructor for circular tinted glass surfaces.
@@ -40,6 +41,7 @@ class TintedGlassSurface extends ConsumerWidget {
     this.padding,
     this.borderColor,
     this.borderWidth = PrismTokens.hairlineBorderWidth,
+    this.showHighlight = true,
   }) : shape = BoxShape.circle,
        borderRadius = null,
        width = size,
@@ -57,6 +59,7 @@ class TintedGlassSurface extends ConsumerWidget {
   final EdgeInsets? padding;
   final Color? borderColor;
   final double borderWidth;
+  final bool showHighlight;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -111,7 +114,7 @@ class TintedGlassSurface extends ConsumerWidget {
               ));
 
     // --- Highlight gradient (suppressed in accessible mode) ---
-    final Decoration? highlightDecoration = isAccessible
+    final Decoration? highlightDecoration = isAccessible || !showHighlight
         ? null
         : BoxDecoration(
             shape: shape,
