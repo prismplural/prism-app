@@ -2021,6 +2021,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Mantén presionado para estar al frente';
 
   @override
+  String get frontingQuickFrontHoldInstruction => 'Mantén presionado';
+
+  @override
   String get frontingNewSession => 'Nueva sesión';
 
   @override

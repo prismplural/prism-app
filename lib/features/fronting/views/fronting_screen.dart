@@ -255,8 +255,8 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
         if (showQuickFront)
           const SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: QuickFrontSection(),
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: _QuickFrontHomeBlock(),
             ),
           ),
 
@@ -327,8 +327,8 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
         ),
         if (showQuickFront)
           const Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: QuickFrontSection(),
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: _QuickFrontHomeBlock(),
           ),
         if (isSleeping)
           const Padding(
@@ -337,10 +337,68 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
           ),
         Expanded(
           child: Padding(
-            padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
-            child: const TimelineView(),
+            padding: EdgeInsets.only(
+              top: showQuickFront ? 0 : 8,
+              bottom: NavBarInset.of(context),
+            ),
+            child: const Stack(
+              children: [
+                Positioned.fill(child: TimelineView()),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 12,
+                  child: CurrentFrontingSessionChip(),
+                ),
+              ],
+            ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _QuickFrontHomeBlock extends StatelessWidget {
+  const _QuickFrontHomeBlock();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final labelStyle = theme.textTheme.labelLarge?.copyWith(
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+      fontFamily: theme.textTheme.headlineLarge?.fontFamily,
+      fontWeight: FontWeight.w700,
+      letterSpacing: theme.textTheme.headlineLarge?.letterSpacing ?? 0,
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                context.l10n.featureFrontingShowQuickFront,
+                style: labelStyle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                context.l10n.frontingQuickFrontHoldInstruction,
+                style: labelStyle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        const QuickFrontSection(),
       ],
     );
   }

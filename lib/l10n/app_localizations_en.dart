@@ -1969,6 +1969,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingQuickFrontHoldHint => 'Hold to start fronting';
 
   @override
+  String get frontingQuickFrontHoldInstruction => 'Press and hold';
+
+  @override
   String get frontingNewSession => 'New Session';
 
   @override

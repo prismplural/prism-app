@@ -75,10 +75,11 @@ Widget _buildSubject({
   required _FakeFrontingNotifier frontingNotifier,
   required List<Member> members,
   FrontingSession? activeSleepSession,
+  bool showQuickFront = false,
 }) {
-  const settings = SystemSettings(
+  final settings = SystemSettings(
     systemName: 'Test System',
-    showQuickFront: false,
+    showQuickFront: showQuickFront,
     frontingListViewMode: FrontingListViewMode.combinedPeriods,
     wakeSuggestionEnabled: false,
   );
@@ -93,6 +94,7 @@ Widget _buildSubject({
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       allMembersProvider.overrideWith((ref) => Stream.value(members)),
       activeSessionsProvider.overrideWith((ref) => Stream.value(const [])),
+      memberFrontingCountsProvider.overrideWith((ref) async => const {}),
       allGroupsProvider.overrideWith(
         (ref) => Stream.value(const <MemberGroup>[]),
       ),
@@ -112,7 +114,7 @@ Widget _buildSubject({
       frontingMigrationModeProvider.overrideWith(
         (ref) => Stream.value('complete'),
       ),
-      showQuickFrontProvider.overrideWith((ref) => false),
+      showQuickFrontProvider.overrideWith((ref) => showQuickFront),
       systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
       showFrontingViewToggleProvider.overrideWith(
         _FakeShowFrontingViewToggleNotifier.new,
@@ -130,6 +132,32 @@ Widget _buildSubject({
 Finder _addButton() => find.byTooltip('Add fronting entry');
 
 void main() {
+  group('FrontingScreen quick front header', () {
+    testWidgets('labels Quick Front and its hold interaction on home', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildSubject(
+          sleepNotifier: _FakeSleepNotifier(),
+          frontingNotifier: _FakeFrontingNotifier(),
+          members: [_member('m1', 'Alice'), _member('m2', 'Bob')],
+          showQuickFront: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Quick Front'), findsOneWidget);
+      expect(find.text('Press and hold'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Quick Front')).dy,
+        lessThan(tester.getTopLeft(find.text('Alice')).dy),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+  });
+
   group('FrontingScreen add menu', () {
     testWidgets('long-press menu opens historical sheet in past-session mode', (
       tester,

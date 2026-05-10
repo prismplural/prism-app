@@ -2661,6 +2661,10 @@
   "@frontingQuickFrontHoldHint": {
     "description": "Semantics long-press hint on quick front button"
   },
+  "frontingQuickFrontHoldInstruction": "Press and hold",
+  "@frontingQuickFrontHoldInstruction": {
+    "description": "Visible helper text above Quick Front shortcuts on the home screen"
+  },
   "frontingNewSession": "New Session",
   "@frontingNewSession": {
     "description": "Sheet title when creating a new fronting session (non-co-front mode)"

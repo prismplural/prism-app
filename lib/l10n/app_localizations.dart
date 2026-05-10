@@ -3536,6 +3536,12 @@ abstract class AppLocalizations {
   /// **'Hold to start fronting'**
   String get frontingQuickFrontHoldHint;
 
+  /// Visible helper text above Quick Front shortcuts on the home screen
+  ///
+  /// In en, this message translates to:
+  /// **'Press and hold'**
+  String get frontingQuickFrontHoldInstruction;
+
   /// Sheet title when creating a new fronting session (non-co-front mode)
   ///
   /// In en, this message translates to:
