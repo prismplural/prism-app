@@ -609,7 +609,7 @@ class PkGroupsImporter with SyncRecordMixin {
   ///
   /// Called by both _refetchAndReconcileAddBucket AND
   /// _refetchAndReconcileRemoveBucket on the 404 path. Order matters when
-  /// the same gone group appears in both buckets (codex review 2nd pass
+  /// the same gone group appears in both buckets (2nd-pass review
   /// [P3]): if the add path's clearAllPendingPkOpForGroup ran first, it
   /// would wipe push_remove pending → the remove path's later DELETE
   /// misses → zombie. The shared helper handles both ops atomically;
@@ -720,7 +720,7 @@ class PkGroupsImporter with SyncRecordMixin {
       // between intent set and push would target the wrong PK identifier:
       // user adds member-with-uuid-A → entry.pkMemberUuid = A → user
       // relinks to B → push reads CURRENT member.pluralkitUuid (B) and
-      // pushes B, leaving A in the PK group permanently. Codex review [P2].
+      // pushes B, leaving A in the PK group permanently. Later review [P2].
       // Empty-string is treated as "not set" and falls back to current.
       final entryGroupPk = (entry.pkGroupUuid ?? '').trim();
       final entryMemberPk = (entry.pkMemberUuid ?? '').trim();
@@ -891,7 +891,7 @@ class PkGroupsImporter with SyncRecordMixin {
     List<_PushCandidate> candidates,
     PkGroupMembershipPushResult result,
   ) async {
-    // 4xx + push_add: codex v3-patches-2 cleanup-pass narrowed the policy.
+    // 4xx + push_add: a v3-patches-2 cleanup pass narrowed the policy.
     // Group-absence alone does NOT prove the member's UUID is stale on PK
     // (could be auth, validation, transient). We refetch this group's
     // authoritative member list and per-entry compare:
@@ -904,7 +904,7 @@ class PkGroupsImporter with SyncRecordMixin {
       authoritative = (await client.getGroupMembers(groupPkUuid)).toSet();
     } on PluralKitApiError catch (e) {
       if (e.statusCode == 404) {
-        // PK group is gone — terminal policy. Codex review (2nd pass) [P3]:
+        // PK group is gone — terminal policy. 2nd-pass review [P3]:
         // we have to handle BOTH push_add AND push_remove rows in the same
         // group atomically, otherwise a later push_remove bucket for the
         // same gone group will see its tombstones already cleared to
@@ -962,8 +962,8 @@ class PkGroupsImporter with SyncRecordMixin {
         // PK group is gone — desired remove satisfied for every candidate.
         // Use the shared terminal-cleanup helper which hard-deletes ALL
         // push_remove tombstones in the group first (including any not in
-        // this bucket), then clears push_add to none. Codex review (2nd
-        // pass) [P3]: a single bucket's local hard-delete is not enough
+        // this bucket), then clears push_add to none. 2nd-pass review
+        // [P3]: a single bucket's local hard-delete is not enough
         // when another bucket for the same gone group runs after this one.
         final removed = await _terminalCleanupForGoneGroup(groupPkUuid);
         return result.copyWith(removed: result.removed + removed);

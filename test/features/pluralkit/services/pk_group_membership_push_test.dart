@@ -485,7 +485,7 @@ void main() {
       '→ stranded (genuine no-link case)',
       () async {
         // The orchestrator prefers entry.pkMemberUuid (snapshot) and falls
-        // back to current member.pluralkitUuid (codex review [P2] fix). The
+        // back to current member.pluralkitUuid (later review [P2] fix). The
         // stranded branch only fires when neither source has a UUID — i.e.
         // a row with no stored snapshot AND a local member that's never
         // been linked to PK (or had its link cleared). Otherwise we have
@@ -572,7 +572,7 @@ void main() {
       'push_remove uses entry.pkMemberUuid (snapshot) NOT current member.pluralkitUuid '
       '— so a relink mid-pending does not delete the wrong PK member',
       () async {
-        // Reproduces the codex implementation-review [P2] regression:
+        // Reproduces the implementation-review [P2] regression:
         // 1. User added member-with-pk-A to group → entry stored pkMemberUuid=pk-A.
         // 2. User removed → push_remove queued.
         // 3. Before push runs, user relinks member to pk-B locally.
@@ -682,7 +682,7 @@ void main() {
     test(
       'PK group 404 affects BOTH push_add and push_remove buckets in the '
       'same group → push_remove tombstones still hard-delete cleanly even '
-      'when the add bucket runs first (codex review 2nd pass [P3])',
+      'when the add bucket runs first (2nd-pass review [P3])',
       () async {
         // Same gone group has both kinds of pending. Buckets are processed
         // add-first (per implementation), so the add bucket's 404 path
@@ -743,7 +743,7 @@ void main() {
 
     test(
       'PK group 404 during REMOVE-bucket refetch → hard-delete the tombstone '
-      'AND clear any other pending in the group (codex review [P3] order fix)',
+      'AND clear any other pending in the group (later review [P3] order fix)',
       () async {
         // Seed two pending rows in the same PK group: one push_remove (the
         // bucket we are pushing) and one push_add (an unrelated row that

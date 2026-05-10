@@ -74,7 +74,7 @@ void main() {
   // PluralKit docs: POST /groups/{ref}/members/add and /remove take a raw
   // JSON array of member references and return 204 on success. Tests assert
   // the wire body shape (catches the v1 plan's wrong {"members": [...]}
-  // assumption that codex flagged) and the rate-limit / error surface.
+  // assumption flagged in review) and the rate-limit / error surface.
 
   group('PluralKitClient.addMembersToGroup', () {
     test('POSTs to /groups/<ref>/members/add with raw JSON array body',
@@ -92,7 +92,7 @@ void main() {
       expect(captured!.method, 'POST');
       expect(captured!.url.path, endsWith('/groups/group-uuid/members/add'));
       // Body must be a raw JSON array — NOT {"members": [...]} as v1 plan
-      // initially assumed. Codex catch.
+      // initially assumed. Caught in a later review pass.
       expect(jsonDecode(captured!.body), ['m1', 'm2']);
     });
 

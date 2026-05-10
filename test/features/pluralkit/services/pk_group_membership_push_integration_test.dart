@@ -112,7 +112,7 @@ void main() {
         client.dispose();
       });
 
-      // ─── Wire-shape sanity (the codex v1 [P1] body-shape assumption) ─────
+      // ─── Wire-shape sanity (the v1 plan's [P1] body-shape assumption) ────
 
       test(
         'addMembersToGroup with a raw JSON array body produces 204 and the '
