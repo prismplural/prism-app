@@ -504,4 +504,162 @@ void main() {
       expect(find.text('Discard changes?'), findsNothing);
     },
   );
+
+  // Regression test for the auto-theme-switch bug: when the system flips
+  // light↔dark while a long-lived PrismSheet is open, the sheet's background
+  // must follow the new theme. Earlier code passed an explicit backgroundColor
+  // to showModalBottomSheet which snapshot the color at open-time and left
+  // the sheet stuck on the old theme.
+  testWidgets(
+    'PrismSheet background tracks theme changes while the sheet is open',
+    (tester) async {
+      const lightSheetBg = Color(0xFFAABBCC);
+      const darkSheetBg = Color(0xFF112233);
+
+      final brightnessNotifier = ValueNotifier<Brightness>(Brightness.light);
+      addTearDown(brightnessNotifier.dispose);
+
+      Widget buildApp() {
+        return ValueListenableBuilder<Brightness>(
+          valueListenable: brightnessNotifier,
+          builder: (context, brightness, _) {
+            return MaterialApp(
+              theme: ThemeData(
+                brightness: Brightness.light,
+                bottomSheetTheme: const BottomSheetThemeData(
+                  backgroundColor: lightSheetBg,
+                ),
+              ),
+              darkTheme: ThemeData(
+                brightness: Brightness.dark,
+                bottomSheetTheme: const BottomSheetThemeData(
+                  backgroundColor: darkSheetBg,
+                ),
+              ),
+              themeMode: brightness == Brightness.dark
+                  ? ThemeMode.dark
+                  : ThemeMode.light,
+              home: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () {
+                    PrismSheet.show(
+                      context: context,
+                      builder: (_) => const SizedBox(
+                        key: Key('sheet-body'),
+                        height: 100,
+                        child: Text('Body'),
+                      ),
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
+            );
+          },
+        );
+      }
+
+      await tester.pumpWidget(buildApp());
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      Material findSheetMaterial() {
+        return tester.widget<Material>(
+          find
+              .ancestor(
+                of: find.byKey(const Key('sheet-body')),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+      }
+
+      expect(findSheetMaterial().color, lightSheetBg);
+
+      // Flip the app to dark mode while the sheet is still on screen.
+      brightnessNotifier.value = Brightness.dark;
+      await tester.pumpAndSettle();
+
+      expect(
+        findSheetMaterial().color,
+        darkSheetBg,
+        reason:
+            'PrismSheet.show must not snapshot bottomSheetTheme.backgroundColor '
+            'at open-time — re-introducing an explicit backgroundColor on '
+            'showModalBottomSheet leaves the sheet stuck on the old theme '
+            'after a system light/dark switch.',
+      );
+    },
+  );
+
+  testWidgets(
+    'PrismSheet.showFullScreen background tracks theme changes',
+    (tester) async {
+      const lightSheetBg = Color(0xFFAABBCC);
+      const darkSheetBg = Color(0xFF112233);
+
+      final brightnessNotifier = ValueNotifier<Brightness>(Brightness.light);
+      addTearDown(brightnessNotifier.dispose);
+
+      await tester.pumpWidget(
+        ValueListenableBuilder<Brightness>(
+          valueListenable: brightnessNotifier,
+          builder: (context, brightness, _) {
+            return MaterialApp(
+              theme: ThemeData(
+                brightness: Brightness.light,
+                bottomSheetTheme: const BottomSheetThemeData(
+                  backgroundColor: lightSheetBg,
+                ),
+              ),
+              darkTheme: ThemeData(
+                brightness: Brightness.dark,
+                bottomSheetTheme: const BottomSheetThemeData(
+                  backgroundColor: darkSheetBg,
+                ),
+              ),
+              themeMode: brightness == Brightness.dark
+                  ? ThemeMode.dark
+                  : ThemeMode.light,
+              home: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () {
+                    PrismSheet.showFullScreen(
+                      context: context,
+                      builder: (_, _) => const SizedBox(
+                        key: Key('full-sheet-body'),
+                        height: 100,
+                        child: Text('Body'),
+                      ),
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      Material findSheetMaterial() {
+        return tester.widget<Material>(
+          find
+              .ancestor(
+                of: find.byKey(const Key('full-sheet-body')),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+      }
+
+      expect(findSheetMaterial().color, lightSheetBg);
+
+      brightnessNotifier.value = Brightness.dark;
+      await tester.pumpAndSettle();
+
+      expect(findSheetMaterial().color, darkSheetBg);
+    },
+  );
 }

@@ -65,7 +65,11 @@ class PrismSheet extends StatelessWidget {
       // whether it can pop. That leaves dirty PopScope-guarded sheets collapsed
       // behind an active barrier, so _SheetChrome owns drag-to-dismiss instead.
       enableDrag: false,
-      backgroundColor: Theme.of(context).bottomSheetTheme.backgroundColor,
+      // Intentionally omit backgroundColor so Flutter's _ModalBottomSheet
+      // resolves it from Theme.of(context).bottomSheetTheme at every rebuild.
+      // Passing an explicit color snapshots it at open time and leaves the
+      // sheet stuck on the old theme when the system flips light↔dark while
+      // a long-lived sheet (e.g. export) is open.
       // Suppress the stock M3 drag handle — _SheetChrome renders its own.
       showDragHandle: false,
       shape: RoundedRectangleBorder(
@@ -142,7 +146,8 @@ class PrismSheet extends StatelessWidget {
       // gesture detectors.
       enableDrag: false,
       showDragHandle: false,
-      backgroundColor: Theme.of(context).bottomSheetTheme.backgroundColor,
+      // Omit backgroundColor — see PrismSheet.show for the theme-transition
+      // rationale.
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(
