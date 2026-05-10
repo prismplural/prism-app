@@ -38,7 +38,7 @@ class MarkdownText extends StatelessWidget {
     final sheet = _buildStyleSheet(context, theme);
 
     return MarkdownBody(
-      data: data,
+      data: _normalizeDiscordLikeIndentation(data),
       selectable: selectable,
       styleSheet: sheet,
       softLineBreak: true,
@@ -129,4 +129,145 @@ class MarkdownText extends StatelessWidget {
     }
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
+
+  String _normalizeDiscordLikeIndentation(String input) {
+    // Discord-style profile text uses fenced code blocks; four leading ASCII
+    // spaces are often decorative indentation, not an implicit code block.
+    if (input.isEmpty) return input;
+
+    final lines = input.split('\n');
+    final out = <String>[];
+    _MarkdownFence? fence;
+
+    for (final line in lines) {
+      final accidentallyIndented = _removeAccidentalCodeIndent(line);
+
+      if (fence != null) {
+        final candidate = accidentallyIndented ?? line;
+        if (_isClosingFence(candidate, fence)) {
+          out.add(candidate);
+          fence = null;
+        } else {
+          out.add(line);
+        }
+        continue;
+      }
+
+      if (accidentallyIndented != null) {
+        final openingFence = _openingFence(accidentallyIndented);
+        if (openingFence != null ||
+            _startsWithDiscordStyleBlockMarker(accidentallyIndented)) {
+          out.add(accidentallyIndented);
+          fence = openingFence;
+        } else {
+          out.add(_replaceLeadingAsciiWhitespaceWithNbsp(line));
+        }
+        continue;
+      }
+
+      out.add(line);
+      fence = _openingFence(line);
+    }
+
+    return out.join('\n');
+  }
+
+  String? _removeAccidentalCodeIndent(String line) {
+    var columns = 0;
+    var index = 0;
+    while (index < line.length) {
+      final unit = line.codeUnitAt(index);
+      if (unit == _space) {
+        columns += 1;
+      } else if (unit == _tab) {
+        columns += 4 - (columns % 4);
+      } else {
+        break;
+      }
+      index += 1;
+    }
+
+    return columns >= 4 ? line.substring(index) : null;
+  }
+
+  String _replaceLeadingAsciiWhitespaceWithNbsp(String line) {
+    final buffer = StringBuffer();
+    var index = 0;
+    while (index < line.length) {
+      final unit = line.codeUnitAt(index);
+      if (unit == _space) {
+        buffer.write(_nbsp);
+      } else if (unit == _tab) {
+        buffer.write(_nbsp * 4);
+      } else {
+        break;
+      }
+      index += 1;
+    }
+    buffer.write(line.substring(index));
+    return buffer.toString();
+  }
+
+  bool _startsWithDiscordStyleBlockMarker(String line) {
+    return _blockquoteMarker.hasMatch(line) ||
+        _headingMarker.hasMatch(line) ||
+        _listMarker.hasMatch(line) ||
+        _thematicBreakMarker.hasMatch(line);
+  }
+
+  _MarkdownFence? _openingFence(String line) {
+    final marker = _fenceMarker(line);
+    return marker == null ? null : _MarkdownFence(marker[0], marker.length);
+  }
+
+  bool _isClosingFence(String line, _MarkdownFence fence) {
+    final marker = _fenceMarker(line);
+    if (marker == null ||
+        marker[0] != fence.character ||
+        marker.length < fence.length) {
+      return false;
+    }
+
+    final markerStart = line.indexOf(marker);
+    final rest = line.substring(markerStart + marker.length);
+    return rest.trim().isEmpty;
+  }
+
+  String? _fenceMarker(String line) {
+    var index = 0;
+    while (index < line.length &&
+        index < 3 &&
+        line.codeUnitAt(index) == _space) {
+      index += 1;
+    }
+    if (index >= line.length || line.codeUnitAt(index) == _space) return null;
+
+    final unit = line.codeUnitAt(index);
+    if (unit != _backtick && unit != _tilde) return null;
+
+    var end = index;
+    while (end < line.length && line.codeUnitAt(end) == unit) {
+      end += 1;
+    }
+    if (end - index < 3) return null;
+    return line.substring(index, end);
+  }
 }
+
+class _MarkdownFence {
+  const _MarkdownFence(this.character, this.length);
+
+  final String character;
+  final int length;
+}
+
+const _space = 0x20;
+const _tab = 0x09;
+const _backtick = 0x60;
+const _tilde = 0x7e;
+const _nbsp = '\u00A0';
+
+final _blockquoteMarker = RegExp(r'^(?:>{1,3})(?:[ \t]|$)');
+final _headingMarker = RegExp(r'^#{1,6}(?:[ \t]|$)');
+final _listMarker = RegExp(r'^(?:[*+-]|\d{1,9}[.)])(?:[ \t]|$)');
+final _thematicBreakMarker = RegExp(r'^(?:[-*_][ \t]*){3,}$');

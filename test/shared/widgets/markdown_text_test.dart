@@ -25,6 +25,84 @@ void main() {
     expect(_plainTextWidgets(tester), contains('▹ first line\n▹ second line'));
   });
 
+  testWidgets('indented markdown does not become an implicit code block', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(body: MarkdownText(data: '    **bold**')),
+      ),
+    );
+
+    final text = _plainTextWidgets(tester).join('\n');
+    expect(text, contains('bold'));
+    expect(text, isNot(contains('**bold**')));
+  });
+
+  testWidgets('indented blockquotes still parse as blockquotes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(body: MarkdownText(data: '    > **quoted**')),
+      ),
+    );
+
+    final text = _plainTextWidgets(tester).join('\n');
+    expect(text, contains('quoted'));
+    expect(text, isNot(contains('> **quoted**')));
+  });
+
+  testWidgets('fenced code blocks remain literal', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(body: MarkdownText(data: '```\n**bold**\n```')),
+      ),
+    );
+
+    expect(_plainTextWidgets(tester).join('\n'), contains('**bold**'));
+  });
+
+  testWidgets('Simply Plural decorative spacer bios preserve lines', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(body: MarkdownText(data: _decorativeSpacerBio)),
+      ),
+    );
+
+    final text = _plainTextWidgets(tester).join('\n');
+    expect(text, contains('ⓘ⠀⠀EXAMPLE⠀.⠀SAMPLE\n'));
+    expect(text, contains('†⠀Plain field﹔value\n'));
+    expect(text, contains('†⠀Bold field﹔bold value\n'));
+    expect(text, isNot(contains('**Bold field﹔bold value**')));
+  });
+
+  testWidgets('decorative spacer and ASCII indented markdown coexist', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(
+          body: MarkdownText(data: _mixedSpacerAndAsciiIndentBio),
+        ),
+      ),
+    );
+
+    final text = _plainTextWidgets(tester).join('\n');
+    expect(text, contains('ASCII indent bold\n'));
+    expect(text, contains('UNICODE spacer bold\n'));
+    expect(text, contains('ASCII quote'));
+    expect(text, isNot(contains('**ASCII indent bold**')));
+    expect(text, isNot(contains('> **ASCII quote**')));
+  });
+
   testWidgets('links flow inside surrounding paragraph text', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -122,3 +200,26 @@ List<String> _plainTextWidgets(WidgetTester tester) {
       .where((text) => text.isNotEmpty)
       .toList();
 }
+
+const _decorativeSpacerBio = '''
+⠀**⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯**
+⠀ ⠀⠀**ⓘ⠀⠀EXAMPLE⠀.⠀SAMPLE**
+⠀**⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯**
+⠀⠀†⠀Plain field﹔value
+⠀⠀†⠀**Bold field﹔bold value**
+⠀⠀†⠀Placeholder﹔placeholder
+⠀⠀†⠀Placeholder
+⠀⠀†⠀**Another bold field**
+⠀⠀†⠀Plain line⠀♡
+⠀**⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯**
+⠀⠀⠀⠀⠀⠀***⟳⠀Styled label***
+⠀**⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯**
+⠀⠀†⠀Number﹔label
+⠀⠀†⠀**Label﹔connection**
+⠀⠀†⠀Code + code﹔friendly note
+⠀**⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯**''';
+
+const _mixedSpacerAndAsciiIndentBio = '''
+    **ASCII indent bold**
+⠀**UNICODE spacer bold**
+    > **ASCII quote**''';
