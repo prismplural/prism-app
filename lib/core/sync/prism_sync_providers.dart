@@ -176,18 +176,23 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     });
 
     // Auto-create handle if sync credentials exist from a previous session
-    final syncIdB64 = await _storage.read(key: '${_secureStorePrefix}sync_id');
-    final relayUrlB64 = await _storage.read(
-      key: '${_secureStorePrefix}relay_url',
-    );
-    if (syncIdB64 != null && syncIdB64.isNotEmpty && relayUrlB64 != null) {
+    final syncIdB64 = await _storage.read(key: kSyncIdKey);
+    final relayUrlB64 = await _storage.read(key: kSyncRelayUrlKey);
+    final deviceIdB64 = await _storage.read(key: kSyncDeviceIdKey);
+    final deviceSecretB64 = await _storage.read(key: kSyncDeviceSecretKey);
+    if (hasCompletePersistentSyncIdentity(
+      relayUrl: relayUrlB64,
+      syncId: syncIdB64,
+      deviceId: deviceIdB64,
+      hasDeviceSecret: deviceSecretB64 != null && deviceSecretB64.isNotEmpty,
+    )) {
       try {
         // Decode base64-encoded relay URL
         String relayUrl;
         try {
-          relayUrl = utf8.decode(base64Decode(relayUrlB64));
+          relayUrl = utf8.decode(base64Decode(relayUrlB64!));
         } catch (_) {
-          relayUrl = relayUrlB64; // Fallback: already plain text
+          relayUrl = relayUrlB64!; // Fallback: already plain text
         }
         return await createHandle(relayUrl: relayUrl);
       } catch (e, st) {
@@ -265,6 +270,20 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       );
     }
     BootTimings.mark('createHandle:_seedRustStore');
+
+    final preconfigureSyncId = await _storage.read(key: kSyncIdKey);
+    final preconfigureDeviceId = await _storage.read(key: kSyncDeviceIdKey);
+    final preconfigureDeviceSecret = await _storage.read(
+      key: kSyncDeviceSecretKey,
+    );
+    final preconfigureHealth = classifyHealthFromKeychain(
+      syncId: preconfigureSyncId,
+      deviceId: preconfigureDeviceId,
+      deviceSecret: preconfigureDeviceSecret,
+    );
+    if (preconfigureHealth == SyncHealthState.unpaired) {
+      ref.read(syncHealthProvider.notifier).setState(SyncHealthState.unpaired);
+    }
 
     // Mark startup auto-config as in-progress before publishing the handle so
     // startup-sensitive listeners never observe a provisional "ready" window
@@ -446,7 +465,7 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
 /// isolation.
 ///
 /// Returns:
-///   * `unpaired`     — sync_id or device_id absent (never paired)
+///   * `unpaired`     — sync_id or device identity absent (never paired)
 ///   * `null`         — credentials present; caller should attempt the
 ///                      runtime-keys path and may end up healthy / needsPassword
 ///                      / disconnected depending on what's available
@@ -454,8 +473,15 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
 SyncHealthState? classifyHealthFromKeychain({
   required String? syncId,
   required String? deviceId,
+  required String? deviceSecret,
 }) {
-  if (syncId == null || deviceId == null) {
+  if (syncId == null || syncId.isEmpty) {
+    return SyncHealthState.unpaired;
+  }
+  if (deviceId == null || deviceId.isEmpty) {
+    return SyncHealthState.unpaired;
+  }
+  if (deviceSecret == null || deviceSecret.isEmpty) {
     return SyncHealthState.unpaired;
   }
   return null;
@@ -486,7 +512,7 @@ SyncHealthState? startupHealthForMigrationMode(String? mode) {
 ///
 /// Sync health state machine:
 ///   healthy       — sync configured and working
-///   unpaired      — device has never been paired (sync_id/device_id absent)
+///   unpaired      — device has never been paired (sync_id/device identity absent)
 ///   needsPassword — wrapped runtime cache missing, wrapped_dek exists → password modal
 ///                   (shown by AppShell listening to syncHealthProvider)
 ///   disconnected  — credentials gone → reconnect card in sync settings
@@ -501,6 +527,9 @@ Future<SyncHealthState> _autoConfigureIfReady(
   // Check if we have the minimum credentials needed
   final syncId = await _storage.read(key: '${_secureStorePrefix}sync_id');
   final deviceId = await _storage.read(key: '${_secureStorePrefix}device_id');
+  final deviceSecret = await _storage.read(
+    key: '${_secureStorePrefix}device_secret',
+  );
   // Not paired — distinguished from `healthy` so the post-config block in
   // `createHandle` skips cacheRuntimeKeys/drainRustStore/onResume on a
   // locked handle (which would otherwise emit benign "no DEK loaded"
@@ -508,6 +537,7 @@ Future<SyncHealthState> _autoConfigureIfReady(
   final keychainOnly = classifyHealthFromKeychain(
     syncId: syncId,
     deviceId: deviceId,
+    deviceSecret: deviceSecret,
   );
   if (keychainOnly != null) {
     return keychainOnly;
@@ -673,6 +703,9 @@ const kRuntimeDekWrappedKey = '${_secureStorePrefix}runtime_dek_wrapped_v1';
 /// Device identity persisted by prism-sync.
 const kSyncDeviceIdKey = '${_secureStorePrefix}device_id';
 
+/// Device secret persisted by prism-sync.
+const kSyncDeviceSecretKey = '${_secureStorePrefix}device_secret';
+
 /// Durable marker written only after the joiner snapshot has applied locally.
 const kSnapshotApplyCompleteKey =
     '${_secureStorePrefix}snapshot_apply_complete_v1';
@@ -688,6 +721,21 @@ String? decodeStoredUtf8(String? raw) {
   } catch (_) {
     return raw;
   }
+}
+
+bool hasCompletePersistentSyncIdentity({
+  required String? relayUrl,
+  required String? syncId,
+  required String? deviceId,
+  required bool hasDeviceSecret,
+}) {
+  return relayUrl != null &&
+      relayUrl.isNotEmpty &&
+      syncId != null &&
+      syncId.isNotEmpty &&
+      deviceId != null &&
+      deviceId.isNotEmpty &&
+      hasDeviceSecret;
 }
 
 String snapshotApplyCompleteMarkerValue({
@@ -1433,12 +1481,25 @@ Future<int> applyDrainedEntries({
     }
   }
   // Phase 2: write every entry Rust returned.
-  for (final entry in entries.entries) {
+  final orderedEntries = entries.entries.toList()
+    ..sort(
+      (a, b) =>
+          _drainWritePriority(a.key).compareTo(_drainWritePriority(b.key)),
+    );
+  for (final entry in orderedEntries) {
     if (shouldAbort?.call() ?? false) return committedWrites;
     await writeKey('$_secureStorePrefix${entry.key}', entry.value);
     committedWrites++;
   }
   return committedWrites;
+}
+
+int _drainWritePriority(String key) {
+  // `sync_id` + `relay_url` are UI/startup gate keys. Write them only after
+  // the device identity is durable so a crash mid-drain cannot make a partial
+  // setup look pairable on the next launch.
+  if (key == 'sync_id' || key == 'relay_url') return 2;
+  return 0;
 }
 
 /// Drain the Rust-side MemorySecureStore back to platform keychain.
@@ -3067,6 +3128,17 @@ final syncIdProvider = FutureProvider<String?>((ref) async {
   } catch (_) {
     return value; // Fallback: already plain text (legacy)
   }
+});
+
+/// The durable device ID from the platform keychain.
+final syncDeviceIdProvider = FutureProvider<String?>((ref) async {
+  return decodeStoredUtf8(await _storage.read(key: kSyncDeviceIdKey));
+});
+
+/// Whether the device secret is durably present in the platform keychain.
+final syncDeviceSecretPresentProvider = FutureProvider<bool>((ref) async {
+  final value = await _storage.read(key: kSyncDeviceSecretKey);
+  return value != null && value.isNotEmpty;
 });
 
 // ---------------------------------------------------------------------------

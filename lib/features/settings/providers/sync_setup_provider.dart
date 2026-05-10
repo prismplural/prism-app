@@ -263,12 +263,13 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       }
 
       // Parse the invite to extract sync_id and relay_url, then persist both
-      // so relayUrlProvider and syncIdProvider survive app restarts.
+      // after the Rust secure store has been drained. Publishing these
+      // keychain gate keys before device_id/device_secret are durable can make
+      // a killed setup look configured but unable to pair another device.
       final invite = jsonDecode(inviteJson) as Map<String, dynamic>;
       final syncId = invite['sync_id'] as String;
       final persistedRelayUrl =
           (invite['relay_url'] as String?) ?? state.relayUrl;
-      await _persistSyncIdentity(relayUrl: persistedRelayUrl, syncId: syncId);
 
       state = state.copyWith(
         currentProgress: SyncSetupProgress.configuringEngine,

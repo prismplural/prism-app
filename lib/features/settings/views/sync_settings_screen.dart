@@ -42,6 +42,24 @@ bool canTriggerManualSync({
   return hasHandle || hasRelayUrl;
 }
 
+@visibleForTesting
+bool isSyncSettingsConfigured({
+  required bool hasActiveHandle,
+  required SyncHealthState syncHealth,
+  required String? relayUrl,
+  required String? syncId,
+  required String? deviceId,
+  required bool hasDeviceSecret,
+}) {
+  if (hasActiveHandle && syncHealth != SyncHealthState.unpaired) return true;
+  return hasCompletePersistentSyncIdentity(
+    relayUrl: relayUrl,
+    syncId: syncId,
+    deviceId: deviceId,
+    hasDeviceSecret: hasDeviceSecret,
+  );
+}
+
 class SyncEntityCounts {
   const SyncEntityCounts({required this.total, required this.last24h});
   final int total;
@@ -132,8 +150,12 @@ class SyncSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final relayUrlAsync = ref.watch(relayUrlProvider);
     final syncIdAsync = ref.watch(syncIdProvider);
+    final deviceIdAsync = ref.watch(syncDeviceIdProvider);
+    final deviceSecretAsync = ref.watch(syncDeviceSecretPresentProvider);
     final relayUrl = relayUrlAsync.value;
     final syncId = syncIdAsync.value;
+    final deviceId = deviceIdAsync.value;
+    final hasDeviceSecret = deviceSecretAsync.value ?? false;
     // Use the FFI handle as the primary "configured" signal. Its AsyncData
     // is set synchronously inside `createHandle` and is not invalidated when
     // the keychain-backed FutureProviders below are invalidated, so it does
@@ -147,13 +169,15 @@ class SyncSettingsScreen extends ConsumerWidget {
     // spinner during invalidate.
     final handleAsyncForGate = ref.watch(prismSyncHandleProvider);
     final hasActiveHandle = handleAsyncForGate.value != null;
-    final hasKeychainCreds =
-        relayUrl != null &&
-        relayUrl.isNotEmpty &&
-        syncId != null &&
-        syncId.isNotEmpty;
-    final isConfigured = hasActiveHandle || hasKeychainCreds;
     final syncHealth = ref.watch(syncHealthProvider);
+    final isConfigured = isSyncSettingsConfigured(
+      hasActiveHandle: hasActiveHandle,
+      syncHealth: syncHealth,
+      relayUrl: relayUrl,
+      syncId: syncId,
+      deviceId: deviceId,
+      hasDeviceSecret: hasDeviceSecret,
+    );
 
     if (syncHealth == SyncHealthState.disconnected) {
       return PrismPageScaffold(
@@ -171,9 +195,14 @@ class SyncSettingsScreen extends ConsumerWidget {
       );
     }
 
-    if ((relayUrlAsync.isLoading || syncIdAsync.isLoading) &&
+    if ((relayUrlAsync.isLoading ||
+            syncIdAsync.isLoading ||
+            deviceIdAsync.isLoading ||
+            deviceSecretAsync.isLoading) &&
         !relayUrlAsync.hasValue &&
         !syncIdAsync.hasValue &&
+        !deviceIdAsync.hasValue &&
+        !deviceSecretAsync.hasValue &&
         !isConfigured) {
       return PrismPageScaffold(
         topBar: PrismTopBar(
@@ -188,6 +217,10 @@ class SyncSettingsScreen extends ConsumerWidget {
         ? relayUrlAsync.error
         : syncIdAsync.hasError
         ? syncIdAsync.error
+        : deviceIdAsync.hasError
+        ? deviceIdAsync.error
+        : deviceSecretAsync.hasError
+        ? deviceSecretAsync.error
         : null;
 
     if (loadError != null && !isConfigured) {
@@ -396,13 +429,15 @@ class _ConfiguredView extends ConsumerWidget {
                 ),
                 if (handle != null) ...[
                   const Divider(height: 1, indent: 60, endIndent: 12),
-                  PrismSettingsRow(
-                    icon: AppIcons.devices,
-                    title: context.l10n.syncSetUpAnotherDevice,
-                    subtitle: context.l10n.syncSetUpAnotherDeviceSubtitle,
-                    onTap: () => SetupDeviceSheet.show(context, ref),
-                  ),
-                  const Divider(height: 1, indent: 60, endIndent: 12),
+                  if (nodeId != null && nodeId.isNotEmpty) ...[
+                    PrismSettingsRow(
+                      icon: AppIcons.devices,
+                      title: context.l10n.syncSetUpAnotherDevice,
+                      subtitle: context.l10n.syncSetUpAnotherDeviceSubtitle,
+                      onTap: () => SetupDeviceSheet.show(context, ref),
+                    ),
+                    const Divider(height: 1, indent: 60, endIndent: 12),
+                  ],
                   PrismSettingsRow(
                     icon: AppIcons.devicesOther,
                     title: context.l10n.syncManageDevices,

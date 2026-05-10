@@ -92,6 +92,12 @@ void main() {
           relayUrlProvider.overrideWithValue(
             const AsyncValue<String?>.data('https://relay.example.com'),
           ),
+          syncDeviceIdProvider.overrideWithValue(
+            const AsyncValue<String?>.data('device-123'),
+          ),
+          syncDeviceSecretPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
         ],
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -153,6 +159,12 @@ void main() {
           ),
           relayUrlProvider.overrideWithValue(
             const AsyncValue<String?>.data('https://relay.example.com'),
+          ),
+          syncDeviceIdProvider.overrideWithValue(
+            const AsyncValue<String?>.data('device-123'),
+          ),
+          syncDeviceSecretPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
           ),
         ],
         child: MaterialApp(
@@ -237,6 +249,12 @@ void main() {
             relayUrlProvider.overrideWithValue(
               const AsyncValue<String?>.data('https://relay.example.com'),
             ),
+            syncDeviceIdProvider.overrideWithValue(
+              const AsyncValue<String?>.data('device-123'),
+            ),
+            syncDeviceSecretPresentProvider.overrideWithValue(
+              const AsyncValue<bool>.data(true),
+            ),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -318,6 +336,12 @@ void main() {
           ),
           relayUrlProvider.overrideWithValue(
             const AsyncValue<String?>.data('https://relay.example.com'),
+          ),
+          syncDeviceIdProvider.overrideWithValue(
+            const AsyncValue<String?>.data('device-123'),
+          ),
+          syncDeviceSecretPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
           ),
         ],
         child: MaterialApp(

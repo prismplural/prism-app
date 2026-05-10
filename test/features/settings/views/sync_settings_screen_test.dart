@@ -41,17 +41,23 @@ class _GatingHarness extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final relayUrlAsync = ref.watch(relayUrlProvider);
     final syncIdAsync = ref.watch(syncIdProvider);
+    final deviceIdAsync = ref.watch(syncDeviceIdProvider);
+    final deviceSecretAsync = ref.watch(syncDeviceSecretPresentProvider);
     final relayUrl = relayUrlAsync.value;
     final syncId = syncIdAsync.value;
+    final deviceId = deviceIdAsync.value;
+    final hasDeviceSecret = deviceSecretAsync.value ?? false;
     final handleAsyncForGate = ref.watch(prismSyncHandleProvider);
     final hasActiveHandle = handleAsyncForGate.value != null;
-    final hasKeychainCreds =
-        relayUrl != null &&
-        relayUrl.isNotEmpty &&
-        syncId != null &&
-        syncId.isNotEmpty;
-    final isConfigured = hasActiveHandle || hasKeychainCreds;
     final syncHealth = ref.watch(syncHealthProvider);
+    final isConfigured = isSyncSettingsConfigured(
+      hasActiveHandle: hasActiveHandle,
+      syncHealth: syncHealth,
+      relayUrl: relayUrl,
+      syncId: syncId,
+      deviceId: deviceId,
+      hasDeviceSecret: hasDeviceSecret,
+    );
 
     if (syncHealth == SyncHealthState.disconnected) {
       return const Text('disconnected', textDirection: TextDirection.ltr);
@@ -83,6 +89,8 @@ void main() {
           (ref) async => 'https://relay.example.com',
         ),
         syncIdProvider.overrideWith((ref) async => 'sync-123'),
+        syncDeviceIdProvider.overrideWith((ref) async => 'device-123'),
+        syncDeviceSecretPresentProvider.overrideWith((ref) async => true),
       ],
     );
     addTearDown(container.dispose);
@@ -138,6 +146,8 @@ void main() {
           prismSyncHandleProvider.overrideWith(() => _FakeHandleNotifier(null)),
           relayUrlProvider.overrideWith((ref) async => null),
           syncIdProvider.overrideWith((ref) async => null),
+          syncDeviceIdProvider.overrideWith((ref) async => null),
+          syncDeviceSecretPresentProvider.overrideWith((ref) async => false),
         ],
       );
       addTearDown(container.dispose);
@@ -154,6 +164,42 @@ void main() {
       expect(find.text('configured'), findsNothing);
     },
   );
+
+  testWidgets('partial sync_id/relay_url state is not treated as configured', (
+    tester,
+  ) async {
+    const handle = _FakePrismSyncHandle();
+    final container = ProviderContainer(
+      overrides: [
+        prismSyncHandleProvider.overrideWith(() => _FakeHandleNotifier(handle)),
+        syncHealthProvider.overrideWith(() {
+          final notifier = SyncHealthNotifier();
+          return notifier;
+        }),
+        relayUrlProvider.overrideWith(
+          (ref) async => 'https://relay.example.com',
+        ),
+        syncIdProvider.overrideWith((ref) async => 'sync-123'),
+        syncDeviceIdProvider.overrideWith((ref) async => null),
+        syncDeviceSecretPresentProvider.overrideWith((ref) async => false),
+      ],
+    );
+    addTearDown(container.dispose);
+    container
+        .read(syncHealthProvider.notifier)
+        .setState(SyncHealthState.unpaired);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const _GatingHarness(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('setup'), findsOneWidget);
+    expect(find.text('configured'), findsNothing);
+  });
 
   group('canTriggerManualSync', () {
     test(

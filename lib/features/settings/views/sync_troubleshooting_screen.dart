@@ -35,15 +35,19 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final relayUrl = ref.watch(relayUrlProvider).value;
     final syncId = ref.watch(syncIdProvider).value;
+    final deviceId = ref.watch(syncDeviceIdProvider).value;
+    final hasDeviceSecret =
+        ref.watch(syncDeviceSecretPresentProvider).value ?? false;
     final syncStatus = ref.watch(syncStatusProvider);
     final handleAsync = ref.watch(prismSyncHandleProvider);
     final handle = handleAsync.value;
 
-    final isConfigured =
-        relayUrl != null &&
-        relayUrl.isNotEmpty &&
-        syncId != null &&
-        syncId.isNotEmpty;
+    final isConfigured = hasCompletePersistentSyncIdentity(
+      relayUrl: relayUrl,
+      syncId: syncId,
+      deviceId: deviceId,
+      hasDeviceSecret: hasDeviceSecret,
+    );
     final hasActiveHandle = handle != null;
 
     final connectionColor = !isConfigured
@@ -291,8 +295,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
                       'Stream of sync events from this session',
                     ),
                     showChevron: true,
-                    onTap: () =>
-                        context.push(AppRoutePaths.settingsSyncDebug),
+                    onTap: () => context.push(AppRoutePaths.settingsSyncDebug),
                   ),
                   PrismListRow(
                     leading: Icon(AppIcons.lock),
@@ -301,9 +304,8 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
                       'Keychain inventory + per-boot snapshot history',
                     ),
                     showChevron: true,
-                    onTap: () => context.push(
-                      AppRoutePaths.settingsCryptoStorageDebug,
-                    ),
+                    onTap: () =>
+                        context.push(AppRoutePaths.settingsCryptoStorageDebug),
                   ),
                 ],
               ),

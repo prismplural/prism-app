@@ -16,6 +16,12 @@ void main() {
         syncIdProvider.overrideWithValue(
           const AsyncValue<String?>.data('sync-123'),
         ),
+        syncDeviceIdProvider.overrideWithValue(
+          const AsyncValue<String?>.data('device-123'),
+        ),
+        syncDeviceSecretPresentProvider.overrideWithValue(
+          const AsyncValue<bool>.data(true),
+        ),
       ],
       child: MaterialApp(
         locale: locale,

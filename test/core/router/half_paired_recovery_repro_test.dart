@@ -140,6 +140,7 @@ SyncHealthState _classifyCurrentStartupHealth(Map<String, String> keychain) {
   final keychainOnly = classifyHealthFromKeychain(
     syncId: keychain[kSyncIdKey],
     deviceId: keychain[kSyncDeviceIdKey],
+    deviceSecret: keychain[kSyncDeviceSecretKey],
   );
   if (keychainOnly != null) return keychainOnly;
 

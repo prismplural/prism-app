@@ -36,6 +36,16 @@ class SetupDeviceSheet {
       return;
     }
 
+    final deviceId = await ref.read(syncDeviceIdProvider.future);
+    final hasDeviceSecret = await ref.read(
+      syncDeviceSecretPresentProvider.future,
+    );
+    if (deviceId == null || deviceId.isEmpty || !hasDeviceSecret) {
+      if (!context.mounted) return;
+      PrismToast.error(context, message: context.l10n.syncEngineNotAvailable);
+      return;
+    }
+
     final relayUrl =
         await ref.read(relayUrlProvider.future) ?? AppConstants.defaultRelayUrl;
 
