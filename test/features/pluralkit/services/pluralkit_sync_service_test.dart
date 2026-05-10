@@ -17,6 +17,7 @@ import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_import_source.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_switch_cursor.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
@@ -1435,6 +1436,45 @@ void main() {
   // ── syncRecentData — null lastSyncDate triggers full import ──────────────────
 
   group('syncRecentData — null lastSyncDate', () {
+    test('full import respects PK-side skip decisions from mapping', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = FakeMemberRepository();
+      final frontRepo = FakeFrontingSessionRepository();
+      final fakeClient = FakePluralKitClient()
+        ..membersToReturn = const [
+          PKMember(id: 'skipa', uuid: 'pk-skip', name: 'Skipped'),
+          PKMember(id: 'keepa', uuid: 'pk-keep', name: 'Imported'),
+        ]
+        ..switchesToReturn = const [];
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+        sessionRepo: frontRepo,
+      );
+
+      await service.setToken('valid-token');
+      await PkMappingStateDao(db).upsert(
+        PkMappingStateCompanion(
+          id: const Value('skip:pk:pk-skip'),
+          decisionType: const Value('skip'),
+          pkMemberUuid: const Value('pk-skip'),
+          status: const Value('applied'),
+          createdAt: Value(DateTime.utc(2026, 1, 1)),
+          updatedAt: Value(DateTime.utc(2026, 1, 1)),
+        ),
+      );
+      await service.acknowledgeMapping();
+
+      await service.syncRecentData();
+
+      final members = await memberRepo.getAllMembers();
+      expect(members.map((m) => m.pluralkitUuid), ['pk-keep']);
+      expect(members.map((m) => m.name), ['Imported']);
+    });
+
     test('triggers performFullImport (getSwitches is called)', () async {
       final db = _makeDb();
       addTearDown(db.close);

@@ -1780,11 +1780,23 @@ class PluralKitSyncService {
 
   // -- private helpers ------------------------------------------------------
 
+  Future<Set<String>> _appliedPkSkipUuids() async {
+    final rows = await PkMappingStateDao(_syncDao.attachedDatabase).getAll();
+    return {
+      for (final row in rows)
+        if (row.decisionType == 'skip' &&
+            row.status == 'applied' &&
+            _hasText(row.pkMemberUuid))
+          row.pkMemberUuid!.trim(),
+    };
+  }
+
   Future<void> _importMembers(
     PluralKitClient? client,
     List<PKMember> pkMembers,
   ) async {
     final existing = await _memberRepository.getAllMembersIncludingDeleted();
+    final skippedPkUuids = await _appliedPkSkipUuids();
     debugPrint('[PK_SVC] _importMembers: existing in DB=${existing.length}');
     final byPkUuid = <String, domain.Member>{};
     final byPkId = <String, domain.Member>{};
@@ -1801,15 +1813,25 @@ class PluralKitSyncService {
 
     var created = 0;
     var updated = 0;
+    var skipped = 0;
     var failures = 0;
     for (final pk in pkMembers) {
+      final localMember = byPkUuid[pk.uuid] ?? byPkId[pk.id];
+      if (localMember == null && skippedPkUuids.contains(pk.uuid.trim())) {
+        skipped++;
+        debugPrint(
+          '[PK_SVC] _importMembers: skipped ${pk.name} (${pk.uuid}) '
+          'because mapping marked this PK member as skipped.',
+        );
+        continue;
+      }
+
       Uint8List? avatarData;
       if (pk.avatarUrl != null && pk.avatarUrl!.isNotEmpty) {
         avatarData = await fetchAvatarBytes(pk.avatarUrl!);
       }
 
       try {
-        final localMember = byPkUuid[pk.uuid] ?? byPkId[pk.id];
         if (localMember?.isDeleted == true) {
           debugPrint(
             '[PK_SVC] _importMembers: skipped ${pk.name} (${pk.uuid}) '
@@ -1896,7 +1918,7 @@ class PluralKitSyncService {
     }
     debugPrint(
       '[PK_SVC] _importMembers: done — created=$created updated=$updated '
-      'failures=$failures (input=${pkMembers.length})',
+      'skipped=$skipped failures=$failures (input=${pkMembers.length})',
     );
   }
 
