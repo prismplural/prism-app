@@ -231,7 +231,7 @@ class PkMappingApplier {
     );
 
     if (_isDefaultName(local.name)) {
-      updated = updated.copyWith(name: pk.displayName ?? pk.name);
+      updated = updated.copyWith(name: pk.name);
     }
     if (_isNullOrEmpty(local.pronouns) && !_isNullOrEmpty(pk.pronouns)) {
       updated = updated.copyWith(pronouns: pk.pronouns);
@@ -333,7 +333,7 @@ class PkMappingApplier {
 
     final member = domain.Member(
       id: _uuid.v4(),
-      name: d.pkMember.displayName ?? d.pkMember.name,
+      name: d.pkMember.name,
       pronouns: d.pkMember.pronouns,
       bio: d.pkMember.description,
       customColorHex: d.pkMember.color != null ? '#${d.pkMember.color}' : null,

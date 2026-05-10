@@ -1702,7 +1702,7 @@ class PluralKitSyncService {
           await _memberRepository.createMember(
             domain.Member(
               id: _uuid.v4(),
-              name: pk.displayName ?? pk.name,
+              name: pk.name,
               pronouns: pk.pronouns,
               bio: pk.description,
               birthday: pk.birthday,

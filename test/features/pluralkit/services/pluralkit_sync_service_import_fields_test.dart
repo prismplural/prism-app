@@ -3,7 +3,7 @@
 /// pronouns, bio, color, avatar-absent, PK IDs.
 ///
 /// Prior bug (fixed 2026-04-19): the main auto-sync import path dropped
-/// proxy_tags_json and birthday and collapsed display_name into name. Proxy
+/// proxy_tags_json and birthday. Proxy
 /// tags never reached the DB, so the member detail UI showed the empty state
 /// and the chat proxy-tag matcher short-circuited on `proxyTagsJson == null`.
 library;
@@ -105,8 +105,8 @@ void main() {
         expect(rows, hasLength(1));
         final row = rows.single;
 
-        // New imports seed Prism Name from PK display_name for display.
-        expect(row.name, 'Alice!');
+        // New imports seed Prism Name from PK's regular `name`.
+        expect(row.name, 'alice');
         // Prism Full Name is local-only; PK display_name is stored separately.
         expect(row.displayName, isNull);
         expect(row.pluralkitDisplayName, 'Alice!');

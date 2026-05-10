@@ -211,6 +211,7 @@ void main() {
       id: 'abcde',
       uuid: 'u-imp',
       name: 'Imported',
+      displayName: 'Imported Display',
       pronouns: 'they/them',
       description: 'bio here',
       color: 'ff00ff',
@@ -220,6 +221,8 @@ void main() {
     expect(results.single.outcome, PkApplyOutcome.applied);
     final all = await repo.getAllMembers();
     expect(all, hasLength(1));
+    expect(all.single.name, 'Imported');
+    expect(all.single.pluralkitDisplayName, 'Imported Display');
     expect(all.single.pluralkitUuid, 'u-imp');
     expect(all.single.pluralkitId, 'abcde');
     expect(all.single.bio, 'bio here');
@@ -422,7 +425,7 @@ void main() {
     expect(results.single.outcome, PkApplyOutcome.applied);
     final updated = (await repo.getMemberById('l1'))!;
     expect(updated.pluralkitUuid, 'u-link');
-    expect(updated.name, 'Ali ✨');
+    expect(updated.name, 'Alice');
     expect(updated.displayName, isNull);
     expect(updated.pluralkitDisplayName, 'Ali ✨');
     expect(updated.pronouns, 'she/her');

@@ -854,7 +854,7 @@ class _PluralKitGroupTesterScreenState
             .insertOnConflictUpdate(
               MembersCompanion.insert(
                 id: localMemberId,
-                name: member.displayName ?? member.name,
+                name: member.name,
                 pronouns: drift.Value(member.pronouns),
                 bio: drift.Value(member.description),
                 customColorHex: drift.Value(
