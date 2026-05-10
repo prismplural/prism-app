@@ -2,6 +2,25 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.8.2] - 2026-05-09
+
+This release smooths out fronting, chat, navigation, and sync flows after 0.8.1. It adds clearer current-session context, reduces noisy sync feedback, and fixes several edge cases around orphaned chat data, member cleanup, and markdown bios.
+
+### Added
+- Fronting history now shows a current-session chip for sessions that are still active.
+
+### Changed
+- Quick Front now labels hold actions more clearly and updates its hint when member changes affect who can be fronted.
+- Sync setup now allows first-device registration when an attestation proof is not available.
+
+### Fixed
+- Retryable sync errors no longer show noisy user-facing toasts.
+- Board posts, habit detail, member detail, and fronting history navigation preserve their detail back stacks more reliably.
+- Chat restores the Unknown author option where it is needed, including orphaned imports and existing conversations.
+- Orphaned direct messages stay visible but read-only instead of allowing edits that cannot be attributed safely.
+- Markdown bios preserve indentation and nested formatting more accurately.
+- Member deletion cleanup now removes stale references from fronting defaults and related member settings.
+
 ## [0.8.1] - 2026-05-09
 
 ### Added
