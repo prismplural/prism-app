@@ -333,31 +333,36 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                       membersAsync.when(
                         loading: () => const PrismLoadingState(),
                         error: (e, _) => Text('Error: $e'),
-                        data: (members) => _MemberGrid(
-                          members: members,
-                          selectedIds: _selectedIds,
-                          unknownId: _unknownId,
-                          pluralTerm: terms.pluralLower,
-                          frontingMemberIds: frontingMemberIds,
-                          onToggle: (id) {
-                            setState(() {
-                              if (id == _unknownId) {
-                                // Unknown is exclusive — clear other selections.
-                                _selectedIds
-                                  ..clear()
-                                  ..add(_unknownId);
-                              } else {
-                                // Deselect Unknown when picking a real member.
-                                _selectedIds.remove(_unknownId);
-                                if (_selectedIds.contains(id)) {
-                                  _selectedIds.remove(id);
+                        data: (members) {
+                          final selectableMembers = members
+                              .where((m) => m.id != unknownSentinelMemberId)
+                              .toList(growable: false);
+                          return _MemberGrid(
+                            members: selectableMembers,
+                            selectedIds: _selectedIds,
+                            unknownId: _unknownId,
+                            pluralTerm: terms.pluralLower,
+                            frontingMemberIds: frontingMemberIds,
+                            onToggle: (id) {
+                              setState(() {
+                                if (id == _unknownId) {
+                                  // Unknown is exclusive — clear other selections.
+                                  _selectedIds
+                                    ..clear()
+                                    ..add(_unknownId);
                                 } else {
-                                  _selectedIds.add(id);
+                                  // Deselect Unknown when picking a real member.
+                                  _selectedIds.remove(_unknownId);
+                                  if (_selectedIds.contains(id)) {
+                                    _selectedIds.remove(id);
+                                  } else {
+                                    _selectedIds.add(id);
+                                  }
                                 }
-                              }
-                            });
-                          },
-                        ),
+                              });
+                            },
+                          );
+                        },
                       ),
                       const SizedBox(height: 10),
                       Text(

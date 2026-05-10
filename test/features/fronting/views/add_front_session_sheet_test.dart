@@ -472,6 +472,27 @@ void main() {
       expect(find.text('Unknown'), findsOneWidget);
     });
 
+    testWidgets('persisted Unknown sentinel is not rendered as a second tile', (
+      tester,
+    ) async {
+      final members = [
+        _member(id: 'id0', name: 'M0'),
+        Member(
+          id: unknownSentinelMemberId,
+          name: 'Unknown',
+          emoji: '❔',
+          createdAt: DateTime(2024),
+        ),
+        _member(id: 'id1', name: 'M1'),
+      ];
+
+      await tester.pumpWidget(_buildSheetTrigger(members: members));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Unknown'), findsOneWidget);
+    });
+
     testWidgets('tapping Unknown in large grid enables the save button', (
       tester,
     ) async {
