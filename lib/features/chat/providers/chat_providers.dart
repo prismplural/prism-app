@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pool/pool.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
@@ -180,7 +181,8 @@ class SpeakingAsNotifier extends Notifier<String?> {
 
     final explicitSelection = _explicitSelection;
     if (explicitSelection != null) {
-      if (activeMemberIds == null ||
+      if (explicitSelection == unknownSentinelMemberId ||
+          activeMemberIds == null ||
           activeMemberIds.contains(explicitSelection)) {
         return explicitSelection;
       }
@@ -202,6 +204,7 @@ class SpeakingAsNotifier extends Notifier<String?> {
         .toSet();
     final selectedMemberId =
         memberId == null ||
+            memberId == unknownSentinelMemberId ||
             activeMemberIds == null ||
             activeMemberIds.contains(memberId)
         ? memberId

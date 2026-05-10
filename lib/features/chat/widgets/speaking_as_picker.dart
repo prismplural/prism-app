@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/chat/utils/chat_author_options.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -41,41 +42,35 @@ class SpeakingAsPicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    // Non-fronting picker: hide the Unknown sentinel — speaking as the
-    // placeholder member doesn't make sense in chat.
     final membersAsync = ref.watch(userVisibleMembersProvider);
     final speakingAs = ref.watch(speakingAsProvider);
     final terms = watchTerminology(context, ref);
 
     return membersAsync.when(
       data: (members) {
-        if (members.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text(
-              context.l10n.chatNoMembersAvailable(terms.pluralLower),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          );
-        }
+        final authorOptions = withUnknownChatAuthorOption(context, members);
 
         // Auto-select first member when allowed and nothing is selected.
-        if (speakingAs == null && members.isNotEmpty && autoSelectFirst) {
+        if (speakingAs == null && authorOptions.isNotEmpty && autoSelectFirst) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            ref.read(speakingAsProvider.notifier).setMember(members.first.id);
+            ref
+                .read(speakingAsProvider.notifier)
+                .setMember(
+                  members.isNotEmpty
+                      ? members.first.id
+                      : authorOptions.first.id,
+                );
           });
         }
 
-        final searchGroups = watchMemberSearchGroups(ref, members);
+        final searchGroups = watchMemberSearchGroups(ref, authorOptions);
 
         if (members.length >= _kSpeakingAsPickerSearchThreshold) {
           return _buildSearchTrigger(
             context,
             ref,
             theme,
-            members,
+            authorOptions,
             speakingAs,
             terms.plural,
             searchGroups,
@@ -88,7 +83,7 @@ class SpeakingAsPicker extends ConsumerWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             // +1 for the leading search button.
-            itemCount: members.length + 1,
+            itemCount: authorOptions.length + 1,
             separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               if (index == 0) {
@@ -96,12 +91,12 @@ class SpeakingAsPicker extends ConsumerWidget {
                   context,
                   ref,
                   theme,
-                  members,
+                  authorOptions,
                   terms.plural,
                   searchGroups,
                 );
               }
-              final member = members[index - 1];
+              final member = authorOptions[index - 1];
               return PrismChip(
                 label: member.name,
                 selected: member.id == speakingAs,
@@ -159,7 +154,8 @@ class SpeakingAsPicker extends ConsumerWidget {
         child: InkWell(
           key: const Key('speakingAsSearchChip'),
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _openSearchSheet(context, ref, members, termPlural, groups),
+          onTap: () =>
+              _openSearchSheet(context, ref, members, termPlural, groups),
           child: Container(
             width: 40,
             height: 40,
@@ -220,10 +216,7 @@ class SpeakingAsPicker extends ConsumerWidget {
                     size: 24,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    displayMember.name,
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                  Text(displayMember.name, style: theme.textTheme.bodyMedium),
                 ] else ...[
                   Icon(
                     AppIcons.personOutline,

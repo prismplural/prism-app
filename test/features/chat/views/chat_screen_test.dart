@@ -272,6 +272,7 @@ void main() {
 
     expect(find.byType(MemberSearchSheet), findsNothing);
     expect(find.text('Search'), findsOneWidget);
+    expect(find.text('Unknown'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('Search')).dy,
       lessThan(tester.getTopLeft(find.text('Alice')).dy),
@@ -298,5 +299,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(MemberSearchSheet), findsOneWidget);
+    expect(find.text('Unknown'), findsOneWidget);
   });
 }

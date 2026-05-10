@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
+import 'package:prism_plurality/features/chat/utils/chat_author_options.dart';
 import 'package:prism_plurality/features/chat/widgets/conversation_category_picker_dialog.dart';
 import 'package:prism_plurality/features/chat/widgets/speaking_as_picker.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -135,6 +136,7 @@ class _CreateConversationSheetState
   String _currentFronterName(AsyncValue<dynamic> membersAsync) {
     final speakingAs = ref.read(speakingAsProvider);
     if (speakingAs == null) return '...';
+    if (isUnknownChatAuthor(speakingAs)) return context.l10n.unknown;
     final members = membersAsync.value;
     if (members == null) return '...';
     for (final m in members) {
@@ -252,8 +254,7 @@ class _CreateConversationSheetState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
-    // Non-fronting picker: hide the Unknown sentinel — chats with the
-    // placeholder member aren't a real flow.
+    // Participant selection still hides the Unknown author placeholder.
     final membersAsync = ref.watch(userVisibleMembersProvider);
     final speakingAs = ref.watch(speakingAsProvider);
     ref.listen<String?>(speakingAsProvider, (_, next) {

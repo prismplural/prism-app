@@ -19,6 +19,7 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/voice_recording_provider.dart';
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
+import 'package:prism_plurality/features/chat/utils/chat_author_options.dart';
 import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_consent_dialog.dart';
@@ -188,6 +189,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   }
 
   List<Member> _getSpeakingAsCandidates(
+    BuildContext context,
     List<Member> members,
     Conversation? conversation,
   ) {
@@ -195,13 +197,18 @@ class _MessageInputState extends ConsumerState<MessageInput> {
         .where((member) => member.id != unknownSentinelMemberId)
         .toList(growable: false);
     if (conversation == null || !conversation.isDirectMessage) {
-      return userVisibleMembers;
+      return withUnknownChatAuthorOption(context, userVisibleMembers);
     }
     final participantIds = conversation.participantIds.toSet();
-    if (participantIds.isEmpty) return userVisibleMembers;
-    return userVisibleMembers
+    if (participantIds.isEmpty) {
+      return withUnknownChatAuthorOption(context, userVisibleMembers);
+    }
+    final participantMembers = userVisibleMembers
         .where((member) => participantIds.contains(member.id))
         .toList(growable: false);
+    return participantIds.contains(unknownSentinelMemberId)
+        ? withUnknownChatAuthorOption(context, participantMembers)
+        : participantMembers;
   }
 
   void _syncMentionOverlayPortal(bool shouldShow) {
@@ -597,6 +604,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     final conversation = conversationAsync.value;
     final mentionCandidates = _getMentionCandidates(members, conversation);
     final speakingAsCandidates = _getSpeakingAsCandidates(
+      context,
       members,
       conversation,
     );
@@ -609,9 +617,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     );
     final memberMap = {for (final m in members) m.id: m};
     _controller.updateMentionMembers(memberMap);
-    final currentMember = speakingAs != null
-        ? members.where((m) => m.id == speakingAs).firstOrNull
-        : null;
+    final currentMember = findChatAuthorOption(context, members, speakingAs);
 
     final rawMatch = useProxyTags ? matchProxyTag(_lastText, members) : null;
     final suppressed = _suppressedTag;

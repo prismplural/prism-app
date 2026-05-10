@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
@@ -22,14 +23,14 @@ const int _kThreshold = 15;
 
 /// Generates [count] active members named "Member 0", "Member 1", …
 List<Member> _members(int count) => List.generate(
-      count,
-      (i) => Member(
-        id: 'id-$i',
-        name: 'Member $i',
-        createdAt: DateTime(2024),
-        isActive: true,
-      ),
-    );
+  count,
+  (i) => Member(
+    id: 'id-$i',
+    name: 'Member $i',
+    createdAt: DateTime(2024),
+    isActive: true,
+  ),
+);
 
 /// A [SpeakingAsNotifier] that starts with [_memberId] and does not pull from
 /// the fronting session, making it safe to use in widget tests without a DB.
@@ -47,10 +48,7 @@ class _FixedSpeakingAsNotifier extends SpeakingAsNotifier {
   }
 }
 
-Widget _buildSubject({
-  required List<Member> members,
-  String? speakingAs,
-}) {
+Widget _buildSubject({required List<Member> members, String? speakingAs}) {
   return ProviderScope(
     overrides: [
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
@@ -82,7 +80,9 @@ Widget _buildSubject({
 void main() {
   group('SpeakingAsPicker — small system (< $_kThreshold members)', () {
     testWidgets('shows chip row (ListView) for small systems', (tester) async {
-      await tester.pumpWidget(_buildSubject(members: _members(_kThreshold - 1)));
+      await tester.pumpWidget(
+        _buildSubject(members: _members(_kThreshold - 1)),
+      );
       await tester.pump();
 
       expect(find.byType(ListView), findsOneWidget);
@@ -94,6 +94,7 @@ void main() {
       await tester.pumpWidget(_buildSubject(members: members));
       await tester.pump();
 
+      expect(find.text('Unknown'), findsOneWidget);
       expect(find.text('Member 0'), findsOneWidget);
       expect(find.text('Member 1'), findsOneWidget);
       expect(find.text('Member 2'), findsOneWidget);
@@ -115,8 +116,9 @@ void main() {
       expect(find.byType(ListView), findsOneWidget);
     });
 
-    testWidgets('auto-selects first member when none is selected',
-        (tester) async {
+    testWidgets('auto-selects first member when none is selected', (
+      tester,
+    ) async {
       final members = _members(3);
       // speakingAs starts null
       await tester.pumpWidget(_buildSubject(members: members));
@@ -139,8 +141,9 @@ void main() {
       expect(find.byType(ListView), findsNothing);
     });
 
-    testWidgets('trigger displays the currently selected member name',
-        (tester) async {
+    testWidgets('trigger displays the currently selected member name', (
+      tester,
+    ) async {
       final members = _members(_kThreshold);
       await tester.pumpWidget(
         _buildSubject(members: members, speakingAs: 'id-5'),
@@ -148,6 +151,18 @@ void main() {
       await tester.pump();
 
       expect(find.text('Member 5'), findsOneWidget);
+    });
+
+    testWidgets('trigger displays Unknown when selected', (tester) async {
+      await tester.pumpWidget(
+        _buildSubject(
+          members: _members(_kThreshold),
+          speakingAs: unknownSentinelMemberId,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Unknown'), findsOneWidget);
     });
 
     testWidgets('tapping trigger opens MemberSearchSheet', (tester) async {
@@ -160,32 +175,39 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(MemberSearchSheet), findsOneWidget);
+      expect(find.text('Unknown'), findsOneWidget);
     });
 
-    testWidgets('selecting a member from the sheet updates speakingAsProvider',
-        (tester) async {
-      final members = _members(_kThreshold);
-      // Start with Member 5 selected.
-      await tester.pumpWidget(
-        _buildSubject(members: members, speakingAs: 'id-5'),
-      );
-      await tester.pump();
+    testWidgets(
+      'selecting a member from the sheet updates speakingAsProvider',
+      (tester) async {
+        final members = _members(_kThreshold);
+        // Start with Member 5 selected.
+        await tester.pumpWidget(
+          _buildSubject(members: members, speakingAs: 'id-5'),
+        );
+        await tester.pump();
 
-      // Open the search sheet.
-      await tester.tap(find.byKey(const Key('speakingAsSearchTrigger')));
-      await tester.pumpAndSettle();
+        // Open the search sheet.
+        await tester.tap(find.byKey(const Key('speakingAsSearchTrigger')));
+        await tester.pumpAndSettle();
 
-      // Tap Member 0 in the search list.
-      await tester.tap(find.text('Member 0').last);
-      await tester.pumpAndSettle();
+        // Tap Member 0 in the search list.
+        await tester.tap(find.text('Member 0').last);
+        await tester.pumpAndSettle();
 
-      // The sheet dismissed and the trigger now shows Member 0.
-      expect(find.byKey(const Key('speakingAsSearchTrigger')), findsOneWidget);
-      expect(find.text('Member 0'), findsOneWidget);
-    });
+        // The sheet dismissed and the trigger now shows Member 0.
+        expect(
+          find.byKey(const Key('speakingAsSearchTrigger')),
+          findsOneWidget,
+        );
+        expect(find.text('Member 0'), findsOneWidget);
+      },
+    );
 
-    testWidgets('auto-selects first member when none is selected',
-        (tester) async {
+    testWidgets('auto-selects first member when none is selected', (
+      tester,
+    ) async {
       final members = _members(_kThreshold);
       // speakingAs starts null → trigger shows members.first
       await tester.pumpWidget(_buildSubject(members: members));

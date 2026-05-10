@@ -9,6 +9,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
+import 'package:prism_plurality/features/chat/utils/chat_author_options.dart';
 import 'package:prism_plurality/features/chat/views/create_conversation_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/category_management_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/conversation_tile.dart';
@@ -609,10 +610,13 @@ class _ChatMemberSelectorButton extends ConsumerWidget {
 
     return membersAsync.when(
       data: (members) {
-        final selected = speakingAs != null
-            ? members.where((member) => member.id == speakingAs).firstOrNull
-            : null;
-        final groups = watchMemberSearchGroups(ref, members);
+        final authorOptions = withUnknownChatAuthorOption(context, members);
+        final selected = findChatAuthorOption(
+          context,
+          authorOptions,
+          speakingAs,
+        );
+        final groups = watchMemberSearchGroups(ref, authorOptions);
         final semanticLabel = selected != null
             ? context.l10n.chatSpeakingAs(selected.name)
             : context.l10n.chatChooseSpeakingMember(terms.singularLower);
@@ -620,14 +624,14 @@ class _ChatMemberSelectorButton extends ConsumerWidget {
         return Semantics(
           label: semanticLabel,
           button: true,
-          enabled: members.isNotEmpty,
+          enabled: authorOptions.isNotEmpty,
           child: Tooltip(
             message: semanticLabel,
             child: MemberSelectorPopup(
               key: _selectorKey,
               preferredDirection: BlurPopupDirection.down,
-              enabled: members.isNotEmpty,
-              members: members,
+              enabled: authorOptions.isNotEmpty,
+              members: authorOptions,
               termPlural: terms.plural,
               searchTitle: context.l10n.selectMember(terms.singular),
               selectedMemberId: speakingAs,
@@ -636,7 +640,7 @@ class _ChatMemberSelectorButton extends ConsumerWidget {
                   ref.read(speakingAsProvider.notifier).setMember(memberId),
               child: _ChatMemberSelectorTrigger(
                 selectedMember: selected,
-                enabled: members.isNotEmpty,
+                enabled: authorOptions.isNotEmpty,
               ),
             ),
           ),

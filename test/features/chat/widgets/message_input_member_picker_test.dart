@@ -183,7 +183,7 @@ void main() {
     expect(find.text('Alice'), findsOneWidget);
     expect(find.text('Bob'), findsOneWidget);
     expect(find.text('Carol'), findsOneWidget);
-    expect(find.text('Unknown'), findsNothing);
+    expect(find.text('Unknown'), findsOneWidget);
   });
 
   testWidgets(

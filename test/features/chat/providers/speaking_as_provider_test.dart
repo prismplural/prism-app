@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
@@ -93,4 +94,31 @@ void main() {
       expect(container.read(speakingAsProvider), isNull);
     },
   );
+
+  test('keeps Unknown selection even before the sentinel member exists', () {
+    final activeMember = Member(
+      id: 'active-member',
+      name: 'Active',
+      createdAt: DateTime(2026, 5, 7),
+      isActive: true,
+    );
+    final container = ProviderContainer(
+      overrides: [
+        activeSessionsProvider.overrideWithValue(
+          const AsyncValue.data(<FrontingSession>[]),
+        ),
+        activeMembersProvider.overrideWithValue(
+          AsyncValue.data(<Member>[activeMember]),
+        ),
+        chatLogsFrontProvider.overrideWithValue(false),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container
+        .read(speakingAsProvider.notifier)
+        .setMember(unknownSentinelMemberId);
+
+    expect(container.read(speakingAsProvider), unknownSentinelMemberId);
+  });
 }
