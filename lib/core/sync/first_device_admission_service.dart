@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -42,7 +43,7 @@ class FirstDeviceAdmissionService {
       throw const FormatException('Relay nonce response was missing nonce');
     }
 
-    final proof = await _collectPlatformProof(
+    final proof = await collectPlatformProof(
       syncId: syncId,
       deviceId: deviceId,
       nonce: nonce,
@@ -67,7 +68,8 @@ class FirstDeviceAdmissionService {
     await ffi.seedSecureStore(handle: handle, entries: pendingEntries);
   }
 
-  Future<Map<String, dynamic>?> _collectPlatformProof({
+  @visibleForTesting
+  Future<Map<String, dynamic>?> collectPlatformProof({
     required String syncId,
     required String deviceId,
     required String nonce,
@@ -90,12 +92,12 @@ class FirstDeviceAdmissionService {
       return Map<String, dynamic>.from(result as Map);
     } on MissingPluginException {
       return null;
-    } on PlatformException catch (e) {
-      final code = e.code.toLowerCase();
-      if (code == 'unsupported' || code == 'missing_api') {
-        return null;
-      }
-      rethrow;
+    } on PlatformException {
+      // Platform attestation is an opportunistic anti-abuse signal. The relay
+      // still enforces first-device admission through the PoW challenge when no
+      // proof is supplied, so App Attest / hardware-attestation provider errors
+      // must not block sync setup.
+      return null;
     }
   }
 
