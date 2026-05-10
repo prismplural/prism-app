@@ -10632,6 +10632,24 @@ abstract class AppLocalizations {
   /// **'Export Complete'**
   String get dataManagementExportComplete;
 
+  /// Headline shown after the export is built but before the user has saved it from the share sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Export Ready'**
+  String get dataManagementExportReadyTitle;
+
+  /// Body text explaining that the export still needs to be saved via the share sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Tap Share to save your export. The file is only kept in temporary storage until you save it somewhere.'**
+  String get dataManagementExportReadyDescription;
+
+  /// Button label to open the share sheet for the prepared export file
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get dataManagementShareExport;
+
   /// Confirmation dialog title for unencrypted export
   ///
   /// In en, this message translates to:

@@ -6593,6 +6593,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dataManagementExportComplete => 'Exportación completa';
 
   @override
+  String get dataManagementExportReadyTitle => 'Exportación lista';
+
+  @override
+  String get dataManagementExportReadyDescription =>
+      'Toca Compartir para guardar tu exportación. El archivo solo se mantiene en almacenamiento temporal hasta que lo guardes en otro lugar.';
+
+  @override
+  String get dataManagementShareExport => 'Compartir';
+
+  @override
   String get dataManagementExportWithoutEncryptionTitle =>
       '¿Exportar sin cifrado?';
 

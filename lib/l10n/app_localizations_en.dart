@@ -6486,6 +6486,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dataManagementExportComplete => 'Export Complete';
 
   @override
+  String get dataManagementExportReadyTitle => 'Export Ready';
+
+  @override
+  String get dataManagementExportReadyDescription =>
+      'Tap Share to save your export. The file is only kept in temporary storage until you save it somewhere.';
+
+  @override
+  String get dataManagementShareExport => 'Share';
+
+  @override
   String get dataManagementExportWithoutEncryptionTitle =>
       'Export without encryption?';
 
