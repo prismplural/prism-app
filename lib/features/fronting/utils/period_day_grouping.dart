@@ -23,8 +23,8 @@ class DisplayPeriod extends HistoryDisplayItem {
     required this.isContinuation,
     required this.continuesNextDay,
     this.briefVisitors = const [],
-  })  : _start = start,
-        _end = end;
+  }) : _start = start,
+       _end = end;
 
   final FrontingPeriod period;
   final DateTime _start;
@@ -72,9 +72,12 @@ class HistoryDayGroup {
 /// becomes two slices, with `continuesNextDay` / `isContinuation` flags
 /// driving the time-range render ("11:00 PM – 12:00 AM" vs "12:00 AM –
 /// 2:00 AM").
-@visibleForTesting
 List<DisplayPeriod> splitPeriodAtMidnight(FrontingPeriod period) {
-  final startDay = DateTime(period.start.year, period.start.month, period.start.day);
+  final startDay = DateTime(
+    period.start.year,
+    period.start.month,
+    period.start.day,
+  );
   final endDay = DateTime(period.end.year, period.end.month, period.end.day);
 
   if (startDay == endDay) {
@@ -110,14 +113,16 @@ List<DisplayPeriod> splitPeriodAtMidnight(FrontingPeriod period) {
         if (v.start.isBefore(sliceEnd) && v.end.isAfter(currentStart)) v,
     ];
 
-    slices.add(DisplayPeriod(
-      period: period,
-      start: currentStart,
-      end: sliceEnd,
-      isContinuation: !isFirst,
-      continuesNextDay: !isLast,
-      briefVisitors: sliceBriefs,
-    ));
+    slices.add(
+      DisplayPeriod(
+        period: period,
+        start: currentStart,
+        end: sliceEnd,
+        isContinuation: !isFirst,
+        continuesNextDay: !isLast,
+        briefVisitors: sliceBriefs,
+      ),
+    );
 
     if (isLast) break;
     currentStart = nextMidnight;

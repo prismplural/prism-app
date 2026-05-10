@@ -28,10 +28,12 @@ import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/date_chip.dart';
+import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -176,6 +178,91 @@ class MemberFrontingHistoryList extends ConsumerWidget {
     if (callback == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) => callback(dayKeys));
   }
+}
+
+/// Floating timeline affordance for the open fronting period.
+///
+/// Uses the same period-row renderer as the combined history list, so tapping
+/// follows the list row's single-session vs. multi-contributor period routing.
+class CurrentFrontingSessionChip extends ConsumerWidget {
+  const CurrentFrontingSessionChip({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final periodsAsync = ref.watch(derivedPeriodsProvider);
+    final period = periodsAsync.whenOrNull(data: _currentOpenPeriod);
+    if (period == null) {
+      return const SizedBox.shrink();
+    }
+
+    final slices = splitPeriodAtMidnight(period);
+    if (slices.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final slice = slices.lastWhere(
+      (candidate) => candidate.isLiveOpenEnded,
+      orElse: () => slices.last,
+    );
+
+    final memberIds = <String>{
+      ...period.activeMembers,
+      ...period.alwaysPresentMembers,
+      for (final visitor in slice.briefVisitors) visitor.memberId,
+    };
+    final membersAsync = ref.watch(
+      membersByIdsProvider(memberIdsKey(memberIds)),
+    );
+    final membersMap =
+        membersAsync.whenOrNull(data: (members) => members) ?? {};
+    final tint = _periodTint(context, period, membersMap);
+    final chipKey = slice.isContinuation
+        ? '${period.sessionIds.join("|")}-current-${slice.displayStart.toDayKey()}'
+        : '${period.sessionIds.join("|")}-current';
+
+    return AnimatedSwitcher(
+      duration: Anim.md,
+      switchInCurve: Anim.enter,
+      switchOutCurve: Anim.exit,
+      child: Padding(
+        key: ValueKey(chipKey),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: GlassSurface(
+          borderRadius: BorderRadius.circular(PrismTokens.radiusXLarge),
+          tint: tint,
+          sigma: PrismTokens.glassBlurStrong,
+          padding: EdgeInsets.zero,
+          child: _PeriodTile(
+            slice: slice,
+            isLatest: true,
+            membersMap: membersMap,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+FrontingPeriod? _currentOpenPeriod(List<FrontingPeriod> periods) {
+  for (final period in periods.reversed) {
+    if (period.isOpenEnded && !period.isEmpty) return period;
+  }
+  return null;
+}
+
+Color _periodTint(
+  BuildContext context,
+  FrontingPeriod period,
+  Map<String, Member> membersMap,
+) {
+  for (final memberId in period.activeMembers) {
+    final member = membersMap[memberId];
+    if (member != null &&
+        member.customColorEnabled &&
+        member.customColorHex != null) {
+      return AppColors.fromHex(member.customColorHex!);
+    }
+  }
+  return Theme.of(context).colorScheme.primary;
 }
 
 /// 1A combined-period rendering: one row per derived period with avatar
