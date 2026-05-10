@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -308,6 +309,116 @@ void main() {
     expect(
       router.routerDelegate.currentConfiguration.uri.toString(),
       '/members/alice/fronting',
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('session detail pushes member profile so back returns', (
+    tester,
+  ) async {
+    final member = _member('alice', 'Alice');
+    final session = _session(
+      id: 's1',
+      memberId: member.id,
+      start: DateTime(2026, 4, 1, 10),
+      end: DateTime(2026, 4, 1, 11),
+    );
+
+    late GoRouter router;
+    router = GoRouter(
+      initialLocation: AppRoutePaths.session(session.id),
+      routes: [
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, navigationShell) =>
+              Scaffold(body: navigationShell),
+          branches: [
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/',
+                  builder: (_, _) => const Scaffold(body: Text('home')),
+                  routes: [
+                    GoRoute(
+                      path: 'session/:id',
+                      builder: (_, state) => SessionDetailScreen(
+                        sessionId: state.pathParameters['id']!,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoutePaths.settings,
+                  builder: (_, _) => const Scaffold(body: Text('settings')),
+                  routes: [
+                    GoRoute(
+                      path: 'members/:id',
+                      builder: (context, state) => Scaffold(
+                        body: Column(
+                          children: [
+                            Text('profile-${state.pathParameters['id']}'),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              child: const Text('Back from profile'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionByIdProvider(
+            session.id,
+          ).overrideWith((ref) => Stream.value(session)),
+          memberByIdProvider(
+            member.id,
+          ).overrideWith((ref) => Stream.value(member)),
+          commentsForSessionProvider(
+            session.id,
+          ).overrideWith((ref) => Stream.value(const [])),
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+        ],
+        child: MaterialApp.router(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alice'), findsOneWidget);
+
+    await tester.tap(find.text('Alice'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('profile-alice'), findsOneWidget);
+
+    await tester.tap(find.text('Back from profile'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alice'), findsOneWidget);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      AppRoutePaths.session(session.id),
     );
 
     await tester.pumpWidget(const SizedBox.shrink());

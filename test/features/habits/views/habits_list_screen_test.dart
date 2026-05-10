@@ -57,21 +57,36 @@ void main() {
   Widget buildApp({
     required _FakeHabitRepository repository,
     required ValueNotifier<String?> lastRoute,
+    String initialLocation = '/habits',
   }) {
+    Widget detail(BuildContext context, GoRouterState state) {
+      lastRoute.value = state.uri.path;
+      return Scaffold(
+        body: Column(
+          children: [
+            const Text('detail'),
+            TextButton(
+              onPressed: () => Navigator.of(context).maybePop(),
+              child: const Text('Back'),
+            ),
+          ],
+        ),
+      );
+    }
+
     final router = GoRouter(
-      initialLocation: '/habits',
+      initialLocation: initialLocation,
       routes: [
         GoRoute(
           path: '/habits',
           builder: (context, state) => const HabitsListScreen(),
         ),
+        GoRoute(path: '/habits/:id', builder: detail),
         GoRoute(
-          path: '/habits/:id',
-          builder: (context, state) {
-            lastRoute.value = state.uri.path;
-            return const Scaffold(body: Center(child: Text('detail')));
-          },
+          path: '/settings/habits',
+          builder: (context, state) => const HabitsListScreen(),
         ),
+        GoRoute(path: '/settings/habits/:id', builder: detail),
       ],
     );
 
@@ -277,6 +292,38 @@ void main() {
       expect(lastRoute.value, '/habits/h1');
     },
   );
+
+  testWidgets('settings habits pushes the settings-scoped habit detail route', (
+    tester,
+  ) async {
+    final habit = intervalHabit(id: 'h1', name: 'Water plants');
+    final repo = _FakeHabitRepository(
+      habits: [habit],
+      allCompletions: const [],
+    );
+    addTearDown(repo.dispose);
+
+    final lastRoute = ValueNotifier<String?>(null);
+    await tester.pumpWidget(
+      buildApp(
+        repository: repo,
+        lastRoute: lastRoute,
+        initialLocation: '/settings/habits',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Water plants'));
+    await tester.pumpAndSettle();
+
+    expect(lastRoute.value, '/settings/habits/h1');
+
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Water plants'), findsOneWidget);
+    expect(find.text('detail'), findsNothing);
+  });
 }
 
 // ── Fake repository ──────────────────────────────────────────────────────────

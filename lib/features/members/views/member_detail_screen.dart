@@ -370,7 +370,7 @@ class _SessionTile extends StatelessWidget {
     final duration = session.duration.toRoundedString();
 
     return InkWell(
-      onTap: () => context.go(AppRoutePaths.session(session.id)),
+      onTap: () => context.push(AppRoutePaths.session(session.id)),
       borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -495,7 +495,8 @@ class _ConversationTile extends ConsumerWidget {
     );
 
     return InkWell(
-      onTap: () => context.go(AppRoutePaths.chatConversation(conversation.id)),
+      onTap: () =>
+          context.push(AppRoutePaths.chatConversation(conversation.id)),
       borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

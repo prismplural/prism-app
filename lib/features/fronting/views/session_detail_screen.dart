@@ -489,7 +489,7 @@ class _FronterSection extends ConsumerWidget {
 
         if (header.hasImage) {
           return PrismSurface(
-            onTap: () => context.go(AppRoutePaths.settingsMember(member.id)),
+            onTap: () => context.push(AppRoutePaths.settingsMember(member.id)),
             padding: EdgeInsets.zero,
             child: Stack(
               children: [
@@ -534,7 +534,7 @@ class _FronterSection extends ConsumerWidget {
         }
 
         return PrismSurface(
-          onTap: () => context.go(AppRoutePaths.settingsMember(member.id)),
+          onTap: () => context.push(AppRoutePaths.settingsMember(member.id)),
           padding: const EdgeInsets.all(20),
           child: _FronterMemberRow(member: member),
         );

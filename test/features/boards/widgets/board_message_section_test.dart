@@ -74,15 +74,13 @@ Widget _buildSection({
       ),
       boardsEnabledProvider.overrideWithValue(boardsEnabled),
       speakingAsProvider.overrideWith(_FakeSpeakingAsNotifier.new),
-      activeMembersProvider.overrideWith(
-        (ref) => Stream.value(allMembers),
-      ),
+      activeMembersProvider.overrideWith((ref) => Stream.value(allMembers)),
       memberByIdProvider.overrideWith(
         (ref, id) => Stream.value(
           allMembers.cast<Member?>().firstWhere(
-                (m) => m?.id == id,
-                orElse: () => null,
-              ),
+            (m) => m?.id == id,
+            orElse: () => null,
+          ),
         ),
       ),
       memberBoardSectionProvider.overrideWith(
@@ -106,8 +104,17 @@ Widget _buildSection({
           ),
           GoRoute(
             path: '/boards/member/:memberId',
-            builder: (context, state) =>
-                Text('Member board ${state.pathParameters['memberId']}'),
+            builder: (context, state) => Scaffold(
+              body: Column(
+                children: [
+                  Text('Member board ${state.pathParameters['memberId']}'),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    child: const Text('Back from board'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -122,9 +129,7 @@ Widget _buildSection({
 void main() {
   group('BoardMessageSection — visibility', () {
     testWidgets('returns shrink when boards is disabled', (tester) async {
-      await tester.pumpWidget(
-        _buildSection(boardsEnabled: false),
-      );
+      await tester.pumpWidget(_buildSection(boardsEnabled: false));
       await tester.pump();
 
       // When disabled, section should render nothing (SizedBox.shrink).
@@ -132,9 +137,7 @@ void main() {
     });
 
     testWidgets('shows section header when boards is enabled', (tester) async {
-      await tester.pumpWidget(
-        _buildSection(boardsEnabled: true),
-      );
+      await tester.pumpWidget(_buildSection(boardsEnabled: true));
       await tester.pump();
 
       expect(find.text('Public Posts'), findsOneWidget);
@@ -158,17 +161,9 @@ void main() {
 
   group('BoardMessageSection — posts list', () {
     testWidgets('renders up to 3 posts when available', (tester) async {
-      final posts = [
-        _publicPost('1'),
-        _publicPost('2'),
-        _publicPost('3'),
-      ];
+      final posts = [_publicPost('1'), _publicPost('2'), _publicPost('3')];
       await tester.pumpWidget(
-        _buildSection(
-          publicPosts: posts,
-          totalPublic: 3,
-          allMembers: [_alice],
-        ),
+        _buildSection(publicPosts: posts, totalPublic: 3, allMembers: [_alice]),
       );
       await tester.pump();
 
@@ -180,11 +175,7 @@ void main() {
     testWidgets('does NOT show "See all" when totalPublic < 4', (tester) async {
       final posts = [_publicPost('1'), _publicPost('2'), _publicPost('3')];
       await tester.pumpWidget(
-        _buildSection(
-          publicPosts: posts,
-          totalPublic: 3,
-          allMembers: [_alice],
-        ),
+        _buildSection(publicPosts: posts, totalPublic: 3, allMembers: [_alice]),
       );
       await tester.pump();
 
@@ -192,24 +183,18 @@ void main() {
     });
 
     testWidgets('shows "See all" link when totalPublic >= 4', (tester) async {
-      final posts = [
-        _publicPost('1'),
-        _publicPost('2'),
-        _publicPost('3'),
-      ];
+      final posts = [_publicPost('1'), _publicPost('2'), _publicPost('3')];
       await tester.pumpWidget(
-        _buildSection(
-          publicPosts: posts,
-          totalPublic: 4,
-          allMembers: [_alice],
-        ),
+        _buildSection(publicPosts: posts, totalPublic: 4, allMembers: [_alice]),
       );
       await tester.pump();
 
       expect(find.textContaining('See all 4 public posts'), findsOneWidget);
     });
 
-    testWidgets('"See all" link navigates to /boards/member/:id', (tester) async {
+    testWidgets('"See all" link navigates to /boards/member/:id', (
+      tester,
+    ) async {
       final posts = [_publicPost('1'), _publicPost('2'), _publicPost('3')];
       await tester.pumpWidget(
         _buildSection(
@@ -226,14 +211,18 @@ void main() {
 
       // Verifies route navigation occurred to the member board screen.
       expect(find.text('Member board alice'), findsOneWidget);
+
+      await tester.tap(find.text('Back from board'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('See all 5 public posts'), findsOneWidget);
+      expect(find.text('Member board alice'), findsNothing);
     });
   });
 
   group('BoardMessageSection — header', () {
     testWidgets('section header has Semantics header=true', (tester) async {
-      await tester.pumpWidget(
-        _buildSection(allMembers: [_alice]),
-      );
+      await tester.pumpWidget(_buildSection(allMembers: [_alice]));
       await tester.pump();
 
       // Find a Semantics widget with header: true.
@@ -248,10 +237,7 @@ void main() {
 
     testWidgets('"Post to Alice" tooltip on + button', (tester) async {
       await tester.pumpWidget(
-        _buildSection(
-          memberId: 'alice',
-          allMembers: [_alice],
-        ),
+        _buildSection(memberId: 'alice', allMembers: [_alice]),
       );
       await tester.pump();
 

@@ -28,6 +28,18 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 class HabitsListScreen extends ConsumerWidget {
   const HabitsListScreen({super.key});
 
+  String _habitPath(BuildContext context, String id) {
+    final path = GoRouterState.of(context).uri.path;
+    if (path.startsWith(AppRoutePaths.settingsHabits)) {
+      return AppRoutePaths.settingsHabit(id);
+    }
+    return AppRoutePaths.habit(id);
+  }
+
+  void _openHabit(BuildContext context, Habit habit) {
+    context.push(_habitPath(context, habit.id));
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final habitsAsync = ref.watch(habitsProvider);
@@ -117,9 +129,8 @@ class HabitsListScreen extends ConsumerWidget {
                     complete: complete,
                     todayCompletions: todayCompletions,
                     weeklyByHabit: weeklyByHabit,
-                    onTap: (h) => context.go(AppRoutePaths.habit(h.id)),
-                    onQuickComplete: (h) =>
-                        _showCompleteSheet(context, ref, h),
+                    onTap: (h) => _openHabit(context, h),
+                    onQuickComplete: (h) => _showCompleteSheet(context, ref, h),
                   ),
                 if (upcoming.isNotEmpty)
                   _HabitSection(
@@ -128,7 +139,7 @@ class HabitsListScreen extends ConsumerWidget {
                     completions: todayCompletions,
                     completedHabitIds: completedHabitIds,
                     weeklyByHabit: weeklyByHabit,
-                    onTap: (h) => context.go(AppRoutePaths.habit(h.id)),
+                    onTap: (h) => _openHabit(context, h),
                     onQuickComplete: (h) => _showCompleteSheet(context, ref, h),
                   ),
                 if (inactive.isNotEmpty)
@@ -138,7 +149,7 @@ class HabitsListScreen extends ConsumerWidget {
                     completions: todayCompletions,
                     completedHabitIds: completedHabitIds,
                     weeklyByHabit: weeklyByHabit,
-                    onTap: (h) => context.go(AppRoutePaths.habit(h.id)),
+                    onTap: (h) => _openHabit(context, h),
                     onQuickComplete: (h) => _showCompleteSheet(context, ref, h),
                   ),
               ],
@@ -175,8 +186,9 @@ class HabitsListScreen extends ConsumerWidget {
       // the habit from appearing to re-complete itself on the next stream
       // emission. Await so the TodayHabitsContainer's rapid-tap debounce can
       // gate duplicate calls end-to-end.
-      final habitCompletions =
-          completions.where((c) => c.habitId == habit.id).toList();
+      final habitCompletions = completions
+          .where((c) => c.habitId == habit.id)
+          .toList();
       for (final completion in habitCompletions) {
         await ref
             .read(habitNotifierProvider.notifier)
@@ -221,7 +233,9 @@ class _HabitSection extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
             child: UnconstrainedBox(
               child: TintedGlassSurface(
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(999)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(999),
+                ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 5,

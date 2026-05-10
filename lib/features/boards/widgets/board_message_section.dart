@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
@@ -46,8 +47,7 @@ class BoardMessageSection extends ConsumerWidget {
 
     // Resolve the profile member for the tooltip name.
     final profileMemberAsync = ref.watch(memberByIdProvider(memberId));
-    final profileMemberName =
-        profileMemberAsync.value?.name ?? memberId;
+    final profileMemberName = profileMemberAsync.value?.name ?? memberId;
 
     return sectionAsync.when(
       loading: () => const SizedBox.shrink(),
@@ -111,9 +111,11 @@ class BoardMessageSection extends ConsumerWidget {
                   child: PrismGroupedSectionCard(
                     child: Column(
                       children: [
-                        for (var i = 0;
-                            i < section.publicPosts.length;
-                            i++) ...[
+                        for (
+                          var i = 0;
+                          i < section.publicPosts.length;
+                          i++
+                        ) ...[
                           if (i > 0) const Divider(height: 1),
                           PostTile(
                             post: section.publicPosts[i],
@@ -129,7 +131,8 @@ class BoardMessageSection extends ConsumerWidget {
               if (section.totalPublic >= 4) ...[
                 const SizedBox(height: 8),
                 GestureDetector(
-                  onTap: () => context.go('/boards/member/$memberId'),
+                  onTap: () =>
+                      context.push(AppRoutePaths.memberBoard(memberId)),
                   child: Text(
                     l10n.memberBoardSeeAll(section.totalPublic),
                     style: theme.textTheme.bodySmall?.copyWith(
