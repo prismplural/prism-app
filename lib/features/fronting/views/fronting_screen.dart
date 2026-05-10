@@ -12,6 +12,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/migration/widgets/fronting_upgrade_banner.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/quick_front_hint_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/views/add_front_session_sheet.dart';
 import 'package:prism_plurality/features/fronting/views/empty_system_view.dart';
@@ -359,45 +360,64 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
   }
 }
 
-class _QuickFrontHomeBlock extends StatelessWidget {
+class _QuickFrontHomeBlock extends ConsumerWidget {
   const _QuickFrontHomeBlock();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final labelStyle = theme.textTheme.labelLarge?.copyWith(
+    final showInstruction = ref.watch(quickFrontHoldInstructionVisibleProvider);
+    final labelStyle = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-      fontFamily: theme.textTheme.headlineLarge?.fontFamily,
-      fontWeight: FontWeight.w700,
-      letterSpacing: theme.textTheme.headlineLarge?.letterSpacing ?? 0,
+      fontWeight: FontWeight.w400,
+      letterSpacing: 0,
     );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                context.l10n.featureFrontingShowQuickFront,
-                style: labelStyle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Flexible(
-              child: Text(
-                context.l10n.frontingQuickFrontHoldInstruction,
-                style: labelStyle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
+        if (showInstruction) ...[
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final slotWidth = constraints.maxWidth / 4;
+              final ringSize = slotWidth < quickFrontRingSize
+                  ? slotWidth
+                  : quickFrontRingSize;
+              final circleInset = ((slotWidth - ringSize) / 2).clamp(
+                0.0,
+                double.infinity,
+              );
+
+              return Padding(
+                padding: EdgeInsets.symmetric(horizontal: circleInset),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        context.l10n.featureFrontingShowQuickFront,
+                        style: labelStyle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 160),
+                      child: Text(
+                        context.l10n.frontingQuickFrontHoldInstruction,
+                        style: labelStyle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 6),
+        ],
         const QuickFrontSection(),
       ],
     );

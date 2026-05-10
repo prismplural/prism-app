@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/quick_front_hint_provider.dart';
 import 'package:prism_plurality/features/fronting/utils/member_frequency_sort.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -75,9 +76,11 @@ class _AnimatedQuickFrontRow extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final slotWidth = constraints.maxWidth / 4;
-        final ringSize = slotWidth < _kRingSize ? slotWidth : _kRingSize;
+        final ringSize = slotWidth < quickFrontRingSize
+            ? slotWidth
+            : quickFrontRingSize;
         return SizedBox(
-          height: _kRingSize + _kQuickFrontLabelHeight,
+          height: quickFrontRingSize + _kQuickFrontLabelHeight,
           child: Stack(
             children: [
               for (int i = 0; i < members.length; i++)
@@ -105,8 +108,8 @@ class _AnimatedQuickFrontRow extends StatelessWidget {
 }
 
 const _kAvatarSize = 62.0;
-const _kRingSize = 76.0;
-const _kAvatarRingInset = _kRingSize - _kAvatarSize;
+const quickFrontRingSize = 76.0;
+const _kAvatarRingInset = quickFrontRingSize - _kAvatarSize;
 const _kQuickFrontLabelHeight = 44.0;
 const _kRingWidth = 3.5;
 const _kHoldDuration = Duration(milliseconds: 800);
@@ -196,6 +199,9 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
             // in one transaction with a single captured `now`.
             await notifier.replaceFronting([widget.member.id]);
         }
+        await ref
+            .read(quickFrontHoldInstructionVisibleProvider.notifier)
+            .markSeen();
       }
     } catch (e) {
       if (mounted) {

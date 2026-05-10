@@ -8,11 +8,13 @@ import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/quick_front_hint_provider.dart';
 import 'package:prism_plurality/features/fronting/widgets/quick_front_section.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeFrontingNotifier extends FrontingNotifier {
   /// Member ids passed to [startFronting]. Named "switches" because the
@@ -117,6 +119,10 @@ Future<void> _completeQuickFrontHold(WidgetTester tester, Finder finder) async {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets(
     'baseline: switching the active session updates highlighted member',
     (tester) async {
@@ -459,6 +465,8 @@ void main() {
         expect(notifier.switches, ['b']);
         expect(notifier.replaces, isEmpty);
         expect(notifier.ends, isEmpty);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool(quickFrontHoldInstructionSeenPrefsKey), isTrue);
       },
     );
 

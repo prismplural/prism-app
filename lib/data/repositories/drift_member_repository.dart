@@ -3,11 +3,16 @@ import 'dart:typed_data';
 
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
+import 'package:prism_plurality/data/mappers/conversation_mapper.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
+import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/mappers/member_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/domain/models/conversation.dart'
+    as conversation_domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
@@ -18,6 +23,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   // Plan 02 R1: optional — when wired, `deleteMember` stamps the current PK
   // link epoch onto the tombstone so push-time can gate stale intents.
   final PluralKitSyncDao? _pkSyncDao;
+  final ConversationsDao? _conversationsDao;
 
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
@@ -28,7 +34,9 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     this._dao,
     this._syncHandle, {
     PluralKitSyncDao? pkSyncDao,
-  }) : _pkSyncDao = pkSyncDao;
+    ConversationsDao? conversationsDao,
+  }) : _pkSyncDao = pkSyncDao,
+       _conversationsDao = conversationsDao;
 
   @override
   Future<List<domain.Member>> getAllMembers() async {
@@ -151,7 +159,82 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     if (epoch != null) {
       await _dao.stampDeleteIntent(id, epoch);
     }
+    await _removeDeletedMemberFromConversations(id);
     await syncRecordDelete(_table, id);
+  }
+
+  Future<void> _removeDeletedMemberFromConversations(String memberId) async {
+    final conversationsDao = _conversationsDao;
+    if (conversationsDao == null) return;
+
+    final conversationRepo = DriftConversationRepository(
+      conversationsDao,
+      _syncHandle,
+    );
+    final rows = await conversationsDao.getAllConversations();
+    for (final row in rows) {
+      final conversation = ConversationMapper.toDomain(row);
+      final updated = _withoutDeletedMember(conversation, memberId);
+      if (updated == conversation) continue;
+      await conversationRepo.updateConversation(updated);
+    }
+  }
+
+  conversation_domain.Conversation _withoutDeletedMember(
+    conversation_domain.Conversation conversation,
+    String memberId,
+  ) {
+    final participantIds = conversation.participantIds
+        .where((id) => id != memberId)
+        .toList();
+    final archivedByMemberIds = conversation.archivedByMemberIds
+        .where((id) => id != memberId)
+        .toList();
+    final mutedByMemberIds = conversation.mutedByMemberIds
+        .where((id) => id != memberId)
+        .toList();
+    final lastReadTimestamps = Map<String, DateTime>.from(
+      conversation.lastReadTimestamps,
+    )..remove(memberId);
+    final creatorId = conversation.creatorId == memberId
+        ? participantIds.firstOrNull
+        : conversation.creatorId;
+
+    if (_listEquals(participantIds, conversation.participantIds) &&
+        _listEquals(archivedByMemberIds, conversation.archivedByMemberIds) &&
+        _listEquals(mutedByMemberIds, conversation.mutedByMemberIds) &&
+        _mapEquals(lastReadTimestamps, conversation.lastReadTimestamps) &&
+        creatorId == conversation.creatorId) {
+      return conversation;
+    }
+
+    return conversation.copyWith(
+      participantIds: participantIds,
+      archivedByMemberIds: archivedByMemberIds,
+      mutedByMemberIds: mutedByMemberIds,
+      lastReadTimestamps: lastReadTimestamps,
+      creatorId: creatorId,
+    );
+  }
+
+  bool _listEquals<T>(List<T> a, List<T> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  bool _mapEquals<K, V>(Map<K, V> a, Map<K, V> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      if (!b.containsKey(entry.key) || b[entry.key] != entry.value) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @override

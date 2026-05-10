@@ -9,7 +9,13 @@ import 'package:image/image.dart' as img;
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
+import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
+import 'package:prism_plurality/domain/models/chat_message.dart'
+    as chat_message_domain;
+import 'package:prism_plurality/domain/models/conversation.dart'
+    as conversation_domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
 import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
@@ -218,6 +224,75 @@ void main() {
       final fetched = await repo.getMemberById('ordinary-1');
       expect(fetched, isNotNull);
       expect(fetched!.isDeleted, isTrue);
+    });
+
+    test('removes deleted members from chat participant metadata', () async {
+      final now = DateTime(2026, 5, 9, 12);
+      final conversationRepo = DriftConversationRepository(
+        db.conversationsDao,
+        null,
+      );
+      final chatMessageRepo = DriftChatMessageRepository(
+        db.chatMessagesDao,
+        null,
+      );
+      final repoWithConversations = DriftMemberRepository(
+        dao,
+        null,
+        conversationsDao: db.conversationsDao,
+      );
+
+      for (final member in [
+        domain.Member(id: 'owner', name: 'Owner', createdAt: now),
+        domain.Member(id: 'deleted', name: 'Deleted', createdAt: now),
+        domain.Member(id: 'other', name: 'Other', createdAt: now),
+      ]) {
+        await repoWithConversations.createMember(member);
+      }
+
+      await conversationRepo.createConversation(
+        conversation_domain.Conversation(
+          id: 'conv-1',
+          createdAt: now,
+          lastActivityAt: now,
+          title: 'Group',
+          creatorId: 'deleted',
+          participantIds: const ['owner', 'deleted', 'other'],
+          archivedByMemberIds: const ['deleted', 'owner'],
+          mutedByMemberIds: const ['deleted'],
+          lastReadTimestamps: {
+            for (final id in ['deleted', 'owner']) id: now,
+          },
+        ),
+      );
+      await chatMessageRepo.createMessage(
+        chat_message_domain.ChatMessage(
+          id: 'message-1',
+          content: 'historical content stays',
+          timestamp: now,
+          authorId: 'deleted',
+          conversationId: 'conv-1',
+        ),
+      );
+
+      await repoWithConversations.deleteMember('deleted');
+
+      final conversation = await conversationRepo.getConversationById('conv-1');
+      expect(conversation, isNotNull);
+      expect(conversation!.participantIds, ['owner', 'other']);
+      expect(conversation.archivedByMemberIds, ['owner']);
+      expect(conversation.mutedByMemberIds, isEmpty);
+      expect(conversation.lastReadTimestamps.keys, ['owner']);
+      expect(conversation.creatorId, 'owner');
+
+      final message = await chatMessageRepo.getMessageById('message-1');
+      expect(message, isNotNull);
+      expect(message!.content, 'historical content stays');
+      expect(message.authorId, 'deleted');
+
+      final deleted = await repoWithConversations.getMemberById('deleted');
+      expect(deleted, isNotNull);
+      expect(deleted!.isDeleted, isTrue);
     });
   });
 

@@ -10,10 +10,12 @@ import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/quick_front_hint_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/fronting/views/fronting_screen.dart';
+import 'package:prism_plurality/features/fronting/widgets/quick_front_section.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -22,6 +24,7 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_servi
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeSleepNotifier extends SleepNotifier {
   final List<String> endedIds = [];
@@ -132,6 +135,10 @@ Widget _buildSubject({
 Finder _addButton() => find.byTooltip('Add fronting entry');
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('FrontingScreen quick front header', () {
     testWidgets('labels Quick Front and its hold interaction on home', (
       tester,
@@ -152,6 +159,56 @@ void main() {
         tester.getTopLeft(find.text('Quick Front')).dy,
         lessThan(tester.getTopLeft(find.text('Alice')).dy),
       );
+      final quickFrontText = tester.widget<Text>(find.text('Quick Front'));
+      final holdText = tester.widget<Text>(find.text('Press and hold'));
+      final bodySmall = Theme.of(
+        tester.element(find.text('Quick Front')),
+      ).textTheme.bodySmall;
+      expect(quickFrontText.style?.fontSize, bodySmall?.fontSize);
+      expect(quickFrontText.style?.fontWeight, FontWeight.w400);
+      expect(holdText.style?.fontSize, bodySmall?.fontSize);
+      expect(holdText.style?.fontWeight, FontWeight.w400);
+      final quickFrontSection = find.byType(QuickFrontSection);
+      final sectionLeft = tester.getTopLeft(quickFrontSection).dx;
+      final sectionWidth = tester.getSize(quickFrontSection).width;
+      final slotWidth = sectionWidth / 4;
+      final ringSize = slotWidth < quickFrontRingSize
+          ? slotWidth
+          : quickFrontRingSize;
+      final circleInset = (slotWidth - ringSize) / 2;
+      expect(
+        tester.getTopLeft(find.text('Quick Front')).dx,
+        closeTo(sectionLeft + circleInset, 0.1),
+      );
+      expect(
+        tester.getTopRight(find.text('Press and hold')).dx,
+        closeTo(sectionLeft + sectionWidth - circleInset, 0.1),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('hides labels after quick-front hint was seen on this device', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        quickFrontHoldInstructionSeenPrefsKey: true,
+      });
+
+      await tester.pumpWidget(
+        _buildSubject(
+          sleepNotifier: _FakeSleepNotifier(),
+          frontingNotifier: _FakeFrontingNotifier(),
+          members: [_member('m1', 'Alice'), _member('m2', 'Bob')],
+          showQuickFront: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Quick Front'), findsNothing);
+      expect(find.text('Press and hold'), findsNothing);
+      expect(find.byType(QuickFrontSection), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
