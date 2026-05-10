@@ -609,6 +609,7 @@ class _ColorPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return Wrap(
       spacing: 8,
+      runSpacing: 8,
       children: _colors.map((hex) {
         final isSelected = selectedHex == hex;
         return Semantics(

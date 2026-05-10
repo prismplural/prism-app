@@ -10,6 +10,7 @@ import 'package:prism_plurality/domain/models/habit_completion.dart';
 import 'package:prism_plurality/features/habits/widgets/habit_chip.dart';
 import 'package:prism_plurality/features/habits/widgets/today_habits_container.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
 void main() {
   final baseDate = DateTime(2026, 4, 11);
@@ -34,10 +35,7 @@ void main() {
     );
   }
 
-  HabitCompletion completion(
-    String habitId, {
-    DateTime? completedAt,
-  }) {
+  HabitCompletion completion(String habitId, {DateTime? completedAt}) {
     final ts = completedAt ?? baseDate.add(const Duration(hours: 9));
     return HabitCompletion(
       id: 'completion-$habitId-${ts.millisecondsSinceEpoch}',
@@ -56,10 +54,11 @@ void main() {
     void Function(Habit)? onTap,
     Future<void> Function(Habit)? onQuickComplete,
     VisualEffectsMode? visualEffectsMode,
+    PrismShapes shapes = PrismShapes.rounded,
   }) {
     // Default today completions: one row per habit in `complete`.
-    final effectiveCompletions = todayCompletions ??
-        [for (final h in complete) completion(h.id)];
+    final effectiveCompletions =
+        todayCompletions ?? [for (final h in complete) completion(h.id)];
     return ProviderScope(
       overrides: [
         if (visualEffectsMode != null)
@@ -68,6 +67,7 @@ void main() {
           ),
       ],
       child: MaterialApp(
+        theme: ThemeData(extensions: [shapes]),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: const [Locale('en')],
         home: Scaffold(
@@ -90,8 +90,8 @@ void main() {
   }
 
   Finder findSemanticsWidget(String label) => find.byWidgetPredicate(
-        (w) => w is Semantics && w.properties.label == label,
-      );
+    (w) => w is Semantics && w.properties.label == label,
+  );
 
   testWidgets(
     'Due container renders due habits as chips with centered Today header',
@@ -122,35 +122,34 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Complete section renders completed habits below Due container',
-    (tester) async {
-      await tester.pumpWidget(
-        buildScope(
-          due: [habit(id: '1', name: 'Meditate')],
-          complete: [habit(id: '2', name: 'Walk dog')],
-        ),
-      );
-      await tester.pumpAndSettle();
+  testWidgets('Complete section renders completed habits below Due container', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildScope(
+        due: [habit(id: '1', name: 'Meditate')],
+        complete: [habit(id: '2', name: 'Walk dog')],
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      // Full Due container present.
-      expect(find.byKey(const Key('today-due-container')), findsOneWidget);
-      expect(find.text('Meditate'), findsOneWidget);
+    // Full Due container present.
+    expect(find.byKey(const Key('today-due-container')), findsOneWidget);
+    expect(find.text('Meditate'), findsOneWidget);
 
-      // Complete section header + chip present.
-      expect(find.text('Complete'), findsOneWidget);
-      expect(find.text('Walk dog'), findsOneWidget);
-      expect(find.byType(HabitChip), findsNWidgets(2));
+    // Complete section header + chip present.
+    expect(find.text('Complete'), findsOneWidget);
+    expect(find.text('Walk dog'), findsOneWidget);
+    expect(find.byType(HabitChip), findsNWidgets(2));
 
-      // Visual top-to-bottom ordering: Due container above Complete section.
-      final meditateY = tester.getCenter(find.text('Meditate')).dy;
-      final walkY = tester.getCenter(find.text('Walk dog')).dy;
-      expect(meditateY, lessThan(walkY));
+    // Visual top-to-bottom ordering: Due container above Complete section.
+    final meditateY = tester.getCenter(find.text('Meditate')).dy;
+    final walkY = tester.getCenter(find.text('Walk dog')).dy;
+    expect(meditateY, lessThan(walkY));
 
-      // No N / M progress text in the full-state header.
-      expect(find.textContaining('/'), findsNothing);
-    },
-  );
+    // No N / M progress text in the full-state header.
+    expect(find.textContaining('/'), findsNothing);
+  });
 
   testWidgets(
     'collapsed all-done mode renders when due is empty and complete is non-empty',
@@ -167,14 +166,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // The collapsed pill is the active child of the AnimatedSwitcher.
-      expect(
-        find.byKey(const ValueKey('today-due-collapsed')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('today-due-full')),
-        findsNothing,
-      );
+      expect(find.byKey(const ValueKey('today-due-collapsed')), findsOneWidget);
+      expect(find.byKey(const ValueKey('today-due-full')), findsNothing);
 
       // Copy check.
       expect(find.text('all done'), findsOneWidget);
@@ -219,25 +212,26 @@ void main() {
     },
   );
 
-  testWidgets(
-      'full-state container semantics label is just "Today"',
-      (tester) async {
+  testWidgets('full-state container semantics label is just "Today"', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       buildScope(
-        due: [habit(id: '1'), habit(id: '2')],
+        due: [
+          habit(id: '1'),
+          habit(id: '2'),
+        ],
         complete: [habit(id: '3')],
       ),
     );
     await tester.pumpAndSettle();
     expect(findSemanticsWidget('Today'), findsOneWidget);
-    expect(
-      findSemanticsWidget('Today, 1 of 3 habits complete'),
-      findsNothing,
-    );
+    expect(findSemanticsWidget('Today, 1 of 3 habits complete'), findsNothing);
   });
 
-  testWidgets('container semantics label says all complete in collapsed mode',
-      (tester) async {
+  testWidgets('container semantics label says all complete in collapsed mode', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       buildScope(
         due: const [],
@@ -245,14 +239,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(
-      findSemanticsWidget('Today, all habits complete'),
-      findsOneWidget,
-    );
+    expect(findSemanticsWidget('Today, all habits complete'), findsOneWidget);
   });
 
-  testWidgets('tapping leading circle on due chip calls onQuickComplete',
-      (tester) async {
+  testWidgets('tapping leading circle on due chip calls onQuickComplete', (
+    tester,
+  ) async {
     final tapped = <String>[];
     await tester.pumpWidget(
       buildScope(
@@ -271,24 +263,25 @@ void main() {
   });
 
   testWidgets(
-      'tapping leading circle on completed chip calls onQuickComplete',
-      (tester) async {
-    final tapped = <String>[];
-    await tester.pumpWidget(
-      buildScope(
-        due: const [],
-        complete: [habit(id: '1', name: 'Meditate')],
-        onQuickComplete: (h) async {
-          tapped.add(h.id);
-        },
-      ),
-    );
-    await tester.pumpAndSettle();
+    'tapping leading circle on completed chip calls onQuickComplete',
+    (tester) async {
+      final tapped = <String>[];
+      await tester.pumpWidget(
+        buildScope(
+          due: const [],
+          complete: [habit(id: '1', name: 'Meditate')],
+          onQuickComplete: (h) async {
+            tapped.add(h.id);
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.bySemanticsLabel('Meditate, completed'));
-    await tester.pumpAndSettle();
-    expect(tapped, ['1']);
-  });
+      await tester.tap(find.bySemanticsLabel('Meditate, completed'));
+      await tester.pumpAndSettle();
+      expect(tapped, ['1']);
+    },
+  );
 
   testWidgets('tapping chip body (not circle) invokes onTap', (tester) async {
     final navigated = <String>[];
@@ -305,8 +298,9 @@ void main() {
     expect(navigated, ['1']);
   });
 
-  testWidgets('rapid double-tap debounces to a single onQuickComplete call',
-      (tester) async {
+  testWidgets('rapid double-tap debounces to a single onQuickComplete call', (
+    tester,
+  ) async {
     int calls = 0;
     final completer = Completer<void>();
     await tester.pumpWidget(
@@ -324,8 +318,8 @@ void main() {
     // Locate the leading circle by Semantics label; `enabled` flips while
     // the tap is in flight so we use a widget predicate.
     Finder leadingSemantics() => find.byWidgetPredicate(
-          (w) => w is Semantics && w.properties.label == 'Complete Meditate',
-        );
+      (w) => w is Semantics && w.properties.label == 'Complete Meditate',
+    );
 
     expect(
       (tester.widget(leadingSemantics()) as Semantics).properties.enabled,
@@ -355,9 +349,9 @@ void main() {
     );
   });
 
-  testWidgets(
-      'accessible visual effects mode raises completed opacity floor',
-      (tester) async {
+  testWidgets('accessible visual effects mode raises completed opacity floor', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       buildScope(
         due: const [],
@@ -379,25 +373,64 @@ void main() {
   });
 
   testWidgets(
-      'non-accessible mode uses 0.45 opacity floor for completed chips',
-      (tester) async {
+    'non-accessible mode uses 0.45 opacity floor for completed chips',
+    (tester) async {
+      await tester.pumpWidget(
+        buildScope(
+          due: const [],
+          complete: [habit(id: '1', name: 'Meditate')],
+          visualEffectsMode: VisualEffectsMode.full,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final opacity = tester.widgetList<AnimatedOpacity>(
+        find.ancestor(
+          of: find.byType(HabitChip),
+          matching: find.byType(AnimatedOpacity),
+        ),
+      );
+      expect(opacity, isNotEmpty);
+      expect(opacity.first.opacity, closeTo(0.45, 0.0001));
+    },
+  );
+
+  testWidgets('angular mode squares due container and completion controls', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       buildScope(
-        due: const [],
-        complete: [habit(id: '1', name: 'Meditate')],
-        visualEffectsMode: VisualEffectsMode.full,
+        due: [habit(id: '1', name: 'Meditate')],
+        complete: const [],
+        shapes: PrismShapes.angular,
       ),
     );
     await tester.pumpAndSettle();
 
-    final opacity = tester.widgetList<AnimatedOpacity>(
-      find.ancestor(
-        of: find.byType(HabitChip),
-        matching: find.byType(AnimatedOpacity),
-      ),
-    );
-    expect(opacity, isNotEmpty);
-    expect(opacity.first.opacity, closeTo(0.45, 0.0001));
+    final dueDecorations = tester
+        .widgetList<Container>(
+          find.descendant(
+            of: find.byKey(const Key('today-due-container')),
+            matching: find.byType(Container),
+          ),
+        )
+        .map((container) => container.decoration)
+        .whereType<BoxDecoration>()
+        .where((decoration) => decoration.border != null)
+        .toList();
+
+    expect(dueDecorations, isNotEmpty);
+    expect(dueDecorations.first.borderRadius, BorderRadius.zero);
+
+    final leadingDecorations = tester
+        .widgetList<AnimatedContainer>(find.byType(AnimatedContainer))
+        .map((container) => container.decoration)
+        .whereType<BoxDecoration>()
+        .toList();
+
+    expect(leadingDecorations, isNotEmpty);
+    expect(leadingDecorations.first.shape, BoxShape.rectangle);
+    expect(leadingDecorations.first.borderRadius, BorderRadius.zero);
   });
 }
 

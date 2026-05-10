@@ -4,6 +4,7 @@ import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -71,8 +72,10 @@ class HabitRow extends StatelessWidget {
     final completed = _isCompletedToday;
     final weeklyProgress = _weeklyProgress();
     final reduceMotion = MediaQuery.of(context).disableAnimations;
-    final circleDuration =
-        reduceMotion ? Duration.zero : const Duration(milliseconds: 240);
+    final circleDuration = reduceMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 240);
+    final shapes = PrismShapes.of(context);
 
     // Build the subtitle pill list. Frequency is no longer shown — only
     // weekly progress (if weekly-frequency) and streak (if > 0). If
@@ -82,7 +85,10 @@ class HabitRow extends StatelessWidget {
     if (weeklyProgress != null) {
       pills.add(
         Semantics(
-          label: context.l10n.habitsWeeklyProgressSemantics(weeklyProgress.$1, weeklyProgress.$2),
+          label: context.l10n.habitsWeeklyProgressSemantics(
+            weeklyProgress.$1,
+            weeklyProgress.$2,
+          ),
           child: PrismPill(
             icon: AppIcons.check,
             label: '${weeklyProgress.$1}/${weeklyProgress.$2}',
@@ -128,7 +134,8 @@ class HabitRow extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+                  shape: shapes.avatarShape(),
+                  borderRadius: shapes.avatarBorderRadius(),
                   // Tinted fill for incomplete ("tap to finish" affordance),
                   // full fill for completed. No border in either state —
                   // the 240ms AnimatedContainer smoothly animates the
@@ -139,10 +146,7 @@ class HabitRow extends StatelessWidget {
                   duration: circleDuration,
                   transitionBuilder: (child, animation) => FadeTransition(
                     opacity: animation,
-                    child: ScaleTransition(
-                      scale: animation,
-                      child: child,
-                    ),
+                    child: ScaleTransition(scale: animation, child: child),
                   ),
                   child: completed
                       ? Icon(
@@ -152,19 +156,19 @@ class HabitRow extends StatelessWidget {
                           color: AppColors.warmWhite,
                         )
                       : habit.icon != null
-                          ? Center(
-                              key: ValueKey('habit-row-icon-${habit.icon}'),
-                              child: Text(
-                                habit.icon!,
-                                style: const TextStyle(fontSize: 20),
-                              ),
-                            )
-                          : Icon(
-                              AppIcons.circleOutlined,
-                              key: const ValueKey('habit-row-outline'),
-                              size: 20,
-                              color: color.withValues(alpha: 0.6),
-                            ),
+                      ? Center(
+                          key: ValueKey('habit-row-icon-${habit.icon}'),
+                          child: Text(
+                            habit.icon!,
+                            style: const TextStyle(fontSize: 20),
+                          ),
+                        )
+                      : Icon(
+                          AppIcons.circleOutlined,
+                          key: const ValueKey('habit-row-outline'),
+                          size: 20,
+                          color: color.withValues(alpha: 0.6),
+                        ),
                 ),
               ),
             ),

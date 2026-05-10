@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 Widget _wrap(Widget child, {required PrismShapes shapes}) {
   return ProviderScope(
@@ -134,6 +135,27 @@ void main() {
         isEmpty,
         reason: 'foregroundDecoration paints above child images',
       );
+    });
+
+    testWidgets('angular mode squares circular tinted glass surfaces', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const TintedGlassSurface.circle(size: 40, child: SizedBox.shrink()),
+          shapes: PrismShapes.angular,
+        ),
+      );
+
+      final decorations = tester
+          .widgetList<Container>(find.byType(Container))
+          .map((container) => container.decoration)
+          .whereType<BoxDecoration>()
+          .toList();
+
+      expect(decorations, isNotEmpty);
+      expect(decorations.first.shape, BoxShape.rectangle);
+      expect(decorations.first.borderRadius, BorderRadius.zero);
     });
   });
 }

@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/habits/views/add_edit_habit_sheet.dart'
 import 'package:prism_plurality/features/habits/views/complete_habit_sheet.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -766,7 +767,9 @@ class _FloatingCompleteButton extends ConsumerWidget {
     // pill reads as inert glass.
     final tint = isCompletedToday ? null : habitColor;
 
-    final pillRadius = BorderRadius.circular(PrismTokens.radiusPill);
+    final pillRadius = BorderRadius.circular(
+      PrismShapes.of(context).radius(PrismTokens.radiusPill),
+    );
 
     return Semantics(
       button: true,

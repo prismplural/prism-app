@@ -143,7 +143,9 @@ class _TodayHabitsContainerState extends ConsumerState<TodayHabitsContainer> {
         SliverMainAxisGroup(
           slivers: [
             SliverToBoxAdapter(
-              child: _SectionPillHeader(title: context.l10n.habitsSectionComplete),
+              child: _SectionPillHeader(
+                title: context.l10n.habitsSectionComplete,
+              ),
             ),
             SliverList.builder(
               itemCount: sortedComplete.length,
@@ -152,8 +154,10 @@ class _TodayHabitsContainerState extends ConsumerState<TodayHabitsContainer> {
                 final isBusy = _tapping.contains(habit.id);
                 return Padding(
                   key: ValueKey('today-complete-${habit.id}'),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 5,
+                  ),
                   child: AnimatedOpacity(
                     opacity: completedOpacity,
                     duration: reduceMotion
@@ -167,8 +171,7 @@ class _TodayHabitsContainerState extends ConsumerState<TodayHabitsContainer> {
                           widget.weeklyByHabit[habit.id] ?? const [],
                       completed: true,
                       onTap: () => widget.onTap(habit),
-                      onQuickComplete:
-                          isBusy ? null : () => _handleTap(habit),
+                      onQuickComplete: isBusy ? null : () => _handleTap(habit),
                     ),
                   ),
                 );
@@ -222,9 +225,13 @@ class _DueContainer extends ConsumerWidget {
         : (isDark ? 0.12 : 0.08);
     final borderAlpha = isAccessible ? 0.24 : 0.16;
     final primary = theme.colorScheme.primary;
+    final borderRadius = BorderRadius.circular(
+      PrismShapes.of(context).radius(PrismTokens.radiusLarge),
+    );
 
-    final semanticsLabel =
-        allDoneMode ? context.l10n.habitsTodayAllDoneSemantics : context.l10n.habitsTodaySemantics;
+    final semanticsLabel = allDoneMode
+        ? context.l10n.habitsTodayAllDoneSemantics
+        : context.l10n.habitsTodaySemantics;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -234,7 +241,7 @@ class _DueContainer extends ConsumerWidget {
         child: Container(
           decoration: BoxDecoration(
             color: primary.withValues(alpha: fillAlpha),
-            borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
+            borderRadius: borderRadius,
             border: Border.all(
               color: primary.withValues(alpha: borderAlpha),
               width: PrismTokens.hairlineBorderWidth,
@@ -312,8 +319,7 @@ class _FullDueContent extends StatelessWidget {
             weeklyCompletions: weeklyByHabit[habit.id] ?? const [],
             completed: false,
             onTap: () => onTap(habit),
-            onQuickComplete:
-                isBusy ? null : () => onLeadingTap(habit),
+            onQuickComplete: isBusy ? null : () => onLeadingTap(habit),
           ),
         ),
       );
@@ -421,13 +427,14 @@ class _SectionPillHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
       child: UnconstrainedBox(
         child: TintedGlassSurface(
-          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(999)),
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(999),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           child: Text(
             title,
             style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant
-                  .withValues(alpha: 0.9),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.9),
               fontWeight: FontWeight.w600,
               fontSize: 11,
             ),

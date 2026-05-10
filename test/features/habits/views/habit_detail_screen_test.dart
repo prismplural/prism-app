@@ -10,6 +10,8 @@ import 'package:prism_plurality/domain/repositories/habit_repository.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/habits/views/habit_detail_screen.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 
 void main() {
   final today = DateTime(2026, 4, 10);
@@ -38,6 +40,7 @@ void main() {
     Habit? habit,
     List<HabitCompletion> completions = const [],
     HabitStats? stats,
+    PrismShapes shapes = PrismShapes.rounded,
   }) {
     final resolvedHabit = habit ?? sampleHabit;
     final resolvedStats =
@@ -63,6 +66,7 @@ void main() {
         habitStatsProvider.overrideWith((ref, params) async => resolvedStats),
       ],
       child: MaterialApp(
+        theme: ThemeData(extensions: [shapes]),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: const [Locale('en')],
         home: HabitDetailScreen(habitId: resolvedHabit.id),
@@ -143,6 +147,18 @@ void main() {
 
     expect(find.text('47'), findsOneWidget);
     expect(find.text('78%'), findsOneWidget);
+  });
+
+  testWidgets('angular mode squares the floating complete button surface', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildSubject(completions: [], shapes: PrismShapes.angular),
+    );
+    await tester.pumpAndSettle();
+
+    final surface = tester.widget<GlassSurface>(find.byType(GlassSurface));
+    expect(surface.borderRadius, BorderRadius.zero);
   });
 }
 

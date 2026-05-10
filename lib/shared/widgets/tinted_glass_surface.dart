@@ -66,6 +66,11 @@ class TintedGlassSurface extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final mode = VisualEffectsModeX.of(context, ref);
     final isAccessible = mode.highContrast;
+    final shapes = PrismShapes.of(context);
+    final effectiveShape =
+        shape == BoxShape.circle && shapes.cornerStyle == CornerStyle.angular
+        ? BoxShape.rectangle
+        : shape;
 
     // --- Fill color ---
     // Base translucency differs by brightness; accessible mode raises opacity.
@@ -106,18 +111,18 @@ class TintedGlassSurface extends ConsumerWidget {
     ];
 
     // --- Shape helpers ---
-    final effectiveBorderRadius = shape == BoxShape.circle
+    final effectiveBorderRadius = effectiveShape == BoxShape.circle
         ? null
+        : shape == BoxShape.circle
+        ? BorderRadius.zero
         : (borderRadius ??
-              BorderRadius.circular(
-                PrismShapes.of(context).radius(PrismTokens.radiusMedium),
-              ));
+              BorderRadius.circular(shapes.radius(PrismTokens.radiusMedium)));
 
     // --- Highlight gradient (suppressed in accessible mode) ---
     final Decoration? highlightDecoration = isAccessible || !showHighlight
         ? null
         : BoxDecoration(
-            shape: shape,
+            shape: effectiveShape,
             borderRadius: effectiveBorderRadius,
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -149,7 +154,7 @@ class TintedGlassSurface extends ConsumerWidget {
       foregroundDecoration: highlightDecoration,
       decoration: BoxDecoration(
         color: fillColor,
-        shape: shape,
+        shape: effectiveShape,
         borderRadius: effectiveBorderRadius,
         border: Border.all(color: effectiveBorderColor, width: borderWidth),
         boxShadow: shadow,

@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/members/providers/member_groups_provide
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
 void main() {
   testWidgets('edit mode sends only changed habit fields', (tester) async {
@@ -54,11 +55,43 @@ void main() {
     expect(spy.updateHabitCalls, isEmpty);
     expect(spy.createHabitCalls, isEmpty);
   });
+
+  testWidgets('color picker keeps vertical swatch spacing in angular mode', (
+    tester,
+  ) async {
+    final habit = Habit(
+      id: 'habit-1',
+      name: 'Read',
+      createdAt: DateTime(2026, 5, 1, 12),
+      modifiedAt: DateTime(2026, 5, 1, 12),
+      frequency: HabitFrequency.daily,
+    );
+
+    await tester.pumpWidget(
+      _buildSubject(
+        habit: habit,
+        notifier: _SpyHabitNotifier(),
+        shapes: PrismShapes.angular,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open habit sheet'));
+    await tester.pumpAndSettle();
+
+    final colorWraps = tester
+        .widgetList<Wrap>(find.byType(Wrap))
+        .where((wrap) => wrap.spacing == 8 && wrap.children.length == 8);
+
+    expect(colorWraps, isNotEmpty);
+    expect(colorWraps.first.runSpacing, 8);
+  });
 }
 
 Widget _buildSubject({
   required Habit habit,
   required _SpyHabitNotifier notifier,
+  PrismShapes shapes = PrismShapes.rounded,
 }) {
   return ProviderScope(
     overrides: [
@@ -75,6 +108,7 @@ Widget _buildSubject({
       habitNotifierProvider.overrideWith(() => notifier),
     ],
     child: MaterialApp.router(
+      theme: ThemeData(extensions: [shapes]),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
       routerConfig: GoRouter(
