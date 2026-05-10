@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_auto_poll_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
@@ -11,11 +12,25 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_servi
 /// throws — this test never exercises other paths.
 class _FakePkSyncService implements PluralKitSyncService {
   int pollCount = 0;
+  int liveFrontsOnlyCount = 0;
+  bool? lastLiveIsManual;
+  PkSyncDirection? lastLiveDirection;
 
   @override
   Future<bool> pollFrontersOnly() async {
     pollCount++;
     return false;
+  }
+
+  @override
+  Future<PkSyncSummary?> syncLiveFrontersOnly({
+    bool isManual = false,
+    required PkSyncDirection direction,
+  }) async {
+    liveFrontsOnlyCount++;
+    lastLiveIsManual = isManual;
+    lastLiveDirection = direction;
+    return null;
   }
 
   @override
@@ -31,16 +46,42 @@ class _FakePkSyncNotifier extends Notifier<PluralKitSyncState> {
   void set(PluralKitSyncState next) => state = next;
 }
 
+class _FakePkSyncModeNotifier extends PkSyncModeNotifier {
+  _FakePkSyncModeNotifier(this._mode);
+
+  final PkSyncMode _mode;
+
+  @override
+  PkSyncMode build() => _mode;
+
+  @override
+  Future<void> setMode(PkSyncMode mode) async {
+    state = mode;
+  }
+}
+
+class _FakePkSyncDirectionNotifier extends PkSyncDirectionNotifier {
+  @override
+  PkSyncDirection build() => PkSyncDirection.pullOnly;
+}
+
 final _fakePkSyncProvider =
     NotifierProvider<_FakePkSyncNotifier, PluralKitSyncState>(
-  _FakePkSyncNotifier.new,
-);
+      _FakePkSyncNotifier.new,
+    );
 
-ProviderContainer _container(_FakePkSyncService service) {
-  return ProviderContainer(overrides: [
-    pluralKitSyncServiceProvider.overrideWithValue(service),
-    pluralKitSyncProvider.overrideWith(_ProxyPkSync.new),
-  ]);
+ProviderContainer _container(
+  _FakePkSyncService service, {
+  PkSyncMode syncMode = PkSyncMode.fullSync,
+}) {
+  return ProviderContainer(
+    overrides: [
+      pluralKitSyncServiceProvider.overrideWithValue(service),
+      pluralKitSyncProvider.overrideWith(_ProxyPkSync.new),
+      pkSyncModeProvider.overrideWith(() => _FakePkSyncModeNotifier(syncMode)),
+      pkSyncDirectionProvider.overrideWith(_FakePkSyncDirectionNotifier.new),
+    ],
+  );
 }
 
 /// Proxies `pluralKitSyncProvider` reads to `_fakePkSyncProvider` so the
@@ -50,6 +91,16 @@ class _ProxyPkSync extends PluralKitSyncNotifier {
   PluralKitSyncState build() {
     final state = ref.watch(_fakePkSyncProvider);
     return state;
+  }
+
+  @override
+  Future<PkSyncSummary?> syncLiveFrontersOnly({
+    bool isManual = false,
+    PkSyncDirection direction = PkSyncDirection.pullOnly,
+  }) {
+    return ref
+        .read(pluralKitSyncServiceProvider)
+        .syncLiveFrontersOnly(isManual: isManual, direction: direction);
   }
 }
 
@@ -77,8 +128,7 @@ void main() {
       expect(prefs.getBool('pk_auto_poll_enabled'), isTrue);
     });
 
-    test('setIntervalSeconds rejects values outside the choice list',
-        () async {
+    test('setIntervalSeconds rejects values outside the choice list', () async {
       final c = ProviderContainer();
       addTearDown(c.dispose);
       await c.read(pkAutoPollSettingsProvider.future);
@@ -92,18 +142,18 @@ void main() {
       final c = ProviderContainer();
       addTearDown(c.dispose);
       await c.read(pkAutoPollSettingsProvider.future);
-      await c
-          .read(pkAutoPollSettingsProvider.notifier)
-          .setIntervalSeconds(120);
+      await c.read(pkAutoPollSettingsProvider.notifier).setIntervalSeconds(120);
       expect(c.read(pkAutoPollSettingsProvider).value?.intervalSeconds, 120);
     });
   });
 
   group('PkAutoPollNotifier', () {
-    setUp(() => SharedPreferences.setMockInitialValues({
-          'pk_auto_poll_enabled': true,
-          'pk_auto_poll_interval_seconds': 60,
-        }));
+    setUp(
+      () => SharedPreferences.setMockInitialValues({
+        'pk_auto_poll_enabled': true,
+        'pk_auto_poll_interval_seconds': 60,
+      }),
+    );
 
     test('does not tick when not foregrounded', () async {
       final fake = _FakePkSyncService();
@@ -111,9 +161,9 @@ void main() {
       addTearDown(c.dispose);
 
       // Connected + mapped → canAutoSync = true.
-      c.read(_fakePkSyncProvider.notifier).set(
-            const PluralKitSyncState(isConnected: true),
-          );
+      c
+          .read(_fakePkSyncProvider.notifier)
+          .set(const PluralKitSyncState(isConnected: true));
       await c.read(pkAutoPollSettingsProvider.future);
       c.read(pkAutoPollProvider); // instantiate notifier
 
@@ -122,21 +172,44 @@ void main() {
       expect(fake.pollCount, 0);
     });
 
-    test('markForegrounded(true) triggers an immediate catch-up tick',
-        () async {
-      final fake = _FakePkSyncService();
-      final c = _container(fake);
-      addTearDown(c.dispose);
+    test(
+      'markForegrounded(true) triggers an immediate catch-up tick',
+      () async {
+        final fake = _FakePkSyncService();
+        final c = _container(fake);
+        addTearDown(c.dispose);
 
-      c.read(_fakePkSyncProvider.notifier).set(
-            const PluralKitSyncState(isConnected: true),
-          );
-      await c.read(pkAutoPollSettingsProvider.future);
-      c.read(pkAutoPollProvider.notifier).markForegrounded(true);
+        c
+            .read(_fakePkSyncProvider.notifier)
+            .set(const PluralKitSyncState(isConnected: true));
+        await c.read(pkAutoPollSettingsProvider.future);
+        c.read(pkAutoPollProvider.notifier).markForegrounded(true);
 
-      await Future<void>.delayed(Duration.zero);
-      expect(fake.pollCount, 1);
-    });
+        await Future<void>.delayed(Duration.zero);
+        expect(fake.pollCount, 1);
+      },
+    );
+
+    test(
+      'live-fronts-only mode dispatches live sync instead of full poll',
+      () async {
+        final fake = _FakePkSyncService();
+        final c = _container(fake, syncMode: PkSyncMode.liveFrontsOnly);
+        addTearDown(c.dispose);
+
+        c
+            .read(_fakePkSyncProvider.notifier)
+            .set(const PluralKitSyncState(isConnected: true));
+        await c.read(pkAutoPollSettingsProvider.future);
+        c.read(pkAutoPollProvider.notifier).markForegrounded(true);
+
+        await Future<void>.delayed(Duration.zero);
+        expect(fake.liveFrontsOnlyCount, 1);
+        expect(fake.pollCount, 0);
+        expect(fake.lastLiveIsManual, isFalse);
+        expect(fake.lastLiveDirection, PkSyncDirection.pullOnly);
+      },
+    );
 
     test('!canAutoSync gates the tick even when foregrounded', () async {
       final fake = _FakePkSyncService();
@@ -144,9 +217,7 @@ void main() {
       addTearDown(c.dispose);
 
       // isConnected=false → canAutoSync=false
-      c.read(_fakePkSyncProvider.notifier).set(
-            const PluralKitSyncState(),
-          );
+      c.read(_fakePkSyncProvider.notifier).set(const PluralKitSyncState());
       await c.read(pkAutoPollSettingsProvider.future);
       c.read(pkAutoPollProvider.notifier).markForegrounded(true);
 
@@ -159,9 +230,9 @@ void main() {
       final c = _container(fake);
       addTearDown(c.dispose);
 
-      c.read(_fakePkSyncProvider.notifier).set(
-            const PluralKitSyncState(isConnected: true),
-          );
+      c
+          .read(_fakePkSyncProvider.notifier)
+          .set(const PluralKitSyncState(isConnected: true));
       await c.read(pkAutoPollSettingsProvider.future);
       final notifier = c.read(pkAutoPollProvider.notifier);
       notifier.noteLocalPush();
@@ -177,9 +248,9 @@ void main() {
         final c = _container(fake);
         addTearDown(c.dispose);
 
-        c.read(_fakePkSyncProvider.notifier).set(
-              const PluralKitSyncState(isConnected: true),
-            );
+        c
+            .read(_fakePkSyncProvider.notifier)
+            .set(const PluralKitSyncState(isConnected: true));
         c.read(pkAutoPollSettingsProvider);
         async.elapse(const Duration(milliseconds: 10)); // let prefs load
         c.read(pkAutoPollProvider.notifier).markForegrounded(true);

@@ -1458,6 +1458,161 @@ class PluralKitSyncService {
     }
   }
 
+  /// Sync only the currently-live PluralKit fronter snapshot.
+  ///
+  /// This intentionally bypasses [syncRecentData]: it does not fetch switch
+  /// history, members, groups, or profile data, and it does not advance the
+  /// incremental switch cursor or stamp [PluralKitSyncState.lastSyncDate].
+  Future<PkSyncSummary?> syncLiveFrontersOnly({
+    required PkSyncDirection direction,
+    bool isManual = false,
+  }) async {
+    if (!_state.canAutoSync) return null;
+    if (_state.isSyncing) return null;
+
+    _emit(
+      _state.copyWith(
+        isSyncing: true,
+        syncProgress: 0.0,
+        syncStatus: 'Syncing live fronters...',
+        clearError: true,
+      ),
+    );
+
+    try {
+      int switchesPulled = 0;
+      int switchesPushed = 0;
+      PKSwitch? current;
+      String? warning;
+      var skipPush = false;
+
+      if (direction.pullEnabled) {
+        final client = await _buildClient();
+        if (client == null) {
+          _emit(_state.copyWith(isSyncing: false));
+          throw StateError('Not connected');
+        }
+
+        try {
+          current = await client.getCurrentFronters();
+          if (current != null) {
+            final pullResult = await _pullLiveFronterSwitch(current);
+            switchesPulled = pullResult.pulled ? 1 : 0;
+            warning = pullResult.warning;
+            skipPush = pullResult.skippedForUnmapped;
+          }
+        } finally {
+          client.dispose();
+        }
+      }
+
+      if (direction.pushEnabled && !skipPush) {
+        final pushResult = await pushPendingSwitches(
+          allowDuringSync: true,
+          knownCurrentFronters: current,
+        );
+        switchesPushed = pushResult.pushed;
+      }
+
+      final now = DateTime.now();
+      if (isManual) {
+        await _syncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            lastManualSyncDate: Value(now),
+          ),
+        );
+      }
+
+      final statusParts = <String>[];
+      if (switchesPulled > 0) statusParts.add('Pulled current fronter switch');
+      if (switchesPushed > 0) statusParts.add('Pushed current fronter switch');
+      if (warning != null) statusParts.add(warning);
+
+      _emit(
+        _state.copyWith(
+          isSyncing: false,
+          syncProgress: 1.0,
+          syncStatus: statusParts.isNotEmpty
+              ? '${statusParts.join('. ')}.'
+              : 'Live fronters are up to date.',
+          syncError: warning,
+          clearError: warning == null,
+          lastManualSyncDate: isManual ? now : _state.lastManualSyncDate,
+        ),
+      );
+
+      return PkSyncSummary(
+        switchesPulled: switchesPulled,
+        switchesPushed: switchesPushed,
+        staleLinkMessages: warning == null ? const [] : [warning],
+      );
+    } catch (e) {
+      _emit(
+        _state.copyWith(
+          isSyncing: false,
+          syncError: 'Live fronter sync failed: $e',
+        ),
+      );
+      rethrow;
+    }
+  }
+
+  Future<({bool pulled, String? warning, bool skippedForUnmapped})>
+  _pullLiveFronterSwitch(PKSwitch current) async {
+    final currentSwitchId = current.id.trim();
+    if (currentSwitchId.isEmpty) {
+      return (pulled: false, warning: null, skippedForUnmapped: false);
+    }
+
+    final sessions = await _frontingSessionRepository.getAllSessions();
+    final seenLive = sessions.any(
+      (s) => !s.isDeleted && s.pluralkitUuid?.trim() == currentSwitchId,
+    );
+    if (seenLive) {
+      return (pulled: false, warning: null, skippedForUnmapped: false);
+    }
+
+    final deletedLinked = await _frontingSessionRepository
+        .getDeletedLinkedSessions();
+    final seenDeleted = deletedLinked.any(
+      (s) => s.pluralkitUuid?.trim() == currentSwitchId,
+    );
+    if (seenDeleted) {
+      return (pulled: false, warning: null, skippedForUnmapped: false);
+    }
+
+    final shortIdToUuid = await _buildShortIdToUuidMap();
+    final uuidToLocalId = await _buildUuidToLocalIdMap();
+    final pkUuidByLocalId = <String, String>{
+      for (final entry in uuidToLocalId.entries) entry.value: entry.key,
+    };
+
+    final unmapped = <String>[];
+    for (final pkId in current.members) {
+      final pkUuid = shortIdToUuid[pkId];
+      if (pkUuid == null || uuidToLocalId[pkUuid] == null) {
+        unmapped.add(pkId);
+      }
+    }
+    if (unmapped.isNotEmpty) {
+      final warning =
+          'Skipped current PluralKit switch because ${unmapped.length} '
+          '${unmapped.length == 1 ? 'member is' : 'members are'} unmapped.';
+      debugPrint('[PK_LIVE] $warning ids=${unmapped.join(',')}');
+      return (pulled: false, warning: warning, skippedForUnmapped: true);
+    }
+
+    await _runDiffSweep(
+      switches: [current],
+      shortIdToUuid: shortIdToUuid,
+      advanceCursor: false,
+      uuidToLocalIdOverride: uuidToLocalId,
+      pkUuidByLocalIdOverride: pkUuidByLocalId,
+    );
+    return (pulled: true, warning: null, skippedForUnmapped: false);
+  }
+
   /// Fetch the PK system-level avatar and store it on the local settings row.
   ///
   /// Returns `true` iff an avatar was fetched AND stored. Returns `false`
@@ -1673,13 +1828,18 @@ class PluralKitSyncService {
           ),
         );
         if (localMember != null) {
+          final hasPkColor = pk.color != null && pk.color!.isNotEmpty;
           await _memberRepository.updateMember(
             localMember.copyWith(
               pronouns: pk.pronouns,
               bio: pk.description,
               birthday: pk.birthday,
-              customColorHex: pk.color,
-              customColorEnabled: pk.color != null && pk.color!.isNotEmpty,
+              customColorHex: hasPkColor
+                  ? pk.color
+                  : localMember.customColorHex,
+              customColorEnabled: hasPkColor
+                  ? true
+                  : localMember.customColorEnabled,
               proxyTagsJson: pk.proxyTagsJson ?? localMember.proxyTagsJson,
               pkBannerUrl: bannerCache.pkBannerUrl,
               pkBannerImageData: bannerCache.pkBannerImageData,
@@ -2844,6 +3004,7 @@ class PluralKitSyncService {
     PkPushService? pushService,
     void Function(String message)? onStaleLink,
     bool allowDuringSync = false,
+    PKSwitch? knownCurrentFronters,
   }) async {
     if (!_state.isConnected) {
       throw StateError('Not connected — cannot push switches');
@@ -2867,6 +3028,7 @@ class PluralKitSyncService {
         _doPushPendingSwitches(
           pushService: pushService ?? const PkPushService(),
           onStaleLink: onStaleLink,
+          knownCurrentFronters: knownCurrentFronters,
         ).whenComplete(() {
           if (identical(_pushInFlight, future)) {
             _pushInFlight = null;
@@ -2879,6 +3041,7 @@ class PluralKitSyncService {
   Future<PkPushSwitchesResult> _doPushPendingSwitches({
     required PkPushService pushService,
     void Function(String message)? onStaleLink,
+    PKSwitch? knownCurrentFronters,
   }) async {
     final client = await _buildClient();
     if (client == null) throw StateError('Not connected');
@@ -2903,7 +3066,8 @@ class PluralKitSyncService {
       }).toList()..sort((a, b) => a.startTime.compareTo(b.startTime));
 
       final localPkSet = _sortedUniquePkIds(localActive, localIdToPkId);
-      final pkCurrent = await client.getCurrentFronters();
+      final pkCurrent =
+          knownCurrentFronters ?? await client.getCurrentFronters();
       final pkPkSet = _sortedUniqueStrings(pkCurrent?.members ?? const []);
 
       if (_sameStringSet(localPkSet, pkPkSet)) {

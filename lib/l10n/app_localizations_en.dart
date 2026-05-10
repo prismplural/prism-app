@@ -5489,6 +5489,24 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose how data flows between Prism and PluralKit.';
 
   @override
+  String get pluralkitSyncModeDescription =>
+      'Choose how much PluralKit data Prism syncs.';
+
+  @override
+  String get pluralkitSyncModeFullSync => 'Full Sync';
+
+  @override
+  String get pluralkitSyncModeLiveFrontsOnly => 'Live Fronts Only';
+
+  @override
+  String get pluralkitSyncModeFullSyncDescription =>
+      'Sync recent PluralKit changes using the direction below. Import and pk;export recovery still run explicit full imports.';
+
+  @override
+  String get pluralkitSyncModeLiveFrontsOnlyDescription =>
+      'Records new PluralKit front changes while Prism is open. Older history, profile, group, and system data are left untouched.';
+
+  @override
   String get pluralkitPull => 'Pull';
 
   @override

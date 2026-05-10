@@ -28,6 +28,23 @@ void main() {
     });
   });
 
+  // ── PkSyncMode ───────────────────────────────────────────────────────────
+
+  group('PkSyncMode', () {
+    test('JSON round-trip preserves mode', () {
+      expect(
+        PkSyncMode.fromJson(PkSyncMode.liveFrontsOnly.toJson()),
+        PkSyncMode.liveFrontsOnly,
+      );
+    });
+
+    test('fromJson defaults safely to fullSync for malformed values', () {
+      expect(PkSyncMode.fromJson(null), PkSyncMode.fullSync);
+      expect(PkSyncMode.fromJson(123), PkSyncMode.fullSync);
+      expect(PkSyncMode.fromJson('unknown'), PkSyncMode.fullSync);
+    });
+  });
+
   // ── PkFieldSyncConfig JSON round-trip ─────────────────────────────────────
 
   group('PkFieldSyncConfig', () {
@@ -137,6 +154,33 @@ void main() {
       expect(result['member-1']!.color, PkSyncDirection.disabled);
       expect(result['member-1']!.proxyTags, PkSyncDirection.pushOnly);
     });
+
+    test('reserved keys are ignored', () {
+      final json = jsonEncode({
+        '__mode__': 'liveFrontsOnly',
+        '__futureMetadata__': {'unexpected': true},
+        '__global__': {'name': 'pushOnly'},
+        'member-1': {'name': 'pullOnly'},
+      });
+
+      final result = parseFieldSyncConfig(json);
+
+      expect(result.keys, ['member-1']);
+      expect(result['member-1']!.name, PkSyncDirection.pullOnly);
+    });
+
+    test('malformed reserved values do not break member parsing', () {
+      final json = jsonEncode({
+        '__mode__': {'not': 'a string'},
+        '__global__': 'not a field config',
+        'member-1': {'name': 'pushOnly'},
+      });
+
+      final result = parseFieldSyncConfig(json);
+
+      expect(result.keys, ['member-1']);
+      expect(result['member-1']!.name, PkSyncDirection.pushOnly);
+    });
   });
 
   // ── serializeFieldSyncConfig ──────────────────────────────────────────────
@@ -180,6 +224,78 @@ void main() {
       expect(parsed['a']!.name, PkSyncDirection.pullOnly);
       expect(parsed['a']!.color, PkSyncDirection.disabled);
       expect(parsed['b']!.name, PkSyncDirection.bidirectional);
+    });
+
+    test('with mode preserves existing global direction', () {
+      final withDirection = serializeFieldSyncConfig({
+        'member-1': const PkFieldSyncConfig(name: PkSyncDirection.pullOnly),
+      }, globalDirection: PkSyncDirection.pushOnly);
+
+      final withMode = serializeFieldSyncConfigWithMode(
+        withDirection,
+        PkSyncMode.liveFrontsOnly,
+      );
+
+      expect(parsePkSyncMode(withMode), PkSyncMode.liveFrontsOnly);
+      expect(parseGlobalSyncDirection(withMode), PkSyncDirection.pushOnly);
+      expect(
+        parseFieldSyncConfig(withMode)['member-1']!.name,
+        PkSyncDirection.pullOnly,
+      );
+    });
+
+    test('with global direction preserves existing mode', () {
+      final withMode = serializeFieldSyncConfig({
+        'member-1': const PkFieldSyncConfig(name: PkSyncDirection.pullOnly),
+      }, mode: PkSyncMode.liveFrontsOnly);
+
+      final withDirection = serializeFieldSyncConfigWithGlobalDirection(
+        withMode,
+        PkSyncDirection.bidirectional,
+      );
+
+      expect(parsePkSyncMode(withDirection), PkSyncMode.liveFrontsOnly);
+      expect(
+        parseGlobalSyncDirection(withDirection),
+        PkSyncDirection.bidirectional,
+      );
+      expect(
+        parseFieldSyncConfig(withDirection)['member-1']!.name,
+        PkSyncDirection.pullOnly,
+      );
+    });
+  });
+
+  // ── metadata helpers ─────────────────────────────────────────────────────
+
+  group('metadata helpers', () {
+    test('parsePkSyncMode defaults to fullSync', () {
+      expect(parsePkSyncMode(null), PkSyncMode.fullSync);
+      expect(parsePkSyncMode(''), PkSyncMode.fullSync);
+      expect(parsePkSyncMode('not json'), PkSyncMode.fullSync);
+      expect(
+        parsePkSyncMode(jsonEncode({'__mode__': 42})),
+        PkSyncMode.fullSync,
+      );
+      expect(
+        parsePkSyncMode(jsonEncode({'__mode__': 'unknown'})),
+        PkSyncMode.fullSync,
+      );
+    });
+
+    test('parsePkSyncMode reads liveFrontsOnly', () {
+      expect(
+        parsePkSyncMode(jsonEncode({'__mode__': 'liveFrontsOnly'})),
+        PkSyncMode.liveFrontsOnly,
+      );
+    });
+
+    test('parseGlobalSyncDirection reads __global__ direction', () {
+      final json = jsonEncode({
+        '__global__': {'name': 'pushOnly'},
+      });
+
+      expect(parseGlobalSyncDirection(json), PkSyncDirection.pushOnly);
     });
   });
 

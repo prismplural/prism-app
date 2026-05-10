@@ -5579,6 +5579,24 @@ class AppLocalizationsEs extends AppLocalizations {
       'Elige cómo fluyen los datos entre Prism y PluralKit.';
 
   @override
+  String get pluralkitSyncModeDescription =>
+      'Elige cuántos datos de PluralKit sincroniza Prism.';
+
+  @override
+  String get pluralkitSyncModeFullSync => 'Sync completo';
+
+  @override
+  String get pluralkitSyncModeLiveFrontsOnly => 'Solo fronts en vivo';
+
+  @override
+  String get pluralkitSyncModeFullSyncDescription =>
+      'Sincroniza cambios recientes de PluralKit con la dirección de abajo. Importar y recuperar desde pk;export siguen ejecutando importaciones completas explícitas.';
+
+  @override
+  String get pluralkitSyncModeLiveFrontsOnlyDescription =>
+      'Registra nuevos cambios de frente de PluralKit mientras Prism está abierto. El historial anterior y los datos de perfil, grupos y sistema no se modifican.';
+
+  @override
   String get pluralkitPull => 'Descargar';
 
   @override

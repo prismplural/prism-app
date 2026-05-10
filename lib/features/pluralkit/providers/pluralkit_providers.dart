@@ -66,46 +66,37 @@ final pkGroupResetServiceProvider = Provider<PkGroupResetService>((ref) {
 
 /// Persisted sync direction. Defaults to pullOnly for backward compatibility.
 class PkSyncDirectionNotifier extends Notifier<PkSyncDirection> {
+  int _writeGeneration = 0;
+
   @override
   PkSyncDirection build() {
-    _loadDirection();
+    _loadDirectionIfUnchanged(_writeGeneration);
     return PkSyncDirection.pullOnly;
   }
 
-  Future<void> _loadDirection() async {
+  Future<void> _loadDirectionIfUnchanged(int generation) async {
     final syncDao = ref.read(pluralKitSyncDaoProvider);
     final row = await syncDao.getSyncState();
-    final config = parseFieldSyncConfig(row.fieldSyncConfig);
-    // The overall direction is stored under the '__global__' key
-    final globalConfig = config['__global__'];
-    if (globalConfig != null) {
-      state =
-          globalConfig.name; // We reuse the 'name' field for global direction
-    }
+    if (_writeGeneration != generation) return;
+    state = parseGlobalSyncDirection(row.fieldSyncConfig);
   }
 
   Future<void> setDirection(PkSyncDirection direction) async {
+    _writeGeneration++;
     state = direction;
-    // Persist to the fieldSyncConfig column
+    // Persist to the fieldSyncConfig column without clobbering reserved
+    // metadata like `__mode__`.
     final syncDao = ref.read(pluralKitSyncDaoProvider);
     final row = await syncDao.getSyncState();
-    final config = parseFieldSyncConfig(row.fieldSyncConfig);
-    config['__global__'] = PkFieldSyncConfig(
-      name: direction,
-      displayName: direction,
-      pronouns: direction,
-      description: direction,
-      color: direction,
-      birthday: direction,
-      // Proxy tags follow the global direction by design — see the
-      // PkFieldSyncConfig constructor doc in `pk_sync_config.dart` for why
-      // bidirectional remains the default for proxy tags.
-      proxyTags: direction,
-    );
     await syncDao.upsertSyncState(
       PluralKitSyncStateCompanion(
         id: const drift.Value('pk_config'),
-        fieldSyncConfig: drift.Value(serializeFieldSyncConfig(config)),
+        fieldSyncConfig: drift.Value(
+          serializeFieldSyncConfigWithGlobalDirection(
+            row.fieldSyncConfig,
+            direction,
+          ),
+        ),
       ),
     );
   }
@@ -115,6 +106,53 @@ final pkSyncDirectionProvider =
     NotifierProvider<PkSyncDirectionNotifier, PkSyncDirection>(
       PkSyncDirectionNotifier.new,
     );
+
+// ---------------------------------------------------------------------------
+// Sync mode state
+// ---------------------------------------------------------------------------
+
+/// Persisted sync mode. Defaults to fullSync for backward compatibility.
+class PkSyncModeNotifier extends Notifier<PkSyncMode> {
+  int _writeGeneration = 0;
+
+  @override
+  PkSyncMode build() {
+    _loadIfUnchanged(_writeGeneration);
+    return PkSyncMode.fullSync;
+  }
+
+  Future<void> load() async {
+    final syncDao = ref.read(pluralKitSyncDaoProvider);
+    final row = await syncDao.getSyncState();
+    state = parsePkSyncMode(row.fieldSyncConfig);
+  }
+
+  Future<void> _loadIfUnchanged(int generation) async {
+    final syncDao = ref.read(pluralKitSyncDaoProvider);
+    final row = await syncDao.getSyncState();
+    if (_writeGeneration != generation) return;
+    state = parsePkSyncMode(row.fieldSyncConfig);
+  }
+
+  Future<void> setMode(PkSyncMode mode) async {
+    _writeGeneration++;
+    state = mode;
+    final syncDao = ref.read(pluralKitSyncDaoProvider);
+    final row = await syncDao.getSyncState();
+    await syncDao.upsertSyncState(
+      PluralKitSyncStateCompanion(
+        id: const drift.Value('pk_config'),
+        fieldSyncConfig: drift.Value(
+          serializeFieldSyncConfigWithMode(row.fieldSyncConfig, mode),
+        ),
+      ),
+    );
+  }
+}
+
+final pkSyncModeProvider = NotifierProvider<PkSyncModeNotifier, PkSyncMode>(
+  PkSyncModeNotifier.new,
+);
 
 // ---------------------------------------------------------------------------
 // Last sync summary
@@ -235,6 +273,7 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
   /// path) or that the user is about to re-classify.
   Future<void> pushMemberUpdate(Member member) async {
     if (ref.read(frontingMigrationWritesBlockedProvider)) return;
+    if (ref.read(pkSyncModeProvider) == PkSyncMode.liveFrontsOnly) return;
     if (!state.canAutoSync) return;
     if (!ref.read(pkSyncDirectionProvider).pushEnabled) return;
     if ((member.pluralkitId ?? '').trim().isEmpty) return;
@@ -254,6 +293,22 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
       return Future.value(null);
     }
     return _service.syncRecentData(isManual: isManual, direction: direction);
+  }
+
+  Future<PkSyncSummary?> syncLiveFrontersOnly({
+    bool isManual = false,
+    PkSyncDirection direction = PkSyncDirection.pullOnly,
+  }) {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) {
+      if (isManual) {
+        throw const PkSyncMigrationGatedException();
+      }
+      return Future.value(null);
+    }
+    return _service.syncLiveFrontersOnly(
+      isManual: isManual,
+      direction: direction,
+    );
   }
 
   Future<PKSystem?> fetchSystemProfile() => _service.fetchSystemProfile();

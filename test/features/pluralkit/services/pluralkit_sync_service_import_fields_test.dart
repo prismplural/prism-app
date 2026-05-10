@@ -273,6 +273,44 @@ void main() {
       },
     );
 
+    test(
+      'update: missing color on subsequent import preserves local accent',
+      () async {
+        PluralKitSyncService build(List<Map<String, dynamic>> members) =>
+            PluralKitSyncService(
+              memberRepository: DriftMemberRepository(db.membersDao, null),
+              frontingSessionRepository: DriftFrontingSessionRepository(
+                db.frontingSessionsDao,
+                null,
+              ),
+              syncDao: db.pluralKitSyncDao,
+              tokenOverride: 't',
+              clientFactory: (_) => _mockClient(
+                system: {'id': 'sys1', 'name': 'Test'},
+                members: members,
+              ),
+              bannerCacheService: _testBannerCacheService(),
+            );
+
+        await build([
+          {
+            'id': 'aaaaa',
+            'uuid': 'u-alice',
+            'name': 'Alice',
+            'color': 'ff0000',
+          },
+        ]).importMembersOnly();
+
+        await build([
+          {'id': 'aaaaa', 'uuid': 'u-alice', 'name': 'Alice'},
+        ]).importMembersOnly();
+
+        final row = (await db.membersDao.getAllMembers()).single;
+        expect(row.customColorHex, 'ff0000');
+        expect(row.customColorEnabled, isTrue);
+      },
+    );
+
     test('update: banner URL is written on re-import', () async {
       PluralKitSyncService build(List<Map<String, dynamic>> members) =>
           PluralKitSyncService(

@@ -9402,6 +9402,36 @@ abstract class AppLocalizations {
   /// **'Choose how data flows between Prism and PluralKit.'**
   String get pluralkitSyncDirectionDescription;
 
+  /// Description text for the PluralKit sync mode picker
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how much PluralKit data Prism syncs.'**
+  String get pluralkitSyncModeDescription;
+
+  /// PluralKit sync mode label for full sync
+  ///
+  /// In en, this message translates to:
+  /// **'Full Sync'**
+  String get pluralkitSyncModeFullSync;
+
+  /// PluralKit sync mode label for live fronters only
+  ///
+  /// In en, this message translates to:
+  /// **'Live Fronts Only'**
+  String get pluralkitSyncModeLiveFrontsOnly;
+
+  /// Explanatory text for PluralKit full sync mode
+  ///
+  /// In en, this message translates to:
+  /// **'Sync recent PluralKit changes using the direction below. Import and pk;export recovery still run explicit full imports.'**
+  String get pluralkitSyncModeFullSyncDescription;
+
+  /// Explanatory text for PluralKit live fronts only mode
+  ///
+  /// In en, this message translates to:
+  /// **'Records new PluralKit front changes while Prism is open. Older history, profile, group, and system data are left untouched.'**
+  String get pluralkitSyncModeLiveFrontsOnlyDescription;
+
   /// PluralKit sync direction: pull only
   ///
   /// In en, this message translates to:

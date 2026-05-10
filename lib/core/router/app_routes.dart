@@ -37,8 +37,6 @@ abstract final class AppRoutePaths {
   static const settingsDatabase = '/settings/database';
   static const settingsAbout = '/settings/about';
   static const settingsDebug = '/settings/debug';
-  static const settingsDebugPluralKitGroupTester =
-      '/settings/debug/pluralkit-group-tester';
   static const settingsComponentGallery = '/settings/component-gallery';
   static const settingsSyncDebug = '/settings/sync-debug';
   static const settingsCryptoStorageDebug = '/settings/crypto-storage-debug';

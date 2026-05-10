@@ -272,10 +272,11 @@ class PkBidirectionalService {
     if (_pullField(config.color, direction)) {
       final localColor = _normalizeColor(local.customColorHex);
       final pkColor = _normalizeColor(pk.color);
-      if (localColor != pkColor) {
+      if (pkColor != null &&
+          (localColor != pkColor || !local.customColorEnabled)) {
         updated = updated.copyWith(
           customColorHex: pk.color,
-          customColorEnabled: pk.color != null && pk.color!.isNotEmpty,
+          customColorEnabled: true,
         );
         changed = true;
       }

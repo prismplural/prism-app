@@ -2,41 +2,33 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
-import 'package:prism_plurality/core/database/database_provider.dart';
-import 'package:prism_plurality/core/router/app_routes.dart';
-import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_auto_poll_provider.dart';
-import 'package:prism_plurality/features/pluralkit/providers/pk_group_repair_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
-import 'package:prism_plurality/features/pluralkit/services/pk_group_reset_service.dart';
-import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/pluralkit/views/pk_file_import_screen.dart';
 import 'package:prism_plurality/features/pluralkit/views/pk_mapping_screen.dart';
-import 'package:prism_plurality/features/pluralkit/widgets/pk_group_repair_card.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_direction_picker.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_summary_card.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_system_profile_disclosure.dart';
-import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
-import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// PluralKit integration setup and sync management screen.
@@ -180,9 +172,14 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
 
   Future<void> _syncRecent() async {
     final direction = ref.read(pkSyncDirectionProvider);
-    final summary = await ref
-        .read(pluralKitSyncProvider.notifier)
-        .syncRecentData(isManual: true, direction: direction);
+    final mode = ref.read(pkSyncModeProvider);
+    final summary = mode == PkSyncMode.liveFrontsOnly
+        ? await ref
+              .read(pluralKitSyncProvider.notifier)
+              .syncLiveFrontersOnly(isManual: true, direction: direction)
+        : await ref
+              .read(pluralKitSyncProvider.notifier)
+              .syncRecentData(isManual: true, direction: direction);
     if (!mounted) return;
     if (summary != null) {
       ref.read(pkLastSyncSummaryProvider.notifier).set(summary);
@@ -191,431 +188,8 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     _startCooldownTimer(syncState);
   }
 
-  Future<void> _runGroupRepair({String? token}) async {
-    final l10n = context.l10n;
-    try {
-      final report = await ref
-          .read(pkGroupRepairControllerProvider.notifier)
-          .run(token: token, allowStoredToken: token == null);
-      if (!mounted) return;
-      _showRepairToast(report);
-    } catch (error) {
-      if (!mounted) return;
-      PrismToast.error(
-        context,
-        message: l10n.pluralkitRepairFailedToast(
-          _formatRepairError(error.toString()),
-        ),
-      );
-    }
-  }
-
-  Future<void> _dismissGroupReview(String groupId) async {
-    final l10n = context.l10n;
-    await _runGroupReviewAction(
-      () => ref
-          .read(pkGroupRepairControllerProvider.notifier)
-          .dismissReviewItem(groupId),
-      successMessage: l10n.pluralkitRepairReviewDismissed,
-      errorMessage: l10n.pluralkitRepairDismissReviewFailed,
-    );
-  }
-
-  Future<void> _keepGroupLocalOnly(String groupId) async {
-    final l10n = context.l10n;
-    await _runGroupReviewAction(
-      () => ref
-          .read(pkGroupRepairControllerProvider.notifier)
-          .keepReviewItemLocalOnly(groupId),
-      successMessage: l10n.pluralkitRepairKeepLocalOnlySuccess,
-      errorMessage: l10n.pluralkitRepairKeepLocalOnlyFailed,
-    );
-  }
-
-  Future<void> _mergeGroupIntoCanonical(String groupId) async {
-    final l10n = context.l10n;
-    await _runGroupReviewAction(
-      () => ref
-          .read(pkGroupRepairControllerProvider.notifier)
-          .mergeReviewItemIntoCanonical(groupId),
-      successMessage: l10n.pluralkitRepairMergedSuccess,
-      errorMessage: l10n.pluralkitRepairMergeFailed,
-    );
-  }
-
-  Future<void> _runGroupReviewAction(
-    Future<void> Function() action, {
-    required String successMessage,
-    required String Function(String error) errorMessage,
-  }) async {
-    try {
-      await action();
-      if (!mounted) return;
-      PrismToast.success(context, message: successMessage);
-    } catch (error) {
-      if (!mounted) return;
-      PrismToast.error(
-        context,
-        message: errorMessage(_formatRepairError(error.toString())),
-      );
-    }
-  }
-
-  Future<void> _enablePkGroupSyncV2() async {
-    final l10n = context.l10n;
-    final repairState = ref.read(pkGroupRepairControllerProvider).asData?.value;
-    final settings = ref.read(systemSettingsProvider).asData?.value;
-
-    if (settings == null) {
-      if (!mounted) return;
-      PrismToast.error(
-        context,
-        message: l10n.pluralkitRepairCutoverSettingsLoadingError,
-      );
-      return;
-    }
-
-    if (settings.pkGroupSyncV2Enabled) {
-      if (!mounted) return;
-      PrismToast.show(
-        context,
-        message: l10n.pluralkitRepairCutoverAlreadyEnabled,
-      );
-      return;
-    }
-
-    if (repairState == null || repairState.isRunning) {
-      if (!mounted) return;
-      PrismToast.error(
-        context,
-        message: l10n.pluralkitRepairCutoverRepairLoadingError,
-      );
-      return;
-    }
-
-    if (repairState.lastReport == null) {
-      if (!mounted) return;
-      PrismToast.error(
-        context,
-        message: l10n.pluralkitRepairCutoverRunRepairFirstError,
-      );
-      return;
-    }
-
-    if (repairState.pendingReviewCount > 0) {
-      if (!mounted) return;
-      PrismToast.error(
-        context,
-        message: l10n.pluralkitRepairCutoverPendingReviewError(
-          repairState.pendingReviewCount,
-        ),
-      );
-      return;
-    }
-
-    try {
-      await ref
-          .read(systemSettingsRepositoryProvider)
-          .updatePkGroupSyncV2Enabled(true);
-      final syncHandle = ref.read(prismSyncHandleProvider).asData?.value;
-      if (syncHandle != null) {
-        await catchUpPkBackedSyncOnceAfterCutover(
-          syncHandle,
-          ref.read(databaseProvider),
-        );
-      }
-      if (!mounted) return;
-      PrismToast.success(
-        context,
-        message: l10n.pluralkitRepairCutoverEnabledSuccess,
-      );
-    } catch (error) {
-      if (!mounted) return;
-      PrismToast.error(
-        context,
-        message: l10n.pluralkitRepairCutoverEnableFailed(
-          _formatRepairError(error.toString()),
-        ),
-      );
-    }
-  }
-
-  Future<void> _resetPkGroupsOnly() async {
-    final l10n = context.l10n;
-    final syncState = ref.read(pluralKitSyncProvider);
-
-    try {
-      final result = await ref
-          .read(pkGroupResetServiceProvider)
-          .resetPkGroupsOnly();
-      ref.invalidate(pkGroupRepairControllerProvider);
-
-      if (!mounted) return;
-
-      if (!result.changedAnything) {
-        PrismToast.show(
-          context,
-          message: l10n.pluralkitRepairResetNoGroupsNeeded,
-        );
-        return;
-      }
-
-      if (!syncState.isConnected) {
-        PrismToast.success(
-          context,
-          message: l10n.pluralkitRepairResetFinishedReconnect(
-            _pkGroupResetSummary(l10n, result),
-          ),
-        );
-        return;
-      }
-
-      try {
-        await ref.read(pluralKitSyncProvider.notifier).performFullImport();
-        if (!mounted) return;
-        PrismToast.success(
-          context,
-          message: l10n.pluralkitRepairResetFinishedReimported(
-            _pkGroupResetSummary(l10n, result),
-          ),
-        );
-      } catch (error) {
-        if (!mounted) return;
-        PrismToast.show(
-          context,
-          message: l10n.pluralkitRepairResetFinishedReimportFailed(
-            _formatRepairError(error.toString()),
-            _pkGroupResetSummary(l10n, result),
-          ),
-          icon: AppIcons.warningAmberRounded,
-          iconColor: Theme.of(context).colorScheme.secondary,
-        );
-      }
-    } catch (error) {
-      if (!mounted) return;
-      PrismToast.error(
-        context,
-        message: l10n.pluralkitRepairResetFailed(
-          _formatRepairError(error.toString()),
-        ),
-      );
-    }
-  }
-
-  void _openExportDataFirst() {
-    context.push(AppRoutePaths.settingsImportExport);
-  }
-
-  Future<void> _promptForRepairTokenAndRun() async {
-    final controller = TextEditingController();
-    try {
-      final token = await PrismDialog.show<String>(
-        context: context,
-        title: context.l10n.pluralkitRepairTemporaryTokenTitle,
-        message: context.l10n.pluralkitRepairTemporaryTokenBody,
-        builder: (dialogContext) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              PrismTextField(
-                controller: controller,
-                autofocus: true,
-                obscureText: true,
-                labelText: context.l10n.pluralkitRepairTokenLabel,
-                hintText: context.l10n.pluralkitRepairTokenHint,
-                isDense: true,
-                onSubmitted: (_) {
-                  final trimmed = controller.text.trim();
-                  if (trimmed.isEmpty) return;
-                  Navigator.of(dialogContext).pop(trimmed);
-                },
-              ),
-              const SizedBox(height: 12),
-              Text(
-                context.l10n.pluralkitRepairTemporaryTokenHelp,
-                style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ValueListenableBuilder<TextEditingValue>(
-                valueListenable: controller,
-                builder: (_, value, child) {
-                  return Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      PrismButton(
-                        label: context.l10n.cancel,
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        tone: PrismButtonTone.outlined,
-                      ),
-                      PrismButton(
-                        label: context.l10n.pluralkitRepairRunTokenBacked,
-                        icon: AppIcons.autoFixHigh,
-                        onPressed: () =>
-                            Navigator.of(dialogContext).pop(value.text.trim()),
-                        enabled: value.text.trim().isNotEmpty,
-                        tone: PrismButtonTone.filled,
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          );
-        },
-      );
-
-      if (!mounted || token == null || token.trim().isEmpty) return;
-      await _runGroupRepair(token: token.trim());
-    } finally {
-      controller.dispose();
-    }
-  }
-
-  void _showRepairToast(PkGroupRepairReport report) {
-    final l10n = context.l10n;
-    final message = _repairSuccessMessage(l10n, report);
-    if (report.referenceError != null || report.pendingReviewCount > 0) {
-      PrismToast.show(
-        context,
-        message: message,
-        icon: AppIcons.warningAmberRounded,
-        iconColor: Theme.of(context).colorScheme.secondary,
-      );
-      return;
-    }
-    PrismToast.success(context, message: message);
-  }
-
-  String _repairSuccessMessage(
-    AppLocalizations l10n,
-    PkGroupRepairReport report,
-  ) {
-    final outcomeFragments = _repairOutcomeFragments(l10n, report);
-    final detailMessage = outcomeFragments.isEmpty
-        ? l10n.pluralkitRepairNoNewNeeded
-        : '${_sentenceCase(_joinFragments(l10n, outcomeFragments))}.';
-    final followUpMessage = _repairFollowUpMessage(l10n, report);
-
-    if (report.referenceError != null) {
-      if (followUpMessage != null) {
-        return l10n.pluralkitRepairSuccessLocalLookupFailedWithFollowUp(
-          detailMessage,
-          followUpMessage,
-        );
-      }
-      return l10n.pluralkitRepairSuccessLocalLookupFailed(detailMessage);
-    }
-    if (followUpMessage != null) {
-      return l10n.pluralkitRepairSuccessWithFollowUp(
-        detailMessage,
-        followUpMessage,
-      );
-    }
-    return l10n.pluralkitRepairSuccess(detailMessage);
-  }
-
-  List<String> _repairOutcomeFragments(
-    AppLocalizations l10n,
-    PkGroupRepairReport report,
-  ) {
-    final primary = <String>[
-      if (report.parentReferencesRehomed > 0)
-        l10n.pluralkitRepairSummaryUpdatedParentLinks(
-          report.parentReferencesRehomed,
-        ),
-      if (report.entriesRehomed > 0)
-        l10n.pluralkitRepairSummaryMovedMemberships(report.entriesRehomed),
-      if (report.duplicateGroupsSoftDeleted > 0)
-        l10n.pluralkitRepairSummaryRemovedDuplicateGroups(
-          report.duplicateGroupsSoftDeleted,
-        ),
-      if (report.entryConflictsSoftDeleted > 0)
-        l10n.pluralkitRepairSummaryRemovedConflictingMemberships(
-          report.entryConflictsSoftDeleted,
-        ),
-      if (report.ambiguousGroupsSuppressed > 0)
-        l10n.pluralkitRepairSummarySuppressedAmbiguousGroups(
-          report.ambiguousGroupsSuppressed,
-        ),
-    ];
-    if (primary.isNotEmpty) return primary;
-
-    return <String>[
-      if (report.backfilledEntries > 0)
-        l10n.pluralkitRepairSummaryRestoredMissingMemberships(
-          report.backfilledEntries,
-        ),
-      if (report.aliasesRecorded > 0)
-        l10n.pluralkitRepairSummaryRecordedLegacyAliases(
-          report.aliasesRecorded,
-        ),
-    ];
-  }
-
-  String? _repairFollowUpMessage(
-    AppLocalizations l10n,
-    PkGroupRepairReport report,
-  ) {
-    if (report.pendingReviewCount <= report.ambiguousGroupsSuppressed ||
-        report.pendingReviewCount == 0) {
-      return null;
-    }
-
-    return l10n.pluralkitRepairFollowUpPendingReview(report.pendingReviewCount);
-  }
-
-  String _joinFragments(AppLocalizations l10n, List<String> fragments) {
-    if (fragments.length == 1) return fragments.first;
-    if (fragments.length == 2) {
-      return l10n.pluralkitRepairJoinPair(fragments.first, fragments.last);
-    }
-
-    final head = fragments.sublist(0, fragments.length - 1).join(', ');
-    return l10n.pluralkitRepairJoinSerial(fragments.last, head);
-  }
-
-  String _sentenceCase(String value) {
-    if (value.isEmpty) return value;
-    return '${value[0].toUpperCase()}${value.substring(1)}';
-  }
-
-  String _pkGroupResetSummary(
-    AppLocalizations l10n,
-    PkGroupResetResult result,
-  ) {
-    final fragments = <String>[
-      if (result.groupsReset > 0)
-        l10n.pluralkitRepairResetSummaryRemovedGroups(result.groupsReset),
-      if (result.promotedChildGroups > 0)
-        l10n.pluralkitRepairResetSummaryPromotedChildGroups(
-          result.promotedChildGroups,
-        ),
-      if (result.deferredOpsCleared > 0)
-        l10n.pluralkitRepairResetSummaryClearedDeferredOps(
-          result.deferredOpsCleared,
-        ),
-    ];
-    if (fragments.isEmpty) {
-      return l10n.pluralkitRepairResetSummaryNoGroupsNeeded;
-    }
-    return '${_sentenceCase(_joinFragments(l10n, fragments))}.';
-  }
-
-  String _formatRepairError(String value) {
-    return value
-        .replaceFirst('Exception: ', '')
-        .replaceFirst('StateError: ', '')
-        .trim();
-  }
-
   @override
   Widget build(BuildContext context) {
-    ref.watch(pkGroupRepairBootstrapProvider);
     final syncState = ref.watch(pluralKitSyncProvider);
     final theme = Theme.of(context);
 
@@ -667,11 +241,6 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             const SizedBox(height: 16),
             _buildMappingBanner(theme),
           ],
-
-          const SizedBox(height: 24),
-          _SectionHeader(title: context.l10n.pluralkitRepairSection),
-          const SizedBox(height: 8),
-          _buildGroupRepairSection(syncState, theme),
 
           // -- Section 2: Sync Direction --
           if (syncState.canAutoSync) ...[
@@ -920,72 +489,6 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     );
   }
 
-  Widget _buildGroupRepairSection(
-    PluralKitSyncState syncState,
-    ThemeData theme,
-  ) {
-    final repairStateAsync = ref.watch(pkGroupRepairControllerProvider);
-    final hasStoredTokenAsync = ref.watch(pkGroupRepairHasStoredTokenProvider);
-    final systemSettingsAsync = ref.watch(systemSettingsProvider);
-    final hasStoredToken = syncState.isConnected
-        ? true
-        : hasStoredTokenAsync.asData?.value;
-    final pkGroupSyncV2Enabled =
-        systemSettingsAsync.asData?.value.pkGroupSyncV2Enabled;
-
-    return repairStateAsync.when(
-      loading: () => PrismSectionCard(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            PrismSpinner(color: theme.colorScheme.primary, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                context.l10n.pluralkitRepairLoadingStatus,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      error: (error, _) => PkGroupRepairCard(
-        state: PkGroupRepairState(
-          error: context.l10n.pluralkitRepairStatusLoadFailed(
-            _formatRepairError(error.toString()),
-          ),
-        ),
-        isConnected: syncState.isConnected,
-        hasStoredToken: hasStoredToken,
-        pkGroupSyncV2Enabled: pkGroupSyncV2Enabled,
-        onRunRepair: () => unawaited(_runGroupRepair()),
-        onUseTemporaryToken: () => unawaited(_promptForRepairTokenAndRun()),
-        onDismissReviewItem: _dismissGroupReview,
-        onKeepReviewItemLocalOnly: _keepGroupLocalOnly,
-        onMergeReviewItemIntoCanonical: _mergeGroupIntoCanonical,
-        onEnablePkGroupSyncV2: _enablePkGroupSyncV2,
-        onResetPkGroupsOnly: _resetPkGroupsOnly,
-        onExportDataFirst: _openExportDataFirst,
-      ),
-      data: (repairState) => PkGroupRepairCard(
-        state: repairState,
-        isConnected: syncState.isConnected,
-        hasStoredToken: hasStoredToken,
-        pkGroupSyncV2Enabled: pkGroupSyncV2Enabled,
-        onRunRepair: () => unawaited(_runGroupRepair()),
-        onUseTemporaryToken: () => unawaited(_promptForRepairTokenAndRun()),
-        onDismissReviewItem: _dismissGroupReview,
-        onKeepReviewItemLocalOnly: _keepGroupLocalOnly,
-        onMergeReviewItemIntoCanonical: _mergeGroupIntoCanonical,
-        onEnablePkGroupSyncV2: _enablePkGroupSyncV2,
-        onResetPkGroupsOnly: _resetPkGroupsOnly,
-        onExportDataFirst: _openExportDataFirst,
-      ),
-    );
-  }
-
   Widget _buildMappingBanner(ThemeData theme) {
     final terms = readTerminology(context, ref);
     return PrismSectionCard(
@@ -1029,12 +532,49 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   }
 
   Widget _buildSyncDirectionSection(ThemeData theme) {
+    final mode = ref.watch(pkSyncModeProvider);
     final direction = ref.watch(pkSyncDirectionProvider);
     return PrismSectionCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            context.l10n.pluralkitSyncModeDescription,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: PrismSegmentedControl<PkSyncMode>(
+              segments: [
+                PrismSegment(
+                  value: PkSyncMode.fullSync,
+                  label: context.l10n.pluralkitSyncModeFullSync,
+                ),
+                PrismSegment(
+                  value: PkSyncMode.liveFrontsOnly,
+                  label: context.l10n.pluralkitSyncModeLiveFrontsOnly,
+                ),
+              ],
+              selected: mode,
+              onChanged: (next) {
+                ref.read(pkSyncModeProvider.notifier).setMode(next);
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            mode == PkSyncMode.liveFrontsOnly
+                ? context.l10n.pluralkitSyncModeLiveFrontsOnlyDescription
+                : context.l10n.pluralkitSyncModeFullSyncDescription,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
           Text(
             context.l10n.pluralkitSyncDirectionDescription,
             style: theme.textTheme.bodySmall?.copyWith(

@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -72,8 +74,10 @@ void main() {
           .setDirection(PkSyncDirection.pushOnly);
 
       final row = await dao.getSyncState();
-      final config = parseFieldSyncConfig(row.fieldSyncConfig);
-      final global = config['__global__'];
+      final decoded = jsonDecode(row.fieldSyncConfig!) as Map<String, dynamic>;
+      final global = PkFieldSyncConfig.fromJson(
+        decoded['__global__'] as Map<String, dynamic>,
+      );
       expect(
         global,
         isNotNull,
@@ -83,7 +87,7 @@ void main() {
       // Every field — including displayName and birthday — must reflect the
       // user's chosen direction. Before the fix both silently fell back to
       // `bidirectional`.
-      expect(global!.name, PkSyncDirection.pushOnly);
+      expect(global.name, PkSyncDirection.pushOnly);
       expect(global.displayName, PkSyncDirection.pushOnly);
       expect(global.pronouns, PkSyncDirection.pushOnly);
       expect(global.description, PkSyncDirection.pushOnly);
@@ -92,6 +96,110 @@ void main() {
       expect(global.proxyTags, PkSyncDirection.pushOnly);
     },
   );
+
+  group('PkSyncModeNotifier', () {
+    Future<({ProviderContainer container, PluralKitSyncDao dao})>
+    modeContainer({String? fieldSyncConfig}) async {
+      _installSecureStorageStub();
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final dao = PluralKitSyncDao(db);
+      await dao.getSyncState();
+      if (fieldSyncConfig != null) {
+        await dao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const drift.Value('pk_config'),
+            fieldSyncConfig: drift.Value(fieldSyncConfig),
+          ),
+        );
+      }
+      final container = ProviderContainer(
+        overrides: [pluralKitSyncDaoProvider.overrideWithValue(dao)],
+      );
+      addTearDown(container.dispose);
+      return (container: container, dao: dao);
+    }
+
+    Future<void> settle() async {
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    test('defaults to fullSync with no persisted mode', () async {
+      final ctx = await modeContainer();
+
+      expect(ctx.container.read(pkSyncModeProvider), PkSyncMode.fullSync);
+      await settle();
+      expect(ctx.container.read(pkSyncModeProvider), PkSyncMode.fullSync);
+    });
+
+    test('malformed persisted mode defaults to fullSync', () async {
+      final ctx = await modeContainer(
+        fieldSyncConfig: jsonEncode({
+          '__mode__': {'bad': true},
+        }),
+      );
+
+      expect(ctx.container.read(pkSyncModeProvider), PkSyncMode.fullSync);
+      await settle();
+      expect(ctx.container.read(pkSyncModeProvider), PkSyncMode.fullSync);
+    });
+
+    test('loads and persists liveFrontsOnly under __mode__', () async {
+      final ctx = await modeContainer();
+
+      await ctx.container
+          .read(pkSyncModeProvider.notifier)
+          .setMode(PkSyncMode.liveFrontsOnly);
+
+      final row = await ctx.dao.getSyncState();
+      final decoded = jsonDecode(row.fieldSyncConfig!) as Map<String, dynamic>;
+      expect(decoded['__mode__'], 'liveFrontsOnly');
+      expect(parsePkSyncMode(row.fieldSyncConfig), PkSyncMode.liveFrontsOnly);
+      expect(ctx.container.read(pkSyncModeProvider), PkSyncMode.liveFrontsOnly);
+    });
+
+    test('setMode preserves existing global direction', () async {
+      final ctx = await modeContainer(
+        fieldSyncConfig: serializeFieldSyncConfigWithGlobalDirection(
+          null,
+          PkSyncDirection.pushOnly,
+        ),
+      );
+
+      await ctx.container
+          .read(pkSyncModeProvider.notifier)
+          .setMode(PkSyncMode.liveFrontsOnly);
+
+      final row = await ctx.dao.getSyncState();
+      expect(parsePkSyncMode(row.fieldSyncConfig), PkSyncMode.liveFrontsOnly);
+      expect(
+        parseGlobalSyncDirection(row.fieldSyncConfig),
+        PkSyncDirection.pushOnly,
+      );
+    });
+
+    test('setDirection preserves existing mode', () async {
+      final ctx = await modeContainer(
+        fieldSyncConfig: serializeFieldSyncConfigWithMode(
+          null,
+          PkSyncMode.liveFrontsOnly,
+        ),
+      );
+      ctx.container.read(pkSyncDirectionProvider);
+
+      await ctx.container
+          .read(pkSyncDirectionProvider.notifier)
+          .setDirection(PkSyncDirection.bidirectional);
+
+      final row = await ctx.dao.getSyncState();
+      expect(parsePkSyncMode(row.fieldSyncConfig), PkSyncMode.liveFrontsOnly);
+      expect(
+        parseGlobalSyncDirection(row.fieldSyncConfig),
+        PkSyncDirection.bidirectional,
+      );
+    });
+  });
 
   // ──────────────────────────────────────────────────────────────────────────
   // WS1 step 4 + 5: PluralKitSyncNotifier consumes
@@ -112,6 +220,8 @@ void main() {
     primedContainer(
       String mode, {
       PluralKitSyncState initialServiceState = const PluralKitSyncState(),
+      PkSyncMode? syncMode,
+      PkSyncDirection? syncDirection,
     }) async {
       final controller = StreamController<String>.broadcast();
       addTearDown(controller.close);
@@ -122,6 +232,14 @@ void main() {
           frontingMigrationModeProvider.overrideWith(
             (ref) => controller.stream,
           ),
+          if (syncMode != null)
+            pkSyncModeProvider.overrideWith(
+              () => _StaticPkSyncModeNotifier(syncMode),
+            ),
+          if (syncDirection != null)
+            pkSyncDirectionProvider.overrideWith(
+              () => _StaticPkSyncDirectionNotifier(syncDirection),
+            ),
         ],
       );
       addTearDown(container.dispose);
@@ -177,6 +295,29 @@ void main() {
       final ctx = await primedContainer(
         FrontingMigrationService.modeBlocked,
         initialServiceState: const PluralKitSyncState(isConnected: true),
+      );
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
+      final member = domain.Member(
+        id: 'm-1',
+        name: 'Ada',
+        emoji: '✨',
+        isActive: true,
+        createdAt: DateTime.utc(2026, 4, 30),
+        displayOrder: 0,
+        isAdmin: false,
+        customColorEnabled: false,
+        pluralkitId: 'abcde',
+      );
+      await notifier.pushMemberUpdate(member);
+      expect(ctx.service.pushMemberCalls, 0);
+    });
+
+    test('pushMemberUpdate is a no-op in liveFrontsOnly mode', () async {
+      final ctx = await primedContainer(
+        FrontingMigrationService.modeComplete,
+        initialServiceState: const PluralKitSyncState(isConnected: true),
+        syncMode: PkSyncMode.liveFrontsOnly,
+        syncDirection: PkSyncDirection.pushOnly,
       );
       final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
       final member = domain.Member(
@@ -263,6 +404,24 @@ void main() {
   });
 }
 
+class _StaticPkSyncModeNotifier extends PkSyncModeNotifier {
+  _StaticPkSyncModeNotifier(this._mode);
+
+  final PkSyncMode _mode;
+
+  @override
+  PkSyncMode build() => _mode;
+}
+
+class _StaticPkSyncDirectionNotifier extends PkSyncDirectionNotifier {
+  _StaticPkSyncDirectionNotifier(this._direction);
+
+  final PkSyncDirection _direction;
+
+  @override
+  PkSyncDirection build() => _direction;
+}
+
 /// Minimal PluralKitSyncService stand-in. Only counts calls and returns
 /// pre-seeded values; everything else throws via [noSuchMethod] so any
 /// untested path fails loudly. The notifier's `build()` calls
@@ -291,6 +450,7 @@ class _ThrowingPkSyncService implements PluralKitSyncService {
     PkPushService? pushService,
     void Function(String message)? onStaleLink,
     bool allowDuringSync = false,
+    PKSwitch? knownCurrentFronters,
   }) async {
     pushPendingCalls++;
     return PkPushSwitchesResult(pushed: pushReturn);

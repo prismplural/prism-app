@@ -1004,6 +1004,45 @@ void main() {
         );
       },
     );
+
+    test(
+      'pullOnly preserves local custom color when PK color is absent',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          name: 'Alice',
+          pronouns: null,
+          pluralkitId: 'pk001',
+          pluralkitUuid: 'uuid-pk001',
+          customColorHex: '#ff0000',
+          customColorEnabled: true,
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          uuid: 'uuid-pk001',
+          name: 'Alice',
+          pronouns: 'they/them',
+          color: null,
+        );
+
+        await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pullOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        final updated =
+            fakeRepo.calls.where((c) => c.method == 'updateMember').last.args[0]
+                as domain.Member;
+        expect(updated.pronouns, 'they/them');
+        expect(updated.customColorHex, '#ff0000');
+        expect(updated.customColorEnabled, isTrue);
+      },
+    );
   });
 
   // -------------------------------------------------------------------------

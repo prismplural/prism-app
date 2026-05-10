@@ -37,6 +37,29 @@ enum PkSyncDirection {
 }
 
 // ---------------------------------------------------------------------------
+// Sync mode
+// ---------------------------------------------------------------------------
+
+/// Overall PluralKit sync mode.
+enum PkSyncMode {
+  /// Regular PluralKit sync behavior.
+  fullSync,
+
+  /// Only live front changes are synced; member pushes are disabled.
+  liveFrontsOnly;
+
+  String toJson() => name;
+
+  static PkSyncMode fromJson(Object? value) {
+    if (value is! String) return PkSyncMode.fullSync;
+    return PkSyncMode.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => PkSyncMode.fullSync,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Per-field sync config
 // ---------------------------------------------------------------------------
 
@@ -241,23 +264,110 @@ class PkSyncSummary {
 // Helpers — parse/serialize the fieldSyncConfig column
 // ---------------------------------------------------------------------------
 
-/// Parse the `fieldSyncConfig` JSON column value into a per-member config map.
-Map<String, PkFieldSyncConfig> parseFieldSyncConfig(String? json) {
+const String _globalSyncConfigKey = '__global__';
+const String _syncModeConfigKey = '__mode__';
+
+bool _isReservedFieldSyncConfigKey(String key) => key.startsWith('__');
+
+Map<String, dynamic> _decodeFieldSyncConfig(String? json) {
   if (json == null || json.isEmpty) return {};
   try {
-    final map = jsonDecode(json) as Map<String, dynamic>;
-    return map.map(
-      (key, value) => MapEntry(
-        key,
-        PkFieldSyncConfig.fromJson(value as Map<String, dynamic>),
-      ),
-    );
-  } catch (_) {
-    return {};
+    final decoded = jsonDecode(json);
+    if (decoded is Map<String, dynamic>) return decoded;
+  } catch (_) {}
+  return {};
+}
+
+Map<String, dynamic> _reservedFieldSyncConfigEntries(String? json) {
+  final decoded = _decodeFieldSyncConfig(json);
+  return Map<String, dynamic>.fromEntries(
+    decoded.entries.where((entry) => _isReservedFieldSyncConfigKey(entry.key)),
+  );
+}
+
+/// Parse the `fieldSyncConfig` JSON column value into a per-member config map.
+Map<String, PkFieldSyncConfig> parseFieldSyncConfig(String? json) {
+  final map = _decodeFieldSyncConfig(json);
+  final result = <String, PkFieldSyncConfig>{};
+  for (final entry in map.entries) {
+    if (_isReservedFieldSyncConfigKey(entry.key)) continue;
+    final value = entry.value;
+    if (value is! Map<String, dynamic>) continue;
+    try {
+      result[entry.key] = PkFieldSyncConfig.fromJson(value);
+    } catch (_) {}
   }
+  return result;
 }
 
 /// Serialize a per-member config map to JSON for the `fieldSyncConfig` column.
-String serializeFieldSyncConfig(Map<String, PkFieldSyncConfig> config) {
-  return jsonEncode(config.map((key, value) => MapEntry(key, value.toJson())));
+String serializeFieldSyncConfig(
+  Map<String, PkFieldSyncConfig> config, {
+  String? existingJson,
+  PkSyncDirection? globalDirection,
+  PkSyncMode? mode,
+}) {
+  final json = _reservedFieldSyncConfigEntries(existingJson);
+  json.addEntries(
+    config.entries
+        .where((entry) => !_isReservedFieldSyncConfigKey(entry.key))
+        .map((entry) => MapEntry(entry.key, entry.value.toJson())),
+  );
+  if (globalDirection != null) {
+    json[_globalSyncConfigKey] = PkFieldSyncConfig(
+      name: globalDirection,
+      displayName: globalDirection,
+      pronouns: globalDirection,
+      description: globalDirection,
+      color: globalDirection,
+      birthday: globalDirection,
+      // Proxy tags follow the global direction by design — see the
+      // PkFieldSyncConfig constructor doc above for the product context.
+      proxyTags: globalDirection,
+    ).toJson();
+  }
+  if (mode != null) {
+    json[_syncModeConfigKey] = mode.toJson();
+  }
+  return jsonEncode(json);
+}
+
+/// Parse the persisted global sync direction from `fieldSyncConfig`.
+PkSyncDirection parseGlobalSyncDirection(
+  String? json, {
+  PkSyncDirection fallback = PkSyncDirection.pullOnly,
+}) {
+  final globalConfig = _decodeFieldSyncConfig(json)[_globalSyncConfigKey];
+  if (globalConfig is! Map<String, dynamic>) return fallback;
+  try {
+    return PkFieldSyncConfig.fromJson(globalConfig).name;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+/// Parse the persisted PluralKit sync mode from `fieldSyncConfig`.
+PkSyncMode parsePkSyncMode(String? json) {
+  return PkSyncMode.fromJson(_decodeFieldSyncConfig(json)[_syncModeConfigKey]);
+}
+
+/// Serialize a global direction update while preserving member configs + mode.
+String serializeFieldSyncConfigWithGlobalDirection(
+  String? existingJson,
+  PkSyncDirection direction,
+) {
+  return serializeFieldSyncConfig(
+    parseFieldSyncConfig(existingJson),
+    existingJson: existingJson,
+    globalDirection: direction,
+  );
+}
+
+/// Serialize a sync mode update while preserving member configs + direction.
+String serializeFieldSyncConfigWithMode(String? existingJson, PkSyncMode mode) {
+  return serializeFieldSyncConfig(
+    parseFieldSyncConfig(existingJson),
+    existingJson: existingJson,
+    mode: mode,
+  );
 }

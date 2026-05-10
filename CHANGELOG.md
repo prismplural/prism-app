@@ -20,6 +20,8 @@ This release smooths out fronting, chat, navigation, and sync flows after 0.8.1.
 - Orphaned direct messages stay visible but read-only instead of allowing edits that cannot be attributed safely.
 - Markdown bios preserve indentation and nested formatting more accurately.
 - Member deletion cleanup now removes stale references from fronting defaults and related member settings.
+- PluralKit imports preserve the remote member name in Prism's local name field while storing PluralKit display names separately.
+- Image avatars no longer draw the glass highlight overlay over the saved photo.
 
 ## [0.8.1] - 2026-05-09
 

@@ -11,7 +11,6 @@ import 'core/sync/prism_sync_providers.dart';
 import 'features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'features/habits/providers/habit_providers.dart';
 import 'features/onboarding/providers/onboarding_providers.dart';
-import 'features/pluralkit/providers/pk_group_repair_provider.dart';
 import 'domain/models/system_settings.dart';
 import 'features/settings/providers/settings_providers.dart';
 import 'shared/theme/app_colors.dart';
@@ -96,9 +95,6 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     // pairing). Building it here guarantees the chain is warm before any
     // sync apply runs. Do not remove without re-testing fresh-install pairing.
     ref.listen(frontingMigrationModeProvider, (_, _) {});
-    // Keep PK repair bootstrap alive so local legacy repair can run once sync
-    // is ready, without coupling it to the sync engine internals.
-    ref.listen(pkGroupRepairBootstrapProvider, (_, _) {});
     // Trigger the SP boards backfill once on first launch after v15 upgrade.
     // The provider is gated on spBoardsBackfilledAt == null and is a no-op on
     // all subsequent launches. Fire-and-forget — errors are non-fatal.

@@ -90,6 +90,7 @@ class FakePluralKitClient implements PluralKitClient {
   int getMembersCallCount = 0;
   int getGroupsCallCount = 0;
   int disposeCallCount = 0;
+  final List<String> calls = [];
 
   // Configurable behavior
   bool throwAuthError = false;
@@ -106,6 +107,7 @@ class FakePluralKitClient implements PluralKitClient {
 
   @override
   Future<PKSystem> getSystem() async {
+    calls.add('getSystem');
     getSystemCallCount++;
     if (throwAuthError) throw const PluralKitAuthError();
     if (throwNetworkError) throw Exception('Network unreachable');
@@ -114,6 +116,7 @@ class FakePluralKitClient implements PluralKitClient {
 
   @override
   Future<List<PKMember>> getMembers() async {
+    calls.add('getMembers');
     getMembersCallCount++;
     return membersToReturn;
   }
@@ -123,6 +126,7 @@ class FakePluralKitClient implements PluralKitClient {
     DateTime? before,
     int limit = 100,
   }) async {
+    calls.add('getSwitches');
     getSwitchesCallCount++;
     if (switchesPageQueue != null && switchesPageQueue!.isNotEmpty) {
       return switchesPageQueue!.removeAt(0);
@@ -147,6 +151,7 @@ class FakePluralKitClient implements PluralKitClient {
     List<String> memberIds, {
     DateTime? timestamp,
   }) async {
+    calls.add('createSwitch');
     createSwitchCalls.add((memberIds: memberIds, timestamp: timestamp));
     final id =
         createSwitchIdGenerator?.call(memberIds) ??
@@ -181,6 +186,7 @@ class FakePluralKitClient implements PluralKitClient {
 
   @override
   Future<List<PKGroup>> getGroups({bool withMembers = true}) async {
+    calls.add('getGroups');
     getGroupsCallCount++;
     return groupsToReturn;
   }
@@ -203,6 +209,7 @@ class FakePluralKitClient implements PluralKitClient {
 
   @override
   Future<PKSwitch?> getCurrentFronters() async {
+    calls.add('getCurrentFronters');
     getCurrentFrontersCallCount++;
     return currentFrontersToReturn;
   }
@@ -291,6 +298,7 @@ class FakeMemberRepository implements MemberRepository {
 
 class FakeFrontingSessionRepository implements FrontingSessionRepository {
   final List<domain.FrontingSession> sessions = [];
+  final List<domain.FrontingSession> deletedLinkedSessions = [];
 
   @override
   Future<List<domain.FrontingSession>> getAllSessions() async =>
@@ -441,7 +449,7 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
 
   @override
   Future<List<domain.FrontingSession>> getDeletedLinkedSessions() async =>
-      const [];
+      List.unmodifiable(deletedLinkedSessions);
   @override
   Future<void> clearPluralKitLink(String id) async {}
   @override
@@ -759,7 +767,7 @@ void main() {
         final db = _makeDb();
         addTearDown(db.close);
 
-        final switchId = '00000000-0000-0000-0000-0000000000aa';
+        const switchId = '00000000-0000-0000-0000-0000000000aa';
         final switchTimestamp = DateTime.utc(2026, 5, 1, 12);
 
         await db.pluralKitSyncDao.upsertSyncState(
@@ -769,7 +777,7 @@ void main() {
             mappingAcknowledged: const Value(true),
             lastSyncDate: Value(switchTimestamp),
             switchCursorTimestamp: Value(switchTimestamp),
-            switchCursorId: Value(switchId),
+            switchCursorId: const Value(switchId),
           ),
         );
 
@@ -778,7 +786,7 @@ void main() {
             id: 'deleted-current-switch-row',
             startTime: switchTimestamp,
             memberId: const Value('local-member-id'),
-            pluralkitUuid: Value(switchId),
+            pluralkitUuid: const Value(switchId),
             isDeleted: const Value(true),
             deleteIntentEpoch: const Value(0),
           ),
@@ -824,6 +832,312 @@ void main() {
           0,
           reason: 'The tombstone means this current switch is already known.',
         );
+      },
+    );
+  });
+
+  group('syncLiveFrontersOnly', () {
+    domain.Member member(String id, String pkId, String pkUuid) =>
+        domain.Member(
+          id: id,
+          name: id,
+          emoji: '❔',
+          isActive: true,
+          createdAt: DateTime.utc(2026, 1, 1),
+          pluralkitId: pkId,
+          pluralkitUuid: pkUuid,
+        );
+
+    domain.FrontingSession session(
+      String id,
+      String? memberId, {
+      required DateTime startTime,
+      String? pluralkitUuid,
+      bool isDeleted = false,
+      int? deleteIntentEpoch,
+    }) => domain.FrontingSession(
+      id: id,
+      startTime: startTime,
+      memberId: memberId,
+      pluralkitUuid: pluralkitUuid,
+      isDeleted: isDeleted,
+      deleteIntentEpoch: deleteIntentEpoch,
+    );
+
+    PKSwitch currentSwitch(
+      String id,
+      DateTime timestamp,
+      List<String> members,
+    ) => PKSwitch(id: id, timestamp: timestamp, members: members);
+
+    Future<
+      ({
+        PluralKitSyncService service,
+        FakePluralKitClient client,
+        FakeFrontingSessionRepository sessionRepo,
+        AppDatabase db,
+      })
+    >
+    setupLive({
+      required List<domain.Member> members,
+      List<domain.FrontingSession> sessions = const [],
+      List<domain.FrontingSession> deletedLinkedSessions = const [],
+      PKSwitch? current,
+    }) async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = FakeMemberRepository()..seed(members);
+      final sessionRepo = FakeFrontingSessionRepository()
+        ..sessions.addAll(sessions)
+        ..deletedLinkedSessions.addAll(deletedLinkedSessions);
+      final fakeClient = FakePluralKitClient()
+        ..currentFrontersToReturn = current;
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+        sessionRepo: sessionRepo,
+      );
+
+      await service.setToken('valid-token');
+      await service.acknowledgeMapping();
+      await service.loadState();
+
+      fakeClient.calls.clear();
+      fakeClient.getSystemCallCount = 0;
+      fakeClient.getSwitchesCallCount = 0;
+      fakeClient.getMembersCallCount = 0;
+      fakeClient.getGroupsCallCount = 0;
+      fakeClient.getCurrentFrontersCallCount = 0;
+      fakeClient.createSwitchCalls.clear();
+      return (
+        service: service,
+        client: fakeClient,
+        sessionRepo: sessionRepo,
+        db: db,
+      );
+    }
+
+    test(
+      'unseen current creates current-front rows without history or profile fetches',
+      () async {
+        final ts = DateTime.utc(2026, 5, 1, 12);
+        const switchId = '00000000-0000-0000-0000-000000000101';
+        final harness = await setupLive(
+          members: [
+            member('local-a', 'pkA', 'uuid-a'),
+            member('local-b', 'pkB', 'uuid-b'),
+          ],
+          current: currentSwitch(switchId, ts, const ['pkA', 'pkB']),
+        );
+
+        final summary = await harness.service.syncLiveFrontersOnly(
+          direction: PkSyncDirection.pullOnly,
+        );
+
+        expect(summary!.switchesPulled, 1);
+        expect(summary.switchesPushed, 0);
+        expect(harness.sessionRepo.sessions, hasLength(2));
+        expect(harness.sessionRepo.sessions.map((s) => s.memberId).toSet(), {
+          'local-a',
+          'local-b',
+        });
+        expect(
+          harness.sessionRepo.sessions.every(
+            (s) => s.pluralkitUuid == switchId && s.endTime == null,
+          ),
+          isTrue,
+        );
+        expect(harness.client.getCurrentFrontersCallCount, 1);
+        expect(harness.client.getSwitchesCallCount, 0);
+        expect(harness.client.getMembersCallCount, 0);
+        expect(harness.client.getGroupsCallCount, 0);
+      },
+    );
+
+    test('does not advance cursor or set lastSyncDate', () async {
+      final ts = DateTime.utc(2026, 5, 1, 12);
+      final cursorTs = DateTime.utc(2026, 4, 1, 12);
+      final harness = await setupLive(
+        members: [member('local-a', 'pkA', 'uuid-a')],
+        current: currentSwitch(
+          '00000000-0000-0000-0000-000000000102',
+          ts,
+          const ['pkA'],
+        ),
+      );
+      await harness.db.pluralKitSyncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          lastSyncDate: const Value(null),
+          lastManualSyncDate: const Value(null),
+          switchCursorTimestamp: Value(cursorTs),
+          switchCursorId: const Value('existing-cursor'),
+        ),
+      );
+      await harness.service.loadState();
+
+      await harness.service.syncLiveFrontersOnly(
+        direction: PkSyncDirection.pullOnly,
+        isManual: true,
+      );
+
+      final row = await harness.db.pluralKitSyncDao.getSyncState();
+      expect(row.switchCursorTimestamp?.toUtc(), cursorTs);
+      expect(row.switchCursorId, 'existing-cursor');
+      expect(row.lastSyncDate, isNull);
+      expect(row.lastManualSyncDate, isNotNull);
+      expect(harness.service.state.lastSyncDate, isNull);
+      expect(harness.service.state.lastManualSyncDate, isNotNull);
+    });
+
+    test('existing live current no-ops', () async {
+      final ts = DateTime.utc(2026, 5, 1, 12);
+      const switchId = '00000000-0000-0000-0000-000000000103';
+      final harness = await setupLive(
+        members: [member('local-a', 'pkA', 'uuid-a')],
+        sessions: [
+          session(
+            'existing-row',
+            'local-a',
+            startTime: ts,
+            pluralkitUuid: switchId,
+          ),
+        ],
+        current: currentSwitch(switchId, ts, const ['pkA']),
+      );
+
+      final summary = await harness.service.syncLiveFrontersOnly(
+        direction: PkSyncDirection.pullOnly,
+      );
+
+      expect(summary!.switchesPulled, 0);
+      expect(harness.sessionRepo.sessions, hasLength(1));
+      expect(harness.sessionRepo.sessions.single.id, 'existing-row');
+      expect(harness.client.getSwitchesCallCount, 0);
+    });
+
+    test('deleted current tombstone no-ops', () async {
+      final ts = DateTime.utc(2026, 5, 1, 12);
+      const switchId = '00000000-0000-0000-0000-000000000104';
+      final deleted = session(
+        'deleted-row',
+        'local-a',
+        startTime: ts,
+        pluralkitUuid: switchId,
+        isDeleted: true,
+        deleteIntentEpoch: 1,
+      );
+      final harness = await setupLive(
+        members: [member('local-a', 'pkA', 'uuid-a')],
+        deletedLinkedSessions: [deleted],
+        current: currentSwitch(switchId, ts, const ['pkA']),
+      );
+
+      final summary = await harness.service.syncLiveFrontersOnly(
+        direction: PkSyncDirection.pullOnly,
+      );
+
+      expect(summary!.switchesPulled, 0);
+      expect(harness.sessionRepo.sessions, isEmpty);
+      expect(harness.client.getSwitchesCallCount, 0);
+    });
+
+    test(
+      'mapped plus unmapped current skips whole switch with warning',
+      () async {
+        final ts = DateTime.utc(2026, 5, 1, 12);
+        final harness = await setupLive(
+          members: [member('local-a', 'pkA', 'uuid-a')],
+          current: currentSwitch(
+            '00000000-0000-0000-0000-000000000105',
+            ts,
+            const ['pkA', 'pkMissing'],
+          ),
+        );
+
+        final summary = await harness.service.syncLiveFrontersOnly(
+          direction: PkSyncDirection.pullOnly,
+        );
+
+        expect(summary!.switchesPulled, 0);
+        expect(summary.staleLinkMessages.single, contains('unmapped'));
+        expect(harness.service.state.syncStatus, contains('unmapped'));
+        expect(harness.service.state.syncError, contains('unmapped'));
+        expect(harness.sessionRepo.sessions, isEmpty);
+      },
+    );
+
+    test(
+      'pushOnly creates switch without fetching history/profile/group',
+      () async {
+        final harness = await setupLive(
+          members: [member('local-a', 'pkA', 'uuid-a')],
+          sessions: [
+            session(
+              'local-active',
+              'local-a',
+              startTime: DateTime.utc(2026, 5, 1, 12),
+            ),
+          ],
+        );
+
+        final summary = await harness.service.syncLiveFrontersOnly(
+          direction: PkSyncDirection.pushOnly,
+        );
+
+        expect(summary!.switchesPulled, 0);
+        expect(summary.switchesPushed, 1);
+        expect(harness.client.createSwitchCalls, hasLength(1));
+        expect(harness.client.createSwitchCalls.single.memberIds, ['pkA']);
+        expect(
+          harness.client.getCurrentFrontersCallCount,
+          1,
+          reason:
+              'push reconciliation checks PK current state to avoid duplicates',
+        );
+        expect(harness.client.getSwitchesCallCount, 0);
+        expect(harness.client.getMembersCallCount, 0);
+        expect(harness.client.getGroupsCallCount, 0);
+      },
+    );
+
+    test(
+      'bidirectional pulls current before pushing differing local state',
+      () async {
+        final ts = DateTime.utc(2026, 5, 1, 12);
+        final harness = await setupLive(
+          members: [
+            member('local-a', 'pkA', 'uuid-a'),
+            member('local-b', 'pkB', 'uuid-b'),
+          ],
+          sessions: [
+            session(
+              'local-b-active',
+              'local-b',
+              startTime: DateTime.utc(2026, 5, 1, 11),
+            ),
+          ],
+          current: currentSwitch(
+            '00000000-0000-0000-0000-000000000107',
+            ts,
+            const ['pkA'],
+          ),
+        );
+
+        final summary = await harness.service.syncLiveFrontersOnly(
+          direction: PkSyncDirection.bidirectional,
+        );
+
+        expect(summary!.switchesPulled, 1);
+        expect(summary.switchesPushed, 1);
+        expect(harness.client.createSwitchCalls.single.memberIds, [
+          'pkA',
+          'pkB',
+        ]);
+        expect(harness.client.getCurrentFrontersCallCount, 1);
+        expect(harness.client.calls, ['getCurrentFronters', 'createSwitch']);
       },
     );
   });

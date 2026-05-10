@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 
 // ---------------------------------------------------------------------------
@@ -117,6 +118,7 @@ class PkAutoPollNotifier extends Notifier<void> {
   void build() {
     ref.listen(pkAutoPollSettingsProvider, (_, _) => _reschedule());
     ref.listen(pluralKitSyncProvider, (_, _) => _reschedule());
+    ref.listen(pkSyncModeProvider, (_, _) => _reschedule());
     ref.onDispose(_cancel);
     _reschedule();
   }
@@ -171,10 +173,19 @@ class PkAutoPollNotifier extends Notifier<void> {
       if (!pkState.canAutoSync) return;
       if (pkState.isSyncing) return;
 
-      await ref.read(pluralKitSyncServiceProvider).pollFrontersOnly();
+      final mode = ref.read(pkSyncModeProvider);
+      if (mode == PkSyncMode.liveFrontsOnly) {
+        final direction = ref.read(pkSyncDirectionProvider);
+        if (!direction.pullEnabled) return;
+        await ref
+            .read(pluralKitSyncProvider.notifier)
+            .syncLiveFrontersOnly(isManual: false, direction: direction);
+      } else {
+        await ref.read(pluralKitSyncServiceProvider).pollFrontersOnly();
+      }
     } catch (e) {
-      // pollFrontersOnly swallows most errors; anything that escapes here
-      // is unexpected. Back off one cycle to avoid hammering.
+      // PK sync services swallow most errors; anything that escapes here is
+      // unexpected. Back off one cycle to avoid hammering.
       debugPrint('[PK auto-poll] tick failed: $e');
       _overrideNext = _kMinBackoffOn429;
     } finally {
