@@ -29,6 +29,7 @@ import 'package:prism_plurality/domain/models/member.dart' as domain_member;
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 String? get _tokenOrNull {
   final env = Platform.environment['PK_TOKEN'];
@@ -233,6 +234,7 @@ Future<PluralKitSyncService> _makeConnectedService(AppDatabase db) async {
       pkSyncDao: db.pluralKitSyncDao,
     ),
     syncDao: db.pluralKitSyncDao,
+    bus: PkSyncEventBus(),
     tokenOverride: _token,
   );
 }

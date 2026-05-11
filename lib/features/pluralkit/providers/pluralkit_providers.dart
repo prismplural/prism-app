@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/pluralkit/providers/pk_unmapped_fronter
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_reset_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
@@ -45,6 +46,7 @@ final pluralKitSyncServiceProvider = Provider<PluralKitSyncService>((ref) {
     memberRepository: ref.watch(memberRepositoryProvider),
     frontingSessionRepository: ref.watch(frontingSessionRepositoryProvider),
     syncDao: ref.watch(pluralKitSyncDaoProvider),
+    bus: ref.watch(pkSyncEventBusProvider),
     settingsRepository: ref.watch(systemSettingsRepositoryProvider),
     groupsImporter: PkGroupsImporter(
       db: db,

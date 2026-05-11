@@ -20,6 +20,7 @@ import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_serv
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 // ignore_for_file: avoid_print
 
@@ -43,6 +44,7 @@ void main() {
       null,
     ),
     syncDao: db.pluralKitSyncDao,
+    bus: PkSyncEventBus(),
     groupsImporter: PkGroupsImporter(db: db, memberRepository: memberRepo),
     bannerCacheService: PkBannerCacheService(
       fetcher: (_) async => Uint8List.fromList([1, 2, 3]),

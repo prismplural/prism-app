@@ -25,6 +25,7 @@ import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_serv
 import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 http.Response _json(Object body, {int status = 200}) => http.Response(
   jsonEncode(body),
@@ -73,6 +74,7 @@ void main() {
             null,
           ),
           syncDao: db.pluralKitSyncDao,
+          bus: PkSyncEventBus(),
           tokenOverride: 't',
           clientFactory: (_) => _mockClient(
             system: {'id': 'sys1', 'name': 'Test System'},
@@ -141,6 +143,7 @@ void main() {
                 null,
               ),
               syncDao: db.pluralKitSyncDao,
+              bus: PkSyncEventBus(),
               tokenOverride: 't',
               clientFactory: (_) => _mockClient(
                 system: {'id': 'sys1', 'name': 'Test'},
@@ -197,6 +200,7 @@ void main() {
             null,
           ),
           syncDao: db.pluralKitSyncDao,
+          bus: PkSyncEventBus(),
           tokenOverride: 't',
           clientFactory: (_) => _mockClient(
             system: {'id': 'sys1', 'name': 'Test'},
@@ -237,6 +241,7 @@ void main() {
                 null,
               ),
               syncDao: db.pluralKitSyncDao,
+              bus: PkSyncEventBus(),
               tokenOverride: 't',
               clientFactory: (_) => _mockClient(
                 system: {'id': 'sys1', 'name': 'Test'},
@@ -284,6 +289,7 @@ void main() {
                 null,
               ),
               syncDao: db.pluralKitSyncDao,
+              bus: PkSyncEventBus(),
               tokenOverride: 't',
               clientFactory: (_) => _mockClient(
                 system: {'id': 'sys1', 'name': 'Test'},
@@ -320,6 +326,7 @@ void main() {
               null,
             ),
             syncDao: db.pluralKitSyncDao,
+            bus: PkSyncEventBus(),
             tokenOverride: 't',
             clientFactory: (_) => _mockClient(
               system: {'id': 'sys1', 'name': 'Test'},
@@ -368,6 +375,7 @@ void main() {
                 null,
               ),
               syncDao: db.pluralKitSyncDao,
+              bus: PkSyncEventBus(),
               tokenOverride: 't',
               clientFactory: (_) => _mockClient(
                 system: {'id': 'sys1', 'name': 'Test'},
@@ -434,6 +442,7 @@ void main() {
                 null,
               ),
               syncDao: db.pluralKitSyncDao,
+              bus: PkSyncEventBus(),
               tokenOverride: 't',
               clientFactory: (_) => _mockClient(
                 system: {'id': 'sys1', 'name': 'Test'},

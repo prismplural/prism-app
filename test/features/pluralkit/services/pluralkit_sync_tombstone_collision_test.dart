@@ -33,6 +33,7 @@ import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 // ---------------------------------------------------------------------------
 // Secure storage stub (mirrors pluralkit_sync_service_test.dart)
@@ -248,6 +249,7 @@ void main() {
       memberRepository: memberRepo,
       frontingSessionRepository: sessionRepo,
       syncDao: db.pluralKitSyncDao,
+      bus: PkSyncEventBus(),
       secureStorage: const FlutterSecureStorage(),
       tokenOverride: 'test-token',
       clientFactory: (_) => fakeClient,
@@ -371,6 +373,7 @@ void main() {
       memberRepository: memberRepo,
       frontingSessionRepository: sessionRepo,
       syncDao: db.pluralKitSyncDao,
+      bus: PkSyncEventBus(),
       secureStorage: const FlutterSecureStorage(),
       tokenOverride: 'test-token',
       clientFactory: (_) => fakeClient,

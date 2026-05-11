@@ -36,6 +36,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 const _switchUuid1 = '00000000-0000-0000-0000-000000000001';
 const _switchUuid2 = '00000000-0000-0000-0000-000000000002';
@@ -498,6 +499,7 @@ Future<({PluralKitSyncService svc, int epoch})> _makeService({
     memberRepository: memberRepo,
     frontingSessionRepository: sessionRepo,
     syncDao: db.pluralKitSyncDao,
+    bus: PkSyncEventBus(),
     secureStorage: const FlutterSecureStorage(),
     clientFactory: (_) => client,
   );

@@ -59,6 +59,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 AppDatabase _makeDb() => AppDatabase(NativeDatabase.memory());
 
@@ -243,6 +244,7 @@ PluralKitSyncService _makePkImportService(
       pkSyncDao: db.pluralKitSyncDao,
     ),
     syncDao: db.pluralKitSyncDao,
+    bus: PkSyncEventBus(),
     tokenOverride: 'test-token',
     clientFactory: (_) => client,
     groupsImporter: PkGroupsImporter(db: db, memberRepository: memberRepo),

@@ -22,6 +22,7 @@ import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_switch_cursor.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 // ---------------------------------------------------------------------------
 // Secure storage stub (copied verbatim from biometric_service_test.dart)
@@ -497,6 +498,7 @@ PluralKitSyncService _makeService({
     memberRepository: memberRepo ?? FakeMemberRepository(),
     frontingSessionRepository: sessionRepo ?? FakeFrontingSessionRepository(),
     syncDao: db.pluralKitSyncDao,
+    bus: PkSyncEventBus(),
     secureStorage: const FlutterSecureStorage(),
     clientFactory: clientFactory ?? (_) => fakeClient,
   );
@@ -887,6 +889,7 @@ void main() {
             pkSyncDao: db.pluralKitSyncDao,
           ),
           syncDao: db.pluralKitSyncDao,
+          bus: PkSyncEventBus(),
           secureStorage: const FlutterSecureStorage(),
           tokenOverride: 'test-token',
           clientFactory: (_) => fakeClient,
@@ -1904,6 +1907,7 @@ void main() {
           memberRepository: memberRepo,
           frontingSessionRepository: sessionRepo,
           syncDao: db.pluralKitSyncDao,
+          bus: PkSyncEventBus(),
           secureStorage: const FlutterSecureStorage(),
           clientFactory: (_) => fakeClient,
         );
@@ -2027,6 +2031,7 @@ void main() {
         memberRepository: memberRepo,
         frontingSessionRepository: sessionRepo,
         syncDao: db.pluralKitSyncDao,
+        bus: PkSyncEventBus(),
         secureStorage: const FlutterSecureStorage(),
         clientFactory: (_) => fakeClient,
       );
@@ -2246,6 +2251,7 @@ void main() {
         memberRepository: memberRepo,
         frontingSessionRepository: sessionRepo,
         syncDao: db.pluralKitSyncDao,
+        bus: PkSyncEventBus(),
         secureStorage: const FlutterSecureStorage(),
         clientFactory: (_) => client,
       );
@@ -2603,6 +2609,7 @@ void _registerWs3PrDTests() {
           memberRepository: memberRepo,
           frontingSessionRepository: FakeFrontingSessionRepository(),
           syncDao: countingDao,
+          bus: PkSyncEventBus(),
           secureStorage: const FlutterSecureStorage(),
           clientFactory: (_) => fakeClient,
         );
@@ -2681,6 +2688,7 @@ void _registerWs3PrDTests() {
           memberRepository: memberRepo,
           frontingSessionRepository: FakeFrontingSessionRepository(),
           syncDao: db.pluralKitSyncDao,
+          bus: PkSyncEventBus(),
           secureStorage: const FlutterSecureStorage(),
           clientFactory: (_) => fakeClient,
         );
@@ -2752,6 +2760,7 @@ void _registerWs3PrDTests() {
           memberRepository: memberRepo,
           frontingSessionRepository: FakeFrontingSessionRepository(),
           syncDao: db.pluralKitSyncDao,
+          bus: PkSyncEventBus(),
           secureStorage: const FlutterSecureStorage(),
           clientFactory: (_) => fakeClient,
         );

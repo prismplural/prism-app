@@ -44,6 +44,7 @@ import 'package:prism_plurality/features/data_management/services/data_import_se
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:uuid/uuid.dart';
 
@@ -2332,6 +2333,7 @@ void main() {
         memberRepository: memberRepo,
         frontingSessionRepository: sessionRepo,
         syncDao: db.pluralKitSyncDao,
+        bus: PkSyncEventBus(),
         secureStorage: const FlutterSecureStorage(),
         clientFactory: (_) => fakeClient,
       );

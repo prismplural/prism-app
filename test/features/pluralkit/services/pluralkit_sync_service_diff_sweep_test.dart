@@ -32,6 +32,7 @@ import 'package:prism_plurality/domain/repositories/fronting_session_repository.
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 // ---------------------------------------------------------------------------
 // Secure-storage mock
@@ -334,6 +335,7 @@ PluralKitSyncService _makeService({
     memberRepository: memberRepo,
     frontingSessionRepository: sessionRepo,
     syncDao: db.pluralKitSyncDao,
+    bus: PkSyncEventBus(),
     secureStorage: const FlutterSecureStorage(),
     clientFactory: (_) => client,
   );
@@ -2224,6 +2226,7 @@ void main() {
         memberRepository: memberRepo,
         frontingSessionRepository: flakyRepo,
         syncDao: db.pluralKitSyncDao,
+        bus: PkSyncEventBus(),
         secureStorage: const FlutterSecureStorage(),
         clientFactory: (_) => client,
       );

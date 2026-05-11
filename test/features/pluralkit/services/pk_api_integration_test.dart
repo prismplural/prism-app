@@ -33,6 +33,7 @@ import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/pluralkit/services/pk_member_matcher.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 // ---------------------------------------------------------------------------
 // Env + naming
@@ -142,6 +143,7 @@ void main() {
             memberRepository: memberRepo,
             frontingSessionRepository: sessionRepo,
             syncDao: db.pluralKitSyncDao,
+            bus: PkSyncEventBus(),
             tokenOverride: _token,
           );
 
@@ -199,6 +201,7 @@ void main() {
             memberRepository: memberRepo,
             frontingSessionRepository: sessionRepo,
             syncDao: db.pluralKitSyncDao,
+            bus: PkSyncEventBus(),
             tokenOverride: _token,
           );
 

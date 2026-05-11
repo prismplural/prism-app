@@ -26,6 +26,8 @@ import 'package:prism_plurality/features/pluralkit/services/pk_fronting_switch_m
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_live_fronter_resolution_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_session_id.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_switch_cursor.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
@@ -404,6 +406,7 @@ class PluralKitSyncService {
   final String? _tokenOverride;
   final PkGroupsImporter? _groupsImporter;
   final PkBannerCacheService _bannerCacheService;
+  final PkSyncEventBus _bus;
 
   PluralKitSyncState _state = const PluralKitSyncState();
   Future<PkPushSwitchesResult>? _pushInFlight;
@@ -413,6 +416,7 @@ class PluralKitSyncService {
     required MemberRepository memberRepository,
     required FrontingSessionRepository frontingSessionRepository,
     required PluralKitSyncDao syncDao,
+    required PkSyncEventBus bus,
     SystemSettingsRepository? settingsRepository,
     FlutterSecureStorage? secureStorage,
     PluralKitClient Function(String token)? clientFactory,
@@ -428,7 +432,8 @@ class PluralKitSyncService {
        _clientFactory = clientFactory,
        _tokenOverride = tokenOverride,
        _groupsImporter = groupsImporter,
-       _bannerCacheService = bannerCacheService ?? PkBannerCacheService();
+       _bannerCacheService = bannerCacheService ?? PkBannerCacheService(),
+       _bus = bus;
 
   PluralKitSyncState get state => _state;
 
@@ -631,6 +636,9 @@ class PluralKitSyncService {
           clearError: true,
         ),
       );
+      _bus.emit(
+        PkTokenSet(systemName: system.name ?? system.id, systemId: system.id),
+      );
     } on PluralKitAuthError catch (e) {
       debugPrint('[PK_SVC] setToken: PluralKitAuthError: $e');
       await _secureStorage.delete(key: _pkTokenKey);
@@ -642,6 +650,7 @@ class PluralKitSyncService {
           ),
         ),
       );
+      _bus.emit(const PkTokenAuthFailed());
     } catch (e, st) {
       debugPrint('[PK_SVC] setToken: caught $e\n$st');
       await _secureStorage.delete(key: _pkTokenKey);
@@ -649,6 +658,13 @@ class PluralKitSyncService {
         _state.copyWith(
           isConnected: false,
           syncError: formatPluralKitSyncError('Connection failed: $e'),
+        ),
+      );
+      _bus.emit(
+        PkRequestFailed(
+          stage: 'setToken',
+          errorKind: 'unknown',
+          message: PkSyncEvent.redact(e.toString(), trimmed),
         ),
       );
     }
@@ -684,6 +700,7 @@ class PluralKitSyncService {
     // IDs that may not even exist in the next connected system.
     await PkMappingStateDao(_syncDao.attachedDatabase).clearAll();
     _emit(const PluralKitSyncState());
+    _bus.emit(const PkTokenCleared());
   }
 
   /// Test the connection without modifying stored state.
@@ -723,6 +740,7 @@ class PluralKitSyncService {
   Future<(String? systemName, List<PKMember> pkMembers)>
   importMembersOnly() async {
     debugPrint('[PK_SVC] importMembersOnly: building client...');
+    final capturedToken = await _getToken();
     final client = await _buildClient();
     if (client == null) {
       debugPrint(
@@ -788,6 +806,7 @@ class PluralKitSyncService {
           syncStatus: 'Imported ${pkMembers.length} members.',
         ),
       );
+      _bus.emit(PkMembersImported(count: pkMembers.length));
 
       return (system.name, pkMembers);
     } catch (e, st) {
@@ -796,6 +815,13 @@ class PluralKitSyncService {
         _state.copyWith(
           isSyncing: false,
           syncError: formatPluralKitSyncError('Member import failed: $e'),
+        ),
+      );
+      _bus.emit(
+        PkRequestFailed(
+          stage: 'importMembersOnly',
+          errorKind: 'unknown',
+          message: PkSyncEvent.redact(e.toString(), capturedToken),
         ),
       );
       rethrow;
@@ -1195,11 +1221,33 @@ class PluralKitSyncService {
     // Claim isSyncing before the first await so no concurrent caller can
     // slip through the flag check during an await gap.
     if (_state.isSyncing) return null;
+    final stopwatch = Stopwatch()..start();
+    _bus.emit(
+      PkSyncStarted(
+        trigger: isManual ? 'manual' : 'auto',
+        direction: direction.name,
+        mode: 'incremental',
+      ),
+    );
     if (_state.lastSyncDate == null && direction.pullEnabled) {
       // Never synced before in a pull-capable mode — seed local state from PK.
       // Push-only must not silently fall into this branch; that would pull
       // member/group/profile data despite the user's selected direction.
-      await performFullImport();
+      // Capture the token first for redaction on the error path.
+      final capturedToken = await _getToken();
+      try {
+        await performFullImport();
+      } catch (e) {
+        _bus.emit(
+          PkSyncCompleted(
+            durationMs: stopwatch.elapsedMilliseconds,
+            pulled: 0,
+            pushed: 0,
+            error: PkSyncEvent.redact(e.toString(), capturedToken),
+          ),
+        );
+        rethrow;
+      }
       if (isManual) {
         final now = DateTime.now();
         await _syncDao.upsertSyncState(
@@ -1210,6 +1258,13 @@ class PluralKitSyncService {
         );
         _emit(_state.copyWith(lastManualSyncDate: now));
       }
+      _bus.emit(
+        PkSyncCompleted(
+          durationMs: stopwatch.elapsedMilliseconds,
+          pulled: 0,
+          pushed: 0,
+        ),
+      );
       return null;
     }
 
@@ -1222,9 +1277,22 @@ class PluralKitSyncService {
       ),
     );
 
+    // Capture the token AFTER claiming isSyncing so concurrent callers see
+    // the flag flip synchronously (the original code path emitted isSyncing
+    // before its first await for this reason).
+    final capturedToken = await _getToken();
+
     final client = await _buildClient();
     if (client == null) {
       _emit(_state.copyWith(isSyncing: false));
+      _bus.emit(
+        PkSyncCompleted(
+          durationMs: stopwatch.elapsedMilliseconds,
+          pulled: 0,
+          pushed: 0,
+          error: 'Not connected',
+        ),
+      );
       throw StateError('Not connected');
     }
 
@@ -1325,7 +1393,12 @@ class PluralKitSyncService {
       // advance), surfacing typed errors instead of spinning forever.
       int totalNew = 0;
       int totalUnmapped = 0;
+      int pullPages = 0;
+      int pullFetched = 0;
+      int pullApplied = 0;
+      int pullDurationMs = 0;
       if (direction.pullEnabled) {
+        final pullStopwatch = Stopwatch()..start();
         final cursorRow = await _syncDao.getSyncState();
         final PkSwitchCursor? cursor =
             (cursorRow.switchCursorTimestamp != null &&
@@ -1347,6 +1420,7 @@ class PluralKitSyncService {
 
         final newSwitches = <PKSwitch>[];
         int pageNum = 0;
+        int totalFetched = 0;
         bool reachedCursor = (cursor == null); // no cursor → fetch all
         DateTime? previousPageBefore;
 
@@ -1362,6 +1436,7 @@ class PluralKitSyncService {
             limit: 100,
           );
           pageNum++;
+          totalFetched += page.length;
           debugPrint('[PK_PULL] page=$pageNum fetched=${page.length}');
           if (page.isEmpty) break;
 
@@ -1427,6 +1502,19 @@ class PluralKitSyncService {
           totalNew = newSwitches.length;
           totalUnmapped = sweepResult.unmappedCount;
         }
+        pullStopwatch.stop();
+        pullPages = pageNum;
+        pullFetched = totalFetched;
+        pullApplied = totalNew;
+        pullDurationMs = pullStopwatch.elapsedMilliseconds;
+        _bus.emit(
+          PkSyncPullCompleted(
+            pages: pullPages,
+            fetched: pullFetched,
+            applied: pullApplied,
+            durationMs: pullDurationMs,
+          ),
+        );
       } else {
         debugPrint(
           '[PK_PULL] skipped — pullEnabled=false direction=$direction',
@@ -1514,12 +1602,36 @@ class PluralKitSyncService {
         ),
       );
 
+      _bus.emit(
+        PkSyncCompleted(
+          durationMs: stopwatch.elapsedMilliseconds,
+          pulled: totalNew,
+          pushed: switchesPushed,
+        ),
+      );
+
       return finalSummary;
     } catch (e) {
       _emit(
         _state.copyWith(
           isSyncing: false,
           syncError: formatPluralKitSyncError(e),
+        ),
+      );
+      final redacted = PkSyncEvent.redact(e.toString(), capturedToken);
+      _bus.emit(
+        PkSyncCompleted(
+          durationMs: stopwatch.elapsedMilliseconds,
+          pulled: 0,
+          pushed: 0,
+          error: redacted,
+        ),
+      );
+      _bus.emit(
+        PkRequestFailed(
+          stage: 'syncRecentData',
+          errorKind: 'unknown',
+          message: redacted,
         ),
       );
       rethrow;
@@ -1540,6 +1652,15 @@ class PluralKitSyncService {
     if (!_state.canAutoSync) return null;
     if (_state.isSyncing) return null;
 
+    final stopwatch = Stopwatch()..start();
+    _bus.emit(
+      PkSyncStarted(
+        trigger: isManual ? 'manual' : 'auto',
+        direction: direction.name,
+        mode: 'live',
+      ),
+    );
+
     _emit(
       _state.copyWith(
         isSyncing: true,
@@ -1548,6 +1669,10 @@ class PluralKitSyncService {
         clearError: true,
       ),
     );
+
+    // Token capture happens AFTER the isSyncing flip so concurrent callers
+    // see the gate close synchronously.
+    final capturedToken = await _getToken();
 
     try {
       int switchesPulled = 0;
@@ -1575,6 +1700,13 @@ class PluralKitSyncService {
             liveUnmappedFronters = pullResult.unmappedNotice;
             observedLiveFrontersDismissalKey = pullResult.observedDismissalKey;
             skipPush = pullResult.skippedForUnmapped;
+            if (pullResult.pulled) {
+              _bus.emit(
+                PkLiveFronterApplied(memberCount: current.members.length),
+              );
+            } else if (pullResult.skippedForUnmapped) {
+              _bus.emit(const PkLiveFronterSkipped(reason: 'unmapped'));
+            }
           }
         } finally {
           client.dispose();
@@ -1625,6 +1757,14 @@ class PluralKitSyncService {
         ),
       );
 
+      _bus.emit(
+        PkSyncCompleted(
+          durationMs: stopwatch.elapsedMilliseconds,
+          pulled: switchesPulled,
+          pushed: switchesPushed,
+        ),
+      );
+
       return PkSyncSummary(
         switchesPulled: switchesPulled,
         switchesPushed: switchesPushed,
@@ -1638,6 +1778,22 @@ class PluralKitSyncService {
         _state.copyWith(
           isSyncing: false,
           syncError: formatPluralKitSyncError('Live fronters sync failed: $e'),
+        ),
+      );
+      final redacted = PkSyncEvent.redact(e.toString(), capturedToken);
+      _bus.emit(
+        PkSyncCompleted(
+          durationMs: stopwatch.elapsedMilliseconds,
+          pulled: 0,
+          pushed: 0,
+          error: redacted,
+        ),
+      );
+      _bus.emit(
+        PkRequestFailed(
+          stage: 'syncLiveFrontersOnly',
+          errorKind: 'unknown',
+          message: redacted,
         ),
       );
       rethrow;
@@ -2962,6 +3118,7 @@ class PluralKitSyncService {
       throw StateError('Not connected — cannot import switch history');
     }
     if (_state.isSyncing) return;
+    final capturedToken = await _getToken();
     _emit(
       _state.copyWith(
         isSyncing: true,
@@ -3033,6 +3190,13 @@ class PluralKitSyncService {
           syncError: formatPluralKitSyncError(
             'Switch history import failed: $e',
           ),
+        ),
+      );
+      _bus.emit(
+        PkRequestFailed(
+          stage: 'importSwitchesAfterLink',
+          errorKind: 'unknown',
+          message: PkSyncEvent.redact(e.toString(), capturedToken),
         ),
       );
       rethrow;
@@ -3373,15 +3537,35 @@ class PluralKitSyncService {
     late final Future<PkPushSwitchesResult> future;
     future =
         _doPushPendingSwitches(
-          pushService: pushService ?? const PkPushService(),
-          onStaleLink: onStaleLink,
-          knownCurrentFronters: knownCurrentFronters,
-          refreshMembersOnStaleLink: refreshMembersOnStaleLink,
-        ).whenComplete(() {
-          if (identical(_pushInFlight, future)) {
-            _pushInFlight = null;
-          }
-        });
+              pushService: pushService ?? const PkPushService(),
+              onStaleLink: onStaleLink,
+              knownCurrentFronters: knownCurrentFronters,
+              refreshMembersOnStaleLink: refreshMembersOnStaleLink,
+            )
+            .then((result) {
+              _bus.emit(PkSwitchPushed(pushed: result.pushed, deleted: 0));
+              return result;
+            })
+            .catchError((Object e) async {
+              // Token is captured *after* the failure so we don't compete with
+              // the `_pushInFlight` synchronous gate (which must be assigned in
+              // the same microtask the call returns). The cost is a single
+              // secure-storage read on the error path — acceptable.
+              final capturedToken = await _getToken();
+              _bus.emit(
+                PkRequestFailed(
+                  stage: 'pushPendingSwitches',
+                  errorKind: 'unknown',
+                  message: PkSyncEvent.redact(e.toString(), capturedToken),
+                ),
+              );
+              throw e;
+            })
+            .whenComplete(() {
+              if (identical(_pushInFlight, future)) {
+                _pushInFlight = null;
+              }
+            });
     _pushInFlight = future;
     return future;
   }

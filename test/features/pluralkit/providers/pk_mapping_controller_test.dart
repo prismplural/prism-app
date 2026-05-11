@@ -26,6 +26,7 @@ import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.d
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Secure-storage stub (flutter_secure_storage uses a MethodChannel).
@@ -262,6 +263,7 @@ void main() {
       memberRepository: repo,
       frontingSessionRepository: _NoopFrontingSessionRepo(),
       syncDao: PluralKitSyncDao(db),
+      bus: PkSyncEventBus(),
       clientFactory: (_) => client,
       tokenOverride: 'fake',
     );
@@ -324,6 +326,7 @@ void main() {
         memberRepository: repo,
         frontingSessionRepository: _NoopFrontingSessionRepo(),
         syncDao: PluralKitSyncDao(db),
+        bus: PkSyncEventBus(),
         clientFactory: (_) => client,
         tokenOverride: 'fake',
       );
@@ -406,6 +409,7 @@ void main() {
       memberRepository: repo,
       frontingSessionRepository: _NoopFrontingSessionRepo(),
       syncDao: PluralKitSyncDao(db),
+      bus: PkSyncEventBus(),
       clientFactory: (_) => failingClient,
       tokenOverride: 'fake',
     );
@@ -442,10 +446,9 @@ void main() {
   test(
     'apply: pre-flight SocketException sets offline error and skips applier',
     () async {
-      final offlineClient = _GetSystemThrowingClient(
-        [const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice')],
-        const SocketException('Failed host lookup: api.pluralkit.me'),
-      );
+      final offlineClient = _GetSystemThrowingClient([
+        const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice'),
+      ], const SocketException('Failed host lookup: api.pluralkit.me'));
       final offlineSyncService = PluralKitSyncService(
         memberRepository: repo,
         frontingSessionRepository: _NoopFrontingSessionRepo(),
@@ -483,30 +486,26 @@ void main() {
     },
   );
 
-  test(
-    'apply: pre-flight success runs full loop as before',
-    () async {
-      await container.read(pkMappingControllerProvider.future);
-      final ctrl = container.read(pkMappingControllerProvider.notifier);
+  test('apply: pre-flight success runs full loop as before', () async {
+    await container.read(pkMappingControllerProvider.future);
+    final ctrl = container.read(pkMappingControllerProvider.notifier);
 
-      await ctrl.apply(offlineErrorMessage: 'not used');
+    await ctrl.apply(offlineErrorMessage: 'not used');
 
-      final s = container.read(pkMappingControllerProvider).value!;
-      expect(s.isApplying, isFalse);
-      expect(s.error, isNull);
-      expect(s.lastResults, isNotNull);
-      // 4 decisions (Alice link + Dana import + push l2 + push l3).
-      expect(s.lastResults!.length, 4);
-    },
-  );
+    final s = container.read(pkMappingControllerProvider).value!;
+    expect(s.isApplying, isFalse);
+    expect(s.error, isNull);
+    expect(s.lastResults, isNotNull);
+    // 4 decisions (Alice link + Dana import + push l2 + push l3).
+    expect(s.lastResults!.length, 4);
+  });
 
   test(
     'apply: pre-flight non-network StateError falls into outer catch',
     () async {
-      final throwingClient = _GetSystemThrowingClient(
-        [const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice')],
-        StateError('foo'),
-      );
+      final throwingClient = _GetSystemThrowingClient([
+        const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice'),
+      ], StateError('foo'));
       final throwSync = PluralKitSyncService(
         memberRepository: repo,
         frontingSessionRepository: _NoopFrontingSessionRepo(),
@@ -539,48 +538,44 @@ void main() {
     },
   );
 
-  test(
-    'apply: pre-flight SocketException without offlineErrorMessage uses '
-    'default fallback',
-    () async {
-      final offlineClient = _GetSystemThrowingClient(
-        [const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice')],
-        const SocketException('Failed host lookup: api.pluralkit.me'),
-      );
-      final offlineSyncService = PluralKitSyncService(
-        memberRepository: repo,
-        frontingSessionRepository: _NoopFrontingSessionRepo(),
-        syncDao: PluralKitSyncDao(db),
-        clientFactory: (_) => offlineClient,
-        tokenOverride: 'fake',
-      );
-      await offlineSyncService.setToken('fake');
+  test('apply: pre-flight SocketException without offlineErrorMessage uses '
+      'default fallback', () async {
+    final offlineClient = _GetSystemThrowingClient([
+      const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice'),
+    ], const SocketException('Failed host lookup: api.pluralkit.me'));
+    final offlineSyncService = PluralKitSyncService(
+      memberRepository: repo,
+      frontingSessionRepository: _NoopFrontingSessionRepo(),
+      syncDao: PluralKitSyncDao(db),
+      clientFactory: (_) => offlineClient,
+      tokenOverride: 'fake',
+    );
+    await offlineSyncService.setToken('fake');
 
-      final localContainer = ProviderContainer(
-        overrides: [
-          databaseProvider.overrideWithValue(db),
-          memberRepositoryProvider.overrideWithValue(repo),
-          pluralKitSyncServiceProvider.overrideWithValue(offlineSyncService),
-        ],
-      );
-      addTearDown(localContainer.dispose);
+    final localContainer = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        memberRepositoryProvider.overrideWithValue(repo),
+        pluralKitSyncServiceProvider.overrideWithValue(offlineSyncService),
+      ],
+    );
+    addTearDown(localContainer.dispose);
 
-      await localContainer.read(pkMappingControllerProvider.future);
-      offlineClient.throwOnGetSystem = true;
+    await localContainer.read(pkMappingControllerProvider.future);
+    offlineClient.throwOnGetSystem = true;
 
-      // Call apply() with no offlineErrorMessage — should fall back to the
-      // file-scope default constant.
-      await localContainer.read(pkMappingControllerProvider.notifier).apply();
+    // Call apply() with no offlineErrorMessage — should fall back to the
+    // file-scope default constant.
+    await localContainer.read(pkMappingControllerProvider.notifier).apply();
 
-      final s = localContainer.read(pkMappingControllerProvider).value!;
-      expect(s.isApplying, isFalse);
-      expect(
-        s.error,
-        "Couldn't reach PluralKit. Check your internet connection "
-        'and try again.',
-      );
-    },
-  );
+    final s = localContainer.read(pkMappingControllerProvider).value!;
+    expect(s.isApplying, isFalse);
+    expect(
+      s.error,
+      "Couldn't reach PluralKit. Check your internet connection "
+      'and try again.',
+    );
+  });
 
   test('dismiss: does NOT acknowledge mapping', () async {
     await container.read(pkMappingControllerProvider.future);
@@ -615,6 +610,7 @@ void main() {
         memberRepository: emptyRepo,
         frontingSessionRepository: _NoopFrontingSessionRepo(),
         syncDao: PluralKitSyncDao(db),
+        bus: PkSyncEventBus(),
         clientFactory: (_) => emptyClient,
         tokenOverride: 'fake',
       );
@@ -655,6 +651,7 @@ void main() {
         memberRepository: conflictRepo,
         frontingSessionRepository: _NoopFrontingSessionRepo(),
         syncDao: PluralKitSyncDao(db),
+        bus: PkSyncEventBus(),
         clientFactory: (_) => conflictClient,
         tokenOverride: 'fake',
       );
@@ -745,6 +742,7 @@ void main() {
       memberRepository: ignoredRepo,
       frontingSessionRepository: _NoopFrontingSessionRepo(),
       syncDao: PluralKitSyncDao(db),
+      bus: PkSyncEventBus(),
       clientFactory: (_) => _FakeClient([]),
       tokenOverride: 'fake',
     );
@@ -779,6 +777,7 @@ void main() {
         memberRepository: halfLinkedRepo,
         frontingSessionRepository: _NoopFrontingSessionRepo(),
         syncDao: PluralKitSyncDao(db),
+        bus: PkSyncEventBus(),
         clientFactory: (_) => _FakeClient([
           const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice'),
           const PKMember(id: 'bbbbb', uuid: 'pk-dana', name: 'Dana'),

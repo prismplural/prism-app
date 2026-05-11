@@ -7,6 +7,7 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 import '../../../helpers/fake_repositories.dart';
 
@@ -90,6 +91,7 @@ void main() {
       memberRepository: FakeMemberRepository(),
       frontingSessionRepository: FakeFrontingSessionRepository(),
       syncDao: db.pluralKitSyncDao,
+      bus: PkSyncEventBus(),
       settingsRepository: settings,
       secureStorage: const FlutterSecureStorage(),
       tokenOverride: 'test-token',

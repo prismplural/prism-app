@@ -15,6 +15,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 import '../../../helpers/pluralkit_fake_client.dart';
 
@@ -371,6 +372,7 @@ Future<_HarnessResult> _runHarness({
     memberRepository: memberRepo,
     frontingSessionRepository: sessionRepo,
     syncDao: db.pluralKitSyncDao,
+    bus: PkSyncEventBus(),
     tokenOverride: 'test-token',
     clientFactory: (_) => client,
     groupsImporter: PkGroupsImporter(db: db, memberRepository: memberRepo),

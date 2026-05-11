@@ -28,6 +28,7 @@ import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 // ---------------------------------------------------------------------------
 // Test doubles — mirror the structure used in pk_mapping_controller_test.dart
@@ -181,6 +182,7 @@ void main() {
       memberRepository: repo,
       frontingSessionRepository: _NoopFrontingSessionRepo(),
       syncDao: PluralKitSyncDao(db),
+      bus: PkSyncEventBus(),
       clientFactory: (_) => client,
       tokenOverride: 'fake',
     );

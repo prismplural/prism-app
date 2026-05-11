@@ -24,6 +24,7 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dar
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 String? get _tokenOrNull {
   final env = Platform.environment['PK_TOKEN'];
@@ -99,6 +100,7 @@ void main() {
           memberRepository: memberRepo,
           frontingSessionRepository: sessionRepo,
           syncDao: db.pluralKitSyncDao,
+          bus: PkSyncEventBus(),
           secureStorage: const FlutterSecureStorage(),
           // TestWidgetsFlutterBinding intercepts HttpClient → all requests
           // return 400. Inject a real http.Client via IOClient so we can
