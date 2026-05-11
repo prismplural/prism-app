@@ -110,7 +110,7 @@ final alwaysPresentMembersProvider =
           data: (memberList) {
             final now = clock();
             final byId = {for (final m in memberList) m.id: m};
-            final qualifying = <AlwaysPresentMember>[];
+            final qualifyingByMember = <String, AlwaysPresentMember>{};
 
             for (final session in sessions) {
               if (session.endTime != null) continue;
@@ -128,11 +128,19 @@ final alwaysPresentMembersProvider =
                       age >= kAutoPromoteThreshold);
               if (!qualifies) continue;
 
-              qualifying.add(
-                AlwaysPresentMember(member: member, session: session, age: age),
+              final candidate = AlwaysPresentMember(
+                member: member,
+                session: session,
+                age: age,
               );
+              final existing = qualifyingByMember[member.id];
+              if (existing == null ||
+                  session.startTime.isBefore(existing.session.startTime)) {
+                qualifyingByMember[member.id] = candidate;
+              }
             }
 
+            final qualifying = qualifyingByMember.values.toList();
             qualifying.sort((a, b) {
               final byOrder = a.member.displayOrder.compareTo(
                 b.member.displayOrder,

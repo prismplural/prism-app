@@ -30,13 +30,21 @@ class AlwaysPresentHeader extends ConsumerWidget {
     final names = _joinNames(members);
     final duration = _shortestAge(qualifying);
     final durationLabel = _formatDuration(context, duration);
-    final allExplicit = qualifying.every((q) => q.member.isAlwaysFronting);
+    final explicitCount = qualifying
+        .where((q) => q.member.isAlwaysFronting)
+        .length;
+    final allExplicit = explicitCount == qualifying.length;
+    final noneExplicit = explicitCount == 0;
     final headerLabel = allExplicit
         ? context.l10n.frontingAlwaysPresentLabel(durationLabel)
-        : durationLabel;
+        : noneExplicit
+        ? context.l10n.frontingLongRunningLabel(durationLabel)
+        : context.l10n.frontingMixedPinnedLabel(durationLabel);
     final semanticsLabel = allExplicit
         ? context.l10n.frontingAlwaysPresentSemantics(names, durationLabel)
-        : context.l10n.frontingLongRunningSemantics(names, durationLabel);
+        : noneExplicit
+        ? context.l10n.frontingLongRunningSemantics(names, durationLabel)
+        : context.l10n.frontingMixedPinnedLabel(durationLabel);
     final sessionId = qualifying.first.session.id;
 
     return Padding(

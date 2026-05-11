@@ -405,6 +405,7 @@ class _PerMemberRowsList extends ConsumerWidget {
         );
         final anchorByMember = <String, DateTime>{};
         for (final ap in alwaysPresentList) {
+          if (!ap.member.isAlwaysFronting) continue;
           final existing = anchorByMember[ap.member.id];
           if (existing == null || ap.session.startTime.isBefore(existing)) {
             anchorByMember[ap.member.id] = ap.session.startTime;
@@ -1034,39 +1035,7 @@ class _PeriodTile extends ConsumerWidget {
     // stack). Per spec: "If the implementation gets complicated, you can
     // simplify for 1A and surface the always-present member alongside but
     // visually distinct (e.g., separate row above the period block)."
-    final alwaysPresentLine = period.alwaysPresentMembers.isEmpty
-        ? null
-        : Padding(
-            padding: const EdgeInsets.only(
-              top: 4,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  AppIcons.helpOutline,
-                  size: 12,
-                  color: theme.colorScheme.onSurfaceVariant.withValues(
-                    alpha: 0.7,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    'Always-present: ${period.alwaysPresentMembers.map((id) => membersMap[id]?.name ?? 'Unknown').join(', ')}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          );
+    const Widget? alwaysPresentLine = null;
 
     const dimAlpha = 0.6;
 
@@ -1082,7 +1051,8 @@ class _PeriodTile extends ConsumerWidget {
           // period.end), not the slice bounds, so a midnight-crossing period
           // shows its complete extent on the detail view.
           if (period.sessionIds.isEmpty) return;
-          if (period.sessionIds.length == 1) {
+          if (period.sessionIds.length == 1 &&
+              period.alwaysPresentMembers.isEmpty) {
             context.push(AppRoutePaths.session(period.sessionIds.first));
             return;
           }

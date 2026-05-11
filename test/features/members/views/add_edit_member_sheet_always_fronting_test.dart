@@ -12,6 +12,8 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 
+import '../../../helpers/fake_repositories.dart';
+
 class _FakeMemberRepository implements MemberRepository {
   _FakeMemberRepository(this.member);
 
@@ -81,6 +83,9 @@ Widget _harness({required Member member, required _FakeMemberRepository repo}) {
   return ProviderScope(
     overrides: [
       memberRepositoryProvider.overrideWithValue(repo),
+      frontingSessionRepositoryProvider.overrideWithValue(
+        FakeFrontingSessionRepository(),
+      ),
       customFieldsProvider.overrideWithValue(const AsyncValue.data([])),
       terminologySettingProvider.overrideWithValue((
         term: SystemTerminology.members,

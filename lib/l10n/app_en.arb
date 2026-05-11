@@ -2511,6 +2511,24 @@
       }
     }
   },
+  "frontingLongRunningLabel": "Long-running · {duration}",
+  "@frontingLongRunningLabel": {
+    "description": "Subtitle for pinned header entries shown because their active fronting session has been running for a long time.",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingMixedPinnedLabel": "Always present + long-running · {duration}",
+  "@frontingMixedPinnedLabel": {
+    "description": "Subtitle for pinned header entries containing both Always fronting and long-running active sessions.",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
   "frontingAlwaysPresentSemantics": "Always-present fronters: {names}, {duration}",
   "@frontingAlwaysPresentSemantics": {
     "description": "Single combined screen-reader announcement for the always-present pinned header. Names is a comma+ampersand-joined member list; duration is the same pre-formatted string used in the visible subtitle.",
@@ -4336,7 +4354,7 @@
   "@memberAlwaysFrontingTitle": {
     "description": "Switch label: mark this member as always fronting"
   },
-  "memberAlwaysFrontingSubtitle": "Show this {termSingularLower} in the always-present header instead of avatar stacks",
+  "memberAlwaysFrontingSubtitle": "Keep an ongoing fronting session for this {termSingularLower}. They stay pinned separately and do not appear in regular fronting stacks.",
   "@memberAlwaysFrontingSubtitle": {
     "description": "Switch subtitle: always-fronting opt-in",
     "placeholders": {
@@ -9540,11 +9558,11 @@
   "@settingsQuickFrontDefaultBehaviorLabel": {
     "description": "Row title for the default behavior preference when triggering quick front (the per-member quick-action shortcut)."
   },
-  "settingsAutoPromoteLongFrontingSessionsLabel": "Auto-promote long sessions",
+  "settingsAutoPromoteLongFrontingSessionsLabel": "Show long-running fronts in header",
   "@settingsAutoPromoteLongFrontingSessionsLabel": {
     "description": "Switch label for whether long-running fronting sessions should appear in the pinned header even without explicit always-fronting opt-in."
   },
-  "settingsAutoPromoteLongFrontingSessionsDescription": "Show long-running fronting sessions in the pinned header even if they are not marked Always fronting",
+  "settingsAutoPromoteLongFrontingSessionsDescription": "After 7 days, show active fronts in the pinned header without marking them Always fronting or hiding them from history.",
   "@settingsAutoPromoteLongFrontingSessionsDescription": {
     "description": "Switch subtitle for whether long-running fronting sessions should appear in the pinned header even without explicit always-fronting opt-in."
   },

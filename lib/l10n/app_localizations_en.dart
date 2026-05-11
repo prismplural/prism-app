@@ -1872,6 +1872,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String frontingLongRunningLabel(String duration) {
+    return 'Long-running · $duration';
+  }
+
+  @override
+  String frontingMixedPinnedLabel(String duration) {
+    return 'Always present + long-running · $duration';
+  }
+
+  @override
   String frontingAlwaysPresentSemantics(String names, String duration) {
     return 'Always-present fronters: $names, $duration';
   }
@@ -3183,7 +3193,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String memberAlwaysFrontingSubtitle(String termSingularLower) {
-    return 'Show this $termSingularLower in the always-present header instead of avatar stacks';
+    return 'Keep an ongoing fronting session for this $termSingularLower. They stay pinned separately and do not appear in regular fronting stacks.';
   }
 
   @override
@@ -8921,11 +8931,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsAutoPromoteLongFrontingSessionsLabel =>
-      'Auto-promote long sessions';
+      'Show long-running fronts in header';
 
   @override
   String get settingsAutoPromoteLongFrontingSessionsDescription =>
-      'Show long-running fronting sessions in the pinned header even if they are not marked Always fronting';
+      'After 7 days, show active fronts in the pinned header without marking them Always fronting or hiding them from history.';
 
   @override
   String get settingsQuickFrontDefaultBehaviorAdditive => 'Add as co-fronter';

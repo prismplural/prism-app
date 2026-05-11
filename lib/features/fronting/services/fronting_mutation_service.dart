@@ -121,12 +121,24 @@ class FrontingMutationService {
 
         for (final memberId in memberIds) {
           // Hard-block: end any existing open session for this member before
-          // creating a new one. A member can't front twice concurrently.
+          // creating a new one. Explicit always-fronting sessions are the
+          // exception: they are persistent background sessions, so starting or
+          // quick-fronting that member reuses the existing row.
           final existing = await _repository.getAllActiveSessionsUnfiltered();
+          FrontingSession? preservedAlwaysFrontingSession;
           for (final s in existing) {
             if (s.memberId == memberId && !s.isSleep) {
+              if (await _isActiveExplicitAlwaysFrontingMember(memberId)) {
+                preservedAlwaysFrontingSession ??= s;
+                continue;
+              }
               await _repository.endSession(s.id, now);
             }
+          }
+
+          if (preservedAlwaysFrontingSession != null) {
+            created.add(preservedAlwaysFrontingSession);
+            continue;
           }
 
           final session = FrontingSession(
@@ -226,11 +238,16 @@ class FrontingMutationService {
         //    model treats sleep as orthogonal to member fronting.
         final actives = await _repository.getAllActiveSessionsUnfiltered();
         final previousMemberIds = <String?>[];
+        final preserved = <String, FrontingSession>{};
         for (final s in actives) {
-          if (!s.isSleep) {
-            await _repository.endSession(s.id, at);
-            previousMemberIds.add(s.memberId);
+          if (s.isSleep) continue;
+          if (await _isActiveExplicitAlwaysFrontingMember(s.memberId)) {
+            final memberId = s.memberId;
+            if (memberId != null) preserved[memberId] = s;
+            continue;
           }
+          await _repository.endSession(s.id, at);
+          previousMemberIds.add(s.memberId);
         }
 
         // 2. Start a fresh session for each requested member, all sharing
@@ -238,6 +255,11 @@ class FrontingMutationService {
         //    the new.
         final created = <FrontingSession>[];
         for (final memberId in memberIds) {
+          final preservedSession = preserved[memberId];
+          if (preservedSession != null) {
+            created.add(preservedSession);
+            continue;
+          }
           final session = FrontingSession(
             id: _uuid.v4(),
             startTime: at,
@@ -331,6 +353,10 @@ class FrontingMutationService {
         final now = startTime ?? DateTime.now();
         _assertTimeRange(now, null);
         for (final session in activeSessions) {
+          if (!session.isSleep &&
+              await _isActiveExplicitAlwaysFrontingMember(session.memberId)) {
+            continue;
+          }
           await _repository.endSession(session.id, now);
         }
 
@@ -398,8 +424,22 @@ class FrontingMutationService {
           // Safety: end any other active sessions that may remain (e.g. a
           // second sleep session from sync or migration).
           final remaining = await _repository.getAllActiveSessionsUnfiltered();
+          FrontingSession? preservedFrontingSession;
           for (final s in remaining) {
+            if (!s.isSleep &&
+                await _isActiveExplicitAlwaysFrontingMember(s.memberId)) {
+              if (s.memberId == frontingMemberId) {
+                preservedFrontingSession = s;
+              }
+              continue;
+            }
             await _repository.endSession(s.id, now);
+          }
+          if (preservedFrontingSession != null) {
+            return FrontingMutationResult(
+              sessions: [preservedFrontingSession],
+              previousMemberIds: [null], // was sleeping (no member)
+            );
           }
           final created = FrontingSession(
             id: _uuid.v4(),
@@ -684,6 +724,17 @@ class FrontingMutationService {
       throw AppFailure.notFound('Fronting session not found.');
     }
     return session;
+  }
+
+  Future<bool> _isActiveExplicitAlwaysFrontingMember(String? memberId) async {
+    if (memberId == null) return false;
+    final repo = _memberRepository;
+    if (repo == null) return false;
+    final member = await repo.getMemberById(memberId);
+    return member != null &&
+        member.isActive &&
+        !member.isDeleted &&
+        member.isAlwaysFronting;
   }
 
   Future<FrontingSession> _mergeOrCreateHistoricalSession(

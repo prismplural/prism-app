@@ -3404,6 +3404,18 @@ abstract class AppLocalizations {
   /// **'Always present · {duration}'**
   String frontingAlwaysPresentLabel(String duration);
 
+  /// Subtitle for pinned header entries shown because their active fronting session has been running for a long time.
+  ///
+  /// In en, this message translates to:
+  /// **'Long-running · {duration}'**
+  String frontingLongRunningLabel(String duration);
+
+  /// Subtitle for pinned header entries containing both Always fronting and long-running active sessions.
+  ///
+  /// In en, this message translates to:
+  /// **'Always present + long-running · {duration}'**
+  String frontingMixedPinnedLabel(String duration);
+
   /// Single combined screen-reader announcement for the always-present pinned header. Names is a comma+ampersand-joined member list; duration is the same pre-formatted string used in the visible subtitle.
   ///
   /// In en, this message translates to:
@@ -5522,7 +5534,7 @@ abstract class AppLocalizations {
   /// Switch subtitle: always-fronting opt-in
   ///
   /// In en, this message translates to:
-  /// **'Show this {termSingularLower} in the always-present header instead of avatar stacks'**
+  /// **'Keep an ongoing fronting session for this {termSingularLower}. They stay pinned separately and do not appear in regular fronting stacks.'**
   String memberAlwaysFrontingSubtitle(String termSingularLower);
 
   /// Section heading for the member accent color controls
@@ -14292,13 +14304,13 @@ abstract class AppLocalizations {
   /// Switch label for whether long-running fronting sessions should appear in the pinned header even without explicit always-fronting opt-in.
   ///
   /// In en, this message translates to:
-  /// **'Auto-promote long sessions'**
+  /// **'Show long-running fronts in header'**
   String get settingsAutoPromoteLongFrontingSessionsLabel;
 
   /// Switch subtitle for whether long-running fronting sessions should appear in the pinned header even without explicit always-fronting opt-in.
   ///
   /// In en, this message translates to:
-  /// **'Show long-running fronting sessions in the pinned header even if they are not marked Always fronting'**
+  /// **'After 7 days, show active fronts in the pinned header without marking them Always fronting or hiding them from history.'**
   String get settingsAutoPromoteLongFrontingSessionsDescription;
 
   /// Option label: quick front leaves existing fronts in place; the tapped member joins as a co-fronter.

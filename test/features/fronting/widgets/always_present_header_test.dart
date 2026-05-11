@@ -73,7 +73,7 @@ void main() {
     });
 
     testWidgets(
-      'auto-promoted sessions show only the duration, not "Always present"',
+      'long-running sessions show the long-running label, not "Always present"',
       (tester) async {
         final member = _member(id: 'host', name: 'Host');
         await _pumpHeader(
@@ -88,7 +88,7 @@ void main() {
         );
 
         expect(find.text('Host'), findsOneWidget);
-        expect(find.text('2 weeks'), findsOneWidget);
+        expect(find.text('Long-running · 2 weeks'), findsOneWidget);
         expect(find.textContaining('Always present'), findsNothing);
       },
     );
@@ -115,7 +115,7 @@ void main() {
       );
 
       expect(find.text('Host & Friend'), findsOneWidget);
-      expect(find.text('2 weeks'), findsOneWidget);
+      expect(find.text('Long-running · 2 weeks'), findsOneWidget);
     });
 
     testWidgets(

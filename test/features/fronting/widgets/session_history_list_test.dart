@@ -218,7 +218,7 @@ void main() {
     });
 
     testWidgets(
-      'always-present members surface as a separate line, not in stack',
+      'always-present context stays out of the row and routes to period detail',
       (tester) async {
         final t0 = DateTime(2026, 4, 1, 14);
         final t1 = DateTime(2026, 4, 1, 16);
@@ -235,6 +235,26 @@ void main() {
           ),
         ];
 
+        final router = GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) => const Scaffold(
+                body: CustomScrollView(slivers: [SessionHistoryList()]),
+              ),
+            ),
+            GoRoute(
+              path: '/session/:id',
+              builder: (_, state) =>
+                  Scaffold(body: Text('session-${state.pathParameters['id']}')),
+            ),
+            GoRoute(
+              path: '/period',
+              builder: (_, _) => const Scaffold(body: Text('period-screen')),
+            ),
+          ],
+        );
+
         await tester.pumpWidget(
           _buildSubject(
             sessions: [_s(id: 's-v', memberId: 'v', start: t0, end: t1)],
@@ -248,15 +268,22 @@ void main() {
                 isAlwaysFronting: true,
               ),
             },
+            router: router,
           ),
         );
         await tester.pumpAndSettle();
 
         // Title shows only the foreground member.
         expect(find.text('Visitor'), findsOneWidget);
-        // Always-present line surfaces the host separately.
-        expect(find.textContaining('Always-present'), findsOneWidget);
-        expect(find.textContaining('Host'), findsOneWidget);
+        // Always-present context is available in detail, not duplicated inline.
+        expect(find.textContaining('Always-present'), findsNothing);
+        expect(find.textContaining('Host'), findsNothing);
+
+        await tester.tap(find.text('Visitor'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('period-screen'), findsOneWidget);
+        expect(find.textContaining('session-s-v'), findsNothing);
       },
     );
 

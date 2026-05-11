@@ -1922,6 +1922,16 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String frontingLongRunningLabel(String duration) {
+    return 'Larga duración · $duration';
+  }
+
+  @override
+  String frontingMixedPinnedLabel(String duration) {
+    return 'Siempre presente + larga duración · $duration';
+  }
+
+  @override
   String frontingAlwaysPresentSemantics(String names, String duration) {
     return 'Siempre al frente: $names, $duration';
   }
@@ -3246,7 +3256,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String memberAlwaysFrontingSubtitle(String termSingularLower) {
-    return 'Mostrar a este/a $termSingularLower en la cabecera de siempre presentes en lugar de las pilas de avatares';
+    return 'Mantiene una sesión de frente activa para este/a $termSingularLower. Queda fijado/a por separado y no aparece en las pilas normales de frente.';
   }
 
   @override
@@ -9079,11 +9089,11 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get settingsAutoPromoteLongFrontingSessionsLabel =>
-      'Autopromocionar sesiones largas';
+      'Mostrar fronts largos en la cabecera';
 
   @override
   String get settingsAutoPromoteLongFrontingSessionsDescription =>
-      'Muestra sesiones largas de frente en la cabecera fija aunque no estén marcadas como Siempre al frente';
+      'Después de 7 días, muestra fronts activos en la cabecera fija sin marcarlos como Siempre al frente ni ocultarlos del historial.';
 
   @override
   String get settingsQuickFrontDefaultBehaviorAdditive =>
