@@ -82,9 +82,8 @@ class NotesListScreen extends ConsumerWidget {
   void _showCreateSheet(BuildContext context) {
     PrismSheet.showFullScreen(
       context: context,
-      builder: (context, scrollController) => NoteSheet(
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          NoteSheet(scrollController: scrollController),
     );
   }
 }
@@ -104,15 +103,14 @@ class _NoteCard extends ConsumerWidget {
 
     // Look up the member if this note is associated with one
     final memberAsync = note.memberId != null
-        ? ref.watch(memberByIdProvider(note.memberId!))
+        ? ref.watch(activeMemberByIdProvider(note.memberId!))
         : null;
     final member = memberAsync?.value;
 
     Color? colorBar;
     if (note.colorHex != null) {
       try {
-        colorBar =
-            Color(int.parse(note.colorHex!.replaceFirst('#', '0xFF')));
+        colorBar = Color(int.parse(note.colorHex!.replaceFirst('#', '0xFF')));
       } catch (_) {}
     }
 
@@ -120,8 +118,9 @@ class _NoteCard extends ConsumerWidget {
         ? note.title
         : note.body.split('\n').first.trim();
     final isFallbackTitle = note.title.isEmpty;
-    final titleLabel =
-        displayTitle.isNotEmpty ? displayTitle : l10n.memberNoteUntitled;
+    final titleLabel = displayTitle.isNotEmpty
+        ? displayTitle
+        : l10n.memberNoteUntitled;
 
     final semanticLabel = member != null
         ? '$titleLabel. ${l10n.memberSectionNotes}. ${member.name}. $dateLabel.'
@@ -131,7 +130,8 @@ class _NoteCard extends ConsumerWidget {
       semanticLabel: semanticLabel,
       onTap: () {
         final location = GoRouterState.of(context).uri.path;
-        final isTopLevel = location.startsWith(AppRoutePaths.notes) &&
+        final isTopLevel =
+            location.startsWith(AppRoutePaths.notes) &&
             !location.startsWith(AppRoutePaths.settings);
         context.push(
           isTopLevel
@@ -145,7 +145,9 @@ class _NoteCard extends ConsumerWidget {
           children: [
             if (colorBar != null) ...[
               ClipRRect(
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(2)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(2),
+                ),
                 child: ColoredBox(
                   color: colorBar,
                   child: const SizedBox(width: 4),
@@ -160,10 +162,12 @@ class _NoteCard extends ConsumerWidget {
                   Text(
                     titleLabel,
                     style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight:
-                          isFallbackTitle ? FontWeight.normal : FontWeight.w600,
-                      fontStyle:
-                          isFallbackTitle ? FontStyle.italic : FontStyle.normal,
+                      fontWeight: isFallbackTitle
+                          ? FontWeight.normal
+                          : FontWeight.w600,
+                      fontStyle: isFallbackTitle
+                          ? FontStyle.italic
+                          : FontStyle.normal,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

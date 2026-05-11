@@ -75,7 +75,7 @@ class _MemberFrontingHistoryScreenState
 
   @override
   Widget build(BuildContext context) {
-    final memberAsync = ref.watch(memberByIdProvider(widget.memberId));
+    final memberAsync = ref.watch(activeMemberByIdProvider(widget.memberId));
 
     ref.listen(memberFrontingHistoryProvider(widget.memberId), (_, next) {
       if (_pendingJumpDayKey == null || !next.hasValue) return;

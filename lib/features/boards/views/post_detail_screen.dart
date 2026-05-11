@@ -41,7 +41,7 @@ class PostDetailScreen extends ConsumerWidget {
 
     final speakingAsId = ref.watch(speakingAsProvider);
     final viewerAsync = speakingAsId != null
-        ? ref.watch(memberByIdProvider(speakingAsId))
+        ? ref.watch(activeMemberByIdProvider(speakingAsId))
         : const AsyncValue<Member?>.data(null);
     final viewerMember = viewerAsync.value;
 
@@ -121,11 +121,11 @@ Future<void> _confirmDelete(
   }
 }
 
-final _postByIdStreamProvider =
-    StreamProvider.autoDispose.family<MemberBoardPost?, String>((ref, id) {
-  final repo = ref.watch(memberBoardPostsRepositoryProvider);
-  return repo.watchPostById(id);
-});
+final _postByIdStreamProvider = StreamProvider.autoDispose
+    .family<MemberBoardPost?, String>((ref, id) {
+      final repo = ref.watch(memberBoardPostsRepositoryProvider);
+      return repo.watchPostById(id);
+    });
 
 class _PostDetailBody extends ConsumerWidget {
   const _PostDetailBody({required this.post});
@@ -138,12 +138,12 @@ class _PostDetailBody extends ConsumerWidget {
     final l10n = context.l10n;
 
     final authorAsync = post.authorId != null
-        ? ref.watch(memberByIdProvider(post.authorId!))
+        ? ref.watch(activeMemberByIdProvider(post.authorId!))
         : const AsyncValue<Member?>.data(null);
     final author = authorAsync.value;
 
     final targetAsync = post.targetMemberId != null
-        ? ref.watch(memberByIdProvider(post.targetMemberId!))
+        ? ref.watch(activeMemberByIdProvider(post.targetMemberId!))
         : const AsyncValue<Member?>.data(null);
     final target = targetAsync.value;
 
@@ -157,10 +157,8 @@ class _PostDetailBody extends ConsumerWidget {
         ? AppColors.fromHex(author.customColorHex!)
         : theme.colorScheme.onSurface;
 
-    final headerBgColor =
-        theme.colorScheme.onSurface.withValues(alpha: 0.04);
-    final dividerColor =
-        theme.colorScheme.onSurface.withValues(alpha: 0.07);
+    final headerBgColor = theme.colorScheme.onSurface.withValues(alpha: 0.04);
+    final dividerColor = theme.colorScheme.onSurface.withValues(alpha: 0.07);
 
     final timestampLine = post.editedAt != null
         ? '${post.writtenAt.toDateTimeString(context.dateLocale)}  ·  ${l10n.boardsTileEdited}'
@@ -174,9 +172,7 @@ class _PostDetailBody extends ConsumerWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               color: headerBgColor,
-              border: Border(
-                bottom: BorderSide(color: dividerColor, width: 1),
-              ),
+              border: Border(bottom: BorderSide(color: dividerColor, width: 1)),
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
@@ -195,8 +191,9 @@ class _PostDetailBody extends ConsumerWidget {
                   Text(
                     timestampLine,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.85),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.85,
+                      ),
                     ),
                   ),
                 ],

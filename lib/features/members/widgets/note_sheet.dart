@@ -261,7 +261,7 @@ class _BottomToolbar extends ConsumerWidget {
 
     // Resolve member if set.
     final member = memberId != null
-        ? ref.watch(memberByIdProvider(memberId!)).value
+        ? ref.watch(activeMemberByIdProvider(memberId!)).value
         : null;
 
     return Container(

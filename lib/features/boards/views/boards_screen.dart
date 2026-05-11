@@ -428,7 +428,7 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
     final speakingAsId = ref.watch(speakingAsProvider);
     final filterId = ref.watch(inboxViewFilterProvider);
     final viewerAsync = speakingAsId != null
-        ? ref.watch(memberByIdProvider(speakingAsId))
+        ? ref.watch(activeMemberByIdProvider(speakingAsId))
         : const AsyncValue<Member?>.data(null);
     final viewerMember = viewerAsync.value;
 
@@ -542,7 +542,7 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
 
     final speakingAsId = ref.watch(speakingAsProvider);
     final viewerAsync = speakingAsId != null
-        ? ref.watch(memberByIdProvider(speakingAsId))
+        ? ref.watch(activeMemberByIdProvider(speakingAsId))
         : const AsyncValue<Member?>.data(null);
     final viewerMember = viewerAsync.value;
 

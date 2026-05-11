@@ -32,7 +32,10 @@ final currentFronterProvider = StreamProvider<Member?>((ref) {
   return sessionAsync.when(
     data: (session) {
       if (session?.memberId == null) return Stream.value(null);
-      return memberRepo.watchMemberById(session!.memberId!);
+      return memberRepo.watchMemberById(session!.memberId!).map((member) {
+        if (member == null || member.isDeleted) return null;
+        return member;
+      });
     },
     loading: () => Stream.value(null),
     error: (error, stackTrace) => Stream.value(null),

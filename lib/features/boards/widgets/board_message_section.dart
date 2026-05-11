@@ -41,12 +41,12 @@ class BoardMessageSection extends ConsumerWidget {
     // Resolve the current viewer for permission checks inside PostTile.
     final speakingAsId = ref.watch(speakingAsProvider);
     final viewerAsync = speakingAsId != null
-        ? ref.watch(memberByIdProvider(speakingAsId))
+        ? ref.watch(activeMemberByIdProvider(speakingAsId))
         : const AsyncValue<Member?>.data(null);
     final viewerMember = viewerAsync.value;
 
     // Resolve the profile member for the tooltip name.
-    final profileMemberAsync = ref.watch(memberByIdProvider(memberId));
+    final profileMemberAsync = ref.watch(activeMemberByIdProvider(memberId));
     final profileMemberName = profileMemberAsync.value?.name ?? memberId;
 
     return sectionAsync.when(

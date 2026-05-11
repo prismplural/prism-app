@@ -53,12 +53,9 @@ class AnalyticsScreen extends ConsumerWidget {
                       padding: const EdgeInsets.all(24),
                       child: Text(
                         'No fronting sessions in this date range',
-                        style:
-                            Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -85,15 +82,12 @@ class _AnalyticsBody extends ConsumerWidget {
     final terms = watchTerminology(context, ref);
 
     // Previous period and insights load independently — degrade gracefully.
-    final previousPeriod =
-        ref.watch(previousPeriodAnalyticsProvider).whenOrNull(
-              data: (p) => p,
-            );
+    final previousPeriod = ref
+        .watch(previousPeriodAnalyticsProvider)
+        .whenOrNull(data: (p) => p);
     final insights =
-        ref.watch(analyticsInsightsProvider).whenOrNull(
-              data: (list) => list,
-            ) ??
-            const [];
+        ref.watch(analyticsInsightsProvider).whenOrNull(data: (list) => list) ??
+        const [];
 
     return ListView(
       padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
@@ -148,8 +142,9 @@ class _AnalyticsBody extends ConsumerWidget {
                     theme: theme,
                   ),
                   _OverviewStat(
-                    label: context.l10n
-                        .statisticsUniqueFrontersLabel(terms.plural),
+                    label: context.l10n.statisticsUniqueFrontersLabel(
+                      terms.plural,
+                    ),
                     value: '${analytics.uniqueFronters}',
                     priorLabel: previousPeriod != null
                         ? '${previousPeriod.uniqueFronters} last period'
@@ -197,6 +192,7 @@ class _OverviewStat extends StatelessWidget {
   final String label;
   final String value;
   final ThemeData theme;
+
   /// Muted prior-period text, e.g. "47h last period". Omitted when null.
   final String? priorLabel;
 
@@ -282,13 +278,15 @@ class _ExpandableMemberDetailState
   }
 
   @override
-  Widget build(BuildContext context, ) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final memberAsync = ref.watch(memberByIdProvider(widget.stat.memberId));
+    final memberAsync = ref.watch(
+      activeMemberByIdProvider(widget.stat.memberId),
+    );
     final member = memberAsync.whenOrNull(data: (m) => m);
     final name = member?.name ?? '...';
-    final accent = member?.customColorEnabled == true &&
-            member?.customColorHex != null
+    final accent =
+        member?.customColorEnabled == true && member?.customColorHex != null
         ? AppColors.fromHex(member!.customColorHex!)
         : theme.colorScheme.primary;
 
@@ -333,15 +331,19 @@ class _ExpandableMemberDetailState
                       const SizedBox(height: 6),
                       // Share-of-total bar
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(3)),
+                        borderRadius: BorderRadius.circular(
+                          PrismShapes.of(context).radius(3),
+                        ),
                         child: LinearProgressIndicator(
-                          value:
-                              (widget.stat.percentageOfTotal / 100)
-                                  .clamp(0.0, 1.0),
-                          backgroundColor: theme
-                              .colorScheme.surfaceContainerHighest,
-                          valueColor:
-                              AlwaysStoppedAnimation(accent.withValues(alpha: 0.7)),
+                          value: (widget.stat.percentageOfTotal / 100).clamp(
+                            0.0,
+                            1.0,
+                          ),
+                          backgroundColor:
+                              theme.colorScheme.surfaceContainerHighest,
+                          valueColor: AlwaysStoppedAnimation(
+                            accent.withValues(alpha: 0.7),
+                          ),
                           minHeight: 4,
                         ),
                       ),
@@ -384,18 +386,14 @@ class _ExpandableMemberDetailState
             secondChild: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Divider(
-                  height: 1,
-                  color: theme.colorScheme.outlineVariant,
-                ),
+                Divider(height: 1, color: theme.colorScheme.outlineVariant),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
                   child: _StatsGrid(stat: widget.stat, accent: accent),
                 ),
                 if (widget.stat.timeOfDayBreakdown.isNotEmpty) ...[
                   Padding(
-                    padding:
-                        const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                     child: Text(
                       'Time of Day',
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -406,8 +404,7 @@ class _ExpandableMemberDetailState
                     ),
                   ),
                   Padding(
-                    padding:
-                        const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     child: TimeOfDayChart(
                       breakdown: widget.stat.timeOfDayBreakdown,
                       accentColor: accent,

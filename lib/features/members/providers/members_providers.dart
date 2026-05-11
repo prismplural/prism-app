@@ -72,6 +72,18 @@ final memberByIdProvider = StreamProvider.autoDispose.family<Member?, String>((
   return repo.watchMemberById(id);
 });
 
+/// Single non-deleted member by ID.
+///
+/// UI surfaces should prefer this provider unless they are explicitly rendering
+/// tombstone-aware sync, import, or recovery state.
+final activeMemberByIdProvider = Provider.autoDispose
+    .family<AsyncValue<Member?>, String>((ref, id) {
+      return ref.watch(memberByIdProvider(id)).whenData((member) {
+        if (member == null || member.isDeleted) return null;
+        return member;
+      });
+    });
+
 /// Cached map of memberId → display name, derived from active members.
 /// Computed once and shared across all consumers (e.g., mention previews).
 final memberNameMapProvider = Provider<Map<String, String>>((ref) {

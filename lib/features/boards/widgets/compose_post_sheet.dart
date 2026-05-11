@@ -385,7 +385,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
     final canPost = _canSave && (isEditing || speakingAs != null);
 
     final targetMember = _targetMemberId != null
-        ? ref.watch(memberByIdProvider(_targetMemberId!)).value
+        ? ref.watch(activeMemberByIdProvider(_targetMemberId!)).value
         : null;
     final mutedColor = theme.colorScheme.onSurfaceVariant;
 
@@ -561,7 +561,7 @@ class _BottomToolbar extends ConsumerWidget {
     // Author avatar — only shown for new posts.
     final speakingAsId = isEditing ? null : ref.watch(speakingAsProvider);
     final authorMember = speakingAsId != null
-        ? ref.watch(memberByIdProvider(speakingAsId)).value
+        ? ref.watch(activeMemberByIdProvider(speakingAsId)).value
         : null;
 
     return Container(

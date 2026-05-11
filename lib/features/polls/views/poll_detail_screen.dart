@@ -919,7 +919,7 @@ class _VoterNames extends ConsumerWidget {
       spacing: 4,
       runSpacing: 4,
       children: votes.map((vote) {
-        final memberAsync = ref.watch(memberByIdProvider(vote.memberId));
+        final memberAsync = ref.watch(activeMemberByIdProvider(vote.memberId));
         final name = memberAsync.value?.name ?? 'Unknown';
         return PrismPill(
           label: vote.responseText != null && vote.responseText!.isNotEmpty

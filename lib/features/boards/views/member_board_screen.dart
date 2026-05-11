@@ -28,12 +28,12 @@ class MemberBoardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final memberAsync = ref.watch(memberByIdProvider(memberId));
+    final memberAsync = ref.watch(activeMemberByIdProvider(memberId));
     final member = memberAsync.value;
 
     final speakingAsId = ref.watch(speakingAsProvider);
     final viewerAsync = speakingAsId != null
-        ? ref.watch(memberByIdProvider(speakingAsId))
+        ? ref.watch(activeMemberByIdProvider(speakingAsId))
         : const AsyncValue<Member?>.data(null);
     final viewerMember = viewerAsync.value;
 
@@ -42,10 +42,7 @@ class MemberBoardScreen extends ConsumerWidget {
         member: member,
         onComposeTap: () => _openCompose(context),
       ),
-      body: _MemberBoardBody(
-        memberId: memberId,
-        viewerMember: viewerMember,
-      ),
+      body: _MemberBoardBody(memberId: memberId, viewerMember: viewerMember),
     );
   }
 
@@ -60,10 +57,7 @@ class MemberBoardScreen extends ConsumerWidget {
 
 class _MemberBoardTopBar extends StatelessWidget
     implements PreferredSizeWidget {
-  const _MemberBoardTopBar({
-    required this.member,
-    required this.onComposeTap,
-  });
+  const _MemberBoardTopBar({required this.member, required this.onComposeTap});
 
   final Member? member;
   final VoidCallback onComposeTap;
@@ -105,10 +99,7 @@ class _MemberBoardTopBar extends StatelessWidget
 // ---------------------------------------------------------------------------
 
 class _MemberBoardBody extends ConsumerWidget {
-  const _MemberBoardBody({
-    required this.memberId,
-    required this.viewerMember,
-  });
+  const _MemberBoardBody({required this.memberId, required this.viewerMember});
 
   final String memberId;
   final Member? viewerMember;
@@ -125,9 +116,8 @@ class _MemberBoardBody extends ConsumerWidget {
     return postsAsync.when(
       loading: () => Center(
         child: Builder(
-          builder: (context) => PrismSpinner(
-            color: Theme.of(context).colorScheme.primary,
-          ),
+          builder: (context) =>
+              PrismSpinner(color: Theme.of(context).colorScheme.primary),
         ),
       ),
       error: (e, _) => Center(child: Text('Error: $e')),

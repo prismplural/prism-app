@@ -46,7 +46,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
     final memberName = speakingAs == null
         ? null
         : ref
-              .watch(memberByIdProvider(speakingAs))
+              .watch(activeMemberByIdProvider(speakingAs))
               .whenOrNull(data: (m) => m?.name);
     final gifAvailable = gifConfig?.enabled == true;
     final gifConsentSubtitle = !gifAvailable

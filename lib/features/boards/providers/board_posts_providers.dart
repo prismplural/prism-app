@@ -20,11 +20,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 /// for the first page. Always pass them in tandem — the keyset query orders
 /// by `(written_at DESC, id DESC)`.
 class BoardPagingCursor {
-  const BoardPagingCursor({
-    this.afterWrittenAt,
-    this.afterId,
-    this.limit = 30,
-  });
+  const BoardPagingCursor({this.afterWrittenAt, this.afterId, this.limit = 30});
 
   final DateTime? afterWrittenAt;
   final String? afterId;
@@ -40,8 +36,7 @@ class BoardPagingCursor {
           limit == other.limit;
 
   @override
-  int get hashCode =>
-      Object.hash(afterWrittenAt, afterId, limit);
+  int get hashCode => Object.hash(afterWrittenAt, afterId, limit);
 }
 
 /// Keyset cursor for a single member's public board.
@@ -69,8 +64,7 @@ class MemberBoardCursor {
           limit == other.limit;
 
   @override
-  int get hashCode =>
-      Object.hash(memberId, afterWrittenAt, afterId, limit);
+  int get hashCode => Object.hash(memberId, afterWrittenAt, afterId, limit);
 }
 
 // ---------------------------------------------------------------------------
@@ -108,13 +102,13 @@ const _kPublicLastViewedAt = 'boards.public_last_viewed_at';
 /// Pass `BoardPagingCursor()` (no arguments) for the first page.
 final publicBoardPostsProvider = StreamProvider.autoDispose
     .family<List<MemberBoardPost>, BoardPagingCursor>((ref, cursor) {
-  final repo = ref.watch(memberBoardPostsRepositoryProvider);
-  return repo.watchPublicPaginated(
-    afterWrittenAt: cursor.afterWrittenAt,
-    afterId: cursor.afterId,
-    limit: cursor.limit,
-  );
-});
+      final repo = ref.watch(memberBoardPostsRepositoryProvider);
+      return repo.watchPublicPaginated(
+        afterWrittenAt: cursor.afterWrittenAt,
+        afterId: cursor.afterId,
+        limit: cursor.limit,
+      );
+    });
 
 // ---------------------------------------------------------------------------
 // Inbox feed
@@ -126,10 +120,17 @@ final publicBoardPostsProvider = StreamProvider.autoDispose
 /// this — only posts addressed to a current fronter should appear.
 final currentFronterMemberIdsProvider = Provider<List<String>>((ref) {
   final sessions = ref.watch(activeSessionsProvider).value ?? const [];
+  final activeMemberIds = ref
+      .watch(activeMembersProvider)
+      .value
+      ?.map((member) => member.id)
+      .toSet();
+  if (activeMemberIds == null) return const [];
+
   final ids = <String>{};
   for (final s in sessions) {
     final id = s.memberId;
-    if (id != null) ids.add(id);
+    if (id != null && activeMemberIds.contains(id)) ids.add(id);
   }
   return ids.toList(growable: false);
 });
@@ -155,18 +156,18 @@ final currentFronterMembersProvider = Provider<List<Member>>((ref) {
 /// co-fronters change. Pass `BoardPagingCursor()` for the first page.
 final inboxBoardPostsProvider = StreamProvider.autoDispose
     .family<List<MemberBoardPost>, BoardPagingCursor>((ref, cursor) {
-  final filterId = ref.watch(inboxViewFilterProvider);
-  final targetMemberIds = filterId != null
-      ? [filterId]
-      : ref.watch(currentFronterMemberIdsProvider);
-  final repo = ref.watch(memberBoardPostsRepositoryProvider);
-  return repo.watchInboxPaginated(
-    targetMemberIds,
-    afterWrittenAt: cursor.afterWrittenAt,
-    afterId: cursor.afterId,
-    limit: cursor.limit,
-  );
-});
+      final filterId = ref.watch(inboxViewFilterProvider);
+      final targetMemberIds = filterId != null
+          ? [filterId]
+          : ref.watch(currentFronterMemberIdsProvider);
+      final repo = ref.watch(memberBoardPostsRepositoryProvider);
+      return repo.watchInboxPaginated(
+        targetMemberIds,
+        afterWrittenAt: cursor.afterWrittenAt,
+        afterId: cursor.afterId,
+        limit: cursor.limit,
+      );
+    });
 
 // ---------------------------------------------------------------------------
 // Inbox view filter — ephemeral, not persisted
@@ -182,8 +183,8 @@ final inboxBoardPostsProvider = StreamProvider.autoDispose
 /// (which removed `StateProvider`) this is the idiomatic equivalent.
 final inboxViewFilterProvider =
     NotifierProvider.autoDispose<_InboxViewFilterNotifier, String?>(
-  _InboxViewFilterNotifier.new,
-);
+      _InboxViewFilterNotifier.new,
+    );
 
 class _InboxViewFilterNotifier extends Notifier<String?> {
   @override
@@ -206,25 +207,26 @@ class _InboxViewFilterNotifier extends Notifier<String?> {
 ///        AND audience = 'public' AND is_deleted = false`.
 final memberBoardSectionProvider = StreamProvider.autoDispose
     .family<MemberBoardSection, String>((ref, memberId) {
-  final repo = ref.watch(memberBoardPostsRepositoryProvider);
+      final repo = ref.watch(memberBoardPostsRepositoryProvider);
 
-  // Watch the recent-3 stream — the section only renders a preview.
-  final recentStream = repo.watchPublicForMemberRecent(memberId, limit: 3);
+      // Watch the recent-3 stream — the section only renders a preview.
+      final recentStream = repo.watchPublicForMemberRecent(memberId, limit: 3);
 
-  // For the total count we also watch the full paginated stream at limit=100
-  // (reasonable upper bound for section badge; profile UX doesn't paginate).
-  final allStream = repo.watchPublicForMemberPaginated(memberId, limit: 100);
+      // For the total count we also watch the full paginated stream at limit=100
+      // (reasonable upper bound for section badge; profile UX doesn't paginate).
+      final allStream = repo.watchPublicForMemberPaginated(
+        memberId,
+        limit: 100,
+      );
 
-  // Combine: whenever either stream emits, rebuild the section.
-  return recentStream.asyncExpand((recent) {
-    return allStream.map(
-      (all) => MemberBoardSection(
-        publicPosts: recent,
-        totalPublic: all.length,
-      ),
-    );
-  });
-});
+      // Combine: whenever either stream emits, rebuild the section.
+      return recentStream.asyncExpand((recent) {
+        return allStream.map(
+          (all) =>
+              MemberBoardSection(publicPosts: recent, totalPublic: all.length),
+        );
+      });
+    });
 
 // ---------------------------------------------------------------------------
 // Per-member board posts (full paginated list)
@@ -236,14 +238,14 @@ final memberBoardSectionProvider = StreamProvider.autoDispose
 ///        AND audience = 'public' AND is_deleted = false`.
 final memberBoardPostsProvider = StreamProvider.autoDispose
     .family<List<MemberBoardPost>, MemberBoardCursor>((ref, cursor) {
-  final repo = ref.watch(memberBoardPostsRepositoryProvider);
-  return repo.watchPublicForMemberPaginated(
-    cursor.memberId,
-    afterWrittenAt: cursor.afterWrittenAt,
-    afterId: cursor.afterId,
-    limit: cursor.limit,
-  );
-});
+      final repo = ref.watch(memberBoardPostsRepositoryProvider);
+      return repo.watchPublicForMemberPaginated(
+        cursor.memberId,
+        afterWrittenAt: cursor.afterWrittenAt,
+        afterId: cursor.afterId,
+        limit: cursor.limit,
+      );
+    });
 
 // ---------------------------------------------------------------------------
 // Unread public-dot — SharedPreferences-backed last-viewed timestamp
@@ -256,8 +258,8 @@ final memberBoardPostsProvider = StreamProvider.autoDispose
 /// the Public tab opens.
 final publicBoardLastViewedAtProvider =
     NotifierProvider<PublicLastViewedAtNotifier, DateTime?>(
-  PublicLastViewedAtNotifier.new,
-);
+      PublicLastViewedAtNotifier.new,
+    );
 
 class PublicLastViewedAtNotifier extends Notifier<DateTime?> {
   @override
@@ -332,11 +334,15 @@ final _boardsBadgeCountProvider = FutureProvider.autoDispose<int>((ref) async {
   final lastReadByMember = <String, DateTime?>{};
   for (final memberId in fronterIds) {
     final row = await membersDao.getMemberById(memberId);
+    if (row?.isDeleted == true) continue;
     lastReadByMember[memberId] = row?.boardLastReadAt;
   }
 
   final dao = ref.watch(memberBoardPostsDaoProvider);
-  return dao.countUnreadForMembers(fronterIds, lastReadByMember);
+  return dao.countUnreadForMembers(
+    lastReadByMember.keys.toList(),
+    lastReadByMember,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -450,14 +456,12 @@ class MemberBoardPostNotifier extends AsyncNotifier<void> {
   /// Bumps the device-local public-last-viewed timestamp to now, clearing
   /// the unread dot on the Public sub-tab.
   Future<void> markPublicViewed() async {
-    await ref
-        .read(publicBoardLastViewedAtProvider.notifier)
-        .markViewed();
+    await ref.read(publicBoardLastViewedAtProvider.notifier).markViewed();
   }
 }
 
 /// Provider for [MemberBoardPostNotifier].
 final memberBoardPostNotifierProvider =
     AsyncNotifierProvider<MemberBoardPostNotifier, void>(
-  MemberBoardPostNotifier.new,
-);
+      MemberBoardPostNotifier.new,
+    );

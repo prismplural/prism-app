@@ -58,13 +58,20 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     if (pos.pixels >= pos.maxScrollExtent - 200) {
-      final currentLimit = ref.read(messageLimitProvider(widget.conversationId));
+      final currentLimit = ref.read(
+        messageLimitProvider(widget.conversationId),
+      );
       final messages = ref.read(messagesProvider(widget.conversationId)).value;
       // Only load more if the current page is full (previous load completed).
       if (messages != null && messages.length >= currentLimit) {
-        ref.read(messageLimitProvider(widget.conversationId).notifier).loadMore();
+        ref
+            .read(messageLimitProvider(widget.conversationId).notifier)
+            .loadMore();
         // ignore: deprecated_member_use
-        SemanticsService.announce(context.l10n.chatLoadingOlderMessages, TextDirection.ltr);
+        SemanticsService.announce(
+          context.l10n.chatLoadingOlderMessages,
+          TextDirection.ltr,
+        );
       }
     }
   }
@@ -144,7 +151,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
     // Watch the speaking-as member object for admin check.
     final speakingAsMemberAsync = _lastSpeakingAs != null
-        ? ref.watch(memberByIdProvider(_lastSpeakingAs!))
+        ? ref.watch(activeMemberByIdProvider(_lastSpeakingAs!))
         : const AsyncValue<Member?>.data(null);
     final speakingAsMember = speakingAsMemberAsync.value;
 
@@ -152,7 +159,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       data: (conversation) {
         if (conversation == null) {
           return PrismPageScaffold(
-            topBar: PrismTopBar(title: context.l10n.chatTitle, showBackButton: true),
+            topBar: PrismTopBar(
+              title: context.l10n.chatTitle,
+              showBackButton: true,
+            ),
             body: Center(child: Text(context.l10n.chatConversationNotFound)),
           );
         }
@@ -189,112 +199,116 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             onTap: () => FocusScope.of(context).unfocus(),
             behavior: HitTestBehavior.translucent,
             child: Column(
-            children: [
-              // Messages list
-              Expanded(
-                child: messagesAsync.when(
-                  skipLoadingOnReload: true,
-                  data: (messages) {
-                    if (messages.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              AppIcons.chatBubbleOutline,
-                              size: 64,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant
-                                  .withValues(alpha: 0.4),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              context.l10n.chatNoMessages,
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              context.l10n.chatStartConversation,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
-                          ],
-                        ),
+              children: [
+                // Messages list
+                Expanded(
+                  child: messagesAsync.when(
+                    skipLoadingOnReload: true,
+                    data: (messages) {
+                      if (messages.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                AppIcons.chatBubbleOutline,
+                                size: 64,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant
+                                    .withValues(alpha: 0.4),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                context.l10n.chatNoMessages,
+                                style: Theme.of(context).textTheme.bodyLarge
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                context.l10n.chatStartConversation,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      // Batch-load every member referenced by visible messages so
+                      // inline mentions and reply previews can resolve names
+                      // without waiting for unrelated rows to scroll into view.
+                      final authorIds = collectReferencedMemberIds(messages);
+                      final authorMap = ref.watch(
+                        membersByIdsProvider(
+                          memberIdsKey(authorIds),
+                        ).select((s) => s.value ?? {}),
                       );
-                    }
 
-                    // Batch-load every member referenced by visible messages so
-                    // inline mentions and reply previews can resolve names
-                    // without waiting for unrelated rows to scroll into view.
-                    final authorIds = collectReferencedMemberIds(messages);
-                    final authorMap = ref.watch(
-                      membersByIdsProvider(memberIdsKey(authorIds))
-                          .select((s) => s.value ?? {}),
-                    );
+                      // Group messages by author / time, inserting date
+                      // separators between days.
+                      final groupItems = _groupBuilder.build(messages);
 
-                    // Group messages by author / time, inserting date
-                    // separators between days.
-                    final groupItems = _groupBuilder.build(messages);
-
-                    // Populate GlobalKeys for each message and prune stale entries.
-                    final currentMessageIds = <String>{};
-                    for (final item in groupItems) {
-                      if (item is MessageGroup) {
-                        for (final msg in item.messages) {
-                          currentMessageIds.add(msg.id);
-                          _messageKeys.putIfAbsent(msg.id, GlobalKey.new);
+                      // Populate GlobalKeys for each message and prune stale entries.
+                      final currentMessageIds = <String>{};
+                      for (final item in groupItems) {
+                        if (item is MessageGroup) {
+                          for (final msg in item.messages) {
+                            currentMessageIds.add(msg.id);
+                            _messageKeys.putIfAbsent(msg.id, GlobalKey.new);
+                          }
                         }
                       }
-                    }
-                    _messageKeys.removeWhere((id, _) => !currentMessageIds.contains(id));
+                      _messageKeys.removeWhere(
+                        (id, _) => !currentMessageIds.contains(id),
+                      );
 
-                    // Auto-scroll to initial message (from search)
-                    if (!_hasScrolledToInitial &&
-                        widget.initialMessageId != null &&
-                        _messageKeys.containsKey(widget.initialMessageId)) {
-                      _hasScrolledToInitial = true;
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          _scrollToMessage(widget.initialMessageId!);
-                        }
-                      });
-                    }
+                      // Auto-scroll to initial message (from search)
+                      if (!_hasScrolledToInitial &&
+                          widget.initialMessageId != null &&
+                          _messageKeys.containsKey(widget.initialMessageId)) {
+                        _hasScrolledToInitial = true;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            _scrollToMessage(widget.initialMessageId!);
+                          }
+                        });
+                      }
 
-                    final hasMore = messages.length >=
-                        ref.read(messageLimitProvider(widget.conversationId));
+                      final hasMore =
+                          messages.length >=
+                          ref.read(messageLimitProvider(widget.conversationId));
 
-                    return ListView.builder(
-                      controller: _scrollController,
-                      reverse: true,
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: groupItems.length + (hasMore ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (hasMore && index == groupItems.length) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: PrismLoadingState(),
-                          );
-                        }
-                        final item = groupItems[index];
-                        return switch (item) {
-                          DateSeparatorItem(:final date) => DateSeparator(
+                      return ListView.builder(
+                        controller: _scrollController,
+                        reverse: true,
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: groupItems.length + (hasMore ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (hasMore && index == groupItems.length) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: PrismLoadingState(),
+                            );
+                          }
+                          final item = groupItems[index];
+                          return switch (item) {
+                            DateSeparatorItem(:final date) => DateSeparator(
                               key: ValueKey('date_${date.toIso8601String()}'),
                               date: date,
                             ),
-                          MessageGroup() => PrismMessageGroup(
+                            MessageGroup() => PrismMessageGroup(
                               key: ValueKey(
                                 'group_${item.messages.firstOrNull?.id}',
                               ),
@@ -313,50 +327,58 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                                   )
                                   .setReplyTo(msg),
                             ),
-                        };
-                      },
-                    );
-                  },
-                  loading: () =>
-                      const PrismLoadingState(),
-                  error: (error, _) => Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          AppIcons.errorOutline,
-                          size: 48,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(context.l10n.chatErrorLoadingMessages(error)),
-                      ],
+                          };
+                        },
+                      );
+                    },
+                    loading: () => const PrismLoadingState(),
+                    error: (error, _) => Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            AppIcons.errorOutline,
+                            size: 48,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(context.l10n.chatErrorLoadingMessages(error)),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-              // Message input
-              MessageInput(conversationId: widget.conversationId),
-            ],
-          ),
+                // Message input
+                MessageInput(conversationId: widget.conversationId),
+              ],
+            ),
           ),
         );
       },
       loading: () => PrismPageScaffold(
-        topBar: PrismTopBar(title: context.l10n.chatTitle, showBackButton: true),
+        topBar: PrismTopBar(
+          title: context.l10n.chatTitle,
+          showBackButton: true,
+        ),
         body: const PrismLoadingState(),
       ),
       error: (error, _) => PrismPageScaffold(
-        topBar: PrismTopBar(title: context.l10n.chatTitle, showBackButton: true),
+        topBar: PrismTopBar(
+          title: context.l10n.chatTitle,
+          showBackButton: true,
+        ),
         body: Center(child: Text(context.l10n.chatSearchError(error))),
       ),
     );
   }
-
 }
 
-String _conversationTitle(BuildContext context, WidgetRef ref, Conversation conversation) {
+String _conversationTitle(
+  BuildContext context,
+  WidgetRef ref,
+  Conversation conversation,
+) {
   final speakingAs = ref.watch(speakingAsProvider);
 
   if (conversation.title != null && conversation.title!.isNotEmpty) {
@@ -373,7 +395,9 @@ String _conversationTitle(BuildContext context, WidgetRef ref, Conversation conv
           .where((id) => id != speakingAs)
           .map((id) => participantMap[id]?.name ?? context.l10n.unknown)
           .toList();
-      return names.isEmpty ? context.l10n.chatConversationNoTitle : names.join(', ');
+      return names.isEmpty
+          ? context.l10n.chatConversationNoTitle
+          : names.join(', ');
     },
     loading: () => context.l10n.loading,
     error: (_, _) => context.l10n.chatConversationNoTitle,

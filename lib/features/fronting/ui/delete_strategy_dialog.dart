@@ -95,6 +95,7 @@ Future<String?> _resolveSessionName(
   final container = ProviderScope.containerOf(context, listen: false);
   final memberRepo = container.read(memberRepositoryProvider);
   final member = await memberRepo.getMemberById(memberId);
+  if (member?.isDeleted == true) return null;
   return member?.name;
 }
 

@@ -87,7 +87,7 @@ class MessageBubble extends ConsumerStatefulWidget {
   final Set<String>? participantIds;
 
   /// Pre-loaded author map from batch loading. If provided and the author is
-  /// found in the map, the individual [memberByIdProvider] watch is skipped.
+  /// found in the map, the individual [activeMemberByIdProvider] watch is skipped.
   final Map<String, Member>? authorMap;
 
   /// Called when the user taps the reply quote chip to scroll to the original message.
@@ -410,7 +410,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     }
 
     final authorAsync = widget.message.authorId != null
-        ? ref.watch(memberByIdProvider(widget.message.authorId!))
+        ? ref.watch(activeMemberByIdProvider(widget.message.authorId!))
         : const AsyncValue<Member?>.data(null);
 
     return authorAsync.when(

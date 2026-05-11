@@ -278,7 +278,7 @@ class _SessionDetailBody extends ConsumerWidget {
 
     final navBarInset = NavBarInset.of(context);
     final memberAsync = session.memberId != null
-        ? ref.watch(memberByIdProvider(session.memberId!))
+        ? ref.watch(activeMemberByIdProvider(session.memberId!))
         : null;
     final member = memberAsync?.value;
     final showPill =
@@ -472,7 +472,7 @@ class _FronterSection extends ConsumerWidget {
       );
     }
 
-    final memberAsync = ref.watch(memberByIdProvider(session.memberId!));
+    final memberAsync = ref.watch(activeMemberByIdProvider(session.memberId!));
 
     return memberAsync.when(
       loading: () => const PrismSurface(

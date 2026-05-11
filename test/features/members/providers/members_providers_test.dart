@@ -8,15 +8,20 @@ import 'package:prism_plurality/core/database/daos/members_dao.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
+import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 
-domain.Member _member({required String id, bool isActive = true}) =>
-    domain.Member(
-      id: id,
-      name: id,
-      createdAt: DateTime(2024, 1, 1),
-      isActive: isActive,
-    );
+domain.Member _member({
+  required String id,
+  bool isActive = true,
+  bool isDeleted = false,
+}) => domain.Member(
+  id: id,
+  name: id,
+  createdAt: DateTime(2024, 1, 1),
+  isActive: isActive,
+  isDeleted: isDeleted,
+);
 
 class _RecordingMembersDao extends MembersDao {
   _RecordingMembersDao(super.db);
@@ -128,6 +133,56 @@ void main() {
       final members = c.read(userVisibleAllMembersProvider).value!;
       expect(members.map((m) => m.id), containsAll(['alice', 'inactive']));
       expect(members.any((m) => m.id == unknownSentinelMemberId), isFalse);
+    });
+  });
+
+  group('active member lookup providers', () {
+    test('activeMemberByIdProvider maps tombstones to null', () async {
+      final c = ProviderContainer(
+        overrides: [
+          memberByIdProvider('deleted').overrideWith(
+            (ref) => Stream.value(_member(id: 'deleted', isDeleted: true)),
+          ),
+          memberByIdProvider(
+            'live',
+          ).overrideWith((ref) => Stream.value(_member(id: 'live'))),
+        ],
+      );
+      addTearDown(c.dispose);
+
+      final deletedSub = c.listen(
+        activeMemberByIdProvider('deleted'),
+        (_, _) {},
+      );
+      final liveSub = c.listen(activeMemberByIdProvider('live'), (_, _) {});
+      addTearDown(deletedSub.close);
+      addTearDown(liveSub.close);
+
+      await c.read(memberByIdProvider('deleted').future);
+      await c.read(memberByIdProvider('live').future);
+
+      expect(c.read(activeMemberByIdProvider('deleted')).value, isNull);
+      expect(c.read(activeMemberByIdProvider('live')).value?.id, 'live');
+    });
+
+    test('membersByIdsProvider excludes tombstoned members', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final repo = DriftMemberRepository(db.membersDao, null);
+      await repo.createMember(_member(id: 'live'));
+      await repo.createMember(_member(id: 'deleted'));
+      await repo.deleteMember('deleted');
+
+      final container = ProviderContainer(
+        overrides: [memberRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(container.dispose);
+
+      final provider = membersByIdsProvider(memberIdsKey(['live', 'deleted']));
+      final subscription = container.listen(provider, (_, _) {});
+      addTearDown(subscription.close);
+      final members = await container.read(provider.future);
+      expect(members.keys, ['live']);
     });
   });
 

@@ -263,7 +263,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     ref.watch(allGroupEntriesProvider);
     final speakingAsMemberId = ref.watch(speakingAsProvider);
     final speakingAsMemberAsync = speakingAsMemberId != null
-        ? ref.watch(memberByIdProvider(speakingAsMemberId))
+        ? ref.watch(activeMemberByIdProvider(speakingAsMemberId))
         : const AsyncValue<Member?>.data(null);
 
     return conversationAsync.when(
@@ -590,7 +590,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                 final remaining = <Member>[];
                 for (final pid in conversation.participantIds) {
                   if (pid == memberId) continue;
-                  final m = ref.read(memberByIdProvider(pid)).value;
+                  final m = ref.read(activeMemberByIdProvider(pid)).value;
                   if (m != null) remaining.add(m);
                 }
                 final newCreator = await showCreatorTransferPicker(
@@ -632,7 +632,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
 
     return Consumer(
       builder: (context, ref, _) {
-        final memberAsync = ref.watch(memberByIdProvider(otherId));
+        final memberAsync = ref.watch(activeMemberByIdProvider(otherId));
         final terms = watchTerminology(context, ref);
         return memberAsync.when(
           data: (member) {
@@ -715,7 +715,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
               // Build participant Member list for potential transfer.
               final allParticipants = <Member>[];
               for (final pid in conversation.participantIds) {
-                final m = ref.read(memberByIdProvider(pid)).value;
+                final m = ref.read(activeMemberByIdProvider(pid)).value;
                 if (m != null) allParticipants.add(m);
               }
 
@@ -768,7 +768,7 @@ class _ParticipantTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
-    final memberAsync = ref.watch(memberByIdProvider(participantId));
+    final memberAsync = ref.watch(activeMemberByIdProvider(participantId));
 
     return memberAsync.when(
       data: (member) {

@@ -85,10 +85,10 @@ class PostTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authorAsync = post.authorId != null
-        ? ref.watch(memberByIdProvider(post.authorId!))
+        ? ref.watch(activeMemberByIdProvider(post.authorId!))
         : const AsyncValue<Member?>.data(null);
     final targetAsync = post.targetMemberId != null
-        ? ref.watch(memberByIdProvider(post.targetMemberId!))
+        ? ref.watch(activeMemberByIdProvider(post.targetMemberId!))
         : const AsyncValue<Member?>.data(null);
 
     return _PostTileContent(
@@ -136,10 +136,10 @@ class _PostTileContent extends ConsumerWidget {
     }
 
     final timestamp = post.writtenAt.toRelativeString();
-    final editedSuffix =
-        post.editedAt != null ? ', ${l10n.boardsTileEdited}' : '';
-    final titlePart =
-        post.title != null && post.title!.isNotEmpty
+    final editedSuffix = post.editedAt != null
+        ? ', ${l10n.boardsTileEdited}'
+        : '';
+    final titlePart = post.title != null && post.title!.isNotEmpty
         ? '${stripMarkdownForA11y(post.title!)}: '
         : '';
     final plainBody = stripMarkdownForA11y(post.body);
@@ -202,9 +202,7 @@ class _PostTileContent extends ConsumerWidget {
     );
     if (confirmed == true) {
       unawaited(
-        ref
-            .read(memberBoardPostNotifierProvider.notifier)
-            .deletePost(post.id),
+        ref.read(memberBoardPostNotifierProvider.notifier).deletePost(post.id),
       );
     }
   }
@@ -237,10 +235,8 @@ class _PostTileContent extends ConsumerWidget {
         defaultTargetPlatform == TargetPlatform.linux ||
         kIsWeb;
 
-    final headerBgColor =
-        theme.colorScheme.onSurface.withValues(alpha: 0.04);
-    final dividerColor =
-        theme.colorScheme.onSurface.withValues(alpha: 0.07);
+    final headerBgColor = theme.colorScheme.onSurface.withValues(alpha: 0.04);
+    final dividerColor = theme.colorScheme.onSurface.withValues(alpha: 0.07);
 
     final card = PrismSurface(
       tone: PrismSurfaceTone.subtle,
@@ -262,15 +258,10 @@ class _PostTileContent extends ConsumerWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               color: headerBgColor,
-              border: Border(
-                bottom: BorderSide(color: dividerColor, width: 1),
-              ),
+              border: Border(bottom: BorderSide(color: dividerColor, width: 1)),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -292,8 +283,9 @@ class _PostTileContent extends ConsumerWidget {
                   Text(
                     _formatTimestamp(post.writtenAt, context),
                     style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
                       fontSize: 11,
                     ),
                   ),
@@ -340,8 +332,9 @@ class _PostTileContent extends ConsumerWidget {
                   Text(
                     l10n.boardsTileEdited,
                     style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.6),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.6,
+                      ),
                       fontStyle: FontStyle.italic,
                       fontSize: 11,
                     ),
@@ -511,15 +504,14 @@ class _AudiencePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPublic = audience == 'public';
-    final color =
-        isPublic ? theme.colorScheme.primary : theme.colorScheme.secondary;
+    final color = isPublic
+        ? theme.colorScheme.primary
+        : theme.colorScheme.secondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(
-          PrismShapes.of(context).radius(8),
-        ),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
       ),
       child: Text(
         isPublic ? 'public' : 'private',
@@ -550,7 +542,8 @@ class _InlineMenuButton extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     VoidCallback closePopup,
-  ) buildActions;
+  )
+  buildActions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -585,8 +578,7 @@ class _InlineMenuButton extends ConsumerWidget {
         child: Icon(
           Icons.more_horiz,
           size: 18,
-          color:
-              theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
         ),
       ),
     );

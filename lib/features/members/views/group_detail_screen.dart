@@ -640,7 +640,7 @@ class _GroupMemberTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final memberAsync = ref.watch(memberByIdProvider(entry.memberId));
+    final memberAsync = ref.watch(activeMemberByIdProvider(entry.memberId));
 
     return memberAsync.when(
       loading: () => const SizedBox(height: 64),

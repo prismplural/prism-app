@@ -256,11 +256,14 @@ class ChatNotifier extends AsyncNotifier<void> {
         : await ref
               .read(memberRepositoryProvider)
               .getMemberById(effectiveMemberId);
+    final isDeletedMember = speakingAsMember?.isDeleted == true;
+    final activeSpeakingAsMember = isDeletedMember ? null : speakingAsMember;
+    final activeSpeakingAsMemberId = isDeletedMember ? null : effectiveMemberId;
 
     return conversationPermissionsForViewer(
       conversation,
-      speakingAsMemberId: effectiveMemberId,
-      speakingAsMember: speakingAsMember,
+      speakingAsMemberId: activeSpeakingAsMemberId,
+      speakingAsMember: activeSpeakingAsMember,
     );
   }
 
@@ -386,7 +389,7 @@ class ChatNotifier extends AsyncNotifier<void> {
     if (removedByName != null) {
       final memberRepo = ref.read(memberRepositoryProvider);
       final member = await memberRepo.getMemberById(memberId);
-      if (member != null) {
+      if (member != null && !member.isDeleted) {
         await _sendSystemMessage(
           conversationId,
           '${member.name} was removed by $removedByName',
@@ -422,7 +425,7 @@ class ChatNotifier extends AsyncNotifier<void> {
 
       final memberRepo = ref.read(memberRepositoryProvider);
       final member = await memberRepo.getMemberById(newCreatorId);
-      if (member != null) {
+      if (member != null && !member.isDeleted) {
         await _sendSystemMessage(
           conversationId,
           '${member.name} is now the conversation owner',
@@ -482,7 +485,7 @@ class ChatNotifier extends AsyncNotifier<void> {
       final memberRepo = ref.read(memberRepositoryProvider);
       final member = await memberRepo.getMemberById(memberId);
       await _removeParticipantCore(conversationId, memberId);
-      if (member != null) {
+      if (member != null && !member.isDeleted) {
         await _sendSystemMessage(
           conversationId,
           '${member.name} left the conversation',
@@ -605,7 +608,7 @@ class ChatNotifier extends AsyncNotifier<void> {
         if (addedByName != null && newIds.isNotEmpty) {
           final memberRepo = ref.read(memberRepositoryProvider);
           final members = await memberRepo.getMembersByIds(newIds.toList());
-          for (final member in members) {
+          for (final member in members.where((member) => !member.isDeleted)) {
             await _sendSystemMessage(
               conversationId,
               '${member.name} was added by $addedByName',

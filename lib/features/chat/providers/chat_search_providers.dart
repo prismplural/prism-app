@@ -44,7 +44,10 @@ final chatSearchResultsProvider =
       final members = authorIds.isNotEmpty
           ? await memberRepo.getMembersByIds(authorIds.toList())
           : <Member>[];
-      final memberMap = {for (final m in members) m.id: m};
+      final memberMap = {
+        for (final m in members)
+          if (!m.isDeleted) m.id: m,
+      };
 
       final results = <MessageSearchResult>[];
       for (final r in raw) {

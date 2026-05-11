@@ -48,7 +48,7 @@ class MemberDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final memberAsync = ref.watch(memberByIdProvider(memberId));
+    final memberAsync = ref.watch(activeMemberByIdProvider(memberId));
 
     return memberAsync.when(
       loading: () => const PrismPageScaffold(
