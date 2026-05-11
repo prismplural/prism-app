@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_auto_poll_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
 /// Fake service that only counts pollFrontersOnly calls. Everything else
@@ -15,10 +17,13 @@ class _FakePkSyncService implements PluralKitSyncService {
   int liveFrontsOnlyCount = 0;
   bool? lastLiveIsManual;
   PkSyncDirection? lastLiveDirection;
+  Object? pollThrows;
 
   @override
   Future<bool> pollFrontersOnly() async {
     pollCount++;
+    final err = pollThrows;
+    if (err != null) throw err;
     return false;
   }
 
@@ -66,12 +71,16 @@ class _FakePkSyncModeNotifier extends PkSyncModeNotifier {
 }
 
 class _FakePkSyncDirectionNotifier extends PkSyncDirectionNotifier {
+  _FakePkSyncDirectionNotifier([this._direction = PkSyncDirection.pullOnly]);
+
+  final PkSyncDirection _direction;
+
   @override
-  PkSyncDirection build() => PkSyncDirection.pullOnly;
+  PkSyncDirection build() => _direction;
 
   @override
   Future<void> load() async {
-    state = PkSyncDirection.pullOnly;
+    state = _direction;
   }
 }
 
@@ -83,13 +92,18 @@ final _fakePkSyncProvider =
 ProviderContainer _container(
   _FakePkSyncService service, {
   PkSyncMode syncMode = PkSyncMode.fullSync,
+  PkSyncDirection direction = PkSyncDirection.pullOnly,
+  PkSyncEventBus? bus,
 }) {
   return ProviderContainer(
     overrides: [
       pluralKitSyncServiceProvider.overrideWithValue(service),
       pluralKitSyncProvider.overrideWith(_ProxyPkSync.new),
       pkSyncModeProvider.overrideWith(() => _FakePkSyncModeNotifier(syncMode)),
-      pkSyncDirectionProvider.overrideWith(_FakePkSyncDirectionNotifier.new),
+      pkSyncDirectionProvider.overrideWith(
+        () => _FakePkSyncDirectionNotifier(direction),
+      ),
+      if (bus != null) pkSyncEventBusProvider.overrideWithValue(bus),
     ],
   );
 }
@@ -273,5 +287,175 @@ void main() {
         expect(fake.pollCount, greaterThan(afterImmediate));
       });
     });
+  });
+
+  group('event emission', () {
+    setUp(() {
+      markPkBusMainIsolate();
+      SharedPreferences.setMockInitialValues({
+        'pk_auto_poll_enabled': true,
+        'pk_auto_poll_interval_seconds': 60,
+      });
+    });
+    tearDown(resetPkBusMainIsolateForTest);
+
+    Iterable<PkAutoPollTick> autoPollTicks(PkSyncEventBusCapture capture) =>
+        capture.events.whereType<PkAutoPollTick>();
+
+    test('successful tick emits PkAutoPollTick(outcome: "ok")', () async {
+      final capture = PkSyncEventBusCapture();
+      final fake = _FakePkSyncService();
+      final c = _container(fake, bus: capture.bus);
+      addTearDown(c.dispose);
+
+      c
+          .read(_fakePkSyncProvider.notifier)
+          .set(const PluralKitSyncState(isConnected: true));
+      await c.read(pkAutoPollSettingsProvider.future);
+      c.read(pkAutoPollProvider.notifier).markForegrounded(true);
+
+      await Future<void>.delayed(Duration.zero);
+
+      final ticks = autoPollTicks(capture).toList();
+      expect(ticks, hasLength(1));
+      expect(ticks.single.outcome, 'ok');
+      expect(ticks.single.reason, isNull);
+      expect(ticks.single.error, isNull);
+    });
+
+    test(
+      'failed tick (service throws) emits PkAutoPollTick(outcome: "failed", error: ...)',
+      () async {
+        final capture = PkSyncEventBusCapture();
+        final fake = _FakePkSyncService()..pollThrows = Exception('boom');
+        final c = _container(fake, bus: capture.bus);
+        addTearDown(c.dispose);
+
+        c
+            .read(_fakePkSyncProvider.notifier)
+            .set(const PluralKitSyncState(isConnected: true));
+        await c.read(pkAutoPollSettingsProvider.future);
+        c.read(pkAutoPollProvider.notifier).markForegrounded(true);
+
+        await Future<void>.delayed(Duration.zero);
+
+        final ticks = autoPollTicks(capture).toList();
+        expect(ticks, hasLength(1));
+        expect(ticks.single.outcome, 'failed');
+        expect(ticks.single.error, contains('boom'));
+      },
+    );
+
+    test(
+      'recent_push skip path emits PkAutoPollTick(outcome: "skipped", reason: "recent_push")',
+      () async {
+        final capture = PkSyncEventBusCapture();
+        final fake = _FakePkSyncService();
+        final c = _container(fake, bus: capture.bus);
+        addTearDown(c.dispose);
+
+        c
+            .read(_fakePkSyncProvider.notifier)
+            .set(const PluralKitSyncState(isConnected: true));
+        await c.read(pkAutoPollSettingsProvider.future);
+        final notifier = c.read(pkAutoPollProvider.notifier);
+        notifier.noteLocalPush();
+        notifier.markForegrounded(true);
+
+        await Future<void>.delayed(Duration.zero);
+
+        final ticks = autoPollTicks(capture).toList();
+        expect(ticks, hasLength(1));
+        expect(ticks.single.outcome, 'skipped');
+        expect(ticks.single.reason, 'recent_push');
+        expect(fake.pollCount, 0);
+      },
+    );
+
+    test(
+      'cannot_auto_sync skip path emits PkAutoPollTick(outcome: "skipped", reason: "cannot_auto_sync")',
+      () async {
+        final capture = PkSyncEventBusCapture();
+        final fake = _FakePkSyncService();
+        final c = _container(fake, bus: capture.bus);
+        addTearDown(c.dispose);
+
+        // isConnected=false → canAutoSync=false. _reschedule won't set a timer,
+        // but markForegrounded(true) still triggers an immediate _tickOnce.
+        c.read(_fakePkSyncProvider.notifier).set(const PluralKitSyncState());
+        await c.read(pkAutoPollSettingsProvider.future);
+        c.read(pkAutoPollProvider.notifier).markForegrounded(true);
+
+        await Future<void>.delayed(Duration.zero);
+
+        final ticks = autoPollTicks(capture).toList();
+        expect(ticks, hasLength(1));
+        expect(ticks.single.outcome, 'skipped');
+        expect(ticks.single.reason, 'cannot_auto_sync');
+        expect(fake.pollCount, 0);
+      },
+    );
+
+    test(
+      'busy skip path emits PkAutoPollTick(outcome: "skipped", reason: "busy")',
+      () async {
+        final capture = PkSyncEventBusCapture();
+        final fake = _FakePkSyncService();
+        final c = _container(fake, bus: capture.bus);
+        addTearDown(c.dispose);
+
+        c
+            .read(_fakePkSyncProvider.notifier)
+            .set(const PluralKitSyncState(isConnected: true, isSyncing: true));
+        await c.read(pkAutoPollSettingsProvider.future);
+        c.read(pkAutoPollProvider.notifier).markForegrounded(true);
+
+        await Future<void>.delayed(Duration.zero);
+
+        final ticks = autoPollTicks(capture).toList();
+        expect(ticks, hasLength(1));
+        expect(ticks.single.outcome, 'skipped');
+        expect(ticks.single.reason, 'busy');
+        expect(fake.pollCount, 0);
+      },
+    );
+
+    test(
+      'pull_disabled skip path emits PkAutoPollTick(outcome: "skipped", reason: "pull_disabled") in liveFrontsOnly mode',
+      () async {
+        final capture = PkSyncEventBusCapture();
+        final fake = _FakePkSyncService();
+        final c = _container(
+          fake,
+          bus: capture.bus,
+          syncMode: PkSyncMode.liveFrontsOnly,
+          direction: PkSyncDirection.pushOnly, // pullEnabled=false
+        );
+        addTearDown(c.dispose);
+
+        c
+            .read(_fakePkSyncProvider.notifier)
+            .set(const PluralKitSyncState(isConnected: true));
+        await c.read(pkAutoPollSettingsProvider.future);
+        c.read(pkAutoPollProvider.notifier).markForegrounded(true);
+
+        await Future<void>.delayed(Duration.zero);
+
+        final ticks = autoPollTicks(capture).toList();
+        expect(ticks, hasLength(1));
+        expect(ticks.single.outcome, 'skipped');
+        expect(ticks.single.reason, 'pull_disabled');
+        expect(fake.liveFrontsOnlyCount, 0);
+      },
+    );
+
+    // SKIP: The `not_foregrounded` early-return path inside `_tickOnce`
+    // (line 167: `if (!_foreground) return;`) is effectively unreachable from
+    // tests. The only way to invoke `_tickOnce` from the public API is via
+    // `markForegrounded(true)` (which sets `_foreground = true` BEFORE
+    // calling `_tickOnce`) or via the timer set by `_reschedule()` (which
+    // bails out unless `_foreground` is true). The guard exists as a
+    // belt-and-suspenders check; emitting `'not_foregrounded'` is verified
+    // by code review rather than a runtime test.
   });
 }

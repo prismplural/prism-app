@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 // ---------------------------------------------------------------------------
 // Preferences (per-device, not synced — polling cadence is a device concern)
@@ -163,15 +165,38 @@ class PkAutoPollNotifier extends Notifier<void> {
   }
 
   Future<void> _tickOnce() async {
+    final bus = ref.read(pkSyncEventBusProvider);
     try {
-      if (!_foreground) return;
+      if (!_foreground) {
+        bus.emit(const PkAutoPollTick(
+          outcome: 'skipped',
+          reason: 'not_foregrounded',
+        ));
+        return;
+      }
       final suppressUntil = _suppressUntil;
       if (suppressUntil != null && DateTime.now().isBefore(suppressUntil)) {
+        bus.emit(const PkAutoPollTick(
+          outcome: 'skipped',
+          reason: 'recent_push',
+        ));
         return;
       }
       final pkState = ref.read(pluralKitSyncProvider);
-      if (!pkState.canAutoSync) return;
-      if (pkState.isSyncing) return;
+      if (!pkState.canAutoSync) {
+        bus.emit(const PkAutoPollTick(
+          outcome: 'skipped',
+          reason: 'cannot_auto_sync',
+        ));
+        return;
+      }
+      if (pkState.isSyncing) {
+        bus.emit(const PkAutoPollTick(
+          outcome: 'skipped',
+          reason: 'busy',
+        ));
+        return;
+      }
 
       await ref.read(pkSyncModeProvider.notifier).load();
       await ref.read(pkSyncDirectionProvider.notifier).load();
@@ -180,17 +205,28 @@ class PkAutoPollNotifier extends Notifier<void> {
       final mode = ref.read(pkSyncModeProvider);
       if (mode == PkSyncMode.liveFrontsOnly) {
         final direction = ref.read(pkSyncDirectionProvider);
-        if (!direction.pullEnabled) return;
+        if (!direction.pullEnabled) {
+          bus.emit(const PkAutoPollTick(
+            outcome: 'skipped',
+            reason: 'pull_disabled',
+          ));
+          return;
+        }
         await ref
             .read(pluralKitSyncProvider.notifier)
             .syncLiveFrontersOnly(isManual: false, direction: direction);
       } else {
         await ref.read(pluralKitSyncServiceProvider).pollFrontersOnly();
       }
+      bus.emit(const PkAutoPollTick(outcome: 'ok'));
     } catch (e) {
       // PK sync services swallow most errors; anything that escapes here is
       // unexpected. Back off one cycle to avoid hammering.
       debugPrint('[PK auto-poll] tick failed: $e');
+      bus.emit(PkAutoPollTick(
+        outcome: 'failed',
+        error: PkSyncEvent.redact(e.toString(), null),
+      ));
       _overrideNext = _kMinBackoffOn429;
     } finally {
       // Guard against dispose racing a tick — ref.read on a disposed
