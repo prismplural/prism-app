@@ -8,6 +8,7 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/birthday.dart';
 import 'package:prism_plurality/features/members/utils/proxy_tag.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -149,10 +150,20 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
 
   bool get _showPluralKitDisplayNameField {
     final member = widget.member;
-    if (member == null) return false;
-    return _hasText(member.pluralkitUuid) ||
-        _hasText(member.pluralkitId) ||
-        _hasText(member.pluralkitDisplayName);
+    if (member != null) {
+      if (_hasText(member.pluralkitUuid) ||
+          _hasText(member.pluralkitId) ||
+          _hasText(member.pluralkitDisplayName)) {
+        return true;
+      }
+    }
+    // For new or unlinked members: show the field when PK push is on, so the
+    // value can ride along with the auto-push that creates the PK member.
+    // Pull-only is excluded — a local value would just be clobbered on first
+    // pull, which would surprise the user.
+    final pkState = ref.watch(pluralKitSyncProvider);
+    if (!pkState.isConnected) return false;
+    return ref.watch(pkSyncDirectionProvider).pushEnabled;
   }
 
   @override
