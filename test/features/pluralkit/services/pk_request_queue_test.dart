@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
 void main() {
@@ -122,5 +124,151 @@ void main() {
 
     final results = await Future.wait(futures);
     expect(results, [0, 10, 20, 30, 40]);
+  });
+
+  // ── Event emission ────────────────────────────────────────────────────────
+
+  group('event emission', () {
+    setUp(markPkBusMainIsolate);
+    tearDown(resetPkBusMainIsolateForTest);
+
+    test(
+      'a single 429 retry that succeeds on attempt 2 emits one PkRateLimitHit',
+      () async {
+        final capture = PkSyncEventBusCapture();
+        final busQueue = PkRequestQueue(
+          minInterval: Duration.zero,
+          bus: capture.bus,
+        );
+
+        var attempts = 0;
+        final result = await busQueue.enqueue(() async {
+          attempts++;
+          if (attempts < 2) {
+            throw const PluralKitRateLimitError(
+              'slow down',
+              Duration(seconds: 4),
+            );
+          }
+          return 'ok';
+        });
+
+        expect(result, 'ok');
+        expect(attempts, 2);
+        expect(capture.events, hasLength(1));
+        final event = capture.events.single as PkRateLimitHit;
+        expect(event.attempt, 1);
+        expect(event.backoffSeconds, 4);
+      },
+    );
+
+    test('two 429 retries emits two events with attempt 1 and 2', () async {
+      final capture = PkSyncEventBusCapture();
+      final busQueue = PkRequestQueue(
+        minInterval: Duration.zero,
+        bus: capture.bus,
+      );
+
+      var attempts = 0;
+      final result = await busQueue.enqueue(() async {
+        attempts++;
+        if (attempts < 3) {
+          throw const PluralKitRateLimitError(
+            'slow down',
+            Duration(seconds: 2),
+          );
+        }
+        return 'ok';
+      });
+
+      expect(result, 'ok');
+      expect(attempts, 3);
+      expect(capture.events, hasLength(2));
+      final first = capture.events[0] as PkRateLimitHit;
+      final second = capture.events[1] as PkRateLimitHit;
+      expect(first.attempt, 1);
+      expect(first.backoffSeconds, 2);
+      expect(second.attempt, 2);
+      expect(second.backoffSeconds, 2);
+    });
+
+    test(
+      'max retries exhausted emits 3 events before the final throw',
+      () async {
+        final capture = PkSyncEventBusCapture();
+        final busQueue = PkRequestQueue(
+          minInterval: Duration.zero,
+          // 3 retries (per spec: "3 retries then propagate").
+          maxRetries: 3,
+          bus: capture.bus,
+        );
+
+        var attempts = 0;
+        final future = busQueue.enqueue<String>(() async {
+          attempts++;
+          throw const PluralKitRateLimitError(
+            'slow down',
+            Duration(seconds: 1),
+          );
+        });
+
+        await expectLater(future, throwsA(isA<PluralKitRateLimitError>()));
+        // 1 initial attempt + 3 retries = 4 total invocations.
+        expect(attempts, 4);
+        // But only 3 events: one per retry decision (before the final throw).
+        expect(capture.events, hasLength(3));
+        expect(
+          capture.events.map((e) => (e as PkRateLimitHit).attempt).toList(),
+          [1, 2, 3],
+        );
+      },
+    );
+
+    test('a non-429 error does NOT emit PkRateLimitHit', () async {
+      final capture = PkSyncEventBusCapture();
+      final busQueue = PkRequestQueue(
+        minInterval: Duration.zero,
+        bus: capture.bus,
+      );
+
+      // PluralKitApiError(500, ...) — non-rate-limit API error.
+      await expectLater(
+        busQueue.enqueue(() async {
+          throw const PluralKitApiError(500, 'kaboom');
+        }),
+        throwsA(isA<PluralKitApiError>()),
+      );
+
+      // A plain Exception too.
+      await expectLater(
+        busQueue.enqueue(() async {
+          throw Exception('boom');
+        }),
+        throwsA(isA<Exception>()),
+      );
+
+      expect(capture.events, isEmpty);
+    });
+
+    test('queue constructed without a bus does not throw on 429 retry',
+        () async {
+      // Bus is null — _bus?.emit should be a no-op rather than NPE.
+      final busQueue = PkRequestQueue(minInterval: Duration.zero);
+
+      var attempts = 0;
+      final result = await busQueue.enqueue(() async {
+        attempts++;
+        if (attempts < 2) {
+          throw const PluralKitRateLimitError(
+            'slow down',
+            Duration(seconds: 1),
+          );
+        }
+        return 'ok';
+      });
+
+      expect(result, 'ok');
+      expect(attempts, 2);
+    });
   });
 }

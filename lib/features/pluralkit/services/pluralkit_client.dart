@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -94,9 +95,10 @@ class PluralKitClient {
     required String token,
     http.Client? httpClient,
     PkRequestQueue? queue,
+    PkSyncEventBus? bus,
   }) : _token = token,
        _http = httpClient ?? http.Client(),
-       _queue = queue ?? PkRequestQueue();
+       _queue = queue ?? PkRequestQueue(bus: bus);
 
   /// The bearer token this client was configured with. Exposed so callers
   /// (e.g., [PkMappingApplier]) can pass it to [PkSyncEvent.redact] when

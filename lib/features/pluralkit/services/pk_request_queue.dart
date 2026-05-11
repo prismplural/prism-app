@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
 /// Rate-limited request queue for PluralKit API (max 3 requests/second,
@@ -17,6 +19,7 @@ class PkRequestQueue {
 
   final Duration _minInterval;
   final int _maxRetries;
+  final PkSyncEventBus? _bus;
 
   final _queue = <_QueueEntry<dynamic>>[];
   bool _processing = false;
@@ -25,8 +28,10 @@ class PkRequestQueue {
   PkRequestQueue({
     Duration minInterval = defaultMinInterval,
     int maxRetries = defaultMaxRetries,
+    PkSyncEventBus? bus,
   }) : _minInterval = minInterval,
-       _maxRetries = maxRetries;
+       _maxRetries = maxRetries,
+       _bus = bus;
 
   /// Enqueue a request. Returns a Future that completes with the result
   /// once the request has been executed (respecting rate limits).
@@ -74,6 +79,14 @@ class PkRequestQueue {
           final backoff =
               serverDelay ??
               Duration(milliseconds: 1000 * pow(2, attempt).toInt());
+          // Emit BEFORE the backoff sleep. `attempt + 1` is the 1-indexed
+          // retry number: the first 429 emits attempt: 1, the second 2, etc.
+          _bus?.emit(
+            PkRateLimitHit(
+              attempt: attempt + 1,
+              backoffSeconds: backoff.inSeconds,
+            ),
+          );
           await Future<void>.delayed(backoff);
           // Treat the rate-limit event as a "request" for pacing purposes so
           // the next attempt also respects _minInterval from this moment.
