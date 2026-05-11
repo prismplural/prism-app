@@ -10,6 +10,7 @@ import 'package:image/image.dart' as img;
 import 'package:prism_plurality/core/database/app_database.dart'
     show AppDatabase, SpIdMapTableCompanion;
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
@@ -29,6 +30,7 @@ import 'package:prism_plurality/domain/repositories/fronting_session_repository.
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/poll_repository.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
+import 'package:prism_plurality/features/migration/services/sp_member_mapping.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 
 import '../../../helpers/fake_repositories.dart';
@@ -1233,6 +1235,182 @@ void main() {
         expect(result.avatarsDownloaded, 1);
         expect(result.avatarsImportedFromZip, 1);
         expect(imported.avatarImageData, zipBytes);
+      },
+    );
+
+    test(
+      'explicit linked member keeps local avatar and imports dependent data',
+      () async {
+        const avatarUrl = 'https://example.com/avatar.png';
+        final remoteBytes = Uint8List.fromList([1, 2, 3, 4, 5]);
+        final zipBytes = _jpegBytes(220, 20, 20);
+        final originalAvatar = _jpegBytes(9, 9, 9);
+        final zipPath = await _writeAvatarZip({'sp-a.jpg': zipBytes});
+
+        final client = _FakeHttpClient();
+        client.stubUrl(
+          avatarUrl,
+          http.Response.bytes(
+            remoteBytes,
+            200,
+            headers: {'content-type': 'image/png'},
+          ),
+        );
+
+        final data = SpExportData(
+          members: const [
+            SpMember(id: 'sp-a', name: 'Alice', avatarUrl: avatarUrl),
+          ],
+          customFronts: const [],
+          frontHistory: [
+            SpFrontHistory(
+              id: 'front-a',
+              memberId: 'sp-a',
+              startTime: DateTime.utc(2024),
+              endTime: DateTime.utc(2024, 1, 1, 1),
+            ),
+          ],
+          groups: const [],
+          channels: const [],
+          messages: const [],
+          polls: const [],
+        );
+
+        final db = _makeDb();
+        addTearDown(db.close);
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        final conversationRepo = DriftConversationRepository(
+          db.conversationsDao,
+          null,
+        );
+        final messageRepo = DriftChatMessageRepository(
+          db.chatMessagesDao,
+          null,
+        );
+        final pollRepo = DriftPollRepository(
+          db.pollsDao,
+          db.pollOptionsDao,
+          db.pollVotesDao,
+          null,
+        );
+
+        await memberRepo.createMember(
+          domain.Member(
+            id: 'local-a',
+            name: 'Local Alice',
+            createdAt: DateTime.utc(2023),
+            avatarImageData: originalAvatar,
+          ),
+        );
+
+        final result = await SpImporter(httpClient: client).executeImport(
+          db: db,
+          data: data,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+          conversationRepo: conversationRepo,
+          messageRepo: messageRepo,
+          pollRepo: pollRepo,
+          spImportDao: db.spImportDao,
+          memberMappingDecisions: const {
+            'sp-a': SpLinkMemberDecision(
+              spMemberId: 'sp-a',
+              localMemberId: 'local-a',
+            ),
+          },
+          downloadAvatars: true,
+          avatarZipPath: zipPath,
+        );
+
+        final members = await memberRepo.getAllMembers();
+        expect(result.membersImported, 0);
+        expect(result.membersLinked, 1);
+        expect(result.sessionsImported, 1);
+        expect(result.avatarsDownloaded, 0);
+        expect(result.avatarsImportedFromZip, 0);
+        expect(client.calls, isEmpty);
+        expect(members, hasLength(1));
+        expect(members.single.name, 'Local Alice');
+        expect(members.single.avatarImageData, originalAvatar);
+        expect((await sessionRepo.getAllSessions()).single.memberId, 'local-a');
+      },
+    );
+
+    test(
+      'explicit import-new decision is not re-linked by fallback matching',
+      () async {
+        const data = SpExportData(
+          members: [SpMember(id: 'sp-a', name: 'Alice', pkId: 'abcde')],
+          customFronts: [],
+          frontHistory: [],
+          groups: [],
+          channels: [],
+          messages: [],
+          polls: [],
+        );
+
+        final db = _makeDb();
+        addTearDown(db.close);
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        final conversationRepo = DriftConversationRepository(
+          db.conversationsDao,
+          null,
+        );
+        final messageRepo = DriftChatMessageRepository(
+          db.chatMessagesDao,
+          null,
+        );
+        final pollRepo = DriftPollRepository(
+          db.pollsDao,
+          db.pollOptionsDao,
+          db.pollVotesDao,
+          null,
+        );
+
+        await memberRepo.createMember(
+          domain.Member(
+            id: 'local-a',
+            name: 'Alice',
+            pluralkitId: 'abcde',
+            createdAt: DateTime.utc(2023),
+          ),
+        );
+
+        final result = await SpImporter(httpClient: _FakeHttpClient())
+            .executeImport(
+              db: db,
+              data: data,
+              memberRepo: memberRepo,
+              sessionRepo: sessionRepo,
+              conversationRepo: conversationRepo,
+              messageRepo: messageRepo,
+              pollRepo: pollRepo,
+              spImportDao: db.spImportDao,
+              memberMappingDecisions: const {
+                'sp-a': SpImportMemberDecision(spMemberId: 'sp-a'),
+              },
+              downloadAvatars: false,
+            );
+
+        final members = await memberRepo.getAllMembers();
+        expect(result.membersImported, 1);
+        expect(result.membersLinked, 0);
+        expect(members, hasLength(2));
+        expect(members.where((member) => member.name == 'Alice'), hasLength(2));
+        expect(
+          members.any(
+            (member) => member.id != 'local-a' && member.pluralkitId == null,
+          ),
+          isTrue,
+        );
       },
     );
 

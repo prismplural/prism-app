@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/widgets/custom_front_disposition_step.dart';
 import 'package:prism_plurality/features/migration/widgets/import_preview_card.dart';
+import 'package:prism_plurality/features/migration/widgets/sp_member_mapping_step.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -56,6 +57,9 @@ class MigrationScreen extends ConsumerWidget {
         ImportState.previewing => _PreviewView(
           data: migration.exportData!,
           ref: ref,
+        ),
+        ImportState.matchMembers => SpMemberMappingStep(
+          data: migration.exportData!,
         ),
         ImportState.chooseDispositions => CustomFrontDispositionStep(
           data: migration.exportData!,
@@ -980,6 +984,13 @@ class _CompleteView extends StatelessWidget {
                 label: context.l10n.migrationResultMembers(terms.plural),
                 count: result.membersImported,
               ),
+              if (result.membersLinked > 0)
+                _ResultRow(
+                  label: context.l10n.migrationResultMembersLinked(
+                    terms.plural,
+                  ),
+                  count: result.membersLinked,
+                ),
               _ResultRow(
                 label: context.l10n.migrationResultFrontSessions,
                 count: result.sessionsImported,

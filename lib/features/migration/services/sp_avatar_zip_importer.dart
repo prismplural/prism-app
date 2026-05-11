@@ -55,6 +55,7 @@ class SpAvatarZipImporter {
     SystemSettingsRepository? settingsRepo,
     SpImportDao? spImportDao,
     SpExportData? exportData,
+    Set<String> skipMemberIds = const {},
   }) async {
     final stopwatch = Stopwatch()..start();
     final file = File(filePath);
@@ -107,6 +108,9 @@ class SpAvatarZipImporter {
       final memberId = memberMappings[spId];
       if (memberId == null) {
         unmatchedImages++;
+        continue;
+      }
+      if (skipMemberIds.contains(memberId)) {
         continue;
       }
 

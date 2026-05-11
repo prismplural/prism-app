@@ -126,6 +126,7 @@ class SpMapper {
   /// behavior — every CF is treated as importAsMember in that case, matching
   /// pre-disposition tests).
   final Map<String, CfDisposition> _customFrontDispositions;
+  final Set<String> _importAsNewSpMemberIds;
 
   /// SP CF ids whose persisted member mapping was scrubbed on init because
   /// the user's new disposition is no longer importAsMember. The importer
@@ -162,13 +163,15 @@ class SpMapper {
   SpMapper({
     Map<String, Map<String, String>>? existingMappings,
     Map<String, CfDisposition>? customFrontDispositions,
+    Set<String> importAsNewSpMemberIds = const {},
   }) : _memberIdMap = Map.of(existingMappings?['member'] ?? {}),
        _channelIdMap = Map.of(existingMappings?['channel'] ?? {}),
        _sessionIdMap = Map.of(existingMappings?['session'] ?? {}),
        _groupIdMap = Map.of(existingMappings?['group'] ?? {}),
        _fieldIdMap = Map.of(existingMappings?['field'] ?? {}),
        _categoryIdMap = Map.of(existingMappings?['category'] ?? {}),
-       _customFrontDispositions = Map.of(customFrontDispositions ?? {});
+       _customFrontDispositions = Map.of(customFrontDispositions ?? {}),
+       _importAsNewSpMemberIds = Set.of(importAsNewSpMemberIds);
 
   // Expose ID maps as unmodifiable views so the importer can persist them.
   Map<String, String> get memberIdMap => Map.unmodifiable(_memberIdMap);
@@ -342,7 +345,7 @@ class SpMapper {
           displayOrder: i,
           customColorEnabled: colorHex != null,
           customColorHex: colorHex,
-          pluralkitId: sp.pkId,
+          pluralkitId: _importAsNewSpMemberIds.contains(sp.id) ? null : sp.pkId,
         ),
       );
     }

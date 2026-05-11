@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/migration/services/sp_custom_front_anal
 import 'package:prism_plurality/features/migration/services/sp_custom_front_disposition.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
+import 'package:prism_plurality/features/migration/providers/sp_member_mapping_provider.dart';
 
 /// Key used to track whether a previous SP import has been completed.
 const _spImportCompletedKey = 'sp_import_completed';
@@ -291,13 +292,43 @@ class ImporterNotifier extends Notifier<MigrationState> {
   // Shared import execution
   // ---------------------------------------------------------------------------
 
-  /// Enter the custom-front disposition step if the export has CFs. Otherwise
-  /// run the import directly. [resetFirst] carries the user's add-to-existing
-  /// vs. start-fresh choice across the disposition step.
+  /// Enter member mapping and custom-front disposition steps as needed.
+  /// [resetFirst] carries the user's add-to-existing vs. start-fresh choice
+  /// across any pre-import decision steps.
   void proceedFromPreview({bool resetFirst = false}) {
     final data = state.exportData;
     if (data == null) return;
 
+    if (!resetFirst && data.members.isNotEmpty) {
+      unawaited(_enterMemberMapping(data, resetFirst: resetFirst));
+      return;
+    }
+
+    _continueAfterMemberMapping(data, resetFirst: resetFirst);
+  }
+
+  Future<void> _enterMemberMapping(
+    SpExportData data, {
+    required bool resetFirst,
+  }) async {
+    try {
+      await ref.read(spMemberMappingControllerProvider).seedFromExport(data);
+      state = state.copyWith(
+        step: ImportState.matchMembers,
+        pendingResetFirst: resetFirst,
+      );
+    } catch (_) {
+      state = state.copyWith(
+        step: ImportState.error,
+        error: 'Could not prepare member matching choices.',
+      );
+    }
+  }
+
+  void _continueAfterMemberMapping(
+    SpExportData data, {
+    required bool resetFirst,
+  }) {
     if (data.customFronts.isEmpty) {
       unawaited(executeImport(resetFirst: resetFirst));
       return;
@@ -311,9 +342,16 @@ class ImporterNotifier extends Notifier<MigrationState> {
     );
   }
 
-  /// Return to the preview from the disposition step without losing user edits.
+  /// Return to the preview from a decision step without losing user edits.
   void backToPreview() {
     state = state.copyWith(step: ImportState.previewing);
+  }
+
+  /// Continue from member mapping to CF disposition or the actual import.
+  void continueFromMemberMapping() {
+    final data = state.exportData;
+    if (data == null) return;
+    _continueAfterMemberMapping(data, resetFirst: state.pendingResetFirst);
   }
 
   /// Continue from the disposition step into the actual import, using the
@@ -364,6 +402,9 @@ class ImporterNotifier extends Notifier<MigrationState> {
         avatarZipPath: state.avatarZipPath,
         clearExistingData: resetFirst,
         customFrontDispositions: ref.read(cfDispositionProvider),
+        memberMappingDecisions: resetFirst
+            ? const {}
+            : ref.read(spMemberMappingDecisionsProvider),
         onProgress: (current, total, label) {
           state = state.copyWith(
             current: current,
@@ -378,6 +419,7 @@ class ImporterNotifier extends Notifier<MigrationState> {
       await prefs.setBool(_spImportCompletedKey, true);
 
       ref.read(cfDispositionControllerProvider).clear();
+      ref.read(spMemberMappingControllerProvider).clear();
 
       state = state.copyWith(
         step: ImportState.complete,
@@ -455,6 +497,7 @@ class ImporterNotifier extends Notifier<MigrationState> {
     _apiClient?.dispose();
     _apiClient = null;
     ref.read(cfDispositionControllerProvider).clear();
+    ref.read(spMemberMappingControllerProvider).clear();
     state = const MigrationState();
   }
 }

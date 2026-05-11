@@ -30,6 +30,7 @@ import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/services/sp_mapper.dart';
 import 'package:prism_plurality/features/migration/services/sp_avatar_zip_importer.dart';
 import 'package:prism_plurality/features/migration/services/sp_custom_front_disposition.dart';
+import 'package:prism_plurality/features/migration/services/sp_member_mapping.dart';
 import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
 
 /// Import progress state.
@@ -39,6 +40,7 @@ enum ImportState {
   verifying,
   fetching,
   previewing,
+  matchMembers,
   chooseDispositions,
   importing,
   downloadingAvatars,
@@ -52,6 +54,7 @@ enum ImportSource { file, api }
 /// Result of a completed import.
 class ImportResult {
   final int membersImported;
+  final int membersLinked;
   final int sessionsImported;
   final int conversationsImported;
   final int messagesImported;
@@ -71,6 +74,7 @@ class ImportResult {
 
   const ImportResult({
     required this.membersImported,
+    this.membersLinked = 0,
     required this.sessionsImported,
     required this.conversationsImported,
     required this.messagesImported,
@@ -111,6 +115,7 @@ class ImportResult {
 
   ImportResult copyWith({
     int? membersImported,
+    int? membersLinked,
     int? sessionsImported,
     int? conversationsImported,
     int? messagesImported,
@@ -130,6 +135,7 @@ class ImportResult {
   }) {
     return ImportResult(
       membersImported: membersImported ?? this.membersImported,
+      membersLinked: membersLinked ?? this.membersLinked,
       sessionsImported: sessionsImported ?? this.sessionsImported,
       conversationsImported:
           conversationsImported ?? this.conversationsImported,
@@ -208,6 +214,7 @@ class SpImporter {
     String? avatarZipPath,
     bool clearExistingData = false,
     Map<String, CfDisposition>? customFrontDispositions,
+    Map<String, SpMemberMappingDecision> memberMappingDecisions = const {},
     void Function(int current, int total, String label)? onProgress,
   }) async {
     final stopwatch = Stopwatch()..start();
@@ -215,17 +222,37 @@ class SpImporter {
     // Load existing SP→Prism ID mappings so a re-import reuses stable UUIDs.
     final existingMappings = await _loadExistingMappings(spImportDao);
     _discardUnknownSentinelMemberMappings(existingMappings, data.members);
+    final linkedExistingMemberIds = <String>{};
+    final importAsNewSpIds = {
+      for (final decision in memberMappingDecisions.values)
+        if (decision is SpImportMemberDecision) decision.spMemberId,
+    };
     if (!clearExistingData) {
-      await _seedMemberMappingsFromExistingLocals(
-        existingMappings,
-        data.members,
-        memberRepo,
+      await _sanitizeMemberMappings(existingMappings, data.members, memberRepo);
+      linkedExistingMemberIds.addAll(
+        await _applyMemberMappingDecisions(
+          existingMappings,
+          memberMappingDecisions,
+          data.members,
+          memberRepo,
+        ),
       );
+      linkedExistingMemberIds.addAll(
+        await _seedMemberMappingsFromExistingLocals(
+          existingMappings,
+          data.members,
+          memberRepo,
+          claimedLocalIds: linkedExistingMemberIds,
+          blockedSpIds: importAsNewSpIds,
+        ),
+      );
+      await _sanitizeMemberMappings(existingMappings, data.members, memberRepo);
     }
 
     final mapper = SpMapper(
       existingMappings: existingMappings,
       customFrontDispositions: customFrontDispositions,
+      importAsNewSpMemberIds: importAsNewSpIds,
     );
     final mapped = mapper.mapAll(data);
     await _yieldToUi();
@@ -258,6 +285,7 @@ class SpImporter {
     // When clearExistingData is true, the wipe happens inside the same
     // transaction so a failed import rolls back everything — no data loss.
     var membersImported = 0;
+    var membersLinked = 0;
 
     await db.transaction(() async {
       // Scrub stale CF-as-member persisted mappings (plan §Classification)
@@ -324,6 +352,7 @@ class SpImporter {
         onProgress?.call(currentItem, totalItems, 'Importing members...');
         final existing = await memberRepo.getMemberById(member.id);
         if (existing != null) {
+          membersLinked++;
           await didImportOne();
           continue;
         }
@@ -554,6 +583,7 @@ class SpImporter {
         mapped.members,
         mapped.avatarUrls,
         memberRepo,
+        skipMemberIds: linkedExistingMemberIds,
         warnings: warnings,
         onProgress: (count) {
           onProgress?.call(
@@ -578,6 +608,7 @@ class SpImporter {
           settingsRepo: settingsRepo,
           spImportDao: spImportDao,
           exportData: data,
+          skipMemberIds: linkedExistingMemberIds,
         );
         avatarsImportedFromZip = zipResult.memberAvatarsUpdated;
         systemAvatarImportedFromZip = zipResult.systemAvatarUpdated;
@@ -616,6 +647,7 @@ class SpImporter {
 
     return ImportResult(
       membersImported: membersImported,
+      membersLinked: membersLinked,
       sessionsImported: mapped.sessions.length,
       conversationsImported: mapped.conversations.length,
       messagesImported: mapped.messages.length,
@@ -722,6 +754,7 @@ class SpImporter {
     List<Member> members,
     Map<String, String> avatarUrls,
     MemberRepository memberRepo, {
+    Set<String> skipMemberIds = const {},
     List<String>? warnings,
     void Function(int count)? onProgress,
   }) async {
@@ -729,6 +762,7 @@ class SpImporter {
     var failed = 0;
 
     for (final member in members) {
+      if (skipMemberIds.contains(member.id)) continue;
       final url = avatarUrls[member.id];
       if (url == null) continue;
 
@@ -793,40 +827,126 @@ class SpImporter {
     );
   }
 
-  Future<void> _seedMemberMappingsFromExistingLocals(
+  Future<Set<String>> _applyMemberMappingDecisions(
+    Map<String, Map<String, String>> existingMappings,
+    Map<String, SpMemberMappingDecision> decisions,
+    List<SpMember> members,
+    MemberRepository memberRepo,
+  ) async {
+    if (decisions.isEmpty) return const {};
+
+    final memberMappings = existingMappings.putIfAbsent('member', () => {});
+    final exportedMemberIds = {for (final member in members) member.id};
+    final localIds = {
+      for (final member in await memberRepo.getAllMembers())
+        if (member.id != unknownSentinelMemberId && !member.isDeleted)
+          member.id,
+    };
+    final linkedLocalIds = <String>{};
+
+    for (final decision in decisions.values) {
+      if (!exportedMemberIds.contains(decision.spMemberId)) continue;
+
+      switch (decision) {
+        case SpImportMemberDecision():
+          memberMappings.remove(decision.spMemberId);
+        case SpLinkMemberDecision(:final localMemberId):
+          if (localIds.contains(localMemberId) &&
+              !linkedLocalIds.contains(localMemberId)) {
+            memberMappings[decision.spMemberId] = localMemberId;
+            linkedLocalIds.add(localMemberId);
+          } else {
+            memberMappings.remove(decision.spMemberId);
+          }
+      }
+    }
+
+    return linkedLocalIds;
+  }
+
+  Future<void> _sanitizeMemberMappings(
     Map<String, Map<String, String>> existingMappings,
     List<SpMember> members,
     MemberRepository memberRepo,
   ) async {
+    final memberMappings = existingMappings['member'];
+    if (memberMappings == null || memberMappings.isEmpty) return;
+
+    final exportedMemberIds = {for (final member in members) member.id};
+    final validLocalIds = {
+      for (final member in await memberRepo.getAllMembers())
+        if (member.id != unknownSentinelMemberId && !member.isDeleted)
+          member.id,
+    };
+
+    memberMappings.removeWhere(
+      (spId, localId) =>
+          exportedMemberIds.contains(spId) && !validLocalIds.contains(localId),
+    );
+
+    final targetCounts = <String, int>{};
+    for (final entry in memberMappings.entries) {
+      if (!exportedMemberIds.contains(entry.key)) continue;
+      targetCounts[entry.value] = (targetCounts[entry.value] ?? 0) + 1;
+    }
+
+    memberMappings.removeWhere(
+      (spId, localId) =>
+          exportedMemberIds.contains(spId) && targetCounts[localId] != 1,
+    );
+  }
+
+  Future<Set<String>> _seedMemberMappingsFromExistingLocals(
+    Map<String, Map<String, String>> existingMappings,
+    List<SpMember> members,
+    MemberRepository memberRepo, {
+    Set<String> claimedLocalIds = const {},
+    Set<String> blockedSpIds = const {},
+  }) async {
+    final linkedLocalIds = <String>{};
     final memberMappings = existingMappings.putIfAbsent('member', () => {});
     final unmappedPkIds = {
       for (final member in members)
-        if (!memberMappings.containsKey(member.id) &&
+        if (!blockedSpIds.contains(member.id) &&
+            !memberMappings.containsKey(member.id) &&
             member.pkId != null &&
             member.pkId!.isNotEmpty)
           member.pkId!,
     };
+    final spPkCounts = <String, int>{};
+    for (final member in members) {
+      final pkId = member.pkId;
+      if (pkId != null && pkId.isNotEmpty) {
+        spPkCounts[pkId] = (spPkCounts[pkId] ?? 0) + 1;
+      }
+    }
     final unmappedNames = <String, int>{};
     for (final member in members) {
+      if (blockedSpIds.contains(member.id)) continue;
       if (memberMappings.containsKey(member.id)) continue;
-      final normalized = _normalizedMemberName(member.name);
+      final normalized = normalizedSpMemberName(member.name);
       if (normalized == null) continue;
       unmappedNames[normalized] = (unmappedNames[normalized] ?? 0) + 1;
     }
-    if (unmappedPkIds.isEmpty && unmappedNames.isEmpty) return;
+    if (unmappedPkIds.isEmpty && unmappedNames.isEmpty) {
+      return const {};
+    }
 
     final localsByPkId = <String, String>{};
+    final localPkCounts = <String, int>{};
     final localNameCounts = <String, int>{};
     final localsByName = <String, String>{};
     for (final local in await memberRepo.getAllMembers()) {
       if (local.id == unknownSentinelMemberId) continue;
+      if (local.isDeleted || claimedLocalIds.contains(local.id)) continue;
 
       final pkId = local.pluralkitId;
       if (pkId != null && pkId.isNotEmpty && unmappedPkIds.contains(pkId)) {
+        localPkCounts[pkId] = (localPkCounts[pkId] ?? 0) + 1;
         localsByPkId.putIfAbsent(pkId, () => local.id);
       }
 
-      final normalizedName = _normalizedMemberName(local.name);
+      final normalizedName = normalizedSpMemberName(local.name);
       if (normalizedName != null && unmappedNames.containsKey(normalizedName)) {
         localNameCounts[normalizedName] =
             (localNameCounts[normalizedName] ?? 0) + 1;
@@ -835,32 +955,35 @@ class SpImporter {
     }
 
     for (final member in members) {
+      if (blockedSpIds.contains(member.id)) continue;
       if (memberMappings.containsKey(member.id)) continue;
       final pkId = member.pkId;
-      final localId = pkId == null || pkId.isEmpty ? null : localsByPkId[pkId];
-      if (localId != null) {
+      final localId =
+          pkId == null ||
+              pkId.isEmpty ||
+              spPkCounts[pkId] != 1 ||
+              localPkCounts[pkId] != 1
+          ? null
+          : localsByPkId[pkId];
+      if (localId != null && !linkedLocalIds.contains(localId)) {
         memberMappings[member.id] = localId;
+        linkedLocalIds.add(localId);
         continue;
       }
 
-      final normalizedName = _normalizedMemberName(member.name);
+      final normalizedName = normalizedSpMemberName(member.name);
       if (normalizedName == null ||
           unmappedNames[normalizedName] != 1 ||
           localNameCounts[normalizedName] != 1) {
         continue;
       }
       final nameMatchedLocalId = localsByName[normalizedName];
-      if (nameMatchedLocalId != null) {
+      if (nameMatchedLocalId != null &&
+          !linkedLocalIds.contains(nameMatchedLocalId)) {
         memberMappings[member.id] = nameMatchedLocalId;
+        linkedLocalIds.add(nameMatchedLocalId);
       }
     }
-  }
-
-  String? _normalizedMemberName(String name) {
-    final normalized = name
-        .trim()
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .toLowerCase();
-    return normalized.isEmpty ? null : normalized;
+    return linkedLocalIds;
   }
 }

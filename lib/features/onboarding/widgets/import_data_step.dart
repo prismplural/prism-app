@@ -22,6 +22,7 @@ import 'package:prism_plurality/features/migration/providers/migration_providers
 import 'package:prism_plurality/features/migration/services/sp_importer.dart'
     as sp_importer;
 import 'package:prism_plurality/features/migration/widgets/custom_front_disposition_step.dart';
+import 'package:prism_plurality/features/migration/widgets/sp_member_mapping_step.dart';
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
@@ -1804,6 +1805,11 @@ class _SimplyPluralImportFlowState
           ref.read(importerProvider.notifier).proceedFromPreview();
         };
         break;
+      case sp_importer.ImportState.matchMembers:
+        pendingAction = () async {
+          ref.read(importerProvider.notifier).continueFromMemberMapping();
+        };
+        break;
       case sp_importer.ImportState.chooseDispositions:
         pendingAction = () async {
           await ref.read(importerProvider.notifier).continueFromDispositions();
@@ -2080,6 +2086,15 @@ class _SimplyPluralImportFlowState
               },
             ),
           ],
+
+          // Member mapping step — lets the user decide which SP members should
+          // link to existing Prism members before importing the rest.
+          if (migration.step == sp_importer.ImportState.matchMembers &&
+              migration.exportData != null)
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.75,
+              child: SpMemberMappingStep(data: migration.exportData!),
+            ),
 
           // Custom-front disposition step — lets the user pick per-CF how to
           // handle SP "custom fronts" (import as member, merge as note,
