@@ -2744,6 +2744,18 @@ abstract class AppLocalizations {
   /// **'{count} ops waiting to sync'**
   String syncTroubleshootingPendingOpsValue(int count);
 
+  /// Banner title shown when local push batches exceeded the relay's body cap and were quarantined.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 item is too large to sync} other{{count} items are too large to sync}}'**
+  String syncQuarantinedBatchBannerTitle(int count);
+
+  /// Banner body shown beneath the quarantine count, explaining that repair will arrive in a follow-up release.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair tools are coming in the next update. Your data is safe — only the affected sync items are paused.'**
+  String get syncQuarantinedBatchBannerBody;
+
   /// Row title: sync ID
   ///
   /// In en, this message translates to:
@@ -9084,6 +9096,12 @@ abstract class AppLocalizations {
   /// **'{termPlural}'**
   String migrationResultMembers(String termPlural);
 
+  /// Import result row label for existing members linked during import
+  ///
+  /// In en, this message translates to:
+  /// **'Matched {termPlural}'**
+  String migrationResultMembersLinked(String termPlural);
+
   /// Import result row label for front sessions
   ///
   /// In en, this message translates to:
@@ -14473,6 +14491,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This post is no longer available.'**
   String get boardsPostDetailNotFound;
+
+  /// Explains the Simply Plural member mapping step.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which Simply Plural members should link to existing Prism members. Linked members keep their current Prism profile photo; members imported as new use the Simply Plural data.'**
+  String get spMemberMappingIntro;
+
+  /// Button that restores suggested Simply Plural member matches.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset matches'**
+  String get spMemberMappingResetDefaults;
+
+  /// Select option to create a new Prism member for a Simply Plural member.
+  ///
+  /// In en, this message translates to:
+  /// **'Import as new'**
+  String get spMemberMappingOptionImportNew;
+
+  /// Select option to link a Simply Plural member to an existing Prism member.
+  ///
+  /// In en, this message translates to:
+  /// **'Link → {name}'**
+  String spMemberMappingOptionLink(String name);
+
+  /// Reason text for a Simply Plural member matched from an existing SP import mapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Matched previous import: {name}'**
+  String spMemberMappingMatchedPrevious(String name);
+
+  /// Reason text for a Simply Plural member matched by PluralKit short ID.
+  ///
+  /// In en, this message translates to:
+  /// **'Matched PluralKit ID: {name}'**
+  String spMemberMappingMatchedPk(String name);
+
+  /// Reason text for a Simply Plural member matched by unique local name.
+  ///
+  /// In en, this message translates to:
+  /// **'Matched name: {name}'**
+  String spMemberMappingMatchedName(String name);
+
+  /// Reason text for a Simply Plural member without a suggested local match.
+  ///
+  /// In en, this message translates to:
+  /// **'No suggested match'**
+  String get spMemberMappingNoMatch;
+
+  /// Accessibility label for a Simply Plural member mapping row.
+  ///
+  /// In en, this message translates to:
+  /// **'Simply Plural member {name}'**
+  String spMemberMappingMemberSemantics(String name);
+
+  /// Button label to continue from Simply Plural member mapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get spMemberMappingContinue;
 
   /// Top bar title on the PluralKit member mapping screen.
   ///

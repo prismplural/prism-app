@@ -6,8 +6,9 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 ///
 /// Event types (from prism-sync-core/src/events.rs): RemoteChanges,
 /// SyncCompleted, SyncStarted, Error, DeviceRevoked, EpochRotated,
-/// WebSocketStateChanged. Use the boolean getters (isRemoteChanges, etc.)
-/// to discriminate before accessing type-specific fields.
+/// WebSocketStateChanged, QuarantinedBatch. Use the boolean getters
+/// (isRemoteChanges, etc.) to discriminate before accessing type-specific
+/// fields.
 class SyncEvent {
   final String type;
   final Map<String, dynamic> data;
@@ -29,6 +30,12 @@ class SyncEvent {
   bool get isEpochRotated => type == 'EpochRotated';
   bool get remoteWipe => data['remote_wipe'] as bool? ?? false;
   bool get isWebSocketStateChanged => type == 'WebSocketStateChanged';
+
+  /// A local push batch was quarantined because its serialized envelope
+  /// exceeded the relay's 1 MB body cap. Listeners refresh the
+  /// quarantined-batch count so the sync troubleshooting screen can
+  /// surface a repair banner.
+  bool get isQuarantinedBatch => type == 'QuarantinedBatch';
 
   /// Structured error-kind string as emitted by the Rust FFI (pascal-case).
   ///

@@ -19,6 +19,7 @@ void main() {
       rawResultError: 'push rejected by relay',
       pendingOps: 2,
       hasQuarantinedItems: false,
+      quarantinedBatchCount: 0,
       completedAt: completedAt,
     );
 
@@ -43,6 +44,7 @@ void main() {
         rawResultError: 'relay timeout',
         pendingOps: 2,
         hasQuarantinedItems: false,
+        quarantinedBatchCount: 0,
         surfaceResultError: false,
         completedAt: completedAt,
       );
@@ -62,6 +64,7 @@ void main() {
       rawResultError: null,
       pendingOps: 0,
       hasQuarantinedItems: true,
+      quarantinedBatchCount: 0,
       completedAt: completedAt,
     );
 
@@ -79,6 +82,7 @@ void main() {
       rawResultError: '',
       pendingOps: 0,
       hasQuarantinedItems: false,
+      quarantinedBatchCount: 0,
       completedAt: completedAt,
     );
 

@@ -1474,6 +1474,21 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String syncQuarantinedBatchBannerTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count items are too large to sync',
+      one: '1 item is too large to sync',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get syncQuarantinedBatchBannerBody =>
+      'Repair tools are coming in the next update. Your data is safe — only the affected sync items are paused.';
+
+  @override
   String get syncTroubleshootingSyncId => 'Sync ID';
 
   @override
@@ -5305,6 +5320,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String migrationResultMembersLinked(String termPlural) {
+    return 'Matched $termPlural';
+  }
+
+  @override
   String get migrationResultFrontSessions => 'Front sessions';
 
   @override
@@ -8969,6 +8989,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get boardsPostDetailNotFound => 'This post is no longer available.';
+
+  @override
+  String get spMemberMappingIntro =>
+      'Choose which Simply Plural members should link to existing Prism members. Linked members keep their current Prism profile photo; members imported as new use the Simply Plural data.';
+
+  @override
+  String get spMemberMappingResetDefaults => 'Reset matches';
+
+  @override
+  String get spMemberMappingOptionImportNew => 'Import as new';
+
+  @override
+  String spMemberMappingOptionLink(String name) {
+    return 'Link → $name';
+  }
+
+  @override
+  String spMemberMappingMatchedPrevious(String name) {
+    return 'Matched previous import: $name';
+  }
+
+  @override
+  String spMemberMappingMatchedPk(String name) {
+    return 'Matched PluralKit ID: $name';
+  }
+
+  @override
+  String spMemberMappingMatchedName(String name) {
+    return 'Matched name: $name';
+  }
+
+  @override
+  String get spMemberMappingNoMatch => 'No suggested match';
+
+  @override
+  String spMemberMappingMemberSemantics(String name) {
+    return 'Simply Plural member $name';
+  }
+
+  @override
+  String get spMemberMappingContinue => 'Continue';
 
   @override
   String get pkMappingTitle => 'Link members';

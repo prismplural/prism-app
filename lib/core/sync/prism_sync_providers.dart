@@ -2220,12 +2220,19 @@ class SyncStatus {
   final String? lastError;
   final bool hasQuarantinedItems;
 
+  /// Number of local push batches that the engine quarantined because
+  /// their envelope exceeded the relay's 1 MB body cap. Refreshed on
+  /// every `SyncEvent::QuarantinedBatch` and on `SyncCompleted`. Non-zero
+  /// triggers the repair banner on the sync troubleshooting screen.
+  final int quarantinedBatchCount;
+
   const SyncStatus({
     this.isSyncing = false,
     this.lastSyncAt,
     this.pendingOps = 0,
     this.lastError,
     this.hasQuarantinedItems = false,
+    this.quarantinedBatchCount = 0,
   });
 
   SyncStatus copyWith({
@@ -2234,6 +2241,7 @@ class SyncStatus {
     int? pendingOps,
     String? lastError,
     bool? hasQuarantinedItems,
+    int? quarantinedBatchCount,
   }) {
     return SyncStatus(
       isSyncing: isSyncing ?? this.isSyncing,
@@ -2241,6 +2249,8 @@ class SyncStatus {
       pendingOps: pendingOps ?? this.pendingOps,
       lastError: lastError,
       hasQuarantinedItems: hasQuarantinedItems ?? this.hasQuarantinedItems,
+      quarantinedBatchCount:
+          quarantinedBatchCount ?? this.quarantinedBatchCount,
     );
   }
 }
@@ -2381,6 +2391,7 @@ SyncStatus syncStatusAfterCompleted({
   required String? rawResultError,
   required int pendingOps,
   required bool hasQuarantinedItems,
+  required int quarantinedBatchCount,
   bool surfaceResultError = true,
   DateTime? completedAt,
 }) {
@@ -2394,6 +2405,7 @@ SyncStatus syncStatusAfterCompleted({
         : previous.lastSyncAt,
     pendingOps: pendingOps,
     hasQuarantinedItems: hasQuarantinedItems,
+    quarantinedBatchCount: quarantinedBatchCount,
     lastError: surfaceResultError ? resultError : null,
   );
 }
@@ -2625,8 +2637,15 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
             isSyncing: false,
             lastError: surfaceCompletedError ? displayableCompletedError : null,
           );
-          // Re-query pending ops and quarantine state after sync completes.
-          Future.wait([_queryPendingOps(), _queryQuarantine()]).then((results) {
+          // Re-query pending ops, schema-quarantine, and push-quarantine
+          // state after sync completes. The push-quarantine count needs to
+          // refresh here in addition to the per-event handler below because
+          // a cycle may have cleared quarantines via recovery (Phase 1C).
+          Future.wait<dynamic>([
+            _queryPendingOps(),
+            _queryQuarantine(),
+            _queryQuarantinedBatchCount(),
+          ]).then((results) {
             if (generation != _statusEventGeneration) {
               return;
             }
@@ -2635,6 +2654,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
               rawResultError: displayableCompletedError,
               pendingOps: results[0] as int,
               hasQuarantinedItems: results[1] as bool,
+              quarantinedBatchCount: results[2] as int,
               surfaceResultError: surfaceCompletedError,
               completedAt: DateTime.now(),
             );
@@ -2710,6 +2730,14 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           _statusEventGeneration++;
           state = state.copyWith(isSyncing: false);
           _handleDeviceRevoked(event);
+        } else if (event.isQuarantinedBatch) {
+          // The Rust engine just quarantined a push batch (or another one
+          // already in the queue). Refresh the count so the
+          // sync-troubleshooting banner appears immediately, without
+          // waiting for the next SyncCompleted.
+          _queryQuarantinedBatchCount().then((count) {
+            state = state.copyWith(quarantinedBatchCount: count);
+          });
         }
       });
     });
@@ -2802,6 +2830,22 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           .hasQuarantinedItems();
     } catch (_) {
       return false;
+    }
+  }
+
+  /// Count push batches that the Rust engine has quarantined because their
+  /// envelope exceeded the relay's 1 MB body cap. Used by the sync
+  /// troubleshooting banner to surface the repair flow. Returns 0 if no
+  /// handle is configured or the FFI call fails — Phase 1B is a defense-
+  /// in-depth path, so a transient query failure must not block UI.
+  Future<int> _queryQuarantinedBatchCount() async {
+    try {
+      final handle = ref.read(prismSyncHandleProvider).value;
+      if (handle == null) return 0;
+      final count = await ffi.quarantinedBatchCount(handle: handle);
+      return count.toInt();
+    } catch (_) {
+      return 0;
     }
   }
 
@@ -3095,6 +3139,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
       pendingOps: state.pendingOps,
       lastError: state.lastError,
       hasQuarantinedItems: false,
+      quarantinedBatchCount: state.quarantinedBatchCount,
     );
   }
 }

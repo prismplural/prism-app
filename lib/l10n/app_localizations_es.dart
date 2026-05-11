@@ -1508,6 +1508,21 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String syncQuarantinedBatchBannerTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count elementos son demasiado grandes para sincronizar',
+      one: '1 elemento es demasiado grande para sincronizar',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get syncQuarantinedBatchBannerBody =>
+      'Las herramientas de reparación llegarán en la próxima actualización. Tus datos están a salvo: solo los elementos afectados están en pausa.';
+
+  @override
   String get syncTroubleshootingSyncId => 'ID de Sincronización';
 
   @override
@@ -5393,6 +5408,11 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String migrationResultMembersLinked(String termPlural) {
+    return '$termPlural coincidentes';
+  }
+
+  @override
   String get migrationResultFrontSessions => 'Sesiones al frente';
 
   @override
@@ -9131,6 +9151,47 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get boardsPostDetailNotFound =>
       'Esta publicación ya no está disponible.';
+
+  @override
+  String get spMemberMappingIntro =>
+      'Elige qué miembros de Simply Plural deben vincularse con miembros existentes de Prism. Los miembros vinculados conservan su foto actual de Prism; los miembros importados como nuevos usan los datos de Simply Plural.';
+
+  @override
+  String get spMemberMappingResetDefaults => 'Restablecer coincidencias';
+
+  @override
+  String get spMemberMappingOptionImportNew => 'Importar como nuevo';
+
+  @override
+  String spMemberMappingOptionLink(String name) {
+    return 'Vincular → $name';
+  }
+
+  @override
+  String spMemberMappingMatchedPrevious(String name) {
+    return 'Coincidencia de importación anterior: $name';
+  }
+
+  @override
+  String spMemberMappingMatchedPk(String name) {
+    return 'Coincidencia por ID de PluralKit: $name';
+  }
+
+  @override
+  String spMemberMappingMatchedName(String name) {
+    return 'Coincidencia por nombre: $name';
+  }
+
+  @override
+  String get spMemberMappingNoMatch => 'Sin coincidencia sugerida';
+
+  @override
+  String spMemberMappingMemberSemantics(String name) {
+    return 'Miembro de Simply Plural $name';
+  }
+
+  @override
+  String get spMemberMappingContinue => 'Continuar';
 
   @override
   String get pkMappingTitle => 'Vincular miembros';

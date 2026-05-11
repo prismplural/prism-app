@@ -7,7 +7,10 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/views/sync_troubleshooting_screen.dart';
 
 void main() {
-  Widget buildScreen({Locale locale = const Locale('en')}) {
+  Widget buildScreen({
+    Locale locale = const Locale('en'),
+    int quarantinedBatchCount = 0,
+  }) {
     return ProviderScope(
       overrides: [
         relayUrlProvider.overrideWithValue(
@@ -21,6 +24,10 @@ void main() {
         ),
         syncDeviceSecretPresentProvider.overrideWithValue(
           const AsyncValue<bool>.data(true),
+        ),
+        syncStatusProvider.overrideWith(
+          () =>
+              _StubSyncStatusNotifier(quarantinedBatchCount: quarantinedBatchCount),
         ),
       ],
       child: MaterialApp(
@@ -85,4 +92,50 @@ void main() {
       findsOneWidget,
     );
   });
+
+  // ── Phase 1B: push-quarantine banner ──
+
+  testWidgets('hides quarantine banner when count is zero', (tester) async {
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    // Banner copy must not appear when nothing is quarantined.
+    expect(find.textContaining('too large to sync'), findsNothing);
+    expect(find.textContaining('Repair tools are coming'), findsNothing);
+  });
+
+  testWidgets(
+    'shows quarantine banner with singular copy when count is 1',
+    (tester) async {
+      await tester.pumpWidget(buildScreen(quarantinedBatchCount: 1));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 item is too large to sync'), findsOneWidget);
+      expect(
+        find.textContaining('Repair tools are coming in the next update.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'shows quarantine banner with plural copy when count > 1',
+    (tester) async {
+      await tester.pumpWidget(buildScreen(quarantinedBatchCount: 3));
+      await tester.pumpAndSettle();
+
+      expect(find.text('3 items are too large to sync'), findsOneWidget);
+    },
+  );
+}
+
+class _StubSyncStatusNotifier extends SyncStatusNotifier {
+  _StubSyncStatusNotifier({required this.quarantinedBatchCount});
+
+  final int quarantinedBatchCount;
+
+  @override
+  SyncStatus build() {
+    return SyncStatus(quarantinedBatchCount: quarantinedBatchCount);
+  }
 }

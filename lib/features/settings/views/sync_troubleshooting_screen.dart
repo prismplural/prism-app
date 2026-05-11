@@ -174,6 +174,54 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
               ),
             ],
 
+            // -- Push-quarantine banner (Phase 1B) --
+            //
+            // Some local mutations couldn't fit in the relay's 1 MB envelope
+            // cap and were quarantined. The repair action lands in Phase 1C;
+            // for now we surface the count so users understand why the
+            // affected entities aren't syncing.
+            if (syncStatus.quarantinedBatchCount > 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: PrismSurface(
+                  fillColor: theme.colorScheme.errorContainer,
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        AppIcons.warningAmberRounded,
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              context.l10n.syncQuarantinedBatchBannerTitle(
+                                syncStatus.quarantinedBatchCount,
+                              ),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onErrorContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              context.l10n.syncQuarantinedBatchBannerBody,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onErrorContainer,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
             // -- Current State --
             PrismListRow(
               leading: Icon(AppIcons.infoOutline),
