@@ -81,6 +81,7 @@ class _MappingBody extends ConsumerWidget {
     await ref.read(pkMappingControllerProvider.notifier).apply(
           importingHistoryStatus: l10n.pkMappingImportingHistory,
           pushingHistoryStatus: l10n.pkMappingPushingHistory,
+          offlineErrorMessage: l10n.pkMappingNetworkErrorOffline,
         );
     final latest = ref.read(pkMappingControllerProvider).value;
     if (!context.mounted) return;

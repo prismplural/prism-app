@@ -12,7 +12,15 @@ import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_member_matcher.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
+
+/// English fallback shown when [PkMappingController.apply] is called without a
+/// localized [PkMappingController.apply.offlineErrorMessage]. Existing tests
+/// call `apply()` with no args; this keeps them compiling and asserts a stable
+/// string they can match against.
+const _defaultOfflineErrorMessage =
+    "Couldn't reach PluralKit. Check your internet connection and try again.";
 
 /// Phase tracker for the mapping screen's Apply pipeline.
 ///
@@ -287,6 +295,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
   Future<void> apply({
     String? importingHistoryStatus,
     String? pushingHistoryStatus,
+    String? offlineErrorMessage,
   }) async {
     final current = state.value;
     if (current == null || current.isApplying) return;
@@ -322,6 +331,32 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
     }
 
     try {
+      // Pre-flight: verify we can reach PluralKit before we start mutating
+      // state. If the user lost connectivity between opening this screen and
+      // tapping Apply, fail fast with a clean message instead of N raw socket
+      // exceptions. Cap the probe at 5s so offline users don't wait the
+      // client's 15s default. Non-network exceptions fall through to the
+      // outer catch, which already routes them into `state.error`.
+      try {
+        await client.getSystem().timeout(const Duration(seconds: 5));
+      } on Object catch (e) {
+        if (isPluralKitNetworkException(e)) {
+          if (!ref.mounted) return;
+          final after = state.value;
+          if (after != null) {
+            state = AsyncData(
+              after.copyWith(
+                isApplying: false,
+                clearStatusText: true,
+                error: offlineErrorMessage ?? _defaultOfflineErrorMessage,
+              ),
+            );
+          }
+          return;
+        }
+        rethrow;
+      }
+
       final memberRepo = ref.read(memberRepositoryProvider);
       final db = ref.read(databaseProvider);
       final applier = PkMappingApplier(

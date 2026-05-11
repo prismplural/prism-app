@@ -9897,6 +9897,10 @@
   "@pkMappingPushingHistory": {
     "description": "Status text shown above the Apply button while pending switch updates are being pushed to PluralKit after the mapping decisions have all applied."
   },
+  "pkMappingNetworkErrorOffline": "Couldn't reach PluralKit. Check your internet connection and tap Apply again.",
+  "@pkMappingNetworkErrorOffline": {
+    "description": "Error banner shown on the Link Members screen when the Apply pre-flight check cannot reach PluralKit (offline, DNS failure, etc.)."
+  },
   "pkMappingApply": "Apply",
   "@pkMappingApply": {
     "description": "Footer button that applies the chosen PK mapping decisions."

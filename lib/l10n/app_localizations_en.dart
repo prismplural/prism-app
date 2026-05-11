@@ -9183,6 +9183,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pkMappingPushingHistory => 'Pushing switch updates to PluralKit…';
 
   @override
+  String get pkMappingNetworkErrorOffline =>
+      'Couldn\'t reach PluralKit. Check your internet connection and tap Apply again.';
+
+  @override
   String get pkMappingApply => 'Apply';
 
   @override

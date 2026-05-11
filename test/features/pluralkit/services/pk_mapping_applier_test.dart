@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -549,6 +552,60 @@ void main() {
     expect(results.single.outcome, PkApplyOutcome.applied);
     final all = await repo.getAllMembers();
     expect(all.single.avatarImageData, isNull);
+  });
+
+  // -------------------------------------------------------------------------
+  // Network-error classification (offline-friendly errors in _applyOne)
+  // -------------------------------------------------------------------------
+
+  test('push: SocketException maps to friendly network message', () async {
+    final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+    final client = FakePluralKitClient(
+      onCreate: (_) => throw const SocketException(
+        'Failed host lookup: api.pluralkit.me',
+      ),
+    );
+    final applier = buildApplier(repo: repo, client: client);
+
+    final results = await applier.apply([
+      const PkPushNewDecision(localMemberId: 'l1'),
+    ]);
+
+    expect(results.single.outcome, PkApplyOutcome.failed);
+    expect(results.single.error, kPkApplierNetworkErrorMessage);
+    final pushState = await dao.getById('push:l1');
+    expect(pushState!.status, 'failed');
+    expect(pushState.errorMessage, kPkApplierNetworkErrorMessage);
+  });
+
+  test('push: TimeoutException maps to friendly network message', () async {
+    final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+    final client = FakePluralKitClient(
+      onCreate: (_) => throw TimeoutException('stalled'),
+    );
+    final applier = buildApplier(repo: repo, client: client);
+
+    final results = await applier.apply([
+      const PkPushNewDecision(localMemberId: 'l1'),
+    ]);
+
+    expect(results.single.outcome, PkApplyOutcome.failed);
+    expect(results.single.error, kPkApplierNetworkErrorMessage);
+  });
+
+  test('push: StateError keeps raw toString (non-network)', () async {
+    final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+    final client = FakePluralKitClient(
+      onCreate: (_) => throw StateError('foo'),
+    );
+    final applier = buildApplier(repo: repo, client: client);
+
+    final results = await applier.apply([
+      const PkPushNewDecision(localMemberId: 'l1'),
+    ]);
+
+    expect(results.single.outcome, PkApplyOutcome.failed);
+    expect(results.single.error, 'Bad state: foo');
   });
 
   test('retry: failed → successful on second run', () async {

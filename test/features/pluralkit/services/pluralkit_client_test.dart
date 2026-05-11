@@ -4,7 +4,9 @@
 // These tests inject a mock http.Client and a zero-interval PkRequestQueue
 // so the suite stays fast while still exercising the real queue wiring.
 
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -484,5 +486,251 @@ void main() {
       expect(m.id, 'new01');
       expect(h.requests, hasLength(2));
     });
+  });
+
+  group('isPluralKitNetworkException', () {
+    test('returns true for SocketException', () {
+      expect(
+        isPluralKitNetworkException(
+          const SocketException('Failed host lookup: api.pluralkit.me'),
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns true for HandshakeException', () {
+      expect(
+        isPluralKitNetworkException(const HandshakeException('TLS bad')),
+        isTrue,
+      );
+    });
+
+    test('returns true for TimeoutException', () {
+      expect(
+        isPluralKitNetworkException(TimeoutException('stalled')),
+        isTrue,
+      );
+    });
+
+    test('returns true for ClientException with SocketException', () {
+      expect(
+        isPluralKitNetworkException(
+          http.ClientException(
+            'SocketException: Failed host lookup',
+            Uri.parse('https://api.pluralkit.me/v2/members'),
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns true for ClientException with HandshakeException', () {
+      expect(
+        isPluralKitNetworkException(
+          http.ClientException(
+            'HandshakeException: bad cert',
+            Uri.parse('https://api.pluralkit.me/v2/members'),
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns true for ClientException with Failed host lookup', () {
+      expect(
+        isPluralKitNetworkException(
+          http.ClientException(
+            "Failed host lookup: 'api.pluralkit.me'",
+            Uri.parse('https://api.pluralkit.me/v2/members'),
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns true for ClientException with Connection refused', () {
+      expect(
+        isPluralKitNetworkException(
+          http.ClientException(
+            'Connection refused',
+            Uri.parse('https://api.pluralkit.me/v2/members'),
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns true for ClientException with Connection closed', () {
+      expect(
+        isPluralKitNetworkException(
+          http.ClientException(
+            'Connection closed before full header was received',
+            Uri.parse('https://api.pluralkit.me/v2/members'),
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns true for ClientException with Connection failed', () {
+      expect(
+        isPluralKitNetworkException(
+          http.ClientException(
+            'Connection failed',
+            Uri.parse('https://api.pluralkit.me/v2/members'),
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns true for ClientException with Connection terminated', () {
+      expect(
+        isPluralKitNetworkException(
+          http.ClientException(
+            'Connection terminated during handshake',
+            Uri.parse('https://api.pluralkit.me/v2/members'),
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns true for ClientException with Connection reset by peer', () {
+      expect(
+        isPluralKitNetworkException(
+          http.ClientException(
+            'Connection reset by peer',
+            Uri.parse('https://api.pluralkit.me/v2/members'),
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns true for ClientException with Network is unreachable', () {
+      expect(
+        isPluralKitNetworkException(
+          http.ClientException(
+            'Network is unreachable',
+            Uri.parse('https://api.pluralkit.me/v2/members'),
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns true for ClientException with No route to host', () {
+      expect(
+        isPluralKitNetworkException(
+          http.ClientException(
+            'No route to host',
+            Uri.parse('https://api.pluralkit.me/v2/members'),
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test(
+      'returns true for ClientException with Software caused connection abort',
+      () {
+        expect(
+          isPluralKitNetworkException(
+            http.ClientException(
+              'Software caused connection abort',
+              Uri.parse('https://api.pluralkit.me/v2/members'),
+            ),
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test('returns true for ClientException with Operation timed out', () {
+      expect(
+        isPluralKitNetworkException(
+          http.ClientException(
+            'Operation timed out',
+            Uri.parse('https://api.pluralkit.me/v2/members'),
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns true for ClientException with Broken pipe', () {
+      expect(
+        isPluralKitNetworkException(
+          http.ClientException(
+            'Broken pipe',
+            Uri.parse('https://api.pluralkit.me/v2/members'),
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns true for ClientException with XMLHttpRequest error', () {
+      expect(
+        isPluralKitNetworkException(
+          http.ClientException(
+            'XMLHttpRequest error.',
+            Uri.parse('https://api.pluralkit.me/v2/members'),
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns false for PluralKitApiError', () {
+      expect(
+        isPluralKitNetworkException(const PluralKitApiError(500, 'boom')),
+        isFalse,
+      );
+    });
+
+    test('returns false for PluralKitAuthError', () {
+      expect(
+        isPluralKitNetworkException(const PluralKitAuthError()),
+        isFalse,
+      );
+    });
+
+    test('returns false for PluralKitRateLimitError', () {
+      expect(
+        isPluralKitNetworkException(const PluralKitRateLimitError()),
+        isFalse,
+      );
+    });
+
+    test('returns false for StateError', () {
+      expect(
+        isPluralKitNetworkException(StateError('bad state')),
+        isFalse,
+      );
+    });
+
+    test('returns false for FormatException', () {
+      expect(
+        isPluralKitNetworkException(const FormatException('bad json')),
+        isFalse,
+      );
+    });
+
+    test(
+      'returns false for ClientException whose toString does not match patterns',
+      () {
+        expect(
+          isPluralKitNetworkException(
+            http.ClientException(
+              'malformed response body',
+              Uri.parse('https://api.pluralkit.me/v2/members'),
+            ),
+          ),
+          isFalse,
+        );
+      },
+    );
   });
 }

@@ -14727,6 +14727,12 @@ abstract class AppLocalizations {
   /// **'Pushing switch updates to PluralKit…'**
   String get pkMappingPushingHistory;
 
+  /// Error banner shown on the Link Members screen when the Apply pre-flight check cannot reach PluralKit (offline, DNS failure, etc.).
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach PluralKit. Check your internet connection and tap Apply again.'**
+  String get pkMappingNetworkErrorOffline;
+
   /// Footer button that applies the chosen PK mapping decisions.
   ///
   /// In en, this message translates to:

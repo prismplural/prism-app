@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
@@ -9,6 +10,12 @@ import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 import 'package:uuid/uuid.dart';
+
+/// Friendly error text persisted to `pk_mapping_state.errorMessage` when the
+/// applier hits a network-layer failure. Top-level public (not `_kPk…`) so a
+/// future Change 4 in the screen can compare against it across the library
+/// boundary to collapse identical failures.
+const kPkApplierNetworkErrorMessage = "Couldn't reach PluralKit";
 
 /// One user decision made in the mapping screen.
 sealed class PkMappingDecision {
@@ -137,7 +144,11 @@ class PkMappingApplier {
       await _state.markApplied(decision.id);
       return PkApplyResult(decision: decision, outcome: PkApplyOutcome.applied);
     } catch (e) {
-      final msg = e.toString();
+      final raw = e.toString();
+      if (isPluralKitNetworkException(e)) {
+        debugPrint('[PK_APPLIER] network failure on ${decision.id}: $raw');
+      }
+      final msg = _formatApplierError(e, raw);
       await _state.markFailed(decision.id, msg);
       return PkApplyResult(
         decision: decision,
@@ -145,6 +156,13 @@ class PkMappingApplier {
         error: msg,
       );
     }
+  }
+
+  String _formatApplierError(Object e, String raw) {
+    if (isPluralKitNetworkException(e)) {
+      return kPkApplierNetworkErrorMessage;
+    }
+    return raw;
   }
 
   Future<void> _recordPending(PkMappingDecision decision) async {

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show SocketException, HandshakeException;
 
 import 'package:http/http.dart' as http;
 
@@ -37,6 +39,40 @@ class PluralKitRateLimitError extends PluralKitApiError {
     String message = 'Rate limited — please wait and try again',
     this.retryAfter,
   ]) : super(429, message);
+}
+
+/// Returns true when [e] is a network-layer failure (DNS lookup, connection
+/// refused, TLS handshake, timeout, etc) rather than an HTTP-level error.
+///
+/// PK's HTTP responses go through [_handleResponse] which throws typed
+/// errors ([PluralKitApiError], [PluralKitAuthError],
+/// [PluralKitRateLimitError]). Anything else is by definition a transport
+/// failure — the request never reached PK.
+bool isPluralKitNetworkException(Object e) {
+  if (e is SocketException) return true;
+  if (e is HandshakeException) return true;
+  if (e is TimeoutException) return true;
+  if (e is http.ClientException) {
+    // http package wraps SocketException as ClientException on platforms
+    // where dart:io is available. The toString() always includes the
+    // underlying type.
+    final s = e.toString();
+    return s.contains('SocketException') ||
+        s.contains('HandshakeException') ||
+        s.contains('Failed host lookup') ||
+        s.contains('Connection refused') ||
+        s.contains('Connection closed') ||
+        s.contains('Connection failed') ||
+        s.contains('Connection terminated') ||
+        s.contains('Connection reset by peer') ||
+        s.contains('Network is unreachable') ||
+        s.contains('No route to host') ||
+        s.contains('Software caused connection abort') ||
+        s.contains('Operation timed out') ||
+        s.contains('Broken pipe') ||
+        s.contains('XMLHttpRequest error');
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------

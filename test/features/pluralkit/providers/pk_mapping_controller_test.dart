@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -203,6 +205,25 @@ class _FailingCreateClient extends _FakeClient {
   @override
   Future<PKMember> createMember(Map<String, dynamic> data) async {
     throw const PluralKitApiError(400, 'bad');
+  }
+}
+
+/// A `_FakeClient` whose `getSystem()` throws a caller-supplied exception.
+/// Used by the apply pre-flight tests to simulate offline / non-network
+/// failures at the pre-flight probe.
+///
+/// `PluralKitSyncService.setToken` ALSO calls `getSystem()` once at setup;
+/// flipping `throwOnGetSystem` to true after setToken returns lets the test
+/// allow the setup call to succeed and only fail the pre-flight probe in
+/// `apply()`.
+class _GetSystemThrowingClient extends _FakeClient {
+  _GetSystemThrowingClient(super.members, this.error);
+  final Object error;
+  bool throwOnGetSystem = false;
+  @override
+  Future<PKSystem> getSystem() async {
+    if (throwOnGetSystem) throw error;
+    return super.getSystem();
   }
 }
 
@@ -413,6 +434,153 @@ void main() {
       reason: 'Partial failure must leave needsMapping set',
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // apply: pre-flight connectivity check
+  // ---------------------------------------------------------------------------
+
+  test(
+    'apply: pre-flight SocketException sets offline error and skips applier',
+    () async {
+      final offlineClient = _GetSystemThrowingClient(
+        [const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice')],
+        const SocketException('Failed host lookup: api.pluralkit.me'),
+      );
+      final offlineSyncService = PluralKitSyncService(
+        memberRepository: repo,
+        frontingSessionRepository: _NoopFrontingSessionRepo(),
+        syncDao: PluralKitSyncDao(db),
+        clientFactory: (_) => offlineClient,
+        tokenOverride: 'fake',
+      );
+      await offlineSyncService.setToken('fake');
+
+      final localContainer = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          memberRepositoryProvider.overrideWithValue(repo),
+          pluralKitSyncServiceProvider.overrideWithValue(offlineSyncService),
+        ],
+      );
+      addTearDown(localContainer.dispose);
+
+      // Build runs `fetchPkMembersWithoutImport` which also touches
+      // getSystem(); only flip the throw flag AFTER build completes so the
+      // pre-flight probe is the only call we fail.
+      await localContainer.read(pkMappingControllerProvider.future);
+      offlineClient.throwOnGetSystem = true;
+
+      await localContainer
+          .read(pkMappingControllerProvider.notifier)
+          .apply(offlineErrorMessage: 'offline custom msg');
+
+      final s = localContainer.read(pkMappingControllerProvider).value!;
+      expect(s.isApplying, isFalse);
+      expect(s.error, 'offline custom msg');
+      // Applier was never invoked: createMember never fires, no results stored.
+      expect(offlineClient.createCallCount, 0);
+      expect(s.lastResults, isNull);
+    },
+  );
+
+  test(
+    'apply: pre-flight success runs full loop as before',
+    () async {
+      await container.read(pkMappingControllerProvider.future);
+      final ctrl = container.read(pkMappingControllerProvider.notifier);
+
+      await ctrl.apply(offlineErrorMessage: 'not used');
+
+      final s = container.read(pkMappingControllerProvider).value!;
+      expect(s.isApplying, isFalse);
+      expect(s.error, isNull);
+      expect(s.lastResults, isNotNull);
+      // 4 decisions (Alice link + Dana import + push l2 + push l3).
+      expect(s.lastResults!.length, 4);
+    },
+  );
+
+  test(
+    'apply: pre-flight non-network StateError falls into outer catch',
+    () async {
+      final throwingClient = _GetSystemThrowingClient(
+        [const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice')],
+        StateError('foo'),
+      );
+      final throwSync = PluralKitSyncService(
+        memberRepository: repo,
+        frontingSessionRepository: _NoopFrontingSessionRepo(),
+        syncDao: PluralKitSyncDao(db),
+        clientFactory: (_) => throwingClient,
+        tokenOverride: 'fake',
+      );
+      await throwSync.setToken('fake');
+
+      final localContainer = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          memberRepositoryProvider.overrideWithValue(repo),
+          pluralKitSyncServiceProvider.overrideWithValue(throwSync),
+        ],
+      );
+      addTearDown(localContainer.dispose);
+
+      await localContainer.read(pkMappingControllerProvider.future);
+      throwingClient.throwOnGetSystem = true;
+
+      await localContainer
+          .read(pkMappingControllerProvider.notifier)
+          .apply(offlineErrorMessage: 'not used');
+
+      final s = localContainer.read(pkMappingControllerProvider).value!;
+      expect(s.isApplying, isFalse);
+      expect(s.error, 'Bad state: foo');
+      expect(throwingClient.createCallCount, 0);
+    },
+  );
+
+  test(
+    'apply: pre-flight SocketException without offlineErrorMessage uses '
+    'default fallback',
+    () async {
+      final offlineClient = _GetSystemThrowingClient(
+        [const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice')],
+        const SocketException('Failed host lookup: api.pluralkit.me'),
+      );
+      final offlineSyncService = PluralKitSyncService(
+        memberRepository: repo,
+        frontingSessionRepository: _NoopFrontingSessionRepo(),
+        syncDao: PluralKitSyncDao(db),
+        clientFactory: (_) => offlineClient,
+        tokenOverride: 'fake',
+      );
+      await offlineSyncService.setToken('fake');
+
+      final localContainer = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          memberRepositoryProvider.overrideWithValue(repo),
+          pluralKitSyncServiceProvider.overrideWithValue(offlineSyncService),
+        ],
+      );
+      addTearDown(localContainer.dispose);
+
+      await localContainer.read(pkMappingControllerProvider.future);
+      offlineClient.throwOnGetSystem = true;
+
+      // Call apply() with no offlineErrorMessage — should fall back to the
+      // file-scope default constant.
+      await localContainer.read(pkMappingControllerProvider.notifier).apply();
+
+      final s = localContainer.read(pkMappingControllerProvider).value!;
+      expect(s.isApplying, isFalse);
+      expect(
+        s.error,
+        "Couldn't reach PluralKit. Check your internet connection "
+        'and try again.',
+      );
+    },
+  );
 
   test('dismiss: does NOT acknowledge mapping', () async {
     await container.read(pkMappingControllerProvider.future);

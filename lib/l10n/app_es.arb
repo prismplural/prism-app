@@ -2834,6 +2834,7 @@
   "pkMappingApplyProgress": "Aplicando… {percent}%",
   "pkMappingImportingHistory": "Importando historial de fronts…",
   "pkMappingPushingHistory": "Enviando cambios de frente a PluralKit…",
+  "pkMappingNetworkErrorOffline": "No se pudo conectar con PluralKit. Revisa tu conexión a Internet y vuelve a tocar Aplicar.",
   "pkMappingApply": "Aplicar",
   "pkMappingDoLater": "Lo haré más tarde",
   "pkMappingOptionImportNew": "Importar como nuevo",

@@ -44,6 +44,7 @@ class _FakePkMappingController extends PkMappingController {
   Future<void> apply({
     String? importingHistoryStatus,
     String? pushingHistoryStatus,
+    String? offlineErrorMessage,
   }) async {
     applyCallCount++;
     lastImportingHistoryStatus = importingHistoryStatus;

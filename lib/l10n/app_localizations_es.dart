@@ -9347,6 +9347,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Enviando cambios de frente a PluralKit…';
 
   @override
+  String get pkMappingNetworkErrorOffline =>
+      'No se pudo conectar con PluralKit. Revisa tu conexión a Internet y vuelve a tocar Aplicar.';
+
+  @override
   String get pkMappingApply => 'Aplicar';
 
   @override
