@@ -114,6 +114,13 @@ class MemberAvatar extends ConsumerWidget {
         cacheWidth: pixelSize,
         cacheHeight: pixelSize,
         fit: BoxFit.cover,
+        // MemoryImage uses Uint8List identity for ==. Drift re-emits a
+        // Member row whenever it's written (e.g. PluralKit sync re-saves
+        // the avatar column even when bytes are unchanged), producing a
+        // new Uint8List instance and a new MemoryImage cache key. Without
+        // gaplessPlayback, the Image widget clears its frame while the
+        // new decode lands — visible as a flicker on every PK sync write.
+        gaplessPlayback: true,
         semanticLabel: memberName != null
             ? context.l10n.memberAvatarSemantics(memberName!)
             : context.l10n.memberAvatarSemanticsUnnamed(

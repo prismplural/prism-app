@@ -556,6 +556,10 @@ class _HeaderImage extends StatelessWidget {
       fit: BoxFit.cover,
       width: double.infinity,
       cacheWidth: pixelWidth,
+      // See MemberAvatar — Drift re-emits member rows during PK sync with
+      // fresh Uint8List instances; MemoryImage equality is identity-based,
+      // so without gaplessPlayback every emit clears this frame briefly.
+      gaplessPlayback: true,
       semanticLabel: semanticLabel,
       errorBuilder: (_, _, _) => DecoratedBox(
         decoration: BoxDecoration(

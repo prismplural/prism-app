@@ -172,6 +172,10 @@ class GroupMemberAvatar extends ConsumerWidget {
         fit: BoxFit.cover,
         cacheWidth: pixelSize,
         cacheHeight: pixelSize,
+        // See MemberAvatar — Drift re-emits member rows during PK sync with
+        // fresh Uint8List instances; MemoryImage equality is identity-based,
+        // so without gaplessPlayback every emit clears this frame briefly.
+        gaplessPlayback: true,
         semanticLabel: context.l10n.groupMemberAvatarSemantics(
           terms.singularLower,
         ),
