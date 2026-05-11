@@ -23,8 +23,11 @@ import 'package:prism_plurality/features/fronting/widgets/session_history_list.d
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -576,12 +579,32 @@ class _AddButtonState extends ConsumerState<_AddButton> {
 
   Future<void> _runPluralKitSync(BuildContext context, WidgetRef ref) async {
     try {
-      await ref
-          .read(pluralKitSyncProvider.notifier)
-          .syncRecentData(
-            isManual: true,
-            direction: ref.read(pkSyncDirectionProvider),
-          );
+      await ref.read(pkSyncModeProvider.notifier).load();
+      await ref.read(pkSyncDirectionProvider.notifier).load();
+      if (!context.mounted) return;
+
+      final mode = ref.read(pkSyncModeProvider);
+      final direction = ref.read(pkSyncDirectionProvider);
+      if (mode == PkSyncMode.liveFrontsOnly) {
+        await ref
+            .read(pluralKitSyncProvider.notifier)
+            .syncLiveFrontersOnly(isManual: true, direction: direction);
+      } else {
+        final syncState = ref.read(pluralKitSyncProvider);
+        if (_canCurrentSyncDrainDestructivePush(
+          syncState: syncState,
+          mode: mode,
+          direction: direction,
+        )) {
+          final confirmed = await _confirmPluralKitDeleteRisk(context, ref);
+          if (!context.mounted || !confirmed) return;
+        }
+
+        await ref
+            .read(pluralKitSyncProvider.notifier)
+            .syncRecentData(isManual: true, direction: direction);
+      }
+
       if (!context.mounted) return;
       PrismToast.success(
         context,
@@ -594,6 +617,90 @@ class _AddButtonState extends ConsumerState<_AddButton> {
         message: context.l10n.frontingPluralKitSyncFailedToast(e),
       );
     }
+  }
+
+  bool _canCurrentSyncDrainDestructivePush({
+    required PluralKitSyncState syncState,
+    required PkSyncMode mode,
+    required PkSyncDirection direction,
+  }) {
+    if (mode != PkSyncMode.fullSync) return false;
+    if (!direction.pushEnabled) return false;
+    if (direction.pullEnabled && syncState.lastSyncDate == null) return false;
+    return true;
+  }
+
+  Future<bool> _confirmPluralKitDeleteRisk(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final PkDeleteRiskPreview preview;
+    try {
+      preview = await ref
+          .read(pluralKitSyncProvider.notifier)
+          .previewPendingDestructivePush();
+    } catch (_) {
+      if (context.mounted) {
+        PrismToast.error(
+          context,
+          message: context.l10n.pluralkitDeleteRiskPreviewFailed,
+        );
+      }
+      return false;
+    }
+
+    if (!context.mounted) return false;
+    if (!preview.hasRemovals || !preview.isSignificant) return true;
+
+    return PrismDialog.confirm(
+      context: context,
+      title: context.l10n.pluralkitDeleteRiskTitle,
+      message: _formatDeleteRiskMessage(context, preview),
+      confirmLabel: context.l10n.pluralkitDeleteRiskConfirm,
+      cancelLabel: context.l10n.pluralkitDeleteRiskCancel,
+      destructive: true,
+      icon: AppIcons.warningAmber,
+    );
+  }
+
+  String _formatDeleteRiskMessage(
+    BuildContext context,
+    PkDeleteRiskPreview preview,
+  ) {
+    final deleteText = _formatDeleteRiskItems(context, preview);
+    if (preview.totalSkipped > 0) {
+      return context.l10n.pluralkitDeleteRiskMessageWithSkipped(
+        deleteText,
+        preview.totalSkipped,
+      );
+    }
+    return context.l10n.pluralkitDeleteRiskMessage(deleteText);
+  }
+
+  String _formatDeleteRiskItems(
+    BuildContext context,
+    PkDeleteRiskPreview preview,
+  ) {
+    final items = <String>[
+      if (preview.membersToDelete > 0)
+        context.l10n.pluralkitDeleteRiskMembers(preview.membersToDelete),
+      if (preview.switchesToDelete > 0)
+        context.l10n.pluralkitDeleteRiskSwitches(preview.switchesToDelete),
+      if (preview.groupMembershipsToRemove > 0)
+        context.l10n.pluralkitDeleteRiskGroupMemberships(
+          preview.groupMembershipsToRemove,
+        ),
+    ];
+
+    if (items.length <= 1) return items.isEmpty ? '' : items.first;
+    if (items.length == 2) {
+      return context.l10n.pluralkitDeleteRiskJoinTwo(items[0], items[1]);
+    }
+    return context.l10n.pluralkitDeleteRiskJoinThree(
+      items[0],
+      items[1],
+      items[2],
+    );
   }
 
   Future<void> _showWakeUpPicker(

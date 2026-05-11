@@ -283,6 +283,70 @@ void main() {
       expect(ctx.service.pushPendingCalls, 0);
     });
 
+    test('previewPendingDestructivePush returns empty while blocked without '
+        'touching the service', () async {
+      final ctx = await primedContainer(
+        FrontingMigrationService.modeBlocked,
+        initialServiceState: const PluralKitSyncState(isConnected: true),
+      );
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
+      final preview = await notifier.previewPendingDestructivePush();
+      expect(preview.totalToRemove, 0);
+      expect(preview.totalSkipped, 0);
+      expect(ctx.service.previewCalls, 0);
+    });
+
+    test(
+      'previewPendingDestructivePush returns empty while disconnected',
+      () async {
+        final ctx = await primedContainer(
+          FrontingMigrationService.modeComplete,
+          initialServiceState: const PluralKitSyncState(isConnected: false),
+        );
+        final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
+        final preview = await notifier.previewPendingDestructivePush();
+        expect(preview.totalToRemove, 0);
+        expect(preview.totalSkipped, 0);
+        expect(ctx.service.previewCalls, 0);
+      },
+    );
+
+    test(
+      'previewPendingDestructivePush returns empty while mapping is pending',
+      () async {
+        final ctx = await primedContainer(
+          FrontingMigrationService.modeComplete,
+          initialServiceState: const PluralKitSyncState(
+            isConnected: true,
+            needsMapping: true,
+          ),
+        );
+        final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
+        final preview = await notifier.previewPendingDestructivePush();
+        expect(preview.totalToRemove, 0);
+        expect(preview.totalSkipped, 0);
+        expect(ctx.service.previewCalls, 0);
+      },
+    );
+
+    test(
+      'previewPendingDestructivePush delegates and preserves errors',
+      () async {
+        final ctx = await primedContainer(
+          FrontingMigrationService.modeComplete,
+          initialServiceState: const PluralKitSyncState(isConnected: true),
+        );
+        ctx.service.previewError = StateError('preview failed');
+        final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
+
+        await expectLater(
+          notifier.previewPendingDestructivePush(),
+          throwsA(isA<StateError>()),
+        );
+        expect(ctx.service.previewCalls, 1);
+      },
+    );
+
     test('syncRecentData returns null while blocked', () async {
       final ctx = await primedContainer(FrontingMigrationService.modeBlocked);
       final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
@@ -434,7 +498,10 @@ class _ThrowingPkSyncService implements PluralKitSyncService {
   int fullImportCalls = 0;
   int oneTimeImportCalls = 0;
   int fileImportCalls = 0;
+  int previewCalls = 0;
   int pushReturn = 0;
+  PkDeleteRiskPreview previewReturn = const PkDeleteRiskPreview();
+  Object? previewError;
 
   @override
   PluralKitSyncState get state => fakeState;
@@ -454,6 +521,14 @@ class _ThrowingPkSyncService implements PluralKitSyncService {
   }) async {
     pushPendingCalls++;
     return PkPushSwitchesResult(pushed: pushReturn);
+  }
+
+  @override
+  Future<PkDeleteRiskPreview> previewPendingDestructivePush() async {
+    previewCalls++;
+    final error = previewError;
+    if (error != null) throw error;
+    return previewReturn;
   }
 
   @override

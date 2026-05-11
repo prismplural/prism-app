@@ -9438,6 +9438,79 @@ abstract class AppLocalizations {
   /// **'Sync Recent Changes ({seconds}s)'**
   String pluralkitSyncRecentCooldown(int seconds);
 
+  /// Confirmation dialog title before running a PluralKit sync that may delete remote data
+  ///
+  /// In en, this message translates to:
+  /// **'Sync may delete PluralKit data'**
+  String get pluralkitDeleteRiskTitle;
+
+  /// Confirmation button label for running a potentially destructive PluralKit sync
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Anyway'**
+  String get pluralkitDeleteRiskConfirm;
+
+  /// Cancel button label for a potentially destructive PluralKit sync
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel Sync'**
+  String get pluralkitDeleteRiskCancel;
+
+  /// Toast shown when Prism cannot preview a potentially destructive PluralKit sync
+  ///
+  /// In en, this message translates to:
+  /// **'Prism couldn\'t check whether this sync would delete PluralKit data, so the sync was stopped.'**
+  String get pluralkitDeleteRiskPreviewFailed;
+
+  /// Confirmation body before a PluralKit sync removes remote data
+  ///
+  /// In en, this message translates to:
+  /// **'This sync is about to remove {deleteText} from PluralKit. This usually means existing Prism data is linked to PluralKit records that are now marked for deletion.'**
+  String pluralkitDeleteRiskMessage(String deleteText);
+
+  /// Confirmation body before a PluralKit sync removes remote data, including skipped protected records
+  ///
+  /// In en, this message translates to:
+  /// **'This sync is about to remove {deleteText} from PluralKit. This usually means existing Prism data is linked to PluralKit records that are now marked for deletion. Prism skipped {skippedCount, plural, =1{1 more item} other{{skippedCount} more items}} because they still look active or protected.'**
+  String pluralkitDeleteRiskMessageWithSkipped(
+    String deleteText,
+    int skippedCount,
+  );
+
+  /// Count label for PluralKit members that may be deleted
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 member} other{{count} members}}'**
+  String pluralkitDeleteRiskMembers(int count);
+
+  /// Count label for PluralKit switches that may be deleted
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 switch} other{{count} switches}}'**
+  String pluralkitDeleteRiskSwitches(int count);
+
+  /// Count label for PluralKit group memberships that may be removed
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 group membership} other{{count} group memberships}}'**
+  String pluralkitDeleteRiskGroupMemberships(int count);
+
+  /// Joins two PluralKit delete-risk count labels
+  ///
+  /// In en, this message translates to:
+  /// **'{first} and {second}'**
+  String pluralkitDeleteRiskJoinTwo(String first, String second);
+
+  /// Joins three PluralKit delete-risk count labels
+  ///
+  /// In en, this message translates to:
+  /// **'{first}, {second}, and {third}'**
+  String pluralkitDeleteRiskJoinThree(
+    String first,
+    String second,
+    String third,
+  );
+
   /// Description text for the sync direction picker
   ///
   /// In en, this message translates to:

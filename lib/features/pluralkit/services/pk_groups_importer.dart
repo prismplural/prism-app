@@ -434,7 +434,8 @@ class PkGroupsImporter with SyncRecordMixin {
     await _db.transaction(() async {
       if (!insertOnly) {
         for (final entry in entries) {
-          if (entry.isDeleted) continue; // already a tombstone, nothing to remove
+          if (entry.isDeleted)
+            continue; // already a tombstone, nothing to remove
           if (entry.pendingPkOp == 'push_add') {
             // Locally-owned: user wants this in PK. The orchestrator will push
             // it on the next round. Don't soft-delete just because PK doesn't
@@ -619,12 +620,14 @@ class PkGroupsImporter with SyncRecordMixin {
     if (group == null) return 0;
     // Hard-delete every push_remove tombstone in the group while pending
     // still equals push_remove (guarded by DAO method).
-    final tombstoneIds = await _db.customSelect(
-      'SELECT id FROM member_group_entries '
-      "WHERE group_id = ? AND pending_pk_op = 'push_remove' AND is_deleted = 1",
-      variables: [Variable.withString(group.id)],
-      readsFrom: {_db.memberGroupEntries},
-    ).get();
+    final tombstoneIds = await _db
+        .customSelect(
+          'SELECT id FROM member_group_entries '
+          "WHERE group_id = ? AND pending_pk_op = 'push_remove' AND is_deleted = 1",
+          variables: [Variable.withString(group.id)],
+          readsFrom: {_db.memberGroupEntries},
+        )
+        .get();
     var removed = 0;
     for (final row in tombstoneIds) {
       final hits = await _dao.hardDeleteRemoveTombstoneGuarded(
@@ -678,6 +681,66 @@ class PkGroupsImporter with SyncRecordMixin {
     return future;
   }
 
+  /// Read-only preview of pending destructive group-membership push work.
+  ///
+  /// Mirrors [_doPushPendingGroupOps] through linkage resolution,
+  /// compensation checks, and bucket-building. Unlike the real push path, this
+  /// does not mutate pending rows and never calls PluralKit.
+  Future<PkGroupMembershipRemovalPreview>
+  previewPendingGroupMembershipRemovals() async {
+    final pending = await _dao.entriesWithPendingPkOp();
+    if (pending.isEmpty) return const PkGroupMembershipRemovalPreview();
+
+    final groupIdsToFetch = pending.map((e) => e.groupId).toSet().toList();
+    final memberIdsToFetch = pending.map((e) => e.memberId).toSet().toList();
+    final groupRowsById = <String, MemberGroupRow>{};
+    for (final id in groupIdsToFetch) {
+      final row = await _dao.getGroupById(id);
+      if (row != null) groupRowsById[id] = row;
+    }
+    final membersById = <String, domain.Member>{
+      for (final m in await _memberRepository.getMembersByIds(memberIdsToFetch))
+        m.id: m,
+    };
+
+    var toRemove = 0;
+    var skipped = 0;
+
+    for (final entry in pending) {
+      final group = groupRowsById[entry.groupId];
+      final member = membersById[entry.memberId];
+      final entryGroupPk = (entry.pkGroupUuid ?? '').trim();
+      final entryMemberPk = (entry.pkMemberUuid ?? '').trim();
+      final groupPkUuid = entryGroupPk.isNotEmpty
+          ? entryGroupPk
+          : group?.pluralkitUuid;
+      final memberPkUuid = entryMemberPk.isNotEmpty
+          ? entryMemberPk
+          : member?.pluralkitUuid;
+
+      if (groupPkUuid == null ||
+          groupPkUuid.isEmpty ||
+          memberPkUuid == null ||
+          memberPkUuid.isEmpty) {
+        skipped++;
+        continue;
+      }
+
+      final isAdd = entry.pendingPkOp == 'push_add';
+      final isRemove = entry.pendingPkOp == 'push_remove';
+      if (isRemove && entry.isDeleted) {
+        toRemove++;
+      } else if ((isRemove && !entry.isDeleted) || (isAdd && entry.isDeleted)) {
+        skipped++;
+      }
+    }
+
+    return PkGroupMembershipRemovalPreview(
+      toRemove: toRemove,
+      skipped: skipped,
+    );
+  }
+
   Future<PkGroupMembershipPushResult> _doPushPendingGroupOps(
     PluralKitClient client,
   ) async {
@@ -696,8 +759,7 @@ class PkGroupsImporter with SyncRecordMixin {
       if (row != null) groupRowsById[id] = row;
     }
     final membersById = <String, domain.Member>{
-      for (final m
-          in await _memberRepository.getMembersByIds(memberIdsToFetch))
+      for (final m in await _memberRepository.getMembersByIds(memberIdsToFetch))
         m.id: m,
     };
 
@@ -724,10 +786,12 @@ class PkGroupsImporter with SyncRecordMixin {
       // Empty-string is treated as "not set" and falls back to current.
       final entryGroupPk = (entry.pkGroupUuid ?? '').trim();
       final entryMemberPk = (entry.pkMemberUuid ?? '').trim();
-      final groupPkUuid =
-          entryGroupPk.isNotEmpty ? entryGroupPk : group?.pluralkitUuid;
-      final memberPkUuid =
-          entryMemberPk.isNotEmpty ? entryMemberPk : member?.pluralkitUuid;
+      final groupPkUuid = entryGroupPk.isNotEmpty
+          ? entryGroupPk
+          : group?.pluralkitUuid;
+      final memberPkUuid = entryMemberPk.isNotEmpty
+          ? entryMemberPk
+          : member?.pluralkitUuid;
 
       // Stale-link terminal policy (v3-patches #5): if either side lost
       // its PK link, clear pending and move on. The row stays in its
@@ -878,9 +942,7 @@ class PkGroupsImporter with SyncRecordMixin {
       );
       return result.copyWith(failed: result.failed + candidates.length);
     } catch (e) {
-      debugPrint(
-        '[PK push] removeMembersFromGroup($groupPkUuid) failed: $e',
-      );
+      debugPrint('[PK push] removeMembersFromGroup($groupPkUuid) failed: $e');
       return result.copyWith(failed: result.failed + candidates.length);
     }
   }

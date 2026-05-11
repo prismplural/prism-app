@@ -24,6 +24,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
@@ -90,8 +91,93 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     // import name/description/tag/avatar into system_settings.
     final syncState = ref.read(pluralKitSyncProvider);
     if (syncState.isConnected && syncState.syncError == null) {
-      await _maybeShowProfileDisclosure();
+      await _loadPersistedSyncPreferences();
+      final mode = ref.read(pkSyncModeProvider);
+      final direction = ref.read(pkSyncDirectionProvider);
+      if (mode == PkSyncMode.fullSync && direction.pullEnabled) {
+        await _maybeShowProfileDisclosure();
+      }
     }
+  }
+
+  Future<void> _loadPersistedSyncPreferences() async {
+    await ref.read(pkSyncModeProvider.notifier).load();
+    await ref.read(pkSyncDirectionProvider.notifier).load();
+  }
+
+  bool _canCurrentSyncDrainDestructivePush({
+    required PluralKitSyncState syncState,
+    required PkSyncMode mode,
+    required PkSyncDirection direction,
+  }) {
+    if (mode != PkSyncMode.fullSync) return false;
+    if (!direction.pushEnabled) return false;
+    if (direction.pullEnabled && syncState.lastSyncDate == null) return false;
+    return true;
+  }
+
+  Future<bool> _confirmPluralKitDeleteRisk() async {
+    final PkDeleteRiskPreview preview;
+    try {
+      preview = await ref
+          .read(pluralKitSyncProvider.notifier)
+          .previewPendingDestructivePush();
+    } catch (_) {
+      if (mounted) {
+        PrismToast.error(
+          context,
+          message: context.l10n.pluralkitDeleteRiskPreviewFailed,
+        );
+      }
+      return false;
+    }
+
+    if (!mounted) return false;
+    if (!preview.hasRemovals || !preview.isSignificant) return true;
+
+    return PrismDialog.confirm(
+      context: context,
+      title: context.l10n.pluralkitDeleteRiskTitle,
+      message: _formatDeleteRiskMessage(preview),
+      confirmLabel: context.l10n.pluralkitDeleteRiskConfirm,
+      cancelLabel: context.l10n.pluralkitDeleteRiskCancel,
+      destructive: true,
+      icon: AppIcons.warningAmber,
+    );
+  }
+
+  String _formatDeleteRiskMessage(PkDeleteRiskPreview preview) {
+    final deleteText = _formatDeleteRiskItems(preview);
+    if (preview.totalSkipped > 0) {
+      return context.l10n.pluralkitDeleteRiskMessageWithSkipped(
+        deleteText,
+        preview.totalSkipped,
+      );
+    }
+    return context.l10n.pluralkitDeleteRiskMessage(deleteText);
+  }
+
+  String _formatDeleteRiskItems(PkDeleteRiskPreview preview) {
+    final items = <String>[
+      if (preview.membersToDelete > 0)
+        context.l10n.pluralkitDeleteRiskMembers(preview.membersToDelete),
+      if (preview.switchesToDelete > 0)
+        context.l10n.pluralkitDeleteRiskSwitches(preview.switchesToDelete),
+      if (preview.groupMembershipsToRemove > 0)
+        context.l10n.pluralkitDeleteRiskGroupMemberships(
+          preview.groupMembershipsToRemove,
+        ),
+    ];
+
+    if (items.length <= 1) return items.isEmpty ? '' : items.first;
+    if (items.length == 2) {
+      return context.l10n.pluralkitDeleteRiskJoinTwo(items[0], items[1]);
+    }
+    return context.l10n.pluralkitDeleteRiskJoinThree(
+      items[0],
+      items[1],
+      items[2],
+    );
   }
 
   Future<void> _maybeShowProfileDisclosure() async {
@@ -161,6 +247,16 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   }
 
   Future<void> _importFromPK() async {
+    await _loadPersistedSyncPreferences();
+    if (!mounted) return;
+    final mode = ref.read(pkSyncModeProvider);
+    if (mode == PkSyncMode.liveFrontsOnly) {
+      final direction = ref.read(pkSyncDirectionProvider);
+      await ref
+          .read(pluralKitSyncProvider.notifier)
+          .syncLiveFrontersOnly(isManual: true, direction: direction);
+      return;
+    }
     await ref.read(pluralKitSyncProvider.notifier).performFullImport();
   }
 
@@ -171,8 +267,19 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   }
 
   Future<void> _syncRecent() async {
+    await _loadPersistedSyncPreferences();
+    if (!mounted) return;
     final direction = ref.read(pkSyncDirectionProvider);
     final mode = ref.read(pkSyncModeProvider);
+    final syncStateBeforeSync = ref.read(pluralKitSyncProvider);
+    if (_canCurrentSyncDrainDestructivePush(
+      syncState: syncStateBeforeSync,
+      mode: mode,
+      direction: direction,
+    )) {
+      final confirmed = await _confirmPluralKitDeleteRisk();
+      if (!mounted || !confirmed) return;
+    }
     final summary = mode == PkSyncMode.liveFrontsOnly
         ? await ref
               .read(pluralKitSyncProvider.notifier)
@@ -445,18 +552,21 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
 
   Widget _buildSyncActions(PluralKitSyncState syncState, ThemeData theme) {
     final canSync = syncState.canManualSync && _cooldownSeconds <= 0;
+    final mode = ref.watch(pkSyncModeProvider);
 
     return Column(
       children: [
-        PrismButton(
-          onPressed: _importFromPK,
-          icon: AppIcons.cloudDownload,
-          label: context.l10n.pluralkitImportButton,
-          tone: PrismButtonTone.filled,
-          expanded: true,
-          enabled: !syncState.isSyncing,
-        ),
-        const SizedBox(height: 8),
+        if (mode == PkSyncMode.fullSync) ...[
+          PrismButton(
+            onPressed: _importFromPK,
+            icon: AppIcons.cloudDownload,
+            label: context.l10n.pluralkitImportButton,
+            tone: PrismButtonTone.filled,
+            expanded: true,
+            enabled: !syncState.isSyncing,
+          ),
+          const SizedBox(height: 8),
+        ],
         PrismButton(
           onPressed: _syncRecent,
           icon: AppIcons.sync,

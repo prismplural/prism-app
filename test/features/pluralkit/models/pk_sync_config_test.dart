@@ -45,6 +45,68 @@ void main() {
     });
   });
 
+  // ── PkDeleteRiskPreview ─────────────────────────────────────────────────
+
+  group('PkDeleteRiskPreview', () {
+    test('totals removals and skipped rows', () {
+      const preview = PkDeleteRiskPreview(
+        membersToDelete: 1,
+        switchesToDelete: 2,
+        groupMembershipsToRemove: 3,
+        membersSkipped: 4,
+        switchesSkipped: 5,
+        groupMembershipsSkipped: 6,
+      );
+
+      expect(preview.totalToRemove, 6);
+      expect(preview.totalSkipped, 15);
+      expect(preview.hasRemovals, isTrue);
+    });
+
+    test('isSignificant treats any member delete as significant', () {
+      expect(
+        const PkDeleteRiskPreview(membersToDelete: 1).isSignificant,
+        isTrue,
+      );
+    });
+
+    test('isSignificant applies switch and group membership thresholds', () {
+      expect(
+        const PkDeleteRiskPreview(switchesToDelete: 9).isSignificant,
+        isFalse,
+      );
+      expect(
+        const PkDeleteRiskPreview(switchesToDelete: 10).isSignificant,
+        isTrue,
+      );
+      expect(
+        const PkDeleteRiskPreview(groupMembershipsToRemove: 9).isSignificant,
+        isFalse,
+      );
+      expect(
+        const PkDeleteRiskPreview(groupMembershipsToRemove: 10).isSignificant,
+        isTrue,
+      );
+    });
+
+    test('isSignificant applies combined switch plus group threshold', () {
+      expect(
+        const PkDeleteRiskPreview(
+          switchesToDelete: 4,
+          groupMembershipsToRemove: 5,
+        ).isSignificant,
+        isFalse,
+      );
+      expect(
+        const PkDeleteRiskPreview(
+          switchesToDelete: 4,
+          groupMembershipsToRemove: 6,
+        ).isSignificant,
+        isTrue,
+      );
+    });
+  });
+
   // ── PkFieldSyncConfig JSON round-trip ─────────────────────────────────────
 
   group('PkFieldSyncConfig', () {

@@ -66,7 +66,7 @@ class _FakeMemberRepo implements MemberRepository {
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
   @override
   Future<({domain.Member member, bool wasCreated})>
-      ensureUnknownSentinelMember() => throw UnimplementedError();
+  ensureUnknownSentinelMember() => throw UnimplementedError();
 }
 
 domain.Member _member({required String id, String? pkUuid, String? pkId}) =>
@@ -113,6 +113,43 @@ void main() {
         );
   }
 
+  Future<void> insertGroup({required String id, String? pkUuid}) async {
+    await db
+        .into(db.memberGroups)
+        .insert(
+          MemberGroupsCompanion.insert(
+            id: id,
+            name: id,
+            createdAt: DateTime.utc(2026, 1, 1),
+            pluralkitUuid: Value(pkUuid),
+          ),
+        );
+  }
+
+  Future<void> insertEntry({
+    required String id,
+    required String groupId,
+    required String memberId,
+    String? pkGroupUuid,
+    String? pkMemberUuid,
+    bool isDeleted = false,
+    String pendingPkOp = 'none',
+  }) async {
+    await db
+        .into(db.memberGroupEntries)
+        .insert(
+          MemberGroupEntriesCompanion.insert(
+            id: id,
+            groupId: groupId,
+            memberId: memberId,
+            pkGroupUuid: Value(pkGroupUuid),
+            pkMemberUuid: Value(pkMemberUuid),
+            isDeleted: Value(isDeleted),
+            pendingPkOp: Value(pendingPkOp),
+          ),
+        );
+  }
+
   test('deterministic entry ID is stable across runs', () {
     final a = PkGroupsImporter.deriveEntryId('g-uuid', 'm-uuid');
     final b = PkGroupsImporter.deriveEntryId('g-uuid', 'm-uuid');
@@ -143,6 +180,117 @@ void main() {
       expect(prefs.getBool(PkGroupRepairRunGate.dirtyKey), isTrue);
     },
   );
+
+  group('previewPendingGroupMembershipRemovals', () {
+    test('counts only valid pending push_remove tombstones', () async {
+      await insertGroup(id: 'group-fallback', pkUuid: 'pk-group-fallback');
+      await insertGroup(id: 'group-missing-link');
+      await insertGroup(id: 'group-valid-add', pkUuid: 'pk-group-add');
+      final repo = _FakeMemberRepo([
+        _member(id: 'member-fallback', pkUuid: 'pk-member-fallback'),
+        _member(id: 'member-active-remove', pkUuid: 'pk-member-active'),
+        _member(id: 'member-add-deleted', pkUuid: 'pk-member-add-deleted'),
+        _member(id: 'member-add-active', pkUuid: 'pk-member-add-active'),
+      ]);
+      final importer = PkGroupsImporter(db: db, memberRepository: repo);
+
+      await insertEntry(
+        id: 'stored-remove',
+        groupId: 'missing-group',
+        memberId: 'missing-member',
+        pkGroupUuid: 'pk-group-stored',
+        pkMemberUuid: 'pk-member-stored',
+        isDeleted: true,
+        pendingPkOp: 'push_remove',
+      );
+      await insertEntry(
+        id: 'fallback-remove',
+        groupId: 'group-fallback',
+        memberId: 'member-fallback',
+        isDeleted: true,
+        pendingPkOp: 'push_remove',
+      );
+      await insertEntry(
+        id: 'missing-link-remove',
+        groupId: 'group-missing-link',
+        memberId: 'member-missing-link',
+        isDeleted: true,
+        pendingPkOp: 'push_remove',
+      );
+      await insertEntry(
+        id: 'active-remove',
+        groupId: 'group-fallback',
+        memberId: 'member-active-remove',
+        isDeleted: false,
+        pendingPkOp: 'push_remove',
+      );
+      await insertEntry(
+        id: 'deleted-add',
+        groupId: 'group-valid-add',
+        memberId: 'member-add-deleted',
+        isDeleted: true,
+        pendingPkOp: 'push_add',
+      );
+      await insertEntry(
+        id: 'active-add',
+        groupId: 'group-valid-add',
+        memberId: 'member-add-active',
+        isDeleted: false,
+        pendingPkOp: 'push_add',
+      );
+
+      final preview = await importer.previewPendingGroupMembershipRemovals();
+
+      expect(preview.toRemove, 2);
+      expect(
+        preview.skipped,
+        3,
+        reason:
+            'missing links and compensation cases are skipped; active push_add '
+            'is not destructive and is ignored',
+      );
+    });
+
+    test('does not mutate pending group membership rows', () async {
+      await insertGroup(id: 'group-1', pkUuid: 'pk-group-1');
+      final repo = _FakeMemberRepo([
+        _member(id: 'member-1', pkUuid: 'pk-member-1'),
+        _member(id: 'member-2', pkUuid: 'pk-member-2'),
+      ]);
+      final importer = PkGroupsImporter(db: db, memberRepository: repo);
+
+      await insertEntry(
+        id: 'remove',
+        groupId: 'group-1',
+        memberId: 'member-1',
+        isDeleted: true,
+        pendingPkOp: 'push_remove',
+      );
+      await insertEntry(
+        id: 'compensate',
+        groupId: 'group-1',
+        memberId: 'member-2',
+        isDeleted: false,
+        pendingPkOp: 'push_remove',
+      );
+      await insertEntry(
+        id: 'strand',
+        groupId: 'missing-group',
+        memberId: 'missing-member',
+        isDeleted: true,
+        pendingPkOp: 'push_remove',
+      );
+
+      final before = await db.memberGroupsDao.entriesWithPendingPkOp();
+
+      final preview = await importer.previewPendingGroupMembershipRemovals();
+
+      expect(preview.toRemove, 1);
+      expect(preview.skipped, 2);
+      final after = await db.memberGroupsDao.entriesWithPendingPkOp();
+      expect(after, before);
+    });
+  });
 
   test('inserts new group + memberships, preserves local emoji on insert '
       '(no PK emoji written)', () async {
@@ -905,9 +1053,7 @@ void main() {
       memberIds: ['pk-A', 'pk-B'],
     );
 
-    final r1 = await importer.importGroups([
-      pkGroup,
-    ], overwriteMetadata: true);
+    final r1 = await importer.importGroups([pkGroup], overwriteMetadata: true);
     expect(r1.entriesDeferred, 1);
     expect(r1.entriesInserted, 1);
 
@@ -1042,133 +1188,126 @@ void _stepFourTests({required AppDatabase Function() getDb}) {
         // bug). New behavior: skip the soft-delete because pending_pk_op
         // = push_add says local owns this row.
         final result = await importer.importGroups([
-          const PKGroup(
-            id: 'g1',
-            uuid: 'pk-g-1',
-            name: 'Group',
-            memberIds: [],
-          ),
+          const PKGroup(id: 'g1', uuid: 'pk-g-1', name: 'Group', memberIds: []),
         ]);
 
-        expect(result.entriesRemoved, 0,
-            reason: 'push_add row must NOT be soft-deleted by reconcile');
+        expect(
+          result.entriesRemoved,
+          0,
+          reason: 'push_add row must NOT be soft-deleted by reconcile',
+        );
 
-        final row = await (db.select(db.memberGroupEntries)
-              ..where((e) => e.memberId.equals('local-1')))
-            .getSingle();
+        final row = await (db.select(
+          db.memberGroupEntries,
+        )..where((e) => e.memberId.equals('local-1'))).getSingle();
         expect(row.isDeleted, isFalse);
         expect(row.pendingPkOp, 'push_add');
       },
     );
 
-    test(
-      'does NOT re-insert PK member that has a soft-deleted push_remove '
-      'tombstone locally',
-      () async {
-        final db = getDb();
-        final localMember = _member(id: 'local-1', pkUuid: 'pk-mem-1');
-        final repo = _FakeMemberRepo([localMember]);
-        final importer = PkGroupsImporter(db: db, memberRepository: repo);
-
-        // First: import with the member present (seed the row).
-        await importer.importGroups([
-          const PKGroup(
-            id: 'g1',
-            uuid: 'pk-g-1',
-            name: 'Group',
-            memberIds: ['pk-mem-1'],
-          ),
-        ]);
-
-        // Locally remove + queue push_remove (the tombstone state).
-        await db.customStatement(
-          'UPDATE member_group_entries '
-          "SET is_deleted = 1, pending_pk_op = 'push_remove' "
-          "WHERE member_id = 'local-1'",
-        );
-
-        // Re-import: PK still has the member. Old behavior (insert path
-        // checked only active rows) would re-insert. New behavior: skip
-        // because pending_pk_op = push_remove says local wants them gone.
-        await importer.importGroups([
-          const PKGroup(
-            id: 'g1',
-            uuid: 'pk-g-1',
-            name: 'Group',
-            memberIds: ['pk-mem-1'],
-          ),
-        ]);
-
-        final row = await (db.select(db.memberGroupEntries)
-              ..where((e) => e.memberId.equals('local-1')))
-            .getSingle();
-        expect(row.isDeleted, isTrue,
-            reason: 'tombstone must remain; orchestrator handles the push');
-        expect(row.pendingPkOp, 'push_remove');
-      },
-    );
-
-    test(
-      'still soft-deletes pending=none entries when PK drops the member '
-      '(existing destructive behavior preserved for synced rows)',
-      () async {
-        final db = getDb();
-        final localMember = _member(id: 'local-1', pkUuid: 'pk-mem-1');
-        final repo = _FakeMemberRepo([localMember]);
-        final importer = PkGroupsImporter(db: db, memberRepository: repo);
-
-        await importer.importGroups([
-          const PKGroup(
-            id: 'g1',
-            uuid: 'pk-g-1',
-            name: 'Group',
-            memberIds: ['pk-mem-1'],
-          ),
-        ]);
-
-        // PK drops the member. Local row has pending=none (was synced from PK
-        // originally). Reconcile must soft-delete it — that's the legitimate
-        // PK-as-source-of-truth case the user signed up for.
-        final result = await importer.importGroups([
-          const PKGroup(
-            id: 'g1',
-            uuid: 'pk-g-1',
-            name: 'Group',
-            memberIds: [],
-          ),
-        ]);
-
-        expect(result.entriesRemoved, 1);
-        final row = await (db.select(db.memberGroupEntries)
-              ..where((e) => e.memberId.equals('local-1')))
-            .getSingle();
-        expect(row.isDeleted, isTrue);
-      },
-    );
-
-    test('direction without pull bails: no metadata writes, no inserts',
-        () async {
+    test('does NOT re-insert PK member that has a soft-deleted push_remove '
+        'tombstone locally', () async {
       final db = getDb();
-      final repo = _FakeMemberRepo([_member(id: 'local-1', pkUuid: 'pk-mem-1')]);
+      final localMember = _member(id: 'local-1', pkUuid: 'pk-mem-1');
+      final repo = _FakeMemberRepo([localMember]);
       final importer = PkGroupsImporter(db: db, memberRepository: repo);
 
-      final result = await importer.importGroups([
+      // First: import with the member present (seed the row).
+      await importer.importGroups([
         const PKGroup(
           id: 'g1',
           uuid: 'pk-g-1',
           name: 'Group',
           memberIds: ['pk-mem-1'],
         ),
-      ], direction: PkSyncDirection.pushOnly);
+      ]);
 
-      expect(result.groupsObserved, 0);
-      expect(result.groupsInserted, 0);
-      expect(result.entriesInserted, 0);
+      // Locally remove + queue push_remove (the tombstone state).
+      await db.customStatement(
+        'UPDATE member_group_entries '
+        "SET is_deleted = 1, pending_pk_op = 'push_remove' "
+        "WHERE member_id = 'local-1'",
+      );
 
-      // Confirm DB is empty — no group, no entry.
-      final groups =
-          await (db.select(db.memberGroups)).get();
-      expect(groups, isEmpty);
+      // Re-import: PK still has the member. Old behavior (insert path
+      // checked only active rows) would re-insert. New behavior: skip
+      // because pending_pk_op = push_remove says local wants them gone.
+      await importer.importGroups([
+        const PKGroup(
+          id: 'g1',
+          uuid: 'pk-g-1',
+          name: 'Group',
+          memberIds: ['pk-mem-1'],
+        ),
+      ]);
+
+      final row = await (db.select(
+        db.memberGroupEntries,
+      )..where((e) => e.memberId.equals('local-1'))).getSingle();
+      expect(
+        row.isDeleted,
+        isTrue,
+        reason: 'tombstone must remain; orchestrator handles the push',
+      );
+      expect(row.pendingPkOp, 'push_remove');
     });
+
+    test('still soft-deletes pending=none entries when PK drops the member '
+        '(existing destructive behavior preserved for synced rows)', () async {
+      final db = getDb();
+      final localMember = _member(id: 'local-1', pkUuid: 'pk-mem-1');
+      final repo = _FakeMemberRepo([localMember]);
+      final importer = PkGroupsImporter(db: db, memberRepository: repo);
+
+      await importer.importGroups([
+        const PKGroup(
+          id: 'g1',
+          uuid: 'pk-g-1',
+          name: 'Group',
+          memberIds: ['pk-mem-1'],
+        ),
+      ]);
+
+      // PK drops the member. Local row has pending=none (was synced from PK
+      // originally). Reconcile must soft-delete it — that's the legitimate
+      // PK-as-source-of-truth case the user signed up for.
+      final result = await importer.importGroups([
+        const PKGroup(id: 'g1', uuid: 'pk-g-1', name: 'Group', memberIds: []),
+      ]);
+
+      expect(result.entriesRemoved, 1);
+      final row = await (db.select(
+        db.memberGroupEntries,
+      )..where((e) => e.memberId.equals('local-1'))).getSingle();
+      expect(row.isDeleted, isTrue);
+    });
+
+    test(
+      'direction without pull bails: no metadata writes, no inserts',
+      () async {
+        final db = getDb();
+        final repo = _FakeMemberRepo([
+          _member(id: 'local-1', pkUuid: 'pk-mem-1'),
+        ]);
+        final importer = PkGroupsImporter(db: db, memberRepository: repo);
+
+        final result = await importer.importGroups([
+          const PKGroup(
+            id: 'g1',
+            uuid: 'pk-g-1',
+            name: 'Group',
+            memberIds: ['pk-mem-1'],
+          ),
+        ], direction: PkSyncDirection.pushOnly);
+
+        expect(result.groupsObserved, 0);
+        expect(result.groupsInserted, 0);
+        expect(result.entriesInserted, 0);
+
+        // Confirm DB is empty — no group, no entry.
+        final groups = await (db.select(db.memberGroups)).get();
+        expect(groups, isEmpty);
+      },
+    );
   });
 }

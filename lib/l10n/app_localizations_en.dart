@@ -5528,6 +5528,85 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get pluralkitDeleteRiskTitle => 'Sync may delete PluralKit data';
+
+  @override
+  String get pluralkitDeleteRiskConfirm => 'Sync Anyway';
+
+  @override
+  String get pluralkitDeleteRiskCancel => 'Cancel Sync';
+
+  @override
+  String get pluralkitDeleteRiskPreviewFailed =>
+      'Prism couldn\'t check whether this sync would delete PluralKit data, so the sync was stopped.';
+
+  @override
+  String pluralkitDeleteRiskMessage(String deleteText) {
+    return 'This sync is about to remove $deleteText from PluralKit. This usually means existing Prism data is linked to PluralKit records that are now marked for deletion.';
+  }
+
+  @override
+  String pluralkitDeleteRiskMessageWithSkipped(
+    String deleteText,
+    int skippedCount,
+  ) {
+    String _temp0 = intl.Intl.pluralLogic(
+      skippedCount,
+      locale: localeName,
+      other: '$skippedCount more items',
+      one: '1 more item',
+    );
+    return 'This sync is about to remove $deleteText from PluralKit. This usually means existing Prism data is linked to PluralKit records that are now marked for deletion. Prism skipped $_temp0 because they still look active or protected.';
+  }
+
+  @override
+  String pluralkitDeleteRiskMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count members',
+      one: '1 member',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitDeleteRiskSwitches(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count switches',
+      one: '1 switch',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitDeleteRiskGroupMemberships(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count group memberships',
+      one: '1 group membership',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitDeleteRiskJoinTwo(String first, String second) {
+    return '$first and $second';
+  }
+
+  @override
+  String pluralkitDeleteRiskJoinThree(
+    String first,
+    String second,
+    String third,
+  ) {
+    return '$first, $second, and $third';
+  }
+
+  @override
   String get pluralkitSyncDirectionDescription =>
       'Choose how data flows between Prism and PluralKit.';
 

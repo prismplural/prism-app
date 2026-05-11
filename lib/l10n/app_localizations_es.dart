@@ -5618,6 +5618,86 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get pluralkitDeleteRiskTitle =>
+      'La sincronización puede eliminar datos de PluralKit';
+
+  @override
+  String get pluralkitDeleteRiskConfirm => 'Sincronizar de todos modos';
+
+  @override
+  String get pluralkitDeleteRiskCancel => 'Cancelar sincronización';
+
+  @override
+  String get pluralkitDeleteRiskPreviewFailed =>
+      'Prism no pudo comprobar si esta sincronización eliminaría datos de PluralKit, así que se detuvo.';
+
+  @override
+  String pluralkitDeleteRiskMessage(String deleteText) {
+    return 'Esta sincronización está a punto de eliminar $deleteText de PluralKit. Normalmente esto significa que datos existentes de Prism están vinculados a registros de PluralKit que ahora están marcados para eliminación.';
+  }
+
+  @override
+  String pluralkitDeleteRiskMessageWithSkipped(
+    String deleteText,
+    int skippedCount,
+  ) {
+    String _temp0 = intl.Intl.pluralLogic(
+      skippedCount,
+      locale: localeName,
+      other: '$skippedCount elementos más',
+      one: '1 elemento más',
+    );
+    return 'Esta sincronización está a punto de eliminar $deleteText de PluralKit. Normalmente esto significa que datos existentes de Prism están vinculados a registros de PluralKit que ahora están marcados para eliminación. Prism omitió $_temp0 porque todavía parecen activos o protegidos.';
+  }
+
+  @override
+  String pluralkitDeleteRiskMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count miembros',
+      one: '1 miembro',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitDeleteRiskSwitches(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count cambios',
+      one: '1 cambio',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitDeleteRiskGroupMemberships(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count membresías de grupo',
+      one: '1 membresía de grupo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitDeleteRiskJoinTwo(String first, String second) {
+    return '$first y $second';
+  }
+
+  @override
+  String pluralkitDeleteRiskJoinThree(
+    String first,
+    String second,
+    String third,
+  ) {
+    return '$first, $second y $third';
+  }
+
+  @override
   String get pluralkitSyncDirectionDescription =>
       'Elige cómo fluyen los datos entre Prism y PluralKit.';
 

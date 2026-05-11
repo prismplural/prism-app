@@ -74,6 +74,12 @@ class PkSyncDirectionNotifier extends Notifier<PkSyncDirection> {
     return PkSyncDirection.pullOnly;
   }
 
+  Future<void> load() async {
+    final syncDao = ref.read(pluralKitSyncDaoProvider);
+    final row = await syncDao.getSyncState();
+    state = parseGlobalSyncDirection(row.fieldSyncConfig);
+  }
+
   Future<void> _loadDirectionIfUnchanged(int generation) async {
     final syncDao = ref.read(pluralKitSyncDaoProvider);
     final row = await syncDao.getSyncState();
@@ -261,6 +267,16 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
     } catch (_) {
       return 0;
     }
+  }
+
+  Future<PkDeleteRiskPreview> previewPendingDestructivePush() {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) {
+      return Future.value(const PkDeleteRiskPreview());
+    }
+    if (!state.isConnected || state.needsMapping) {
+      return Future.value(const PkDeleteRiskPreview());
+    }
+    return _service.previewPendingDestructivePush();
   }
 
   /// Push a single linked member's edits to PK. No-op when disconnected,

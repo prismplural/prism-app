@@ -19,11 +19,13 @@ import 'package:prism_plurality/features/fronting/widgets/quick_front_section.da
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeSleepNotifier extends SleepNotifier {
@@ -60,8 +62,78 @@ class _FakeShowFrontingViewToggleNotifier
 }
 
 class _FakePluralKitSyncNotifier extends PluralKitSyncNotifier {
+  _FakePluralKitSyncNotifier(
+    this._state, {
+    this.deleteRiskPreview = const PkDeleteRiskPreview(),
+    this.deleteRiskPreviewError,
+  });
+
+  final PluralKitSyncState _state;
+  final PkDeleteRiskPreview deleteRiskPreview;
+  final Object? deleteRiskPreviewError;
+  int previewPendingDestructivePushCallCount = 0;
+  int syncRecentDataCallCount = 0;
+  int syncLiveFrontersOnlyCallCount = 0;
+  PkSyncDirection? lastSyncDirection;
+
   @override
-  PluralKitSyncState build() => const PluralKitSyncState();
+  PluralKitSyncState build() => _state;
+
+  @override
+  Future<PkDeleteRiskPreview> previewPendingDestructivePush() async {
+    previewPendingDestructivePushCallCount += 1;
+    final error = deleteRiskPreviewError;
+    if (error != null) throw error;
+    return deleteRiskPreview;
+  }
+
+  @override
+  Future<PkSyncSummary?> syncRecentData({
+    bool isManual = false,
+    PkSyncDirection direction = PkSyncDirection.pullOnly,
+  }) async {
+    syncRecentDataCallCount += 1;
+    lastSyncDirection = direction;
+    return null;
+  }
+
+  @override
+  Future<PkSyncSummary?> syncLiveFrontersOnly({
+    bool isManual = false,
+    PkSyncDirection direction = PkSyncDirection.pullOnly,
+  }) async {
+    syncLiveFrontersOnlyCallCount += 1;
+    lastSyncDirection = direction;
+    return null;
+  }
+}
+
+class _StaticPkSyncDirectionNotifier extends PkSyncDirectionNotifier {
+  _StaticPkSyncDirectionNotifier(this._initial);
+
+  final PkSyncDirection _initial;
+
+  @override
+  PkSyncDirection build() => _initial;
+
+  @override
+  Future<void> load() async {
+    state = _initial;
+  }
+}
+
+class _StaticPkSyncModeNotifier extends PkSyncModeNotifier {
+  _StaticPkSyncModeNotifier(this._initial);
+
+  final PkSyncMode _initial;
+
+  @override
+  PkSyncMode build() => _initial;
+
+  @override
+  Future<void> load() async {
+    state = _initial;
+  }
 }
 
 Member _member(String id, String name) =>
@@ -79,6 +151,9 @@ Widget _buildSubject({
   required List<Member> members,
   FrontingSession? activeSleepSession,
   bool showQuickFront = false,
+  _FakePluralKitSyncNotifier? pluralKitSyncNotifier,
+  PkSyncMode syncMode = PkSyncMode.fullSync,
+  PkSyncDirection syncDirection = PkSyncDirection.pullOnly,
 }) {
   final settings = SystemSettings(
     systemName: 'Test System',
@@ -122,12 +197,22 @@ Widget _buildSubject({
       showFrontingViewToggleProvider.overrideWith(
         _FakeShowFrontingViewToggleNotifier.new,
       ),
-      pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
+      pluralKitSyncProvider.overrideWith(
+        () =>
+            pluralKitSyncNotifier ??
+            _FakePluralKitSyncNotifier(const PluralKitSyncState()),
+      ),
+      pkSyncModeProvider.overrideWith(
+        () => _StaticPkSyncModeNotifier(syncMode),
+      ),
+      pkSyncDirectionProvider.overrideWith(
+        () => _StaticPkSyncDirectionNotifier(syncDirection),
+      ),
     ],
     child: const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: [Locale('en')],
-      home: FrontingScreen(),
+      home: PrismToastHost(child: FrontingScreen()),
     ),
   );
 }
@@ -138,6 +223,7 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
+  tearDown(PrismToast.resetForTest);
 
   group('FrontingScreen quick front header', () {
     testWidgets('labels Quick Front and its hold interaction on home', (
@@ -240,6 +326,119 @@ void main() {
         find.byKey(const Key('addFrontModeSegmentedControl')),
         findsNothing,
       );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('PluralKit sync warning cancel prevents recent sync', (
+      tester,
+    ) async {
+      final pkSync = _FakePluralKitSyncNotifier(
+        PluralKitSyncState(
+          isConnected: true,
+          lastSyncDate: DateTime(2024, 1, 1),
+        ),
+        deleteRiskPreview: const PkDeleteRiskPreview(membersToDelete: 1),
+      );
+
+      await tester.pumpWidget(
+        _buildSubject(
+          sleepNotifier: _FakeSleepNotifier(),
+          frontingNotifier: _FakeFrontingNotifier(),
+          members: [_member('m1', 'Alice')],
+          pluralKitSyncNotifier: pkSync,
+          syncDirection: PkSyncDirection.bidirectional,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(_addButton());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sync with PluralKit'));
+      await tester.pumpAndSettle();
+
+      expect(pkSync.previewPendingDestructivePushCallCount, 1);
+      expect(find.text('Sync may delete PluralKit data'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel Sync'));
+      await tester.pumpAndSettle();
+
+      expect(pkSync.syncRecentDataCallCount, 0);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('PluralKit sync warning confirm runs recent sync', (
+      tester,
+    ) async {
+      final pkSync = _FakePluralKitSyncNotifier(
+        PluralKitSyncState(
+          isConnected: true,
+          lastSyncDate: DateTime(2024, 1, 1),
+        ),
+        deleteRiskPreview: const PkDeleteRiskPreview(switchesToDelete: 10),
+      );
+
+      await tester.pumpWidget(
+        _buildSubject(
+          sleepNotifier: _FakeSleepNotifier(),
+          frontingNotifier: _FakeFrontingNotifier(),
+          members: [_member('m1', 'Alice')],
+          pluralKitSyncNotifier: pkSync,
+          syncDirection: PkSyncDirection.bidirectional,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(_addButton());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sync with PluralKit'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Sync Anyway'));
+      await tester.pumpAndSettle();
+
+      expect(pkSync.previewPendingDestructivePushCallCount, 1);
+      expect(pkSync.syncRecentDataCallCount, 1);
+      expect(pkSync.lastSyncDirection, PkSyncDirection.bidirectional);
+      PrismToast.resetForTest();
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('PluralKit menu sync uses live-fronts-only mode', (
+      tester,
+    ) async {
+      final pkSync = _FakePluralKitSyncNotifier(
+        const PluralKitSyncState(isConnected: true),
+        deleteRiskPreview: const PkDeleteRiskPreview(membersToDelete: 1),
+      );
+
+      await tester.pumpWidget(
+        _buildSubject(
+          sleepNotifier: _FakeSleepNotifier(),
+          frontingNotifier: _FakeFrontingNotifier(),
+          members: [_member('m1', 'Alice')],
+          pluralKitSyncNotifier: pkSync,
+          syncMode: PkSyncMode.liveFrontsOnly,
+          syncDirection: PkSyncDirection.pushOnly,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(_addButton());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sync with PluralKit'));
+      await tester.pumpAndSettle();
+
+      expect(pkSync.previewPendingDestructivePushCallCount, 0);
+      expect(pkSync.syncRecentDataCallCount, 0);
+      expect(pkSync.syncLiveFrontersOnlyCallCount, 1);
+      expect(pkSync.lastSyncDirection, PkSyncDirection.pushOnly);
+      PrismToast.resetForTest();
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();

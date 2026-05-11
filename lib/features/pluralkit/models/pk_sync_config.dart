@@ -60,6 +60,52 @@ enum PkSyncMode {
 }
 
 // ---------------------------------------------------------------------------
+// Delete-risk preview
+// ---------------------------------------------------------------------------
+
+/// Read-only preview of destructive PluralKit push work.
+class PkDeleteRiskPreview {
+  final int membersToDelete;
+  final int switchesToDelete;
+  final int groupMembershipsToRemove;
+  final int membersSkipped;
+  final int switchesSkipped;
+  final int groupMembershipsSkipped;
+
+  const PkDeleteRiskPreview({
+    this.membersToDelete = 0,
+    this.switchesToDelete = 0,
+    this.groupMembershipsToRemove = 0,
+    this.membersSkipped = 0,
+    this.switchesSkipped = 0,
+    this.groupMembershipsSkipped = 0,
+  });
+
+  int get totalToRemove =>
+      membersToDelete + switchesToDelete + groupMembershipsToRemove;
+
+  int get totalSkipped =>
+      membersSkipped + switchesSkipped + groupMembershipsSkipped;
+
+  bool get hasRemovals => totalToRemove > 0;
+
+  bool get isSignificant {
+    if (membersToDelete > 0) return true;
+    if (switchesToDelete >= 10) return true;
+    if (groupMembershipsToRemove >= 10) return true;
+    return switchesToDelete + groupMembershipsToRemove >= 10;
+  }
+}
+
+/// Read-only preview of pending group-membership removals.
+class PkGroupMembershipRemovalPreview {
+  final int toRemove;
+  final int skipped;
+
+  const PkGroupMembershipRemovalPreview({this.toRemove = 0, this.skipped = 0});
+}
+
+// ---------------------------------------------------------------------------
 // Per-field sync config
 // ---------------------------------------------------------------------------
 

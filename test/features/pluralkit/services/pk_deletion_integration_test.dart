@@ -158,9 +158,15 @@ class _FakeClient implements PluralKitClient {
   @override
   Future<List<String>> getGroupMembers(String groupRef) async => const [];
   @override
-  Future<void> addMembersToGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
+  Future<void> addMembersToGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
   @override
-  Future<void> removeMembersFromGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
+  Future<void> removeMembersFromGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
   @override
   Future<PKSwitch?> getCurrentFronters() async => null;
   @override
@@ -599,6 +605,123 @@ void main() {
       expect(sessionRepo.sessions.single.pluralkitUuid, isNull);
       expect(svc.state.syncError, isNull);
     });
+  });
+
+  group('destructive push preview', () {
+    test(
+      'counts local delete candidates and guarded skips without mutation',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+        final leasedAt = DateTime.now().millisecondsSinceEpoch;
+
+        final memberRepo = _FakeMemberRepo()
+          ..seed([
+            _member(
+              'm-delete',
+              pluralkitId: 'pk-delete',
+              isDeleted: true,
+              deleteIntentEpoch: 0,
+            ),
+            _member(
+              'm-stale',
+              pluralkitId: 'pk-stale',
+              isDeleted: true,
+              deleteIntentEpoch: 9,
+            ),
+            _member(
+              'm-leased',
+              pluralkitId: 'pk-leased',
+              isDeleted: true,
+              deleteIntentEpoch: 0,
+              deletePushStartedAt: leasedAt,
+            ),
+            _member(
+              'm-blank',
+              pluralkitId: '   ',
+              isDeleted: true,
+              deleteIntentEpoch: 0,
+            ),
+            _member(
+              'm-cascade',
+              pluralkitId: 'pk-cascade',
+              isDeleted: true,
+              deleteIntentEpoch: 0,
+            ),
+          ]);
+        final sessionRepo = _FakeSessionRepo()
+          ..sessions.addAll([
+            _session(
+              's-delete',
+              startTime: DateTime(2026, 2, 1),
+              pluralkitUuid: _switchUuid1,
+              isDeleted: true,
+              deleteIntentEpoch: 0,
+            ),
+            _session(
+              's-stale',
+              startTime: DateTime(2026, 2, 1),
+              pluralkitUuid: _switchUuid2,
+              isDeleted: true,
+              deleteIntentEpoch: 9,
+            ),
+            _session(
+              's-leased',
+              startTime: DateTime(2026, 2, 1),
+              pluralkitUuid: '00000000-0000-0000-0000-000000000003',
+              isDeleted: true,
+              deleteIntentEpoch: 0,
+              deletePushStartedAt: leasedAt,
+            ),
+            _session(
+              's-synthetic',
+              startTime: DateTime(2026, 2, 1),
+              pluralkitUuid: 'pkfile:v1:abc',
+              isDeleted: true,
+              deleteIntentEpoch: 0,
+            ),
+            _session(
+              's-blank',
+              startTime: DateTime(2026, 2, 1),
+              pluralkitUuid: '   ',
+              isDeleted: true,
+              deleteIntentEpoch: 0,
+            ),
+            _session(
+              's-live',
+              startTime: DateTime(2026, 2, 1),
+              memberId: 'm-cascade',
+              pluralkitUuid: '00000000-0000-0000-0000-000000000004',
+            ),
+          ]);
+        final client = _FakeClient();
+        final serviceCtx = await _makeService(
+          client: client,
+          db: db,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+          systemId: 'sys-1',
+        );
+
+        final preview = await serviceCtx.svc.previewPendingDestructivePush();
+
+        expect(preview.membersToDelete, 1);
+        expect(preview.switchesToDelete, 1);
+        expect(preview.groupMembershipsToRemove, 0);
+        expect(preview.membersSkipped, 4);
+        expect(preview.switchesSkipped, 4);
+        expect(preview.groupMembershipsSkipped, 0);
+        expect(preview.hasRemovals, isTrue);
+        expect(preview.isSignificant, isTrue);
+        expect(client.deletedMembers, isEmpty);
+        expect(client.deletedSwitches, isEmpty);
+        expect(memberRepo.stampedPushStart, isEmpty);
+        expect(sessionRepo.stampedPushStart, isEmpty);
+        expect(memberRepo.linkCleared, isEmpty);
+        expect(sessionRepo.linkCleared, isEmpty);
+        expect(serviceCtx.svc.state.isSyncing, isFalse);
+      },
+    );
   });
 
   group('scenario B — idempotent rerun', () {

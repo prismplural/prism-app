@@ -1163,8 +1163,10 @@ class PluralKitSyncService {
     // Claim isSyncing before the first await so no concurrent caller can
     // slip through the flag check during an await gap.
     if (_state.isSyncing) return null;
-    if (_state.lastSyncDate == null) {
-      // Never synced before — perform full import
+    if (_state.lastSyncDate == null && direction.pullEnabled) {
+      // Never synced before in a pull-capable mode — seed local state from PK.
+      // Push-only must not silently fall into this branch; that would pull
+      // member/group/profile data despite the user's selected direction.
       await performFullImport();
       if (isManual) {
         final now = DateTime.now();
@@ -2892,6 +2894,105 @@ class PluralKitSyncService {
   /// window we assume the other device crashed or is offline and take over.
   static const _deletePushTakeoverThreshold = Duration(minutes: 10);
 
+  bool _deleteLeaseActive(int? startedAtMs, DateTime now) {
+    if (startedAtMs == null) return false;
+    final age = Duration(
+      milliseconds: now.millisecondsSinceEpoch - startedAtMs,
+    );
+    return age < _deletePushTakeoverThreshold;
+  }
+
+  bool _deleteIntentMatchesCurrentEpoch(int? intentEpoch, int currentEpoch) =>
+      intentEpoch == currentEpoch;
+
+  bool _hasPkMemberId(domain.Member member) =>
+      (member.pluralkitId ?? '').trim().isNotEmpty;
+
+  Set<String> _memberIdsWithLiveLinkedSessions(
+    List<domain.FrontingSession> rows,
+  ) {
+    final memberIds = <String>{};
+    for (final session in rows) {
+      if (session.isDeleted) continue;
+      if (!isPluralKitSwitchUuid(session.pluralkitUuid)) continue;
+      final memberId = session.memberId;
+      if (memberId != null) memberIds.add(memberId);
+    }
+    return memberIds;
+  }
+
+  /// Read-only preview of pending destructive PluralKit push work.
+  ///
+  /// This mirrors the local candidate filters used by the real deletion push
+  /// path without constructing a PK client, claiming delete leases, clearing
+  /// links, mutating sync state, or emitting sync progress.
+  Future<PkDeleteRiskPreview> previewPendingDestructivePush() async {
+    final currentEpoch = await _syncDao.getLinkEpoch();
+    final deletedSessions = await _frontingSessionRepository
+        .getDeletedLinkedSessions();
+    final deletedMembers = await _memberRepository.getDeletedLinkedMembers();
+    final now = DateTime.now();
+
+    var switchesToDelete = 0;
+    var switchesSkipped = 0;
+    for (final session in deletedSessions) {
+      final pkUuid = session.pluralkitUuid?.trim();
+      if (!_deleteIntentMatchesCurrentEpoch(
+            session.deleteIntentEpoch,
+            currentEpoch,
+          ) ||
+          _deleteLeaseActive(session.deletePushStartedAt, now) ||
+          pkUuid == null ||
+          pkUuid.isEmpty ||
+          !isPluralKitSwitchUuid(pkUuid)) {
+        switchesSkipped++;
+        continue;
+      }
+      switchesToDelete++;
+    }
+
+    final membersWithLiveLinkedSessions = deletedMembers.isEmpty
+        ? <String>{}
+        : _memberIdsWithLiveLinkedSessions(
+            await _frontingSessionRepository.getAllSessions(),
+          );
+
+    var membersToDelete = 0;
+    var membersSkipped = 0;
+    for (final member in deletedMembers) {
+      if (!_deleteIntentMatchesCurrentEpoch(
+            member.deleteIntentEpoch,
+            currentEpoch,
+          ) ||
+          _deleteLeaseActive(member.deletePushStartedAt, now) ||
+          !_hasPkMemberId(member) ||
+          membersWithLiveLinkedSessions.contains(member.id)) {
+        membersSkipped++;
+        continue;
+      }
+      membersToDelete++;
+    }
+
+    var groupMembershipsToRemove = 0;
+    var groupMembershipsSkipped = 0;
+    final groupsImporter = _groupsImporter;
+    if (groupsImporter != null) {
+      final groupPreview = await groupsImporter
+          .previewPendingGroupMembershipRemovals();
+      groupMembershipsToRemove = groupPreview.toRemove;
+      groupMembershipsSkipped = groupPreview.skipped;
+    }
+
+    return PkDeleteRiskPreview(
+      membersToDelete: membersToDelete,
+      switchesToDelete: switchesToDelete,
+      groupMembershipsToRemove: groupMembershipsToRemove,
+      membersSkipped: membersSkipped,
+      switchesSkipped: switchesSkipped,
+      groupMembershipsSkipped: groupMembershipsSkipped,
+    );
+  }
+
   /// Push pending switch deletions. Returns the number that succeeded.
   Future<int> _pushPendingSwitchDeletions({
     required PluralKitClient client,
@@ -2910,16 +3011,18 @@ class PluralKitSyncService {
       // R6: cross-device coordination stamp.
       final startedAtMs = session.deletePushStartedAt;
       final nowMs = DateTime.now().millisecondsSinceEpoch;
-      if (startedAtMs != null) {
-        final age = Duration(milliseconds: nowMs - startedAtMs);
-        if (age < _deletePushTakeoverThreshold) {
-          debugPrint(
-            '[PK] Switch deletion for ${session.id} started by another '
-            'device ${age.inSeconds}s ago — skipping this pass.',
-          );
-          continue;
-        }
-      } else {
+      if (_deleteLeaseActive(
+        startedAtMs,
+        DateTime.fromMillisecondsSinceEpoch(nowMs),
+      )) {
+        final age = Duration(milliseconds: nowMs - startedAtMs!);
+        debugPrint(
+          '[PK] Switch deletion for ${session.id} started by another '
+          'device ${age.inSeconds}s ago — skipping this pass.',
+        );
+        continue;
+      }
+      if (startedAtMs == null) {
         await _frontingSessionRepository.stampDeletePushStartedAt(
           session.id,
           nowMs,
@@ -2949,7 +3052,7 @@ class PluralKitSyncService {
       }
       // R1: epoch gate.
       final intentEpoch = session.deleteIntentEpoch;
-      if (intentEpoch != currentEpoch) {
+      if (!_deleteIntentMatchesCurrentEpoch(intentEpoch, currentEpoch)) {
         debugPrint(
           '[PK] Session ${session.id} intent epoch $intentEpoch != current '
           '$currentEpoch; aborting DELETE (stale link).',
@@ -2998,13 +3101,9 @@ class PluralKitSyncService {
 
     // R5: fetch live sessions once and check in-memory.
     final liveSessions = await _frontingSessionRepository.getAllSessions();
-    final membersWithLiveLinkedSessions = <String>{};
-    for (final s in liveSessions) {
-      if (s.isDeleted) continue;
-      if (!isPluralKitSwitchUuid(s.pluralkitUuid)) continue;
-      final mid = s.memberId;
-      if (mid != null) membersWithLiveLinkedSessions.add(mid);
-    }
+    final membersWithLiveLinkedSessions = _memberIdsWithLiveLinkedSessions(
+      liveSessions,
+    );
 
     final push = pushServiceOverride ?? const PkPushService();
     int deleted = 0;
@@ -3026,16 +3125,18 @@ class PluralKitSyncService {
       // R6: coordination lease.
       final startedAtMs = member.deletePushStartedAt;
       final nowMs = DateTime.now().millisecondsSinceEpoch;
-      if (startedAtMs != null) {
-        final age = Duration(milliseconds: nowMs - startedAtMs);
-        if (age < _deletePushTakeoverThreshold) {
-          debugPrint(
-            '[PK] Member deletion for ${member.id} started by another '
-            'device ${age.inSeconds}s ago — skipping.',
-          );
-          continue;
-        }
-      } else {
+      if (_deleteLeaseActive(
+        startedAtMs,
+        DateTime.fromMillisecondsSinceEpoch(nowMs),
+      )) {
+        final age = Duration(milliseconds: nowMs - startedAtMs!);
+        debugPrint(
+          '[PK] Member deletion for ${member.id} started by another '
+          'device ${age.inSeconds}s ago — skipping.',
+        );
+        continue;
+      }
+      if (startedAtMs == null) {
         await _memberRepository.stampDeletePushStartedAt(member.id, nowMs);
       }
 
@@ -3058,7 +3159,7 @@ class PluralKitSyncService {
         continue;
       }
       final intentEpoch = member.deleteIntentEpoch;
-      if (intentEpoch != currentEpoch) {
+      if (!_deleteIntentMatchesCurrentEpoch(intentEpoch, currentEpoch)) {
         debugPrint(
           '[PK] Member ${member.id} intent epoch $intentEpoch != current '
           '$currentEpoch; aborting DELETE (stale link).',

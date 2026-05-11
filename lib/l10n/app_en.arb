@@ -7300,6 +7300,67 @@
       "seconds": { "type": "int" }
     }
   },
+  "pluralkitDeleteRiskTitle": "Sync may delete PluralKit data",
+  "@pluralkitDeleteRiskTitle": { "description": "Confirmation dialog title before running a PluralKit sync that may delete remote data" },
+  "pluralkitDeleteRiskConfirm": "Sync Anyway",
+  "@pluralkitDeleteRiskConfirm": { "description": "Confirmation button label for running a potentially destructive PluralKit sync" },
+  "pluralkitDeleteRiskCancel": "Cancel Sync",
+  "@pluralkitDeleteRiskCancel": { "description": "Cancel button label for a potentially destructive PluralKit sync" },
+  "pluralkitDeleteRiskPreviewFailed": "Prism couldn't check whether this sync would delete PluralKit data, so the sync was stopped.",
+  "@pluralkitDeleteRiskPreviewFailed": { "description": "Toast shown when Prism cannot preview a potentially destructive PluralKit sync" },
+  "pluralkitDeleteRiskMessage": "This sync is about to remove {deleteText} from PluralKit. This usually means existing Prism data is linked to PluralKit records that are now marked for deletion.",
+  "@pluralkitDeleteRiskMessage": {
+    "description": "Confirmation body before a PluralKit sync removes remote data",
+    "placeholders": {
+      "deleteText": { "type": "String" }
+    }
+  },
+  "pluralkitDeleteRiskMessageWithSkipped": "This sync is about to remove {deleteText} from PluralKit. This usually means existing Prism data is linked to PluralKit records that are now marked for deletion. Prism skipped {skippedCount, plural, =1{1 more item} other{{skippedCount} more items}} because they still look active or protected.",
+  "@pluralkitDeleteRiskMessageWithSkipped": {
+    "description": "Confirmation body before a PluralKit sync removes remote data, including skipped protected records",
+    "placeholders": {
+      "deleteText": { "type": "String" },
+      "skippedCount": { "type": "int" }
+    }
+  },
+  "pluralkitDeleteRiskMembers": "{count, plural, =1{1 member} other{{count} members}}",
+  "@pluralkitDeleteRiskMembers": {
+    "description": "Count label for PluralKit members that may be deleted",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "pluralkitDeleteRiskSwitches": "{count, plural, =1{1 switch} other{{count} switches}}",
+  "@pluralkitDeleteRiskSwitches": {
+    "description": "Count label for PluralKit switches that may be deleted",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "pluralkitDeleteRiskGroupMemberships": "{count, plural, =1{1 group membership} other{{count} group memberships}}",
+  "@pluralkitDeleteRiskGroupMemberships": {
+    "description": "Count label for PluralKit group memberships that may be removed",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "pluralkitDeleteRiskJoinTwo": "{first} and {second}",
+  "@pluralkitDeleteRiskJoinTwo": {
+    "description": "Joins two PluralKit delete-risk count labels",
+    "placeholders": {
+      "first": { "type": "String" },
+      "second": { "type": "String" }
+    }
+  },
+  "pluralkitDeleteRiskJoinThree": "{first}, {second}, and {third}",
+  "@pluralkitDeleteRiskJoinThree": {
+    "description": "Joins three PluralKit delete-risk count labels",
+    "placeholders": {
+      "first": { "type": "String" },
+      "second": { "type": "String" },
+      "third": { "type": "String" }
+    }
+  },
   "pluralkitSyncDirectionDescription": "Choose how data flows between Prism and PluralKit.",
   "@pluralkitSyncDirectionDescription": { "description": "Description text for the sync direction picker" },
   "pluralkitSyncModeDescription": "Choose how much PluralKit data Prism syncs.",
