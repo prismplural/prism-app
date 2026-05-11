@@ -583,6 +583,20 @@ class AppLocalizationsEs extends AppLocalizations {
   String get privacySecurityTitle => 'Privacidad y seguridad';
 
   @override
+  String get screenPrivacySection => 'Privacidad de pantalla';
+
+  @override
+  String get screenPrivacyToggleTitle => 'Ocultar contenido de la app';
+
+  @override
+  String get screenPrivacyToggleSubtitleAndroid =>
+      'Bloquea capturas de pantalla y oculta Prism en el selector de apps.';
+
+  @override
+  String get screenPrivacyToggleSubtitleIos =>
+      'Oculta Prism en el selector de apps y en las grabaciones de pantalla. Las capturas manuales todavía activan una advertencia.';
+
+  @override
   String get pinLockSection => 'Bloqueo por PIN';
 
   @override

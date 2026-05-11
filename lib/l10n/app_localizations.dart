@@ -1100,6 +1100,30 @@ abstract class AppLocalizations {
   /// **'Privacy & Security'**
   String get privacySecurityTitle;
 
+  /// Screen privacy section title in Privacy & Security settings
+  ///
+  /// In en, this message translates to:
+  /// **'Screen Privacy'**
+  String get screenPrivacySection;
+
+  /// Title for the toggle that blocks screenshots and hides the app from the OS app switcher
+  ///
+  /// In en, this message translates to:
+  /// **'Hide app contents'**
+  String get screenPrivacyToggleTitle;
+
+  /// Subtitle for the screen privacy toggle, Android wording
+  ///
+  /// In en, this message translates to:
+  /// **'Block screenshots and hide Prism from the app switcher.'**
+  String get screenPrivacyToggleSubtitleAndroid;
+
+  /// Subtitle for the screen privacy toggle, iOS wording — explains that manual screenshots are still possible but trigger a warning
+  ///
+  /// In en, this message translates to:
+  /// **'Hide Prism from the app switcher and screen recordings. Manual screenshots still trigger a warning.'**
+  String get screenPrivacyToggleSubtitleIos;
+
   /// PIN lock section title
   ///
   /// In en, this message translates to:

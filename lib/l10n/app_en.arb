@@ -755,6 +755,22 @@
   "@privacySecurityTitle": {
     "description": "Privacy & Security settings screen title"
   },
+  "screenPrivacySection": "Screen Privacy",
+  "@screenPrivacySection": {
+    "description": "Screen privacy section title in Privacy & Security settings"
+  },
+  "screenPrivacyToggleTitle": "Hide app contents",
+  "@screenPrivacyToggleTitle": {
+    "description": "Title for the toggle that blocks screenshots and hides the app from the OS app switcher"
+  },
+  "screenPrivacyToggleSubtitleAndroid": "Block screenshots and hide Prism from the app switcher.",
+  "@screenPrivacyToggleSubtitleAndroid": {
+    "description": "Subtitle for the screen privacy toggle, Android wording"
+  },
+  "screenPrivacyToggleSubtitleIos": "Hide Prism from the app switcher and screen recordings. Manual screenshots still trigger a warning.",
+  "@screenPrivacyToggleSubtitleIos": {
+    "description": "Subtitle for the screen privacy toggle, iOS wording — explains that manual screenshots are still possible but trigger a warning"
+  },
   "pinLockSection": "PIN Lock",
   "@pinLockSection": {
     "description": "PIN lock section title"
