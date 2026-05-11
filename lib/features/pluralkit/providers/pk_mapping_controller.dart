@@ -4,8 +4,10 @@ import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
+import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pk_unmapped_fronters_notice_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_member_matcher.dart';
@@ -369,7 +371,17 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
 
           if (mode == PkSyncMode.liveFrontsOnly) {
             if (direction.pullEnabled || direction.pushEnabled) {
-              await syncService.syncLiveFrontersOnly(direction: direction);
+              if (!ref.read(frontingMigrationWritesBlockedProvider)) {
+                final summary = await syncService.syncLiveFrontersOnly(
+                  direction: direction,
+                );
+                if (!ref.mounted) return;
+                if (summary != null && direction.pullEnabled) {
+                  await ref
+                      .read(pkUnmappedFrontersNoticeProvider.notifier)
+                      .applyLiveFrontersSummary(summary);
+                }
+              }
             }
           } else {
             if (direction.pullEnabled) {

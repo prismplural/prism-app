@@ -1,7 +1,33 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_live_fronters_notice.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+
+PkUnmappedFrontersNotice _notice() {
+  return PkUnmappedFrontersNotice(
+    systemId: 'system-secret',
+    switchId: 'switch-secret',
+    switchTimestamp: DateTime.utc(2026, 5, 1, 12),
+    sortedPkIds: const ['pk-alpha', 'pk-beta'],
+    refs: const [
+      PkUnmappedFronterRef(
+        pkId: 'pk-alpha',
+        pkUuid: 'uuid-alpha',
+        name: 'Alpha',
+        displayName: 'Alpha Display',
+        avatarUrl: 'https://cdn.example/alpha.png',
+      ),
+      PkUnmappedFronterRef(
+        pkId: 'pk-beta',
+        pkUuid: 'uuid-beta',
+        name: 'Beta',
+        displayName: 'Beta Display',
+        avatarUrl: 'https://cdn.example/beta.png',
+      ),
+    ],
+  );
+}
 
 void main() {
   // ── PkSyncDirection ───────────────────────────────────────────────────────
@@ -392,6 +418,63 @@ void main() {
     test('toString with no changes', () {
       const summary = PkSyncSummary();
       expect(summary.toString(), 'No changes');
+    });
+
+    test('live unmapped fronters are summary details without sync changes', () {
+      final summary = PkSyncSummary(liveUnmappedFronters: _notice());
+
+      expect(summary.totalChanges, 0);
+      expect(summary.liveUnmappedFrontersCount, 2);
+      expect(summary.hasLiveUnmappedFronters, isTrue);
+      expect(summary.hasSummaryDetails, isTrue);
+      expect(summary.toString(), '2 unmapped current fronters');
+    });
+
+    test('stale link messages are summary details without sync changes', () {
+      const summary = PkSyncSummary(
+        staleLinkMessages: ['A PluralKit switch target was removed.'],
+      );
+
+      expect(summary.totalChanges, 0);
+      expect(summary.hasSummaryDetails, isTrue);
+      expect(summary.toString(), '1 stale links cleared');
+    });
+
+    test('JSON stores only safe live unmapped fronter metadata', () {
+      final notice = _notice();
+      final summary = PkSyncSummary(
+        liveUnmappedFronters: notice,
+        observedLiveFronters: true,
+        observedLiveFrontersDismissalKey: notice.dismissalKey,
+      );
+
+      final json = summary.toJson();
+      final encoded = jsonEncode(json);
+
+      expect(json.containsKey('liveUnmappedFronters'), isFalse);
+      expect(json['liveUnmappedFrontersCount'], 2);
+      expect(json['liveUnmappedFrontersDismissalKey'], notice.dismissalKey);
+      expect(encoded, isNot(contains('switch-secret')));
+      expect(encoded, isNot(contains('pk-alpha')));
+      expect(encoded, isNot(contains('uuid-alpha')));
+      expect(encoded, isNot(contains('Alpha Display')));
+      expect(encoded, isNot(contains('https://cdn.example/alpha.png')));
+
+      final restored = PkSyncSummary.fromJson(json);
+      expect(restored.liveUnmappedFronters, isNull);
+      expect(restored.liveUnmappedFrontersCount, 2);
+      expect(restored.liveUnmappedFrontersDismissalKey, notice.dismissalKey);
+      expect(restored.hasSummaryDetails, isTrue);
+    });
+
+    test('fromJson ignores legacy raw live unmapped fronter payloads', () {
+      final restored = PkSyncSummary.fromJson({
+        'liveUnmappedFronters': _notice().toJson(),
+      });
+
+      expect(restored.liveUnmappedFronters, isNull);
+      expect(restored.liveUnmappedFrontersCount, 0);
+      expect(restored.hasLiveUnmappedFronters, isFalse);
     });
   });
 }

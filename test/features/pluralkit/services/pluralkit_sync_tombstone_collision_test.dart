@@ -97,6 +97,9 @@ class _FakePluralKitClient implements PluralKitClient {
   Future<List<PKMember>> getMembers() async => const [];
 
   @override
+  Future<PKMember> getMember(String memberRef) => throw UnimplementedError();
+
+  @override
   Future<List<PKGroup>> getGroups({bool withMembers = true}) async => const [];
 
   @override
@@ -113,9 +116,15 @@ class _FakePluralKitClient implements PluralKitClient {
   @override
   Future<List<String>> getGroupMembers(String groupRef) async => const [];
   @override
-  Future<void> addMembersToGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
+  Future<void> addMembersToGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
   @override
-  Future<void> removeMembersFromGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
+  Future<void> removeMembersFromGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
 
   @override
   Future<PKMember> createMember(Map<String, dynamic> data) =>
@@ -197,8 +206,12 @@ void main() {
     // delete-intent metadata (deleteIntentEpoch + deletePushStartedAt) so
     // the corrective path can recognize this as a user-initiated delete.
     final tombstoneStart = DateTime(2026, 4, 1, 12);
-    final originalDeleteStartedAt = DateTime.utc(2026, 4, 1, 13)
-        .millisecondsSinceEpoch;
+    final originalDeleteStartedAt = DateTime.utc(
+      2026,
+      4,
+      1,
+      13,
+    ).millisecondsSinceEpoch;
     await db.frontingSessionsDao.insertSession(
       FrontingSessionsCompanion.insert(
         id: 'tombstone-id',
@@ -261,13 +274,15 @@ void main() {
     expect(
       preserved.isDeleted,
       isTrue,
-      reason: 'corrective import must NOT clear is_deleted on a row whose '
+      reason:
+          'corrective import must NOT clear is_deleted on a row whose '
           'deleteIntentEpoch is non-null (user explicitly deleted this row)',
     );
     expect(
       preserved.deleteIntentEpoch,
       0,
-      reason: 'deleteIntentEpoch must remain populated so the queued '
+      reason:
+          'deleteIntentEpoch must remain populated so the queued '
           'PluralKit DELETE still pushes',
     );
     expect(

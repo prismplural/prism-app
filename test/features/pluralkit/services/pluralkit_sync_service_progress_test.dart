@@ -47,11 +47,17 @@ class _ProgressFakeClient implements PluralKitClient {
   Future<List<PKMember>> getMembers() async => members;
 
   @override
+  Future<PKMember> getMember(String memberRef) async {
+    return members.firstWhere(
+      (member) => member.id == memberRef || member.uuid == memberRef,
+    );
+  }
+
+  @override
   Future<List<PKSwitch>> getSwitches({
     DateTime? before,
     int limit = 100,
-  }) async =>
-      const [];
+  }) async => const [];
 
   @override
   Future<List<PKGroup>> getGroups({bool withMembers = true}) async => const [];
@@ -79,20 +85,17 @@ class _ProgressFakeClient implements PluralKitClient {
   Future<PKSwitch> createSwitch(
     List<String> memberIds, {
     DateTime? timestamp,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
   @override
   Future<PKSwitch> updateSwitch(
     String switchId, {
     required DateTime timestamp,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
   @override
   Future<PKSwitch> updateSwitchMembers(
     String switchId,
     List<String> memberIds,
-  ) =>
-      throw UnimplementedError();
+  ) => throw UnimplementedError();
   @override
   Future<void> deleteSwitch(String switchId) => throw UnimplementedError();
   @override
@@ -111,20 +114,20 @@ class _ProgressFakeClient implements PluralKitClient {
 
 /// Generate a deterministic list of fake PK members of size [count].
 List<PKMember> _fakeMembers(int count) => List.generate(
-      count,
-      (i) => PKMember(
-        // PK short id (5 chars) is required for the full-import path's
-        // member-resolution map. Pad/format so IDs stay unique.
-        id: 'm${i.toString().padLeft(4, '0')}',
-        uuid: 'uuid-$i',
-        name: 'Member $i',
-      ),
-    );
+  count,
+  (i) => PKMember(
+    // PK short id (5 chars) is required for the full-import path's
+    // member-resolution map. Pad/format so IDs stay unique.
+    id: 'm${i.toString().padLeft(4, '0')}',
+    uuid: 'uuid-$i',
+    name: 'Member $i',
+  ),
+);
 
 PkBannerCacheService _bannerCacheService() => PkBannerCacheService(
-      fetcher: (_) async => Uint8List.fromList(const [1, 2, 3]),
-      normalizer: (bytes) async => bytes,
-    );
+  fetcher: (_) async => Uint8List.fromList(const [1, 2, 3]),
+  normalizer: (bytes) async => bytes,
+);
 
 PluralKitSyncService _makeService({
   required AppDatabase db,
@@ -223,24 +226,21 @@ void main() {
       },
     );
 
-    test(
-      'N=11 emits at i=0 and i=10 (last) — no double-fire when last is a '
-      'multiple of 10',
-      () async {
-        // n=11 → i=0 (current=1, fires via i%10==0), i=10 (current=11, fires
-        // via BOTH branches because i%10==0 AND i==n-1). Each i runs once.
-        final client = _ProgressFakeClient(members: _fakeMembers(11));
-        final service = _makeService(db: db, client: client);
-        final recorder = _StateRecorder()..attach(service);
+    test('N=11 emits at i=0 and i=10 (last) — no double-fire when last is a '
+        'multiple of 10', () async {
+      // n=11 → i=0 (current=1, fires via i%10==0), i=10 (current=11, fires
+      // via BOTH branches because i%10==0 AND i==n-1). Each i runs once.
+      final client = _ProgressFakeClient(members: _fakeMembers(11));
+      final service = _makeService(db: db, client: client);
+      final recorder = _StateRecorder()..attach(service);
 
-        await service.importMembersOnly();
+      await service.importMembersOnly();
 
-        final currents = recorder.memberEmissions
-            .map((s) => _parseCurrent(s.syncStatus))
-            .toList();
-        expect(currents, [1, 11]);
-      },
-    );
+      final currents = recorder.memberEmissions
+          .map((s) => _parseCurrent(s.syncStatus))
+          .toList();
+      expect(currents, [1, 11]);
+    });
 
     test('N=0 emits nothing — the loop never runs', () async {
       final client = _ProgressFakeClient(members: const []);
@@ -327,34 +327,31 @@ void main() {
       expect(last.syncProgress, closeTo(0.40, 1e-9));
     });
 
-    test(
-      '_runFullImportWithClient (via performOneTimeFullImport) progress '
-      'stays in [0.05, 0.10]',
-      () async {
-        final client = _ProgressFakeClient(members: _fakeMembers(1000));
-        final service = _makeService(db: db, client: client);
-        final recorder = _StateRecorder()..attach(service);
+    test('_runFullImportWithClient (via performOneTimeFullImport) progress '
+        'stays in [0.05, 0.10]', () async {
+      final client = _ProgressFakeClient(members: _fakeMembers(1000));
+      final service = _makeService(db: db, client: client);
+      final recorder = _StateRecorder()..attach(service);
 
-        await service.performOneTimeFullImport(token: 'test-token');
+      await service.performOneTimeFullImport(token: 'test-token');
 
-        expect(recorder.memberEmissions, isNotEmpty);
-        for (final state in recorder.memberEmissions) {
-          expect(
-            state.syncProgress,
-            inInclusiveRange(0.05, 0.10),
-            reason:
-                '_runFullImportWithClient member-import band is 0.05 → 0.10; '
-                'got ${state.syncProgress} for status "${state.syncStatus}"',
-          );
-        }
-        final first = recorder.memberEmissions.first;
-        expect(_parseCurrent(first.syncStatus), 1);
-        expect(first.syncProgress, closeTo(0.05, 1e-9));
-        final last = recorder.memberEmissions.last;
-        expect(_parseCurrent(last.syncStatus), 1000);
-        expect(last.syncProgress, closeTo(0.10, 1e-9));
-      },
-    );
+      expect(recorder.memberEmissions, isNotEmpty);
+      for (final state in recorder.memberEmissions) {
+        expect(
+          state.syncProgress,
+          inInclusiveRange(0.05, 0.10),
+          reason:
+              '_runFullImportWithClient member-import band is 0.05 → 0.10; '
+              'got ${state.syncProgress} for status "${state.syncStatus}"',
+        );
+      }
+      final first = recorder.memberEmissions.first;
+      expect(_parseCurrent(first.syncStatus), 1);
+      expect(first.syncProgress, closeTo(0.05, 1e-9));
+      final last = recorder.memberEmissions.last;
+      expect(_parseCurrent(last.syncStatus), 1000);
+      expect(last.syncProgress, closeTo(0.10, 1e-9));
+    });
   });
 
   group('status text', () {
@@ -368,15 +365,12 @@ void main() {
 
       // The names visible to the user should match the members being worked
       // on at each cadence point (i=0, 10, 20, 24).
-      expect(
-        recorder.memberEmissions.map((s) => s.syncStatus).toList(),
-        [
-          'Importing member 1/25: Member 0',
-          'Importing member 11/25: Member 10',
-          'Importing member 21/25: Member 20',
-          'Importing member 25/25: Member 24',
-        ],
-      );
+      expect(recorder.memberEmissions.map((s) => s.syncStatus).toList(), [
+        'Importing member 1/25: Member 0',
+        'Importing member 11/25: Member 10',
+        'Importing member 21/25: Member 20',
+        'Importing member 25/25: Member 24',
+      ]);
     });
 
     test(
@@ -394,15 +388,12 @@ void main() {
 
         await service.importFromFile(export);
 
-        expect(
-          recorder.memberEmissions.map((s) => s.syncStatus).toList(),
-          [
-            'Importing member 1/25 from file: Member 0',
-            'Importing member 11/25 from file: Member 10',
-            'Importing member 21/25 from file: Member 20',
-            'Importing member 25/25 from file: Member 24',
-          ],
-        );
+        expect(recorder.memberEmissions.map((s) => s.syncStatus).toList(), [
+          'Importing member 1/25 from file: Member 0',
+          'Importing member 11/25 from file: Member 10',
+          'Importing member 21/25 from file: Member 20',
+          'Importing member 25/25 from file: Member 24',
+        ]);
       },
     );
   });

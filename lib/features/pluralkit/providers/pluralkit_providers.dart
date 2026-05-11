@@ -8,6 +8,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pk_unmapped_fronters_notice_provider.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_reset_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
@@ -185,9 +186,12 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
   @override
   PluralKitSyncState build() {
     _service = ref.watch(pluralKitSyncServiceProvider);
-    _service.onStateChanged = (newState) {
+    void handleStateChanged(PluralKitSyncState newState) {
+      if (!ref.mounted) return;
       state = newState;
-    };
+    }
+
+    _service.onStateChanged = handleStateChanged;
     // Kick off async load without blocking build
     _service.loadState();
     return _service.state;
@@ -261,6 +265,9 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
   Future<int> pushPendingSwitches() async {
     if (ref.read(frontingMigrationWritesBlockedProvider)) return 0;
     if (!state.isConnected || state.needsMapping) return 0;
+    await ref.read(pkSyncDirectionProvider.notifier).load();
+    if (!ref.mounted) return 0;
+    if (!ref.read(pkSyncDirectionProvider).pushEnabled) return 0;
     try {
       final result = await _service.pushPendingSwitches();
       return result.pushed;
@@ -314,17 +321,23 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
   Future<PkSyncSummary?> syncLiveFrontersOnly({
     bool isManual = false,
     PkSyncDirection direction = PkSyncDirection.pullOnly,
-  }) {
+  }) async {
     if (ref.read(frontingMigrationWritesBlockedProvider)) {
       if (isManual) {
         throw const PkSyncMigrationGatedException();
       }
       return Future.value(null);
     }
-    return _service.syncLiveFrontersOnly(
+    final summary = await _service.syncLiveFrontersOnly(
       isManual: isManual,
       direction: direction,
     );
+    if (summary != null && direction.pullEnabled && ref.mounted) {
+      await ref
+          .read(pkUnmappedFrontersNoticeProvider.notifier)
+          .applyLiveFrontersSummary(summary);
+    }
+    return summary;
   }
 
   Future<PKSystem?> fetchSystemProfile() => _service.fetchSystemProfile();

@@ -37,6 +37,13 @@ class FakePluralKitClient implements PluralKitClient {
   }
 
   @override
+  Future<PKMember> getMember(String memberRef) async {
+    return members.firstWhere(
+      (member) => member.id == memberRef || member.uuid == memberRef,
+    );
+  }
+
+  @override
   Future<List<PKGroup>> getGroups({bool withMembers = true}) async {
     getGroupsCallCount++;
     return groups;

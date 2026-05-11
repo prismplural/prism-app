@@ -182,6 +182,40 @@ class PKGroup {
   }
 }
 
+/// Tolerant member summary embedded in switch/fronter responses.
+///
+/// `/systems/@me/fronters` returns member objects, but callers using older
+/// switch endpoints can still receive short ID strings. This summary keeps the
+/// useful identity/display fields without requiring the full [PKMember] shape.
+class PKMemberSummary {
+  /// 5-character PluralKit ID.
+  final String id;
+
+  /// Full UUID when PK included it in the payload.
+  final String? uuid;
+  final String? name;
+  final String? displayName;
+  final String? avatarUrl;
+
+  const PKMemberSummary({
+    required this.id,
+    this.uuid,
+    this.name,
+    this.displayName,
+    this.avatarUrl,
+  });
+
+  factory PKMemberSummary.fromJson(Map<String, dynamic> json) {
+    return PKMemberSummary(
+      id: json['id'] as String,
+      uuid: json['uuid'] as String?,
+      name: json['name'] as String?,
+      displayName: json['display_name'] as String?,
+      avatarUrl: json['avatar_url'] as String?,
+    );
+  }
+}
+
 class PKSwitch {
   final String id;
   final DateTime timestamp;
@@ -189,10 +223,16 @@ class PKSwitch {
   /// List of PK 5-character member IDs that are fronting in this switch.
   final List<String> members;
 
+  /// Member summaries included by endpoints such as `/fronters`.
+  ///
+  /// Empty when the API returned `members` as `String[]`.
+  final List<PKMemberSummary> memberDetails;
+
   const PKSwitch({
     required this.id,
     required this.timestamp,
     required this.members,
+    this.memberDetails = const [],
   });
 
   /// Parses a switch from either shape the PK API returns:
@@ -204,6 +244,7 @@ class PKSwitch {
   factory PKSwitch.fromJson(Map<String, dynamic> json) {
     final rawMembers = json['members'] as List<dynamic>? ?? const [];
     final memberIds = <String>[];
+    final memberDetails = <PKMemberSummary>[];
     for (final entry in rawMembers) {
       if (entry is String) {
         memberIds.add(entry);
@@ -211,6 +252,7 @@ class PKSwitch {
         final id = entry['id'];
         if (id is String) {
           memberIds.add(id);
+          memberDetails.add(PKMemberSummary.fromJson(entry));
         }
       }
     }
@@ -218,6 +260,7 @@ class PKSwitch {
       id: json['id'] as String,
       timestamp: DateTime.parse(json['timestamp'] as String),
       members: memberIds,
+      memberDetails: memberDetails,
     );
   }
 }

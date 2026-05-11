@@ -93,6 +93,9 @@ class _FakeClient implements PluralKitClient {
   Future<List<PKMember>> getMembers() async => const [];
 
   @override
+  Future<PKMember> getMember(String memberRef) => throw UnimplementedError();
+
+  @override
   Future<List<PKSwitch>> getSwitches({
     DateTime? before,
     int limit = 100,
@@ -107,9 +110,15 @@ class _FakeClient implements PluralKitClient {
   @override
   Future<List<String>> getGroupMembers(String groupRef) async => const [];
   @override
-  Future<void> addMembersToGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
+  Future<void> addMembersToGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
   @override
-  Future<void> removeMembersFromGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
+  Future<void> removeMembersFromGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
 
   @override
   Future<PKMember> createMember(Map<String, dynamic> data) =>

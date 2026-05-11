@@ -19,6 +19,7 @@ class PkSyncSummaryCard extends ConsumerWidget {
     final terms = watchTerminology(context, ref);
     String termFor(int count) =>
         count == 1 ? terms.singularLower : terms.pluralLower;
+    final unmappedLiveFrontersCount = summary.liveUnmappedFrontersCount;
 
     return PrismSurface(
       padding: const EdgeInsets.all(16),
@@ -32,7 +33,7 @@ class PkSyncSummaryCard extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          if (summary.totalChanges == 0)
+          if (!summary.hasSummaryDetails)
             Text(
               context.l10n.pluralkitUpToDate,
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -83,6 +84,22 @@ class PkSyncSummaryCard extends ConsumerWidget {
                 ),
                 color: theme.colorScheme.onSurfaceVariant,
               ),
+            if (summary.staleLinkMessages.isNotEmpty)
+              _SummaryRow(
+                icon: AppIcons.warningAmber,
+                label: summary.staleLinkMessages.length == 1
+                    ? '1 stale PluralKit link was cleared'
+                    : '${summary.staleLinkMessages.length} stale PluralKit links were cleared',
+                color: theme.colorScheme.error,
+              ),
+            if (unmappedLiveFrontersCount > 0)
+              _SummaryRow(
+                icon: AppIcons.warningAmber,
+                label: unmappedLiveFrontersCount == 1
+                    ? '1 current PluralKit fronter needs review'
+                    : '$unmappedLiveFrontersCount current PluralKit fronters need review',
+                color: theme.colorScheme.error,
+              ),
           ],
         ],
       ),
@@ -109,11 +126,13 @@ class _SummaryRow extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: color),
           const SizedBox(width: 8),
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: color),
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: color),
+            ),
           ),
         ],
       ),

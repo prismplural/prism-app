@@ -123,6 +123,14 @@ class FakePluralKitClient implements PluralKitClient {
   }
 
   @override
+  Future<PKMember> getMember(String memberRef) async {
+    calls.add('getMember');
+    return membersToReturn.firstWhere(
+      (member) => member.id == memberRef || member.uuid == memberRef,
+    );
+  }
+
+  @override
   Future<List<PKSwitch>> getSwitches({
     DateTime? before,
     int limit = 100,
@@ -928,8 +936,14 @@ void main() {
     PKSwitch currentSwitch(
       String id,
       DateTime timestamp,
-      List<String> members,
-    ) => PKSwitch(id: id, timestamp: timestamp, members: members);
+      List<String> members, {
+      List<PKMemberSummary> memberDetails = const [],
+    }) => PKSwitch(
+      id: id,
+      timestamp: timestamp,
+      members: members,
+      memberDetails: memberDetails,
+    );
 
     Future<
       ({
@@ -1106,7 +1120,7 @@ void main() {
     });
 
     test(
-      'mapped plus unmapped current skips whole switch with warning',
+      'mapped plus unmapped current skips whole switch with notice',
       () async {
         final ts = DateTime.utc(2026, 5, 1, 12);
         final harness = await setupLive(
@@ -1115,6 +1129,15 @@ void main() {
             '00000000-0000-0000-0000-000000000105',
             ts,
             const ['pkA', 'pkMissing'],
+            memberDetails: const [
+              PKMemberSummary(
+                id: 'pkMissing',
+                uuid: 'uuid-missing',
+                name: 'Missing',
+                displayName: 'Missing Display',
+                avatarUrl: 'https://example.test/missing.png',
+              ),
+            ],
           ),
         );
 
@@ -1123,9 +1146,23 @@ void main() {
         );
 
         expect(summary!.switchesPulled, 0);
-        expect(summary.staleLinkMessages.single, contains('unmapped'));
-        expect(harness.service.state.syncStatus, contains('unmapped'));
-        expect(harness.service.state.syncError, contains('unmapped'));
+        expect(summary.staleLinkMessages, isEmpty);
+        expect(summary.observedLiveFronters, isTrue);
+        expect(summary.observedLiveFrontersDismissalKey, isNotEmpty);
+        final notice = summary.liveUnmappedFronters;
+        expect(notice, isNotNull);
+        expect(notice!.systemId, 'sys-1');
+        expect(notice.switchId, '00000000-0000-0000-0000-000000000105');
+        expect(notice.sortedPkIds, ['pkA', 'pkMissing']);
+        expect(notice.refs.single.pkId, 'pkMissing');
+        expect(notice.refs.single.pkUuid, 'uuid-missing');
+        expect(notice.refs.single.displayName, 'Missing Display');
+        expect(
+          notice.refs.single.avatarUrl,
+          'https://example.test/missing.png',
+        );
+        expect(harness.service.state.syncStatus, contains('Review current'));
+        expect(harness.service.state.syncError, isNull);
         expect(harness.sessionRepo.sessions, isEmpty);
       },
     );
@@ -1160,6 +1197,40 @@ void main() {
         );
         expect(harness.client.getSwitchesCallCount, 0);
         expect(harness.client.getMembersCallCount, 0);
+        expect(harness.client.getGroupsCallCount, 0);
+      },
+    );
+
+    test(
+      'pushOnly stale link skips member refresh and reports stale summary',
+      () async {
+        final harness = await setupLive(
+          members: [member('local-a', 'pkA', 'uuid-a')],
+          sessions: [
+            session(
+              'local-active',
+              'local-a',
+              startTime: DateTime.utc(2026, 5, 1, 12),
+            ),
+          ],
+        );
+        harness.client.createSwitchIdGenerator = (_) {
+          throw const PluralKitApiError(404, 'stale member');
+        };
+
+        final summary = await harness.service.syncLiveFrontersOnly(
+          direction: PkSyncDirection.pushOnly,
+        );
+
+        expect(summary!.switchesPushed, 0);
+        expect(summary.staleLinkMessages, isNotEmpty);
+        expect(harness.client.getCurrentFrontersCallCount, 1);
+        expect(harness.client.getSwitchesCallCount, 0);
+        expect(
+          harness.client.getMembersCallCount,
+          0,
+          reason: 'live-front-only sync must not refresh PK member profiles',
+        );
         expect(harness.client.getGroupsCallCount, 0);
       },
     );

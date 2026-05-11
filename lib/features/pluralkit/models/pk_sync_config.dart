@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:prism_plurality/features/pluralkit/models/pk_live_fronters_notice.dart';
+
 // ---------------------------------------------------------------------------
 // Sync direction
 // ---------------------------------------------------------------------------
@@ -240,6 +242,20 @@ class PkSyncSummary {
   /// from the mapping screen.
   final List<String> staleLinkMessages;
 
+  /// Actionable unmapped current-fronter state observed during a live-front
+  /// pull. This is intentionally separate from [staleLinkMessages], which is
+  /// reserved for PK-side deletions of previously linked local rows.
+  final PkUnmappedFrontersNotice? liveUnmappedFronters;
+  final int _liveUnmappedFrontersCount;
+  final String? _liveUnmappedFrontersDismissalKey;
+
+  /// Whether a pull-enabled live-fronter check observed PK's current state.
+  ///
+  /// When true and [observedLiveFrontersDismissalKey] is null, PK currently has
+  /// no active switch, so stale notices can be cleared.
+  final bool observedLiveFronters;
+  final String? observedLiveFrontersDismissalKey;
+
   const PkSyncSummary({
     this.membersPulled = 0,
     this.membersPushed = 0,
@@ -249,7 +265,14 @@ class PkSyncSummary {
     this.membersDeletedOnPk = 0,
     this.switchesDeletedOnPk = 0,
     this.staleLinkMessages = const [],
-  });
+    this.liveUnmappedFronters,
+    int liveUnmappedFrontersCount = 0,
+    String? liveUnmappedFrontersDismissalKey,
+    this.observedLiveFronters = false,
+    this.observedLiveFrontersDismissalKey,
+  }) : assert(liveUnmappedFrontersCount >= 0),
+       _liveUnmappedFrontersCount = liveUnmappedFrontersCount,
+       _liveUnmappedFrontersDismissalKey = liveUnmappedFrontersDismissalKey;
 
   int get totalChanges =>
       membersPulled +
@@ -259,16 +282,38 @@ class PkSyncSummary {
       membersDeletedOnPk +
       switchesDeletedOnPk;
 
-  Map<String, dynamic> toJson() => {
-    'membersPulled': membersPulled,
-    'membersPushed': membersPushed,
-    'membersSkipped': membersSkipped,
-    'switchesPulled': switchesPulled,
-    'switchesPushed': switchesPushed,
-    'membersDeletedOnPk': membersDeletedOnPk,
-    'switchesDeletedOnPk': switchesDeletedOnPk,
-    'staleLinkMessages': staleLinkMessages,
-  };
+  int get liveUnmappedFrontersCount =>
+      liveUnmappedFronters?.refs.length ?? _liveUnmappedFrontersCount;
+
+  String? get liveUnmappedFrontersDismissalKey =>
+      liveUnmappedFronters?.dismissalKey ?? _liveUnmappedFrontersDismissalKey;
+
+  bool get hasLiveUnmappedFronters => liveUnmappedFrontersCount > 0;
+
+  bool get hasSummaryDetails =>
+      totalChanges > 0 ||
+      staleLinkMessages.isNotEmpty ||
+      hasLiveUnmappedFronters;
+
+  Map<String, dynamic> toJson() {
+    final unmappedCount = liveUnmappedFrontersCount;
+    final unmappedDismissalKey = liveUnmappedFrontersDismissalKey;
+
+    return {
+      'membersPulled': membersPulled,
+      'membersPushed': membersPushed,
+      'membersSkipped': membersSkipped,
+      'switchesPulled': switchesPulled,
+      'switchesPushed': switchesPushed,
+      'membersDeletedOnPk': membersDeletedOnPk,
+      'switchesDeletedOnPk': switchesDeletedOnPk,
+      'staleLinkMessages': staleLinkMessages,
+      if (unmappedCount > 0) 'liveUnmappedFrontersCount': unmappedCount,
+      'liveUnmappedFrontersDismissalKey': ?unmappedDismissalKey,
+      'observedLiveFronters': observedLiveFronters,
+      'observedLiveFrontersDismissalKey': observedLiveFrontersDismissalKey,
+    };
+  }
 
   factory PkSyncSummary.fromJson(Map<String, dynamic> json) {
     return PkSyncSummary(
@@ -282,6 +327,14 @@ class PkSyncSummary {
       staleLinkMessages:
           (json['staleLinkMessages'] as List?)?.whereType<String>().toList() ??
           const [],
+      liveUnmappedFrontersCount: _nonNegativeInt(
+        json['liveUnmappedFrontersCount'],
+      ),
+      liveUnmappedFrontersDismissalKey:
+          json['liveUnmappedFrontersDismissalKey'] as String?,
+      observedLiveFronters: json['observedLiveFronters'] as bool? ?? false,
+      observedLiveFrontersDismissalKey:
+          json['observedLiveFrontersDismissalKey'] as String?,
     );
   }
 
@@ -302,8 +355,17 @@ class PkSyncSummary {
     if (staleLinkMessages.isNotEmpty) {
       parts.add('${staleLinkMessages.length} stale links cleared');
     }
+    final unmappedCount = liveUnmappedFrontersCount;
+    if (unmappedCount > 0) {
+      parts.add('$unmappedCount unmapped current fronters');
+    }
     return parts.isEmpty ? 'No changes' : parts.join(', ');
   }
+}
+
+int _nonNegativeInt(Object? value) {
+  if (value is int && value > 0) return value;
+  return 0;
 }
 
 // ---------------------------------------------------------------------------

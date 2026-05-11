@@ -16,6 +16,7 @@ import 'package:prism_plurality/domain/repositories/fronting_session_repository.
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_import_source.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_live_fronters_notice.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_bidirectional_service.dart';
@@ -23,6 +24,7 @@ import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_serv
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_fronting_switch_matcher.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_live_fronter_resolution_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_session_id.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_switch_cursor.dart';
@@ -1551,8 +1553,11 @@ class PluralKitSyncService {
       int switchesPulled = 0;
       int switchesPushed = 0;
       PKSwitch? current;
-      String? warning;
+      PkUnmappedFrontersNotice? liveUnmappedFronters;
+      var observedLiveFronters = false;
+      String? observedLiveFrontersDismissalKey;
       var skipPush = false;
+      final staleLinkMessages = <String>[];
 
       if (direction.pullEnabled) {
         final client = await _buildClient();
@@ -1563,10 +1568,12 @@ class PluralKitSyncService {
 
         try {
           current = await client.getCurrentFronters();
+          observedLiveFronters = true;
           if (current != null) {
             final pullResult = await _pullLiveFronterSwitch(current);
             switchesPulled = pullResult.pulled ? 1 : 0;
-            warning = pullResult.warning;
+            liveUnmappedFronters = pullResult.unmappedNotice;
+            observedLiveFrontersDismissalKey = pullResult.observedDismissalKey;
             skipPush = pullResult.skippedForUnmapped;
           }
         } finally {
@@ -1578,6 +1585,8 @@ class PluralKitSyncService {
         final pushResult = await pushPendingSwitches(
           allowDuringSync: true,
           knownCurrentFronters: current,
+          refreshMembersOnStaleLink: false,
+          onStaleLink: staleLinkMessages.add,
         );
         switchesPushed = pushResult.pushed;
       }
@@ -1595,7 +1604,14 @@ class PluralKitSyncService {
       final statusParts = <String>[];
       if (switchesPulled > 0) statusParts.add('Pulled current fronter switch');
       if (switchesPushed > 0) statusParts.add('Pushed current fronter switch');
-      if (warning != null) statusParts.add(warning);
+      if (liveUnmappedFronters != null) {
+        statusParts.add(
+          'Review current PluralKit fronters to finish importing this switch',
+        );
+      }
+      if (staleLinkMessages.isNotEmpty) {
+        statusParts.add('Skipped stale PluralKit switch links');
+      }
 
       _emit(
         _state.copyWith(
@@ -1604,8 +1620,7 @@ class PluralKitSyncService {
           syncStatus: statusParts.isNotEmpty
               ? '${statusParts.join('. ')}.'
               : 'Live fronters are up to date.',
-          syncError: warning,
-          clearError: warning == null,
+          clearError: true,
           lastManualSyncDate: isManual ? now : _state.lastManualSyncDate,
         ),
       );
@@ -1613,7 +1628,10 @@ class PluralKitSyncService {
       return PkSyncSummary(
         switchesPulled: switchesPulled,
         switchesPushed: switchesPushed,
-        staleLinkMessages: warning == null ? const [] : [warning],
+        staleLinkMessages: staleLinkMessages,
+        liveUnmappedFronters: liveUnmappedFronters,
+        observedLiveFronters: observedLiveFronters,
+        observedLiveFrontersDismissalKey: observedLiveFrontersDismissalKey,
       );
     } catch (e) {
       _emit(
@@ -1626,19 +1644,43 @@ class PluralKitSyncService {
     }
   }
 
-  Future<({bool pulled, String? warning, bool skippedForUnmapped})>
+  Future<
+    ({
+      bool pulled,
+      PkUnmappedFrontersNotice? unmappedNotice,
+      String? observedDismissalKey,
+      bool skippedForUnmapped,
+    })
+  >
   _pullLiveFronterSwitch(PKSwitch current) async {
     final currentSwitchId = current.id.trim();
     if (currentSwitchId.isEmpty) {
-      return (pulled: false, warning: null, skippedForUnmapped: false);
+      return (
+        pulled: false,
+        unmappedNotice: null,
+        observedDismissalKey: null,
+        skippedForUnmapped: false,
+      );
     }
+    final systemId = (await _syncDao.getSyncState()).systemId;
+    final observedDismissalKey = pkUnmappedFrontersDismissalKey(
+      systemId: systemId,
+      switchId: currentSwitchId,
+      switchTimestamp: current.timestamp,
+      sortedPkIds: current.members,
+    );
 
     final sessions = await _frontingSessionRepository.getAllSessions();
     final seenLive = sessions.any(
       (s) => !s.isDeleted && s.pluralkitUuid?.trim() == currentSwitchId,
     );
     if (seenLive) {
-      return (pulled: false, warning: null, skippedForUnmapped: false);
+      return (
+        pulled: false,
+        unmappedNotice: null,
+        observedDismissalKey: observedDismissalKey,
+        skippedForUnmapped: false,
+      );
     }
 
     final deletedLinked = await _frontingSessionRepository
@@ -1647,7 +1689,12 @@ class PluralKitSyncService {
       (s) => s.pluralkitUuid?.trim() == currentSwitchId,
     );
     if (seenDeleted) {
-      return (pulled: false, warning: null, skippedForUnmapped: false);
+      return (
+        pulled: false,
+        unmappedNotice: null,
+        observedDismissalKey: observedDismissalKey,
+        skippedForUnmapped: false,
+      );
     }
 
     final shortIdToUuid = await _buildShortIdToUuidMap();
@@ -1664,11 +1711,22 @@ class PluralKitSyncService {
       }
     }
     if (unmapped.isNotEmpty) {
-      final warning =
-          'Skipped current PluralKit switch because ${unmapped.length} '
-          '${unmapped.length == 1 ? 'member is' : 'members are'} unmapped.';
-      debugPrint('[PK_LIVE] $warning ids=${unmapped.join(',')}');
-      return (pulled: false, warning: warning, skippedForUnmapped: true);
+      final notice = _buildUnmappedFrontersNotice(
+        current,
+        unmapped,
+        systemId: systemId,
+      );
+      debugPrint(
+        '[PK_LIVE] Skipped current PluralKit switch because '
+        '${unmapped.length} ${unmapped.length == 1 ? 'member is' : 'members are'} '
+        'unmapped.',
+      );
+      return (
+        pulled: false,
+        unmappedNotice: notice,
+        observedDismissalKey: notice.dismissalKey,
+        skippedForUnmapped: true,
+      );
     }
 
     await _runDiffSweep(
@@ -1678,7 +1736,39 @@ class PluralKitSyncService {
       uuidToLocalIdOverride: uuidToLocalId,
       pkUuidByLocalIdOverride: pkUuidByLocalId,
     );
-    return (pulled: true, warning: null, skippedForUnmapped: false);
+    return (
+      pulled: true,
+      unmappedNotice: null,
+      observedDismissalKey: observedDismissalKey,
+      skippedForUnmapped: false,
+    );
+  }
+
+  PkUnmappedFrontersNotice _buildUnmappedFrontersNotice(
+    PKSwitch current,
+    List<String> unmappedIds, {
+    required String? systemId,
+  }) {
+    final detailsById = {
+      for (final detail in current.memberDetails) detail.id: detail,
+    };
+    final sortedCurrentIds = _sortedUniqueStrings(current.members);
+    return PkUnmappedFrontersNotice(
+      systemId: systemId,
+      switchId: current.id.trim(),
+      switchTimestamp: current.timestamp,
+      sortedPkIds: sortedCurrentIds,
+      refs: [
+        for (final pkId in unmappedIds)
+          PkUnmappedFronterRef(
+            pkId: pkId,
+            pkUuid: detailsById[pkId]?.uuid,
+            name: detailsById[pkId]?.name,
+            displayName: detailsById[pkId]?.displayName,
+            avatarUrl: detailsById[pkId]?.avatarUrl,
+          ),
+      ],
+    );
   }
 
   /// Fetch the PK system-level avatar and store it on the local settings row.
@@ -1702,6 +1792,38 @@ class PluralKitSyncService {
       if (bytes == null) return false;
       await _settingsRepository.updateSystemAvatarData(bytes);
       return true;
+    } finally {
+      client.dispose();
+    }
+  }
+
+  Future<domain.Member> importCurrentFronter(
+    PkUnmappedFronterRef ref, {
+    bool includeAvatar = false,
+  }) async {
+    final client = await _buildClient();
+    if (client == null) throw StateError('Not connected');
+    try {
+      return await PkLiveFronterResolutionService(
+        memberRepository: _memberRepository,
+        client: client,
+      ).importCurrentFronter(ref, includeAvatar: includeAvatar);
+    } finally {
+      client.dispose();
+    }
+  }
+
+  Future<domain.Member> linkCurrentFronterToLocal(
+    PkUnmappedFronterRef ref,
+    String localMemberId,
+  ) async {
+    final client = await _buildClient();
+    if (client == null) throw StateError('Not connected');
+    try {
+      return await PkLiveFronterResolutionService(
+        memberRepository: _memberRepository,
+        client: client,
+      ).linkCurrentFronterToLocal(ref, localMemberId);
     } finally {
       client.dispose();
     }
@@ -3229,6 +3351,7 @@ class PluralKitSyncService {
     void Function(String message)? onStaleLink,
     bool allowDuringSync = false,
     PKSwitch? knownCurrentFronters,
+    bool refreshMembersOnStaleLink = true,
   }) async {
     if (!_state.isConnected) {
       throw StateError('Not connected — cannot push switches');
@@ -3253,6 +3376,7 @@ class PluralKitSyncService {
           pushService: pushService ?? const PkPushService(),
           onStaleLink: onStaleLink,
           knownCurrentFronters: knownCurrentFronters,
+          refreshMembersOnStaleLink: refreshMembersOnStaleLink,
         ).whenComplete(() {
           if (identical(_pushInFlight, future)) {
             _pushInFlight = null;
@@ -3266,6 +3390,7 @@ class PluralKitSyncService {
     required PkPushService pushService,
     void Function(String message)? onStaleLink,
     PKSwitch? knownCurrentFronters,
+    bool refreshMembersOnStaleLink = true,
   }) async {
     final client = await _buildClient();
     if (client == null) throw StateError('Not connected');
@@ -3332,6 +3457,7 @@ class PluralKitSyncService {
           timestamp: pushTs,
           onStaleLink: onStaleLink,
           staleError: e,
+          refreshMembers: refreshMembersOnStaleLink,
         );
         if (retry == null) return const PkPushSwitchesResult();
         newSwitch = retry.$1;
@@ -3358,7 +3484,20 @@ class PluralKitSyncService {
     required DateTime timestamp,
     required PkStaleLinkException staleError,
     void Function(String message)? onStaleLink,
+    required bool refreshMembers,
   }) async {
+    if (!refreshMembers) {
+      debugPrint(
+        '[PK] Stale link on snapshot switch push (pkId=${staleError.pkId}); '
+        'skipping member refresh for live-front-only sync.',
+      );
+      onStaleLink?.call(
+        'A PluralKit switch target was removed on the server — '
+        'skipped pushing the current front. (pkId=${staleError.pkId})',
+      );
+      return null;
+    }
+
     debugPrint(
       '[PK] Stale link on snapshot switch push (pkId=${staleError.pkId}); '
       'refreshing PK members and retrying once.',
@@ -3559,9 +3698,12 @@ class PluralKitSyncService {
       if (seenDeleted) return false;
 
       final pull = await _pullLiveFronterSwitch(current);
-      if (pull.warning != null) {
+      final unmappedCount = pull.unmappedNotice?.refs.length ?? 0;
+      if (unmappedCount > 0) {
         debugPrint(
-          '[PK] pollFrontersOnly skipped current switch: ${pull.warning}',
+          '[PK] pollFrontersOnly skipped current switch with '
+          '$unmappedCount unmapped current '
+          '${unmappedCount == 1 ? 'fronter' : 'fronters'}.',
         );
       }
       return pull.pulled;

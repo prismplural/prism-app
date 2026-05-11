@@ -26,6 +26,7 @@ import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dar
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/widgets/pk_unmapped_fronters_notice.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -199,7 +200,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: isTimelineView
-          ? _buildTimelineView(theme, systemName, isSleeping, sleepAsync.value)
+          ? _buildTimelineView(systemName, isSleeping, sleepAsync.value)
           : _buildListView(theme, systemName, isSleeping, sleepAsync.value),
     );
   }
@@ -264,17 +265,20 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
             ),
           ),
 
-        // 2. Always-present fronters sit under Quick Front, then pin while
+        // 2. Action banners stay near the top of the home feed.
+        const SliverToBoxAdapter(child: FrontingActionBannerStack()),
+
+        // 3. Always-present fronters sit under Quick Front, then pin while
         // the rest of the fronting feed scrolls.
         SliverPersistentHeader(
           pinned: true,
           delegate: AlwaysPresentSliverDelegate(count: alwaysPresentCount),
         ),
 
-        // 3. Home banners share one placement under the sticky chip.
-        SliverToBoxAdapter(child: FrontingBannerStack(theme: theme)),
+        // 4. Sleep-oriented banners stay out of timeline mode.
+        SliverToBoxAdapter(child: FrontingSleepBannerStack(theme: theme)),
 
-        // 4. Active sleep session card
+        // 5. Active sleep session card
         if (isSleeping)
           const SliverToBoxAdapter(
             child: Padding(
@@ -283,10 +287,10 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
             ),
           ),
 
-        // 5. Sessions grouped by day (active session naturally at top)
+        // 6. Sessions grouped by day (active session naturally at top)
         const SessionHistoryList(),
 
-        // 6. Loading indicator for infinite scroll
+        // 7. Loading indicator for infinite scroll
         Consumer(
           builder: (context, ref, _) {
             final limit = ref.watch(sessionLimitProvider);
@@ -313,7 +317,6 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
   }
 
   Widget _buildTimelineView(
-    ThemeData theme,
     String systemName,
     bool isSleeping,
     FrontingSession? sleepSession,
@@ -334,11 +337,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
             padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: _QuickFrontHomeBlock(),
           ),
-        if (isSleeping)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: SleepModeCard(),
-          ),
+        const FrontingActionBannerStack(),
         Expanded(
           child: Padding(
             padding: EdgeInsets.only(
@@ -352,7 +351,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
                   left: 0,
                   right: 0,
                   bottom: 12,
-                  child: CurrentFrontingSessionChip(),
+                  child: CurrentFrontingPresenceRow(),
                 ),
               ],
             ),
@@ -874,6 +873,43 @@ class _BedtimeReminderBannerState
   }
 }
 
+class FrontingActionBannerStack extends StatelessWidget {
+  const FrontingActionBannerStack({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Fronting per-member upgrade banner — only renders when
+        // migration cleanup needs to be resumed. Auto-hidden after
+        // migration completes via Riverpod state.
+        FrontingUpgradeBanner(padding: EdgeInsets.fromLTRB(16, 8, 16, 0)),
+        PluralKitUnmappedFrontersNoticeBanner(),
+      ],
+    );
+  }
+}
+
+class FrontingSleepBannerStack extends StatelessWidget {
+  const FrontingSleepBannerStack({required this.theme, super.key});
+
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _BedtimeReminderBanner(
+          theme: theme,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        ),
+      ],
+    );
+  }
+}
+
 class FrontingBannerStack extends StatelessWidget {
   const FrontingBannerStack({required this.theme, super.key});
 
@@ -884,14 +920,8 @@ class FrontingBannerStack extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Fronting per-member upgrade banner — only renders when
-        // migration cleanup needs to be resumed. Auto-hidden after
-        // migration completes via Riverpod state.
-        const FrontingUpgradeBanner(padding: EdgeInsets.fromLTRB(16, 8, 16, 0)),
-        _BedtimeReminderBanner(
-          theme: theme,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-        ),
+        const FrontingActionBannerStack(),
+        FrontingSleepBannerStack(theme: theme),
       ],
     );
   }

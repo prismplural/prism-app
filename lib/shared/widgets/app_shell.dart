@@ -739,10 +739,16 @@ class _AppShellState extends ConsumerState<AppShell>
     // session changes (start / end / switch fronter). Fire-and-forget —
     // the notifier no-ops when PK isn't connected or mapping is incomplete.
     ref.listen(activeSessionsProvider, (_, _) {
-      ref.read(pluralKitSyncProvider.notifier).pushPendingSwitches();
-      // Prevent the next auto-poll tick from re-ingesting the switch we
-      // just authored locally.
-      ref.read(pkAutoPollProvider.notifier).noteLocalPush();
+      unawaited(
+        ref.read(pluralKitSyncProvider.notifier).pushPendingSwitches().then((
+          pushed,
+        ) {
+          if (pushed <= 0 || !context.mounted) return;
+          // Prevent the next auto-poll tick from re-ingesting the switch we
+          // just authored locally.
+          ref.read(pkAutoPollProvider.notifier).noteLocalPush();
+        }),
+      );
     });
 
     // Push edits to linked PK members when their sync-relevant fields change.

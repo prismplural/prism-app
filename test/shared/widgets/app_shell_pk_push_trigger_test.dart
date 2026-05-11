@@ -37,6 +37,7 @@ void main() {
 
     final sessions = StreamController<List<FrontingSession>>();
     final pushCalls = <int>[];
+    _FakePkAutoPollNotifier.noteLocalPushCalls = 0;
 
     final router = GoRouter(
       initialLocation: AppRoutePaths.home,
@@ -81,7 +82,7 @@ void main() {
           syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
           pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
           pluralKitSyncProvider.overrideWith(
-            () => _RecordingPluralKitSyncNotifier(pushCalls),
+            () => _RecordingPluralKitSyncNotifier(pushCalls, pushReturn: 1),
           ),
           habitsBadgeEnabledProvider.overrideWith((ref) => false),
           activeSessionsProvider.overrideWith((ref) => sessions.stream),
@@ -107,18 +108,109 @@ void main() {
     sessions.add([a]);
     await tester.pump();
     expect(pushCalls.length, 1);
+    expect(_FakePkAutoPollNotifier.noteLocalPushCalls, 1);
 
     sessions.add([a, b]);
     await tester.pump();
     expect(pushCalls.length, 2);
+    expect(_FakePkAutoPollNotifier.noteLocalPushCalls, 2);
 
     sessions.add([b]);
     await tester.pump();
     expect(pushCalls.length, 3);
+    expect(_FakePkAutoPollNotifier.noteLocalPushCalls, 3);
 
     sessions.add(const []);
     await tester.pump();
     expect(pushCalls.length, 4);
+    expect(_FakePkAutoPollNotifier.noteLocalPushCalls, 4);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('does not suppress auto-poll when PK push no-ops', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final sessions = StreamController<List<FrontingSession>>();
+    final pushCalls = <int>[];
+    _FakePkAutoPollNotifier.noteLocalPushCalls = 0;
+
+    final router = GoRouter(
+      initialLocation: AppRoutePaths.home,
+      routes: [
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, navigationShell) {
+            return AppShell(navigationShell: navigationShell);
+          },
+          branches: [
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoutePaths.home,
+                  builder: (context, state) =>
+                      const Scaffold(body: SizedBox.expand()),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    addTearDown(sessions.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+          isPinSetProvider.overrideWith((ref) async => false),
+          syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
+          pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
+          pluralKitSyncProvider.overrideWith(
+            () => _RecordingPluralKitSyncNotifier(pushCalls, pushReturn: 0),
+          ),
+          habitsBadgeEnabledProvider.overrideWith((ref) => false),
+          activeSessionsProvider.overrideWith((ref) => sessions.stream),
+          allMembersProvider.overrideWith((ref) => Stream.value(const [])),
+          unreadConversationCountProvider.overrideWith((ref) => 0),
+          frontingMigrationModeProvider.overrideWith(
+            (ref) => Stream.value(FrontingMigrationService.modeComplete),
+          ),
+          frontingMigrationGateProvider.overrideWith(
+            (ref) => FrontingMigrationGateStatus.complete,
+          ),
+        ],
+        child: MaterialApp.router(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    sessions.add([
+      FrontingSession(
+        id: 's-a',
+        startTime: DateTime.utc(2026, 2, 1, 12),
+        memberId: 'a',
+      ),
+    ]);
+    await tester.pump();
+
+    expect(pushCalls.length, 1);
+    expect(_FakePkAutoPollNotifier.noteLocalPushCalls, 0);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
   });
 }
 
@@ -128,6 +220,8 @@ class _FakeSyncStatusNotifier extends SyncStatusNotifier {
 }
 
 class _FakePkAutoPollNotifier extends PkAutoPollNotifier {
+  static int noteLocalPushCalls = 0;
+
   @override
   void build() {}
 
@@ -135,13 +229,16 @@ class _FakePkAutoPollNotifier extends PkAutoPollNotifier {
   void markForegrounded(bool value) {}
 
   @override
-  void noteLocalPush() {}
+  void noteLocalPush() {
+    noteLocalPushCalls++;
+  }
 }
 
 class _RecordingPluralKitSyncNotifier extends PluralKitSyncNotifier {
-  _RecordingPluralKitSyncNotifier(this.pushCalls);
+  _RecordingPluralKitSyncNotifier(this.pushCalls, {required this.pushReturn});
 
   final List<int> pushCalls;
+  final int pushReturn;
 
   @override
   PluralKitSyncState build() => const PluralKitSyncState();
@@ -149,7 +246,7 @@ class _RecordingPluralKitSyncNotifier extends PluralKitSyncNotifier {
   @override
   Future<int> pushPendingSwitches() async {
     pushCalls.add(pushCalls.length + 1);
-    return 1;
+    return pushReturn;
   }
 
   @override

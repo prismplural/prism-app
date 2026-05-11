@@ -132,13 +132,12 @@ class PluralKitClient {
   /// group-membership /members/add and /members/remove endpoints which
   /// PluralKit documents as taking a raw JSON array of member references).
   /// Centralizes header/queue/timeout/error handling for both shapes.
-  Future<dynamic> _postRaw(String url, Object body) =>
-      _queue.enqueue(() async {
-        final response = await _http
-            .post(Uri.parse(url), headers: _headers, body: jsonEncode(body))
-            .timeout(_httpTimeout);
-        return _handleResponse(response);
-      });
+  Future<dynamic> _postRaw(String url, Object body) => _queue.enqueue(() async {
+    final response = await _http
+        .post(Uri.parse(url), headers: _headers, body: jsonEncode(body))
+        .timeout(_httpTimeout);
+    return _handleResponse(response);
+  });
 
   Future<dynamic> _patch(String url, Map<String, dynamic> body) =>
       _queue.enqueue(() async {
@@ -169,6 +168,18 @@ class PluralKitClient {
     return json
         .map((e) => PKMember.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// GET /members/{ref} — fetch one member by short ID or UUID.
+  Future<PKMember> getMember(String memberRef) async {
+    final ref = memberRef.trim();
+    if (ref.isEmpty) {
+      throw ArgumentError.value(memberRef, 'memberRef', 'Must not be blank');
+    }
+    final encoded = Uri.encodeComponent(ref);
+    final json =
+        await _get('$_baseUrl/members/$encoded') as Map<String, dynamic>;
+    return PKMember.fromJson(json);
   }
 
   /// GET /systems/@me/switches — fetch switches with optional pagination.
@@ -264,10 +275,7 @@ class PluralKitClient {
     List<String> memberRefs,
   ) async {
     if (memberRefs.isEmpty) return;
-    await _postRaw(
-      '$_baseUrl/groups/$groupRef/members/remove',
-      memberRefs,
-    );
+    await _postRaw('$_baseUrl/groups/$groupRef/members/remove', memberRefs);
   }
 
   /// POST /members — create a new member.

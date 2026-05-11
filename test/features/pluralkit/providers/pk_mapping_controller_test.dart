@@ -13,14 +13,18 @@ import 'package:prism_plurality/domain/models/fronting_session.dart'
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
+import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_live_fronters_notice.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pk_unmapped_fronters_notice_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Secure-storage stub (flutter_secure_storage uses a MethodChannel).
 void _installSecureStorageStub() {
@@ -672,6 +676,7 @@ void main() {
             databaseProvider.overrideWithValue(db),
             memberRepositoryProvider.overrideWithValue(repo),
             pluralKitSyncServiceProvider.overrideWithValue(probe),
+            frontingMigrationWritesBlockedProvider.overrideWithValue(false),
           ],
         );
         addTearDown(probedContainer.dispose);
@@ -760,6 +765,7 @@ void main() {
             databaseProvider.overrideWithValue(db),
             memberRepositoryProvider.overrideWithValue(repo),
             pluralKitSyncServiceProvider.overrideWithValue(probe),
+            frontingMigrationWritesBlockedProvider.overrideWithValue(false),
           ],
         );
         addTearDown(probedContainer.dispose);
@@ -785,6 +791,7 @@ void main() {
     test(
       'apply in live-fronts-only uses live sync and skips full history',
       () async {
+        SharedPreferences.setMockInitialValues({});
         late ProviderContainer probedContainer;
         final probe = _PhaseProbeSyncService(
           memberRepository: repo,
@@ -802,6 +809,7 @@ void main() {
             databaseProvider.overrideWithValue(db),
             memberRepositoryProvider.overrideWithValue(repo),
             pluralKitSyncServiceProvider.overrideWithValue(probe),
+            frontingMigrationWritesBlockedProvider.overrideWithValue(false),
           ],
         );
         addTearDown(probedContainer.dispose);
@@ -822,6 +830,106 @@ void main() {
         expect(probe.pushSwitchesCallCount, 0);
         expect(probe.liveFrontsOnlyCallCount, 1);
         expect(probe.liveFrontsOnlyDirection, PkSyncDirection.pullOnly);
+      },
+    );
+
+    test(
+      'apply in live-fronts-only publishes unmapped notice via sync notifier',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final notice = PkUnmappedFrontersNotice(
+          systemId: 'sys-1',
+          switchId: 'switch-current',
+          switchTimestamp: DateTime.utc(2026, 5, 11, 12),
+          sortedPkIds: const ['aaaaa'],
+          refs: const [PkUnmappedFronterRef(pkId: 'aaaaa')],
+        );
+
+        late ProviderContainer probedContainer;
+        final probe =
+            _PhaseProbeSyncService(
+                memberRepository: repo,
+                frontingSessionRepository: _EmptyFrontingSessionRepo(),
+                syncDao: PluralKitSyncDao(db),
+                clientFactory: (_) => client,
+                tokenOverride: 'fake',
+                readState: () =>
+                    probedContainer.read(pkMappingControllerProvider).value,
+              )
+              ..liveFrontsOnlySummary = PkSyncSummary(
+                liveUnmappedFronters: notice,
+                observedLiveFronters: true,
+                observedLiveFrontersDismissalKey: notice.dismissalKey,
+              );
+        await probe.setToken('fake');
+
+        probedContainer = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            memberRepositoryProvider.overrideWithValue(repo),
+            pluralKitSyncServiceProvider.overrideWithValue(probe),
+            frontingMigrationWritesBlockedProvider.overrideWithValue(false),
+          ],
+        );
+        addTearDown(probedContainer.dispose);
+
+        await probedContainer
+            .read(pkSyncModeProvider.notifier)
+            .setMode(PkSyncMode.liveFrontsOnly);
+        await probedContainer
+            .read(pkSyncDirectionProvider.notifier)
+            .setDirection(PkSyncDirection.pullOnly);
+        await probedContainer.read(pkMappingControllerProvider.future);
+
+        await probedContainer
+            .read(pkMappingControllerProvider.notifier)
+            .apply();
+
+        final noticeState = await probedContainer.read(
+          pkUnmappedFrontersNoticeProvider.future,
+        );
+        expect(noticeState.currentNotice?.dismissalKey, notice.dismissalKey);
+      },
+    );
+
+    test(
+      'apply in live-fronts-only respects migration gate before live sync',
+      () async {
+        late ProviderContainer probedContainer;
+        final probe = _PhaseProbeSyncService(
+          memberRepository: repo,
+          frontingSessionRepository: _EmptyFrontingSessionRepo(),
+          syncDao: PluralKitSyncDao(db),
+          clientFactory: (_) => client,
+          tokenOverride: 'fake',
+          readState: () =>
+              probedContainer.read(pkMappingControllerProvider).value,
+        );
+        await probe.setToken('fake');
+
+        probedContainer = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            memberRepositoryProvider.overrideWithValue(repo),
+            pluralKitSyncServiceProvider.overrideWithValue(probe),
+            frontingMigrationWritesBlockedProvider.overrideWithValue(true),
+          ],
+        );
+        addTearDown(probedContainer.dispose);
+
+        await probedContainer
+            .read(pkSyncModeProvider.notifier)
+            .setMode(PkSyncMode.liveFrontsOnly);
+        await probedContainer
+            .read(pkSyncDirectionProvider.notifier)
+            .setDirection(PkSyncDirection.pullOnly);
+        await probedContainer.read(pkMappingControllerProvider.future);
+
+        await probedContainer
+            .read(pkMappingControllerProvider.notifier)
+            .apply();
+
+        expect(probe.liveFrontsOnlyCallCount, 0);
       },
     );
 
@@ -1013,6 +1121,7 @@ class _PhaseProbeSyncService extends PluralKitSyncService {
   PkMappingState? stateAtImportEntry;
   PkMappingState? stateAtPushEntry;
   PkSyncDirection? liveFrontsOnlyDirection;
+  PkSyncSummary? liveFrontsOnlySummary;
 
   @override
   Future<void> importSwitchesAfterLink({
@@ -1029,6 +1138,7 @@ class _PhaseProbeSyncService extends PluralKitSyncService {
     void Function(String message)? onStaleLink,
     bool allowDuringSync = false,
     PKSwitch? knownCurrentFronters,
+    bool refreshMembersOnStaleLink = true,
   }) async {
     pushSwitchesCallCount++;
     stateAtPushEntry = readState();
@@ -1037,6 +1147,7 @@ class _PhaseProbeSyncService extends PluralKitSyncService {
       onStaleLink: onStaleLink,
       allowDuringSync: allowDuringSync,
       knownCurrentFronters: knownCurrentFronters,
+      refreshMembersOnStaleLink: refreshMembersOnStaleLink,
     );
   }
 
@@ -1047,6 +1158,8 @@ class _PhaseProbeSyncService extends PluralKitSyncService {
   }) {
     liveFrontsOnlyCallCount++;
     liveFrontsOnlyDirection = direction;
+    final summary = liveFrontsOnlySummary;
+    if (summary != null) return Future.value(summary);
     return super.syncLiveFrontersOnly(direction: direction, isManual: isManual);
   }
 }

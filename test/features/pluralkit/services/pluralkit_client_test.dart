@@ -87,6 +87,25 @@ void main() {
       expect(members[1].id, 'bbbbb');
     });
 
+    test('getMember fetches one member by short ID', () async {
+      final h = buildClient((req, _) async {
+        expect(req.method, 'GET');
+        expect(req.url.path, '/v2/members/abcde');
+        return jsonResponse({
+          'id': 'abcde',
+          'uuid': 'uuid-abcde',
+          'name': 'Alice',
+          'display_name': 'Alice Display',
+        });
+      });
+
+      final member = await h.client.getMember(' abcde ');
+      expect(member.id, 'abcde');
+      expect(member.uuid, 'uuid-abcde');
+      expect(member.displayName, 'Alice Display');
+      expect(h.requests, hasLength(1));
+    });
+
     test('getSwitches forwards before + limit as query params', () async {
       final before = DateTime.utc(2026, 4, 1, 12);
       final h = buildClient((req, _) async {

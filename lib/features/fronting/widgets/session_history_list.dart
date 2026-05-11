@@ -21,6 +21,7 @@ import 'package:prism_plurality/features/fronting/utils/period_day_grouping.dart
 import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
+import 'package:prism_plurality/features/fronting/widgets/wake_up_sleep_sheet.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
@@ -40,6 +41,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/features/fronting/services/period_delete.dart';
 import 'package:prism_plurality/features/fronting/views/period_detail_args.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -235,6 +237,90 @@ class CurrentFrontingSessionChip extends ConsumerWidget {
             slice: slice,
             isLatest: true,
             membersMap: membersMap,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CurrentFrontingPresenceRow extends ConsumerWidget {
+  const CurrentFrontingPresenceRow({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sleepAsync = ref.watch(activeSleepSessionProvider);
+    return sleepAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (sleepSession) {
+        if (sleepSession != null) {
+          return _CurrentSleepPresenceRow(session: sleepSession);
+        }
+        return const CurrentFrontingSessionChip();
+      },
+    );
+  }
+}
+
+class _CurrentSleepPresenceRow extends StatelessWidget {
+  const _CurrentSleepPresenceRow({required this.session});
+
+  final FrontingSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sleepColor = AppColors.sleep(theme.brightness);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GlassSurface(
+        borderRadius: BorderRadius.circular(PrismTokens.radiusXLarge),
+        tint: sleepColor,
+        sigma: PrismTokens.glassBlurStrong,
+        padding: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(AppIcons.bedtimeRounded, size: 24, color: sleepColor),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FrontingDurationText(
+                      startTime: session.startTime,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: sleepColor,
+                        fontFeatures: [const FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    Text(
+                      context.l10n.frontingSleepingLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              PrismButton(
+                label: context.l10n.frontingWakeUp,
+                icon: AppIcons.wbSunnyRounded,
+                onPressed: () => WakeUpSleepSheet.show(context, session),
+                density: PrismControlDensity.compact,
+                tone: PrismButtonTone.filled,
+              ),
+            ],
           ),
         ),
       ),

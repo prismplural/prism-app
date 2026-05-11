@@ -122,6 +122,8 @@ class _FakeClient implements PluralKitClient {
   @override
   Future<List<PKMember>> getMembers() async => const [];
   @override
+  Future<PKMember> getMember(String memberRef) => throw UnimplementedError();
+  @override
   Future<PKMember> createMember(Map<String, dynamic> data) =>
       throw UnimplementedError();
   @override

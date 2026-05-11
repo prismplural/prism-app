@@ -236,10 +236,11 @@ void main() {
             pkSyncModeProvider.overrideWith(
               () => _StaticPkSyncModeNotifier(syncMode),
             ),
-          if (syncDirection != null)
-            pkSyncDirectionProvider.overrideWith(
-              () => _StaticPkSyncDirectionNotifier(syncDirection),
+          pkSyncDirectionProvider.overrideWith(
+            () => _StaticPkSyncDirectionNotifier(
+              syncDirection ?? PkSyncDirection.bidirectional,
             ),
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -281,6 +282,43 @@ void main() {
       final pushed = await notifier.pushPendingSwitches();
       expect(pushed, 0);
       expect(ctx.service.pushPendingCalls, 0);
+    });
+
+    test('pushPendingSwitches returns 0 in pullOnly direction', () async {
+      final ctx = await primedContainer(
+        FrontingMigrationService.modeComplete,
+        initialServiceState: const PluralKitSyncState(isConnected: true),
+        syncDirection: PkSyncDirection.pullOnly,
+      );
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
+      final pushed = await notifier.pushPendingSwitches();
+      expect(pushed, 0);
+      expect(ctx.service.pushPendingCalls, 0);
+    });
+
+    test('pushPendingSwitches returns 0 when sync is disabled', () async {
+      final ctx = await primedContainer(
+        FrontingMigrationService.modeComplete,
+        initialServiceState: const PluralKitSyncState(isConnected: true),
+        syncDirection: PkSyncDirection.disabled,
+      );
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
+      final pushed = await notifier.pushPendingSwitches();
+      expect(pushed, 0);
+      expect(ctx.service.pushPendingCalls, 0);
+    });
+
+    test('pushPendingSwitches delegates in pushOnly direction', () async {
+      final ctx = await primedContainer(
+        FrontingMigrationService.modeComplete,
+        initialServiceState: const PluralKitSyncState(isConnected: true),
+        syncDirection: PkSyncDirection.pushOnly,
+      );
+      ctx.service.pushReturn = 3;
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
+      final pushed = await notifier.pushPendingSwitches();
+      expect(pushed, 3);
+      expect(ctx.service.pushPendingCalls, 1);
     });
 
     test('previewPendingDestructivePush returns empty while blocked without '
@@ -484,6 +522,11 @@ class _StaticPkSyncDirectionNotifier extends PkSyncDirectionNotifier {
 
   @override
   PkSyncDirection build() => _direction;
+
+  @override
+  Future<void> load() async {
+    state = _direction;
+  }
 }
 
 /// Minimal PluralKitSyncService stand-in. Only counts calls and returns
@@ -518,6 +561,7 @@ class _ThrowingPkSyncService implements PluralKitSyncService {
     void Function(String message)? onStaleLink,
     bool allowDuringSync = false,
     PKSwitch? knownCurrentFronters,
+    bool refreshMembersOnStaleLink = true,
   }) async {
     pushPendingCalls++;
     return PkPushSwitchesResult(pushed: pushReturn);

@@ -276,6 +276,13 @@ class _PkMigrationFakeClient implements PluralKitClient {
   }
 
   @override
+  Future<PKMember> getMember(String memberRef) async {
+    return members.firstWhere(
+      (member) => member.id == memberRef || member.uuid == memberRef,
+    );
+  }
+
+  @override
   Future<List<PKSwitch>> getSwitches({
     DateTime? before,
     int limit = 100,
@@ -292,9 +299,15 @@ class _PkMigrationFakeClient implements PluralKitClient {
   Future<List<String>> getGroupMembers(String groupRef) async =>
       const <String>[];
   @override
-  Future<void> addMembersToGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
+  Future<void> addMembersToGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
   @override
-  Future<void> removeMembersFromGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
+  Future<void> removeMembersFromGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
 
   @override
   Future<List<int>> downloadBytes(String url) async => const <int>[];

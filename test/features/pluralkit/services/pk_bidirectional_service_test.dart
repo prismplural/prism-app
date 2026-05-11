@@ -76,6 +76,8 @@ class FakePluralKitClient implements PluralKitClient {
   @override
   Future<List<PKMember>> getMembers() => throw UnimplementedError();
   @override
+  Future<PKMember> getMember(String memberRef) => throw UnimplementedError();
+  @override
   Future<List<PKSwitch>> getSwitches({DateTime? before, int limit = 100}) =>
       throw UnimplementedError();
   @override

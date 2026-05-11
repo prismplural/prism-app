@@ -14,6 +14,7 @@ void main() {
 
       expect(sw.id, 'switch-1');
       expect(sw.members, ['abcde', 'fghij']);
+      expect(sw.memberDetails, isEmpty);
       expect(sw.timestamp.toUtc().year, 2026);
     });
 
@@ -26,6 +27,8 @@ void main() {
             'id': 'abcde',
             'uuid': '00000000-0000-0000-0000-000000000001',
             'name': 'Alice',
+            'display_name': 'Al',
+            'avatar_url': 'https://example.test/al.png',
           },
           <String, dynamic>{
             'id': 'fghij',
@@ -39,6 +42,15 @@ void main() {
 
       expect(sw.id, 'switch-2');
       expect(sw.members, ['abcde', 'fghij']);
+      expect(sw.memberDetails, hasLength(2));
+      expect(sw.memberDetails.first.id, 'abcde');
+      expect(
+        sw.memberDetails.first.uuid,
+        '00000000-0000-0000-0000-000000000001',
+      );
+      expect(sw.memberDetails.first.name, 'Alice');
+      expect(sw.memberDetails.first.displayName, 'Al');
+      expect(sw.memberDetails.first.avatarUrl, 'https://example.test/al.png');
     });
 
     test('handles an empty members array (switch-out)', () {
@@ -66,6 +78,7 @@ void main() {
       final sw = PKSwitch.fromJson(json);
 
       expect(sw.members, ['abcde', 'fghij']);
+      expect(sw.memberDetails.map((m) => m.id), ['fghij']);
     });
   });
 
