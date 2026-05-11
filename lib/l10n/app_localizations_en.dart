@@ -1486,7 +1486,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get syncQuarantinedBatchBannerBody =>
-      'Repair tools are coming in the next update. Your data is safe — only the affected sync items are paused.';
+      'Tap Repair stuck sync below to split the affected items into smaller chunks. Your data is safe — nothing has been lost.';
+
+  @override
+  String get syncQuarantinedBatchRepairAction => 'Repair stuck sync';
+
+  @override
+  String get syncQuarantinedBatchRepairDescription =>
+      'Splits the affected items into smaller chunks so they can finish syncing. Your data is not lost.';
+
+  @override
+  String syncQuarantinedBatchRepairSuccess(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Repaired $count items — sync resuming…',
+      one: 'Repaired 1 item — sync resuming…',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String syncQuarantinedBatchRepairFailure(String error) {
+    return 'Repair failed: $error';
+  }
 
   @override
   String get syncTroubleshootingSyncId => 'Sync ID';

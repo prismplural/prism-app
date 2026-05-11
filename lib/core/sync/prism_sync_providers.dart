@@ -2849,6 +2849,15 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     }
   }
 
+  /// Re-query the quarantined-batch count from the Rust engine and merge it
+  /// into `state`. Used by the Phase 1C `repairQuarantinedBatches` provider
+  /// after a successful repair to drop the banner to zero immediately,
+  /// rather than waiting for the next SyncCompleted event.
+  Future<void> refreshQuarantinedBatchCount() async {
+    final count = await _queryQuarantinedBatchCount();
+    state = state.copyWith(quarantinedBatchCount: count);
+  }
+
   /// Handle a DeviceRevoked event. Rust emits this event for BOTH
   /// self-revoke AND sibling-revoke (another device in the group being
   /// revoked), so the first thing we do is determine which case this
@@ -3284,6 +3293,57 @@ Future<void> triggerSync(ffi.PrismSyncHandle handle) async {
     );
   }
 }
+
+/// Phase 1C — repair any push-quarantined batches by repartitioning their
+/// ops into smaller sub-batches.
+///
+/// Calls the Rust `repair_quarantined_batches` FFI, then refreshes the
+/// quarantined-batch count on `syncStatusProvider` so the troubleshooting
+/// banner drops to zero immediately on success. Triggers an auto-sync so
+/// the freshly repartitioned batches push without waiting for the next
+/// scheduled cycle.
+///
+/// Returns the number of `push_quarantine` rows successfully repaired.
+/// Throws on FFI errors; callers are expected to surface a user-facing
+/// snackbar around the call.
+///
+/// **Test seam:** when [debugRepairQuarantinedBatchesOverride] is non-null,
+/// the FFI call is skipped and the override is invoked instead. Used by
+/// widget tests that need to assert the action fires without exercising
+/// the Rust engine.
+Future<int> repairQuarantinedBatches(WidgetRef ref) async {
+  final override = debugRepairQuarantinedBatchesOverride;
+  int repaired;
+  if (override != null) {
+    repaired = await override();
+  } else {
+    final handle = ref.read(prismSyncHandleProvider).value;
+    if (handle == null) {
+      throw StateError('repairQuarantinedBatches: no active handle');
+    }
+    final result = await ffi.repairQuarantinedBatches(handle: handle);
+    repaired = result.toInt();
+  }
+
+  // Refresh the count immediately so the banner drops without waiting for
+  // the next SyncCompleted event.
+  await ref.read(syncStatusProvider.notifier).refreshQuarantinedBatchCount();
+
+  // Best-effort: kick off an auto-sync so the freshly repartitioned batches
+  // push right away. We don't await this — the auto-sync driver handles
+  // sustained failures on its own.
+  final handle = ref.read(prismSyncHandleProvider).value;
+  if (handle != null) {
+    unawaited(triggerSync(handle));
+  }
+
+  return repaired;
+}
+
+/// Test seam: when non-null, [repairQuarantinedBatches] calls this instead
+/// of the Rust FFI. Returns the synthetic "repaired" count for tests.
+@visibleForTesting
+Future<int> Function()? debugRepairQuarantinedBatchesOverride;
 
 // ---------------------------------------------------------------------------
 // SP boards backfill startup trigger

@@ -2750,11 +2750,35 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 item is too large to sync} other{{count} items are too large to sync}}'**
   String syncQuarantinedBatchBannerTitle(int count);
 
-  /// Banner body shown beneath the quarantine count, explaining that repair will arrive in a follow-up release.
+  /// Banner body shown beneath the quarantine count, directing the user to the Repair action.
   ///
   /// In en, this message translates to:
-  /// **'Repair tools are coming in the next update. Your data is safe — only the affected sync items are paused.'**
+  /// **'Tap Repair stuck sync below to split the affected items into smaller chunks. Your data is safe — nothing has been lost.'**
   String get syncQuarantinedBatchBannerBody;
+
+  /// Button label shown alongside the quarantine banner to trigger Phase 1C repair.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair stuck sync'**
+  String get syncQuarantinedBatchRepairAction;
+
+  /// Description text shown beneath the Repair stuck sync button.
+  ///
+  /// In en, this message translates to:
+  /// **'Splits the affected items into smaller chunks so they can finish syncing. Your data is not lost.'**
+  String get syncQuarantinedBatchRepairDescription;
+
+  /// Snackbar text after Repair stuck sync completes successfully.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Repaired 1 item — sync resuming…} other{Repaired {count} items — sync resuming…}}'**
+  String syncQuarantinedBatchRepairSuccess(int count);
+
+  /// Snackbar text shown when the Repair stuck sync action fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair failed: {error}'**
+  String syncQuarantinedBatchRepairFailure(String error);
 
   /// Row title: sync ID
   ///

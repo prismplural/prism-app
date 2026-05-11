@@ -2026,9 +2026,35 @@
       }
     }
   },
-  "syncQuarantinedBatchBannerBody": "Repair tools are coming in the next update. Your data is safe — only the affected sync items are paused.",
+  "syncQuarantinedBatchBannerBody": "Tap Repair stuck sync below to split the affected items into smaller chunks. Your data is safe — nothing has been lost.",
   "@syncQuarantinedBatchBannerBody": {
-    "description": "Banner body shown beneath the quarantine count, explaining that repair will arrive in a follow-up release."
+    "description": "Banner body shown beneath the quarantine count, directing the user to the Repair action."
+  },
+  "syncQuarantinedBatchRepairAction": "Repair stuck sync",
+  "@syncQuarantinedBatchRepairAction": {
+    "description": "Button label shown alongside the quarantine banner to trigger Phase 1C repair."
+  },
+  "syncQuarantinedBatchRepairDescription": "Splits the affected items into smaller chunks so they can finish syncing. Your data is not lost.",
+  "@syncQuarantinedBatchRepairDescription": {
+    "description": "Description text shown beneath the Repair stuck sync button."
+  },
+  "syncQuarantinedBatchRepairSuccess": "{count, plural, =1{Repaired 1 item — sync resuming…} other{Repaired {count} items — sync resuming…}}",
+  "@syncQuarantinedBatchRepairSuccess": {
+    "description": "Snackbar text after Repair stuck sync completes successfully.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "syncQuarantinedBatchRepairFailure": "Repair failed: {error}",
+  "@syncQuarantinedBatchRepairFailure": {
+    "description": "Snackbar text shown when the Repair stuck sync action fails.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "syncTroubleshootingSyncId": "Sync ID",
   "@syncTroubleshootingSyncId": {

@@ -174,13 +174,13 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
               ),
             ],
 
-            // -- Push-quarantine banner (Phase 1B) --
+            // -- Push-quarantine banner + repair (Phase 1B + 1C) --
             //
             // Some local mutations couldn't fit in the relay's 1 MB envelope
-            // cap and were quarantined. The repair action lands in Phase 1C;
-            // for now we surface the count so users understand why the
-            // affected entities aren't syncing.
-            if (syncStatus.quarantinedBatchCount > 0)
+            // cap and were quarantined. The banner surfaces the count and
+            // explains the recovery, and the Repair button below runs the
+            // Phase 1C repartition to unstick them.
+            if (syncStatus.quarantinedBatchCount > 0) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: PrismSurface(
@@ -221,6 +221,11 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
                   ),
                 ),
               ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: _QuarantineRepairAction(),
+              ),
+            ],
 
             // -- Current State --
             PrismListRow(
@@ -564,6 +569,71 @@ class _TroubleshootingTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Phase 1C repair action shown beneath the quarantine banner.
+///
+/// Owns its own loading state so the button can spinner mid-tap without
+/// dragging the rest of the troubleshooting screen into a Future rebuild.
+/// Calls [repairQuarantinedBatches] which refreshes the count and kicks an
+/// auto-sync on success.
+class _QuarantineRepairAction extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_QuarantineRepairAction> createState() =>
+      _QuarantineRepairActionState();
+}
+
+class _QuarantineRepairActionState
+    extends ConsumerState<_QuarantineRepairAction> {
+  bool _isRepairing = false;
+
+  Future<void> _onRepair() async {
+    if (_isRepairing) return;
+    setState(() => _isRepairing = true);
+    try {
+      final repaired = await repairQuarantinedBatches(ref);
+      if (!mounted) return;
+      PrismToast.show(
+        context,
+        message: context.l10n.syncQuarantinedBatchRepairSuccess(repaired),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      PrismToast.error(
+        context,
+        message: context.l10n.syncQuarantinedBatchRepairFailure(e.toString()),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isRepairing = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PrismButton(
+          onPressed: _onRepair,
+          enabled: !_isRepairing,
+          isLoading: _isRepairing,
+          icon: AppIcons.buildCircleOutlined,
+          label: context.l10n.syncQuarantinedBatchRepairAction,
+          tone: PrismButtonTone.filled,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          context.l10n.syncQuarantinedBatchRepairDescription,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
