@@ -1379,7 +1379,7 @@ class PluralKitSyncService {
             switches: newSwitches,
             shortIdToUuid: resolvedShortIdToUuid,
             onProgress: (i) {
-              if (i % 50 == 0) {
+              if (i % 50 == 0 || i == newSwitches.length - 1) {
                 final total = newSwitches.length;
                 _emit(
                   _state.copyWith(
