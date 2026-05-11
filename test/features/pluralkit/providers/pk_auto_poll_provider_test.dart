@@ -55,6 +55,11 @@ class _FakePkSyncModeNotifier extends PkSyncModeNotifier {
   PkSyncMode build() => _mode;
 
   @override
+  Future<void> load() async {
+    state = _mode;
+  }
+
+  @override
   Future<void> setMode(PkSyncMode mode) async {
     state = mode;
   }
@@ -63,6 +68,11 @@ class _FakePkSyncModeNotifier extends PkSyncModeNotifier {
 class _FakePkSyncDirectionNotifier extends PkSyncDirectionNotifier {
   @override
   PkSyncDirection build() => PkSyncDirection.pullOnly;
+
+  @override
+  Future<void> load() async {
+    state = PkSyncDirection.pullOnly;
+  }
 }
 
 final _fakePkSyncProvider =

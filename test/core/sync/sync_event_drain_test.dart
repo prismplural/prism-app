@@ -55,7 +55,9 @@ void main() {
       expect(shouldDrainForCompletedErrorKind('Auth'), isFalse);
       expect(shouldDrainForCompletedErrorKind('KeyChanged'), isFalse);
       expect(
-          shouldDrainForCompletedErrorKind('DeviceIdentityMismatch'), isFalse);
+        shouldDrainForCompletedErrorKind('DeviceIdentityMismatch'),
+        isFalse,
+      );
     });
 
     test('protocol/epoch/clock errors skip drain', () {
@@ -86,7 +88,8 @@ void main() {
     ProviderSubscription<SyncStatus> subscription,
     ProviderSubscription<AsyncValue<SyncEvent>> eventSubscription,
     int Function() drainCount,
-  }) bindContainer() {
+  })
+  bindContainer() {
     // ignore: close_sinks
     final controller = StreamController<SyncEvent>.broadcast();
     var count = 0;
@@ -159,8 +162,11 @@ void main() {
     ctx.controller.add(completedEvent());
     // Let the stream deliver and listener schedule the timer.
     await Future<void>.delayed(Duration.zero);
-    expect(ctx.drainCount(), 0,
-        reason: 'drain must not fire before debounce elapses');
+    expect(
+      ctx.drainCount(),
+      0,
+      reason: 'drain must not fire before debounce elapses',
+    );
 
     await Future<void>.delayed(settleAfterDebounce);
     expect(ctx.drainCount(), 1, reason: 'drain must fire after debounce');
@@ -232,28 +238,33 @@ void main() {
     expect(ctx.container.read(syncStatusProvider).lastSyncAt, isNull);
   });
 
-  test('5 rapid events coalesce into a single drain within the window',
-      () async {
-    final ctx = bindContainer();
-    addTearDown(() async {
-      ctx.subscription.close();
-      ctx.eventSubscription.close();
-      ctx.container.dispose();
-      await ctx.controller.close();
-    });
+  test(
+    '5 rapid events coalesce into a single drain within the window',
+    () async {
+      final ctx = bindContainer();
+      addTearDown(() async {
+        ctx.subscription.close();
+        ctx.eventSubscription.close();
+        ctx.container.dispose();
+        await ctx.controller.close();
+      });
 
-    for (var i = 0; i < 5; i++) {
-      ctx.controller.add(completedEvent());
-    }
-    // Before the debounce window expires the drain must not have fired.
-    await Future<void>.delayed(Duration.zero);
-    expect(ctx.drainCount(), 0);
+      for (var i = 0; i < 5; i++) {
+        ctx.controller.add(completedEvent());
+      }
+      // Before the debounce window expires the drain must not have fired.
+      await Future<void>.delayed(Duration.zero);
+      expect(ctx.drainCount(), 0);
 
-    await Future<void>.delayed(settleAfterDebounce);
-    expect(ctx.drainCount(), 1,
+      await Future<void>.delayed(settleAfterDebounce);
+      expect(
+        ctx.drainCount(),
+        1,
         reason:
-            'trailing-edge debouncer should coalesce burst into exactly 1 drain');
-  });
+            'trailing-edge debouncer should coalesce burst into exactly 1 drain',
+      );
+    },
+  );
 
   test('spaced events produce separate drains', () async {
     final ctx = bindContainer();
@@ -286,11 +297,13 @@ void main() {
     });
 
     ctx.controller.add(SyncEvent('SyncStarted', {'type': 'SyncStarted'}));
-    ctx.controller.add(SyncEvent('Error', {
-      'type': 'Error',
-      'kind': 'Network',
-      'message': 'pull failed',
-    }));
+    ctx.controller.add(
+      SyncEvent('Error', {
+        'type': 'Error',
+        'kind': 'Network',
+        'message': 'pull failed',
+      }),
+    );
     await Future<void>.delayed(settleAfterDebounce);
     expect(ctx.drainCount(), 0);
   });
@@ -330,7 +343,7 @@ void main() {
 
       expect(
         ctx.container.read(syncStatusProvider).lastError,
-        'Sync failed repeatedly for over 10 minutes',
+        'Prism sync failed: Sync failed repeatedly for over 10 minutes',
       );
     },
   );
@@ -366,7 +379,7 @@ void main() {
     final status = ctx.container.read(syncStatusProvider);
     expect(status.isSyncing, isFalse);
     expect(status.pendingOps, 0);
-    expect(status.lastError, 'epoch mismatch');
+    expect(status.lastError, 'Prism sync failed: epoch mismatch');
   });
 
   // ------------------------------------------------------------------
@@ -390,30 +403,32 @@ void main() {
     });
   }
 
-  test('SyncCompleted with error_code=device_revoked skips the drain',
-      () async {
-    // The Rust engine may wrap a 401 device-revoked response into an
-    // `Ok(result)` branch. The Dart side must detect this via the new
-    // `error_code` field on the result payload and NOT schedule a
-    // drain (the cleanup path wipes credentials and we must not write
-    // them back). See Fix 2 of the 2026-04-11 robustness plan.
-    final ctx = bindContainer();
-    addTearDown(() async {
-      ctx.subscription.close();
-      ctx.eventSubscription.close();
-      ctx.container.dispose();
-      await ctx.controller.close();
-    });
+  test(
+    'SyncCompleted with error_code=device_revoked skips the drain',
+    () async {
+      // The Rust engine may wrap a 401 device-revoked response into an
+      // `Ok(result)` branch. The Dart side must detect this via the new
+      // `error_code` field on the result payload and NOT schedule a
+      // drain (the cleanup path wipes credentials and we must not write
+      // them back). See Fix 2 of the 2026-04-11 robustness plan.
+      final ctx = bindContainer();
+      addTearDown(() async {
+        ctx.subscription.close();
+        ctx.eventSubscription.close();
+        ctx.container.dispose();
+        await ctx.controller.close();
+      });
 
-    ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
-    await Future<void>.delayed(settleAfterDebounce);
-    expect(
-      ctx.drainCount(),
-      0,
-      reason:
-          'device_revoked via result.error_code must NOT schedule a drain',
-    );
-  });
+      ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
+      await Future<void>.delayed(settleAfterDebounce);
+      expect(
+        ctx.drainCount(),
+        0,
+        reason:
+            'device_revoked via result.error_code must NOT schedule a drain',
+      );
+    },
+  );
 
   // ------------------------------------------------------------------
   // Fix 1: a pending drain must not resurrect credentials after revoke
@@ -503,82 +518,79 @@ void main() {
   //           `_wipeSyncKeychainEntries` (via the test override).
   // ------------------------------------------------------------------
 
-  test(
-    'Test A: in-flight drain observes shouldAbort flip mid-drain',
-    () async {
-      // Use the abort-aware override so we can hold a drain in-flight
-      // and inspect `shouldAbort` before and after revocation fires.
-      final drainStarted = Completer<void>();
-      final releaseDrain = Completer<void>();
-      bool? shouldAbortBeforeRevoke;
-      bool? shouldAbortAfterRevoke;
+  test('Test A: in-flight drain observes shouldAbort flip mid-drain', () async {
+    // Use the abort-aware override so we can hold a drain in-flight
+    // and inspect `shouldAbort` before and after revocation fires.
+    final drainStarted = Completer<void>();
+    final releaseDrain = Completer<void>();
+    bool? shouldAbortBeforeRevoke;
+    bool? shouldAbortAfterRevoke;
 
-      debugDrainRustStoreOverride = null;
-      debugDrainRustStoreOverrideWithAbort = (shouldAbort) async {
-        // Sample the gate on entry.
-        shouldAbortBeforeRevoke = shouldAbort();
-        drainStarted.complete();
-        // Hold in-flight until the test releases us.
-        await releaseDrain.future;
-        // Sample again after the test has fired revocation.
-        shouldAbortAfterRevoke = shouldAbort();
-      };
-      debugDrainDebounceOverride = testDebounce;
+    debugDrainRustStoreOverride = null;
+    debugDrainRustStoreOverrideWithAbort = (shouldAbort) async {
+      // Sample the gate on entry.
+      shouldAbortBeforeRevoke = shouldAbort();
+      drainStarted.complete();
+      // Hold in-flight until the test releases us.
+      await releaseDrain.future;
+      // Sample again after the test has fired revocation.
+      shouldAbortAfterRevoke = shouldAbort();
+    };
+    debugDrainDebounceOverride = testDebounce;
 
-      // We reuse the normal fake quarantine + event stream setup.
-      final controller = StreamController<SyncEvent>.broadcast();
-      final container = ProviderContainer(
-        overrides: [
-          syncEventStreamProvider.overrideWith((ref) => controller.stream),
-          syncQuarantineServiceProvider.overrideWithValue(
-            _FakeQuarantineService(),
-          ),
-        ],
-      );
-      final eventSub = container.listen<AsyncValue<SyncEvent>>(
-        syncEventStreamProvider,
-        (prev, next) {},
-      );
-      final sub = container.listen<SyncStatus>(
-        syncStatusProvider,
-        (prev, next) {},
-      );
-      addTearDown(() async {
-        sub.close();
-        eventSub.close();
-        container.dispose();
-        await controller.close();
-      });
+    // We reuse the normal fake quarantine + event stream setup.
+    final controller = StreamController<SyncEvent>.broadcast();
+    final container = ProviderContainer(
+      overrides: [
+        syncEventStreamProvider.overrideWith((ref) => controller.stream),
+        syncQuarantineServiceProvider.overrideWithValue(
+          _FakeQuarantineService(),
+        ),
+      ],
+    );
+    final eventSub = container.listen<AsyncValue<SyncEvent>>(
+      syncEventStreamProvider,
+      (prev, next) {},
+    );
+    final sub = container.listen<SyncStatus>(
+      syncStatusProvider,
+      (prev, next) {},
+    );
+    addTearDown(() async {
+      sub.close();
+      eventSub.close();
+      container.dispose();
+      await controller.close();
+    });
 
-      // Fire a success event → scheduleDrain → timer → our override.
-      controller.add(completedEvent());
-      await drainStarted.future.timeout(const Duration(seconds: 2));
-      expect(
-        shouldAbortBeforeRevoke,
-        isFalse,
-        reason: 'shouldAbort must be false before revocation',
-      );
+    // Fire a success event → scheduleDrain → timer → our override.
+    controller.add(completedEvent());
+    await drainStarted.future.timeout(const Duration(seconds: 2));
+    expect(
+      shouldAbortBeforeRevoke,
+      isFalse,
+      reason: 'shouldAbort must be false before revocation',
+    );
 
-      // Now fire a revoked-result SyncCompleted. This hits
-      // `_handleDeviceRevokedFromAuthFailure` which calls
-      // `_abortPendingDrainForRevoke()`, bumping the drain generation.
-      controller.add(revokedCompletedEvent(remoteWipe: false));
-      // Let the listener process the event.
-      await Future<void>.delayed(const Duration(milliseconds: 5));
+    // Now fire a revoked-result SyncCompleted. This hits
+    // `_handleDeviceRevokedFromAuthFailure` which calls
+    // `_abortPendingDrainForRevoke()`, bumping the drain generation.
+    controller.add(revokedCompletedEvent(remoteWipe: false));
+    // Let the listener process the event.
+    await Future<void>.delayed(const Duration(milliseconds: 5));
 
-      // Release the in-flight drain so it can sample `shouldAbort`
-      // again after the generation bump.
-      releaseDrain.complete();
-      await Future<void>.delayed(const Duration(milliseconds: 5));
+    // Release the in-flight drain so it can sample `shouldAbort`
+    // again after the generation bump.
+    releaseDrain.complete();
+    await Future<void>.delayed(const Duration(milliseconds: 5));
 
-      expect(
-        shouldAbortAfterRevoke,
-        isTrue,
-        reason:
-            'shouldAbort must flip to true after revocation bumps the generation',
-      );
-    },
-  );
+    expect(
+      shouldAbortAfterRevoke,
+      isTrue,
+      reason:
+          'shouldAbort must flip to true after revocation bumps the generation',
+    );
+  });
 
   test(
     'Test B: applyDrainedEntries short-circuits writes when shouldAbort flips',
@@ -636,69 +648,60 @@ void main() {
     },
   );
 
-  test(
-    'Test B2: applyDrainedEntries respects pre-loop shouldAbort',
-    () async {
-      // If `shouldAbort` is already `true` before entering the loop,
-      // no mutations should occur at all.
-      final deleted = <String>[];
-      final written = <MapEntry<String, String>>[];
-      final committed = await applyDrainedEntries(
-        entries: const {
-          'wrapped_dek': 'x',
-          'epoch_key_1': 'y',
-        },
-        deleteKey: (full) async {
-          deleted.add(full);
-        },
-        writeKey: (full, value) async {
-          written.add(MapEntry(full, value));
-        },
-        shouldAbort: () => true,
-      );
-      expect(committed, 0);
-      expect(deleted, isEmpty);
-      expect(written, isEmpty);
-    },
-  );
+  test('Test B2: applyDrainedEntries respects pre-loop shouldAbort', () async {
+    // If `shouldAbort` is already `true` before entering the loop,
+    // no mutations should occur at all.
+    final deleted = <String>[];
+    final written = <MapEntry<String, String>>[];
+    final committed = await applyDrainedEntries(
+      entries: const {'wrapped_dek': 'x', 'epoch_key_1': 'y'},
+      deleteKey: (full) async {
+        deleted.add(full);
+      },
+      writeKey: (full, value) async {
+        written.add(MapEntry(full, value));
+      },
+      shouldAbort: () => true,
+    );
+    expect(committed, 0);
+    expect(deleted, isEmpty);
+    expect(written, isEmpty);
+  });
 
-  test(
-    'Test C: post-revoke delayed re-cleanup fires after abort',
-    () async {
-      // The belt-and-suspenders cleanup must fire ~2s after
-      // `_abortPendingDrainForRevoke()` so a drain whose writes landed
-      // after the main wipe gets re-wiped.
-      var recleanCalls = 0;
-      debugPostRevokeRecleanOverrideCallback = () async {
-        recleanCalls++;
-      };
-      // Tiny delay so the test doesn't wait 2 real seconds.
-      debugPostRevokeRecleanOverride = const Duration(milliseconds: 20);
-      debugDrainDebounceOverride = testDebounce;
+  test('Test C: post-revoke delayed re-cleanup fires after abort', () async {
+    // The belt-and-suspenders cleanup must fire ~2s after
+    // `_abortPendingDrainForRevoke()` so a drain whose writes landed
+    // after the main wipe gets re-wiped.
+    var recleanCalls = 0;
+    debugPostRevokeRecleanOverrideCallback = () async {
+      recleanCalls++;
+    };
+    // Tiny delay so the test doesn't wait 2 real seconds.
+    debugPostRevokeRecleanOverride = const Duration(milliseconds: 20);
+    debugDrainDebounceOverride = testDebounce;
 
-      final ctx = bindContainer();
-      addTearDown(() async {
-        ctx.subscription.close();
-        ctx.eventSubscription.close();
-        ctx.container.dispose();
-        await ctx.controller.close();
-      });
+    final ctx = bindContainer();
+    addTearDown(() async {
+      ctx.subscription.close();
+      ctx.eventSubscription.close();
+      ctx.container.dispose();
+      await ctx.controller.close();
+    });
 
-      // Fire a revoked-result SyncCompleted; the notifier calls
-      // `_handleDeviceRevokedFromAuthFailure` -> `_abortPendingDrainForRevoke`
-      // which schedules the delayed re-cleanup.
-      ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
-      // Before the delay elapses, no re-cleanup has fired.
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-      // Wait past the override delay.
-      await Future<void>.delayed(const Duration(milliseconds: 40));
-      expect(
-        recleanCalls,
-        greaterThanOrEqualTo(1),
-        reason: 'post-revoke re-cleanup must fire',
-      );
-    },
-  );
+    // Fire a revoked-result SyncCompleted; the notifier calls
+    // `_handleDeviceRevokedFromAuthFailure` -> `_abortPendingDrainForRevoke`
+    // which schedules the delayed re-cleanup.
+    ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
+    // Before the delay elapses, no re-cleanup has fired.
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    // Wait past the override delay.
+    await Future<void>.delayed(const Duration(milliseconds: 40));
+    expect(
+      recleanCalls,
+      greaterThanOrEqualTo(1),
+      reason: 'post-revoke re-cleanup must fire',
+    );
+  });
 
   test(
     'Test C2: post-revoke re-cleanup skips if a fresh handle appeared first',

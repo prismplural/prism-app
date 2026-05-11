@@ -550,7 +550,7 @@
   "@syncFinished": {
     "description": "Toast message after a successful manual sync"
   },
-  "syncFailed": "Sync failed: {error}",
+  "syncFailed": "Prism sync failed: {error}",
   "@syncFailed": {
     "description": "Toast message when sync fails",
     "placeholders": {
@@ -559,7 +559,7 @@
       }
     }
   },
-  "syncStatusError": "Sync error",
+  "syncStatusError": "Prism sync error",
   "@syncStatusError": {
     "description": "Sync status card: error state title"
   },
@@ -2132,7 +2132,7 @@
   "@syncTroubleshootingFinished": {
     "description": "Toast when sync finishes"
   },
-  "syncTroubleshootingFailed": "Sync failed: {error}",
+  "syncTroubleshootingFailed": "Prism sync failed: {error}",
   "@syncTroubleshootingFailed": {
     "description": "Toast when sync fails",
     "placeholders": {

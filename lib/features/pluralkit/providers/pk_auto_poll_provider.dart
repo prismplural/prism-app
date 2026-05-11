@@ -173,6 +173,10 @@ class PkAutoPollNotifier extends Notifier<void> {
       if (!pkState.canAutoSync) return;
       if (pkState.isSyncing) return;
 
+      await ref.read(pkSyncModeProvider.notifier).load();
+      await ref.read(pkSyncDirectionProvider.notifier).load();
+      if (!ref.mounted) return;
+
       final mode = ref.read(pkSyncModeProvider);
       if (mode == PkSyncMode.liveFrontsOnly) {
         final direction = ref.read(pkSyncDirectionProvider);

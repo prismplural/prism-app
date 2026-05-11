@@ -833,13 +833,13 @@ abstract class AppLocalizations {
   /// Toast message when sync fails
   ///
   /// In en, this message translates to:
-  /// **'Sync failed: {error}'**
+  /// **'Prism sync failed: {error}'**
   String syncFailed(Object error);
 
   /// Sync status card: error state title
   ///
   /// In en, this message translates to:
-  /// **'Sync error'**
+  /// **'Prism sync error'**
   String get syncStatusError;
 
   /// Sync status card: syncing state title
@@ -2897,7 +2897,7 @@ abstract class AppLocalizations {
   /// Toast when sync fails
   ///
   /// In en, this message translates to:
-  /// **'Sync failed: {error}'**
+  /// **'Prism sync failed: {error}'**
   String syncTroubleshootingFailed(Object error);
 
   /// Dialog title for sync reset

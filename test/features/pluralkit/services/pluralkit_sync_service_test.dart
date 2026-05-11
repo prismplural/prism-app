@@ -763,6 +763,66 @@ void main() {
 
   group('pollFrontersOnly', () {
     test(
+      'pulls only the live switch on a fresh connection instead of full importing',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        const switchId = '00000000-0000-0000-0000-0000000000bb';
+        final switchTimestamp = DateTime.utc(2026, 5, 1, 12);
+        final memberRepo = FakeMemberRepository()
+          ..seed([
+            domain.Member(
+              id: 'local-member-id',
+              name: 'Local member',
+              createdAt: DateTime.utc(2026, 1, 1),
+              pluralkitId: 'pk001',
+              pluralkitUuid: 'uuid-pk001',
+            ),
+          ]);
+        final sessionRepo = FakeFrontingSessionRepository();
+        final fakeClient = FakePluralKitClient()
+          ..currentFrontersToReturn = PKSwitch(
+            id: switchId,
+            timestamp: switchTimestamp,
+            members: const ['pk001'],
+          )
+          ..membersToReturn = const [
+            PKMember(id: 'pk001', uuid: 'uuid-pk001', name: 'Remote member'),
+          ]
+          ..switchesToReturn = [
+            PKSwitch(
+              id: switchId,
+              timestamp: switchTimestamp,
+              members: const ['pk001'],
+            ),
+          ];
+
+        final service = _makeService(
+          fakeClient: fakeClient,
+          db: db,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+
+        await service.setToken('valid-token');
+        await service.acknowledgeMapping();
+        expect(service.state.lastSyncDate, isNull);
+
+        final pulled = await service.pollFrontersOnly();
+
+        expect(pulled, isTrue);
+        expect(
+          fakeClient.getSwitchesCallCount,
+          0,
+          reason: 'Foreground polling must not fall into full import.',
+        );
+        expect(sessionRepo.sessions, hasLength(1));
+        expect(sessionRepo.sessions.single.pluralkitUuid, switchId);
+      },
+    );
+
+    test(
       'does not full-sync when current PK switch is a user tombstone already covered by cursor',
       () async {
         final db = _makeDb();
@@ -1475,7 +1535,7 @@ void main() {
       expect(members.map((m) => m.name), ['Imported']);
     });
 
-    test('triggers performFullImport (getSwitches is called)', () async {
+    test('pull-capable first sync triggers performFullImport', () async {
       final db = _makeDb();
       addTearDown(db.close);
 
@@ -1493,11 +1553,65 @@ void main() {
       // lastSyncDate is null — syncRecentData should branch into performFullImport
       expect(service.state.lastSyncDate, isNull);
 
-      await service.syncRecentData();
+      await service.syncRecentData(direction: PkSyncDirection.pullOnly);
 
       // performFullImport calls getSwitches at least once
       expect(fakeClient.getSwitchesCallCount, greaterThan(0));
     });
+
+    test(
+      'push-only first sync does not pull full import data over local fields',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = FakeMemberRepository()
+          ..seed([
+            domain.Member(
+              id: 'local-linked',
+              name: 'Local linked',
+              createdAt: DateTime.utc(2026, 1, 1),
+              pluralkitId: 'pk001',
+              pluralkitUuid: 'uuid-pk001',
+              customColorEnabled: false,
+            ),
+          ]);
+        final fakeClient = FakePluralKitClient()
+          ..membersToReturn = const [
+            PKMember(
+              id: 'pk001',
+              uuid: 'uuid-pk001',
+              name: 'Remote linked',
+              color: 'ff00aa',
+            ),
+          ]
+          ..switchesToReturn = const [];
+
+        final service = _makeService(
+          fakeClient: fakeClient,
+          db: db,
+          memberRepo: memberRepo,
+        );
+
+        await service.setToken('valid-token');
+        await service.acknowledgeMapping();
+        expect(service.state.lastSyncDate, isNull);
+
+        final summary = await service.syncRecentData(
+          direction: PkSyncDirection.pushOnly,
+        );
+
+        final local = (await memberRepo.getAllMembers()).single;
+        expect(summary?.membersPulled, 0);
+        expect(local.customColorEnabled, isFalse);
+        expect(local.customColorHex, isNull);
+        expect(
+          fakeClient.getSwitchesCallCount,
+          0,
+          reason: 'Push-only first sync must not call the full import path.',
+        );
+      },
+    );
 
     test(
       'repairs short-id-only member before resolving switches in same pass',

@@ -148,6 +148,24 @@ class PrismSyncStructuredError {
   }
 }
 
+const _prismSyncFailedPrefix = 'Prism sync failed: ';
+const _pluralKitSyncFailedPrefix = 'PluralKit sync failed: ';
+
+/// Return a user-facing Prism sync error message with subsystem clarity.
+/// If the message was already prefixed, return it unchanged.
+@visibleForTesting
+String? formatPrismSyncError(Object? rawError) {
+  final message = rawError?.toString().trim();
+  if (message == null || message.isEmpty) {
+    return null;
+  }
+  if (message.startsWith(_prismSyncFailedPrefix) ||
+      message.startsWith(_pluralKitSyncFailedPrefix)) {
+    return message;
+  }
+  return '$_prismSyncFailedPrefix$message';
+}
+
 // ---------------------------------------------------------------------------
 // Core handle
 // ---------------------------------------------------------------------------
@@ -2396,7 +2414,7 @@ SyncStatus syncStatusAfterCompleted({
   DateTime? completedAt,
 }) {
   final resultError = rawResultError != null && rawResultError.isNotEmpty
-      ? rawResultError
+      ? formatPrismSyncError(rawResultError)
       : null;
   return SyncStatus(
     isSyncing: false,
@@ -2624,7 +2642,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           final completedError = structuredError?.userMessage ?? rawResultError;
           final displayableCompletedError =
               completedError != null && completedError.isNotEmpty
-              ? completedError
+              ? formatPrismSyncError(completedError)
               : null;
           final surfaceCompletedError =
               displayableCompletedError != null &&
@@ -2708,7 +2726,9 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           final errorMessage = event.data['message'] as String? ?? '';
           final displayableError =
               (structuredError?.userMessage ?? errorMessage).isNotEmpty
-              ? (structuredError?.userMessage ?? errorMessage)
+              ? formatPrismSyncError(
+                  structuredError?.userMessage ?? errorMessage,
+                )
               : null;
           final surfaceError =
               displayableError != null &&

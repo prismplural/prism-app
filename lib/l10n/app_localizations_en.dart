@@ -411,11 +411,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String syncFailed(Object error) {
-    return 'Sync failed: $error';
+    return 'Prism sync failed: $error';
   }
 
   @override
-  String get syncStatusError => 'Sync error';
+  String get syncStatusError => 'Prism sync error';
 
   @override
   String get syncStatusSyncing => 'Syncing';
@@ -1575,7 +1575,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String syncTroubleshootingFailed(Object error) {
-    return 'Sync failed: $error';
+    return 'Prism sync failed: $error';
   }
 
   @override

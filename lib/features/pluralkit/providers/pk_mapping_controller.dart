@@ -5,6 +5,7 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_member_matcher.dart';
@@ -131,8 +132,8 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
 
     final memberRepo = ref.read(memberRepositoryProvider);
     final allLocals = await memberRepo.getAllMembers();
-    final allLocalsIncludingDeleted =
-        await memberRepo.getAllMembersIncludingDeleted();
+    final allLocalsIncludingDeleted = await memberRepo
+        .getAllMembersIncludingDeleted();
     final locals = allLocals.where((m) => !m.pluralkitSyncIgnored).toList();
     final linkedPkUuids = {
       for (final m in allLocalsIncludingDeleted)
@@ -261,14 +262,15 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
 
   /// Collect all decisions and run the applier.
   ///
-  /// The pipeline runs in three phases ([PkMappingPhase]):
+  /// The pipeline runs in scoped phases ([PkMappingPhase]):
   /// 1. `applyingDecisions` — per-decision loop emits an applier op for each
   ///    Link/Import/Push/Skip choice. Progress 0.0 → 1.0.
-  /// 2. `importingSwitches` — post-decisions, walks PK switch history via
-  ///    [PluralKitSyncService.importSwitchesAfterLink] with diff-sweep
-  ///    progress wired back into [PkMappingState.applyProgress].
-  /// 3. `pushingSwitches` — pushes any pending local switch updates back to
-  ///    PK via [PluralKitSyncService.pushPendingSwitches].
+  /// 2. Post-decisions, honors the persisted sync mode/direction:
+  ///    full-sync pull walks PK switch history via
+  ///    [PluralKitSyncService.importSwitchesAfterLink], full-sync push runs
+  ///    [PluralKitSyncService.pushPendingSwitches], and live-fronts-only runs
+  ///    [PluralKitSyncService.syncLiveFrontersOnly] instead of importing
+  ///    history.
   ///
   /// `applyProgress` is reset to 0 at each phase boundary so the screen's
   /// progress bar reflects real per-phase progress instead of staying pinned
@@ -355,50 +357,62 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
         await syncService.acknowledgeMapping();
         if (!ref.mounted) return;
 
-        // Phase 4 bootstrap after Apply: import PK switch history, re-
-        // attribute any headless sessions against the fresh mapping, and
-        // push post-linkedAt local sessions to PK. Errors here must not
-        // undo the Apply itself — log and continue so the UI still flips
-        // out of `needsMapping`.
+        // Post-apply bootstrap: sync only the surfaces allowed by the
+        // persisted mode/direction. Errors here must not undo the Apply itself
+        // — log and continue so the UI still flips out of `needsMapping`.
         try {
-          // Phase 2: importingSwitches.
-          final beforeImport = state.value;
-          if (beforeImport != null) {
-            state = AsyncData(
-              beforeImport.copyWith(
-                phase: PkMappingPhase.importingSwitches,
-                applyProgress: 0.0,
-                statusText: importingHistoryStatus,
-              ),
-            );
-          }
-          await syncService.importSwitchesAfterLink(
-            onProgress: (fraction, message) {
-              if (!ref.mounted) return;
-              final cur = state.value;
-              if (cur == null) return;
-              state = AsyncData(
-                cur.copyWith(
-                  applyProgress: fraction.clamp(0.0, 1.0),
-                  statusText: message,
-                ),
-              );
-            },
-          );
+          await ref.read(pkSyncModeProvider.notifier).load();
+          await ref.read(pkSyncDirectionProvider.notifier).load();
           if (!ref.mounted) return;
+          final mode = ref.read(pkSyncModeProvider);
+          final direction = ref.read(pkSyncDirectionProvider);
 
-          // Phase 3: pushingSwitches.
-          final beforePush = state.value;
-          if (beforePush != null) {
-            state = AsyncData(
-              beforePush.copyWith(
-                phase: PkMappingPhase.pushingSwitches,
-                applyProgress: 0.0,
-                statusText: pushingHistoryStatus,
-              ),
-            );
+          if (mode == PkSyncMode.liveFrontsOnly) {
+            if (direction.pullEnabled || direction.pushEnabled) {
+              await syncService.syncLiveFrontersOnly(direction: direction);
+            }
+          } else {
+            if (direction.pullEnabled) {
+              final beforeImport = state.value;
+              if (beforeImport != null) {
+                state = AsyncData(
+                  beforeImport.copyWith(
+                    phase: PkMappingPhase.importingSwitches,
+                    applyProgress: 0.0,
+                    statusText: importingHistoryStatus,
+                  ),
+                );
+              }
+              await syncService.importSwitchesAfterLink(
+                onProgress: (fraction, message) {
+                  if (!ref.mounted) return;
+                  final cur = state.value;
+                  if (cur == null) return;
+                  state = AsyncData(
+                    cur.copyWith(
+                      applyProgress: fraction.clamp(0.0, 1.0),
+                      statusText: message,
+                    ),
+                  );
+                },
+              );
+              if (!ref.mounted) return;
+            }
+
+            if (direction.pushEnabled) {
+              final beforePush = state.value;
+              if (beforePush != null) {
+                state = AsyncData(
+                  beforePush.copyWith(
+                    phase: PkMappingPhase.pushingSwitches,
+                    applyProgress: 0.0,
+                    statusText: pushingHistoryStatus,
+                  ),
+                );
+              }
+              await syncService.pushPendingSwitches();
+            }
           }
-          await syncService.pushPendingSwitches();
         } catch (_) {
           // Non-fatal — surfaces on next syncRecentData via state.syncError.
         }

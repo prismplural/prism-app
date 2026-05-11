@@ -358,6 +358,22 @@ class _PkDiffSweepResult {
   final int zeroLengthCloseSkipped;
 }
 
+const _pluralKitSyncFailedPrefix = 'PluralKit sync failed: ';
+
+/// Return a user-facing PluralKit sync error with subsystem clarity.
+/// If the message was already prefixed, return it unchanged.
+@visibleForTesting
+String? formatPluralKitSyncError(Object? rawError) {
+  final message = rawError?.toString().trim();
+  if (message == null || message.isEmpty) {
+    return null;
+  }
+  if (message.startsWith(_pluralKitSyncFailedPrefix)) {
+    return message;
+  }
+  return '$_pluralKitSyncFailedPrefix$message';
+}
+
 /// Core PluralKit synchronization logic.
 ///
 /// Designed to be driven by a Riverpod notifier that passes a
@@ -550,7 +566,11 @@ class PluralKitSyncService {
     final trimmed = token.trim();
     debugPrint('[PK_SVC] setToken: trimmed length=${trimmed.length}');
     if (trimmed.isEmpty) {
-      _emit(_state.copyWith(syncError: 'Token cannot be empty'));
+      _emit(
+        _state.copyWith(
+          syncError: formatPluralKitSyncError('Token cannot be empty'),
+        ),
+      );
       return;
     }
 
@@ -615,14 +635,19 @@ class PluralKitSyncService {
       _emit(
         _state.copyWith(
           isConnected: false,
-          syncError: 'Invalid token — please check and try again.',
+          syncError: formatPluralKitSyncError(
+            'Invalid token — please check and try again.',
+          ),
         ),
       );
     } catch (e, st) {
       debugPrint('[PK_SVC] setToken: caught $e\n$st');
       await _secureStorage.delete(key: _pkTokenKey);
       _emit(
-        _state.copyWith(isConnected: false, syncError: 'Connection failed: $e'),
+        _state.copyWith(
+          isConnected: false,
+          syncError: formatPluralKitSyncError('Connection failed: $e'),
+        ),
       );
     }
   }
@@ -768,7 +793,7 @@ class PluralKitSyncService {
       _emit(
         _state.copyWith(
           isSyncing: false,
-          syncError: 'Member import failed: $e',
+          syncError: formatPluralKitSyncError('Member import failed: $e'),
         ),
       );
       rethrow;
@@ -874,7 +899,10 @@ class PluralKitSyncService {
       return run;
     } catch (e) {
       _emit(
-        _state.copyWith(isSyncing: false, syncError: 'Full import failed: $e'),
+        _state.copyWith(
+          isSyncing: false,
+          syncError: formatPluralKitSyncError('Full import failed: $e'),
+        ),
       );
       rethrow;
     } finally {
@@ -921,8 +949,7 @@ class PluralKitSyncService {
           _emit(
             _state.copyWith(
               syncProgress: 0.05 + 0.35 * fraction,
-              syncStatus:
-                  'Importing member $current/$total from file: $name',
+              syncStatus: 'Importing member $current/$total from file: $name',
             ),
           );
         },
@@ -972,7 +999,10 @@ class PluralKitSyncService {
       );
     } catch (e) {
       _emit(
-        _state.copyWith(isSyncing: false, syncError: 'File import failed: $e'),
+        _state.copyWith(
+          isSyncing: false,
+          syncError: formatPluralKitSyncError('File import failed: $e'),
+        ),
       );
       rethrow;
     }
@@ -1136,7 +1166,7 @@ class PluralKitSyncService {
       _emit(
         _state.copyWith(
           isSyncing: false,
-          syncError: 'File + token import failed: $e',
+          syncError: formatPluralKitSyncError('File + token import failed: $e'),
         ),
       );
       rethrow;
@@ -1484,7 +1514,12 @@ class PluralKitSyncService {
 
       return finalSummary;
     } catch (e) {
-      _emit(_state.copyWith(isSyncing: false, syncError: 'Sync failed: $e'));
+      _emit(
+        _state.copyWith(
+          isSyncing: false,
+          syncError: formatPluralKitSyncError(e),
+        ),
+      );
       rethrow;
     } finally {
       client.dispose();
@@ -1584,7 +1619,7 @@ class PluralKitSyncService {
       _emit(
         _state.copyWith(
           isSyncing: false,
-          syncError: 'Live fronter sync failed: $e',
+          syncError: formatPluralKitSyncError('Live fronters sync failed: $e'),
         ),
       );
       rethrow;
@@ -1740,9 +1775,10 @@ class PluralKitSyncService {
     if (failures.isNotEmpty) {
       _emit(
         _state.copyWith(
-          syncError:
-              'Some profile fields did not import: '
-              '${failures.join(', ')}',
+          syncError: formatPluralKitSyncError(
+            'Some profile fields did not import: '
+            '${failures.join(', ')}',
+          ),
         ),
       );
     }
@@ -2844,14 +2880,8 @@ class PluralKitSyncService {
             final frac = allSwitches.isEmpty
                 ? 1.0
                 : 0.5 + 0.4 * (i / allSwitches.length);
-            final status =
-                'Importing switch ${i + 1}/${allSwitches.length}...';
-            _emit(
-              _state.copyWith(
-                syncProgress: frac,
-                syncStatus: status,
-              ),
-            );
+            final status = 'Importing switch ${i + 1}/${allSwitches.length}...';
+            _emit(_state.copyWith(syncProgress: frac, syncStatus: status));
             onProgress?.call(frac, status);
           }
         },
@@ -2878,7 +2908,9 @@ class PluralKitSyncService {
       _emit(
         _state.copyWith(
           isSyncing: false,
-          syncError: 'Switch history import failed: $e',
+          syncError: formatPluralKitSyncError(
+            'Switch history import failed: $e',
+          ),
         ),
       );
       rethrow;
@@ -3491,14 +3523,14 @@ class PluralKitSyncService {
     }
   }
 
-  /// Lightweight poll: GET /systems/@me/fronters and only trigger a full
-  /// `syncRecentData` ingest when the current PK switch id isn't already
-  /// stored on any local session. Designed for periodic foreground polling
-  /// — honors rate limits via the client's request queue and no-ops when
-  /// auto-sync isn't ready.
+  /// Lightweight poll: GET /systems/@me/fronters and pull only the current
+  /// fronter snapshot when the current PK switch id isn't already stored on any
+  /// local session. Designed for periodic foreground polling — honors rate
+  /// limits via the client's request queue and no-ops when auto-sync isn't
+  /// ready.
   ///
-  /// Returns true when the full ingest path ran (switch was new), false
-  /// otherwise. Errors are swallowed with a debugPrint.
+  /// Returns true when the current switch was pulled, false otherwise. Errors
+  /// are swallowed with a debugPrint.
   Future<bool> pollFrontersOnly() async {
     if (!_state.canAutoSync) return false;
     if (_state.isSyncing) return false;
@@ -3526,11 +3558,13 @@ class PluralKitSyncService {
       );
       if (seenDeleted) return false;
 
-      await syncRecentData(
-        isManual: false,
-        direction: PkSyncDirection.pullOnly,
-      );
-      return true;
+      final pull = await _pullLiveFronterSwitch(current);
+      if (pull.warning != null) {
+        debugPrint(
+          '[PK] pollFrontersOnly skipped current switch: ${pull.warning}',
+        );
+      }
+      return pull.pulled;
     } catch (e) {
       debugPrint('[PK] pollFrontersOnly failed: $e');
       return false;

@@ -427,11 +427,11 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String syncFailed(Object error) {
-    return 'Error de sincronización: $error';
+    return 'Error de sincronización de Prism: $error';
   }
 
   @override
-  String get syncStatusError => 'Error de sincronización';
+  String get syncStatusError => 'Error de sincronización de Prism';
 
   @override
   String get syncStatusSyncing => 'Sincronizando';
@@ -1613,7 +1613,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String syncTroubleshootingFailed(Object error) {
-    return 'Error de sincronización: $error';
+    return 'Error de sincronización de Prism: $error';
   }
 
   @override
@@ -9333,7 +9333,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pkMappingImportingHistory => 'Importando historial de fronts…';
 
   @override
-  String get pkMappingPushingHistory => 'Enviando cambios de frente a PluralKit…';
+  String get pkMappingPushingHistory =>
+      'Enviando cambios de frente a PluralKit…';
 
   @override
   String get pkMappingApply => 'Aplicar';

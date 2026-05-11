@@ -22,12 +22,7 @@ class _SyncToastListenerState extends ConsumerState<SyncToastListener> {
       // Show a toast when a new error appears.
       if (next.lastError != null && next.lastError != _lastError) {
         _lastError = next.lastError;
-        _showToast(
-          () => PrismToast.error(
-            context,
-            message: 'Sync error: ${next.lastError}',
-          ),
-        );
+        _showToast(() => PrismToast.error(context, message: next.lastError!));
       } else if (next.lastError == null) {
         _lastError = null;
       }

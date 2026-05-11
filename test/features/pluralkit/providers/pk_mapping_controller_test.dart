@@ -8,11 +8,13 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
-import 'package:prism_plurality/domain/models/fronting_session.dart' as fronting;
+import 'package:prism_plurality/domain/models/fronting_session.dart'
+    as fronting;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
@@ -124,13 +126,14 @@ class _EmptyFrontingSessionRepo implements FrontingSessionRepository {
   @override
   Future<List<fronting.FrontingSession>> getAllSessions() async => const [];
   @override
-  Future<List<fronting.FrontingSession>> getAllActiveSessionsUnfiltered() async =>
-      const [];
+  Future<List<fronting.FrontingSession>>
+  getAllActiveSessionsUnfiltered() async => const [];
   @override
   Future<List<fronting.FrontingSession>> getDeletedLinkedSessions() async =>
       const [];
   @override
-  Future<List<fronting.FrontingSession>> getFrontingSessions() async => const [];
+  Future<List<fronting.FrontingSession>> getFrontingSessions() async =>
+      const [];
   @override
   Future<List<fronting.FrontingSession>> getActiveSessions() async => const [];
   @override
@@ -171,7 +174,10 @@ class _FakeClient extends PluralKitClient {
   /// cleanly without HTTP traffic, letting the apply pipeline reach the
   /// pushingSwitches phase.
   @override
-  Future<List<PKSwitch>> getSwitches({DateTime? before, int limit = 100}) async {
+  Future<List<PKSwitch>> getSwitches({
+    DateTime? before,
+    int limit = 100,
+  }) async {
     getSwitchesCallCount++;
     onGetSwitches?.call();
     return const [];
@@ -283,7 +289,11 @@ void main() {
       repo = _FakeMemberRepo([
         _local('l1', 'Alice'),
         _local('l2', 'Bob'),
-        _local('gone', 'Deleted Alice', pkId: 'aaaaa').copyWith(isDeleted: true),
+        _local(
+          'gone',
+          'Deleted Alice',
+          pkId: 'aaaaa',
+        ).copyWith(isDeleted: true),
       ]);
       syncService = PluralKitSyncService(
         memberRepository: repo,
@@ -666,10 +676,11 @@ void main() {
         );
         addTearDown(probedContainer.dispose);
 
+        await probedContainer
+            .read(pkSyncDirectionProvider.notifier)
+            .setDirection(PkSyncDirection.bidirectional);
         await probedContainer.read(pkMappingControllerProvider.future);
-        final ctrl = probedContainer.read(
-          pkMappingControllerProvider.notifier,
-        );
+        final ctrl = probedContainer.read(pkMappingControllerProvider.notifier);
 
         // Hook the fake client so we can sample state in mid-import-phase too.
         PkMappingState? duringImport;
@@ -730,6 +741,91 @@ void main() {
     );
 
     test(
+      'apply in full-sync push-only skips history import and only runs push phase',
+      () async {
+        late ProviderContainer probedContainer;
+        final probe = _PhaseProbeSyncService(
+          memberRepository: repo,
+          frontingSessionRepository: _EmptyFrontingSessionRepo(),
+          syncDao: PluralKitSyncDao(db),
+          clientFactory: (_) => client,
+          tokenOverride: 'fake',
+          readState: () =>
+              probedContainer.read(pkMappingControllerProvider).value,
+        );
+        await probe.setToken('fake');
+
+        probedContainer = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            memberRepositoryProvider.overrideWithValue(repo),
+            pluralKitSyncServiceProvider.overrideWithValue(probe),
+          ],
+        );
+        addTearDown(probedContainer.dispose);
+
+        await probedContainer
+            .read(pkSyncDirectionProvider.notifier)
+            .setDirection(PkSyncDirection.pushOnly);
+        await probedContainer.read(pkMappingControllerProvider.future);
+
+        await probedContainer
+            .read(pkMappingControllerProvider.notifier)
+            .apply(
+              pushingHistoryStatus: 'Pushing switch updates to PluralKit...',
+            );
+
+        expect(probe.importSwitchesCallCount, 0);
+        expect(probe.liveFrontsOnlyCallCount, 0);
+        expect(probe.pushSwitchesCallCount, 1);
+        expect(probe.stateAtPushEntry?.phase, PkMappingPhase.pushingSwitches);
+      },
+    );
+
+    test(
+      'apply in live-fronts-only uses live sync and skips full history',
+      () async {
+        late ProviderContainer probedContainer;
+        final probe = _PhaseProbeSyncService(
+          memberRepository: repo,
+          frontingSessionRepository: _EmptyFrontingSessionRepo(),
+          syncDao: PluralKitSyncDao(db),
+          clientFactory: (_) => client,
+          tokenOverride: 'fake',
+          readState: () =>
+              probedContainer.read(pkMappingControllerProvider).value,
+        );
+        await probe.setToken('fake');
+
+        probedContainer = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            memberRepositoryProvider.overrideWithValue(repo),
+            pluralKitSyncServiceProvider.overrideWithValue(probe),
+          ],
+        );
+        addTearDown(probedContainer.dispose);
+
+        await probedContainer
+            .read(pkSyncModeProvider.notifier)
+            .setMode(PkSyncMode.liveFrontsOnly);
+        await probedContainer
+            .read(pkSyncDirectionProvider.notifier)
+            .setDirection(PkSyncDirection.pullOnly);
+        await probedContainer.read(pkMappingControllerProvider.future);
+
+        await probedContainer
+            .read(pkMappingControllerProvider.notifier)
+            .apply();
+
+        expect(probe.importSwitchesCallCount, 0);
+        expect(probe.pushSwitchesCallCount, 0);
+        expect(probe.liveFrontsOnlyCallCount, 1);
+        expect(probe.liveFrontsOnlyDirection, PkSyncDirection.pullOnly);
+      },
+    );
+
+    test(
       'per-decision loop advances applyProgress while phase stays applyingDecisions',
       () async {
         // Capture state snapshots inside the per-decision loop. We tap the
@@ -744,9 +840,7 @@ void main() {
         final wrappedRepo = _RecordingMemberRepo(
           repo,
           onWrite: () {
-            final s = probedContainer
-                .read(pkMappingControllerProvider)
-                .value;
+            final s = probedContainer.read(pkMappingControllerProvider).value;
             if (s != null && s.isApplying) {
               phaseDuringApplier.add(s.phase);
               progressDuringApplier.add(s.applyProgress);
@@ -915,8 +1009,10 @@ class _PhaseProbeSyncService extends PluralKitSyncService {
 
   int importSwitchesCallCount = 0;
   int pushSwitchesCallCount = 0;
+  int liveFrontsOnlyCallCount = 0;
   PkMappingState? stateAtImportEntry;
   PkMappingState? stateAtPushEntry;
+  PkSyncDirection? liveFrontsOnlyDirection;
 
   @override
   Future<void> importSwitchesAfterLink({
@@ -942,5 +1038,15 @@ class _PhaseProbeSyncService extends PluralKitSyncService {
       allowDuringSync: allowDuringSync,
       knownCurrentFronters: knownCurrentFronters,
     );
+  }
+
+  @override
+  Future<PkSyncSummary?> syncLiveFrontersOnly({
+    required PkSyncDirection direction,
+    bool isManual = false,
+  }) {
+    liveFrontsOnlyCallCount++;
+    liveFrontsOnlyDirection = direction;
+    return super.syncLiveFrontersOnly(direction: direction, isManual: isManual);
   }
 }

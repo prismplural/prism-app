@@ -25,7 +25,7 @@ void main() {
 
     expect(next.isSyncing, isFalse);
     expect(next.lastSyncAt, previousSyncAt);
-    expect(next.lastError, 'push rejected by relay');
+    expect(next.lastError, 'Prism sync failed: push rejected by relay');
     expect(next.pendingOps, 2);
   });
 
