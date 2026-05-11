@@ -9004,6 +9004,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get pkMappingImportingHistory => 'Importing switch history…';
+
+  @override
+  String get pkMappingPushingHistory => 'Pushing switch updates to PluralKit…';
+
+  @override
   String get pkMappingApply => 'Apply';
 
   @override

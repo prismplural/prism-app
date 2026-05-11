@@ -11,6 +11,25 @@ import 'package:prism_plurality/features/pluralkit/services/pk_member_matcher.da
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 
+/// Phase tracker for the mapping screen's Apply pipeline.
+///
+/// The Apply button stays disabled across all three phases. The accompanying
+/// status text widget (rendered above the button) communicates which phase the
+/// pipeline is in. The button label itself never changes — see the codex
+/// review note in `docs/plans/pk-megasystem-import.md` Phase 3.
+enum PkMappingPhase {
+  /// The per-decision loop is running — applier handles link/import/push/skip
+  /// for each row.
+  applyingDecisions,
+
+  /// Post-decisions: PK switch history is being walked and imported via the
+  /// diff sweep.
+  importingSwitches,
+
+  /// Post-decisions: pending local switch updates are being pushed to PK.
+  pushingSwitches,
+}
+
 /// Immutable state backing the mapping screen.
 class PkMappingState {
   final List<PKMember> pkMembers;
@@ -28,6 +47,16 @@ class PkMappingState {
   final List<PkApplyResult>? lastResults;
   final String? error;
 
+  /// Which phase of the Apply pipeline is currently running. Defaults to
+  /// [PkMappingPhase.applyingDecisions] so the screen behaves identically to
+  /// the pre-Phase-3 build before [apply] is called.
+  final PkMappingPhase phase;
+
+  /// Optional human-readable status shown above the Apply button while
+  /// [isApplying] is true. `null` outside Apply or during the per-decision
+  /// loop (the existing percent-based label already covers that phase).
+  final String? statusText;
+
   const PkMappingState({
     this.pkMembers = const [],
     this.localMembers = const [],
@@ -37,6 +66,8 @@ class PkMappingState {
     this.applyProgress = 0.0,
     this.lastResults,
     this.error,
+    this.phase = PkMappingPhase.applyingDecisions,
+    this.statusText,
   });
 
   PkMappingState copyWith({
@@ -48,8 +79,11 @@ class PkMappingState {
     double? applyProgress,
     List<PkApplyResult>? lastResults,
     String? error,
+    PkMappingPhase? phase,
+    String? statusText,
     bool clearError = false,
     bool clearResults = false,
+    bool clearStatusText = false,
   }) {
     return PkMappingState(
       pkMembers: pkMembers ?? this.pkMembers,
@@ -60,6 +94,8 @@ class PkMappingState {
       applyProgress: applyProgress ?? this.applyProgress,
       lastResults: clearResults ? null : (lastResults ?? this.lastResults),
       error: clearError ? null : (error ?? this.error),
+      phase: phase ?? this.phase,
+      statusText: clearStatusText ? null : (statusText ?? this.statusText),
     );
   }
 
@@ -224,7 +260,30 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
   }
 
   /// Collect all decisions and run the applier.
-  Future<void> apply() async {
+  ///
+  /// The pipeline runs in three phases ([PkMappingPhase]):
+  /// 1. `applyingDecisions` — per-decision loop emits an applier op for each
+  ///    Link/Import/Push/Skip choice. Progress 0.0 → 1.0.
+  /// 2. `importingSwitches` — post-decisions, walks PK switch history via
+  ///    [PluralKitSyncService.importSwitchesAfterLink] with diff-sweep
+  ///    progress wired back into [PkMappingState.applyProgress].
+  /// 3. `pushingSwitches` — pushes any pending local switch updates back to
+  ///    PK via [PluralKitSyncService.pushPendingSwitches].
+  ///
+  /// `applyProgress` is reset to 0 at each phase boundary so the screen's
+  /// progress bar reflects real per-phase progress instead of staying pinned
+  /// at 100%. The Apply button stays `isLoading + disabled` across all
+  /// phases; phase information is surfaced via [PkMappingState.statusText]
+  /// rendered above the button — never on the button itself.
+  ///
+  /// [importingHistoryStatus] and [pushingHistoryStatus] are the pre-
+  /// localized strings shown above the button during phases 2 and 3. The
+  /// caller (the mapping screen) resolves them from [BuildContext]; the
+  /// controller has no BuildContext of its own.
+  Future<void> apply({
+    String? importingHistoryStatus,
+    String? pushingHistoryStatus,
+  }) async {
     final current = state.value;
     if (current == null || current.isApplying) return;
 
@@ -232,8 +291,10 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       current.copyWith(
         isApplying: true,
         applyProgress: 0.0,
+        phase: PkMappingPhase.applyingDecisions,
         clearError: true,
         clearResults: true,
+        clearStatusText: true,
       ),
     );
 
@@ -272,7 +333,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
         ...current.decisionsByLocalId.values,
       ];
 
-      // Apply one-by-one to emit progress.
+      // Phase 1: per-decision loop.
       final results = <PkApplyResult>[];
       for (var i = 0; i < decisions.length; i++) {
         final r = await applier.apply([decisions[i]]);
@@ -300,8 +361,43 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
         // undo the Apply itself — log and continue so the UI still flips
         // out of `needsMapping`.
         try {
-          await syncService.importSwitchesAfterLink();
+          // Phase 2: importingSwitches.
+          final beforeImport = state.value;
+          if (beforeImport != null) {
+            state = AsyncData(
+              beforeImport.copyWith(
+                phase: PkMappingPhase.importingSwitches,
+                applyProgress: 0.0,
+                statusText: importingHistoryStatus,
+              ),
+            );
+          }
+          await syncService.importSwitchesAfterLink(
+            onProgress: (fraction, message) {
+              if (!ref.mounted) return;
+              final cur = state.value;
+              if (cur == null) return;
+              state = AsyncData(
+                cur.copyWith(
+                  applyProgress: fraction.clamp(0.0, 1.0),
+                  statusText: message,
+                ),
+              );
+            },
+          );
           if (!ref.mounted) return;
+
+          // Phase 3: pushingSwitches.
+          final beforePush = state.value;
+          if (beforePush != null) {
+            state = AsyncData(
+              beforePush.copyWith(
+                phase: PkMappingPhase.pushingSwitches,
+                applyProgress: 0.0,
+                statusText: pushingHistoryStatus,
+              ),
+            );
+          }
           await syncService.pushPendingSwitches();
         } catch (_) {
           // Non-fatal — surfaces on next syncRecentData via state.syncError.
@@ -319,6 +415,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
             isApplying: false,
             applyProgress: 1.0,
             lastResults: results,
+            clearStatusText: true,
           ),
         );
       }
@@ -327,7 +424,11 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       final after = state.value;
       if (after != null) {
         state = AsyncData(
-          after.copyWith(isApplying: false, error: e.toString()),
+          after.copyWith(
+            isApplying: false,
+            error: e.toString(),
+            clearStatusText: true,
+          ),
         );
       } else {
         state = AsyncError(e, st);

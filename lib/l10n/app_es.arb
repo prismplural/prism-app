@@ -2792,6 +2792,8 @@
   "pkMappingSectionPkMembers": "Miembros de PluralKit",
   "pkMappingSectionLocalToPush": "Miembros locales para enviar",
   "pkMappingApplyProgress": "Aplicando… {percent}%",
+  "pkMappingImportingHistory": "Importando historial de fronts…",
+  "pkMappingPushingHistory": "Enviando cambios de frente a PluralKit…",
   "pkMappingApply": "Aplicar",
   "pkMappingDoLater": "Lo haré más tarde",
   "pkMappingOptionImportNew": "Importar como nuevo",

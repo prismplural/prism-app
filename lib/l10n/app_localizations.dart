@@ -14528,6 +14528,18 @@ abstract class AppLocalizations {
   /// **'Applying… {percent}%'**
   String pkMappingApplyProgress(int percent);
 
+  /// Status text shown above the Apply button while PK switch history is being imported after the mapping decisions have all applied.
+  ///
+  /// In en, this message translates to:
+  /// **'Importing switch history…'**
+  String get pkMappingImportingHistory;
+
+  /// Status text shown above the Apply button while pending switch updates are being pushed to PluralKit after the mapping decisions have all applied.
+  ///
+  /// In en, this message translates to:
+  /// **'Pushing switch updates to PluralKit…'**
+  String get pkMappingPushingHistory;
+
   /// Footer button that applies the chosen PK mapping decisions.
   ///
   /// In en, this message translates to:

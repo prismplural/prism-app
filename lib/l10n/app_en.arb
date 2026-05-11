@@ -9711,6 +9711,14 @@
       "percent": { "type": "int" }
     }
   },
+  "pkMappingImportingHistory": "Importing switch history…",
+  "@pkMappingImportingHistory": {
+    "description": "Status text shown above the Apply button while PK switch history is being imported after the mapping decisions have all applied."
+  },
+  "pkMappingPushingHistory": "Pushing switch updates to PluralKit…",
+  "@pkMappingPushingHistory": {
+    "description": "Status text shown above the Apply button while pending switch updates are being pushed to PluralKit after the mapping decisions have all applied."
+  },
   "pkMappingApply": "Apply",
   "@pkMappingApply": {
     "description": "Footer button that applies the chosen PK mapping decisions."

@@ -2787,7 +2787,17 @@ class PluralKitSyncService {
   /// (see [importSwitchesAfterLink]). It uses the incremental diff sweep
   /// starting from the current resume cursor, so it's safe to call multiple
   /// times (idempotent via deterministic IDs and atomic cursor advance).
-  Future<void> importSwitchesAfterLink() async {
+  ///
+  /// [onProgress] is an optional external callback that mirrors the existing
+  /// internal `_emit` progress updates so callers (e.g. the mapping
+  /// controller's Apply pipeline) can drive their own UI without subscribing
+  /// to this service's state stream. The fraction is the diff-sweep progress
+  /// in `[0.0, 1.0]`; the status string includes the current switch index
+  /// (`Importing switch i/total...`). It is invoked at the same cadence as
+  /// the internal emit (every 50 switches).
+  Future<void> importSwitchesAfterLink({
+    void Function(double fraction, String status)? onProgress,
+  }) async {
     if (!_state.isConnected) {
       throw StateError('Not connected — cannot import switch history');
     }
@@ -2832,13 +2842,15 @@ class PluralKitSyncService {
             final frac = allSwitches.isEmpty
                 ? 1.0
                 : 0.5 + 0.4 * (i / allSwitches.length);
+            final status =
+                'Importing switch ${i + 1}/${allSwitches.length}...';
             _emit(
               _state.copyWith(
                 syncProgress: frac,
-                syncStatus:
-                    'Importing switch ${i + 1}/${allSwitches.length}...',
+                syncStatus: status,
               ),
             );
+            onProgress?.call(frac, status);
           }
         },
       );

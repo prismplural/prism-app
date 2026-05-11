@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.d
 import 'package:prism_plurality/features/pluralkit/views/pk_mapping_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_select.dart';
 
 // ---------------------------------------------------------------------------
@@ -34,9 +35,19 @@ class _FakePkMappingController extends PkMappingController {
   @override
   Future<PkMappingState> build() async => _initial;
 
+  /// Captures the localized status strings passed by the screen. Tests can
+  /// assert the screen wired them through correctly.
+  String? lastImportingHistoryStatus;
+  String? lastPushingHistoryStatus;
+
   @override
-  Future<void> apply() async {
+  Future<void> apply({
+    String? importingHistoryStatus,
+    String? pushingHistoryStatus,
+  }) async {
     applyCallCount++;
+    lastImportingHistoryStatus = importingHistoryStatus;
+    lastPushingHistoryStatus = pushingHistoryStatus;
     final current = state.value;
     if (current == null) return;
     state = AsyncData(
@@ -407,5 +418,210 @@ void main() {
         reason: 'Retry tap must invoke controller.retry()',
       );
     });
+  });
+
+  // -- Phase 3 (per docs/plans/pk-megasystem-import.md): post-apply status -
+
+  group('PkMappingScreen — post-apply status', () {
+    testWidgets(
+      'phase=importingSwitches renders statusText above the button '
+      'while keeping the Apply label',
+      (tester) async {
+        final pkAlice = _pk('pk-alice', 'Alice');
+        final locals = [_local('l1', 'Alice')];
+
+        final state = PkMappingState(
+          pkMembers: [pkAlice],
+          localMembers: locals,
+          decisionsByPkUuid: {
+            pkAlice.uuid: PkLinkDecision(localMemberId: 'l1', pkMember: pkAlice),
+          },
+          isApplying: true,
+          applyProgress: 0.42,
+          phase: PkMappingPhase.importingSwitches,
+          statusText: 'Importing switch history…',
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        // pumpAndSettle would loop forever — LinearProgressIndicator
+        // animates continuously while isApplying=true. One pump is enough
+        // to lay out the tree.
+        await tester.pump();
+
+        // Status text is rendered above the button.
+        expect(find.text('Importing switch history…'), findsOneWidget);
+
+        // The Apply button widget retains its 'Apply' label property even
+        // while loading (PrismButton swaps the rendered Text for a spinner
+        // but the label property is unchanged). Phase info lives in the
+        // status text widget above, never on the button.
+        final applyButton = tester.widget<PrismButton>(
+          find.byWidgetPredicate(
+            (w) => w is PrismButton && w.label == 'Apply',
+          ),
+        );
+        expect(applyButton.label, 'Apply');
+      },
+    );
+
+    testWidgets(
+      'phase=pushingSwitches also renders statusText with stable button label',
+      (tester) async {
+        final pkAlice = _pk('pk-alice', 'Alice');
+        final locals = [_local('l1', 'Alice')];
+
+        final state = PkMappingState(
+          pkMembers: [pkAlice],
+          localMembers: locals,
+          decisionsByPkUuid: {
+            pkAlice.uuid: PkLinkDecision(localMemberId: 'l1', pkMember: pkAlice),
+          },
+          isApplying: true,
+          applyProgress: 0.0,
+          phase: PkMappingPhase.pushingSwitches,
+          statusText: 'Pushing switch updates to PluralKit…',
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pump();
+
+        expect(
+          find.text('Pushing switch updates to PluralKit…'),
+          findsOneWidget,
+        );
+        final applyButton = tester.widget<PrismButton>(
+          find.byWidgetPredicate(
+            (w) => w is PrismButton && w.label == 'Apply',
+          ),
+        );
+        expect(applyButton.label, 'Apply');
+      },
+    );
+
+    testWidgets(
+      'no statusText is rendered when not applying, even with a phase set',
+      (tester) async {
+        final pkAlice = _pk('pk-alice', 'Alice');
+        final locals = [_local('l1', 'Alice')];
+
+        // Pre-apply: phase defaults to applyingDecisions, statusText is null.
+        final state = PkMappingState(
+          pkMembers: [pkAlice],
+          localMembers: locals,
+          decisionsByPkUuid: {
+            pkAlice.uuid: PkLinkDecision(localMemberId: 'l1', pkMember: pkAlice),
+          },
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        // Neither status string should be visible while idle.
+        expect(find.text('Importing switch history…'), findsNothing);
+        expect(find.text('Pushing switch updates to PluralKit…'), findsNothing);
+        // The Apply button is enabled (not loading) when not applying.
+        expect(find.text('Apply'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Apply button stays disabled across all three phases',
+      (tester) async {
+        final pkAlice = _pk('pk-alice', 'Alice');
+        final locals = [_local('l1', 'Alice')];
+
+        Future<PrismButton> pumpAndGetApplyButton(
+          PkMappingPhase phase, {
+          String? statusText,
+        }) async {
+          final state = PkMappingState(
+            pkMembers: [pkAlice],
+            localMembers: locals,
+            decisionsByPkUuid: {
+              pkAlice.uuid: PkLinkDecision(
+                localMemberId: 'l1',
+                pkMember: pkAlice,
+              ),
+            },
+            isApplying: true,
+            applyProgress: 0.0,
+            phase: phase,
+            statusText: statusText,
+          );
+          final controller = _FakePkMappingController(state);
+          await tester.pumpWidget(_wrap(controller));
+          // pumpAndSettle hangs on the spinning LinearProgressIndicator.
+          await tester.pump();
+
+          // PrismButton swaps its label for a PrismSpinner when isLoading, so
+          // find.text('Apply') is empty during apply. Match by the label
+          // property on the PrismButton widget itself instead.
+          return tester.widget<PrismButton>(
+            find.byWidgetPredicate(
+              (w) => w is PrismButton && w.label == 'Apply',
+            ),
+          );
+        }
+
+        // Phase 1 — applyingDecisions: no statusText set yet, but button is
+        // disabled because isApplying = true.
+        final applyButton1 = await pumpAndGetApplyButton(
+          PkMappingPhase.applyingDecisions,
+        );
+        expect(applyButton1.enabled, isFalse);
+        expect(applyButton1.isLoading, isTrue);
+
+        // Phase 2 — importingSwitches: button still disabled, statusText shown.
+        final applyButton2 = await pumpAndGetApplyButton(
+          PkMappingPhase.importingSwitches,
+          statusText: 'Importing switch history…',
+        );
+        expect(applyButton2.enabled, isFalse);
+        expect(applyButton2.isLoading, isTrue);
+
+        // Phase 3 — pushingSwitches: same invariant.
+        final applyButton3 = await pumpAndGetApplyButton(
+          PkMappingPhase.pushingSwitches,
+          statusText: 'Pushing switch updates to PluralKit…',
+        );
+        expect(applyButton3.enabled, isFalse);
+        expect(applyButton3.isLoading, isTrue);
+      },
+    );
+
+    testWidgets(
+      'tapping Apply forwards the localized phase strings to the controller',
+      (tester) async {
+        final pkAlice = _pk('pk-alice', 'Alice');
+        final locals = [_local('l1', 'Alice')];
+
+        final state = PkMappingState(
+          pkMembers: [pkAlice],
+          localMembers: locals,
+          decisionsByPkUuid: {
+            pkAlice.uuid: PkLinkDecision(localMemberId: 'l1', pkMember: pkAlice),
+          },
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Apply'));
+        await tester.pumpAndSettle();
+
+        // The screen reads the strings from AppLocalizations and forwards them
+        // via the named params. Verify the controller saw the expected values.
+        expect(controller.applyCallCount, 1);
+        expect(controller.lastImportingHistoryStatus, 'Importing switch history…');
+        expect(
+          controller.lastPushingHistoryStatus,
+          'Pushing switch updates to PluralKit…',
+        );
+      },
+    );
   });
 }

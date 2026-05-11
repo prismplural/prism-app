@@ -8,6 +8,7 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart' as fronting;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
@@ -15,6 +16,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
@@ -114,9 +116,38 @@ class _NoopFrontingSessionRepo implements FrontingSessionRepository {
   );
 }
 
+/// Empty fronting repo used by the Phase 3 phase-transition tests, which
+/// exercise `importSwitchesAfterLink` and `pushPendingSwitches` end-to-end
+/// against an empty DB. Just returns empty lists for everything the
+/// post-decision pipeline actually reads.
+class _EmptyFrontingSessionRepo implements FrontingSessionRepository {
+  @override
+  Future<List<fronting.FrontingSession>> getAllSessions() async => const [];
+  @override
+  Future<List<fronting.FrontingSession>> getAllActiveSessionsUnfiltered() async =>
+      const [];
+  @override
+  Future<List<fronting.FrontingSession>> getDeletedLinkedSessions() async =>
+      const [];
+  @override
+  Future<List<fronting.FrontingSession>> getFrontingSessions() async => const [];
+  @override
+  Future<List<fronting.FrontingSession>> getActiveSessions() async => const [];
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError(
+    'Empty fronting repo: ${invocation.memberName} not stubbed',
+  );
+}
+
 class _FakeClient extends PluralKitClient {
   final List<PKMember> members;
   int createCallCount = 0;
+  int getSwitchesCallCount = 0;
+
+  /// Probe fired whenever [getSwitches] is invoked. Tests use this to capture
+  /// the controller state at the moment the post-apply switch import begins.
+  void Function()? onGetSwitches;
+
   _FakeClient(this.members) : super(token: 'fake', httpClient: http.Client());
 
   @override
@@ -135,6 +166,21 @@ class _FakeClient extends PluralKitClient {
     members.add(created);
     return created;
   }
+
+  /// Returns an empty switch list so `importSwitchesAfterLink` completes
+  /// cleanly without HTTP traffic, letting the apply pipeline reach the
+  /// pushingSwitches phase.
+  @override
+  Future<List<PKSwitch>> getSwitches({DateTime? before, int limit = 100}) async {
+    getSwitchesCallCount++;
+    onGetSwitches?.call();
+    return const [];
+  }
+
+  /// Returns `null` (PK uses 204 No Content when the system has no switches
+  /// yet) so `pushPendingSwitches` can compute its diff without HTTP traffic.
+  @override
+  Future<PKSwitch?> getCurrentFronters() async => null;
 
   @override
   Future<List<int>> downloadBytes(String url) async => const [];
@@ -576,4 +622,325 @@ void main() {
       expect(s.decisionsByLocalId['l2'], isA<PkPushNewDecision>());
     },
   );
+
+  // -- Phase 3 (per docs/plans/pk-megasystem-import.md): phase transitions ---
+
+  group('apply: phase transitions', () {
+    test(
+      'initial state defaults to applyingDecisions with no statusText',
+      () async {
+        final s = await container.read(pkMappingControllerProvider.future);
+        expect(s.phase, PkMappingPhase.applyingDecisions);
+        expect(s.statusText, isNull);
+        expect(s.isApplying, isFalse);
+        expect(s.applyProgress, 0.0);
+      },
+    );
+
+    test(
+      'apply progresses through three phases and ends idle without statusText',
+      () async {
+        // Build a probe sync service tied to the test DB / repo / client.
+        // The probe captures controller state at the entry point of the
+        // post-decision phase methods so the test can assert the
+        // controller had already advanced phase + reset progress before
+        // each call.
+        late ProviderContainer probedContainer;
+        final probe = _PhaseProbeSyncService(
+          memberRepository: repo,
+          frontingSessionRepository: _EmptyFrontingSessionRepo(),
+          syncDao: PluralKitSyncDao(db),
+          clientFactory: (_) => client,
+          tokenOverride: 'fake',
+          readState: () =>
+              probedContainer.read(pkMappingControllerProvider).value,
+        );
+        await probe.setToken('fake');
+
+        probedContainer = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            memberRepositoryProvider.overrideWithValue(repo),
+            pluralKitSyncServiceProvider.overrideWithValue(probe),
+          ],
+        );
+        addTearDown(probedContainer.dispose);
+
+        await probedContainer.read(pkMappingControllerProvider.future);
+        final ctrl = probedContainer.read(
+          pkMappingControllerProvider.notifier,
+        );
+
+        // Hook the fake client so we can sample state in mid-import-phase too.
+        PkMappingState? duringImport;
+        client.onGetSwitches = () {
+          duringImport = probedContainer
+              .read(pkMappingControllerProvider)
+              .value;
+        };
+
+        await ctrl.apply(
+          importingHistoryStatus: 'Importing switch history…',
+          pushingHistoryStatus: 'Pushing switch updates to PluralKit…',
+        );
+
+        // Phase 2 entry: `importSwitchesAfterLink` was awaited with phase
+        // already set to importingSwitches and applyProgress reset to 0.
+        expect(probe.importSwitchesCallCount, 1);
+        final atImport = probe.stateAtImportEntry;
+        expect(
+          atImport,
+          isNotNull,
+          reason: 'importSwitchesAfterLink should have been awaited',
+        );
+        expect(atImport!.phase, PkMappingPhase.importingSwitches);
+        expect(atImport.applyProgress, 0.0);
+        expect(atImport.statusText, 'Importing switch history…');
+        expect(atImport.isApplying, isTrue);
+
+        // Mid-import sample (during _fetchAllSwitches → client.getSwitches):
+        // still in importingSwitches phase.
+        expect(duringImport, isNotNull);
+        expect(duringImport!.phase, PkMappingPhase.importingSwitches);
+        expect(duringImport!.isApplying, isTrue);
+
+        // Phase 3 entry: `pushPendingSwitches` saw phase=pushingSwitches with
+        // applyProgress reset and the pushing-history label.
+        expect(probe.pushSwitchesCallCount, 1);
+        final atPush = probe.stateAtPushEntry;
+        expect(
+          atPush,
+          isNotNull,
+          reason: 'pushPendingSwitches should have been awaited',
+        );
+        expect(atPush!.phase, PkMappingPhase.pushingSwitches);
+        expect(atPush.applyProgress, 0.0);
+        expect(atPush.statusText, 'Pushing switch updates to PluralKit…');
+        expect(atPush.isApplying, isTrue);
+
+        // Final state: apply finished; status text cleared; progress at 1.0.
+        final after = probedContainer.read(pkMappingControllerProvider).value!;
+        expect(after.isApplying, isFalse);
+        expect(after.applyProgress, 1.0);
+        expect(after.statusText, isNull);
+        expect(after.lastResults, isNotNull);
+        // We applied 4 decisions (alice link + dana import + push l2 + push l3).
+        expect(after.lastResults!.length, 4);
+      },
+    );
+
+    test(
+      'per-decision loop advances applyProgress while phase stays applyingDecisions',
+      () async {
+        // Capture state snapshots inside the per-decision loop. We tap the
+        // member repo: every applier write (link update / import create /
+        // push create) fires a probe that snapshots the controller's
+        // (phase, applyProgress) tuple at that point. All such writes must
+        // happen during phase 1 (applyingDecisions).
+        final phaseDuringApplier = <PkMappingPhase>[];
+        final progressDuringApplier = <double>[];
+
+        late ProviderContainer probedContainer;
+        final wrappedRepo = _RecordingMemberRepo(
+          repo,
+          onWrite: () {
+            final s = probedContainer
+                .read(pkMappingControllerProvider)
+                .value;
+            if (s != null && s.isApplying) {
+              phaseDuringApplier.add(s.phase);
+              progressDuringApplier.add(s.applyProgress);
+            }
+          },
+        );
+
+        final svc = PluralKitSyncService(
+          memberRepository: wrappedRepo,
+          frontingSessionRepository: _EmptyFrontingSessionRepo(),
+          syncDao: PluralKitSyncDao(db),
+          clientFactory: (_) => client,
+          tokenOverride: 'fake',
+        );
+        await svc.setToken('fake');
+
+        probedContainer = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            memberRepositoryProvider.overrideWithValue(wrappedRepo),
+            pluralKitSyncServiceProvider.overrideWithValue(svc),
+          ],
+        );
+        addTearDown(probedContainer.dispose);
+
+        client.onGetSwitches = () {
+          // Sanity check: by the time getSwitches fires, phase must have
+          // advanced past applyingDecisions.
+          final s = probedContainer.read(pkMappingControllerProvider).value!;
+          expect(s.phase, isNot(PkMappingPhase.applyingDecisions));
+        };
+
+        await probedContainer.read(pkMappingControllerProvider.future);
+        await probedContainer
+            .read(pkMappingControllerProvider.notifier)
+            .apply(
+              importingHistoryStatus: 'Importing switch history…',
+              pushingHistoryStatus: 'Pushing switch updates to PluralKit…',
+            );
+
+        // We captured at least the writes performed by the per-decision loop
+        // (Alice's link, Dana's import, and two pushed locals).
+        expect(
+          phaseDuringApplier,
+          isNotEmpty,
+          reason: 'expected applier writes during phase 1',
+        );
+        // Every captured phase during the writes the applier performs is
+        // applyingDecisions (the per-decision loop is the only writer in
+        // phase 1).
+        expect(
+          phaseDuringApplier.every(
+            (p) => p == PkMappingPhase.applyingDecisions,
+          ),
+          isTrue,
+          reason:
+              'applier writes must happen with phase=applyingDecisions; '
+              'got $phaseDuringApplier',
+        );
+        // Progress was monotonically non-decreasing across the per-decision
+        // writes.
+        for (var i = 1; i < progressDuringApplier.length; i++) {
+          expect(
+            progressDuringApplier[i],
+            greaterThanOrEqualTo(progressDuringApplier[i - 1]),
+            reason:
+                'applyProgress should be monotonically non-decreasing in '
+                'phase 1; saw $progressDuringApplier',
+          );
+        }
+      },
+    );
+  });
+}
+
+/// Records mapping state at each member-repo write — used to observe what the
+/// controller's phase / applyProgress look like during the per-decision loop.
+class _RecordingMemberRepo implements MemberRepository {
+  _RecordingMemberRepo(this._inner, {required this.onWrite});
+
+  final MemberRepository _inner;
+  final void Function() onWrite;
+
+  @override
+  Future<void> createMember(domain.Member m) async {
+    onWrite();
+    return _inner.createMember(m);
+  }
+
+  @override
+  Future<void> updateMember(domain.Member m) async {
+    onWrite();
+    return _inner.updateMember(m);
+  }
+
+  @override
+  Future<List<domain.Member>> getAllMembers() => _inner.getAllMembers();
+
+  @override
+  Future<List<domain.Member>> getAllMembersIncludingDeleted() =>
+      _inner.getAllMembersIncludingDeleted();
+
+  @override
+  Future<domain.Member?> getMemberById(String id) => _inner.getMemberById(id);
+
+  @override
+  Future<void> deleteMember(String id) => _inner.deleteMember(id);
+
+  @override
+  Future<int> getCount() => _inner.getCount();
+
+  @override
+  Future<List<domain.Member>> getMembersByIds(List<String> ids) =>
+      _inner.getMembersByIds(ids);
+
+  @override
+  Stream<List<domain.Member>> watchMembersByIds(List<String> ids) =>
+      _inner.watchMembersByIds(ids);
+
+  @override
+  Stream<List<domain.Member>> watchActiveMembers() =>
+      _inner.watchActiveMembers();
+
+  @override
+  Stream<List<domain.Member>> watchAllMembers() => _inner.watchAllMembers();
+
+  @override
+  Stream<domain.Member?> watchMemberById(String id) =>
+      _inner.watchMemberById(id);
+
+  @override
+  Future<List<domain.Member>> getDeletedLinkedMembers() =>
+      _inner.getDeletedLinkedMembers();
+
+  @override
+  Future<void> clearPluralKitLink(String id) => _inner.clearPluralKitLink(id);
+
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>
+      _inner.stampDeletePushStartedAt(id, timestampMs);
+
+  @override
+  Future<({domain.Member member, bool wasCreated})>
+  ensureUnknownSentinelMember() => _inner.ensureUnknownSentinelMember();
+}
+
+/// A [PluralKitSyncService] that, before delegating to the inherited
+/// implementation of `importSwitchesAfterLink` and `pushPendingSwitches`,
+/// captures the mapping controller's state via a caller-supplied closure.
+/// The closure reads the controller off a [ProviderContainer] late-bound by
+/// the test, since the controller (and therefore its container) can't exist
+/// before this service is constructed.
+class _PhaseProbeSyncService extends PluralKitSyncService {
+  _PhaseProbeSyncService({
+    required super.memberRepository,
+    required super.frontingSessionRepository,
+    required super.syncDao,
+    required super.clientFactory,
+    required super.tokenOverride,
+    required this.readState,
+  });
+
+  /// Returns the controller's current state snapshot. Test wires this to a
+  /// `container.read(pkMappingControllerProvider).value` lookup.
+  final PkMappingState? Function() readState;
+
+  int importSwitchesCallCount = 0;
+  int pushSwitchesCallCount = 0;
+  PkMappingState? stateAtImportEntry;
+  PkMappingState? stateAtPushEntry;
+
+  @override
+  Future<void> importSwitchesAfterLink({
+    void Function(double fraction, String status)? onProgress,
+  }) async {
+    importSwitchesCallCount++;
+    stateAtImportEntry = readState();
+    return super.importSwitchesAfterLink(onProgress: onProgress);
+  }
+
+  @override
+  Future<PkPushSwitchesResult> pushPendingSwitches({
+    PkPushService? pushService,
+    void Function(String message)? onStaleLink,
+    bool allowDuringSync = false,
+    PKSwitch? knownCurrentFronters,
+  }) async {
+    pushSwitchesCallCount++;
+    stateAtPushEntry = readState();
+    return super.pushPendingSwitches(
+      pushService: pushService,
+      onStaleLink: onStaleLink,
+      allowDuringSync: allowDuringSync,
+      knownCurrentFronters: knownCurrentFronters,
+    );
+  }
 }

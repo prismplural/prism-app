@@ -74,7 +74,14 @@ class _MappingBody extends ConsumerWidget {
   final PkMappingState state;
 
   Future<void> _apply(BuildContext context, WidgetRef ref) async {
-    await ref.read(pkMappingControllerProvider.notifier).apply();
+    final l10n = context.l10n;
+    // Pre-resolve the localized phase status strings here so the controller
+    // (which has no BuildContext) can use them when transitioning into the
+    // importing / pushing phases.
+    await ref.read(pkMappingControllerProvider.notifier).apply(
+          importingHistoryStatus: l10n.pkMappingImportingHistory,
+          pushingHistoryStatus: l10n.pkMappingPushingHistory,
+        );
     final latest = ref.read(pkMappingControllerProvider).value;
     if (!context.mounted) return;
     if (latest != null &&
@@ -166,6 +173,10 @@ class _MappingBody extends ConsumerWidget {
         // -- Apply progress --
         if (state.isApplying) ...[
           const SizedBox(height: 24),
+          if (state.statusText != null) ...[
+            Text(state.statusText!, style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 8),
+          ],
           LinearProgressIndicator(
             value: state.applyProgress > 0 ? state.applyProgress : null,
           ),
