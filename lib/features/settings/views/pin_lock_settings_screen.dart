@@ -92,6 +92,18 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
     final isPinSetAsync = ref.watch(isPinSetProvider);
     final biometricAvailableAsync = ref.watch(isBiometricAvailableProvider);
     final hardLockSyncAsync = ref.watch(hardLockSyncOnAppLockProvider);
+    final screenPrivacyAsync = ref.watch(screenPrivacyEnabledProvider);
+    final targetPlatform = ref.watch(targetPlatformProvider);
+    // Use Riverpod's targetPlatformProvider (not dart:io Platform) so the
+    // gate respects test overrides and Theme.of(context).platform-style
+    // changes in the surrounding app.
+    final screenPrivacySupported = targetPlatform == TargetPlatform.android ||
+        targetPlatform == TargetPlatform.iOS;
+    final showScreenPrivacy =
+        screenPrivacySupported && screenPrivacyAsync.hasValue;
+    final screenPrivacySubtitle = targetPlatform == TargetPlatform.iOS
+        ? context.l10n.screenPrivacyToggleSubtitleIos
+        : context.l10n.screenPrivacyToggleSubtitleAndroid;
 
     final pinSet = isPinSetAsync.value ?? false;
     final pinReady = isPinEnabled && pinSet;
@@ -117,6 +129,32 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
         children: [
+          // Screen Privacy — global toggle that drives the platform
+          // secure-display flag (FLAG_SECURE on Android, secure-text-field
+          // overlay on iOS). Hidden on platforms without support and while
+          // the SharedPreferences read is still pending to avoid a flash
+          // of the wrong state.
+          if (showScreenPrivacy)
+            PrismSection(
+              title: context.l10n.screenPrivacySection,
+              child: PrismSectionCard(
+                child: PrismSwitchRow(
+                  icon: AppIcons.visibilityOff,
+                  iconColor: Colors.indigo,
+                  title: context.l10n.screenPrivacyToggleTitle,
+                  subtitle: screenPrivacySubtitle,
+                  value: screenPrivacyAsync.value!,
+                  onChanged: (value) {
+                    unawaited(
+                      ref
+                          .read(screenPrivacyEnabledProvider.notifier)
+                          .set(value),
+                    );
+                  },
+                ),
+              ),
+            ),
+
           // PIN toggle
           PrismSection(
             title: context.l10n.pinLockSection,
