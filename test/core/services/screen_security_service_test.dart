@@ -1,7 +1,11 @@
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/services/screen_privacy_controller.dart';
 import 'package:prism_plurality/core/services/screen_security_service.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -88,6 +92,88 @@ void main() {
       await ScreenSecurityService.setGlobalEnabled(false);
       await ScreenSecurityService.disable();
       expect(setCalls, [true, false]);
+    });
+  });
+
+  group('screenPrivacyControllerProvider integration', () {
+    Future<ProviderContainer> makeContainer({required bool initial}) async {
+      SharedPreferences.setMockInitialValues({
+        'prism.pref.screen_privacy_enabled': initial,
+      });
+      final container = ProviderContainer();
+      // Build the source provider so the controller has a non-loading
+      // value to read on first access.
+      await container.read(screenPrivacyEnabledProvider.future);
+      return container;
+    }
+
+    test('reading the controller with toggle ON applies setSecureDisplay(true)',
+        () async {
+      final container = await makeContainer(initial: true);
+      addTearDown(container.dispose);
+
+      container.read(screenPrivacyControllerProvider);
+      // Allow the async ref.listen callback to settle.
+      await Future<void>.delayed(Duration.zero);
+
+      expect(setCalls, [true]);
+    });
+
+    test('flipping the source provider OFF turns the platform OFF',
+        () async {
+      final container = await makeContainer(initial: true);
+      addTearDown(container.dispose);
+
+      container.read(screenPrivacyControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      await container
+          .read(screenPrivacyEnabledProvider.notifier)
+          .set(false);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(setCalls, [true, false]);
+    });
+
+    test('toggling true -> false -> true issues transitions only',
+        () async {
+      final container = await makeContainer(initial: false);
+      addTearDown(container.dispose);
+
+      container.read(screenPrivacyControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+      expect(setCalls, isEmpty);
+
+      await container
+          .read(screenPrivacyEnabledProvider.notifier)
+          .set(true);
+      await Future<void>.delayed(Duration.zero);
+
+      await container
+          .read(screenPrivacyEnabledProvider.notifier)
+          .set(false);
+      await Future<void>.delayed(Duration.zero);
+
+      await container
+          .read(screenPrivacyEnabledProvider.notifier)
+          .set(true);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(setCalls, [true, false, true]);
+    });
+
+    test('disposing the container does NOT turn the platform off',
+        () async {
+      final container = await makeContainer(initial: true);
+      container.read(screenPrivacyControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+      expect(setCalls, [true]);
+
+      container.dispose();
+
+      // Tear-down of the provider tree must not push a setSecureDisplay(false)
+      // call. The platform state survives the container — the toggle owns it.
+      expect(setCalls, [true]);
     });
   });
 }
