@@ -2,6 +2,26 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.8.3] - 2026-05-10
+
+This release focuses on PluralKit control, safer import/sync recovery paths, and a few beta rough edges that could leave the app in a confusing state.
+
+### Added
+- PluralKit sync now has a mode picker: Full Sync for regular profile/history sync, or Live Fronts Only for systems that only want Prism to record new PluralKit front changes while leaving older history, profiles, groups, and system data alone.
+
+### Changed
+- PluralKit setup now keeps sync mode, sync direction, auto-sync, manual sync, and member mapping controls together in the main setup screen.
+
+### Fixed
+- Sync setup no longer treats a partially-saved device identity as paired after an interrupted setup, so affected devices land back in a recoverable unpaired state.
+- Android biometric app-lock prompts work again.
+- Simply Plural imports no longer collide with Prism's Unknown placeholder member when re-importing or importing over existing local data.
+- Add Front no longer shows Prism's persisted Unknown placeholder as a regular selectable member.
+- PluralKit imports respect members you chose to skip during mapping.
+- Export now only marks a backup complete after the share sheet reports success; dismissing or failing the share keeps the export ready so you can try again.
+- Open sheets now follow system light/dark theme changes instead of keeping stale colors until reopened.
+- Habit rows, chips, and related surfaces honor angular shape settings more consistently.
+
 ## [0.8.2] - 2026-05-09
 
 This release smooths out fronting, chat, navigation, and sync flows after 0.8.1. It adds clearer current-session context, reduces noisy sync feedback, and fixes several edge cases around orphaned chat data, member cleanup, and markdown bios.
