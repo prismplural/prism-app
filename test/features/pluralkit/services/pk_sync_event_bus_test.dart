@@ -5,24 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
-/// Minimal concrete `PkSyncEvent` so this test file does not have to depend
-/// on Task 1's full event surface. The bus's `emit` accepts any subclass.
-class _TestPkSyncEvent extends PkSyncEvent {
-  const _TestPkSyncEvent(this.label);
-  final String label;
-  @override
-  String get summary => 'test event $label';
-  @override
-  Map<String, dynamic> toJson() => {'kind': 'test', 'label': label};
-}
+PkSyncEvent _evt(String label) => PkLiveFronterSkipped(reason: label);
 
 void main() {
   group('PkSyncEventBus', () {
-    // Default each test to "not on main isolate" — individual tests opt in
-    // via markPkBusMainIsolate() when they want emits to be delivered.
     setUp(resetPkBusMainIsolateForTest);
-
-    // Belt-and-braces: never leak the flag to a sibling test file.
     tearDown(resetPkBusMainIsolateForTest);
 
     test('emit after markPkBusMainIsolate() delivers to stream listeners',
@@ -31,7 +18,7 @@ void main() {
       final bus = PkSyncEventBus();
       addTearDown(bus.dispose);
 
-      const event = _TestPkSyncEvent('A');
+      final event = _evt('A');
       final completer = Completer<PkSyncEvent>();
       final sub = bus.stream.listen(completer.complete);
       addTearDown(sub.cancel);
@@ -44,7 +31,6 @@ void main() {
     });
 
     test('emit is a silent no-op when not marked as main isolate', () async {
-      // resetPkBusMainIsolateForTest() already called in setUp; do not mark.
       final bus = PkSyncEventBus();
       addTearDown(bus.dispose);
 
@@ -52,10 +38,9 @@ void main() {
       final sub = bus.stream.listen(received.add);
       addTearDown(sub.cancel);
 
-      bus.emit(const _TestPkSyncEvent('A'));
-      bus.emit(const _TestPkSyncEvent('B'));
+      bus.emit(_evt('A'));
+      bus.emit(_evt('B'));
 
-      // Give the event loop a chance to deliver anything that was added.
       await Future<void>.delayed(Duration.zero);
       expect(received, isEmpty);
     });
@@ -68,23 +53,20 @@ void main() {
       final sub = bus.stream.listen(received.add);
       addTearDown(sub.cancel);
 
-      // Marked: events delivered.
       markPkBusMainIsolate();
-      bus.emit(const _TestPkSyncEvent('on-1'));
-      bus.emit(const _TestPkSyncEvent('on-2'));
+      bus.emit(_evt('on-1'));
+      bus.emit(_evt('on-2'));
       await Future<void>.delayed(Duration.zero);
       expect(received.length, 2);
 
-      // Reset: events no-op.
       resetPkBusMainIsolateForTest();
-      bus.emit(const _TestPkSyncEvent('off-1'));
-      bus.emit(const _TestPkSyncEvent('off-2'));
+      bus.emit(_evt('off-1'));
+      bus.emit(_evt('off-2'));
       await Future<void>.delayed(Duration.zero);
       expect(received.length, 2);
 
-      // Marked again: events delivered again.
       markPkBusMainIsolate();
-      bus.emit(const _TestPkSyncEvent('on-3'));
+      bus.emit(_evt('on-3'));
       await Future<void>.delayed(Duration.zero);
       expect(received.length, 3);
     });
@@ -96,17 +78,14 @@ void main() {
       final received = <PkSyncEvent>[];
       final sub = bus.stream.listen(received.add);
 
-      bus.emit(const _TestPkSyncEvent('before-dispose'));
+      bus.emit(_evt('before-dispose'));
       await Future<void>.delayed(Duration.zero);
       expect(received.length, 1);
 
       await sub.cancel();
       bus.dispose();
 
-      // Subsequent emits must not throw even though the controller is closed.
-      expect(() => bus.emit(const _TestPkSyncEvent('after-dispose')),
-          returnsNormally);
-      // And nothing else should have been delivered.
+      expect(() => bus.emit(_evt('after-dispose')), returnsNormally);
       await Future<void>.delayed(Duration.zero);
       expect(received.length, 1);
     });
@@ -116,17 +95,16 @@ void main() {
       final capture = PkSyncEventBusCapture();
       addTearDown(capture.bus.dispose);
 
-      capture.bus.emit(const _TestPkSyncEvent('1'));
-      capture.bus.emit(const _TestPkSyncEvent('2'));
-      capture.bus.emit(const _TestPkSyncEvent('3'));
+      capture.bus.emit(_evt('1'));
+      capture.bus.emit(_evt('2'));
+      capture.bus.emit(_evt('3'));
 
-      // Allow one microtask hop for broadcast delivery.
       await Future<void>.delayed(Duration.zero);
       expect(capture.events.length, 3);
       expect(
         capture.events
-            .whereType<_TestPkSyncEvent>()
-            .map((e) => e.label)
+            .whereType<PkLiveFronterSkipped>()
+            .map((e) => e.reason)
             .toList(),
         ['1', '2', '3'],
       );
@@ -142,15 +120,12 @@ void main() {
       final sub = bus.stream.listen(received.add);
       addTearDown(sub.cancel);
 
-      bus.emit(const _TestPkSyncEvent('via-provider'));
+      bus.emit(_evt('via-provider'));
       await Future<void>.delayed(Duration.zero);
       expect(received.length, 1);
 
       container.dispose();
-      // After container dispose, the bus's controller should be closed —
-      // emitting again must be a silent no-op, not a StateError.
-      expect(() => bus.emit(const _TestPkSyncEvent('after-container-dispose')),
-          returnsNormally);
+      expect(() => bus.emit(_evt('after-container-dispose')), returnsNormally);
     });
   });
 }
