@@ -2203,7 +2203,7 @@ class PluralKitSyncService {
       corrective: true,
       advanceCursor: updateSyncState,
       onProgress: (i) {
-        if (i % 50 == 0) {
+        if (i % 50 == 0 || i == allSwitches.length - 1) {
           final progress =
               0.50 + 0.45 * (totalSwitches == 0 ? 1.0 : i / totalSwitches);
           _emit(
@@ -2838,7 +2838,7 @@ class PluralKitSyncService {
         switches: allSwitches,
         shortIdToUuid: shortIdToUuid,
         onProgress: (i) {
-          if (i % 50 == 0) {
+          if (i % 50 == 0 || i == allSwitches.length - 1) {
             final frac = allSwitches.isEmpty
                 ? 1.0
                 : 0.5 + 0.4 * (i / allSwitches.length);
