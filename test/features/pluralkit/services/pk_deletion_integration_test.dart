@@ -95,6 +95,9 @@ class _FakeClient implements PluralKitClient {
   int? memberDeleteStatus;
   int? switchDeleteStatus;
 
+  @override
+  String get currentToken => 'fake-token';
+
   // ignore: unused_element_parameter
   _FakeClient({this.systemId = 'sys-1'});
 

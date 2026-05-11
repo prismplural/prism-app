@@ -91,6 +91,9 @@ class _FakePluralKitClient implements PluralKitClient {
   final List<PKSwitch> switchesToReturn;
 
   @override
+  String get currentToken => 'fake-token';
+
+  @override
   Future<PKSystem> getSystem() async =>
       const PKSystem(id: 'sys-1', name: 'Test System');
 

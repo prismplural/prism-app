@@ -94,6 +94,9 @@ class FakePluralKitClient implements PluralKitClient {
   int disposeCallCount = 0;
   final List<String> calls = [];
 
+  @override
+  String get currentToken => 'fake-token';
+
   // Configurable behavior
   bool throwAuthError = false;
   bool throwNetworkError = false;

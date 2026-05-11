@@ -12,6 +12,8 @@ import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
 /// In-memory member repo — minimum surface the applier touches.
@@ -166,12 +168,14 @@ void main() {
   PkMappingApplier buildApplier({
     required MemberRepository repo,
     required FakePluralKitClient client,
+    PkSyncEventBus? bus,
   }) {
     return PkMappingApplier(
       members: repo,
       state: dao,
       pushService: const PkPushService(),
       client: client,
+      bus: bus ?? PkSyncEventBus(),
     );
   }
 
@@ -637,5 +641,189 @@ void main() {
     expect(results.single.outcome, PkApplyOutcome.applied);
     final updated = await repo.getMemberById('l1');
     expect(updated!.pluralkitUuid, 'new-uuid');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Event emission — Task 5 of pk-sync-log plan.
+  //
+  // Every per-decision outcome (applied or failed) emits a structured event on
+  // the shared `PkSyncEventBus` so the PK sync log can show the user which
+  // mapping decisions ran. setUp flips the main-isolate flag so emits pass the
+  // bus's isolate guard; tearDown resets it so the flag doesn't leak across
+  // sibling test files.
+  // ---------------------------------------------------------------------------
+  group('event emission', () {
+    setUp(markPkBusMainIsolate);
+
+    tearDown(resetPkBusMainIsolateForTest);
+
+    test('link decision success emits PkMappingDecisionApplied', () async {
+      final capture = PkSyncEventBusCapture();
+      final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+      final client = FakePluralKitClient();
+      final applier = buildApplier(
+        repo: repo,
+        client: client,
+        bus: capture.bus,
+      );
+
+      const pk = PKMember(id: 'abcde', uuid: 'u-1', name: 'Alice');
+      final results = await applier.apply([
+        const PkLinkDecision(localMemberId: 'l1', pkMember: pk),
+      ]);
+
+      expect(results.single.outcome, PkApplyOutcome.applied);
+      expect(capture.events, hasLength(1));
+      final event = capture.events.single;
+      expect(event, isA<PkMappingDecisionApplied>());
+      final applied = event as PkMappingDecisionApplied;
+      expect(applied.decisionId, 'link:u-1');
+      expect(applied.decisionKind, 'link');
+    });
+
+    test('import decision success emits PkMappingDecisionApplied', () async {
+      final capture = PkSyncEventBusCapture();
+      final repo = FakeMemberRepo([]);
+      final client = FakePluralKitClient();
+      final applier = buildApplier(
+        repo: repo,
+        client: client,
+        bus: capture.bus,
+      );
+
+      const pk = PKMember(id: 'abcde', uuid: 'u-imp', name: 'Imported');
+      final results = await applier.apply([const PkImportDecision(pkMember: pk)]);
+
+      expect(results.single.outcome, PkApplyOutcome.applied);
+      expect(capture.events, hasLength(1));
+      final event = capture.events.single;
+      expect(event, isA<PkMappingDecisionApplied>());
+      final applied = event as PkMappingDecisionApplied;
+      expect(applied.decisionId, 'import:u-imp');
+      expect(applied.decisionKind, 'import');
+    });
+
+    test('push-new decision success emits PkMappingDecisionApplied', () async {
+      final capture = PkSyncEventBusCapture();
+      final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+      final client = FakePluralKitClient(
+        onCreate: (data) => PKMember(
+          id: 'newid',
+          uuid: 'new-uuid',
+          name: data['name'] as String,
+        ),
+      );
+      final applier = buildApplier(
+        repo: repo,
+        client: client,
+        bus: capture.bus,
+      );
+
+      final results = await applier.apply([
+        const PkPushNewDecision(localMemberId: 'l1'),
+      ]);
+
+      expect(results.single.outcome, PkApplyOutcome.applied);
+      expect(capture.events, hasLength(1));
+      final event = capture.events.single;
+      expect(event, isA<PkMappingDecisionApplied>());
+      final applied = event as PkMappingDecisionApplied;
+      expect(applied.decisionId, 'push:l1');
+      expect(applied.decisionKind, 'push');
+    });
+
+    test('link decision failure emits PkMappingDecisionFailed', () async {
+      // Force `_applyLink` to throw by pointing the decision at a local that
+      // doesn't exist — the applier throws StateError on the missing lookup.
+      final capture = PkSyncEventBusCapture();
+      final repo = FakeMemberRepo([]);
+      final client = FakePluralKitClient();
+      final applier = buildApplier(
+        repo: repo,
+        client: client,
+        bus: capture.bus,
+      );
+
+      const pk = PKMember(id: 'abcde', uuid: 'u-1', name: 'Alice');
+      final results = await applier.apply([
+        const PkLinkDecision(localMemberId: 'missing', pkMember: pk),
+      ]);
+
+      expect(results.single.outcome, PkApplyOutcome.failed);
+      expect(capture.events, hasLength(1));
+      final event = capture.events.single;
+      expect(event, isA<PkMappingDecisionFailed>());
+      final failed = event as PkMappingDecisionFailed;
+      expect(failed.decisionId, 'link:u-1');
+      expect(failed.decisionKind, 'link');
+      expect(failed.error, contains('missing'));
+    });
+
+    test(
+      'failure error message is token-redacted before emit',
+      () async {
+        // Simulate a typed PK error whose message happens to contain the
+        // current bearer token. The emit site must replace the token with
+        // [REDACTED] so logs copied out of the device never expose it.
+        final capture = PkSyncEventBusCapture();
+        final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+        final client = FakePluralKitClient(
+          onCreate: (_) => throw const PluralKitApiError(
+            500,
+            'upstream rejected fake-token',
+          ),
+        );
+        final applier = buildApplier(
+          repo: repo,
+          client: client,
+          bus: capture.bus,
+        );
+
+        await applier.apply([const PkPushNewDecision(localMemberId: 'l1')]);
+
+        expect(capture.events, hasLength(1));
+        final event = capture.events.single as PkMappingDecisionFailed;
+        expect(event.error, contains('[REDACTED]'));
+        expect(event.error, isNot(contains('fake-token')));
+      },
+    );
+
+    test(
+      'mixed batch emits an applied event followed by a failed event in order',
+      () async {
+        // Import succeeds (local-only), push fails (createMember throws).
+        final capture = PkSyncEventBusCapture();
+        final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+        final client = FakePluralKitClient(
+          onCreate: (_) => throw const PluralKitApiError(400, 'bad request'),
+        );
+        final applier = buildApplier(
+          repo: repo,
+          client: client,
+          bus: capture.bus,
+        );
+
+        const importedPk = PKMember(id: 'abcde', uuid: 'u-imp', name: 'Other');
+        final results = await applier.apply([
+          const PkImportDecision(pkMember: importedPk), // applied
+          const PkPushNewDecision(localMemberId: 'l1'), // failed
+        ]);
+
+        expect(results[0].outcome, PkApplyOutcome.applied);
+        expect(results[1].outcome, PkApplyOutcome.failed);
+
+        expect(capture.events, hasLength(2));
+        expect(capture.events[0], isA<PkMappingDecisionApplied>());
+        final applied = capture.events[0] as PkMappingDecisionApplied;
+        expect(applied.decisionId, 'import:u-imp');
+        expect(applied.decisionKind, 'import');
+
+        expect(capture.events[1], isA<PkMappingDecisionFailed>());
+        final failed = capture.events[1] as PkMappingDecisionFailed;
+        expect(failed.decisionId, 'push:l1');
+        expect(failed.decisionKind, 'push');
+        expect(failed.error, contains('bad request'));
+      },
+    );
   });
 }

@@ -11,6 +11,9 @@ class FakePluralKitClient implements PluralKitClient {
   }) : _switchesNewestFirst = List<PKSwitch>.of(switchesNewestFirst),
        _switchPages = switchPages?.map(List<PKSwitch>.of).toList();
 
+  @override
+  String get currentToken => 'fake-token';
+
   PKSystem system;
   List<PKMember> members;
   List<PKGroup> groups;

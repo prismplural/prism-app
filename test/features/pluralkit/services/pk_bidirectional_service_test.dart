@@ -22,6 +22,9 @@ class FakePluralKitClient implements PluralKitClient {
   int _idCounter = 0;
 
   @override
+  String get currentToken => 'fake-token';
+
+  @override
   Future<PKMember> createMember(Map<String, dynamic> data) async {
     _idCounter++;
     final id = 'pk${_idCounter.toString().padLeft(3, '0')}';

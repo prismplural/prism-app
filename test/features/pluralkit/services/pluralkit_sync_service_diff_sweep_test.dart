@@ -88,6 +88,9 @@ class _FakeClient implements PluralKitClient {
   _FakeClient(this.switchPages);
 
   @override
+  String get currentToken => 'fake-token';
+
+  @override
   Future<PKSystem> getSystem() async => const PKSystem(id: 'sys', name: 'T');
 
   @override

@@ -98,6 +98,12 @@ class PluralKitClient {
        _http = httpClient ?? http.Client(),
        _queue = queue ?? PkRequestQueue();
 
+  /// The bearer token this client was configured with. Exposed so callers
+  /// (e.g., [PkMappingApplier]) can pass it to [PkSyncEvent.redact] when
+  /// emitting failure events, ensuring the token never enters the sync log.
+  /// Never logged or persisted by this client itself.
+  String get currentToken => _token;
+
   // -- helpers --------------------------------------------------------------
 
   Map<String, String> get _headers => {

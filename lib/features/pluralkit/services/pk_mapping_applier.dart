@@ -7,6 +7,8 @@ import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 import 'package:uuid/uuid.dart';
@@ -94,12 +96,14 @@ class PkMappingApplier {
   final PkBannerCacheService _bannerCacheService;
   final Uuid _uuid;
   final DateTime Function() _now;
+  final PkSyncEventBus _bus;
 
   PkMappingApplier({
     required MemberRepository members,
     required PkMappingStateDao state,
     required PkPushService pushService,
     required PluralKitClient client,
+    required PkSyncEventBus bus,
     PkBannerCacheService? bannerCacheService,
     Uuid? uuid,
     DateTime Function()? now,
@@ -107,6 +111,7 @@ class PkMappingApplier {
        _state = state,
        _pushService = pushService,
        _client = client,
+       _bus = bus,
        _bannerCacheService = bannerCacheService ?? PkBannerCacheService(),
        _uuid = uuid ?? const Uuid(),
        _now = now ?? DateTime.now;
@@ -142,6 +147,12 @@ class PkMappingApplier {
           await _applySkip(decision);
       }
       await _state.markApplied(decision.id);
+      _bus.emit(
+        PkMappingDecisionApplied(
+          decisionId: decision.id,
+          decisionKind: _decisionKindString(decision),
+        ),
+      );
       return PkApplyResult(decision: decision, outcome: PkApplyOutcome.applied);
     } catch (e) {
       final raw = e.toString();
@@ -150,12 +161,31 @@ class PkMappingApplier {
       }
       final msg = _formatApplierError(e, raw);
       await _state.markFailed(decision.id, msg);
+      _bus.emit(
+        PkMappingDecisionFailed(
+          decisionId: decision.id,
+          decisionKind: _decisionKindString(decision),
+          error: PkSyncEvent.redact(msg, _client.currentToken),
+        ),
+      );
       return PkApplyResult(
         decision: decision,
         outcome: PkApplyOutcome.failed,
         error: msg,
       );
     }
+  }
+
+  /// Stable kind string used in [PkMappingDecisionApplied] /
+  /// [PkMappingDecisionFailed] payloads. The applier owns this rather than
+  /// pulling it off `decision.id` (which embeds the kind as a prefix) so the
+  /// event payload stays stable even if id formats evolve.
+  String _decisionKindString(PkMappingDecision d) {
+    if (d is PkLinkDecision) return 'link';
+    if (d is PkImportDecision) return 'import';
+    if (d is PkPushNewDecision) return 'push';
+    if (d is PkSkipDecision) return 'skip';
+    return 'unknown';
   }
 
   String _formatApplierError(Object e, String raw) {

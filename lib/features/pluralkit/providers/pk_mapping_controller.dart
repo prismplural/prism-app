@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_member_matcher.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 
@@ -359,11 +360,13 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
 
       final memberRepo = ref.read(memberRepositoryProvider);
       final db = ref.read(databaseProvider);
+      final bus = ref.read(pkSyncEventBusProvider);
       final applier = PkMappingApplier(
         members: memberRepo,
         state: PkMappingStateDao(db),
         pushService: const PkPushService(),
         client: client,
+        bus: bus,
       );
 
       // Build the full decision list — PK decisions first, then local-only.

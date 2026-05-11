@@ -266,6 +266,9 @@ class _PkMigrationFakeClient implements PluralKitClient {
   int disposeCallCount = 0;
 
   @override
+  String get currentToken => 'fake-token';
+
+  @override
   Future<PKSystem> getSystem() async {
     getSystemCallCount++;
     return const PKSystem(id: 'pk-system', name: 'PK Fixture System');

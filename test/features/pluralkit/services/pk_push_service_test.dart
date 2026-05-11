@@ -20,6 +20,9 @@ class FakePluralKitClient implements PluralKitClient {
   String nextMemberId = 'abcde';
 
   @override
+  String get currentToken => 'fake-token';
+
+  @override
   Future<PKMember> createMember(Map<String, dynamic> data) async {
     calls.add(Call('createMember', [data]));
     return PKMember(
@@ -349,6 +352,9 @@ class _ScriptedDeletionClient implements PluralKitClient {
   final List<int?> switchScript;
   int memberCalls = 0;
   int switchCalls = 0;
+
+  @override
+  String get currentToken => 'fake-token';
 
   _ScriptedDeletionClient({
     this.memberScript = const [],
