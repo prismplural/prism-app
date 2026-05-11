@@ -18,6 +18,7 @@ const _kThemeCornerStyleCache = 'prism.cache.theme_corner_style';
 const _kIgnoreSyncedAppearance = 'prism.pref.ignore_synced_appearance';
 const _kUseProxyTagsForAuthoring = 'prism.pref.use_proxy_tags_for_authoring';
 const _kHardLockSyncOnAppLock = 'prism.pref.hard_lock_sync_on_app_lock';
+const _kScreenPrivacyEnabled = 'prism.pref.screen_privacy_enabled';
 
 ThemeStyle effectiveThemeStyleForPlatform(
   ThemeStyle style,
@@ -1060,6 +1061,31 @@ class HardLockSyncOnAppLockNotifier extends AsyncNotifier<bool> {
     state = AsyncValue.data(value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kHardLockSyncOnAppLock, value);
+  }
+}
+
+/// Per-device local privacy preference: when true, the platform secure-
+/// display flag is applied for the whole app (FLAG_SECURE on Android,
+/// secure-text-field overlay on iOS) so screenshots are blocked and the
+/// app's content is hidden from the app switcher snapshot. Stored ONLY
+/// in SharedPreferences — never synced. The threat model is local to
+/// the device (someone glancing at the recent-apps tray).
+final screenPrivacyEnabledProvider =
+    AsyncNotifierProvider<ScreenPrivacyEnabledNotifier, bool>(
+      ScreenPrivacyEnabledNotifier.new,
+    );
+
+class ScreenPrivacyEnabledNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kScreenPrivacyEnabled) ?? false;
+  }
+
+  Future<void> set(bool value) async {
+    state = AsyncValue.data(value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kScreenPrivacyEnabled, value);
   }
 }
 
