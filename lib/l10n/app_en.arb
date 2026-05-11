@@ -7558,6 +7558,24 @@
       "days": { "type": "int" }
     }
   },
+  "pluralkitImportingMember": "Importing member {current}/{total}: {name}",
+  "@pluralkitImportingMember": {
+    "description": "Per-member progress status while importing PluralKit members",
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+  "pluralkitImportingMemberFromFile": "Importing member {current}/{total} from file: {name}",
+  "@pluralkitImportingMemberFromFile": {
+    "description": "Per-member progress status while importing PluralKit members from a pk;export file",
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
 
   "dataManagementExportTitle": "Export Data",
   "@dataManagementExportTitle": { "description": "Export sheet top bar title" },

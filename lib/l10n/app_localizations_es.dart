@@ -6489,6 +6489,16 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String pluralkitImportingMember(int current, int total, String name) {
+    return 'Importando miembro $current/$total: $name';
+  }
+
+  @override
+  String pluralkitImportingMemberFromFile(int current, int total, String name) {
+    return 'Importando miembro $current/$total desde archivo: $name';
+  }
+
+  @override
   String get dataManagementExportTitle => 'Exportar datos';
 
   @override

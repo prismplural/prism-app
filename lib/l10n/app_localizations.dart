@@ -10446,6 +10446,18 @@ abstract class AppLocalizations {
   /// **'{days}d ago'**
   String pluralkitDaysAgo(int days);
 
+  /// Per-member progress status while importing PluralKit members
+  ///
+  /// In en, this message translates to:
+  /// **'Importing member {current}/{total}: {name}'**
+  String pluralkitImportingMember(int current, int total, String name);
+
+  /// Per-member progress status while importing PluralKit members from a pk;export file
+  ///
+  /// In en, this message translates to:
+  /// **'Importing member {current}/{total} from file: {name}'**
+  String pluralkitImportingMemberFromFile(int current, int total, String name);
+
   /// Export sheet top bar title
   ///
   /// In en, this message translates to:

@@ -1599,6 +1599,8 @@
   "pluralkitConnect": "Conectar",
   "pluralkitConnected": "Conectado",
   "pluralkitDaysAgo": "hace {days}d",
+  "pluralkitImportingMember": "Importando miembro {current}/{total}: {name}",
+  "pluralkitImportingMemberFromFile": "Importando miembro {current}/{total} desde archivo: {name}",
   "pluralkitDisconnect": "Desconectar",
   "pluralkitDisconnectMessage": "Esto eliminará tu token y te desconectará de PluralKit. Los datos importados permanecerán en la aplicación.",
   "pluralkitDisconnectTitle": "¿Desconectar PluralKit?",

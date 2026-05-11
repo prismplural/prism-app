@@ -736,7 +736,22 @@ class PluralKitSyncService {
       );
 
       debugPrint('[PK_SVC] importMembersOnly: calling _importMembers...');
-      await _importMembers(client, pkMembers);
+      await _importMembers(
+        client,
+        pkMembers,
+        onProgress: (current, total, name) {
+          // Member import phase occupies 0.50 → 0.95 of the overall progress
+          // bar in importMembersOnly. current=1 (i=0) maps to 0.50;
+          // current=total (i=last) maps to 0.95.
+          final fraction = total <= 1 ? 1.0 : (current - 1) / (total - 1);
+          _emit(
+            _state.copyWith(
+              syncProgress: 0.50 + 0.45 * fraction,
+              syncStatus: 'Importing member $current/$total: $name',
+            ),
+          );
+        },
+      );
       debugPrint('[PK_SVC] importMembersOnly: _importMembers done');
 
       _emit(
@@ -895,7 +910,23 @@ class PluralKitSyncService {
 
     try {
       progress(0.05, 'Importing ${export.members.length} members…');
-      await _importMembers(null, export.members);
+      await _importMembers(
+        null,
+        export.members,
+        onProgress: (current, total, name) {
+          // Member import phase occupies 0.05 → 0.40 of the overall progress
+          // bar for file imports. current=1 (i=0) maps to 0.05; current=total
+          // (i=last) maps to 0.40.
+          final fraction = total <= 1 ? 1.0 : (current - 1) / (total - 1);
+          _emit(
+            _state.copyWith(
+              syncProgress: 0.05 + 0.35 * fraction,
+              syncStatus:
+                  'Importing member $current/$total from file: $name',
+            ),
+          );
+        },
+      );
 
       if (export.groups.isNotEmpty && _groupsImporter != null) {
         progress(0.40, 'Importing ${export.groups.length} groups…');
@@ -1793,8 +1824,9 @@ class PluralKitSyncService {
 
   Future<void> _importMembers(
     PluralKitClient? client,
-    List<PKMember> pkMembers,
-  ) async {
+    List<PKMember> pkMembers, {
+    void Function(int current, int total, String memberName)? onProgress,
+  }) async {
     final existing = await _memberRepository.getAllMembersIncludingDeleted();
     final skippedPkUuids = await _appliedPkSkipUuids();
     debugPrint('[PK_SVC] _importMembers: existing in DB=${existing.length}');
@@ -1815,7 +1847,17 @@ class PluralKitSyncService {
     var updated = 0;
     var skipped = 0;
     var failures = 0;
-    for (final pk in pkMembers) {
+    for (var i = 0; i < pkMembers.length; i++) {
+      final pk = pkMembers[i];
+      // Emit progress BEFORE the per-member work (avatar fetch + repository
+      // write) so the UI reads "now working on X" rather than "just finished
+      // X". Cadence: every 10 members, plus the last iteration so the bar
+      // ends at the band terminus. The `||` is safe — each i runs once, so
+      // the last iteration emits exactly once even when n is a multiple of
+      // 10 plus 1 (e.g. n=11, fires at i=0 and i=10; i=10 is also "last").
+      if (i % 10 == 0 || i == pkMembers.length - 1) {
+        onProgress?.call(i + 1, pkMembers.length, pk.name);
+      }
       final localMember = byPkUuid[pk.uuid] ?? byPkId[pk.id];
       if (localMember == null && skippedPkUuids.contains(pk.uuid.trim())) {
         skipped++;
@@ -1993,7 +2035,22 @@ class PluralKitSyncService {
         syncStatus: 'Importing ${pkMembers.length} members...',
       ),
     );
-    await _importMembers(client, pkMembers);
+    await _importMembers(
+      client,
+      pkMembers,
+      onProgress: (current, total, name) {
+        // Member import phase occupies 0.05 → 0.10 of the overall progress
+        // bar for full imports. current=1 (i=0) maps to 0.05; current=total
+        // (i=last) maps to 0.10.
+        final fraction = total <= 1 ? 1.0 : (current - 1) / (total - 1);
+        _emit(
+          _state.copyWith(
+            syncProgress: 0.05 + 0.05 * fraction,
+            syncStatus: 'Importing member $current/$total: $name',
+          ),
+        );
+      },
+    );
     _emit(_state.copyWith(syncProgress: 0.10));
 
     // -- Groups (10-15%) --
