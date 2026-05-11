@@ -226,6 +226,44 @@ void main() {
       expect(fetched!.isDeleted, isTrue);
     });
 
+    test('removes deleted members from group membership entries', () async {
+      final now = DateTime(2026, 5, 11, 12);
+      final repoWithGroups = DriftMemberRepository(
+        dao,
+        null,
+        memberGroupsDao: db.memberGroupsDao,
+      );
+      await repoWithGroups.createMember(
+        domain.Member(id: 'grouped', name: 'Grouped', createdAt: now),
+      );
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: 'group-1',
+              name: 'Group',
+              createdAt: now,
+            ),
+          );
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            MemberGroupEntriesCompanion.insert(
+              id: 'entry-1',
+              groupId: 'group-1',
+              memberId: 'grouped',
+            ),
+          );
+
+      await repoWithGroups.deleteMember('grouped');
+
+      expect(await db.memberGroupsDao.entriesForGroup('group-1'), isEmpty);
+      final tombstone = await (db.select(
+        db.memberGroupEntries,
+      )..where((entry) => entry.id.equals('entry-1'))).getSingle();
+      expect(tombstone.isDeleted, isTrue);
+    });
+
     test('removes deleted members from chat participant metadata', () async {
       final now = DateTime(2026, 5, 9, 12);
       final conversationRepo = DriftConversationRepository(

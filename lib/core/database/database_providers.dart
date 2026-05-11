@@ -104,6 +104,7 @@ final memberRepositoryProvider = Provider<MemberRepository>(
     _resolveSyncHandle(ref),
     pkSyncDao: ref.watch(pluralKitSyncDaoProvider),
     conversationsDao: ref.watch(conversationsDaoProvider),
+    memberGroupsDao: ref.watch(memberGroupsDaoProvider),
   ),
 );
 

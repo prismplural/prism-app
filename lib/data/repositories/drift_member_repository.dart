@@ -4,11 +4,13 @@ import 'dart:typed_data';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
+import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/data/mappers/conversation_mapper.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_member_groups_repository.dart';
 import 'package:prism_plurality/data/mappers/member_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/conversation.dart'
@@ -24,6 +26,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   // link epoch onto the tombstone so push-time can gate stale intents.
   final PluralKitSyncDao? _pkSyncDao;
   final ConversationsDao? _conversationsDao;
+  final MemberGroupsDao? _memberGroupsDao;
 
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
@@ -35,8 +38,10 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     this._syncHandle, {
     PluralKitSyncDao? pkSyncDao,
     ConversationsDao? conversationsDao,
+    MemberGroupsDao? memberGroupsDao,
   }) : _pkSyncDao = pkSyncDao,
-       _conversationsDao = conversationsDao;
+       _conversationsDao = conversationsDao,
+       _memberGroupsDao = memberGroupsDao;
 
   @override
   Future<List<domain.Member>> getAllMembers() async {
@@ -155,12 +160,30 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       epoch = await pkDao.getLinkEpoch();
     }
 
+    await _removeDeletedMemberFromGroups(id);
     await _dao.softDeleteMember(id);
     if (epoch != null) {
       await _dao.stampDeleteIntent(id, epoch);
     }
     await _removeDeletedMemberFromConversations(id);
     await syncRecordDelete(_table, id);
+  }
+
+  Future<void> _removeDeletedMemberFromGroups(String memberId) async {
+    final groupsDao = _memberGroupsDao;
+    if (groupsDao == null) return;
+
+    final entries = await groupsDao.activeEntriesForMember(memberId);
+    if (entries.isEmpty) return;
+
+    final groupRepo = DriftMemberGroupsRepository(
+      groupsDao,
+      _syncHandle,
+      memberRepository: this,
+    );
+    for (final entry in entries) {
+      await groupRepo.removeMemberFromGroup(entry.groupId, memberId);
+    }
   }
 
   Future<void> _removeDeletedMemberFromConversations(String memberId) async {

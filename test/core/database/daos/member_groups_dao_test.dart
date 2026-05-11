@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -129,6 +130,46 @@ void main() {
 
       final roots = await db.memberGroupsDao.watchChildGroups(null).first;
       expect(roots.map((r) => r.id), ['a', 'b', 'c']);
+    });
+  });
+
+  // ── active member entry queries ────────────────────────────────────────────
+
+  group('active member entry queries', () {
+    test('hide entries whose member row is soft-deleted', () async {
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g'));
+      await db
+          .into(db.members)
+          .insert(pkFixtureMember(id: 'live', name: 'Live'));
+      await db
+          .into(db.members)
+          .insert(pkFixtureMember(id: 'deleted', name: 'Deleted'));
+      await (db.update(db.members)..where((m) => m.id.equals('deleted')))
+          .write(const MembersCompanion(isDeleted: Value(true)));
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(id: 'entry-live', groupId: 'g', memberId: 'live'),
+          );
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(
+              id: 'entry-deleted',
+              groupId: 'g',
+              memberId: 'deleted',
+            ),
+          );
+
+      final allEntries = await db.memberGroupsDao.getAllGroupEntries();
+      expect(allEntries.map((entry) => entry.id), ['entry-live']);
+
+      final groupEntries =
+          await db.memberGroupsDao.watchGroupEntries('g').first;
+      expect(groupEntries.map((entry) => entry.id), ['entry-live']);
+
+      final counts = await db.memberGroupsDao.watchMemberCountsByGroup().first;
+      expect(counts, {'g': 1});
+
+      final repairEntries =
+          await db.memberGroupsDao.activeEntriesForMember('deleted');
+      expect(repairEntries.map((entry) => entry.id), ['entry-deleted']);
     });
   });
 

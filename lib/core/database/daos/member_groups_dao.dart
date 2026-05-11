@@ -81,11 +81,23 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
-  Stream<List<MemberGroupEntryRow>> watchGroupEntries(String groupId) =>
-      (select(memberGroupEntries)..where(
-            (e) => e.groupId.equals(groupId) & e.isDeleted.equals(false),
-          ))
-          .watch();
+  Stream<List<MemberGroupEntryRow>> watchGroupEntries(String groupId) {
+    final query =
+        select(memberGroupEntries).join([
+          innerJoin(
+            attachedDatabase.members,
+            attachedDatabase.members.id.equalsExp(memberGroupEntries.memberId) &
+                attachedDatabase.members.isDeleted.equals(false),
+          ),
+        ])..where(
+          memberGroupEntries.groupId.equals(groupId) &
+              memberGroupEntries.isDeleted.equals(false),
+        );
+
+    return query.watch().map(
+      (rows) => rows.map((row) => row.readTable(memberGroupEntries)).toList(),
+    );
+  }
 
   Future<int> createGroup(MemberGroupsCompanion companion) =>
       into(memberGroups).insert(companion);
@@ -123,13 +135,12 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   Future<void> softDeleteEntryWithPendingOp(
     String id, {
     required String pendingPkOp,
-  }) =>
-      (update(memberGroupEntries)..where((e) => e.id.equals(id))).write(
-        MemberGroupEntriesCompanion(
-          isDeleted: const Value(true),
-          pendingPkOp: Value(pendingPkOp),
-        ),
-      );
+  }) => (update(memberGroupEntries)..where((e) => e.id.equals(id))).write(
+    MemberGroupEntriesCompanion(
+      isDeleted: const Value(true),
+      pendingPkOp: Value(pendingPkOp),
+    ),
+  );
 
   // ── Push orchestrator primitives (step 6) ───────────────────────────────
   // These all use guarded WHERE clauses on the row's expected state so a
@@ -197,10 +208,7 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   /// Watches member counts per group in a single query.
   /// Returns a map of groupId → count.
   Stream<Map<String, int>> watchMemberCountsByGroup() {
-    final query = select(memberGroupEntries)
-      ..where((e) => e.isDeleted.equals(false));
-
-    return query.watch().map((entries) {
+    return watchAllGroupEntries().map((entries) {
       final counts = <String, int>{};
       for (final e in entries) {
         counts[e.groupId] = (counts[e.groupId] ?? 0) + 1;
@@ -210,14 +218,33 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Returns all active group entries across all groups.
-  Stream<List<MemberGroupEntryRow>> watchAllGroupEntries() => (select(
-    memberGroupEntries,
-  )..where((e) => e.isDeleted.equals(false))).watch();
+  Stream<List<MemberGroupEntryRow>> watchAllGroupEntries() {
+    final query = select(memberGroupEntries).join([
+      innerJoin(
+        attachedDatabase.members,
+        attachedDatabase.members.id.equalsExp(memberGroupEntries.memberId) &
+            attachedDatabase.members.isDeleted.equals(false),
+      ),
+    ])..where(memberGroupEntries.isDeleted.equals(false));
+
+    return query.watch().map(
+      (rows) => rows.map((row) => row.readTable(memberGroupEntries)).toList(),
+    );
+  }
 
   /// Returns all active group entries across all groups as a future.
-  Future<List<MemberGroupEntryRow>> getAllGroupEntries() => (select(
-    memberGroupEntries,
-  )..where((e) => e.isDeleted.equals(false))).get();
+  Future<List<MemberGroupEntryRow>> getAllGroupEntries() async {
+    final query = select(memberGroupEntries).join([
+      innerJoin(
+        attachedDatabase.members,
+        attachedDatabase.members.id.equalsExp(memberGroupEntries.memberId) &
+            attachedDatabase.members.isDeleted.equals(false),
+      ),
+    ])..where(memberGroupEntries.isDeleted.equals(false));
+
+    final rows = await query.get();
+    return rows.map((row) => row.readTable(memberGroupEntries)).toList();
+  }
 
   Future<Map<String, int>> activeEntryCountsByGroupId() async {
     final rows = await customSelect(
@@ -333,6 +360,13 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
                 e.isDeleted.equals(false),
           ))
           .getSingleOrNull();
+
+  /// Active membership entries for a member across all groups.
+  Future<List<MemberGroupEntryRow>> activeEntriesForMember(String memberId) =>
+      (select(memberGroupEntries)..where(
+            (e) => e.memberId.equals(memberId) & e.isDeleted.equals(false),
+          ))
+          .get();
 
   /// Read entries for [groupId] that the PK reconcile pass needs to see:
   /// active rows AND soft-deleted rows that still have a pending PK op
