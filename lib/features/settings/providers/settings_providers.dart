@@ -1083,9 +1083,19 @@ class ScreenPrivacyEnabledNotifier extends AsyncNotifier<bool> {
   }
 
   Future<void> set(bool value) async {
-    state = AsyncValue.data(value);
+    // Persist BEFORE flipping in-memory state. If SharedPreferences
+    // reports a failed write (full disk, plugin error), we leave the
+    // notifier's state and the UI switch at the previous value so the
+    // user notices the toggle didn't take — silently keeping a privacy
+    // setting "on" in memory while disk says "off" would be a footgun.
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kScreenPrivacyEnabled, value);
+    final ok = await prefs.setBool(_kScreenPrivacyEnabled, value);
+    if (!ok) {
+      throw StateError(
+        'Failed to persist screen privacy preference to SharedPreferences',
+      );
+    }
+    state = AsyncValue.data(value);
   }
 }
 

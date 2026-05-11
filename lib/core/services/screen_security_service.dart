@@ -31,8 +31,13 @@ class ScreenSecurityService {
   /// Toggle the always-on global mode. Backs the Settings → Privacy &
   /// Security "Screen Privacy" toggle. Independent of per-screen
   /// [enable] / [disable] requests.
+  ///
+  /// Always calls [_reconcile] even when the boolean hasn't changed,
+  /// so a previously-failed platform call (e.g. the pre-`runApp` call
+  /// in main.dart racing with FlutterEngine channel registration) gets
+  /// retried on the next attempt. [_reconcile] short-circuits when the
+  /// already-applied platform state matches.
   static Future<void> setGlobalEnabled(bool value) async {
-    if (_globalEnabled == value) return;
     _globalEnabled = value;
     await _reconcile();
   }
@@ -62,20 +67,29 @@ class ScreenSecurityService {
   static Future<void> _reconcile() async {
     final desired = _globalEnabled || _scopeRefCount > 0;
     if (desired == _platformStateOn) return;
-    _platformStateOn = desired;
-    await _setSecureDisplay(desired);
+    final applied = await _setSecureDisplay(desired);
+    if (applied) {
+      _platformStateOn = desired;
+    }
+    // On failure, _platformStateOn stays at its previous value so the
+    // next caller's _reconcile detects the mismatch and retries — this
+    // covers the cold-boot race where main.dart calls setGlobalEnabled
+    // before the platform-side MethodChannel handler is registered.
   }
 
-  static Future<void> _setSecureDisplay(bool enabled) async {
+  static Future<bool> _setSecureDisplay(bool enabled) async {
     try {
       await _channel.invokeMethod<void>('setSecureDisplay', {
         'enabled': enabled,
       });
+      return true;
     } on PlatformException {
       // Platform may not implement the channel (macOS, Linux, Windows,
-      // web). Silently no-op.
+      // web). Treat as "not applied" so the next attempt retries.
+      return false;
     } on MissingPluginException {
-      // Same — no platform-side handler registered.
+      // Same — no platform-side handler registered yet, or never.
+      return false;
     }
   }
 

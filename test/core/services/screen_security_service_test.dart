@@ -93,6 +93,36 @@ void main() {
       await ScreenSecurityService.disable();
       expect(setCalls, [true, false]);
     });
+
+    test('retries when the first platform call fails', () async {
+      // Simulate the cold-boot race where main.dart calls
+      // setGlobalEnabled(true) before the FlutterEngine has registered
+      // the secure_display channel handler. The first invocation throws
+      // a MissingPluginException; the next attempt should retry.
+      var callIndex = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'setSecureDisplay') {
+          final args = call.arguments as Map<dynamic, dynamic>;
+          final enabled = args['enabled'] as bool;
+          callIndex++;
+          if (callIndex == 1) {
+            throw MissingPluginException('not yet registered');
+          }
+          setCalls.add(enabled);
+        }
+        return null;
+      });
+
+      await ScreenSecurityService.setGlobalEnabled(true);
+      expect(setCalls, isEmpty, reason: 'first attempt failed, nothing cached');
+
+      // Controller fires setGlobalEnabled(true) again with the same value
+      // (e.g. on first build of the controller-provider after the engine
+      // is fully alive). The service must retry.
+      await ScreenSecurityService.setGlobalEnabled(true);
+      expect(setCalls, [true]);
+    });
   });
 
   group('screenPrivacyControllerProvider integration', () {
