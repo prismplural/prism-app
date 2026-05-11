@@ -7,6 +7,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'core/router/app_router.dart';
 import 'core/services/notification_providers.dart';
 import 'core/services/reminder_scheduler_service.dart';
+import 'core/services/screen_privacy_controller.dart';
 import 'core/sync/prism_sync_providers.dart';
 import 'features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'features/habits/providers/habit_providers.dart';
@@ -102,6 +103,10 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     // Repair legacy SP-imported replies whose quote snapshot was missing.
     // Candidate-gated; later launches no-op after affected rows are fixed.
     ref.listen(spReplyQuoteBackfillProvider, (_, _) {});
+    // Keep the screen-privacy controller warm so the Settings → Privacy
+    // & Security toggle is mirrored to the platform secure-display flag
+    // for the lifetime of the app.
+    ref.listen(screenPrivacyControllerProvider, (_, _) {});
 
     final router = ref.watch(routerProvider);
     var brightness = ref.watch(themeBrightnessProvider);

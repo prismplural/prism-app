@@ -17,6 +17,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/services/screen_security_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -106,6 +107,17 @@ void main() async {
       ThemeStyle.standard;
   final cornerIndex = prefs.getInt('prism.cache.theme_corner_style') ?? 0;
   final cachedCornerStyle = CornerStyle.values[cornerIndex];
+
+  // Apply the Screen Privacy preference BEFORE the first frame so a
+  // cold start with the toggle ON immediately blanks the app-switcher
+  // snapshot on Android / iOS. The provider tree picks up the same
+  // SharedPreferences value asynchronously, but waiting on that would
+  // leak one unprotected frame.
+  final screenPrivacyEnabled =
+      prefs.getBool('prism.pref.screen_privacy_enabled') ?? false;
+  if (screenPrivacyEnabled && (Platform.isAndroid || Platform.isIOS)) {
+    await ScreenSecurityService.setGlobalEnabled(true);
+  }
 
   BootTimings.mark('runApp');
   runApp(
