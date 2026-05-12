@@ -348,6 +348,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       ref.read(membersNotifierProvider.notifier).reorderMembers(sorted),
     );
     Haptics.selection();
+    _scrollToTop();
     if (mounted) {
       PrismToast.show(context, message: context.l10n.memberOrderUpdated);
     }
@@ -375,9 +376,22 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       ref.read(membersNotifierProvider.notifier).reorderMembers(sorted),
     );
     Haptics.selection();
+    _scrollToTop();
     if (mounted) {
       PrismToast.show(context, message: context.l10n.memberOrderUpdated);
     }
+  }
+
+  // Sort actions reorder the underlying list, but Flutter preserves the inner
+  // scroll offset across the rebuild — so a user scrolled mid-list stays at
+  // the same offset with the new top row hidden behind the pinned top bar.
+  void _scrollToTop() {
+    if (!_scrollController.hasClients || _scrollController.offset <= 0) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _onReorder(List<Member> members, int oldIndex, int newIndex) {
