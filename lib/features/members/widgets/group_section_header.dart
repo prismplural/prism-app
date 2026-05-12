@@ -82,7 +82,7 @@ class GroupSectionHeader extends StatelessWidget {
                   child: Text(
                     name,
                     style: titleStyle,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
