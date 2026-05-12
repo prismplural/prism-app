@@ -324,7 +324,7 @@ void main() {
     });
 
     test(
-      'failed tick (service throws) emits PkAutoPollTick(outcome: "failed", error: ...)',
+      'failed tick (service throws) emits PkAutoPollTick(outcome: "failed") without error payload',
       () async {
         final capture = PkSyncEventBusCapture();
         final fake = _FakePkSyncService()..pollThrows = Exception('boom');
@@ -342,7 +342,49 @@ void main() {
         final ticks = autoPollTicks(capture).toList();
         expect(ticks, hasLength(1));
         expect(ticks.single.outcome, 'failed');
-        expect(ticks.single.error, contains('boom'));
+        // The auto-poll notifier has no captured token to redact against, so it
+        // intentionally omits the exception message from the emitted event to
+        // avoid leaking tokens embedded in error strings.
+        expect(ticks.single.error, isNull);
+      },
+    );
+
+    test(
+      'failed tick does not leak a token embedded in the exception toString()',
+      () async {
+        final capture = PkSyncEventBusCapture();
+        const token = 'pk-test-token-leak-vector-xyz';
+        final fake = _FakePkSyncService()
+          ..pollThrows = Exception('upstream failed with token=$token');
+        final c = _container(fake, bus: capture.bus);
+        addTearDown(c.dispose);
+
+        c
+            .read(_fakePkSyncProvider.notifier)
+            .set(const PluralKitSyncState(isConnected: true));
+        await c.read(pkAutoPollSettingsProvider.future);
+        c.read(pkAutoPollProvider.notifier).markForegrounded(true);
+
+        await Future<void>.delayed(Duration.zero);
+
+        final ticks = autoPollTicks(capture).toList();
+        expect(ticks, hasLength(1));
+        final tick = ticks.single;
+        expect(tick.outcome, 'failed');
+        // Neither the dedicated `error` field nor the serialized JSON payload
+        // (which is what feeds the on-device log UI) may contain the token.
+        expect(tick.error, isNull);
+        expect(
+          tick.summary.contains(token),
+          isFalse,
+          reason: 'token must not appear in the tile summary',
+        );
+        final jsonString = tick.toJson().toString();
+        expect(
+          jsonString.contains(token),
+          isFalse,
+          reason: 'token must not appear anywhere in the serialized event',
+        );
       },
     );
 

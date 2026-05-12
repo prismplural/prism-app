@@ -222,11 +222,16 @@ class PkAutoPollNotifier extends Notifier<void> {
     } catch (e) {
       // PK sync services swallow most errors; anything that escapes here is
       // unexpected. Back off one cycle to avoid hammering.
+      //
+      // We DO NOT attach `e.toString()` to the emitted event. The auto-poll
+      // notifier doesn't have a captured token to redact against, and routing
+      // the raw exception string through `PkSyncEvent.redact(..., null)` is a
+      // no-op — so any token embedded in the exception text would leak into
+      // the sync log. The operational signal ("auto-poll failed") is
+      // sufficient for the log; the full stack trace is still available via
+      // `debugPrint` above for developers attached to the device.
       debugPrint('[PK auto-poll] tick failed: $e');
-      bus.emit(PkAutoPollTick(
-        outcome: 'failed',
-        error: PkSyncEvent.redact(e.toString(), null),
-      ));
+      bus.emit(const PkAutoPollTick(outcome: 'failed'));
       _overrideNext = _kMinBackoffOn429;
     } finally {
       // Guard against dispose racing a tick — ref.read on a disposed
