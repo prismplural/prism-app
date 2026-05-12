@@ -931,6 +931,8 @@
   "chatSearchMessages": "Buscar mensajes",
   "chatTabDirectMessages": "Mensajes directos",
   "chatTabGroupChats": "Chats grupales",
+  "chatUnreadDmsBadge": "{count, plural, =1{1 mensaje directo no leído} other{{count} mensajes directos no leídos}}",
+  "chatUnreadGroupsBadge": "{count, plural, =1{1 chat grupal no leído} other{{count} chats grupales no leídos}}",
   "chatNoConversations": "Sin conversaciones",
   "chatNoConversationsSubtitle": "Empieza a chatear con tu sistema",
   "chatNoDirectMessages": "Sin mensajes directos",

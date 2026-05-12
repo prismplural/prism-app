@@ -529,7 +529,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 }
 
-class _ChatTopBar extends StatelessWidget implements PreferredSizeWidget {
+class _ChatTopBar extends ConsumerWidget implements PreferredSizeWidget {
   const _ChatTopBar({
     required this.activeTab,
     required this.onTabSelected,
@@ -554,7 +554,9 @@ class _ChatTopBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(kToolbarHeight + 60);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dmUnread = ref.watch(unreadDmCountProvider);
+    final groupUnread = ref.watch(unreadGroupCountProvider);
     return Column(
       children: [
         PrismTopBar(
@@ -582,10 +584,18 @@ class _ChatTopBar extends StatelessWidget implements PreferredSizeWidget {
               PrismSegment(
                 value: _ChatSubTab.groupChats,
                 label: context.l10n.chatTabGroupChats,
+                badgeCount: groupUnread,
+                badgeSemanticLabel: groupUnread > 0
+                    ? context.l10n.chatUnreadGroupsBadge(groupUnread)
+                    : null,
               ),
               PrismSegment(
                 value: _ChatSubTab.directMessages,
                 label: context.l10n.chatTabDirectMessages,
+                badgeCount: dmUnread,
+                badgeSemanticLabel: dmUnread > 0
+                    ? context.l10n.chatUnreadDmsBadge(dmUnread)
+                    : null,
               ),
             ],
             selected: activeTab,

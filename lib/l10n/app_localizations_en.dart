@@ -3313,6 +3313,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatTabGroupChats => 'Group Chats';
 
   @override
+  String chatUnreadDmsBadge(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unread direct messages',
+      one: '1 unread direct message',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String chatUnreadGroupsBadge(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unread group chats',
+      one: '1 unread group chat',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get chatNoConversations => 'No conversations';
 
   @override

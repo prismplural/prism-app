@@ -4531,6 +4531,20 @@
   "@chatTabGroupChats": {
     "description": "Chats tab segmented control option: group chats"
   },
+  "chatUnreadDmsBadge": "{count, plural, =1{1 unread direct message} other{{count} unread direct messages}}",
+  "@chatUnreadDmsBadge": {
+    "description": "Semantic label for the DM segment unread badge",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "chatUnreadGroupsBadge": "{count, plural, =1{1 unread group chat} other{{count} unread group chats}}",
+  "@chatUnreadGroupsBadge": {
+    "description": "Semantic label for the Group Chats segment unread badge",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "chatNoConversations": "No conversations",
   "@chatNoConversations": {
     "description": "Empty state title when there are no conversations"

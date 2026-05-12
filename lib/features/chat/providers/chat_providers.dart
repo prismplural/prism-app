@@ -802,7 +802,23 @@ final unreadMessageCountProvider = Provider.autoDispose.family<int, String>((
 /// Respects badge preference: if a member's preference is 'mentions_only',
 /// uses a single batch query to find conversations with mentions, rather than
 /// opening N individual stream subscriptions.
-final unreadConversationCountProvider = Provider<int>((ref) {
+final unreadConversationCountProvider = Provider<int>(_unreadConversationCount);
+
+/// Unread direct-message conversations for the chat screen's DM segment badge.
+final unreadDmCountProvider = Provider<int>(
+  (ref) => _unreadConversationCount(ref, isDirectMessage: true),
+);
+
+/// Unread group-chat conversations for the chat screen's Group Chats segment badge.
+final unreadGroupCountProvider = Provider<int>(
+  (ref) => _unreadConversationCount(ref, isDirectMessage: false),
+);
+
+// [isDirectMessage] null = any conversation kind, true = DMs only, false =
+// groups only. The kind filter runs alongside the existing
+// participant/muted/archived gates so the segment badges share the same
+// exclusion rules as the bottom-nav chat tab badge.
+int _unreadConversationCount(Ref ref, {bool? isDirectMessage}) {
   final speakingAs = ref.watch(speakingAsProvider);
   if (speakingAs == null) return 0;
 
@@ -813,9 +829,11 @@ final unreadConversationCountProvider = Provider<int>((ref) {
   final badgePrefs = ref.watch(chatBadgePreferencesProvider);
   final mentionsOnly = badgePrefs[speakingAs] == 'mentions_only';
 
-  // Collect unread conversations (excluding muted/archived).
   final unreadConvs = <Conversation>[];
   for (final conv in conversations) {
+    if (isDirectMessage != null && conv.isDirectMessage != isDirectMessage) {
+      continue;
+    }
     if (!conv.participantIds.contains(speakingAs)) continue;
     if (conv.mutedByMemberIds.contains(speakingAs)) continue;
     if (conv.archivedByMemberIds.contains(speakingAs)) continue;
@@ -830,7 +848,6 @@ final unreadConversationCountProvider = Provider<int>((ref) {
 
   if (!mentionsOnly) return unreadConvs.length;
 
-  // Mentions-only: single batch query instead of N individual streams.
   final conversationSince = <String, DateTime>{};
   for (final conv in unreadConvs) {
     final lastRead = conv.lastReadTimestamps[speakingAs];
@@ -849,7 +866,7 @@ final unreadConversationCountProvider = Provider<int>((ref) {
       .value;
 
   return mentionConvIds?.length ?? 0;
-});
+}
 
 /// IDs of conversations with unread mentions for the speaking-as member.
 ///

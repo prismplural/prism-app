@@ -5717,6 +5717,18 @@ abstract class AppLocalizations {
   /// **'Group Chats'**
   String get chatTabGroupChats;
 
+  /// Semantic label for the DM segment unread badge
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 unread direct message} other{{count} unread direct messages}}'**
+  String chatUnreadDmsBadge(int count);
+
+  /// Semantic label for the Group Chats segment unread badge
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 unread group chat} other{{count} unread group chats}}'**
+  String chatUnreadGroupsBadge(int count);
+
   /// Empty state title when there are no conversations
   ///
   /// In en, this message translates to:
