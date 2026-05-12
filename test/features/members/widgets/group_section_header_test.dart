@@ -1,36 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/widgets/group_section_header.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
-MemberGroup _group(String name) => MemberGroup(
-  id: 'g',
-  name: name,
-  createdAt: DateTime(2024, 1, 1),
-);
+MemberGroup _group(String name, {String? emoji, String? colorHex}) =>
+    MemberGroup(
+      id: 'g',
+      name: name,
+      emoji: emoji,
+      colorHex: colorHex,
+      createdAt: DateTime(2024, 1, 1),
+    );
 
-Widget _host(Widget child) => MaterialApp(
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
-  supportedLocales: const [Locale('en')],
-  home: Scaffold(body: child),
+Widget _host(Widget child) => ProviderScope(
+  child: MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: const [Locale('en')],
+    home: Scaffold(body: child),
+  ),
 );
 
 void main() {
-  // Simply Plural lets users embed newlines in group names (e.g. a primary
-  // label on line 1 and an emoji/decoration line below). Truncating to a
-  // single line drops the second line entirely; the header must render both.
-  testWidgets('renders multi-line group names without dropping lines', (
+  // Simply Plural lets users embed newlines in group names — some users have
+  // up to three lines (primary label, separator, decorative line). Truncating
+  // drops the trailing lines silently; the header must render all three.
+  testWidgets('renders three-line group names without dropping lines', (
     tester,
   ) async {
-    const multiLineName = 'Gender\n*.:: Man';
+    const threeLineName = 'Gender\n*.:: 🌙 ✦\nMan';
 
     await tester.pumpWidget(
       _host(
         GroupSectionHeader(
-          group: _group(multiLineName),
+          group: _group(threeLineName, emoji: '🌙', colorHex: '#88CC88'),
           depth: 0,
           memberCount: 3,
           isCollapsed: false,
@@ -39,24 +46,41 @@ void main() {
         ),
       ),
     );
+    await tester.pump();
 
-    final textFinder = find.text(multiLineName);
+    final textFinder = find.text(threeLineName);
     expect(textFinder, findsOneWidget);
 
     final text = tester.widget<Text>(textFinder);
-    expect(text.maxLines, greaterThanOrEqualTo(2));
+    expect(text.maxLines, greaterThanOrEqualTo(3));
 
     final renderText = tester.renderObject<RenderParagraph>(textFinder);
-    final size = renderText.size;
-    // A wrapped 2-line render is taller than a single line of the same style.
-    final lineHeight =
-        renderText.text.style?.fontSize == null
-            ? 14.0
-            : renderText.text.style!.fontSize!;
+    final fontSize = renderText.text.style?.fontSize ?? 14.0;
     expect(
-      size.height,
-      greaterThan(lineHeight * 1.4),
-      reason: 'Expected the multi-line name to wrap to ≥2 lines',
+      renderText.size.height,
+      greaterThan(fontSize * 2.4),
+      reason: 'Expected the three-line name to wrap to ≥3 lines',
     );
+  });
+
+  testWidgets('renders a tinted-glass avatar in the leading slot', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        GroupSectionHeader(
+          group: _group('Gender', emoji: '⚧️', colorHex: '#88CC88'),
+          depth: 0,
+          memberCount: 1,
+          isCollapsed: false,
+          canCollapse: true,
+          onToggle: () {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(TintedGlassSurface), findsOneWidget);
+    expect(find.text('⚧️'), findsOneWidget);
   });
 }

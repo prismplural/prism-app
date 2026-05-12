@@ -140,7 +140,7 @@ class _GroupRowSurface extends StatelessWidget {
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w500,
                         ),
-                        maxLines: 2,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),

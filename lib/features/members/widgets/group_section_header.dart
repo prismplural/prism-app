@@ -4,9 +4,10 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// Section header for a member group (or the ungrouped section) in the
-/// folder-style members list.
+/// grouped sections members list.
 class GroupSectionHeader extends StatelessWidget {
   const GroupSectionHeader({
     super.key,
@@ -28,6 +29,9 @@ class GroupSectionHeader extends StatelessWidget {
   final bool canCollapse;
   final VoidCallback? onToggle;
 
+  static const double _avatarSize = 28.0;
+  static const double _barHeight = 40.0;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -35,22 +39,22 @@ class GroupSectionHeader extends StatelessWidget {
     final name = group?.name ?? l10n.memberGroupFilterUngrouped;
     final leftIndent = depth * 30.0;
 
-    Widget leading;
     Color? groupColor;
     if (group?.colorHex != null && group!.colorHex!.isNotEmpty) {
       groupColor = AppColors.fromHex(group!.colorHex!);
     }
-    if (groupColor != null) {
-      leading = Container(width: 4, height: 40, color: groupColor);
-    } else if (group?.emoji != null && group!.emoji!.isNotEmpty) {
-      leading = Text(group!.emoji!, style: const TextStyle(fontSize: 18));
-    } else {
-      leading = Icon(
-        AppIcons.folderOutlined,
-        size: 18,
-        color: theme.colorScheme.primary,
-      );
-    }
+    final tint = groupColor ?? theme.colorScheme.primary;
+    final hasEmoji = group?.emoji != null && group!.emoji!.isNotEmpty;
+
+    final avatar = TintedGlassSurface.circle(
+      size: _avatarSize,
+      tint: tint,
+      child: Center(
+        child: hasEmoji
+            ? Text(group!.emoji!, style: const TextStyle(fontSize: 14))
+            : Icon(AppIcons.folderOutlined, size: 14, color: tint),
+      ),
+    );
 
     final titleStyle =
         (depth == 0 ? theme.textTheme.labelLarge : theme.textTheme.labelMedium)
@@ -76,13 +80,17 @@ class GroupSectionHeader extends StatelessWidget {
             ),
             child: Row(
               children: [
-                leading,
+                if (groupColor != null) ...[
+                  Container(width: 4, height: _barHeight, color: groupColor),
+                  const SizedBox(width: 12),
+                ],
+                avatar,
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     name,
                     style: titleStyle,
-                    maxLines: 2,
+                    maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
