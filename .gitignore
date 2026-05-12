@@ -1,3 +1,6 @@
+# Personal manual-testing wrapper — lives in prism-workspace/scripts/ instead
+/build.sh
+
 # Miscellaneous
 *.class
 *.log
