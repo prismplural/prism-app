@@ -124,6 +124,196 @@ class RunnerTests: XCTestCase {
     )
   }
 
+  // MARK: - SecureDisplayOverlay
+
+  /// The empty-secure-text-field variant (no layer swap) leaves window.layer
+  /// untouched, which is why the old implementation silently did nothing
+  /// when toggled. This test pins the fix: enabling MUST move window.layer
+  /// into the field's secure sublayer, and disabling MUST put it back.
+  @MainActor
+  func testSecureDisplayOverlayRelocatesWindowLayer() throws {
+    let scene = UIApplication.shared.connectedScenes
+      .compactMap({ $0 as? UIWindowScene })
+      .first
+    guard let scene else {
+      throw XCTSkip("Test host has no UIWindowScene")
+    }
+    let window = UIWindow(windowScene: scene)
+    window.frame = UIScreen.main.bounds
+    window.rootViewController = UIViewController()
+    window.makeKeyAndVisible()
+    defer { window.isHidden = true }
+
+    let originalParent = window.layer.superlayer
+    XCTAssertNotNil(originalParent, "Visible window should have a superlayer")
+
+    let overlay = SecureDisplayOverlay()
+    overlay.setEnabled(true, in: window)
+
+    XCTAssertTrue(overlay.isInstalled, "Overlay should be installed")
+    let secureSuperlayer = window.layer.superlayer
+    XCTAssertNotNil(secureSuperlayer)
+    XCTAssertNotEqual(
+      secureSuperlayer,
+      originalParent,
+      "window.layer must be re-parented into the secure sublayer"
+    )
+    XCTAssertEqual(
+      secureSuperlayer?.superlayer?.superlayer,
+      originalParent,
+      "Expected hierarchy: originalParent > field.layer > secureSublayer > window.layer"
+    )
+
+    overlay.setEnabled(false, in: window)
+
+    XCTAssertFalse(overlay.isInstalled)
+    XCTAssertEqual(
+      window.layer.superlayer,
+      originalParent,
+      "Disabling must restore window.layer's original superlayer"
+    )
+  }
+
+  @MainActor
+  func testSecureDisplayOverlayIsIdempotent() throws {
+    let scene = UIApplication.shared.connectedScenes
+      .compactMap({ $0 as? UIWindowScene })
+      .first
+    guard let scene else {
+      throw XCTSkip("Test host has no UIWindowScene")
+    }
+    let window = UIWindow(windowScene: scene)
+    window.frame = UIScreen.main.bounds
+    window.rootViewController = UIViewController()
+    window.makeKeyAndVisible()
+    defer { window.isHidden = true }
+
+    let overlay = SecureDisplayOverlay()
+    overlay.setEnabled(true, in: window)
+    let firstSecureSuperlayer = window.layer.superlayer
+    overlay.setEnabled(true, in: window)
+    XCTAssertEqual(
+      window.layer.superlayer,
+      firstSecureSuperlayer,
+      "Re-enabling should not create a second overlay"
+    )
+
+    overlay.setEnabled(false, in: window)
+    overlay.setEnabled(false, in: window) // No-op
+    XCTAssertFalse(overlay.isInstalled)
+  }
+
+  /// Regression: a window swap between install and remove must NOT pull
+  /// the new window into the old window's layer hierarchy. The overlay
+  /// captures the install-time window and restores exactly that mapping,
+  /// then migrates to the new window when re-enabled.
+  @MainActor
+  func testSecureDisplayOverlayHandlesWindowChange() throws {
+    let scene = UIApplication.shared.connectedScenes
+      .compactMap({ $0 as? UIWindowScene })
+      .first
+    guard let scene else {
+      throw XCTSkip("Test host has no UIWindowScene")
+    }
+    let windowA = UIWindow(windowScene: scene)
+    windowA.frame = UIScreen.main.bounds
+    windowA.rootViewController = UIViewController()
+    windowA.makeKeyAndVisible()
+    let originalParentA = windowA.layer.superlayer
+
+    let windowB = UIWindow(windowScene: scene)
+    windowB.frame = UIScreen.main.bounds
+    windowB.rootViewController = UIViewController()
+    windowB.makeKeyAndVisible()
+    let originalParentB = windowB.layer.superlayer
+
+    defer {
+      windowA.isHidden = true
+      windowB.isHidden = true
+    }
+
+    let overlay = SecureDisplayOverlay()
+    overlay.setEnabled(true, in: windowA)
+    XCTAssertNotEqual(
+      windowA.layer.superlayer,
+      originalParentA,
+      "windowA must be re-parented into the secure sublayer"
+    )
+
+    // Re-enable on a DIFFERENT window. The overlay must migrate: A goes
+    // back to its original parent, B becomes the protected window.
+    overlay.setEnabled(true, in: windowB)
+    XCTAssertEqual(
+      windowA.layer.superlayer,
+      originalParentA,
+      "windowA must be restored when overlay migrates away"
+    )
+    XCTAssertNotEqual(
+      windowB.layer.superlayer,
+      originalParentB,
+      "windowB must now be protected"
+    )
+
+    // Disable while the helper is bound to B. windowB must be restored,
+    // and windowA must not be touched a second time.
+    overlay.setEnabled(false, in: windowB)
+    XCTAssertEqual(
+      windowB.layer.superlayer,
+      originalParentB,
+      "windowB must be restored on disable"
+    )
+    XCTAssertEqual(
+      windowA.layer.superlayer,
+      originalParentA,
+      "windowA must remain at its original parent throughout"
+    )
+    XCTAssertFalse(overlay.isInstalled)
+  }
+
+  /// Calling disable with a different window than the one we installed on
+  /// must restore the INSTALLED window, not the passed-in window. This
+  /// pins the P1 finding from the Codex review.
+  @MainActor
+  func testSecureDisplayOverlayDisableIgnoresPassedWindow() throws {
+    let scene = UIApplication.shared.connectedScenes
+      .compactMap({ $0 as? UIWindowScene })
+      .first
+    guard let scene else {
+      throw XCTSkip("Test host has no UIWindowScene")
+    }
+    let installed = UIWindow(windowScene: scene)
+    installed.frame = UIScreen.main.bounds
+    installed.rootViewController = UIViewController()
+    installed.makeKeyAndVisible()
+    let originalInstalledParent = installed.layer.superlayer
+
+    let bystander = UIWindow(windowScene: scene)
+    bystander.frame = UIScreen.main.bounds
+    bystander.rootViewController = UIViewController()
+    bystander.makeKeyAndVisible()
+    let originalBystanderParent = bystander.layer.superlayer
+
+    defer {
+      installed.isHidden = true
+      bystander.isHidden = true
+    }
+
+    let overlay = SecureDisplayOverlay()
+    overlay.setEnabled(true, in: installed)
+    overlay.setEnabled(false, in: bystander)
+
+    XCTAssertEqual(
+      installed.layer.superlayer,
+      originalInstalledParent,
+      "Installed window must be restored even when disable is called with a different window"
+    )
+    XCTAssertEqual(
+      bystander.layer.superlayer,
+      originalBystanderParent,
+      "Bystander window must not be touched by an unrelated disable"
+    )
+  }
+
   func testSensitiveFileProtectionUsesParentForFutureDatabaseFile() throws {
     let root = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
       .appendingPathComponent(UUID().uuidString, isDirectory: true)

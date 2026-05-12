@@ -239,6 +239,94 @@ enum PlatformAttestationError: Error, LocalizedError {
   }
 }
 
+/// Hides the host UIWindow from screen recording, screen mirroring, and the
+/// app-switcher snapshot by re-parenting its CALayer into a UITextField with
+/// `isSecureTextEntry = true`. The render server skips the secure sublayer
+/// during capture, so anything inside it (the entire window) is omitted.
+///
+/// An empty hidden secure text field does NOT trigger the effect — only the
+/// layer that lives inside `field.layer.sublayers.first` is protected.
+///
+/// The overlay captures the protected window + its original superlayer at
+/// install time and restores exactly that mapping at teardown, so a window
+/// change between install/remove (hot restart, scene swap) cannot corrupt
+/// the layer hierarchy of the wrong window. When `setEnabled(true, in:)`
+/// is called with a window different from the currently-protected one,
+/// the existing overlay is torn down and reinstalled on the new window.
+final class SecureDisplayOverlay {
+  private var field: UITextField?
+  private weak var protectedWindow: UIWindow?
+  private var originalSuperlayer: CALayer?
+
+  var isInstalled: Bool { field != nil }
+
+  /// Returns true when the requested state was applied. Returns false when
+  /// install or remove could not be completed (e.g. UIKit didn't expose the
+  /// secure sublayer in time). Callers should propagate the failure so the
+  /// Dart side does not cache a stale "platform on" state.
+  @discardableResult
+  func setEnabled(_ enabled: Bool, in window: UIWindow) -> Bool {
+    if enabled {
+      // If we're already installed on this exact window, nothing to do.
+      if let existing = protectedWindow, existing === window, field != nil {
+        return true
+      }
+      // Installed on a different (or vanished) window — tear down so the
+      // new window doesn't get left unprotected behind a stale guard.
+      if field != nil {
+        teardown()
+      }
+      return install(in: window)
+    } else {
+      teardown()
+      return true
+    }
+  }
+
+  private func install(in window: UIWindow) -> Bool {
+    let new = UITextField()
+    new.isSecureTextEntry = true
+    new.isUserInteractionEnabled = false
+    window.addSubview(new)
+    new.translatesAutoresizingMaskIntoConstraints = false
+    new.widthAnchor.constraint(equalToConstant: 0).isActive = true
+    new.heightAnchor.constraint(equalToConstant: 0).isActive = true
+
+    // The secure sublayer is created lazily by UIKit. Force layout so it
+    // exists before we try to reparent into it.
+    window.layoutIfNeeded()
+    guard let originalParent = window.layer.superlayer,
+          let secureSublayer = new.layer.sublayers?.first
+    else {
+      // UIKit internals shifted — bail out cleanly rather than half-applying.
+      new.removeFromSuperview()
+      return false
+    }
+    originalParent.addSublayer(new.layer)
+    secureSublayer.addSublayer(window.layer)
+    field = new
+    protectedWindow = window
+    originalSuperlayer = originalParent
+    return true
+  }
+
+  /// Restores the layer hierarchy for the window we installed on, NOT
+  /// whatever window is current at teardown time. If the protected window
+  /// has been deallocated, only the field is removed; the now-orphaned
+  /// window.layer is no longer referenced anywhere we need to clean up.
+  private func teardown() {
+    guard let installed = field else { return }
+    if let window = protectedWindow, let originalParent = originalSuperlayer {
+      originalParent.addSublayer(window.layer)
+    }
+    installed.layer.removeFromSuperlayer()
+    installed.removeFromSuperview()
+    field = nil
+    protectedWindow = nil
+    originalSuperlayer = nil
+  }
+}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var screenshotEventSink: FlutterEventSink?
@@ -246,7 +334,7 @@ enum PlatformAttestationError: Error, LocalizedError {
   private var secureDisplayChannel: FlutterMethodChannel?
   private var runtimeDekWrapChannel: FlutterMethodChannel?
   private var appClipboardChannel: FlutterMethodChannel?
-  private var secureTextField: UITextField?
+  private let secureDisplay = SecureDisplayOverlay()
   private let appAttestKeychainService = "com.prism.prism_plurality.app_attest"
   private let appAttestKeychainAccount = "key_id"
   private let runtimeDekPrivateKeyTag = Data(
@@ -286,8 +374,20 @@ enum PlatformAttestationError: Error, LocalizedError {
       let arguments = call.arguments as? [String: Any] ?? [:]
       let enabled = arguments["enabled"] as? Bool ?? false
       DispatchQueue.main.async {
-        self?.setSecureDisplay(enabled: enabled)
-        result(nil)
+        let ok = self?.setSecureDisplay(enabled: enabled) ?? false
+        if ok {
+          result(nil)
+        } else {
+          // Propagate failure so ScreenSecurityService does not cache
+          // _platformStateOn = true and skip retries. Treated by the
+          // Dart side as PlatformException → returns false → retry on
+          // next reconcile.
+          result(FlutterError(
+            code: "SECURE_DISPLAY_FAILED",
+            message: "Could not apply secure display change",
+            details: nil
+          ))
+        }
       }
     }
     firstDeviceAdmissionChannel = FlutterMethodChannel(
@@ -754,33 +854,36 @@ enum PlatformAttestationError: Error, LocalizedError {
     SecItemDelete(query as CFDictionary)
   }
 
-  /// Toggle secure display using the iOS secure text field trick.
-  ///
-  /// iOS has no public FLAG_SECURE equivalent, but a UITextField with
-  /// `isSecureTextEntry = true` causes the system to hide its superview's
-  /// content from screen recording and the app-switcher snapshot.
-  private func setSecureDisplay(enabled: Bool) {
-    guard let window = UIApplication.shared.connectedScenes
-      .compactMap({ $0 as? UIWindowScene })
-      .flatMap({ $0.windows })
-      .first
-    else { return }
+  /// Forward the toggle to the SecureDisplayOverlay helper, which performs
+  /// the actual CALayer re-parenting. Returns false when the toggle could
+  /// not be applied (no active window, UIKit didn't expose the secure
+  /// sublayer) — propagated through the channel so ScreenSecurityService
+  /// can retry.
+  private func setSecureDisplay(enabled: Bool) -> Bool {
+    guard let window = activeWindow() else { return false }
+    return secureDisplay.setEnabled(enabled, in: window)
+  }
 
-    if enabled {
-      if secureTextField == nil {
-        let field = UITextField()
-        field.isSecureTextEntry = true
-        field.isUserInteractionEnabled = false
-        window.addSubview(field)
-        field.translatesAutoresizingMaskIntoConstraints = false
-        field.widthAnchor.constraint(equalToConstant: 0).isActive = true
-        field.heightAnchor.constraint(equalToConstant: 0).isActive = true
-        secureTextField = field
+  /// Pick the window to attach the overlay to: prefer the key window of a
+  /// foreground-active scene, then any key window, then the first window of
+  /// the first foreground-active scene, then any first window. The overlay
+  /// only protects the window it's installed on, so picking the right one
+  /// matters when scenes are mid-transition.
+  private func activeWindow() -> UIWindow? {
+    let scenes = UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+    let active = scenes.filter { $0.activationState == .foregroundActive }
+    for scene in active {
+      if let key = scene.windows.first(where: { $0.isKeyWindow }) {
+        return key
       }
-    } else {
-      secureTextField?.removeFromSuperview()
-      secureTextField = nil
     }
+    for scene in scenes {
+      if let key = scene.windows.first(where: { $0.isKeyWindow }) {
+        return key
+      }
+    }
+    return active.first?.windows.first ?? scenes.first?.windows.first
   }
 
   @objc private func screenshotDetected() {
