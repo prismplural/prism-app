@@ -505,6 +505,20 @@ SyncHealthState? classifyHealthFromKeychain({
   return null;
 }
 
+/// Pure helper: decide whether the post-restore wrapped_dek probe should
+/// flip the result of `_autoConfigureIfReady` from `healthy` to `needsRewrap`.
+///
+/// Returns `SyncHealthState.needsRewrap` when the runtime DEK restore
+/// succeeded (engine unlocked) but the keychain `wrapped_dek` slot is
+/// missing or empty. Otherwise returns `SyncHealthState.healthy`.
+@visibleForTesting
+SyncHealthState classifyPairReadinessFromWrappedDek(String? wrappedDek) {
+  if (wrappedDek == null || wrappedDek.isEmpty) {
+    return SyncHealthState.needsRewrap;
+  }
+  return SyncHealthState.healthy;
+}
+
 /// Pure helper: decide whether fronting migration state blocks startup sync.
 ///
 /// During the per-member fronting migration, old-shape sync state is retired
@@ -533,12 +547,15 @@ SyncHealthState? startupHealthForMigrationMode(String? mode) {
 ///   unpaired      — device has never been paired (sync_id/device identity absent)
 ///   needsPassword — wrapped runtime cache missing, wrapped_dek exists → password modal
 ///                   (shown by AppShell listening to syncHealthProvider)
+///   needsRewrap   — runtime DEK restored cleanly but wrapped_dek missing →
+///                   recovery sheet (PIN + mnemonic to regenerate wrapped_dek)
 ///   disconnected  — credentials gone → reconnect card in sync settings
 ///
 /// Transitions:
-///   startup → this method → one of the four states
+///   startup → this method → one of the five states
 ///   DeviceRevoked WebSocket event → disconnected
 ///   password entry → Argon2id unlock → healthy
+///   PIN + mnemonic via recovery sheet → rewrap_dek FFI → healthy
 Future<SyncHealthState> _autoConfigureIfReady(
   ffi.PrismSyncHandle handle,
 ) async {
@@ -651,7 +668,16 @@ Future<SyncHealthState> _autoConfigureIfReady(
     // `createHandle()` after `cacheRuntimeKeys` + `drainRustStore`, so it does
     // not block startup. See the `unawaited(...)` block there.
 
-    return SyncHealthState.healthy;
+    // Pair-readiness probe: the runtime DEK survived but `wrapped_dek` may
+    // have been lost from the keychain (rare iOS anomaly during version
+    // downgrade/upgrade). Sync still works because the DEK is in RAM, but
+    // pairing another device reads `wrapped_dek` to derive the joiner
+    // bundle and would fail. Surface `needsRewrap` so the user can
+    // regenerate it via PIN + mnemonic.
+    final wrappedDekAfterRestore = await _storage.read(
+      key: '${_secureStorePrefix}wrapped_dek',
+    );
+    return classifyPairReadinessFromWrappedDek(wrappedDekAfterRestore);
   } catch (e, st) {
     ErrorReportingService.instance.report(
       'Auto-configure sync failed: $e',
@@ -2083,6 +2109,12 @@ enum SyncHealthState {
   /// Wrapped runtime cache is missing but wrapped_dek exists — user must
   /// enter password.
   needsPassword,
+
+  /// Engine is unlocked (runtime DEK cache restored) but `wrapped_dek` is
+  /// missing from the keychain — user must re-enter PIN + mnemonic so we
+  /// can regenerate `wrapped_dek` + `dek_salt` from the in-memory DEK.
+  /// Sync still works; only device pairing is gated until recovery.
+  needsRewrap,
 
   /// Credentials are gone or device was revoked — must re-pair.
   disconnected,

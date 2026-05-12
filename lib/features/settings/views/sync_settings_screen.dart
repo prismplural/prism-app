@@ -606,6 +606,8 @@ class _ConfiguredView extends ConsumerWidget {
       switch (health) {
         SyncHealthState.needsPassword =>
           'Sync needs your PIN and recovery phrase before it can reconnect.',
+        SyncHealthState.needsRewrap =>
+          'Re-enter your PIN and recovery phrase to restore your pairing key.',
         SyncHealthState.disconnected =>
           'Sync credentials are missing. Set up sync again to reconnect.',
         SyncHealthState.unpaired => 'Sync is not set up on this device.',
