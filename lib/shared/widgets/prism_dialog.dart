@@ -82,7 +82,7 @@ class PrismDialog extends StatelessWidget {
           },
       pageBuilder: (dialogContext, _, _) {
         final content = builder(dialogContext);
-        return Center(
+        return _KeyboardAvoidingDialog(
           child: _GlassDialogShell(
             child: PrismDialog(
               title: title,
@@ -141,7 +141,7 @@ class PrismDialog extends StatelessWidget {
             );
           },
       pageBuilder: (dialogContext, _, _) {
-        return Center(
+        return _KeyboardAvoidingDialog(
           child: _GlassDialogShell(
             child: PrismDialog(
               title: title,
@@ -217,6 +217,34 @@ class PrismDialog extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Shifts the centered dialog above the on-screen keyboard.
+///
+/// Flutter's stock [Dialog] widget does this internally; [showGeneralDialog]
+/// does not, so dialogs whose content includes text input (e.g. the color
+/// picker hex field) get covered on iOS without this wrapper.
+class _KeyboardAvoidingDialog extends StatelessWidget {
+  const _KeyboardAvoidingDialog({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedPadding(
+      padding: MediaQuery.viewInsetsOf(context),
+      duration: const Duration(milliseconds: 100),
+      curve: Curves.decelerate,
+      child: MediaQuery.removeViewInsets(
+        context: context,
+        removeLeft: true,
+        removeTop: true,
+        removeRight: true,
+        removeBottom: true,
+        child: Center(child: child),
       ),
     );
   }

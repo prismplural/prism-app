@@ -215,6 +215,55 @@ void main() {
     expect(find.text('Delete?'), findsOneWidget);
   });
 
+  testWidgets(
+    'PrismDialog.show shifts content above the on-screen keyboard',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        buildApp(
+          child: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                PrismDialog.show(
+                  context: context,
+                  title: 'Keyboard Test',
+                  builder: (context) => const SizedBox(
+                    height: 200,
+                    child: TextField(),
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      final titleFinder = find.text('Keyboard Test');
+      final centerBefore = tester.getCenter(titleFinder).dy;
+
+      // Simulate iOS keyboard appearing — without the inset-aware wrapper the
+      // dialog stays centered in the full screen and the keyboard covers
+      // anything in the bottom half.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.resetViewInsets);
+
+      await tester.pumpAndSettle();
+
+      final centerAfter = tester.getCenter(titleFinder).dy;
+      expect(
+        centerAfter,
+        lessThan(centerBefore),
+        reason: 'Dialog should shift up when the keyboard is visible',
+      );
+    },
+  );
+
   testWidgets('PrismDialog.confirm returns false on barrier dismiss', (
     tester,
   ) async {
