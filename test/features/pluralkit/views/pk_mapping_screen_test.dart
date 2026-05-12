@@ -421,50 +421,45 @@ void main() {
     });
   });
 
-  // -- Phase 3 (per docs/plans/pk-megasystem-import.md): post-apply status -
+  // -- Post-apply status ------------------------------------------------------
 
   group('PkMappingScreen — post-apply status', () {
-    testWidgets(
-      'phase=importingSwitches renders statusText above the button '
-      'while keeping the Apply label',
-      (tester) async {
-        final pkAlice = _pk('pk-alice', 'Alice');
-        final locals = [_local('l1', 'Alice')];
+    testWidgets('phase=importingSwitches renders statusText above the button '
+        'while keeping the Apply label', (tester) async {
+      final pkAlice = _pk('pk-alice', 'Alice');
+      final locals = [_local('l1', 'Alice')];
 
-        final state = PkMappingState(
-          pkMembers: [pkAlice],
-          localMembers: locals,
-          decisionsByPkUuid: {
-            pkAlice.uuid: PkLinkDecision(localMemberId: 'l1', pkMember: pkAlice),
-          },
-          isApplying: true,
-          applyProgress: 0.42,
-          phase: PkMappingPhase.importingSwitches,
-          statusText: 'Importing switch history…',
-        );
+      final state = PkMappingState(
+        pkMembers: [pkAlice],
+        localMembers: locals,
+        decisionsByPkUuid: {
+          pkAlice.uuid: PkLinkDecision(localMemberId: 'l1', pkMember: pkAlice),
+        },
+        isApplying: true,
+        applyProgress: 0.42,
+        phase: PkMappingPhase.importingSwitches,
+        statusText: 'Importing switch history…',
+      );
 
-        final controller = _FakePkMappingController(state);
-        await tester.pumpWidget(_wrap(controller));
-        // pumpAndSettle would loop forever — LinearProgressIndicator
-        // animates continuously while isApplying=true. One pump is enough
-        // to lay out the tree.
-        await tester.pump();
+      final controller = _FakePkMappingController(state);
+      await tester.pumpWidget(_wrap(controller));
+      // pumpAndSettle would loop forever — LinearProgressIndicator
+      // animates continuously while isApplying=true. One pump is enough
+      // to lay out the tree.
+      await tester.pump();
 
-        // Status text is rendered above the button.
-        expect(find.text('Importing switch history…'), findsOneWidget);
+      // Status text is rendered above the button.
+      expect(find.text('Importing switch history…'), findsOneWidget);
 
-        // The Apply button widget retains its 'Apply' label property even
-        // while loading (PrismButton swaps the rendered Text for a spinner
-        // but the label property is unchanged). Phase info lives in the
-        // status text widget above, never on the button.
-        final applyButton = tester.widget<PrismButton>(
-          find.byWidgetPredicate(
-            (w) => w is PrismButton && w.label == 'Apply',
-          ),
-        );
-        expect(applyButton.label, 'Apply');
-      },
-    );
+      // The Apply button widget retains its 'Apply' label property even
+      // while loading (PrismButton swaps the rendered Text for a spinner
+      // but the label property is unchanged). Phase info lives in the
+      // status text widget above, never on the button.
+      final applyButton = tester.widget<PrismButton>(
+        find.byWidgetPredicate((w) => w is PrismButton && w.label == 'Apply'),
+      );
+      expect(applyButton.label, 'Apply');
+    });
 
     testWidgets(
       'phase=pushingSwitches also renders statusText with stable button label',
@@ -476,7 +471,10 @@ void main() {
           pkMembers: [pkAlice],
           localMembers: locals,
           decisionsByPkUuid: {
-            pkAlice.uuid: PkLinkDecision(localMemberId: 'l1', pkMember: pkAlice),
+            pkAlice.uuid: PkLinkDecision(
+              localMemberId: 'l1',
+              pkMember: pkAlice,
+            ),
           },
           isApplying: true,
           applyProgress: 0.0,
@@ -493,9 +491,7 @@ void main() {
           findsOneWidget,
         );
         final applyButton = tester.widget<PrismButton>(
-          find.byWidgetPredicate(
-            (w) => w is PrismButton && w.label == 'Apply',
-          ),
+          find.byWidgetPredicate((w) => w is PrismButton && w.label == 'Apply'),
         );
         expect(applyButton.label, 'Apply');
       },
@@ -512,7 +508,10 @@ void main() {
           pkMembers: [pkAlice],
           localMembers: locals,
           decisionsByPkUuid: {
-            pkAlice.uuid: PkLinkDecision(localMemberId: 'l1', pkMember: pkAlice),
+            pkAlice.uuid: PkLinkDecision(
+              localMemberId: 'l1',
+              pkMember: pkAlice,
+            ),
           },
         );
 
@@ -528,70 +527,67 @@ void main() {
       },
     );
 
-    testWidgets(
-      'Apply button stays disabled across all three phases',
-      (tester) async {
-        final pkAlice = _pk('pk-alice', 'Alice');
-        final locals = [_local('l1', 'Alice')];
+    testWidgets('Apply button stays disabled across all three phases', (
+      tester,
+    ) async {
+      final pkAlice = _pk('pk-alice', 'Alice');
+      final locals = [_local('l1', 'Alice')];
 
-        Future<PrismButton> pumpAndGetApplyButton(
-          PkMappingPhase phase, {
-          String? statusText,
-        }) async {
-          final state = PkMappingState(
-            pkMembers: [pkAlice],
-            localMembers: locals,
-            decisionsByPkUuid: {
-              pkAlice.uuid: PkLinkDecision(
-                localMemberId: 'l1',
-                pkMember: pkAlice,
-              ),
-            },
-            isApplying: true,
-            applyProgress: 0.0,
-            phase: phase,
-            statusText: statusText,
-          );
-          final controller = _FakePkMappingController(state);
-          await tester.pumpWidget(_wrap(controller));
-          // pumpAndSettle hangs on the spinning LinearProgressIndicator.
-          await tester.pump();
-
-          // PrismButton swaps its label for a PrismSpinner when isLoading, so
-          // find.text('Apply') is empty during apply. Match by the label
-          // property on the PrismButton widget itself instead.
-          return tester.widget<PrismButton>(
-            find.byWidgetPredicate(
-              (w) => w is PrismButton && w.label == 'Apply',
+      Future<PrismButton> pumpAndGetApplyButton(
+        PkMappingPhase phase, {
+        String? statusText,
+      }) async {
+        final state = PkMappingState(
+          pkMembers: [pkAlice],
+          localMembers: locals,
+          decisionsByPkUuid: {
+            pkAlice.uuid: PkLinkDecision(
+              localMemberId: 'l1',
+              pkMember: pkAlice,
             ),
-          );
-        }
-
-        // Phase 1 — applyingDecisions: no statusText set yet, but button is
-        // disabled because isApplying = true.
-        final applyButton1 = await pumpAndGetApplyButton(
-          PkMappingPhase.applyingDecisions,
+          },
+          isApplying: true,
+          applyProgress: 0.0,
+          phase: phase,
+          statusText: statusText,
         );
-        expect(applyButton1.enabled, isFalse);
-        expect(applyButton1.isLoading, isTrue);
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        // pumpAndSettle hangs on the spinning LinearProgressIndicator.
+        await tester.pump();
 
-        // Phase 2 — importingSwitches: button still disabled, statusText shown.
-        final applyButton2 = await pumpAndGetApplyButton(
-          PkMappingPhase.importingSwitches,
-          statusText: 'Importing switch history…',
+        // PrismButton swaps its label for a PrismSpinner when isLoading, so
+        // find.text('Apply') is empty during apply. Match by the label
+        // property on the PrismButton widget itself instead.
+        return tester.widget<PrismButton>(
+          find.byWidgetPredicate((w) => w is PrismButton && w.label == 'Apply'),
         );
-        expect(applyButton2.enabled, isFalse);
-        expect(applyButton2.isLoading, isTrue);
+      }
 
-        // Phase 3 — pushingSwitches: same invariant.
-        final applyButton3 = await pumpAndGetApplyButton(
-          PkMappingPhase.pushingSwitches,
-          statusText: 'Pushing switch updates to PluralKit…',
-        );
-        expect(applyButton3.enabled, isFalse);
-        expect(applyButton3.isLoading, isTrue);
-      },
-    );
+      // Phase 1 — applyingDecisions: no statusText set yet, but button is
+      // disabled because isApplying = true.
+      final applyButton1 = await pumpAndGetApplyButton(
+        PkMappingPhase.applyingDecisions,
+      );
+      expect(applyButton1.enabled, isFalse);
+      expect(applyButton1.isLoading, isTrue);
+
+      // Phase 2 — importingSwitches: button still disabled, statusText shown.
+      final applyButton2 = await pumpAndGetApplyButton(
+        PkMappingPhase.importingSwitches,
+        statusText: 'Importing switch history…',
+      );
+      expect(applyButton2.enabled, isFalse);
+      expect(applyButton2.isLoading, isTrue);
+
+      // Phase 3 — pushingSwitches: same invariant.
+      final applyButton3 = await pumpAndGetApplyButton(
+        PkMappingPhase.pushingSwitches,
+        statusText: 'Pushing switch updates to PluralKit…',
+      );
+      expect(applyButton3.enabled, isFalse);
+      expect(applyButton3.isLoading, isTrue);
+    });
 
     testWidgets(
       'tapping Apply forwards the localized phase strings to the controller',
@@ -603,7 +599,10 @@ void main() {
           pkMembers: [pkAlice],
           localMembers: locals,
           decisionsByPkUuid: {
-            pkAlice.uuid: PkLinkDecision(localMemberId: 'l1', pkMember: pkAlice),
+            pkAlice.uuid: PkLinkDecision(
+              localMemberId: 'l1',
+              pkMember: pkAlice,
+            ),
           },
         );
 
@@ -617,7 +616,10 @@ void main() {
         // The screen reads the strings from AppLocalizations and forwards them
         // via the named params. Verify the controller saw the expected values.
         expect(controller.applyCallCount, 1);
-        expect(controller.lastImportingHistoryStatus, 'Importing switch history…');
+        expect(
+          controller.lastImportingHistoryStatus,
+          'Importing switch history…',
+        );
         expect(
           controller.lastPushingHistoryStatus,
           'Pushing switch updates to PluralKit…',

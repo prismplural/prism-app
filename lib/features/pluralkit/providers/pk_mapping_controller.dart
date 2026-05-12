@@ -27,8 +27,8 @@ const _defaultOfflineErrorMessage =
 ///
 /// The Apply button stays disabled across all three phases. The accompanying
 /// status text widget (rendered above the button) communicates which phase the
-/// pipeline is in. The button label itself never changes — see the codex
-/// review note in `docs/plans/pk-megasystem-import.md` Phase 3.
+/// pipeline is in. The button label itself stays stable while the adjacent
+/// status text communicates progress through the pipeline.
 enum PkMappingPhase {
   /// The per-decision loop is running — applier handles link/import/push/skip
   /// for each row.

@@ -1,15 +1,15 @@
-/// Phase 2 — per-member progress tests.
+/// Per-member progress tests.
 ///
 /// Covers the new `onProgress` callback wired through `_importMembers` and the
 /// three callers (`_runFullImportWithClient`, `importMembersOnly`,
 /// `importFromFile`) that map the member-import phase to its own progress
-/// band. See docs/plans/pk-megasystem-import.md Phase 2.
+/// band.
 ///
 /// Why these tests matter: on a megasystem (1500+ members on mobile data),
 /// the import loop is silent for 10-30 minutes without per-member progress.
-/// Bug 2 in the plan calls this out — the UI freezes at the band start until
-/// the loop ends. The cadence (every 10 members + last) keeps emit churn low
-/// while still showing the user that work is happening.
+/// The UI otherwise freezes at the band start until the loop ends. The cadence
+/// (every 10 members + last) keeps emit churn low while still showing the user
+/// that work is happening.
 library;
 
 import 'dart:typed_data';

@@ -804,7 +804,7 @@ void main() {
     },
   );
 
-  // -- Phase 3 (per docs/plans/pk-megasystem-import.md): phase transitions ---
+  // -- Apply phase transitions -----------------------------------------------
 
   group('apply: phase transitions', () {
     test(

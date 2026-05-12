@@ -565,9 +565,8 @@ void main() {
   test('push: SocketException maps to friendly network message', () async {
     final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
     final client = FakePluralKitClient(
-      onCreate: (_) => throw const SocketException(
-        'Failed host lookup: api.pluralkit.me',
-      ),
+      onCreate: (_) =>
+          throw const SocketException('Failed host lookup: api.pluralkit.me'),
     );
     final applier = buildApplier(repo: repo, client: client);
 
@@ -644,7 +643,7 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // Event emission — Task 5 of pk-sync-log plan.
+  // Mapping event emission.
   //
   // Every per-decision outcome (applied or failed) emits a structured event on
   // the shared `PkSyncEventBus` so the PK sync log can show the user which
@@ -692,7 +691,9 @@ void main() {
       );
 
       const pk = PKMember(id: 'abcde', uuid: 'u-imp', name: 'Imported');
-      final results = await applier.apply([const PkImportDecision(pkMember: pk)]);
+      final results = await applier.apply([
+        const PkImportDecision(pkMember: pk),
+      ]);
 
       expect(results.single.outcome, PkApplyOutcome.applied);
       expect(capture.events, hasLength(1));
@@ -759,34 +760,29 @@ void main() {
       expect(failed.error, contains('missing'));
     });
 
-    test(
-      'failure error message is token-redacted before emit',
-      () async {
-        // Simulate a typed PK error whose message happens to contain the
-        // current bearer token. The emit site must replace the token with
-        // [REDACTED] so logs copied out of the device never expose it.
-        final capture = PkSyncEventBusCapture();
-        final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
-        final client = FakePluralKitClient(
-          onCreate: (_) => throw const PluralKitApiError(
-            500,
-            'upstream rejected fake-token',
-          ),
-        );
-        final applier = buildApplier(
-          repo: repo,
-          client: client,
-          bus: capture.bus,
-        );
+    test('failure error message is token-redacted before emit', () async {
+      // Simulate a typed PK error whose message happens to contain the
+      // current bearer token. The emit site must replace the token with
+      // [REDACTED] so logs copied out of the device never expose it.
+      final capture = PkSyncEventBusCapture();
+      final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+      final client = FakePluralKitClient(
+        onCreate: (_) =>
+            throw const PluralKitApiError(500, 'upstream rejected fake-token'),
+      );
+      final applier = buildApplier(
+        repo: repo,
+        client: client,
+        bus: capture.bus,
+      );
 
-        await applier.apply([const PkPushNewDecision(localMemberId: 'l1')]);
+      await applier.apply([const PkPushNewDecision(localMemberId: 'l1')]);
 
-        expect(capture.events, hasLength(1));
-        final event = capture.events.single as PkMappingDecisionFailed;
-        expect(event.error, contains('[REDACTED]'));
-        expect(event.error, isNot(contains('fake-token')));
-      },
-    );
+      expect(capture.events, hasLength(1));
+      final event = capture.events.single as PkMappingDecisionFailed;
+      expect(event.error, contains('[REDACTED]'));
+      expect(event.error, isNot(contains('fake-token')));
+    });
 
     test(
       'mixed batch emits an applied event followed by a failed event in order',
