@@ -7738,6 +7738,54 @@ class AppLocalizationsEs extends AppLocalizations {
       'Los eventos de sincronización aparecerán aquí a medida que ocurran.';
 
   @override
+  String get settingsPkSyncDebugTitle =>
+      'Registro de sincronización con PluralKit';
+
+  @override
+  String settingsPkSyncDebugEventCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count eventos',
+      one: '1 evento',
+      zero: 'Sin eventos',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsPkSyncDebugEmptyTitle => 'Sin eventos de PluralKit';
+
+  @override
+  String get settingsPkSyncDebugEmptyBody =>
+      'Sincroniza con PluralKit para empezar a registrar eventos.';
+
+  @override
+  String get settingsPkSyncDebugCopyTooltip => 'Copiar registro';
+
+  @override
+  String get settingsPkSyncDebugClearTooltip => 'Borrar registro';
+
+  @override
+  String get settingsPkSyncDebugCopiedToast => 'Registro de PluralKit copiado';
+
+  @override
+  String get settingsPkSyncDebugOpenTile =>
+      'Registro de actividad de sincronización';
+
+  @override
+  String get settingsPkSyncDebugOpenSubtitleEmpty =>
+      'Aún no se han registrado eventos';
+
+  @override
+  String get settingsPkSyncDebugOpenSubtitleActive =>
+      'Ver actividad reciente de sincronización con PluralKit';
+
+  @override
+  String get settingsPkSyncDebugCrossLinkFromSyncDebug =>
+      'Ver registro de sincronización de PluralKit';
+
+  @override
   String get settingsTerminologyPickerLabel => 'Terminología';
 
   @override

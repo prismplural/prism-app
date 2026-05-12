@@ -12421,6 +12421,72 @@ abstract class AppLocalizations {
   /// **'Sync events will appear here as they happen.'**
   String get settingsSyncDebugEmptyBody;
 
+  /// Title of the PluralKit sync log debug screen
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit sync log'**
+  String get settingsPkSyncDebugTitle;
+
+  /// Subtitle showing the number of PluralKit sync events recorded
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No events} =1{1 event} other{{count} events}}'**
+  String settingsPkSyncDebugEventCount(int count);
+
+  /// Empty state title in the PluralKit sync log screen
+  ///
+  /// In en, this message translates to:
+  /// **'No PluralKit events'**
+  String get settingsPkSyncDebugEmptyTitle;
+
+  /// Empty state body in the PluralKit sync log screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sync with PluralKit to start recording events.'**
+  String get settingsPkSyncDebugEmptyBody;
+
+  /// Tooltip for the copy log button in the PluralKit sync log screen
+  ///
+  /// In en, this message translates to:
+  /// **'Copy log'**
+  String get settingsPkSyncDebugCopyTooltip;
+
+  /// Tooltip for the clear log button in the PluralKit sync log screen
+  ///
+  /// In en, this message translates to:
+  /// **'Clear log'**
+  String get settingsPkSyncDebugClearTooltip;
+
+  /// Toast shown after copying the PluralKit sync log
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit sync log copied'**
+  String get settingsPkSyncDebugCopiedToast;
+
+  /// Tile title on the PluralKit settings screen that opens the sync log
+  ///
+  /// In en, this message translates to:
+  /// **'Sync activity log'**
+  String get settingsPkSyncDebugOpenTile;
+
+  /// Subtitle on the PluralKit sync log tile when no events have been recorded
+  ///
+  /// In en, this message translates to:
+  /// **'No events recorded yet'**
+  String get settingsPkSyncDebugOpenSubtitleEmpty;
+
+  /// Subtitle on the PluralKit sync log tile when events are available
+  ///
+  /// In en, this message translates to:
+  /// **'View recent PluralKit sync activity'**
+  String get settingsPkSyncDebugOpenSubtitleActive;
+
+  /// Cross-link from the Prism sync debug screen to the PluralKit sync log
+  ///
+  /// In en, this message translates to:
+  /// **'View PluralKit sync log'**
+  String get settingsPkSyncDebugCrossLinkFromSyncDebug;
+
   /// Label for the terminology dropdown picker
   ///
   /// In en, this message translates to:

@@ -7610,6 +7610,51 @@ class AppLocalizationsEn extends AppLocalizations {
       'Sync events will appear here as they happen.';
 
   @override
+  String get settingsPkSyncDebugTitle => 'PluralKit sync log';
+
+  @override
+  String settingsPkSyncDebugEventCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count events',
+      one: '1 event',
+      zero: 'No events',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsPkSyncDebugEmptyTitle => 'No PluralKit events';
+
+  @override
+  String get settingsPkSyncDebugEmptyBody =>
+      'Sync with PluralKit to start recording events.';
+
+  @override
+  String get settingsPkSyncDebugCopyTooltip => 'Copy log';
+
+  @override
+  String get settingsPkSyncDebugClearTooltip => 'Clear log';
+
+  @override
+  String get settingsPkSyncDebugCopiedToast => 'PluralKit sync log copied';
+
+  @override
+  String get settingsPkSyncDebugOpenTile => 'Sync activity log';
+
+  @override
+  String get settingsPkSyncDebugOpenSubtitleEmpty => 'No events recorded yet';
+
+  @override
+  String get settingsPkSyncDebugOpenSubtitleActive =>
+      'View recent PluralKit sync activity';
+
+  @override
+  String get settingsPkSyncDebugCrossLinkFromSyncDebug =>
+      'View PluralKit sync log';
+
+  @override
   String get settingsTerminologyPickerLabel => 'Terminology';
 
   @override
