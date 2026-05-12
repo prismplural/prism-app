@@ -31,10 +31,9 @@ class SleepSessionRow extends StatelessWidget {
 
     final dateLabel = DateFormat('EEE · MMM d').format(session.startTime);
 
-    final startTimeStr =
-        DateFormat.jm().format(session.startTime);
+    final startTimeStr = context.formatTime(session.startTime);
     final endTimeStr = session.endTime != null
-        ? DateFormat.jm().format(session.endTime!)
+        ? context.formatTime(session.endTime!)
         : '–';
     final timeRange = '$startTimeStr → $endTimeStr';
 

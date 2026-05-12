@@ -695,7 +695,7 @@ class _PerMemberSessionTile extends ConsumerWidget {
         : theme.colorScheme.primary;
     final durationAccentColor = _durationAccentColor(context, accentColor);
 
-    final timeRange = slice.timeRangeString(context.dateLocale);
+    final timeRange = slice.timeRangeString(context);
     final name = member?.name ?? 'Unknown';
 
     final leadingWidget = isUnknown
@@ -890,15 +890,16 @@ class _PeriodTile extends ConsumerWidget {
 
   FrontingPeriod get period => slice.period;
 
-  String _timeRange(String? locale, BuildContext context) {
-    final startStr = slice.displayStart.toTimeString(locale);
+  String _timeRange(BuildContext context) {
+    final startStr = context.formatTime(slice.displayStart);
+    final midnight = context.use24HourTime ? '00:00' : '12:00 AM';
     if (slice.continuesNextDay) {
-      return '$startStr – 12:00 AM';
+      return '$startStr – $midnight';
     }
     if (slice.isLiveOpenEnded) {
       return '$startStr – ongoing';
     }
-    return '$startStr – ${slice.displayEnd.toTimeString(locale)}';
+    return '$startStr – ${context.formatTime(slice.displayEnd)}';
   }
 
   String _fullRosterLabel() {
@@ -1040,7 +1041,7 @@ class _PeriodTile extends ConsumerWidget {
         : theme.colorScheme.primary;
     final durationAccentColor = _durationAccentColor(context, accentColor);
 
-    final timeRange = _timeRange(context.dateLocale, context);
+    final timeRange = _timeRange(context);
     final rosterNames = period.activeMembers
         .map((id) => membersMap[id]?.name ?? 'Unknown')
         .toList();
@@ -1629,7 +1630,7 @@ class _InlineSleepTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final timeRange = displaySession.timeRangeString(context.dateLocale);
+    final timeRange = displaySession.timeRangeString(context);
     final quality = session.quality;
     final hasQuality = quality != null && quality != SleepQuality.unknown;
 

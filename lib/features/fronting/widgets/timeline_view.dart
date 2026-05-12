@@ -509,8 +509,8 @@ class _SessionPreviewSheet extends ConsumerWidget {
       displayName = member?.name ?? 'Unknown';
     }
 
-    final startLabel = session.startTime.toTimeString();
-    final dateLabel = session.startTime.toDateString();
+    final startLabel = context.formatTime(session.startTime);
+    final dateLabel = session.startTime.toDateString(context.dateLocale);
     final duration = (session.endTime ?? now).difference(session.startTime);
     final durationLabel = session.isActive
         ? 'Active'

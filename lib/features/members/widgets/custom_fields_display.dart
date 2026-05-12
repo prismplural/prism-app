@@ -162,7 +162,8 @@ class CustomFieldsDisplay extends ConsumerWidget {
         DatePrecision.monthDay => DateFormat.MMMd(locale).format(dt),
         DatePrecision.month => DateFormat.MMMM(locale).format(dt),
         DatePrecision.year => DateFormat.y(locale).format(dt),
-        DatePrecision.timestamp => DateFormat.yMMMd(locale).add_jm().format(dt),
+        DatePrecision.timestamp =>
+          '${DateFormat.yMMMd(locale).format(dt)} ${context.formatTime(dt)}',
       };
     } catch (_) {
       return raw;

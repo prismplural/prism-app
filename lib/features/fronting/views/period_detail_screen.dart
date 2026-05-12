@@ -21,7 +21,6 @@ import 'package:prism_plurality/features/fronting/widgets/comments_for_range_sec
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -303,11 +302,10 @@ class _Header extends ConsumerWidget {
 
     final names = _namesString(context, activeMembers);
 
-    final locale = context.dateLocale;
-    final startStr = start.toTimeString(locale);
+    final startStr = context.formatTime(start);
     final endStr = isOpenEnded
         ? context.l10n.frontingPeriodOngoing
-        : end.toTimeString(locale);
+        : context.formatTime(end);
     final timeRange = '$startStr – $endStr';
 
     final duration = end.difference(start);
@@ -600,11 +598,10 @@ class _CoFronterRow extends ConsumerWidget {
       theme.scaffoldBackgroundColor,
     );
 
-    final locale = context.dateLocale;
-    final startStr = session.startTime.toTimeString(locale);
+    final startStr = context.formatTime(session.startTime);
     final endStr = session.endTime == null
         ? context.l10n.frontingPeriodOngoing
-        : session.endTime!.toTimeString(locale);
+        : context.formatTime(session.endTime!);
     final timeRange = '$startStr – $endStr';
     final duration = session.endTime == null
         ? DateTime.now().difference(session.startTime)
@@ -800,8 +797,6 @@ class _BrieflyJoinedSection extends ConsumerWidget {
             .whenOrNull(data: (d) => d) ??
         const <String, Member>{};
 
-    final locale = context.dateLocale;
-
     return PrismSectionCard(
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -830,7 +825,6 @@ class _BrieflyJoinedSection extends ConsumerWidget {
             _BriefVisitorRow(
               visit: visitors[i],
               member: membersMap[visitors[i].memberId],
-              locale: locale,
             ),
           ],
           const SizedBox(height: 4),
@@ -845,12 +839,10 @@ class _BriefVisitorRow extends StatelessWidget {
   const _BriefVisitorRow({
     required this.visit,
     required this.member,
-    required this.locale,
   });
 
   final EphemeralVisit visit;
   final Member? member;
-  final String? locale;
 
   @override
   Widget build(BuildContext context) {
@@ -884,7 +876,7 @@ class _BriefVisitorRow extends StatelessWidget {
           );
 
     final duration = visit.end.difference(visit.start);
-    final startStr = visit.start.toTimeString(locale);
+    final startStr = context.formatTime(visit.start);
     final subtitle = context.l10n.frontingPeriodBriefVisitSubtitle(
       duration.toRoundedString(),
       startStr,

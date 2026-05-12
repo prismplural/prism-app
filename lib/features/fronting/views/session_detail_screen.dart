@@ -25,7 +25,6 @@ import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_profile_header_resolver.dart';
-import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -202,13 +201,15 @@ class _SleepSessionBody extends StatelessWidget {
               const SizedBox(height: 20),
               _InfoRow(
                 label: context.l10n.frontingInfoStarted,
-                value: session.startTime.toDateTimeString(context.dateLocale),
+                value: context.formatDateTime(session.startTime),
               ),
               const SizedBox(height: 8),
               _InfoRow(
                 label: context.l10n.frontingInfoEnded,
                 value:
-                    session.endTime?.toDateTimeString(context.dateLocale) ??
+                    (session.endTime == null
+                        ? null
+                        : context.formatDateTime(session.endTime!)) ??
                     context.l10n.frontingInfoActive,
               ),
               const SizedBox(height: 8),
@@ -317,13 +318,15 @@ class _SessionDetailBody extends ConsumerWidget {
               const SizedBox(height: 12),
               _InfoRow(
                 label: context.l10n.frontingInfoStarted,
-                value: session.startTime.toDateTimeString(context.dateLocale),
+                value: context.formatDateTime(session.startTime),
               ),
               const SizedBox(height: 8),
               _InfoRow(
                 label: context.l10n.frontingInfoEnded,
                 value:
-                    session.endTime?.toDateTimeString(context.dateLocale) ??
+                    (session.endTime == null
+                        ? null
+                        : context.formatDateTime(session.endTime!)) ??
                     context.l10n.frontingInfoActive,
               ),
               const SizedBox(height: 8),

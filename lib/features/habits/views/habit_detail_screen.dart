@@ -620,19 +620,15 @@ class _CompletionTile extends ConsumerWidget {
   String _formatDate(BuildContext context, DateTime date) {
     final dateDay = DateTime(date.year, date.month, date.day);
     final locale = context.dateLocale;
+    final timeStr = context.formatTime(date);
 
     if (dateDay == today) {
-      return context.l10n.habitsCompletionTileToday(_timeString(locale, date));
+      return context.l10n.habitsCompletionTileToday(timeStr);
     } else if (dateDay == today.subtract(const Duration(days: 1))) {
-      return context.l10n.habitsCompletionTileYesterday(
-        _timeString(locale, date),
-      );
+      return context.l10n.habitsCompletionTileYesterday(timeStr);
     }
-    return DateFormat.yMd(locale).add_jm().format(date);
+    return '${DateFormat.yMd(locale).format(date)} $timeStr';
   }
-
-  String _timeString(String locale, DateTime date) =>
-      DateFormat.jm(locale).format(date);
 }
 
 class _CompletionActionsPopupButton extends StatefulWidget {

@@ -1,4 +1,7 @@
+import 'package:flutter/widgets.dart';
+
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 
 /// A display-only view of a session, possibly sliced at a midnight boundary.
@@ -25,16 +28,18 @@ class DisplaySession {
 
   /// Formatted time range string (e.g. "11:00 PM – 2:00 AM" or "3:00 PM – ongoing").
   ///
-  /// Pass [locale] (from context.dateLocale) to format times in the device's
-  /// regional format. "ongoing" is not yet translated — requires BuildContext.
-  // TODO(i18n): localize "ongoing" label — requires passing l10n or BuildContext
-  String timeRangeString([String? locale]) {
-    final startStr = displayStart.toTimeString(locale);
-    final endStr = displayEnd?.toTimeString(locale);
+  /// Honors both the device's regional locale and the OS 24-hour toggle via
+  /// the BuildContext-aware formatTime helper.
+  // TODO(i18n): localize "ongoing" label — requires passing l10n
+  String timeRangeString(BuildContext context) {
+    final startStr = context.formatTime(displayStart);
+    final endStr =
+        displayEnd != null ? context.formatTime(displayEnd!) : null;
+    final midnight = context.use24HourTime ? '00:00' : '12:00 AM';
     if (isActive && !continuesNextDay) {
       return '$startStr \u2013 ongoing';
     } else if (continuesNextDay) {
-      return '$startStr \u2013 12:00 AM';
+      return '$startStr \u2013 $midnight';
     } else {
       return '$startStr \u2013 ${endStr ?? "?"}';
     }

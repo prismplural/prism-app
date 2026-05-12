@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -374,7 +375,7 @@ class _SessionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final startDate = _formatDate(l10n, session.startTime);
+    final startDate = _formatDate(context, session.startTime);
     final duration = session.duration.toRoundedString();
 
     return InkWell(
@@ -416,18 +417,17 @@ class _SessionTile extends StatelessWidget {
     );
   }
 
-  String _formatDate(dynamic l10n, DateTime dt) {
+  String _formatDate(BuildContext context, DateTime dt) {
+    final l10n = context.l10n;
     final now = DateTime.now();
     final diff = now.difference(dt);
 
     if (diff.inDays == 0) {
-      final hour = dt.hour.toString().padLeft(2, '0');
-      final minute = dt.minute.toString().padLeft(2, '0');
-      return l10n.memberSessionTodayAt('$hour:$minute') as String;
+      return l10n.memberSessionTodayAt(context.formatTime(dt));
     }
-    if (diff.inDays == 1) return l10n.memberStatsYesterday as String;
+    if (diff.inDays == 1) return l10n.memberStatsYesterday;
 
-    return '${dt.month}/${dt.day}/${dt.year}';
+    return DateFormat.yMd(context.dateLocale).format(dt);
   }
 }
 

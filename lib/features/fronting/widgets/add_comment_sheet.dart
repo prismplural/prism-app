@@ -147,9 +147,8 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
                       padding: EdgeInsets.zero,
                       leading: Icon(AppIcons.accessTime),
                       title: Text(
-                        DateFormat.yMMMd(
-                          context.dateLocale,
-                        ).add_jm().format(_timestamp),
+                        '${DateFormat.yMMMd(context.dateLocale).format(_timestamp)} '
+                        '${context.formatTime(_timestamp)}',
                       ),
                       trailing: Icon(AppIcons.chevronRight),
                       onTap: () => _pickDateTime(anchorContext),

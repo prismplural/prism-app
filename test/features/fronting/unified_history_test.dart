@@ -1,6 +1,26 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
+
+/// Builds a one-off BuildContext for tests that need to call context-aware
+/// helpers (like DisplaySession.timeRangeString) without spinning up a full
+/// widget tree. Pumps a MediaQuery + simple widget and returns its context.
+Future<BuildContext> _testContext(WidgetTester tester) async {
+  late BuildContext capturedContext;
+  await tester.pumpWidget(
+    MediaQuery(
+      data: const MediaQueryData(alwaysUse24HourFormat: false),
+      child: Builder(
+        builder: (context) {
+          capturedContext = context;
+          return const SizedBox.shrink();
+        },
+      ),
+    ),
+  );
+  return capturedContext;
+}
 
 FrontingSession _fronting({
   required DateTime start,
@@ -128,7 +148,9 @@ void main() {
   });
 
   group('DisplaySession.timeRangeString', () {
-    test('normal session with start and end shows formatted range', () {
+    testWidgets('normal session with start and end shows formatted range',
+        (tester) async {
+      final context = await _testContext(tester);
       final session = _fronting(
         start: DateTime(2026, 4, 1, 9, 0),
         end: DateTime(2026, 4, 1, 14, 30),
@@ -140,13 +162,14 @@ void main() {
         displayEnd: session.endTime,
       );
 
-      // DateFormat.jm() produces locale-dependent output like "9:00 AM"
-      expect(display.timeRangeString(), contains('\u2013'));
-      expect(display.timeRangeString(), contains('AM'));
-      expect(display.timeRangeString(), contains('PM'));
+      // context.formatTime with alwaysUse24HourFormat=false produces "9:00 AM"
+      expect(display.timeRangeString(context), contains('\u2013'));
+      expect(display.timeRangeString(context), contains('AM'));
+      expect(display.timeRangeString(context), contains('PM'));
     });
 
-    test('active session with no end shows ongoing', () {
+    testWidgets('active session with no end shows ongoing', (tester) async {
+      final context = await _testContext(tester);
       final session = _fronting(
         start: DateTime(2026, 4, 1, 15, 0),
       );
@@ -157,11 +180,13 @@ void main() {
         displayEnd: null,
       );
 
-      expect(display.timeRangeString(), endsWith('ongoing'));
-      expect(display.timeRangeString(), contains('PM'));
+      expect(display.timeRangeString(context), endsWith('ongoing'));
+      expect(display.timeRangeString(context), contains('PM'));
     });
 
-    test('session that continues next day shows midnight end', () {
+    testWidgets('session that continues next day shows midnight end',
+        (tester) async {
+      final context = await _testContext(tester);
       final session = _fronting(
         start: DateTime(2026, 4, 1, 23, 0),
         end: DateTime(2026, 4, 2, 2, 0),
@@ -174,8 +199,8 @@ void main() {
         continuesNextDay: true,
       );
 
-      expect(display.timeRangeString(), contains('12:00 AM'));
-      expect(display.timeRangeString(), contains('PM'));
+      expect(display.timeRangeString(context), contains('12:00 AM'));
+      expect(display.timeRangeString(context), contains('PM'));
     });
   });
 

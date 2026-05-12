@@ -1,9 +1,12 @@
 import 'package:intl/intl.dart';
 
 extension DateTimeFormatting on DateTime {
-  /// Returns time string like "2:30 PM".
+  /// Returns time string like "2:30 PM" or "14:30" depending on locale.
   /// Pass [locale] (e.g. from context.dateLocale) to respect the device's
-  /// regional format; omitting it uses the ICU default (en-US order).
+  /// regional format; omitting it uses the ICU default (en-US, 12-hour).
+  ///
+  /// Prefer `context.formatTime(dt)` in widgets — it also honors the OS-level
+  /// 24-hour toggle on top of the locale.
   String toTimeString([String? locale]) => DateFormat.jm(locale).format(this);
 
   /// Returns date string like "Mar 9, 2026".
@@ -11,10 +14,14 @@ extension DateTimeFormatting on DateTime {
   String toDateString([String? locale]) =>
       DateFormat.yMMMd(locale).format(this);
 
-  /// Returns date and time like "Mar 9, 2:30 PM".
-  /// Pass [locale] to respect the device's regional format.
+  /// Returns date and time like "Mar 9, 2:30 PM" or "Mar 9, 14:30",
+  /// honoring locale via the locale-aware skeleton (`add_jm`) so 24-hour
+  /// locales (en_GB, fr, de, ...) render in 24-hour form.
+  ///
+  /// Prefer `context.formatDateTime(dt)` in widgets — it also honors the
+  /// OS-level 24-hour toggle on top of the locale.
   String toDateTimeString([String? locale]) =>
-      DateFormat('MMM d, h:mm a', locale).format(this);
+      DateFormat.MMMd(locale).add_jm().format(this);
 
   /// Returns a day key for grouping (e.g., "2026-03-10").
   String toDayKey() => DateFormat('yyyy-MM-dd').format(this);

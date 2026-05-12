@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:intl/intl.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 export 'package:prism_plurality/l10n/app_localizations.dart';
@@ -15,4 +16,31 @@ extension AppLocalizationsX on BuildContext {
   /// decimal separator, currency symbol, etc.).
   String get dateLocale =>
       WidgetsBinding.instance.platformDispatcher.locale.toString();
+
+  /// Resolved 12/24-hour preference. Prefers MediaQuery (subscribes to changes)
+  /// and falls back to the platform dispatcher when MediaQuery is unavailable
+  /// (e.g. above MaterialApp). The value is the OS-resolved setting, which
+  /// already accounts for both the regional locale's default *and* any
+  /// user-level override (iOS Settings > General > Date & Time > 24-Hour Time
+  /// and Android equivalent).
+  bool get use24HourTime =>
+      MediaQuery.maybeOf(this)?.alwaysUse24HourFormat ??
+      WidgetsBinding.instance.platformDispatcher.alwaysUse24HourFormat;
+
+  /// Format a time like "2:30 PM" (12-hour) or "14:30" (24-hour), honoring
+  /// both the regional locale and the OS 24-hour toggle.
+  String formatTime(DateTime dt) {
+    return use24HourTime
+        ? DateFormat.Hm(dateLocale).format(dt)
+        : DateFormat('h:mm a', dateLocale).format(dt);
+  }
+
+  /// Format a date+time like "Mar 9, 2:30 PM" or "Mar 9, 14:30", honoring
+  /// the regional locale (date ordering) and the OS 24-hour toggle.
+  String formatDateTime(DateTime dt) {
+    final base = DateFormat.MMMd(dateLocale);
+    return use24HourTime
+        ? base.add_Hm().format(dt)
+        : base.addPattern('h:mm a').format(dt);
+  }
 }

@@ -89,7 +89,7 @@ class FrontSessionCommentTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final timeStr = DateFormat.jm(context.dateLocale).format(comment.timestamp);
+    final timeStr = context.formatTime(comment.timestamp);
     final dateStr = DateFormat.MMMd(
       context.dateLocale,
     ).format(comment.timestamp);

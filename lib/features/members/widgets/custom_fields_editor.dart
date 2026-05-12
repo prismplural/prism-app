@@ -352,7 +352,6 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
   Widget _buildDateInput(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final locale = context.dateLocale;
     final precision = widget.field.datePrecision ?? DatePrecision.full;
     final currentValue = _textController.text.trim();
     String displayText = '';
@@ -360,7 +359,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
     if (currentValue.isNotEmpty) {
       try {
         final dt = DateTime.parse(currentValue);
-        displayText = _formatForPrecision(dt, precision, locale);
+        displayText = _formatForPrecision(context, dt, precision);
       } catch (_) {
         displayText = currentValue;
       }
@@ -525,17 +524,19 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
   }
 
   String _formatForPrecision(
+    BuildContext context,
     DateTime dt,
     DatePrecision precision,
-    String locale,
   ) {
+    final locale = context.dateLocale;
     return switch (precision) {
       DatePrecision.full => DateFormat.yMMMd(locale).format(dt),
       DatePrecision.monthYear => DateFormat.yMMM(locale).format(dt),
       DatePrecision.monthDay => DateFormat.MMMd(locale).format(dt),
       DatePrecision.month => DateFormat.MMMM(locale).format(dt),
       DatePrecision.year => DateFormat.y(locale).format(dt),
-      DatePrecision.timestamp => DateFormat.yMMMd(locale).add_jm().format(dt),
+      DatePrecision.timestamp =>
+        '${DateFormat.yMMMd(locale).format(dt)} ${context.formatTime(dt)}',
     };
   }
 }

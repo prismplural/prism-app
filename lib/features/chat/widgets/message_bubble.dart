@@ -40,7 +40,6 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 // Spoiler plaintext must not reach the accessibility label; keeping this as a
@@ -480,7 +479,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         : theme.colorScheme.primary;
 
     final timeText = _showAbsoluteTime
-        ? widget.message.timestamp.toTimeString()
+        ? context.formatTime(widget.message.timestamp)
         : _formatRelativeTime(widget.message.timestamp);
     const avatarSize = 36.0;
     const avatarGap = 12.0;
@@ -792,7 +791,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return dateTime.toTimeString();
+    return context.formatTime(dateTime);
   }
 }
 

@@ -103,7 +103,10 @@ class _ErrorTileState extends State<_ErrorTile> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dateFormat = DateFormat('MMM d, h:mm:ss a', context.dateLocale);
+    final timePattern = context.use24HourTime ? 'HH:mm:ss' : 'h:mm:ss a';
+    final dateFormat = DateFormat.MMMd(
+      context.dateLocale,
+    ).addPattern(timePattern, ', ');
 
     return Column(
       children: [

@@ -357,7 +357,8 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
   }
 
   String _formatDateTime(BuildContext context, DateTime dt) {
-    return DateFormat.yMMMd(context.dateLocale).add_jm().format(dt);
+    return '${DateFormat.yMMMd(context.dateLocale).format(dt)} '
+        '${context.formatTime(dt)}';
   }
 }
 

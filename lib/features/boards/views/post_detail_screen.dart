@@ -14,7 +14,6 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
     show speakingAsProvider;
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -160,9 +159,10 @@ class _PostDetailBody extends ConsumerWidget {
     final headerBgColor = theme.colorScheme.onSurface.withValues(alpha: 0.04);
     final dividerColor = theme.colorScheme.onSurface.withValues(alpha: 0.07);
 
+    final writtenAtStr = context.formatDateTime(post.writtenAt);
     final timestampLine = post.editedAt != null
-        ? '${post.writtenAt.toDateTimeString(context.dateLocale)}  ·  ${l10n.boardsTileEdited}'
-        : post.writtenAt.toDateTimeString(context.dateLocale);
+        ? '$writtenAtStr  ·  ${l10n.boardsTileEdited}'
+        : writtenAtStr;
 
     return SingleChildScrollView(
       child: Column(
