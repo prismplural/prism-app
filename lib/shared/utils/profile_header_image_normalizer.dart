@@ -105,11 +105,12 @@ class ProfileHeaderImageNormalizer {
       return source;
     }
 
+    // Average, not cubic — cubic aliases on downscale and WebP locks it in.
     return img.copyResize(
       source,
       width: maxWidth,
       height: maxHeight,
-      interpolation: img.Interpolation.cubic,
+      interpolation: img.Interpolation.average,
     );
   }
 }

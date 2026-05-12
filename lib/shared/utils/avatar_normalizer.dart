@@ -62,18 +62,20 @@ class AvatarNormalizer {
       return source;
     }
 
+    // Average, not cubic — cubic aliases on a 3-4× downscale and JPEG locks
+    // it in as visible blocking.
     if (source.width >= source.height) {
       return img.copyResize(
         source,
         width: maxDimension,
-        interpolation: img.Interpolation.cubic,
+        interpolation: img.Interpolation.average,
       );
     }
 
     return img.copyResize(
       source,
       height: maxDimension,
-      interpolation: img.Interpolation.cubic,
+      interpolation: img.Interpolation.average,
     );
   }
 }

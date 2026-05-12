@@ -120,6 +120,7 @@ Uint8List encodeAvatarOutputForStorage(Uint8List bytes) {
     throw StateError('Unable to decode cropped avatar image');
   }
 
+  // Average, not cubic — see AvatarNormalizer._resize.
   final resized =
       decoded.width <= AvatarImagePicker._cropOutputSize &&
           decoded.height <= AvatarImagePicker._cropOutputSize
@@ -128,7 +129,7 @@ Uint8List encodeAvatarOutputForStorage(Uint8List bytes) {
           decoded,
           width: AvatarImagePicker._cropOutputSize,
           height: AvatarImagePicker._cropOutputSize,
-          interpolation: img.Interpolation.cubic,
+          interpolation: img.Interpolation.average,
         );
 
   return Uint8List.fromList(
