@@ -2,6 +2,27 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.8.4] - 2026-05-11
+
+This release focuses on sync recovery, PluralKit visibility, and privacy hardening for the next beta build.
+
+### Added
+- Device pairing now recovers when your wrapped device key is missing from the sync chain: Prism prompts you to re-confirm your PIN and recovery phrase before pairing instead of failing silently.
+- Sync now surfaces quarantined batch warnings and includes a repair action for recoverable oversized batches.
+- PluralKit imports now show per-member progress and post-apply status, with a warning before applying destructive remote changes.
+- Settings now include a PluralKit sync debug log and a Screen Privacy toggle for hiding app contents in app switchers and screen capture surfaces.
+
+### Changed
+- Simply Plural member imports now use an explicit mapping flow before applying imported members.
+- Pull-only PluralKit sync now refreshes member fields while preserving the local-only sync boundary.
+
+### Fixed
+- Devices with a missing wrapped device key are marked as needing rewrap, and pairing is blocked until recovery has completed.
+- iOS and Android screen privacy handling is more reliable, including stale Activity cases on Android.
+- Deleted or tombstoned members are removed from groups and hidden from UI surfaces.
+- Always-fronting sessions, PluralKit live-front notices, and PluralKit failure messages behave more predictably.
+- Chat keeps keyboard focus after sending and avoids avatar flicker during PluralKit sync.
+
 ## [0.8.3] - 2026-05-10
 
 This release focuses on PluralKit control, safer import/sync recovery paths, and a few beta rough edges that could leave the app in a confusing state.
