@@ -50,6 +50,7 @@ import '../../features/members/views/group_detail_screen.dart';
 import '../../features/members/views/system_management_screen.dart';
 import '../../features/settings/views/secret_key_setup_screen.dart';
 import '../../features/settings/views/sync_setup_screen.dart';
+import '../../features/pluralkit/views/pk_sync_debug_screen.dart';
 import '../../features/pluralkit/views/pluralkit_setup_screen.dart';
 import '../../features/sharing/views/sharing_screen.dart';
 import '../../features/sharing/views/friend_detail_screen.dart';
@@ -516,6 +517,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'pluralkit',
                     builder: (context, state) => const PluralKitSetupScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'sync-debug',
+                        builder: (context, state) => const PkSyncDebugScreen(),
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: 'sync-troubleshooting',

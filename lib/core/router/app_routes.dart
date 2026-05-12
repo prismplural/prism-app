@@ -42,6 +42,7 @@ abstract final class AppRoutePaths {
   static const settingsCryptoStorageDebug = '/settings/crypto-storage-debug';
   static const settingsErrors = '/settings/errors';
   static const settingsPluralkit = '/settings/pluralkit';
+  static const settingsPluralkitSyncDebug = '/settings/pluralkit/sync-debug';
   static const settingsMigration = '/settings/migration';
   static const settingsSyncTroubleshooting = '/settings/sync-troubleshooting';
   static const settingsDevices = '/settings/devices';
