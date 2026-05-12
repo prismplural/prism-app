@@ -35,6 +35,7 @@ class _FakePinLockService extends PinLockService {
 Widget _buildWidget({
   required _FakePinLockService service,
   required FutureOr<void> Function(String) onPinConfirmed,
+  double textScaleFactor = 1.0,
 }) {
   return ProviderScope(
     overrides: [
@@ -44,8 +45,12 @@ Widget _buildWidget({
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) =>
-          PrismToastHost(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(textScaleFactor),
+        ),
+        child: PrismToastHost(child: child ?? const SizedBox.shrink()),
+      ),
       home: Scaffold(body: PinSetupStep(onPinConfirmed: onPinConfirmed)),
     ),
   );
@@ -127,6 +132,52 @@ void main() {
     expect(confirmedPin, '654321');
     expect(service.storedPin, '654321');
   });
+
+  testWidgets(
+    'enables scroll fallback above 1.3x text scale so keypad is not clipped',
+    (tester) async {
+      // Regression: at large Dynamic Type the embedded numpad was clipped at
+      // the bottom because the centered Column had no scroll fallback. At
+      // >1.3x we switch to a scrollable layout.
+      final service = _FakePinLockService();
+      addTearDown(tester.view.resetPhysicalSize);
+      tester.view.physicalSize = const Size(1170, 2532); // 390x844 at 3x
+      tester.view.devicePixelRatio = 3;
+
+      // Default scale: no scroll fallback.
+      await tester.pumpWidget(
+        _buildWidget(service: service, onPinConfirmed: (_) {}),
+      );
+      await tester.pump();
+      expect(
+        find.descendant(
+          of: find.byType(PinInputScreen),
+          matching: find.byType(SingleChildScrollView),
+        ),
+        findsNothing,
+      );
+
+      // 1.8x scale: scroll fallback engages.
+      await tester.pumpWidget(
+        _buildWidget(
+          service: service,
+          onPinConfirmed: (_) {},
+          textScaleFactor: 1.8,
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.descendant(
+          of: find.byType(PinInputScreen),
+          matching: find.byType(SingleChildScrollView),
+        ),
+        findsOneWidget,
+      );
+      // All four numpad rows are still present (0 and backspace included).
+      expect(find.text('0'), findsOneWidget);
+      expect(find.text('9'), findsOneWidget);
+    },
+  );
 
   testWidgets('clears stored pin if onboarding key setup fails', (
     tester,

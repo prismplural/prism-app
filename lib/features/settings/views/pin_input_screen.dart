@@ -273,39 +273,52 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
         : false;
     final showBiometric =
         canOfferBiometric && biometricAvailable && biometricEnabled;
+
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    // Above 1.3x, the centered Spacer layout overflows on phones (especially
+    // when nested in onboarding under a scaled parent header) and clips the
+    // bottom numpad row. Switch to a scrollable layout and tighten button
+    // sizing so the keypad keeps fitting unscrolled where possible.
+    final useScrollFallback = textScale > 1.3;
+    final sizeFloor = textScale > 1.5 ? 48.0 : 56.0;
+    final sizeCeil = useScrollFallback ? 64.0 : 72.0;
     final clampedSize = ((MediaQuery.of(context).size.width - 80) / 3).clamp(
-      56.0,
-      72.0,
+      sizeFloor,
+      sizeCeil,
     );
 
-    final content = Column(
-      children: [
-        if (widget.embedded) const Spacer() else const Spacer(flex: 2),
-        if (!widget.embedded) ...[
-          // Title
-          Text(
-            _title(context),
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+    final headerChildren = <Widget>[];
+    if (!widget.embedded) {
+      headerChildren.addAll([
+        Text(
+          _title(context),
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.bold,
           ),
-          const SizedBox(height: 8),
-          Text(
-            _subtitle(context),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _subtitle(context),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(height: 40),
-        ],
-        if (widget.embedded && widget.showEmbeddedPrompt) ...[
-          Text(
-            _title(context),
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+        ),
+        const SizedBox(height: 40),
+      ]);
+    } else if (widget.showEmbeddedPrompt) {
+      headerChildren.add(
+        Text(
+          _title(context),
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
           ),
+        ),
+      );
+      // At very large scale the parent onboarding header already shows a
+      // longer subtitle; dropping the duplicate here saves ~2 wrapped lines.
+      if (textScale <= 1.5) {
+        headerChildren.addAll([
           const SizedBox(height: 6),
           Text(
             _subtitle(context),
@@ -314,63 +327,89 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 32),
-        ],
-        // Dot indicators with shake animation
-        AnimatedBuilder(
-          animation: _shakeAnimation,
-          builder: (context, child) => Transform.translate(
-            offset: Offset(_shakeAnimation.value, 0),
-            child: child,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(_pinLength, (i) {
-              final filled = i < _pin.length;
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: AnimatedBuilder(
-                  animation: _dotScaleAnim,
-                  builder: (context, child) => Transform.scale(
-                    scale: i == _lastFilledDotIndex ? _dotScaleAnim.value : 1.0,
-                    child: child,
-                  ),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: filled
-                          ? accentColor
-                          : accentColor.withValues(alpha: 0.15),
-                    ),
-                  ),
+        ]);
+      }
+      headerChildren.add(const SizedBox(height: 32));
+    }
+
+    final dots = AnimatedBuilder(
+      animation: _shakeAnimation,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(_shakeAnimation.value, 0),
+        child: child,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(_pinLength, (i) {
+          final filled = i < _pin.length;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: AnimatedBuilder(
+              animation: _dotScaleAnim,
+              builder: (context, child) => Transform.scale(
+                scale: i == _lastFilledDotIndex ? _dotScaleAnim.value : 1.0,
+                child: child,
+              ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: filled
+                      ? accentColor
+                      : accentColor.withValues(alpha: 0.15),
                 ),
-              );
-            }),
-          ),
-        ),
-        if (widget.embedded) const Spacer() else const Spacer(flex: 2),
-        // Numpad
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Column(
-            children: [
-              for (var row = 0; row < 4; row++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: _buildRow(row, showBiometric, theme, clampedSize),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const Spacer(),
-      ],
+              ),
+            ),
+          );
+        }),
+      ),
     );
+
+    final numpad = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var row = 0; row < 4; row++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: _buildRow(row, showBiometric, theme, clampedSize),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    final Widget content;
+    if (useScrollFallback) {
+      content = SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        padding: EdgeInsets.symmetric(vertical: widget.embedded ? 8 : 24),
+        child: Column(
+          children: [
+            ...headerChildren,
+            dots,
+            const SizedBox(height: 24),
+            numpad,
+          ],
+        ),
+      );
+    } else {
+      content = Column(
+        children: [
+          if (widget.embedded) const Spacer() else const Spacer(flex: 2),
+          ...headerChildren,
+          dots,
+          if (widget.embedded) const Spacer() else const Spacer(flex: 2),
+          numpad,
+          const Spacer(),
+        ],
+      );
+    }
 
     if (widget.embedded) return content;
 
