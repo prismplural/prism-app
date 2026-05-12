@@ -1755,6 +1755,57 @@ void main() {
         expect(sessionRepo.sessions.single.pluralkitUuid, switchId);
       },
     );
+
+    test(
+      'pull-only incremental sync pulls updated member proxy tags',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = FakeMemberRepository()
+          ..seed([
+            domain.Member(
+              id: 'local-linked',
+              name: 'Alice',
+              createdAt: DateTime.utc(2026, 1, 1),
+              pluralkitId: 'pk001',
+              pluralkitUuid: 'uuid-pk001',
+              proxyTagsJson: '[{"prefix":"OLD:","suffix":null}]',
+            ),
+          ]);
+        final fakeClient = FakePluralKitClient()
+          ..membersToReturn = const [
+            PKMember(
+              id: 'pk001',
+              uuid: 'uuid-pk001',
+              name: 'Alice',
+              proxyTagsJson: '[{"prefix":"NEW:","suffix":null}]',
+            ),
+          ]
+          ..switchesToReturn = const [];
+
+        final service = _makeService(
+          fakeClient: fakeClient,
+          db: db,
+          memberRepo: memberRepo,
+        );
+        await service.setToken('valid-token');
+        await service.acknowledgeMapping();
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            lastSyncDate: Value(DateTime.utc(2026, 1, 1)),
+          ),
+        );
+        await service.loadState();
+
+        await service.syncRecentData(direction: PkSyncDirection.pullOnly);
+
+        final local = await memberRepo.getMemberById('local-linked');
+        expect(fakeClient.getMembersCallCount, 1);
+        expect(local!.proxyTagsJson, '[{"prefix":"NEW:","suffix":null}]');
+      },
+    );
   });
 
   // ── switch import — empty-member switch skipped ───────────────────────────────
