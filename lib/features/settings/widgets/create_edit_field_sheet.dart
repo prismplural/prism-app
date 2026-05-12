@@ -17,8 +17,10 @@ import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Modal sheet for creating or editing a custom field definition.
 ///
-/// When [field] is provided the sheet operates in edit mode. The field type
-/// is immutable once created.
+/// When [field] is provided the sheet operates in edit mode. Textual fields
+/// (short text ↔ long text) can be switched between each other; color and
+/// date types remain immutable once created because their storage shapes
+/// differ.
 ///
 /// Use via [PrismSheet.showFullScreen].
 class CreateEditFieldSheet extends ConsumerStatefulWidget {
@@ -91,6 +93,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       if (widget.isEditing) {
         final updated = widget.field!.copyWith(
           name: name,
+          fieldType: _selectedType,
           datePrecision: _selectedType == CustomFieldType.date
               ? _selectedPrecision
               : null,
@@ -183,7 +186,10 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                     ),
                     const SizedBox(height: 8),
                     if (widget.isEditing) ...[
-                      // Immutable when editing — show read-only chips
+                      // In edit mode, allow switching between textual types
+                      // (short text ↔ long text) since both store plain
+                      // markdown strings. Color and date have different
+                      // storage shapes and remain locked.
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -192,18 +198,26 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                             PrismChip(
                               label: type.label,
                               selected: type == _selectedType,
-                              onTap: null,
+                              onTap:
+                                  (_selectedType.isTextual && type.isTextual)
+                                  ? () {
+                                      setState(() => _selectedType = type);
+                                      Haptics.selection();
+                                    }
+                                  : null,
                               avatar: Icon(_iconForType(type), size: 16),
                             ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        context.l10n.settingsCreateEditFieldTypeImmutable,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                      if (!_selectedType.isTextual) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          context.l10n.settingsCreateEditFieldTypeImmutable,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
+                      ],
                     ] else ...[
                       Wrap(
                         spacing: 8,
