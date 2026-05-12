@@ -314,76 +314,67 @@ class _PkMemberRow extends ConsumerWidget {
         ),
     ];
 
+    final nameColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          pkMember.displayName ?? pkMember.name,
+          style: theme.textTheme.bodyLarge,
+        ),
+        Text(
+          pkMember.id,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+
+    final select = PrismSelect<String>(
+      value: selectedValue,
+      items: items,
+      onChanged: (value) {
+        if (value == null) return;
+        final controller = ref.read(pkMappingControllerProvider.notifier);
+        if (value == kPkRowImportSentinel) {
+          controller.setPkDecision(
+            pkMember.uuid,
+            PkImportDecision(pkMember: pkMember),
+          );
+        } else if (value == kPkRowSkipSentinel) {
+          controller.setPkDecision(
+            pkMember.uuid,
+            PkSkipDecision(pkMemberUuid: pkMember.uuid),
+          );
+        } else {
+          controller.setPkDecision(
+            pkMember.uuid,
+            PkLinkDecision(localMemberId: value, pkMember: pkMember),
+          );
+        }
+      },
+    );
+
+    final searchButton = PrismGlassIconButton(
+      key: ValueKey('pkMappingLinkSearch-${pkMember.uuid}'),
+      icon: AppIcons.search,
+      tooltip: l10n.search,
+      size: 40,
+      onPressed: linkableMembers.isEmpty
+          ? null
+          : () => _showLinkSearch(context, ref, linkableMembers),
+    );
+
     return Semantics(
       label: l10n.pkMappingPkMemberSemantics(pkMember.name),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 48),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      pkMember.displayName ?? pkMember.name,
-                      style: theme.textTheme.bodyLarge,
-                    ),
-                    Text(
-                      pkMember.id,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 180,
-                child: PrismSelect<String>(
-                  value: selectedValue,
-                  items: items,
-                  onChanged: (value) {
-                    if (value == null) return;
-                    final controller = ref.read(
-                      pkMappingControllerProvider.notifier,
-                    );
-                    if (value == kPkRowImportSentinel) {
-                      controller.setPkDecision(
-                        pkMember.uuid,
-                        PkImportDecision(pkMember: pkMember),
-                      );
-                    } else if (value == kPkRowSkipSentinel) {
-                      controller.setPkDecision(
-                        pkMember.uuid,
-                        PkSkipDecision(pkMemberUuid: pkMember.uuid),
-                      );
-                    } else {
-                      controller.setPkDecision(
-                        pkMember.uuid,
-                        PkLinkDecision(
-                          localMemberId: value,
-                          pkMember: pkMember,
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              PrismGlassIconButton(
-                key: ValueKey('pkMappingLinkSearch-${pkMember.uuid}'),
-                icon: AppIcons.search,
-                tooltip: l10n.search,
-                size: 40,
-                onPressed: linkableMembers.isEmpty
-                    ? null
-                    : () => _showLinkSearch(context, ref, linkableMembers),
-              ),
-            ],
+          child: _ResponsiveMappingRow(
+            name: nameColumn,
+            select: select,
+            trailing: searchButton,
           ),
         ),
       ),
@@ -404,64 +395,114 @@ class _LocalMemberRow extends ConsumerWidget {
     final decision = state.decisionsByLocalId[localMember.id];
     final isPush = decision is PkPushNewDecision;
 
+    final nameRow = Row(
+      children: [
+        MemberAvatar(
+          memberName: localMember.name,
+          emoji: localMember.emoji,
+          customColorEnabled: localMember.customColorEnabled,
+          customColorHex: localMember.customColorHex,
+          avatarImageData: localMember.avatarImageData,
+          size: 36,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(localMember.name, style: theme.textTheme.bodyLarge),
+        ),
+      ],
+    );
+
+    final select = PrismSelect<String>(
+      value: isPush ? 'push' : 'skip',
+      items: [
+        PrismSelectItem(value: 'push', label: l10n.pkMappingOptionPush),
+        PrismSelectItem(value: 'skip', label: l10n.pkMappingOptionDontPush),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        final controller = ref.read(pkMappingControllerProvider.notifier);
+        if (value == 'push') {
+          controller.setLocalDecision(
+            localMember.id,
+            PkPushNewDecision(localMemberId: localMember.id),
+          );
+        } else {
+          controller.setLocalDecision(
+            localMember.id,
+            PkSkipDecision(localMemberId: localMember.id),
+          );
+        }
+      },
+    );
+
     return Semantics(
       label: l10n.pkMappingLocalMemberSemantics(localMember.name),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 48),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            children: [
-              MemberAvatar(
-                memberName: localMember.name,
-                emoji: localMember.emoji,
-                customColorEnabled: localMember.customColorEnabled,
-                customColorHex: localMember.customColorHex,
-                avatarImageData: localMember.avatarImageData,
-                size: 36,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(localMember.name, style: theme.textTheme.bodyLarge),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 180,
-                child: PrismSelect<String>(
-                  value: isPush ? 'push' : 'skip',
-                  items: [
-                    PrismSelectItem(
-                      value: 'push',
-                      label: l10n.pkMappingOptionPush,
-                    ),
-                    PrismSelectItem(
-                      value: 'skip',
-                      label: l10n.pkMappingOptionDontPush,
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value == null) return;
-                    final controller = ref.read(
-                      pkMappingControllerProvider.notifier,
-                    );
-                    if (value == 'push') {
-                      controller.setLocalDecision(
-                        localMember.id,
-                        PkPushNewDecision(localMemberId: localMember.id),
-                      );
-                    } else {
-                      controller.setLocalDecision(
-                        localMember.id,
-                        PkSkipDecision(localMemberId: localMember.id),
-                      );
-                    }
-                  },
-                ),
-              ),
-            ],
-          ),
+          child: _ResponsiveMappingRow(name: nameRow, select: select),
         ),
       ),
+    );
+  }
+}
+
+/// Lays out a mapping row as `[name | select | trailing]` at normal text
+/// scale and stacks vertically once text is scaled up enough that the fixed
+/// 180px select would crush the name column. Threshold is 1.3x — picked so
+/// "Larger Text" stays single-line but Dynamic Type Accessibility sizes get
+/// the stacked layout.
+class _ResponsiveMappingRow extends StatelessWidget {
+  const _ResponsiveMappingRow({
+    required this.name,
+    required this.select,
+    this.trailing,
+  });
+
+  final Widget name;
+  final Widget select;
+  final Widget? trailing;
+
+  static const double _stackThreshold = 1.3;
+  static const double _selectWidth = 180;
+
+  @override
+  Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final stack = textScale >= _stackThreshold;
+
+    if (stack) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          name,
+          const SizedBox(height: 8),
+          if (trailing != null)
+            Row(
+              children: [
+                Expanded(child: select),
+                const SizedBox(width: 8),
+                trailing!,
+              ],
+            )
+          else
+            select,
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: name),
+        const SizedBox(width: 12),
+        SizedBox(width: _selectWidth, child: select),
+        if (trailing != null) ...[
+          const SizedBox(width: 8),
+          trailing!,
+        ],
+      ],
     );
   }
 }
