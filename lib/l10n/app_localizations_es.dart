@@ -7972,7 +7972,8 @@ class AppLocalizationsEs extends AppLocalizations {
       'Fronting, chat, notas, hábitos y decisiones en un solo lugar privado.';
 
   @override
-  String get onboardingWelcomeSyncLink => 'Ya uso Prism en otro dispositivo';
+  String get onboardingWelcomeSyncLink =>
+      'Empareja con otro dispositivo mediante Prism Sync';
 
   @override
   String get onboardingBiometricSetupTitle => 'Habilitar biometría';

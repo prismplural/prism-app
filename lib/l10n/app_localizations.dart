@@ -12814,7 +12814,7 @@ abstract class AppLocalizations {
   /// Link on welcome step to enter sync-from-device flow before PIN setup
   ///
   /// In en, this message translates to:
-  /// **'I already use Prism on another device'**
+  /// **'Pair with another device via Prism Sync'**
   String get onboardingWelcomeSyncLink;
 
   /// Header title for the onboarding biometric setup step

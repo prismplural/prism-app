@@ -7839,7 +7839,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingWelcomeSyncLink =>
-      'I already use Prism on another device';
+      'Pair with another device via Prism Sync';
 
   @override
   String get onboardingBiometricSetupTitle => 'Enable biometrics';

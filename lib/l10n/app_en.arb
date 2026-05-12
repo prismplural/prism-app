@@ -8640,7 +8640,7 @@
   "@onboardingWelcomeTitle": { "description": "Header title for the onboarding welcome step" },
   "onboardingWelcomeSubtitle": "Fronting, chat, notes, habits, and decisions in one private place.",
   "@onboardingWelcomeSubtitle": { "description": "Header subtitle for the onboarding welcome step" },
-  "onboardingWelcomeSyncLink": "I already use Prism on another device",
+  "onboardingWelcomeSyncLink": "Pair with another device via Prism Sync",
   "@onboardingWelcomeSyncLink": {
     "description": "Link on welcome step to enter sync-from-device flow before PIN setup"
   },
