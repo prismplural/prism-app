@@ -434,8 +434,9 @@ class PkGroupsImporter with SyncRecordMixin {
     await _db.transaction(() async {
       if (!insertOnly) {
         for (final entry in entries) {
-          if (entry.isDeleted)
+          if (entry.isDeleted) {
             continue; // already a tombstone, nothing to remove
+          }
           if (entry.pendingPkOp == 'push_add') {
             // Locally-owned: user wants this in PK. The orchestrator will push
             // it on the next round. Don't soft-delete just because PK doesn't

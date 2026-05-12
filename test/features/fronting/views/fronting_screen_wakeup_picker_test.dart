@@ -65,12 +65,10 @@ class _FakePluralKitSyncNotifier extends PluralKitSyncNotifier {
   _FakePluralKitSyncNotifier(
     this._state, {
     this.deleteRiskPreview = const PkDeleteRiskPreview(),
-    this.deleteRiskPreviewError,
   });
 
   final PluralKitSyncState _state;
   final PkDeleteRiskPreview deleteRiskPreview;
-  final Object? deleteRiskPreviewError;
   int previewPendingDestructivePushCallCount = 0;
   int syncRecentDataCallCount = 0;
   int syncLiveFrontersOnlyCallCount = 0;
@@ -82,8 +80,6 @@ class _FakePluralKitSyncNotifier extends PluralKitSyncNotifier {
   @override
   Future<PkDeleteRiskPreview> previewPendingDestructivePush() async {
     previewPendingDestructivePushCallCount += 1;
-    final error = deleteRiskPreviewError;
-    if (error != null) throw error;
     return deleteRiskPreview;
   }
 
