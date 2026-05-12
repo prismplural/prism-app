@@ -20,6 +20,7 @@ import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/screen_security_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 // import 'package:prism_plurality/features/pluralkit/services/pluralkit_background_service.dart';
@@ -28,6 +29,12 @@ import 'app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   BootTimings.mark('binding');
+
+  // Flip the PK sync-log bus's main-isolate guard ON before runApp so any
+  // PkSyncEventBus.emit call from this isolate is delivered. The
+  // workmanager background isolate never calls this, so emits there
+  // silently no-op (see pluralkit_background_service.dart).
+  markPkBusMainIsolate();
 
   // Global error boundaries — install immediately so startup failures are reported.
   FlutterError.onError = (details) {

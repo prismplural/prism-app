@@ -20,6 +20,15 @@ const kRescheduleRemindersTaskName = 'com.prism.rescheduleReminders';
 ///
 /// For now, we return true for known task names to avoid workmanager marking
 /// them as permanently failed, and log the invocation for diagnostics.
+///
+/// **PkSyncEventBus note (pk-sync-log feature):** this dispatcher CANNOT emit
+/// PkSyncEvent values to the in-app log. The bus is a `StreamController`
+/// owned by the main isolate; the workmanager background isolate has its
+/// own heap and would need a `SendPort` to reach it. The bus's
+/// `markPkBusMainIsolate()` flag is only set on the main isolate, so any
+/// `PkSyncEventBus.emit()` call from here would silently no-op anyway. When
+/// background sync ships for real, route events back via SendPort and emit
+/// them from the main isolate. Until then, debugPrint is the only signal.
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {

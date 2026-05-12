@@ -9,6 +9,7 @@ import 'core/services/notification_providers.dart';
 import 'core/services/reminder_scheduler_service.dart';
 import 'core/services/screen_privacy_controller.dart';
 import 'core/sync/prism_sync_providers.dart';
+import 'features/pluralkit/providers/pk_sync_event_log_provider.dart';
 import 'features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'features/habits/providers/habit_providers.dart';
 import 'features/onboarding/providers/onboarding_providers.dart';
@@ -76,6 +77,9 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     ref.listen(syncEventStreamProvider, (_, _) {});
     // Keep the diagnostic event buffer alive for the lifetime of the app.
     ref.listen(syncEventLogProvider, (previous, next) {});
+    // Keep the PluralKit sync log notifier subscribed so events emitted
+    // before the user opens the PK debug screen are still recorded.
+    ref.listen(pkSyncEventLogProvider, (_, _) {});
     // Keep the reminder scheduler alive — reschedules on reminder/front changes.
     ref.listen(reminderSchedulerListenerProvider, (previous, next) {});
     // Keep the habit notification listener alive — reschedules on habit changes.
