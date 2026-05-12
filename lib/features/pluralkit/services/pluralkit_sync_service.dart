@@ -456,7 +456,12 @@ class PluralKitSyncService {
 
   PluralKitClient _makeClient(String token) => _clientFactory != null
       ? _clientFactory(token)
-      : PluralKitClient(token: token);
+      // Forward the service's PkSyncEventBus so the client's internal request
+      // queue can emit PkRateLimitHit events on real 429 backoffs. Without
+      // this, rate-limit telemetry only fires in tests that inject a queue or
+      // client factory of their own — production builds were dropping the
+      // signal entirely.
+      : PluralKitClient(token: token, bus: _bus);
 
   PluralKitClient? _buildClientFromToken(String? token) {
     final normalized = _normalizeToken(token);
