@@ -3,6 +3,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
 /// Matches `||spoiler text||` spans — non-greedy, no nesting, inner ≥ 1 char.
 final spoilerRegex = RegExp(r'\|\|(.+?)\|\|');
@@ -72,6 +73,7 @@ bool hasMarkdownChars(String input) {
       case '[':
       case '@':
       case '|':
+      case '>':
         return true;
     }
   }
@@ -306,20 +308,34 @@ MarkdownStyleSheet? _cachedSheet;
 _CacheKey? _cachedKey;
 
 class _CacheKey {
-  const _CacheKey(this.brightness, this.primary, this.codeBg);
+  const _CacheKey(
+    this.brightness,
+    this.primary,
+    this.codeBg,
+    this.mutedBg,
+    this.mutedFg,
+    this.radius,
+  );
   final Brightness brightness;
   final Color primary;
   final Color codeBg;
+  final Color mutedBg;
+  final Color mutedFg;
+  final double radius;
 
   @override
   bool operator ==(Object other) =>
       other is _CacheKey &&
       other.brightness == brightness &&
       other.primary == primary &&
-      other.codeBg == codeBg;
+      other.codeBg == codeBg &&
+      other.mutedBg == mutedBg &&
+      other.mutedFg == mutedFg &&
+      other.radius == radius;
 
   @override
-  int get hashCode => Object.hash(brightness, primary, codeBg);
+  int get hashCode =>
+      Object.hash(brightness, primary, codeBg, mutedBg, mutedFg, radius);
 }
 
 /// Returns a [MarkdownStyleSheet] suited for chat bubbles.
@@ -330,7 +346,17 @@ class _CacheKey {
 MarkdownStyleSheet chatStylesheet(BuildContext context, TextStyle bodyStyle) {
   final theme = Theme.of(context);
   final codeBg = theme.colorScheme.onSurface.withAlpha(26);
-  final key = _CacheKey(theme.brightness, theme.colorScheme.primary, codeBg);
+  final mutedBg = theme.colorScheme.surfaceContainerHighest;
+  final mutedFg = theme.colorScheme.onSurfaceVariant;
+  final radius = PrismShapes.of(context).radius(8);
+  final key = _CacheKey(
+    theme.brightness,
+    theme.colorScheme.primary,
+    codeBg,
+    mutedBg,
+    mutedFg,
+    radius,
+  );
   if (_cachedKey == key && _cachedSheet != null) return _cachedSheet!;
   final base = MarkdownStyleSheet.fromTheme(theme);
   TextStyle strip(TextStyle? s) =>
@@ -350,6 +376,14 @@ MarkdownStyleSheet chatStylesheet(BuildContext context, TextStyle bodyStyle) {
     a: flat.copyWith(
       color: theme.colorScheme.primary,
       decoration: TextDecoration.underline,
+    ),
+    blockquote: flat.copyWith(color: mutedFg),
+    blockquoteDecoration: BoxDecoration(
+      color: mutedBg,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border(
+        left: BorderSide(color: theme.colorScheme.primary, width: 3),
+      ),
     ),
   );
   _cachedKey = key;

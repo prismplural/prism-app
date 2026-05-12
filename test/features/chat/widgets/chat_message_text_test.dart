@@ -135,11 +135,25 @@ void main() {
     testWidgets(
         '9. leading # without markdown chars takes fast path and renders literally',
         (tester) async {
-      // '#' is not in hasMarkdownChars (only *, _, `, [, @ are checked).
-      // So '# hello' → fast path → rendered as plain Text, not MarkdownBody.
+      // '#' is not in hasMarkdownChars. So '# hello' → fast path → rendered as
+      // plain Text, not MarkdownBody. (Chat does not support headings — they
+      // would otherwise be escaped by escapeLeadingHeadings on the slow path.)
       await tester.pumpWidget(_widget(content: '# hello'));
       expect(find.byType(MarkdownBody), findsNothing);
       expect(find.textContaining('# hello'), findsOneWidget);
+    });
+
+    testWidgets(
+        '9b. blockquote enters slow path and does not render literal `> ` prefix',
+        (tester) async {
+      // Regression: '>' was missing from hasMarkdownChars, so '> test' used to
+      // fast-path and render the literal '> test' string.
+      await tester.pumpWidget(_widget(content: '> hello'));
+      expect(find.byType(MarkdownBody), findsOneWidget);
+      // The rendered text should be just 'hello' — the '>' marker is consumed
+      // by the block parser, not echoed as a character.
+      expect(find.text('hello'), findsOneWidget);
+      expect(find.textContaining('> hello'), findsNothing);
     });
 
     testWidgets(

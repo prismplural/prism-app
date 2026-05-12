@@ -115,6 +115,10 @@ void main() {
     test('returns true for link bracket', () {
       expect(hasMarkdownChars('link [text](url)'), isTrue);
     });
+
+    test('returns true for blockquote marker', () {
+      expect(hasMarkdownChars('> quoted'), isTrue);
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -537,6 +541,61 @@ void main() {
       );
 
       expect(sheet.p?.letterSpacing, 0);
+    });
+
+    testWidgets('blockquote color is onSurfaceVariant', (tester) async {
+      debugResetChatStylesheetCache();
+      late MarkdownStyleSheet sheet;
+      late ThemeData capturedTheme;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(builder: (ctx) {
+              capturedTheme = Theme.of(ctx);
+              sheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
+              return const SizedBox.shrink();
+            }),
+          ),
+        ),
+      );
+
+      expect(
+        sheet.blockquote?.color,
+        capturedTheme.colorScheme.onSurfaceVariant,
+      );
+    });
+
+    testWidgets(
+        'blockquoteDecoration uses surfaceContainerHighest (not Colors.blue.shade100)',
+        (tester) async {
+      debugResetChatStylesheetCache();
+      late MarkdownStyleSheet sheet;
+      late ThemeData capturedTheme;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark(),
+          home: Scaffold(
+            body: Builder(builder: (ctx) {
+              capturedTheme = Theme.of(ctx);
+              sheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
+              return const SizedBox.shrink();
+            }),
+          ),
+        ),
+      );
+
+      final deco = sheet.blockquoteDecoration as BoxDecoration?;
+      expect(deco, isNotNull);
+      expect(
+        deco!.color,
+        capturedTheme.colorScheme.surfaceContainerHighest,
+      );
+      // Default flutter_markdown_plus blockquote bg is Colors.blue.shade100,
+      // which is the bug — assert we are not falling through to that.
+      expect(deco.color, isNot(Colors.blue.shade100));
+      expect(deco.border, isA<Border>());
     });
   });
 }
