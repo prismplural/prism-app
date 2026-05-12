@@ -740,7 +740,6 @@ class PluralKitSyncService {
   Future<(String? systemName, List<PKMember> pkMembers)>
   importMembersOnly() async {
     debugPrint('[PK_SVC] importMembersOnly: building client...');
-    final capturedToken = await _getToken();
     final client = await _buildClient();
     if (client == null) {
       debugPrint(
@@ -821,7 +820,11 @@ class PluralKitSyncService {
         PkRequestFailed(
           stage: 'importMembersOnly',
           errorKind: 'unknown',
-          message: PkSyncEvent.redact(e.toString(), capturedToken),
+          // Redact against the client's actual token (not a separately-captured
+          // value) so a clearToken/setToken race between read-and-build can't
+          // leave us redacting against a stale or null token while the
+          // exception text still embeds the live one.
+          message: PkSyncEvent.redact(e.toString(), client.currentToken),
         ),
       );
       rethrow;
@@ -1233,17 +1236,25 @@ class PluralKitSyncService {
       // Never synced before in a pull-capable mode — seed local state from PK.
       // Push-only must not silently fall into this branch; that would pull
       // member/group/profile data despite the user's selected direction.
-      // Capture the token first for redaction on the error path.
+      // for redaction on the error path, then re-read on failure so we redact
+      // against whichever value the failing client actually used (a
+      // clearToken/setToken race between the two reads could otherwise leave
+      // one value stale).
       final capturedToken = await _getToken();
       try {
         await performFullImport();
       } catch (e) {
+        final postFailureToken = await _getToken();
+        var error = PkSyncEvent.redact(e.toString(), capturedToken);
+        if (postFailureToken != null && postFailureToken != capturedToken) {
+          error = PkSyncEvent.redact(error, postFailureToken);
+        }
         _bus.emit(
           PkSyncCompleted(
             durationMs: stopwatch.elapsedMilliseconds,
             pulled: 0,
             pushed: 0,
-            error: PkSyncEvent.redact(e.toString(), capturedToken),
+            error: error,
           ),
         );
         rethrow;
@@ -1276,11 +1287,6 @@ class PluralKitSyncService {
         clearError: true,
       ),
     );
-
-    // Capture the token AFTER claiming isSyncing so concurrent callers see
-    // the flag flip synchronously (the original code path emitted isSyncing
-    // before its first await for this reason).
-    final capturedToken = await _getToken();
 
     final client = await _buildClient();
     if (client == null) {
@@ -1618,7 +1624,9 @@ class PluralKitSyncService {
           syncError: formatPluralKitSyncError(e),
         ),
       );
-      final redacted = PkSyncEvent.redact(e.toString(), capturedToken);
+      // Redact against the live client's token rather than a separately
+      // captured value — see the importMembersOnly comment for the race.
+      final redacted = PkSyncEvent.redact(e.toString(), client.currentToken);
       _bus.emit(
         PkSyncCompleted(
           durationMs: stopwatch.elapsedMilliseconds,
@@ -1670,9 +1678,12 @@ class PluralKitSyncService {
       ),
     );
 
-    // Token capture happens AFTER the isSyncing flip so concurrent callers
-    // see the gate close synchronously.
-    final capturedToken = await _getToken();
+    // Track the live client's token for redaction in the failure path. We
+    // capture it from `client.currentToken` after the client is built so a
+    // clearToken/setToken race between read-and-build can't leave us
+    // redacting against a stale or null token. Kept nullable because the
+    // pushOnly direction skips the client-building branch entirely.
+    String? clientToken;
 
     try {
       int switchesPulled = 0;
@@ -1690,6 +1701,7 @@ class PluralKitSyncService {
           _emit(_state.copyWith(isSyncing: false));
           throw StateError('Not connected');
         }
+        clientToken = client.currentToken;
 
         try {
           current = await client.getCurrentFronters();
@@ -1780,7 +1792,10 @@ class PluralKitSyncService {
           syncError: formatPluralKitSyncError('Live fronters sync failed: $e'),
         ),
       );
-      final redacted = PkSyncEvent.redact(e.toString(), capturedToken);
+      // Fall back to a fresh storage read if we never got far enough to
+      // capture a client token (pushOnly direction, or pre-build failure).
+      final redactToken = clientToken ?? await _getToken();
+      final redacted = PkSyncEvent.redact(e.toString(), redactToken);
       _bus.emit(
         PkSyncCompleted(
           durationMs: stopwatch.elapsedMilliseconds,
@@ -3118,7 +3133,6 @@ class PluralKitSyncService {
       throw StateError('Not connected — cannot import switch history');
     }
     if (_state.isSyncing) return;
-    final capturedToken = await _getToken();
     _emit(
       _state.copyWith(
         isSyncing: true,
@@ -3196,7 +3210,9 @@ class PluralKitSyncService {
         PkRequestFailed(
           stage: 'importSwitchesAfterLink',
           errorKind: 'unknown',
-          message: PkSyncEvent.redact(e.toString(), capturedToken),
+          // Redact against the live client's token rather than a separately
+          // captured value — see the importMembersOnly comment for the race.
+          message: PkSyncEvent.redact(e.toString(), client.currentToken),
         ),
       );
       rethrow;
@@ -3534,12 +3550,21 @@ class PluralKitSyncService {
     final existing = _pushInFlight;
     if (existing != null) return existing;
 
+    // Captured via callback from inside `_doPushPendingSwitches` as soon as
+    // the client is built. We redact against this rather than a separately-
+    // read secure-storage value so a clearToken/setToken race between the
+    // outer storage read and the client's storage read can't leave us
+    // redacting against a stale or null token while the exception still
+    // embeds the client's actual token.
+    String? clientToken;
+
     late final Future<PkPushSwitchesResult> future;
     future =
         _doPushPendingSwitches(
               pushService: pushService ?? const PkPushService(),
               onStaleLink: onStaleLink,
               knownCurrentFronters: knownCurrentFronters,
+              onClientReady: (token) => clientToken = token,
               refreshMembersOnStaleLink: refreshMembersOnStaleLink,
             )
             .then((result) {
@@ -3547,16 +3572,15 @@ class PluralKitSyncService {
               return result;
             })
             .catchError((Object e) async {
-              // Token is captured *after* the failure so we don't compete with
-              // the `_pushInFlight` synchronous gate (which must be assigned in
-              // the same microtask the call returns). The cost is a single
-              // secure-storage read on the error path — acceptable.
-              final capturedToken = await _getToken();
+              // Fall back to a fresh storage read only if the client was never
+              // built (e.g. the not-connected guard fired before
+              // `onClientReady`). Otherwise prefer the captured client token.
+              final redactToken = clientToken ?? await _getToken();
               _bus.emit(
                 PkRequestFailed(
                   stage: 'pushPendingSwitches',
                   errorKind: 'unknown',
-                  message: PkSyncEvent.redact(e.toString(), capturedToken),
+                  message: PkSyncEvent.redact(e.toString(), redactToken),
                 ),
               );
               throw e;
@@ -3574,10 +3598,12 @@ class PluralKitSyncService {
     required PkPushService pushService,
     void Function(String message)? onStaleLink,
     PKSwitch? knownCurrentFronters,
+    void Function(String token)? onClientReady,
     bool refreshMembersOnStaleLink = true,
   }) async {
     final client = await _buildClient();
     if (client == null) throw StateError('Not connected');
+    onClientReady?.call(client.currentToken);
 
     try {
       final members = await _memberRepository.getAllMembers();
