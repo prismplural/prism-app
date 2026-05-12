@@ -24,6 +24,7 @@ import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
@@ -38,6 +39,9 @@ class _ProgressFakeClient implements PluralKitClient {
   _ProgressFakeClient({required this.members});
 
   final List<PKMember> members;
+
+  @override
+  String get currentToken => 'test-token';
 
   @override
   Future<PKSystem> getSystem() async =>
@@ -140,6 +144,7 @@ PluralKitSyncService _makeService({
       null,
     ),
     syncDao: db.pluralKitSyncDao,
+    bus: PkSyncEventBus(),
     tokenOverride: 'test-token',
     clientFactory: (_) => client,
     bannerCacheService: _bannerCacheService(),

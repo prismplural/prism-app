@@ -453,6 +453,7 @@ void main() {
         memberRepository: repo,
         frontingSessionRepository: _NoopFrontingSessionRepo(),
         syncDao: PluralKitSyncDao(db),
+        bus: PkSyncEventBus(),
         clientFactory: (_) => offlineClient,
         tokenOverride: 'fake',
       );
@@ -510,6 +511,7 @@ void main() {
         memberRepository: repo,
         frontingSessionRepository: _NoopFrontingSessionRepo(),
         syncDao: PluralKitSyncDao(db),
+        bus: PkSyncEventBus(),
         clientFactory: (_) => throwingClient,
         tokenOverride: 'fake',
       );
@@ -547,6 +549,7 @@ void main() {
       memberRepository: repo,
       frontingSessionRepository: _NoopFrontingSessionRepo(),
       syncDao: PluralKitSyncDao(db),
+      bus: PkSyncEventBus(),
       clientFactory: (_) => offlineClient,
       tokenOverride: 'fake',
     );
@@ -831,6 +834,7 @@ void main() {
           memberRepository: repo,
           frontingSessionRepository: _EmptyFrontingSessionRepo(),
           syncDao: PluralKitSyncDao(db),
+          bus: PkSyncEventBus(),
           clientFactory: (_) => client,
           tokenOverride: 'fake',
           readState: () =>
@@ -920,6 +924,7 @@ void main() {
           memberRepository: repo,
           frontingSessionRepository: _EmptyFrontingSessionRepo(),
           syncDao: PluralKitSyncDao(db),
+          bus: PkSyncEventBus(),
           clientFactory: (_) => client,
           tokenOverride: 'fake',
           readState: () =>
@@ -964,6 +969,7 @@ void main() {
           memberRepository: repo,
           frontingSessionRepository: _EmptyFrontingSessionRepo(),
           syncDao: PluralKitSyncDao(db),
+          bus: PkSyncEventBus(),
           clientFactory: (_) => client,
           tokenOverride: 'fake',
           readState: () =>
@@ -1018,6 +1024,7 @@ void main() {
                 memberRepository: repo,
                 frontingSessionRepository: _EmptyFrontingSessionRepo(),
                 syncDao: PluralKitSyncDao(db),
+                bus: PkSyncEventBus(),
                 clientFactory: (_) => client,
                 tokenOverride: 'fake',
                 readState: () =>
@@ -1067,6 +1074,7 @@ void main() {
           memberRepository: repo,
           frontingSessionRepository: _EmptyFrontingSessionRepo(),
           syncDao: PluralKitSyncDao(db),
+          bus: PkSyncEventBus(),
           clientFactory: (_) => client,
           tokenOverride: 'fake',
           readState: () =>
@@ -1127,6 +1135,7 @@ void main() {
           memberRepository: wrappedRepo,
           frontingSessionRepository: _EmptyFrontingSessionRepo(),
           syncDao: PluralKitSyncDao(db),
+          bus: PkSyncEventBus(),
           clientFactory: (_) => client,
           tokenOverride: 'fake',
         );
@@ -1273,6 +1282,7 @@ class _PhaseProbeSyncService extends PluralKitSyncService {
     required super.memberRepository,
     required super.frontingSessionRepository,
     required super.syncDao,
+    required super.bus,
     required super.clientFactory,
     required super.tokenOverride,
     required this.readState,
