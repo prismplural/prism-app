@@ -270,32 +270,39 @@ void main() {
       expect(result.topCoFrontingPairs, isEmpty);
     });
 
-    test(
-      'session_type = 1 (sleep) rows are excluded by the upstream filter',
-      () {
-        // Contract assumption: `computeAnalyticsFromRows` is only ever
-        // called with rows the DAO already filtered to
-        // `session_type = _normalSessionType` (see
-        // fronting_sessions_dao.dart `getSessionsInRange`). Sleep rows
-        // therefore never reach analytics. This test documents that
-        // contract — the function does NOT re-filter on session_type.
-        // If a sleep row were ever to slip through, it would be routed
-        // to the Unknown sentinel by the null-member fallback (the same
-        // behavior as the edit/gap-fill Unknown rows we DO want to
-        // count). Keeping sleep out is the upstream filter's job.
-        final range = range30Days();
-        final sleepRow = FakeSession(
-          startTime: range.start.add(const Duration(hours: 1)),
-          endTime: range.start.add(const Duration(hours: 2)),
-          memberId: null,
-          sessionType: 1,
-        );
-        // Confirm the fake we're using to model the upstream-filtered
-        // contract: sleep rows carry sessionType = 1 and member_id = NULL.
-        expect(sleepRow.sessionType, 1);
-        expect(sleepRow.memberId, isNull);
-      },
-    );
+    test('sleep rows do not contribute to per-member analytics', () {
+      // Contract: sleep rows are threaded in via `sleepRows:`, never as
+      // primary rows. They must not inflate any member's totals, the
+      // unique-fronter count, or co-fronting pairs — sleep is "no fronter"
+      // time, with its own dedicated stat (`totalSleepTime`) and a single
+      // side-effect on analytics (cancel gap during sleep windows).
+      final range = range30Days();
+      final fronter = FakeSession(
+        startTime: range.start.add(const Duration(hours: 1)),
+        endTime: range.start.add(const Duration(hours: 3)),
+        memberId: 'a',
+      );
+      final sleep = FakeSession(
+        startTime: range.start.add(const Duration(hours: 10)),
+        endTime: range.start.add(const Duration(hours: 18)),
+        memberId: null,
+        sessionType: 1,
+      );
+
+      final result = computeAnalyticsFromRows(
+        [fronter],
+        range,
+        sleepRows: [sleep],
+      );
+
+      expect(result.uniqueFronters, 1);
+      expect(result.memberStats, hasLength(1));
+      expect(result.memberStats.first.memberId, 'a');
+      expect(result.memberStats.first.totalTime, const Duration(hours: 2));
+      expect(result.topCoFrontingPairs, isEmpty);
+      // Sleep IS surfaced as its own stat.
+      expect(result.totalSleepTime, const Duration(hours: 8));
+    });
 
     test('normal null-member rows are routed to the Unknown sentinel', () {
       // The edit/gap-fill flow in fronting_edit_resolution_service can
@@ -847,6 +854,181 @@ void main() {
       ];
       final result = computeAnalyticsFromRows(sessions, range);
       expect(result.totalGapTime, const Duration(hours: 4));
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════
+  // totalGapTime — sleep cancels gap
+  // ════════════════════════════════════════════════════════════════════════
+  //
+  // Sleep sessions (session_type = 1) are "no fronter" time on purpose —
+  // they should not count as untracked. The compute layer accepts sleep
+  // rows separately and subtracts any overlap with gap intervals from
+  // `totalGapTime`. Member math is untouched.
+
+  group('totalGapTime — sleep cancels gap', () {
+    test('sleep covering the full empty range zeroes the gap', () {
+      // The reporter's bug: a 24h range with no fronter and one 8h sleep
+      // shows 24h gap. Expected: 16h gap (the 8h sleep is "tracked").
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final sleep = FakeSession(
+        startTime: range.start,
+        endTime: range.start.add(const Duration(hours: 8)),
+        memberId: null,
+        sessionType: 1,
+      );
+      final result = computeAnalyticsFromRows([], range, sleepRows: [sleep]);
+      expect(result.totalGapTime, const Duration(hours: 16));
+      expect(result.totalSleepTime, const Duration(hours: 8));
+    });
+
+    test('sleep entirely outside any gap leaves gap unchanged', () {
+      // A fronts the entire 24h range, so gap is zero. A concurrent 8h
+      // sleep changes nothing about gap, and is still surfaced as sleep.
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final fronter = FakeSession(
+        startTime: range.start,
+        endTime: range.end,
+        memberId: 'a',
+      );
+      final sleep = FakeSession(
+        startTime: range.start.add(const Duration(hours: 22)),
+        endTime: range.end,
+        memberId: null,
+        sessionType: 1,
+      );
+      final result = computeAnalyticsFromRows(
+        [fronter],
+        range,
+        sleepRows: [sleep],
+      );
+      expect(result.totalGapTime, Duration.zero);
+      expect(result.totalSleepTime, const Duration(hours: 2));
+    });
+
+    test('sleep partially overlapping a gap subtracts only the overlap', () {
+      // Range 0–24h. Fronter A: 0–8h. Gap interval: 8h–24h (16h gap).
+      // Sleep: 6h–14h.  Overlap with gap: 8h–14h = 6h.
+      // Expected: gap reduced from 16h to 10h.  Total sleep stat: 8h.
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final fronter = FakeSession(
+        startTime: range.start,
+        endTime: range.start.add(const Duration(hours: 8)),
+        memberId: 'a',
+      );
+      final sleep = FakeSession(
+        startTime: range.start.add(const Duration(hours: 6)),
+        endTime: range.start.add(const Duration(hours: 14)),
+        memberId: null,
+        sessionType: 1,
+      );
+      final result = computeAnalyticsFromRows(
+        [fronter],
+        range,
+        sleepRows: [sleep],
+      );
+      expect(result.totalGapTime, const Duration(hours: 10));
+      expect(result.totalSleepTime, const Duration(hours: 8));
+    });
+
+    test('multiple sleep sessions across multiple gaps subtract correctly', () {
+      // Range 0–24h. Two fronter windows: 4h–6h (A), 14h–16h (A).
+      // Gaps: 0–4h (4h), 6h–14h (8h), 16h–24h (8h). Total gap 20h.
+      // Sleeps: 1h–5h (clamped to gap = 1h–4h, 3h), 18h–22h (4h).
+      // Expected gap: 20h - (3h + 4h) = 13h.
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final sessions = [
+        FakeSession(
+          startTime: range.start.add(const Duration(hours: 4)),
+          endTime: range.start.add(const Duration(hours: 6)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: range.start.add(const Duration(hours: 14)),
+          endTime: range.start.add(const Duration(hours: 16)),
+          memberId: 'a',
+        ),
+      ];
+      final sleepRows = [
+        FakeSession(
+          startTime: range.start.add(const Duration(hours: 1)),
+          endTime: range.start.add(const Duration(hours: 5)),
+          memberId: null,
+          sessionType: 1,
+        ),
+        FakeSession(
+          startTime: range.start.add(const Duration(hours: 18)),
+          endTime: range.start.add(const Duration(hours: 22)),
+          memberId: null,
+          sessionType: 1,
+        ),
+      ];
+      final result = computeAnalyticsFromRows(
+        sessions,
+        range,
+        sleepRows: sleepRows,
+      );
+      expect(result.totalGapTime, const Duration(hours: 13));
+      // Two non-overlapping sleep windows total 4h + 4h = 8h.
+      expect(result.totalSleepTime, const Duration(hours: 8));
+    });
+
+    test('sleep is clamped to range before subtracting', () {
+      // Range 6h–18h (12h). Sleep extends 0h–8h: clamps to 6h–8h (2h).
+      // No fronters → 12h gap; clamped sleep cancels 2h → 10h gap.
+      final start = DateTime.utc(2026, 3, 10, 6);
+      final range = DateTimeRange(
+        start: start,
+        end: start.add(const Duration(hours: 12)),
+      );
+      final sleep = FakeSession(
+        startTime: start.subtract(const Duration(hours: 6)),
+        endTime: start.add(const Duration(hours: 2)),
+        memberId: null,
+        sessionType: 1,
+      );
+      final result = computeAnalyticsFromRows([], range, sleepRows: [sleep]);
+      expect(result.totalGapTime, const Duration(hours: 10));
+      expect(result.totalSleepTime, const Duration(hours: 2));
+    });
+
+    test('overlapping sleep rows are merged (no double-subtract)', () {
+      // Defensive: two sleep rows 6h–10h and 8h–12h together cover 6h–12h
+      // (a 6h merged window). With no fronters in a 12h range, gap drops
+      // from 12h to 6h. A naive double-count would over-subtract to 4h.
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 10, 12),
+      );
+      final sleepRows = [
+        FakeSession(
+          startTime: range.start.add(const Duration(hours: 6)),
+          endTime: range.start.add(const Duration(hours: 10)),
+          memberId: null,
+          sessionType: 1,
+        ),
+        FakeSession(
+          startTime: range.start.add(const Duration(hours: 8)),
+          endTime: range.start.add(const Duration(hours: 12)),
+          memberId: null,
+          sessionType: 1,
+        ),
+      ];
+      final result = computeAnalyticsFromRows([], range, sleepRows: sleepRows);
+      expect(result.totalGapTime, const Duration(hours: 6));
+      expect(result.totalSleepTime, const Duration(hours: 6));
     });
   });
 
