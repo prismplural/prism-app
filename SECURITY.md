@@ -5,7 +5,7 @@ Thanks for helping keep Prism and its users safe.
 ## Reporting a vulnerability
 
 Please **do not** open a public GitHub issue for security problems. Instead,
-email **security@prism.plural** (PGP key on request) with:
+email **security@prismplural.com** (PGP key on request) with:
 
 - A description of the issue and its impact
 - Steps to reproduce (or a proof-of-concept)
