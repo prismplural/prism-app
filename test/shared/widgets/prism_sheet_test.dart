@@ -662,4 +662,63 @@ void main() {
       expect(findSheetMaterial().color, darkSheetBg);
     },
   );
+
+  testWidgets(
+    'PrismSheet.showFullScreen shrinks its viewport above the keyboard',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const bodyKey = Key('keyboard-sheet-body');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                PrismSheet.showFullScreen(
+                  context: context,
+                  builder: (_, scrollController) => SizedBox.expand(
+                    key: bodyKey,
+                    child: ListView(
+                      controller: scrollController,
+                      children: const [TextField()],
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      final bodyFinder = find.byKey(bodyKey);
+      final bottomBefore = tester.getBottomLeft(bodyFinder).dy;
+
+      // Simulate iOS keyboard appearing. Without the inset-aware wrapper the
+      // sheet body still extends to the bottom of the screen, so the focused
+      // TextField stays hidden behind the keyboard.
+      const keyboardHeight = 300.0;
+      tester.view.viewInsets = FakeViewPadding(
+        bottom: keyboardHeight * tester.view.devicePixelRatio,
+      );
+      addTearDown(tester.view.resetViewInsets);
+
+      await tester.pumpAndSettle();
+
+      final bottomAfter = tester.getBottomLeft(bodyFinder).dy;
+
+      expect(
+        bottomBefore - bottomAfter,
+        closeTo(keyboardHeight, 1),
+        reason:
+            'Sheet body should shrink by the keyboard height so focused '
+            'fields can scroll above the keyboard',
+      );
+    },
+  );
 }
