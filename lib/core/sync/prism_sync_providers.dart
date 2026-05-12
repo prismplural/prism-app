@@ -2144,6 +2144,12 @@ final syncPasswordSheetVisibleProvider = NotifierProvider<_BoolNotifier, bool>(
   () => _BoolNotifier(false),
 );
 
+/// Whether the wrapped_dek recovery sheet is currently showing
+/// (duplicate guard).
+final syncRewrapSheetVisibleProvider = NotifierProvider<_BoolNotifier, bool>(
+  () => _BoolNotifier(false),
+);
+
 class _BoolNotifier extends Notifier<bool> {
   _BoolNotifier(this._initial);
   final bool _initial;
@@ -2255,6 +2261,69 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
       return false;
     } finally {
       // Always zero any secret bytes that made it into Dart memory.
+      _zeroBytesBestEffort(mnemonicBytes);
+      _zeroBytesBestEffort(pinBytes);
+      _zeroBytesBestEffort(secretKeyBytes);
+    }
+  }
+
+  /// Recovery: re-derive `wrapped_dek` + `dek_salt` from the in-memory DEK.
+  ///
+  /// Used when the engine is still unlocked (runtime DEK survived) but the
+  /// keychain `wrapped_dek` slot is empty — pairing another device needs
+  /// `wrapped_dek` to derive the joiner bundle. The caller collects the
+  /// user's PIN and recovery phrase; this method recomputes the secret key
+  /// from the mnemonic, calls the `rewrap_dek` FFI, drains the new entries
+  /// back to the platform keychain, and flips state to `healthy`.
+  ///
+  /// Returns true on success. On failure (wrong PIN/mnemonic, missing
+  /// handle, FFI error) returns false and leaves state untouched.
+  Future<bool> attemptRewrap({
+    required String pin,
+    required String mnemonic,
+  }) async {
+    final handle = ref.read(prismSyncHandleProvider).value;
+    if (handle == null) return false;
+
+    final normalized = mnemonic.trim().toLowerCase();
+    Uint8List? mnemonicBytes;
+    Uint8List? pinBytes;
+    List<int>? secretKeyBytes;
+    try {
+      try {
+        mnemonicBytes = secretUtf8Bytes(normalized);
+        secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: mnemonicBytes);
+      } catch (_) {
+        return false;
+      } finally {
+        _zeroBytesBestEffort(mnemonicBytes);
+        mnemonicBytes = null;
+      }
+
+      try {
+        pinBytes = secretUtf8Bytes(pin);
+        await ffi.rewrapDek(
+          handle: handle,
+          password: pinBytes,
+          secretKey: secretKeyBytes,
+        );
+      } on Exception {
+        return false;
+      } finally {
+        _zeroBytesBestEffort(pinBytes);
+        _zeroBytesBestEffort(secretKeyBytes);
+        pinBytes = null;
+        secretKeyBytes = null;
+      }
+
+      // Persist the new wrapped_dek + dek_salt back to the platform keychain.
+      await drainRustStore(handle);
+
+      state = SyncHealthState.healthy;
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
       _zeroBytesBestEffort(mnemonicBytes);
       _zeroBytesBestEffort(pinBytes);
       _zeroBytesBestEffort(secretKeyBytes);
