@@ -305,6 +305,7 @@ class AppTheme {
         base.textTheme,
       ).apply(fontFamilyFallback: _linuxFontFamilyFallback),
       scaffoldBackgroundColor: colors.scaffold,
+      cardColor: colors.cardColor,
       extensions: <ThemeExtension<dynamic>>[shapes],
       cardTheme: CardThemeData(
         color: colors.cardColor,
@@ -468,6 +469,7 @@ class AppTheme {
           primary: accent,
           onPrimary: highContrastForeground(accent),
           // Warm parchment surfaces.
+          surface: AppColors.warmOffWhite,
           surfaceContainerLowest: AppColors.warmOffWhite,
           surfaceContainerLow: AppColors.parchment,
           surfaceContainer: AppColors.parchmentElevated,
@@ -628,6 +630,7 @@ class AppTheme {
     final colorScheme = baseColorScheme.copyWith(
       primary: accent,
       onPrimary: highContrastForeground(accent),
+      surface: baseColorScheme.surfaceContainerLowest,
     );
 
     final colors = _ThemeColors(
@@ -676,6 +679,7 @@ class AppTheme {
     final colorScheme = baseColorScheme.copyWith(
       primary: accent,
       onPrimary: highContrastForeground(accent),
+      surface: baseColorScheme.surfaceContainerLowest,
     );
 
     final colors = _ThemeColors(

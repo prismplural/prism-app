@@ -614,7 +614,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           animation: animation,
           builder: (context, child) => Material(
             elevation: 4,
-            color: Theme.of(context).colorScheme.surface,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(
               PrismShapes.of(context).radius(12),
             ),
