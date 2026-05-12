@@ -1213,10 +1213,9 @@ class PluralKitSyncService {
 
   /// Sync recent changes since last sync.
   ///
-  /// When [direction] includes push, local member changes are pushed to PK
-  /// and the bidirectional orchestrator is used for member sync.
-  /// Returns a [PkSyncSummary] when bidirectional sync is performed, or null
-  /// for legacy pull-only mode.
+  /// When [direction] includes member sync, local member changes are pushed to
+  /// PK and/or PK member changes are pulled according to the selected
+  /// direction.
   Future<PkSyncSummary?> syncRecentData({
     bool isManual = false,
     PkSyncDirection direction = PkSyncDirection.pullOnly,
@@ -1314,9 +1313,9 @@ class PluralKitSyncService {
       // silent — see bug S3).
       final staleLinkMessages = <String>[];
 
-      // -- Bidirectional member sync --
+      // -- Member field sync --
       PkSyncSummary? summary;
-      if (direction.pushEnabled) {
+      if (direction.pullEnabled || direction.pushEnabled) {
         _emit(
           _state.copyWith(syncProgress: 0.1, syncStatus: 'Syncing members...'),
         );
@@ -1559,9 +1558,7 @@ class PluralKitSyncService {
         // The bus is an event stream — two events for one logical operation
         // is fine and matches how pull/push are already split.
         if (switchesDeletedOnPk > 0) {
-          _bus.emit(
-            PkSwitchPushed(pushed: 0, deleted: switchesDeletedOnPk),
-          );
+          _bus.emit(PkSwitchPushed(pushed: 0, deleted: switchesDeletedOnPk));
         }
       }
 
@@ -1587,6 +1584,9 @@ class PluralKitSyncService {
       );
 
       final statusParts = <String>[];
+      if (finalSummary.membersPulled > 0) {
+        statusParts.add('Pulled ${finalSummary.membersPulled} members');
+      }
       if (finalSummary.membersPushed > 0) {
         statusParts.add('Pushed ${finalSummary.membersPushed} members');
       }
@@ -1626,7 +1626,7 @@ class PluralKitSyncService {
       _bus.emit(
         PkSyncCompleted(
           durationMs: stopwatch.elapsedMilliseconds,
-          pulled: totalNew,
+          pulled: finalSummary.membersPulled + totalNew,
           pushed: switchesPushed,
         ),
       );
