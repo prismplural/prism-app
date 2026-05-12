@@ -67,15 +67,47 @@ class MainActivity : FlutterFragmentActivity() {
                 when (call.method) {
                     "setSecureDisplay" -> {
                         val enabled = call.argument<Boolean>("enabled") ?: false
-                        if (enabled) {
-                            window.setFlags(
-                                WindowManager.LayoutParams.FLAG_SECURE,
-                                WindowManager.LayoutParams.FLAG_SECURE
+                        // setFlags mutates window attributes and won't
+                        // throw on a stale/destroyed Activity, so an
+                        // early lifecycle guard is the only way to keep
+                        // Dart from caching _platformStateOn = true while
+                        // the visible window has no FLAG_SECURE. On
+                        // failure, propagate as PlatformException so
+                        // ScreenSecurityService retries on the next
+                        // reconcile.
+                        if (isFinishing || isDestroyed) {
+                            Log.w(
+                                TAG,
+                                "setSecureDisplay($enabled) skipped — Activity finishing/destroyed"
                             )
-                        } else {
-                            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                            result.error(
+                                "SECURE_DISPLAY_FAILED",
+                                "Activity is finishing or destroyed",
+                                null
+                            )
+                            return@setMethodCallHandler
                         }
-                        result.success(null)
+                        try {
+                            if (enabled) {
+                                window.setFlags(
+                                    WindowManager.LayoutParams.FLAG_SECURE,
+                                    WindowManager.LayoutParams.FLAG_SECURE
+                                )
+                            } else {
+                                window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                            }
+                            result.success(null)
+                        } catch (e: Exception) {
+                            // Narrower than Throwable on purpose: don't
+                            // swallow OutOfMemoryError / LinkageError /
+                            // other JVM Errors that should crash loud.
+                            Log.w(TAG, "setSecureDisplay($enabled) failed", e)
+                            result.error(
+                                "SECURE_DISPLAY_FAILED",
+                                "Could not apply secure display change: ${e.message}",
+                                null
+                            )
+                        }
                     }
                     else -> result.notImplemented()
                 }
