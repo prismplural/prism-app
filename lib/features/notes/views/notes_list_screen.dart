@@ -63,7 +63,9 @@ class NotesListScreen extends ConsumerWidget {
               top: 8,
               left: 16,
               right: 16,
-              bottom: NavBarInset.of(context),
+              // +16 so the last card clears the nav bar's gradient fade,
+              // which extends 10px above NavBarInset.bottomInset.
+              bottom: NavBarInset.of(context) + 16,
             ),
             itemCount: notes.length,
             itemBuilder: (context, index) {
