@@ -3316,6 +3316,15 @@ final syncDeviceSecretPresentProvider = FutureProvider<bool>((ref) async {
   return value != null && value.isNotEmpty;
 });
 
+/// Whether the wrapped DEK is durably present in the platform keychain.
+/// Used to gate the device-pairing entry point: missing `wrapped_dek`
+/// breaks the inviter side of the pairing ceremony, so the user must
+/// run the wrapped_dek recovery flow before attempting to pair.
+final syncWrappedDekPresentProvider = FutureProvider<bool>((ref) async {
+  final value = await _storage.read(key: '${_secureStorePrefix}wrapped_dek');
+  return value != null && value.isNotEmpty;
+});
+
 // ---------------------------------------------------------------------------
 // Device identity (node ID)
 // ---------------------------------------------------------------------------
