@@ -4,13 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/services/fronting_migration_breadcrumb_log.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
@@ -98,7 +102,17 @@ class SyncDebugScreen extends ConsumerWidget {
       ),
       bodyPadding: EdgeInsets.zero,
       body: !hasAnyEntries
-          ? const _EmptyState()
+          ? Stack(
+              children: [
+                const _EmptyState(),
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: NavBarInset.of(context) + 16,
+                  child: const _PkSyncLogCrossLink(),
+                ),
+              ],
+            )
           : ListView(
               padding: EdgeInsets.fromLTRB(
                 16,
@@ -138,8 +152,36 @@ class SyncDebugScreen extends ConsumerWidget {
                       ),
                   ],
                 ],
+                const SizedBox(height: 8),
+                const _PkSyncLogCrossLink(),
               ],
             ),
+    );
+  }
+}
+
+/// Cross-link row that drops the user into the PluralKit sync log from the
+/// Prism Sync Debug Screen. Lives at the bottom of the body so it doesn't
+/// fight for attention with the main Prism sync events list. The PK log
+/// sits in its own surface (Settings > PluralKit) and that's the canonical
+/// entry point — this is a hop for support flows that route through the
+/// Sync Debug Screen first.
+class _PkSyncLogCrossLink extends StatelessWidget {
+  const _PkSyncLogCrossLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return PrismSectionCard(
+      padding: EdgeInsets.zero,
+      child: PrismListRow(
+        leading: Icon(
+          AppIcons.duotoneData,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        title: Text(context.l10n.settingsPkSyncDebugCrossLinkFromSyncDebug),
+        showChevron: true,
+        onTap: () => context.push(AppRoutePaths.settingsPluralkitSyncDebug),
+      ),
     );
   }
 }

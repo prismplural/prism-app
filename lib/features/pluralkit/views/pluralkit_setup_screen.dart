@@ -2,13 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_auto_poll_provider.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pk_sync_event_log_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
@@ -20,6 +23,7 @@ import 'package:prism_plurality/features/pluralkit/widgets/pk_system_profile_dis
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
@@ -419,6 +423,21 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
                 ),
               ],
             ),
+          ),
+
+          // -- Troubleshooting --
+          //
+          // Sync activity log tile. Disabled when the log is empty (e.g.,
+          // the user just landed on the screen and no sync has run yet) so
+          // we don't navigate to an empty surface. As soon as the first
+          // event lands in the ring buffer, the tile enables and the
+          // subtitle flips to the "active" copy.
+          const SizedBox(height: 24),
+          _SectionHeader(title: context.l10n.syncTroubleshootingLink),
+          const SizedBox(height: 8),
+          const PrismSectionCard(
+            padding: EdgeInsets.zero,
+            child: _SyncActivityLogTile(),
           ),
           const SizedBox(height: 32),
         ],
@@ -858,6 +877,39 @@ class _InfoRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Entry-point tile for the PluralKit sync activity log.
+///
+/// Disabled (and `onTap` is null) while the in-memory ring buffer is empty;
+/// the row's subtitle explains why so the dead state isn't silent. As soon
+/// as any PK sync event lands in [pkSyncEventLogProvider], the tile flips
+/// to enabled and the subtitle switches to the active copy.
+class _SyncActivityLogTile extends ConsumerWidget {
+  const _SyncActivityLogTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final events = ref.watch(pkSyncEventLogProvider);
+    final hasEvents = events.isNotEmpty;
+    return PrismListRow(
+      leading: Icon(
+        AppIcons.duotoneData,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      title: Text(context.l10n.settingsPkSyncDebugOpenTile),
+      subtitle: Text(
+        hasEvents
+            ? context.l10n.settingsPkSyncDebugOpenSubtitleActive
+            : context.l10n.settingsPkSyncDebugOpenSubtitleEmpty,
+      ),
+      enabled: hasEvents,
+      showChevron: true,
+      onTap: hasEvents
+          ? () => context.push(AppRoutePaths.settingsPluralkitSyncDebug)
+          : null,
     );
   }
 }

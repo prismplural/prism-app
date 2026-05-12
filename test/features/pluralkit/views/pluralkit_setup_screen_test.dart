@@ -3,14 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/pluralkit/views/pluralkit_setup_screen.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -148,22 +152,38 @@ Widget _buildScreen({
   PluralKitSyncState syncState = const PluralKitSyncState(),
   _StaticPluralKitSyncNotifier? syncNotifier,
   PkSyncMode syncMode = PkSyncMode.fullSync,
+  PkSyncEventBus? bus,
+  GoRouter? router,
   PkSyncDirection syncDirection = PkSyncDirection.pullOnly,
 }) {
+  final overrides = [
+    systemSettingsRepositoryProvider.overrideWithValue(settingsRepository),
+    systemSettingsProvider.overrideWith((ref) => settingsStream),
+    pluralKitSyncProvider.overrideWith(
+      () => syncNotifier ?? _StaticPluralKitSyncNotifier(syncState),
+    ),
+    pkSyncDirectionProvider.overrideWith(
+      () => _StaticPkSyncDirectionNotifier(syncDirection),
+    ),
+    pkSyncModeProvider.overrideWith(() => _StaticPkSyncModeNotifier(syncMode)),
+    if (bus != null) pkSyncEventBusProvider.overrideWithValue(bus),
+  ];
+
+  if (router != null) {
+    return ProviderScope(
+      overrides: overrides,
+      child: MaterialApp.router(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en')],
+        routerConfig: router,
+        builder: (context, child) =>
+            PrismToastHost(child: child ?? const SizedBox.shrink()),
+      ),
+    );
+  }
+
   return ProviderScope(
-    overrides: [
-      systemSettingsRepositoryProvider.overrideWithValue(settingsRepository),
-      systemSettingsProvider.overrideWith((ref) => settingsStream),
-      pluralKitSyncProvider.overrideWith(
-        () => syncNotifier ?? _StaticPluralKitSyncNotifier(syncState),
-      ),
-      pkSyncDirectionProvider.overrideWith(
-        () => _StaticPkSyncDirectionNotifier(syncDirection),
-      ),
-      pkSyncModeProvider.overrideWith(
-        () => _StaticPkSyncModeNotifier(syncMode),
-      ),
-    ],
+    overrides: overrides,
     child: const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: [Locale('en')],
@@ -179,6 +199,8 @@ Future<void> _pumpScreen(
   PluralKitSyncState syncState = const PluralKitSyncState(),
   _StaticPluralKitSyncNotifier? syncNotifier,
   PkSyncMode syncMode = PkSyncMode.fullSync,
+  PkSyncEventBus? bus,
+  GoRouter? router,
   PkSyncDirection syncDirection = PkSyncDirection.pullOnly,
 }) async {
   SharedPreferences.setMockInitialValues({});
@@ -189,6 +211,8 @@ Future<void> _pumpScreen(
       syncState: syncState,
       syncNotifier: syncNotifier,
       syncMode: syncMode,
+      bus: bus,
+      router: router,
       syncDirection: syncDirection,
     ),
   );
@@ -196,7 +220,11 @@ Future<void> _pumpScreen(
 }
 
 void main() {
-  tearDown(PrismToast.resetForTest);
+  setUp(markPkBusMainIsolate);
+  tearDown(() {
+    PrismToast.resetForTest();
+    resetPkBusMainIsolateForTest();
+  });
 
   group('PluralKitSetupScreen sync lifecycle', () {
     testWidgets('shows sync mode control and can switch modes', (tester) async {
@@ -599,6 +627,123 @@ void main() {
         await tester.pump(const Duration(seconds: 2));
 
         expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
+  group('PluralKitSetupScreen sync activity log tile', () {
+    testWidgets(
+      'shows disabled tile with empty-state subtitle when log is empty',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(600, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final settingsRepository = FakeSystemSettingsRepository();
+        final capture = PkSyncEventBusCapture();
+
+        await _pumpScreen(
+          tester,
+          settingsRepository: settingsRepository,
+          settingsStream: Stream.value(settingsRepository.settings),
+          syncState: const PluralKitSyncState(isConnected: true),
+          bus: capture.bus,
+        );
+
+        await tester.scrollUntilVisible(
+          find.text('Sync activity log'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+
+        expect(find.text('Sync activity log'), findsOneWidget);
+        expect(find.text('No events recorded yet'), findsOneWidget);
+        expect(find.text('View recent PluralKit sync activity'), findsNothing);
+
+        // Tile is disabled — tapping the title text should NOT navigate.
+        await tester.tap(find.text('Sync activity log'));
+        await tester.pump();
+
+        // Still on the same screen — the PK sync debug screen would have a
+        // top-bar title that doesn't appear yet.
+        expect(find.text('Sync activity log'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'shows enabled tile with active subtitle when log has events; tap navigates',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(600, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final settingsRepository = FakeSystemSettingsRepository();
+        final bus = PkSyncEventBus();
+        addTearDown(bus.dispose);
+
+        // Router that mounts the PK setup screen at the same path the real
+        // router uses ('/settings/pluralkit'), with the sync-debug subroute
+        // registered. This lets us assert that tapping the tile navigates to
+        // AppRoutePaths.settingsPluralkitSyncDebug.
+        final router = GoRouter(
+          initialLocation: '/settings/pluralkit',
+          routes: [
+            GoRoute(
+              path: '/settings/pluralkit',
+              builder: (_, _) => const PluralKitSetupScreen(),
+              routes: [
+                GoRoute(
+                  path: 'sync-debug',
+                  builder: (_, _) =>
+                      const Scaffold(body: Text('pk-sync-debug-route')),
+                ),
+              ],
+            ),
+          ],
+        );
+
+        await _pumpScreen(
+          tester,
+          settingsRepository: settingsRepository,
+          settingsStream: Stream.value(settingsRepository.settings),
+          syncState: const PluralKitSyncState(isConnected: true),
+          bus: bus,
+          router: router,
+        );
+        // Emit one event so the log is non-empty and the tile flips to
+        // enabled. We have to do this AFTER the screen mounts so the
+        // notifier (kept alive by ref.watch in the tile) has a subscription.
+        bus.emit(const PkTokenCleared());
+        await tester.pump();
+        await tester.pump();
+
+        await tester.scrollUntilVisible(
+          find.text('Sync activity log'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+
+        expect(find.text('Sync activity log'), findsOneWidget);
+        expect(
+          find.text('View recent PluralKit sync activity'),
+          findsOneWidget,
+        );
+        expect(find.text('No events recorded yet'), findsNothing);
+
+        // Verify the route exists by tapping the tile.
+        await tester.tap(find.text('Sync activity log'));
+        await tester.pumpAndSettle();
+
+        // We should have navigated to the sync-debug subroute. We assert on
+        // the destination's rendered text rather than the router's currentUri:
+        // go_router represents the matched URI as the parent route when the
+        // subroute builder renders a child page, so the URI check is brittle.
+        // The rendered text is the user-facing invariant we actually care
+        // about.
+        expect(find.text('pk-sync-debug-route'), findsOneWidget);
+        expect(
+          AppRoutePaths.settingsPluralkitSyncDebug,
+          '/settings/pluralkit/sync-debug',
+          reason: 'Route path constant should match the registered subroute.',
+        );
       },
     );
   });
