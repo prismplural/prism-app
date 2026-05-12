@@ -175,6 +175,21 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                 ),
               ),
               PrismSection(
+                title: context.l10n.appearanceBioMarkdownSection,
+                child: PrismSectionCard(
+                  child: PrismSwitchRow(
+                    title: context.l10n.appearanceBioMarkdownTitle,
+                    subtitle: context.l10n.appearanceBioMarkdownSubtitle,
+                    value: settings.bioMarkdownEnabled,
+                    onChanged: (value) {
+                      ref
+                          .read(settingsNotifierProvider.notifier)
+                          .updateBioMarkdownEnabled(value);
+                    },
+                  ),
+                ),
+              ),
+              PrismSection(
                 title: context.l10n.appearanceTerminology,
                 child: PrismSectionCard(
                   child: TerminologyPicker(

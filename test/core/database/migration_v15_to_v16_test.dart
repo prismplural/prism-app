@@ -109,6 +109,7 @@ Future<void> _seedV15TimestampCommentShapeDb(File dbFile) async {
 
     rawDb.execute('ALTER TABLE member_group_entries DROP COLUMN pending_pk_op');
 
+    rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
     rawDb.execute('PRAGMA user_version = 15;');
   } finally {
     rawDb.close();
@@ -136,7 +137,7 @@ void main() {
       final version = await upgraded
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 19);
+      expect(version.read<int>('user_version'), 20);
 
       final cols = await upgraded
           .customSelect("PRAGMA table_info('front_session_comments')")

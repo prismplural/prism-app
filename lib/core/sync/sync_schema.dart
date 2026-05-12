@@ -157,7 +157,8 @@ const String prismSyncSchema = '''
         "auto_promote_long_fronting_sessions": "Bool",
         "is_deleted": "Bool",
         "boards_enabled": "Bool",
-        "sp_boards_backfilled_at": "DateTime"
+        "sp_boards_backfilled_at": "DateTime",
+        "bio_markdown_enabled": "Bool"
       }
     },
     "polls": {

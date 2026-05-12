@@ -110,6 +110,7 @@ class SystemSettingsMapper {
         domain.FrontStartBehavior.values,
         domain.FrontStartBehavior.additive,
       ),
+      bioMarkdownEnabled: row.bioMarkdownEnabled,
     );
   }
 
@@ -188,6 +189,7 @@ class SystemSettingsMapper {
       membersShowPronouns: Value(model.membersShowPronouns),
       membersShowFrontButtons: Value(model.membersShowFrontButtons),
       membersFrontButtonBehavior: Value(model.membersFrontButtonBehavior.index),
+      bioMarkdownEnabled: Value(model.bioMarkdownEnabled),
     );
   }
 

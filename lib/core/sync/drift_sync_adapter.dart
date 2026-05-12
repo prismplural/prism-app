@@ -1799,6 +1799,7 @@ DriftSyncEntity _systemSettingsEntity(
         'sp_boards_backfilled_at': _dateTimeToSyncStringOrNull(
           r.spBoardsBackfilledAt,
         ),
+        'bio_markdown_enabled': r.bioMarkdownEnabled,
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
@@ -1877,6 +1878,7 @@ DriftSyncEntity _systemSettingsEntity(
         spBoardsBackfilledAt: f.dateTimeFieldNullable(
           'sp_boards_backfilled_at',
         ),
+        bioMarkdownEnabled: f.boolField('bio_markdown_enabled'),
       );
       await _insertOrUpdateById(
         db,
@@ -1954,6 +1956,7 @@ DriftSyncEntity _systemSettingsEntity(
         'sp_boards_backfilled_at': _dateTimeToSyncStringOrNull(
           row.spBoardsBackfilledAt,
         ),
+        'bio_markdown_enabled': row.bioMarkdownEnabled,
       };
     },
     isDeleted: (String id) async {

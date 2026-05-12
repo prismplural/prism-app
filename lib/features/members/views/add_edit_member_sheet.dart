@@ -71,7 +71,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   final List<_ProxyTagDraft> _proxyTagDrafts = [];
 
   bool _isAdmin = false;
-  bool _markdownEnabled = false;
+  bool _markdownEnabled = true;
   bool _customColorEnabled = false;
   bool _isAlwaysFronting = false;
   Uint8List? _avatarImageData;
@@ -197,7 +197,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     _birthdayHideYear =
         parsedBirthday != null && isBirthdayYearHidden(parsedBirthday);
     _isAdmin = m?.isAdmin ?? false;
-    _markdownEnabled = m?.markdownEnabled ?? false;
+    // Match the drift column default — new members get markdown on; existing
+    // members reflect whatever they have on disk.
+    _markdownEnabled = m?.markdownEnabled ?? true;
     _customColorEnabled = m?.customColorEnabled ?? false;
     _isAlwaysFronting = m?.isAlwaysFronting ?? false;
     _avatarImageData = m?.avatarImageData;

@@ -344,6 +344,18 @@
   "@appearanceSyncThemeSubtitle": {
     "description": "Toggle subtitle: sync theme across devices"
   },
+  "appearanceBioMarkdownSection": "Bios",
+  "@appearanceBioMarkdownSection": {
+    "description": "Appearance settings section: bio rendering"
+  },
+  "appearanceBioMarkdownTitle": "Render bio markdown",
+  "@appearanceBioMarkdownTitle": {
+    "description": "Toggle title: render member bios as markdown"
+  },
+  "appearanceBioMarkdownSubtitle": "Format bios with bold, italics, links, and lists",
+  "@appearanceBioMarkdownSubtitle": {
+    "description": "Toggle subtitle: render member bios as markdown"
+  },
   "appearanceTerminology": "Terminology",
   "@appearanceTerminology": {
     "description": "Appearance settings section: Terminology"

@@ -52,8 +52,13 @@ class Members extends Table {
   // mapping flow. Durable — never re-offered until the user clears it.
   BoolColumn get pluralkitSyncIgnored =>
       boolean().withDefault(const Constant(false))();
+  // Per-member override for bio markdown rendering. Defaults to true so new
+  // members get markdown bios without the user having to flip a switch; bios
+  // are the only rich-text surface in the app that was historically opt-in.
+  // The render path also AND's this with the global
+  // `system_settings.bio_markdown_enabled` switch.
   BoolColumn get markdownEnabled =>
-      boolean().withDefault(const Constant(false))();
+      boolean().withDefault(const Constant(true))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 
   // -- Plan 02 (PK deletion push) --

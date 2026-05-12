@@ -249,6 +249,16 @@ class AppLocalizationsEs extends AppLocalizations {
       'Compartir brillo, estilo y color de acento vía sincronización';
 
   @override
+  String get appearanceBioMarkdownSection => 'Bios';
+
+  @override
+  String get appearanceBioMarkdownTitle => 'Mostrar bios con markdown';
+
+  @override
+  String get appearanceBioMarkdownSubtitle =>
+      'Formatear las bios con negrita, cursiva, enlaces y listas';
+
+  @override
   String get appearanceTerminology => 'Terminología';
 
   @override

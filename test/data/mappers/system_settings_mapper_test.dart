@@ -92,6 +92,7 @@ void main() {
       membersShowPronouns: membersShowPronouns,
       membersShowFrontButtons: membersShowFrontButtons,
       membersFrontButtonBehavior: membersFrontButtonBehavior,
+      bioMarkdownEnabled: true,
     );
   }
 

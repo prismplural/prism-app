@@ -406,7 +406,7 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'CHECK ("markdown_enabled" IN (0, 1))',
     ),
-    defaultValue: const Constant(false),
+    defaultValue: const Constant(true),
   );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
@@ -5770,6 +5770,20 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         requiredDuringInsert: false,
         defaultValue: const Constant(0),
       );
+  static const VerificationMeta _bioMarkdownEnabledMeta =
+      const VerificationMeta('bioMarkdownEnabled');
+  @override
+  late final GeneratedColumn<bool> bioMarkdownEnabled = GeneratedColumn<bool>(
+    'bio_markdown_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("bio_markdown_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5842,6 +5856,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     membersShowPronouns,
     membersShowFrontButtons,
     membersFrontButtonBehavior,
+    bioMarkdownEnabled,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6452,6 +6467,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('bio_markdown_enabled')) {
+      context.handle(
+        _bioMarkdownEnabledMeta,
+        bioMarkdownEnabled.isAcceptableOrUnknown(
+          data['bio_markdown_enabled']!,
+          _bioMarkdownEnabledMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -6741,6 +6765,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.int,
         data['${effectivePrefix}members_front_button_behavior'],
       )!,
+      bioMarkdownEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}bio_markdown_enabled'],
+      )!,
     );
   }
 
@@ -6850,6 +6878,7 @@ class SystemSettingsData extends DataClass
   /// `FrontStartBehavior` index for member row front action buttons.
   /// 0 = additive (default), 1 = replace.
   final int membersFrontButtonBehavior;
+  final bool bioMarkdownEnabled;
   const SystemSettingsData({
     required this.id,
     this.systemName,
@@ -6921,6 +6950,7 @@ class SystemSettingsData extends DataClass
     required this.membersShowPronouns,
     required this.membersShowFrontButtons,
     required this.membersFrontButtonBehavior,
+    required this.bioMarkdownEnabled,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -7041,6 +7071,7 @@ class SystemSettingsData extends DataClass
     map['members_front_button_behavior'] = Variable<int>(
       membersFrontButtonBehavior,
     );
+    map['bio_markdown_enabled'] = Variable<bool>(bioMarkdownEnabled);
     return map;
   }
 
@@ -7140,6 +7171,7 @@ class SystemSettingsData extends DataClass
       membersShowPronouns: Value(membersShowPronouns),
       membersShowFrontButtons: Value(membersShowFrontButtons),
       membersFrontButtonBehavior: Value(membersFrontButtonBehavior),
+      bioMarkdownEnabled: Value(bioMarkdownEnabled),
     );
   }
 
@@ -7295,6 +7327,7 @@ class SystemSettingsData extends DataClass
       membersFrontButtonBehavior: serializer.fromJson<int>(
         json['membersFrontButtonBehavior'],
       ),
+      bioMarkdownEnabled: serializer.fromJson<bool>(json['bioMarkdownEnabled']),
     );
   }
   @override
@@ -7403,6 +7436,7 @@ class SystemSettingsData extends DataClass
       'membersFrontButtonBehavior': serializer.toJson<int>(
         membersFrontButtonBehavior,
       ),
+      'bioMarkdownEnabled': serializer.toJson<bool>(bioMarkdownEnabled),
     };
   }
 
@@ -7477,6 +7511,7 @@ class SystemSettingsData extends DataClass
     bool? membersShowPronouns,
     bool? membersShowFrontButtons,
     int? membersFrontButtonBehavior,
+    bool? bioMarkdownEnabled,
   }) => SystemSettingsData(
     id: id ?? this.id,
     systemName: systemName.present ? systemName.value : this.systemName,
@@ -7579,6 +7614,7 @@ class SystemSettingsData extends DataClass
         membersShowFrontButtons ?? this.membersShowFrontButtons,
     membersFrontButtonBehavior:
         membersFrontButtonBehavior ?? this.membersFrontButtonBehavior,
+    bioMarkdownEnabled: bioMarkdownEnabled ?? this.bioMarkdownEnabled,
   );
   SystemSettingsData copyWithCompanion(SystemSettingsTableCompanion data) {
     return SystemSettingsData(
@@ -7783,6 +7819,9 @@ class SystemSettingsData extends DataClass
       membersFrontButtonBehavior: data.membersFrontButtonBehavior.present
           ? data.membersFrontButtonBehavior.value
           : this.membersFrontButtonBehavior,
+      bioMarkdownEnabled: data.bioMarkdownEnabled.present
+          ? data.bioMarkdownEnabled.value
+          : this.bioMarkdownEnabled,
     );
   }
 
@@ -7868,7 +7907,8 @@ class SystemSettingsData extends DataClass
           )
           ..write('membersShowPronouns: $membersShowPronouns, ')
           ..write('membersShowFrontButtons: $membersShowFrontButtons, ')
-          ..write('membersFrontButtonBehavior: $membersFrontButtonBehavior')
+          ..write('membersFrontButtonBehavior: $membersFrontButtonBehavior, ')
+          ..write('bioMarkdownEnabled: $bioMarkdownEnabled')
           ..write(')'))
         .toString();
   }
@@ -7945,6 +7985,7 @@ class SystemSettingsData extends DataClass
     membersShowPronouns,
     membersShowFrontButtons,
     membersFrontButtonBehavior,
+    bioMarkdownEnabled,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -8028,7 +8069,8 @@ class SystemSettingsData extends DataClass
               this.membersFolderMemberVisibility &&
           other.membersShowPronouns == this.membersShowPronouns &&
           other.membersShowFrontButtons == this.membersShowFrontButtons &&
-          other.membersFrontButtonBehavior == this.membersFrontButtonBehavior);
+          other.membersFrontButtonBehavior == this.membersFrontButtonBehavior &&
+          other.bioMarkdownEnabled == this.bioMarkdownEnabled);
 }
 
 class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
@@ -8102,6 +8144,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<bool> membersShowPronouns;
   final Value<bool> membersShowFrontButtons;
   final Value<int> membersFrontButtonBehavior;
+  final Value<bool> bioMarkdownEnabled;
   final Value<int> rowid;
   const SystemSettingsTableCompanion({
     this.id = const Value.absent(),
@@ -8174,6 +8217,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.membersShowPronouns = const Value.absent(),
     this.membersShowFrontButtons = const Value.absent(),
     this.membersFrontButtonBehavior = const Value.absent(),
+    this.bioMarkdownEnabled = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SystemSettingsTableCompanion.insert({
@@ -8247,6 +8291,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.membersShowPronouns = const Value.absent(),
     this.membersShowFrontButtons = const Value.absent(),
     this.membersFrontButtonBehavior = const Value.absent(),
+    this.bioMarkdownEnabled = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   static Insertable<SystemSettingsData> custom({
@@ -8320,6 +8365,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<bool>? membersShowPronouns,
     Expression<bool>? membersShowFrontButtons,
     Expression<int>? membersFrontButtonBehavior,
+    Expression<bool>? bioMarkdownEnabled,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -8430,6 +8476,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'members_show_front_buttons': membersShowFrontButtons,
       if (membersFrontButtonBehavior != null)
         'members_front_button_behavior': membersFrontButtonBehavior,
+      if (bioMarkdownEnabled != null)
+        'bio_markdown_enabled': bioMarkdownEnabled,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -8505,6 +8553,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<bool>? membersShowPronouns,
     Value<bool>? membersShowFrontButtons,
     Value<int>? membersFrontButtonBehavior,
+    Value<bool>? bioMarkdownEnabled,
     Value<int>? rowid,
   }) {
     return SystemSettingsTableCompanion(
@@ -8603,6 +8652,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           membersShowFrontButtons ?? this.membersShowFrontButtons,
       membersFrontButtonBehavior:
           membersFrontButtonBehavior ?? this.membersFrontButtonBehavior,
+      bioMarkdownEnabled: bioMarkdownEnabled ?? this.bioMarkdownEnabled,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -8884,6 +8934,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         membersFrontButtonBehavior.value,
       );
     }
+    if (bioMarkdownEnabled.present) {
+      map['bio_markdown_enabled'] = Variable<bool>(bioMarkdownEnabled.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -8973,6 +9026,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('membersShowPronouns: $membersShowPronouns, ')
           ..write('membersShowFrontButtons: $membersShowFrontButtons, ')
           ..write('membersFrontButtonBehavior: $membersFrontButtonBehavior, ')
+          ..write('bioMarkdownEnabled: $bioMarkdownEnabled, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -26422,6 +26476,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<bool> membersShowPronouns,
       Value<bool> membersShowFrontButtons,
       Value<int> membersFrontButtonBehavior,
+      Value<bool> bioMarkdownEnabled,
       Value<int> rowid,
     });
 typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
@@ -26496,6 +26551,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<bool> membersShowPronouns,
       Value<bool> membersShowFrontButtons,
       Value<int> membersFrontButtonBehavior,
+      Value<bool> bioMarkdownEnabled,
       Value<int> rowid,
     });
 
@@ -26856,6 +26912,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<int> get membersFrontButtonBehavior => $composableBuilder(
     column: $table.membersFrontButtonBehavior,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get bioMarkdownEnabled => $composableBuilder(
+    column: $table.bioMarkdownEnabled,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -27222,6 +27283,11 @@ class $$SystemSettingsTableTableOrderingComposer
     column: $table.membersFrontButtonBehavior,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get bioMarkdownEnabled => $composableBuilder(
+    column: $table.bioMarkdownEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SystemSettingsTableTableAnnotationComposer
@@ -27574,6 +27640,11 @@ class $$SystemSettingsTableTableAnnotationComposer
     column: $table.membersFrontButtonBehavior,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get bioMarkdownEnabled => $composableBuilder(
+    column: $table.bioMarkdownEnabled,
+    builder: (column) => column,
+  );
 }
 
 class $$SystemSettingsTableTableTableManager
@@ -27693,6 +27764,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> membersShowPronouns = const Value.absent(),
                 Value<bool> membersShowFrontButtons = const Value.absent(),
                 Value<int> membersFrontButtonBehavior = const Value.absent(),
+                Value<bool> bioMarkdownEnabled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion(
                 id: id,
@@ -27768,6 +27840,7 @@ class $$SystemSettingsTableTableTableManager
                 membersShowPronouns: membersShowPronouns,
                 membersShowFrontButtons: membersShowFrontButtons,
                 membersFrontButtonBehavior: membersFrontButtonBehavior,
+                bioMarkdownEnabled: bioMarkdownEnabled,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -27846,6 +27919,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> membersShowPronouns = const Value.absent(),
                 Value<bool> membersShowFrontButtons = const Value.absent(),
                 Value<int> membersFrontButtonBehavior = const Value.absent(),
+                Value<bool> bioMarkdownEnabled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion.insert(
                 id: id,
@@ -27921,6 +27995,7 @@ class $$SystemSettingsTableTableTableManager
                 membersShowPronouns: membersShowPronouns,
                 membersShowFrontButtons: membersShowFrontButtons,
                 membersFrontButtonBehavior: membersFrontButtonBehavior,
+                bioMarkdownEnabled: bioMarkdownEnabled,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -88,6 +88,7 @@ abstract class SystemSettingsRepository {
   Future<void> updateHabitsBadgeEnabled(bool value);
   Future<void> updateNotesEnabled(bool value);
   Future<void> updateBoardsEnabled(bool value);
+  Future<void> updateBioMarkdownEnabled(bool value);
   Future<void> updateSpBoardsBackfilledAt(DateTime? value);
   Future<void> updateRemindersEnabled(bool value);
 

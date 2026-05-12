@@ -67,6 +67,7 @@ Future<void> _seedV11Db(File dbFile) async {
 
     rawDb.execute('ALTER TABLE member_group_entries DROP COLUMN pending_pk_op');
 
+    rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
     rawDb.execute('PRAGMA user_version = 11;');
   } finally {
     rawDb.close();
@@ -114,7 +115,7 @@ void main() {
       expect(member.nameStyleColorHex, isNull);
 
       final version = await upgraded.customSelect('PRAGMA user_version').get();
-      expect(version.first.read<int>('user_version'), 19);
+      expect(version.first.read<int>('user_version'), 20);
     });
   });
 }

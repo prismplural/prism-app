@@ -209,6 +209,9 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   Future<void> updateBoardsEnabled(bool value) async =>
       updateSettings(settings.copyWith(boardsEnabled: value));
   @override
+  Future<void> updateBioMarkdownEnabled(bool value) async =>
+      updateSettings(settings.copyWith(bioMarkdownEnabled: value));
+  @override
   Future<void> updateSpBoardsBackfilledAt(DateTime? value) async =>
       updateSettings(settings.copyWith(spBoardsBackfilledAt: value));
   @override

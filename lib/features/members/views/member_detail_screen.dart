@@ -96,6 +96,7 @@ class _MemberDetailBody extends ConsumerWidget {
     final terms = watchTerminology(context, ref);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final perMemberAccentColors = ref.watch(perMemberAccentColorsProvider);
+    final bioMarkdownEnabled = ref.watch(bioMarkdownEnabledProvider);
     final isFronting =
         activeSessionsAsync.whenOrNull(data: _isFronting) ?? false;
 
@@ -107,7 +108,12 @@ class _MemberDetailBody extends ConsumerWidget {
 
     Widget body = SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
-      child: _buildBodyColumn(context, theme, isFronting),
+      child: _buildBodyColumn(
+        context,
+        theme,
+        isFronting,
+        bioMarkdownEnabled: bioMarkdownEnabled,
+      ),
     );
 
     if (memberAccent != null) {
@@ -143,8 +149,9 @@ class _MemberDetailBody extends ConsumerWidget {
   Widget _buildBodyColumn(
     BuildContext context,
     ThemeData theme,
-    bool isFronting,
-  ) {
+    bool isFronting, {
+    required bool bioMarkdownEnabled,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -154,7 +161,8 @@ class _MemberDetailBody extends ConsumerWidget {
           const SizedBox(height: 12),
           MarkdownText(
             data: member.bio!,
-            enabled: member.markdownEnabled,
+            // Global switch is the master off; per-member flag is the override.
+            enabled: bioMarkdownEnabled && member.markdownEnabled,
             baseStyle: theme.textTheme.bodyLarge,
           ),
         ],

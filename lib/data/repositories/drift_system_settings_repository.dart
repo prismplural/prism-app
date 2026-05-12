@@ -206,6 +206,12 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateBioMarkdownEnabled(bool value) async {
+    await _dao.updateBioMarkdownEnabled(value);
+    await _syncField('bio_markdown_enabled', value);
+  }
+
+  @override
   Future<void> updateSpBoardsBackfilledAt(DateTime? value) async {
     await _dao.updateSpBoardsBackfilledAt(value);
     // sp_boards_backfilled_at is a CRDT LWW field — sync it so a peer that
@@ -612,6 +618,7 @@ class DriftSystemSettingsRepository
       'add_front_default_behavior': s.addFrontDefaultBehavior.index,
       'quick_front_default_behavior': s.quickFrontDefaultBehavior.index,
       'auto_promote_long_fronting_sessions': s.autoPromoteLongFrontingSessions,
+      'bio_markdown_enabled': s.bioMarkdownEnabled,
       'is_deleted': false,
     };
   }

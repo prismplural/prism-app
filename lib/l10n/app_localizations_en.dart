@@ -247,6 +247,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Share brightness, style, and accent color via sync';
 
   @override
+  String get appearanceBioMarkdownSection => 'Bios';
+
+  @override
+  String get appearanceBioMarkdownTitle => 'Render bio markdown';
+
+  @override
+  String get appearanceBioMarkdownSubtitle =>
+      'Format bios with bold, italics, links, and lists';
+
+  @override
   String get appearanceTerminology => 'Terminology';
 
   @override

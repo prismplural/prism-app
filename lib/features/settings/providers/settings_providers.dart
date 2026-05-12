@@ -292,6 +292,13 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateBioMarkdownEnabled(bool value) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateBioMarkdownEnabled(value);
+    });
+  }
+
   Future<void> updateRemindersEnabled(bool value) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
@@ -875,6 +882,18 @@ final notesEnabledProvider = Provider<bool>((ref) {
   return ref
           .watch(systemSettingsProvider)
           .whenOrNull(data: (s) => s.notesEnabled) ??
+      true;
+});
+
+/// Narrow provider for the global "render bio markdown" switch.
+///
+/// When false, every member bio renders as plain text regardless of the
+/// per-member [Member.markdownEnabled] flag. When true (the default), the
+/// per-member flag decides.
+final bioMarkdownEnabledProvider = Provider<bool>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.bioMarkdownEnabled) ??
       true;
 });
 

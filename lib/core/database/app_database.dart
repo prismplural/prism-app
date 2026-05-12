@@ -96,7 +96,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -571,6 +571,21 @@ class AppDatabase extends _$AppDatabase {
           await migrator.addColumn(members, members.pluralkitDisplayName);
         });
         current = 19;
+      }
+      if (current == 19 && to >= 20) {
+        // Bio markdown defaults: flip column default to true and bring any
+        // existing `false` per-member rows along so the new "markdown on by
+        // default" behavior is consistent across the whole DB.  Users who
+        // want it off get the new global `bio_markdown_enabled` switch (or
+        // can flip the per-member toggle back per bio).
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.bioMarkdownEnabled,
+        );
+        await customStatement(
+          'UPDATE members SET markdown_enabled = 1 WHERE markdown_enabled = 0',
+        );
+        current = 20;
       }
       if (current != to) {
         throw UnsupportedError(

@@ -249,6 +249,13 @@ class SystemSettingsTable extends Table {
   IntColumn get membersFrontButtonBehavior =>
       integer().withDefault(const Constant(0))();
 
+  // Global switch for rendering member bios as markdown. Synced (system-wide
+  // UX preference). When false, bios render as plain text regardless of the
+  // per-member `members.markdown_enabled` flag. When true, the per-member
+  // flag decides.
+  BoolColumn get bioMarkdownEnabled =>
+      boolean().withDefault(const Constant(true))();
+
   @override
   String get tableName => 'system_settings';
 

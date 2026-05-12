@@ -59,6 +59,7 @@ Future<void> _seedV7Db(File dbFile) async {
 
     rawDb.execute('ALTER TABLE member_group_entries DROP COLUMN pending_pk_op');
 
+    rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
     rawDb.execute('PRAGMA user_version = 7;');
     rawDb.execute('ALTER TABLE fronting_sessions DROP COLUMN pk_import_source');
     rawDb.execute(
@@ -195,7 +196,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .get();
-        expect(version.first.read<int>('user_version'), 19);
+        expect(version.first.read<int>('user_version'), 20);
       },
     );
   });

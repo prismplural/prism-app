@@ -313,6 +313,7 @@ void main() {
         rawDb.execute(
           'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
         );
+        rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
         rawDb.execute('PRAGMA user_version = 3;');
         rawDb.execute('PRAGMA foreign_keys = ON;');
       } finally {
@@ -391,6 +392,7 @@ void main() {
         rawDb.execute(
           'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
         );
+        rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
         rawDb.execute('PRAGMA user_version = 1;');
         rawDb.execute('PRAGMA foreign_keys = ON;');
       } finally {
@@ -508,6 +510,7 @@ void main() {
           rawDb.execute(
             'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
           );
+          rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
           rawDb.execute('PRAGMA user_version = 3;');
           rawDb.execute('PRAGMA foreign_keys = ON;');
         } finally {

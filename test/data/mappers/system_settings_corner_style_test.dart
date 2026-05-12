@@ -79,6 +79,7 @@ void main() {
       membersShowPronouns: true,
       membersShowFrontButtons: false,
       membersFrontButtonBehavior: 0,
+      bioMarkdownEnabled: true,
     );
   }
 

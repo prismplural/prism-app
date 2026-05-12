@@ -530,6 +530,24 @@ abstract class AppLocalizations {
   /// **'Share brightness, style, and accent color via sync'**
   String get appearanceSyncThemeSubtitle;
 
+  /// Appearance settings section: bio rendering
+  ///
+  /// In en, this message translates to:
+  /// **'Bios'**
+  String get appearanceBioMarkdownSection;
+
+  /// Toggle title: render member bios as markdown
+  ///
+  /// In en, this message translates to:
+  /// **'Render bio markdown'**
+  String get appearanceBioMarkdownTitle;
+
+  /// Toggle subtitle: render member bios as markdown
+  ///
+  /// In en, this message translates to:
+  /// **'Format bios with bold, italics, links, and lists'**
+  String get appearanceBioMarkdownSubtitle;
+
   /// Appearance settings section: Terminology
   ///
   /// In en, this message translates to:
