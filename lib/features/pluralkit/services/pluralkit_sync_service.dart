@@ -1553,6 +1553,16 @@ class PluralKitSyncService {
           client: client,
           onStaleLink: staleLinkMessages.add,
         );
+        // The PkSwitchPushed event emitted inside pushPendingSwitches only
+        // knows about creations (it runs before this deletion pass). Emit a
+        // companion event here so the sync log surfaces the deletion count.
+        // The bus is an event stream — two events for one logical operation
+        // is fine and matches how pull/push are already split.
+        if (switchesDeletedOnPk > 0) {
+          _bus.emit(
+            PkSwitchPushed(pushed: 0, deleted: switchesDeletedOnPk),
+          );
+        }
       }
 
       final now = DateTime.now();

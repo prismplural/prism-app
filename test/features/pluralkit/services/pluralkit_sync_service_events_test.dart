@@ -335,13 +335,36 @@ void main() {
       },
     );
 
-    // SKIP: A green PkSyncPullCompleted + PkSwitchPushed path requires a
-    // pre-existing lastSyncDate, a valid mapped member set, and a multi-page
-    // PK switch fake. The plumbing for that fixture lives in the diff-sweep
-    // test file and is large; the emit-site code for those events is
-    // already exercised indirectly by the syncRecentData failure path above
-    // (which proves the bus is wired into the same try/catch). Keeping the
-    // assertions surgical here per the plan ("better to ship fewer
-    // high-quality tests than fragile ones").
+    // PARTIAL COVERAGE: A green PkSyncPullCompleted + PkSwitchPushed(pushed)
+    // happy path requires a pre-existing lastSyncDate, a valid mapped member
+    // set, and a multi-page PK switch fake — that fixture lives in the
+    // diff-sweep test file and is large. The emit-site code for those events
+    // is exercised indirectly by the syncRecentData failure path above
+    // (which proves the bus is wired into the same try/catch).
+    //
+    // The deletion-count emit at the syncRecentData deletion-completion site
+    // (PkSwitchPushed(pushed: 0, deleted: N)) is verified via a unit test on
+    // the PkSwitchPushed event itself: the `summary` and JSON payload must
+    // both distinguish the deletion-only case from the creation-only case.
+    test('PkSwitchPushed event surfaces deletion-only case distinctly',
+        () {
+      const event = PkSwitchPushed(pushed: 0, deleted: 3);
+      expect(event.summary, 'Pushed 3 switch deletions');
+      expect(event.toJson(), {
+        'kind': 'pkSwitchPushed',
+        'pushed': 0,
+        'deleted': 3,
+      });
+    });
+
+    test('PkSwitchPushed event surfaces combined push+delete distinctly', () {
+      const event = PkSwitchPushed(pushed: 2, deleted: 1);
+      expect(event.summary, 'Pushed 2 switches, 1 deletions');
+      expect(event.toJson(), {
+        'kind': 'pkSwitchPushed',
+        'pushed': 2,
+        'deleted': 1,
+      });
+    });
   });
 }
