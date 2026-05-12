@@ -829,20 +829,24 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                     onSend: _sendVoiceNote,
                   )
                 else if (_showMicButton && ref.watch(voiceNotesEnabledProvider))
-                  _MicButton(
-                    size: inputHeight,
-                    onPressed: () {
-                      HapticFeedback.mediumImpact();
-                      _focusNode.requestFocus();
-                      setState(() => _isRecording = true);
-                    },
+                  TextFieldTapRegion(
+                    child: _MicButton(
+                      size: inputHeight,
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        _focusNode.requestFocus();
+                        setState(() => _isRecording = true);
+                      },
+                    ),
                   )
                 else
-                  _SendButton(
-                    canSend: _canSend,
-                    isSending: _isSending,
-                    size: inputHeight,
-                    onPressed: _sendMessage,
+                  TextFieldTapRegion(
+                    child: _SendButton(
+                      canSend: _canSend,
+                      isSending: _isSending,
+                      size: inputHeight,
+                      onPressed: _sendMessage,
+                    ),
                   ),
               ],
             ),
@@ -1146,8 +1150,9 @@ class _GlassTextField extends StatelessWidget {
           isDense: true,
         ),
         onChanged: onChanged,
-        // On phones, the soft keyboard send button triggers onSubmitted
-        onSubmitted: useHardwareShortcuts ? null : (_) => onSend(),
+        // On phones, handle the soft keyboard send action before Flutter's
+        // default editing completion unfocuses and restarts the input method.
+        onEditingComplete: useHardwareShortcuts ? null : onSend,
       ),
     );
 

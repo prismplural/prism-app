@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +20,7 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_keyboard_dismiss_scope.dart';
 
 class _FixedSpeakingAsNotifier extends SpeakingAsNotifier {
   _FixedSpeakingAsNotifier(this.memberId);
@@ -69,9 +72,17 @@ void main() {
   Widget buildSubject({
     Conversation? conversationOverride,
     List<Member>? activeMembersOverride,
+    ChatNotifier Function()? chatNotifierFactory,
+    bool useKeyboardDismissScope = false,
   }) {
     final testConversation = conversationOverride ?? conversation;
     final activeMembers = activeMembersOverride ?? [alice, bob];
+    const scaffold = Scaffold(
+      body: Align(
+        alignment: Alignment.bottomCenter,
+        child: MessageInput(conversationId: 'conv-1'),
+      ),
+    );
 
     return ProviderScope(
       overrides: [
@@ -100,16 +111,15 @@ void main() {
         conversationByIdProvider(
           'conv-1',
         ).overrideWith((ref) => Stream.value(testConversation)),
+        if (chatNotifierFactory != null)
+          chatNotifierProvider.overrideWith(chatNotifierFactory),
       ],
-      child: const MaterialApp(
+      child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: [Locale('en')],
-        home: Scaffold(
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: MessageInput(conversationId: 'conv-1'),
-          ),
-        ),
+        supportedLocales: const [Locale('en')],
+        home: useKeyboardDismissScope
+            ? const PrismKeyboardDismissScope(child: scaffold)
+            : scaffold,
       ),
     );
   }
@@ -255,4 +265,82 @@ void main() {
 
     expect(textField.focusNode?.hasFocus, isTrue);
   });
+
+  testWidgets('send button keeps composer focus while send is pending', (
+    tester,
+  ) async {
+    final sendCompleter = Completer<void>();
+    await tester.pumpWidget(
+      buildSubject(
+        useKeyboardDismissScope: true,
+        chatNotifierFactory: () => _BlockingChatNotifier(sendCompleter),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final textFieldFinder = find.byType(TextField);
+    await tester.tap(textFieldFinder);
+    await tester.enterText(textFieldFinder, 'hello');
+    await tester.pump();
+
+    TextField textField() => tester.widget<TextField>(textFieldFinder);
+    expect(textField().focusNode?.hasFocus, isTrue);
+
+    await tester.tap(find.bySemanticsLabel('Send message'));
+    await tester.pump();
+
+    expect(textField().focusNode?.hasFocus, isTrue);
+
+    sendCompleter.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('soft keyboard send keeps composer focus while send is pending', (
+    tester,
+  ) async {
+    final sendCompleter = Completer<void>();
+    await tester.pumpWidget(
+      buildSubject(
+        useKeyboardDismissScope: true,
+        chatNotifierFactory: () => _BlockingChatNotifier(sendCompleter),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final textFieldFinder = find.byType(TextField);
+    await tester.tap(textFieldFinder);
+    await tester.enterText(textFieldFinder, 'hello');
+    await tester.pump();
+
+    TextField textField() => tester.widget<TextField>(textFieldFinder);
+    expect(textField().focusNode?.hasFocus, isTrue);
+
+    await tester.testTextInput.receiveAction(TextInputAction.send);
+    await tester.pump();
+
+    expect(textField().focusNode?.hasFocus, isTrue);
+
+    sendCompleter.complete();
+    await tester.pumpAndSettle();
+  });
+}
+
+class _BlockingChatNotifier extends ChatNotifier {
+  _BlockingChatNotifier(this.sendCompleter);
+
+  final Completer<void> sendCompleter;
+
+  @override
+  Future<String> sendMessage({
+    required String conversationId,
+    required String content,
+    required String authorId,
+    String? messageId,
+    String? replyToId,
+    String? replyToAuthorId,
+    String? replyToContent,
+  }) async {
+    await sendCompleter.future;
+    return 'message-id';
+  }
 }
