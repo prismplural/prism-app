@@ -627,4 +627,140 @@ void main() {
       },
     );
   });
+
+  group('PkMappingScreen — large text scale layout', () {
+    // Regression: at Dynamic Type "Larger Accessibility" sizes the row used to
+    // lay out as [Expanded(name) | SizedBox(180, select) | search]. The fixed
+    // 180px select crushed the Expanded name column on a phone-width screen,
+    // wrapping the scaled-up name one character per line. The row should now
+    // stack vertically (name on top, controls below) once text scale crosses
+    // ~1.3x.
+
+    Future<void> setLargeText(WidgetTester tester) async {
+      // Tall viewport so the lazy ListView builds every section even at
+      // 2.5x text scale (where each row takes a lot of vertical space).
+      tester.view.physicalSize = const Size(390 * 2, 4000 * 2);
+      tester.view.devicePixelRatio = 2.0;
+      tester.platformDispatcher.textScaleFactorTestValue = 2.5;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+      });
+    }
+
+    testWidgets(
+      'PK row stacks the select below the name at large text scale',
+      (tester) async {
+        await setLargeText(tester);
+
+        final pkAlice = _pk('pk-alice', 'Alice');
+        final locals = [_local('l1', 'Alice')];
+        final state = PkMappingState(
+          pkMembers: [pkAlice],
+          localMembers: locals,
+          decisionsByPkUuid: {
+            pkAlice.uuid: PkImportDecision(pkMember: pkAlice),
+          },
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        // Find the PK member name Text and the select inside its row.
+        // At large scale the select must sit BELOW the name (top of select
+        // >= bottom of name), proving the row didn't squeeze the name.
+        final nameFinder = find.text('Alice').first;
+        final selectFinder = find.byType(PrismSelect<String>).first;
+
+        final nameRect = tester.getRect(nameFinder);
+        final selectRect = tester.getRect(selectFinder);
+
+        expect(
+          selectRect.top,
+          greaterThanOrEqualTo(nameRect.bottom),
+          reason:
+              'At large text scale the select must stack below the name, '
+              'not sit beside an Expanded column that gets crushed to one '
+              'character wide.',
+        );
+      },
+    );
+
+    testWidgets(
+      'local row stacks the select below the name at large text scale',
+      (tester) async {
+        await setLargeText(tester);
+
+        final local = _local('l1', 'Alice');
+        final state = PkMappingState(
+          pkMembers: const [],
+          localMembers: [local],
+          decisionsByLocalId: {
+            'l1': const PkPushNewDecision(localMemberId: 'l1'),
+          },
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        final nameFinder = find.text('Alice').first;
+        final selectFinder = find.byType(PrismSelect<String>).first;
+
+        final nameRect = tester.getRect(nameFinder);
+        final selectRect = tester.getRect(selectFinder);
+
+        expect(
+          selectRect.top,
+          greaterThanOrEqualTo(nameRect.bottom),
+          reason:
+              'Local-member row must stack vertically at large text scale.',
+        );
+      },
+    );
+
+    testWidgets(
+      'PK row stays side-by-side at default text scale',
+      (tester) async {
+        // No textScaleFactor override → default 1.0.
+        tester.view.physicalSize = const Size(390 * 2, 844 * 2);
+        tester.view.devicePixelRatio = 2.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        final pkAlice = _pk('pk-alice', 'Alice');
+        final state = PkMappingState(
+          pkMembers: [pkAlice],
+          localMembers: [_local('l1', 'Bob')],
+          decisionsByPkUuid: {
+            pkAlice.uuid: PkImportDecision(pkMember: pkAlice),
+          },
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        // At normal scale the select must sit to the RIGHT of the name —
+        // i.e. its left edge is greater than the name's right edge.
+        final nameFinder = find.text('Alice').first;
+        final selectFinder = find.byType(PrismSelect<String>).first;
+
+        final nameRect = tester.getRect(nameFinder);
+        final selectRect = tester.getRect(selectFinder);
+
+        expect(
+          selectRect.left,
+          greaterThan(nameRect.right),
+          reason:
+              'At default text scale the layout must remain side-by-side, '
+              'preserving the original compact design.',
+        );
+      },
+    );
+  });
 }
