@@ -63,9 +63,12 @@ final frontingAnalyticsProvider = FutureProvider<FrontingAnalytics>((
   final range = ref.watch(analyticsRangeProvider).range;
   final dao = ref.watch(frontingSessionsDaoProvider);
 
-  final sessions = await dao.getSessionsInRange(range.start, range.end);
+  final results = await Future.wait([
+    dao.getSessionsInRange(range.start, range.end),
+    dao.getSleepSessionsInRange(range.start, range.end),
+  ]);
 
-  return _runAnalyticsCompute(sessions, range);
+  return _runAnalyticsCompute(results[0], results[1], range);
 });
 
 /// Analytics for the period immediately preceding the selected range.
@@ -85,8 +88,11 @@ final previousPeriodAnalyticsProvider = FutureProvider<FrontingAnalytics?>((
 
   final dao = ref.watch(frontingSessionsDaoProvider);
   // Use getSessionsInRange (overlap query), NOT getSessionsBetween (start-time only)
-  final sessions = await dao.getSessionsInRange(prevStart, prevEnd);
-  return _runAnalyticsCompute(sessions, prevRange);
+  final results = await Future.wait([
+    dao.getSessionsInRange(prevStart, prevEnd),
+    dao.getSleepSessionsInRange(prevStart, prevEnd),
+  ]);
+  return _runAnalyticsCompute(results[0], results[1], prevRange);
 });
 
 /// Maps Drift session rows to a lightweight DTO and dispatches the
@@ -98,6 +104,7 @@ final previousPeriodAnalyticsProvider = FutureProvider<FrontingAnalytics?>((
 /// pure-function entry point trivially serializable and unit-testable.
 Future<FrontingAnalytics> _runAnalyticsCompute(
   List<dynamic> rows,
+  List<dynamic> sleepRows,
   DateTimeRange range,
 ) async {
   final dtos = [
@@ -108,8 +115,20 @@ Future<FrontingAnalytics> _runAnalyticsCompute(
         endTime: r.endTime as DateTime?,
       ),
   ];
-  final args = AnalyticsComputeArgs(rows: dtos, range: range);
-  if (dtos.length < analyticsIsolateThreshold) {
+  final sleepDtos = [
+    for (final r in sleepRows)
+      AnalyticsSessionRow(
+        memberId: null,
+        startTime: r.startTime as DateTime,
+        endTime: r.endTime as DateTime?,
+      ),
+  ];
+  final args = AnalyticsComputeArgs(
+    rows: dtos,
+    sleepRows: sleepDtos,
+    range: range,
+  );
+  if (dtos.length + sleepDtos.length < analyticsIsolateThreshold) {
     return _computeAnalyticsFromArgs(args);
   }
   return compute(_computeAnalyticsFromArgs, args);
@@ -118,7 +137,11 @@ Future<FrontingAnalytics> _runAnalyticsCompute(
 /// Top-level isolate entry point. Must not capture closure state — the
 /// `compute()` contract requires a top-level or static function.
 FrontingAnalytics _computeAnalyticsFromArgs(AnalyticsComputeArgs args) {
-  return computeAnalyticsFromRows(args.rows, args.range);
+  return computeAnalyticsFromRows(
+    args.rows,
+    args.range,
+    sleepRows: args.sleepRows,
+  );
 }
 
 /// Lightweight, isolate-friendly projection of a fronting session row.
@@ -139,9 +162,14 @@ class AnalyticsSessionRow {
 /// Args bundle for the isolate entry point.
 @visibleForTesting
 class AnalyticsComputeArgs {
-  const AnalyticsComputeArgs({required this.rows, required this.range});
+  const AnalyticsComputeArgs({
+    required this.rows,
+    required this.range,
+    this.sleepRows = const [],
+  });
 
   final List<AnalyticsSessionRow> rows;
+  final List<AnalyticsSessionRow> sleepRows;
   final DateTimeRange range;
 }
 
@@ -171,19 +199,35 @@ class AnalyticsComputeArgs {
 @visibleForTesting
 FrontingAnalytics computeAnalyticsFromRows(
   List<dynamic> rows,
-  DateTimeRange range,
-) {
+  DateTimeRange range, {
+  List<dynamic> sleepRows = const [],
+}) {
+  // Merge overlapping sleep intervals once and reuse: the merged list
+  // drives both `totalSleepTime` (true sleep duration, no double-count if
+  // two sleep rows happen to overlap) and the gap-cancellation pass below
+  // (intersection with no-fronter intervals).
+  final mergedSleep = _mergeClampedIntervals(sleepRows, range);
+  var sleepMicros = 0;
+  for (final iv in mergedSleep) {
+    sleepMicros += iv.endMicros - iv.startMicros;
+  }
+  final totalSleep = Duration(microseconds: sleepMicros);
+
   if (rows.isEmpty) {
+    final span = range.end.difference(range.start);
+    // No fronter rows → the entire range is one "no-fronter" interval, so
+    // every merged sleep microsecond cancels gap time directly.
     return FrontingAnalytics(
       rangeStart: range.start,
       rangeEnd: range.end,
       totalTrackedTime: Duration.zero,
-      totalGapTime: range.end.difference(range.start),
+      totalGapTime: Duration(microseconds: span.inMicroseconds - sleepMicros),
       totalSessions: 0,
       uniqueFronters: 0,
       switchesPerDay: 0,
       memberStats: [],
       topCoFrontingPairs: [],
+      totalSleepTime: totalSleep,
     );
   }
 
@@ -201,8 +245,13 @@ FrontingAnalytics computeAnalyticsFromRows(
   var totalMemberMinutes = Duration.zero;
 
   for (final session in rows) {
-    // Sleep rows are already excluded upstream by the DAO's
-    // `getSessionsInRange` (filters `session_type = _normalSessionType`).
+    // `rows` carries only fronter sessions (session_type = 0) — sleep
+    // sessions (session_type = 1) are fetched separately via
+    // `getSleepSessionsInRange` and threaded in as `sleepRows` so they
+    // never participate in per-member, member-minute, or co-fronting
+    // math.  Their only effect is to cancel gap time (see the
+    // sleep-cancel pass after the sweep) and to surface `totalSleepTime`.
+    //
     // The edit/gap-fill flow now writes the canonical Unknown sentinel
     // id directly (see `fronting_edit_resolution_service.dart`), so
     // freshly-produced rows already have a non-null memberId.  This
@@ -394,6 +443,12 @@ FrontingAnalytics computeAnalyticsFromRows(
   // change the existing sweep's complexity.
   var gapMicros = 0;
   var switches = 0;
+  // Gap intervals collected during the sweep: each tuple is the wall-clock
+  // window `[start, end)` during which the active set was empty.  Used
+  // after the sweep to intersect with sleep intervals and cancel the
+  // overlap (sleep is intentional "no fronter" time, not an untracked
+  // gap — see `getSleepSessionsInRange`).
+  final gapIntervals = <_MicroInterval>[];
   final rangeStartMicros = range.start.microsecondsSinceEpoch;
   final rangeEndMicros = range.end.microsecondsSinceEpoch;
   // Seed `lastTime` at the range start so the leading delta (range start
@@ -419,6 +474,7 @@ FrontingAnalytics computeAnalyticsFromRows(
       if (delta > 0) {
         if (activeIdx.isEmpty) {
           gapMicros += delta;
+          gapIntervals.add(_MicroInterval(lastTime, t));
         } else if (activeIdx.length > 1) {
           final n = activeIdx.length;
           for (var i = 0; i < n; i++) {
@@ -491,6 +547,34 @@ FrontingAnalytics computeAnalyticsFromRows(
   // no trailing gap to add.)
   if (lastTime < rangeEndMicros && activeIdx.isEmpty) {
     gapMicros += rangeEndMicros - lastTime;
+    gapIntervals.add(_MicroInterval(lastTime, rangeEndMicros));
+  }
+
+  // Cancel sleep-during-gap: sleep is intentional "no fronter" time, so
+  // any wall-clock microsecond that is BOTH a gap (active set empty) and
+  // covered by a sleep session should not surface as "untracked." Both
+  // lists are already sorted (`gapIntervals` is built in sweep order;
+  // `mergedSleep` was sorted+merged at the top of the function), so a
+  // two-pointer walk computes the total overlap in O(G + S).
+  if (mergedSleep.isNotEmpty && gapIntervals.isNotEmpty) {
+    var sleepCoveredGap = 0;
+    var gi = 0;
+    var si = 0;
+    while (gi < gapIntervals.length && si < mergedSleep.length) {
+      final g = gapIntervals[gi];
+      final s = mergedSleep[si];
+      final overlapStart = g.startMicros > s.startMicros
+          ? g.startMicros
+          : s.startMicros;
+      final overlapEnd = g.endMicros < s.endMicros ? g.endMicros : s.endMicros;
+      if (overlapEnd > overlapStart) sleepCoveredGap += overlapEnd - overlapStart;
+      if (g.endMicros < s.endMicros) {
+        gi++;
+      } else {
+        si++;
+      }
+    }
+    gapMicros -= sleepCoveredGap;
   }
 
   final totalGap = Duration(microseconds: gapMicros);
@@ -512,8 +596,10 @@ FrontingAnalytics computeAnalyticsFromRows(
     rangeStart: range.start,
     rangeEnd: range.end,
     totalTrackedTime: totalMemberMinutes,
-    // No clamp needed: `gapMicros` is non-negative by construction
-    // (it's a running sum of strictly-positive deltas).
+    // `gapMicros` is non-negative by construction: the running gap sum
+    // only ever grew by positive deltas, and the sleep-cancel pass
+    // subtracts at most that same sum (sleep-overlap-with-gap is bounded
+    // above by total gap).
     totalGapTime: totalGap,
     totalSessions: rows.length,
     uniqueFronters: memberDurations.keys.length,
@@ -521,6 +607,7 @@ FrontingAnalytics computeAnalyticsFromRows(
     memberStats: memberStats,
     medianSession: medianSession,
     topCoFrontingPairs: topCoFrontingPairs,
+    totalSleepTime: totalSleep,
   );
 }
 
@@ -540,6 +627,57 @@ class _Interval {
   const _Interval(this.start, this.end);
   final DateTime start;
   final DateTime end;
+}
+
+/// Half-open microsecond interval `[startMicros, endMicros)` used by the
+/// sleep-cancels-gap pass. Microseconds keep the intersection arithmetic
+/// in plain ints instead of `DateTime.difference`.
+class _MicroInterval {
+  const _MicroInterval(this.startMicros, this.endMicros);
+  final int startMicros;
+  final int endMicros;
+}
+
+/// Clamps each sleep row to `[range.start, range.end]`, drops zero/negative
+/// intervals, sorts by start time, and merges overlapping or touching
+/// intervals so the gap-overlap intersection is correct even if two sleep
+/// rows happen to overlap.
+List<_MicroInterval> _mergeClampedIntervals(
+  List<dynamic> sleepRows,
+  DateTimeRange range,
+) {
+  if (sleepRows.isEmpty) return const [];
+  final rangeStartMicros = range.start.microsecondsSinceEpoch;
+  final rangeEndMicros = range.end.microsecondsSinceEpoch;
+  final clamped = <_MicroInterval>[];
+  for (final s in sleepRows) {
+    final startTime = s.startTime as DateTime;
+    final rawEnd = s.endTime as DateTime?;
+    final endTime = rawEnd ?? DateTime.now();
+    final startMicros = startTime.microsecondsSinceEpoch;
+    final endMicros = endTime.microsecondsSinceEpoch;
+    final cs = startMicros < rangeStartMicros ? rangeStartMicros : startMicros;
+    final ce = endMicros > rangeEndMicros ? rangeEndMicros : endMicros;
+    if (ce > cs) clamped.add(_MicroInterval(cs, ce));
+  }
+  if (clamped.isEmpty) return const [];
+  clamped.sort((a, b) => a.startMicros.compareTo(b.startMicros));
+  final merged = <_MicroInterval>[clamped.first];
+  for (var i = 1; i < clamped.length; i++) {
+    final last = merged.last;
+    final cur = clamped[i];
+    if (cur.startMicros <= last.endMicros) {
+      if (cur.endMicros > last.endMicros) {
+        merged[merged.length - 1] = _MicroInterval(
+          last.startMicros,
+          cur.endMicros,
+        );
+      }
+    } else {
+      merged.add(cur);
+    }
+  }
+  return merged;
 }
 
 void _addTimeBuckets(

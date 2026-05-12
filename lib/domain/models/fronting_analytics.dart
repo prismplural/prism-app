@@ -40,6 +40,11 @@ abstract class FrontingAnalytics with _$FrontingAnalytics {
     /// when there are no sessions.
     @Default(Duration.zero) Duration medianSession,
     @Default([]) List<CoFrontingPair> topCoFrontingPairs,
+    /// Total clamped sleep time across the range. Sleep that overlaps a
+    /// no-fronter window is already subtracted from [totalGapTime]; this
+    /// exposes the underlying sleep total so UIs can surface it separately
+    /// without re-querying the sleep DAO.
+    @Default(Duration.zero) Duration totalSleepTime,
   }) = _FrontingAnalytics;
 
   factory FrontingAnalytics.fromJson(Map<String, dynamic> json) =>

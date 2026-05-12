@@ -30,6 +30,9 @@ _FrontingAnalytics _$FrontingAnalyticsFromJson(Map<String, dynamic> json) =>
               ?.map((e) => CoFrontingPair.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
+      totalSleepTime: json['totalSleepTime'] == null
+          ? Duration.zero
+          : Duration(microseconds: (json['totalSleepTime'] as num).toInt()),
     );
 
 Map<String, dynamic> _$FrontingAnalyticsToJson(_FrontingAnalytics instance) =>
@@ -44,6 +47,7 @@ Map<String, dynamic> _$FrontingAnalyticsToJson(_FrontingAnalytics instance) =>
       'memberStats': instance.memberStats,
       'medianSession': instance.medianSession.inMicroseconds,
       'topCoFrontingPairs': instance.topCoFrontingPairs,
+      'totalSleepTime': instance.totalSleepTime.inMicroseconds,
     };
 
 _MemberAnalytics _$MemberAnalyticsFromJson(Map<String, dynamic> json) =>

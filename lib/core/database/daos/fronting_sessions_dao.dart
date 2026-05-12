@@ -286,6 +286,25 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
           .get();
 
+  /// Returns sleep sessions (session_type = 1) that overlap the [start, end]
+  /// range. Same overlap predicate as [getSessionsInRange]; the analytics
+  /// pipeline uses these to cancel gap time when no fronter was active
+  /// (sleep is intentional "no fronter" time, not an untracked gap).
+  Future<List<FrontingSession>> getSleepSessionsInRange(
+    DateTime start,
+    DateTime end,
+  ) =>
+      (select(frontingSessions)
+            ..where(
+              (s) =>
+                  s.sessionType.equals(_sleepSessionType) &
+                  s.startTime.isSmallerOrEqualValue(end) &
+                  (s.endTime.isBiggerOrEqualValue(start) | s.endTime.isNull()) &
+                  s.isDeleted.equals(false),
+            )
+            ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
+          .get();
+
   /// Watches every session (fronting + sleep) overlapping the half-open
   /// range `[start, end)` per §4.6 step 1: a session is included when
   /// `start_time < end AND (end_time IS NULL OR end_time > start)`.
