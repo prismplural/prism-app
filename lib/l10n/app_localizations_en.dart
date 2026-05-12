@@ -8055,6 +8055,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncPinSheetBack => 'Back';
 
   @override
+  String get syncRewrapSheetTitle => 'Restore your pairing key';
+
+  @override
+  String get syncRewrapSheetMnemonicSubtitle =>
+      'We couldn\'t find part of your pairing key. Re-enter your recovery phrase and PIN to fix this — your data is safe.';
+
+  @override
+  String get syncRewrapSheetPinSubtitle =>
+      'Enter your PIN to finish restoring your pairing key.';
+
+  @override
+  String get syncRewrapSheetFailed => 'Incorrect PIN or recovery phrase.';
+
+  @override
   String mnemonicFieldWordCounter(String filled) {
     return '$filled of 12 words';
   }

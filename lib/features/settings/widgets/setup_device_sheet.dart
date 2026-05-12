@@ -46,6 +46,27 @@ class SetupDeviceSheet {
       return;
     }
 
+    // Pair-readiness: `wrapped_dek` is required to derive the joiner
+    // bundle during the inviter ceremony. If it is missing (rare iOS
+    // keychain anomaly), nudge the health state into `needsRewrap` so
+    // the recovery sheet surfaces, then show a toast and bail out of the
+    // pairing entry. See pairing/service.rs:602.
+    final hasWrappedDek = await ref.read(
+      syncWrappedDekPresentProvider.future,
+    );
+    if (!hasWrappedDek) {
+      ref
+          .read(syncHealthProvider.notifier)
+          .setState(SyncHealthState.needsRewrap);
+      if (!context.mounted) return;
+      PrismToast.error(
+        context,
+        message:
+            'Re-confirm your PIN before pairing another device.',
+      );
+      return;
+    }
+
     final relayUrl =
         await ref.read(relayUrlProvider.future) ?? AppConstants.defaultRelayUrl;
 

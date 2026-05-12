@@ -25,6 +25,7 @@ import 'package:prism_plurality/features/settings/providers/pin_lock_providers.d
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_pin_sheet.dart';
+import 'package:prism_plurality/features/settings/widgets/sync_rewrap_sheet.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -779,11 +780,22 @@ class _AppShellState extends ConsumerState<AppShell>
           _pinCheckResolved) {
         _showPasswordSheetIfNeeded(context, ref);
       }
+      if (next == SyncHealthState.needsRewrap &&
+          prev != SyncHealthState.needsRewrap &&
+          !_locked &&
+          _pinCheckResolved) {
+        _showRewrapSheetIfNeeded(context, ref);
+      }
     });
     if (!_locked &&
         _pinCheckResolved &&
         ref.read(syncHealthProvider) == SyncHealthState.needsPassword) {
       _showPasswordSheetIfNeeded(context, ref);
+    }
+    if (!_locked &&
+        _pinCheckResolved &&
+        ref.read(syncHealthProvider) == SyncHealthState.needsRewrap) {
+      _showRewrapSheetIfNeeded(context, ref);
     }
 
     // Show the per-member fronting upgrade modal post-unlock.  Mirrors
@@ -1060,6 +1072,18 @@ class _AppShellState extends ConsumerState<AppShell>
       ref.read(syncPasswordSheetVisibleProvider.notifier).setValue(true);
       SyncPinSheet.show(context).whenComplete(() {
         ref.read(syncPasswordSheetVisibleProvider.notifier).setValue(false);
+      });
+    });
+  }
+
+  static void _showRewrapSheetIfNeeded(BuildContext context, WidgetRef ref) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      final isShowing = ref.read(syncRewrapSheetVisibleProvider);
+      if (isShowing) return;
+      ref.read(syncRewrapSheetVisibleProvider.notifier).setValue(true);
+      SyncRewrapSheet.show(context).whenComplete(() {
+        ref.read(syncRewrapSheetVisibleProvider.notifier).setValue(false);
       });
     });
   }

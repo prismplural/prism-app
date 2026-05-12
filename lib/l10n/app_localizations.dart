@@ -13183,6 +13183,30 @@ abstract class AppLocalizations {
   /// **'Back'**
   String get syncPinSheetBack;
 
+  /// Title for the wrapped_dek recovery sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore your pairing key'**
+  String get syncRewrapSheetTitle;
+
+  /// Subtitle for step 1 of the recovery sheet (mnemonic). Reassures the user data is safe.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t find part of your pairing key. Re-enter your recovery phrase and PIN to fix this — your data is safe.'**
+  String get syncRewrapSheetMnemonicSubtitle;
+
+  /// Subtitle for step 2 of the recovery sheet (PIN entry).
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your PIN to finish restoring your pairing key.'**
+  String get syncRewrapSheetPinSubtitle;
+
+  /// Generic failure message for the recovery sheet that doesn't disclose which input was wrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect PIN or recovery phrase.'**
+  String get syncRewrapSheetFailed;
+
   /// Counter showing how many of the 12 BIP39 words have been entered and recognized.
   ///
   /// In en, this message translates to:

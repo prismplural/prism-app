@@ -672,6 +672,38 @@ void main() {
       expect(SyncHealthState.values, contains(SyncHealthState.needsPassword));
       expect(SyncHealthState.values, contains(SyncHealthState.disconnected));
       expect(SyncHealthState.values, contains(SyncHealthState.unpaired));
+      expect(SyncHealthState.values, contains(SyncHealthState.needsRewrap));
+    });
+  });
+
+  // --------------------------------------------------------------------
+  // wrapped_dek pair-readiness probe (needsRewrap recovery)
+  //
+  // The classifier branch that flips `_autoConfigureIfReady`'s final
+  // result from `healthy` to `needsRewrap` when `wrapped_dek` is missing
+  // after a successful runtime DEK restore.
+  // --------------------------------------------------------------------
+
+  group('classifyPairReadinessFromWrappedDek', () {
+    test('returns needsRewrap when wrapped_dek is null (missing slot)', () {
+      expect(
+        classifyPairReadinessFromWrappedDek(null),
+        SyncHealthState.needsRewrap,
+      );
+    });
+
+    test('returns needsRewrap when wrapped_dek is empty string', () {
+      expect(
+        classifyPairReadinessFromWrappedDek(''),
+        SyncHealthState.needsRewrap,
+      );
+    });
+
+    test('returns healthy when wrapped_dek is present', () {
+      expect(
+        classifyPairReadinessFromWrappedDek('base64-payload=='),
+        SyncHealthState.healthy,
+      );
     });
   });
 

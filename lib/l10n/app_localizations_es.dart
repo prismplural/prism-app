@@ -8195,6 +8195,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncPinSheetBack => 'Atrás';
 
   @override
+  String get syncRewrapSheetTitle => 'Restaurar la clave de emparejamiento';
+
+  @override
+  String get syncRewrapSheetMnemonicSubtitle =>
+      'No pudimos encontrar parte de tu clave de emparejamiento. Vuelve a ingresar tu frase de recuperación y PIN — tus datos están seguros.';
+
+  @override
+  String get syncRewrapSheetPinSubtitle =>
+      'Ingresa tu PIN para terminar de restaurar la clave de emparejamiento.';
+
+  @override
+  String get syncRewrapSheetFailed =>
+      'PIN o frase de recuperación incorrectos.';
+
+  @override
   String mnemonicFieldWordCounter(String filled) {
     return '$filled de 12 palabras';
   }

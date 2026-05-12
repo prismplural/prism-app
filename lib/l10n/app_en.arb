@@ -8851,6 +8851,22 @@
   "@syncPinSheetBack": {
     "description": "Back affordance on step 2 that returns to the mnemonic step without dismissing the sheet."
   },
+  "syncRewrapSheetTitle": "Restore your pairing key",
+  "@syncRewrapSheetTitle": {
+    "description": "Title for the wrapped_dek recovery sheet."
+  },
+  "syncRewrapSheetMnemonicSubtitle": "We couldn't find part of your pairing key. Re-enter your recovery phrase and PIN to fix this — your data is safe.",
+  "@syncRewrapSheetMnemonicSubtitle": {
+    "description": "Subtitle for step 1 of the recovery sheet (mnemonic). Reassures the user data is safe."
+  },
+  "syncRewrapSheetPinSubtitle": "Enter your PIN to finish restoring your pairing key.",
+  "@syncRewrapSheetPinSubtitle": {
+    "description": "Subtitle for step 2 of the recovery sheet (PIN entry)."
+  },
+  "syncRewrapSheetFailed": "Incorrect PIN or recovery phrase.",
+  "@syncRewrapSheetFailed": {
+    "description": "Generic failure message for the recovery sheet that doesn't disclose which input was wrong."
+  },
   "mnemonicFieldWordCounter": "{filled} of 12 words",
   "@mnemonicFieldWordCounter": {
     "description": "Counter showing how many of the 12 BIP39 words have been entered and recognized.",
