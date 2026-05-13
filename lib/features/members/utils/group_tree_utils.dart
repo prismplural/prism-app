@@ -7,11 +7,6 @@ import 'package:prism_plurality/domain/models/member_group.dart';
 class GroupTreeUtils {
   GroupTreeUtils._();
 
-  /// Maximum allowed total nesting depth for groups.
-  ///
-  /// Depth is 1-based: root = 1, child = 2, grandchild = 3, etc.
-  static const int maxGroupDepth = 5;
-
   /// Build an O(n) adjacency map from a flat list.
   ///
   /// Groups whose `parentGroupId` does not exist in the list are treated as
@@ -31,26 +26,52 @@ class GroupTreeUtils {
     return tree;
   }
 
-  /// Walk up the `parentGroupId` chain up to the configured depth ceiling.
-  /// Returns 1 for root groups.
+  /// Walk up the `parentGroupId` chain. Returns 1 for root groups.
   ///
-  /// Groups deeper than [maxGroupDepth] are clamped and reported as depth 5.
+  /// Saturates at 64 to defend against cycles that bypass [resolveSyncCycles].
+  /// Cycles are also caught by the visited-set guard.
   static int getGroupDepth(
     String groupId,
     Map<String?, List<MemberGroup>> tree,
   ) {
     final idMap = _buildIdMap(tree);
+    final visited = <String>{};
     int depth = 1;
     String? currentId = groupId;
-    for (int i = 0; i < maxGroupDepth - 1; i++) {
+    for (int i = 0; i < 63; i++) {
+      if (currentId == null) break;
+      if (!visited.add(currentId)) break; // cycle guard
       final group = idMap[currentId];
       if (group == null || group.parentGroupId == null) break;
-      final parent = idMap[group.parentGroupId!];
-      if (parent == null) break; // dangling parent → stop
+      if (!idMap.containsKey(group.parentGroupId)) break; // dangling parent → stop
       depth++;
       currentId = group.parentGroupId;
     }
     return depth;
+  }
+
+  /// Returns a `{groupId: depth}` map for every group in [tree], in a single pass.
+  ///
+  /// Use this when computing depths for many nodes at once (e.g. in a list view
+  /// or picker) — calling [getGroupDepth] per node is O(n) per call due to the
+  /// internal id-map rebuild.
+  static Map<String, int> getGroupDepthsAll(
+    Map<String?, List<MemberGroup>> tree,
+  ) {
+    final depths = <String, int>{};
+    final visited = <String>{};
+    void visit(MemberGroup g, int d) {
+      if (!visited.add(g.id)) return; // cycle guard
+      depths[g.id] = d;
+      for (final child in tree[g.id] ?? const <MemberGroup>[]) {
+        visit(child, d + 1);
+      }
+    }
+
+    for (final root in tree[null] ?? const <MemberGroup>[]) {
+      visit(root, 1);
+    }
+    return depths;
   }
 
   /// DFS-collect all descendant group IDs (children, grandchildren, etc.).
@@ -83,22 +104,6 @@ class GroupTreeUtils {
   ) {
     if (groupId == proposedParentId) return true;
     return getDescendantGroupIds(groupId, tree).contains(proposedParentId);
-  }
-
-  /// Returns `true` if attaching [movingGroupId] under [proposedParentId]
-  /// would exceed [maxGroupDepth].
-  static bool wouldExceedMaxDepth({
-    required String? movingGroupId,
-    required String? proposedParentId,
-    required Map<String?, List<MemberGroup>> tree,
-  }) {
-    if (proposedParentId == null) return false;
-
-    final movingSubtreeHeight = movingGroupId == null
-        ? 1
-        : getSubtreeHeight(movingGroupId, tree);
-    final parentDepth = getGroupDepth(proposedParentId, tree);
-    return parentDepth + movingSubtreeHeight > maxGroupDepth;
   }
 
   /// Break any cycles present in a synced flat list.
@@ -172,21 +177,6 @@ class GroupTreeUtils {
       visit(root, 0);
     }
     return result;
-  }
-
-  /// Returns the height of the subtree rooted at [groupId].
-  static int getSubtreeHeight(
-    String groupId,
-    Map<String?, List<MemberGroup>> tree,
-  ) {
-    final children = tree[groupId] ?? [];
-    if (children.isEmpty) return 1;
-    int maxChildHeight = 0;
-    for (final child in children) {
-      final h = getSubtreeHeight(child.id, tree);
-      if (h > maxChildHeight) maxChildHeight = h;
-    }
-    return 1 + maxChildHeight;
   }
 
   // ── Internal helpers ────────────────────────────────────────────────────────

@@ -108,28 +108,82 @@ void main() {
       expect(GroupTreeUtils.getGroupDepth('orphan', t), 1);
     });
 
-    test('depth is clamped at 5 for deeper trees', () {
+    test('returns 10 for a depth-10 chain (no clamping)', () {
+      final groups = <MemberGroup>[];
+      String? parent;
+      for (var i = 0; i < 10; i++) {
+        groups.add(_group(id: 'g$i', parentGroupId: parent));
+        parent = 'g$i';
+      }
+      final t = GroupTreeUtils.buildGroupTree(groups);
+      expect(GroupTreeUtils.getGroupDepth('g9', t), 10);
+    });
+
+    test('saturates at 64 for a very deep chain', () {
+      final groups = <MemberGroup>[];
+      String? parent;
+      for (var i = 0; i < 100; i++) {
+        groups.add(_group(id: 'g$i', parentGroupId: parent));
+        parent = 'g$i';
+      }
+      final t = GroupTreeUtils.buildGroupTree(groups);
+      expect(GroupTreeUtils.getGroupDepth('g99', t), 64);
+    });
+
+    test('terminates on a planted cycle (visited-set guard)', () {
+      // Hand-craft a tree map with a cycle that bypasses resolveSyncCycles.
+      final a = _group(id: 'a', parentGroupId: 'b');
+      final b = _group(id: 'b', parentGroupId: 'a');
+      final tree = <String?, List<MemberGroup>>{
+        null: <MemberGroup>[],
+        'a': [b],
+        'b': [a],
+      };
+      // Must return without infinite-looping. Exact depth value not asserted; just bounded.
+      final depth = GroupTreeUtils.getGroupDepth('a', tree);
+      expect(depth, lessThanOrEqualTo(64));
+    });
+  });
+
+  // ── getGroupDepthsAll ───────────────────────────────────────────────────────
+
+  group('getGroupDepthsAll', () {
+    test('returns correct depth for every node in one pass', () {
       final root = _group(id: 'root');
       final sub = _group(id: 'sub', parentGroupId: 'root');
       final subsub = _group(id: 'subsub', parentGroupId: 'sub');
-      final subsubsub = _group(id: 'subsubsub', parentGroupId: 'subsub');
-      final subsubsubsub = _group(
-        id: 'subsubsubsub',
-        parentGroupId: 'subsubsub',
-      );
-      final subsubsubsubsub = _group(
-        id: 'subsubsubsubsub',
-        parentGroupId: 'subsubsubsub',
-      );
-      final t = GroupTreeUtils.buildGroupTree([
-        root,
-        sub,
-        subsub,
-        subsubsub,
-        subsubsubsub,
-        subsubsubsubsub,
-      ]);
-      expect(GroupTreeUtils.getGroupDepth('subsubsubsubsub', t), 5);
+      final tree = GroupTreeUtils.buildGroupTree([root, sub, subsub]);
+      final depths = GroupTreeUtils.getGroupDepthsAll(tree);
+      expect(depths['root'], 1);
+      expect(depths['sub'], 2);
+      expect(depths['subsub'], 3);
+    });
+
+    test('handles multiple roots and deep chains', () {
+      final groups = <MemberGroup>[
+        _group(id: 'r1'),
+        _group(id: 'r2'),
+        _group(id: 'r1c', parentGroupId: 'r1'),
+        _group(id: 'r1cc', parentGroupId: 'r1c'),
+      ];
+      final tree = GroupTreeUtils.buildGroupTree(groups);
+      final depths = GroupTreeUtils.getGroupDepthsAll(tree);
+      expect(depths['r1'], 1);
+      expect(depths['r2'], 1);
+      expect(depths['r1c'], 2);
+      expect(depths['r1cc'], 3);
+    });
+
+    test('cycle guard: each node visited at most once', () {
+      final a = _group(id: 'a');
+      final b = _group(id: 'b');
+      final tree = <String?, List<MemberGroup>>{
+        null: [a],
+        'a': [b],
+        'b': [a], // cycle
+      };
+      final depths = GroupTreeUtils.getGroupDepthsAll(tree);
+      expect(depths.keys.toSet().length, depths.length); // unique keys
     });
   });
 
