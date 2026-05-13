@@ -27,6 +27,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_unmapped_fronters_notice.dart';
+import 'package:prism_plurality/features/pluralkit/widgets/pk_unpushed_members_notice.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -886,6 +887,7 @@ class FrontingActionBannerStack extends StatelessWidget {
         // migration completes via Riverpod state.
         FrontingUpgradeBanner(padding: EdgeInsets.fromLTRB(16, 8, 16, 0)),
         PluralKitUnmappedFrontersNoticeBanner(),
+        PluralKitUnpushedMembersNoticeBanner(),
       ],
     );
   }

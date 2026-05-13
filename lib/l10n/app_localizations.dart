@@ -15416,6 +15416,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not import avatar ZIP'**
   String get spAvatarZipFailedTitle;
+
+  /// Title of the banner shown on the fronting screen when local Prism members exist that haven't been pushed to PluralKit.
+  ///
+  /// In en, this message translates to:
+  /// **'Local members not on PluralKit'**
+  String get pkUnpushedMembersBannerTitle;
+
+  /// Body of the unpushed-members banner when exactly one local member is missing from PluralKit.
+  ///
+  /// In en, this message translates to:
+  /// **'1 Prism member isn\'t on PluralKit yet.'**
+  String get pkUnpushedMembersBannerMessageOne;
+
+  /// Body of the unpushed-members banner when more than one local member is missing from PluralKit.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} Prism members aren\'t on PluralKit yet.'**
+  String pkUnpushedMembersBannerMessageMany(int count);
+
+  /// Title of the sheet that lists local Prism members that aren't on PluralKit yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Review local-only members'**
+  String get pkUnpushedMembersReviewSheetTitle;
+
+  /// Intro paragraph explaining the local-only member review sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'These members live only in Prism while push is off. Push them now without changing your sync settings.'**
+  String get pkUnpushedMembersReviewIntro;
+
+  /// Per-row action button to push a single local member to PluralKit without enabling general push sync.
+  ///
+  /// In en, this message translates to:
+  /// **'Push once'**
+  String get pkUnpushedMembersRowPushOnce;
+
+  /// Per-row action button to mark a local member as durably Prism-only (sets pluralkitSyncIgnored).
+  ///
+  /// In en, this message translates to:
+  /// **'Keep local'**
+  String get pkUnpushedMembersRowKeepLocal;
+
+  /// Bottom-of-sheet action that hides the local-only members banner until the cohort of unpushed members changes.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss for now'**
+  String get pkUnpushedMembersDismissForNow;
+
+  /// Title of the dialog shown immediately after creating a new local member when PluralKit is paired but push is disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Push {name} to PluralKit?'**
+  String pkPushNewMemberDialogTitle(String name);
+
+  /// Body text of the push-on-create dialog explaining the one-time push escape hatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Push is off, so {name} and their sessions stay Prism-only. One-time push syncs them now without changing your sync settings.'**
+  String pkPushNewMemberDialogBody(String name);
+
+  /// Primary action button on the push-on-create dialog that triggers a one-shot push of the newly-created member.
+  ///
+  /// In en, this message translates to:
+  /// **'Push once'**
+  String get pkPushNewMemberDialogConfirm;
+
+  /// Secondary action button on the push-on-create dialog that durably marks the new member as Prism-only.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep local'**
+  String get pkPushNewMemberDialogKeepLocal;
+
+  /// Success toast shown after a one-shot push of a newly-created member completes.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} pushed to PluralKit.'**
+  String pkPushNewMemberDialogSuccess(String name);
+
+  /// Error toast shown when a one-shot push of a newly-created member fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t push {name} to PluralKit: {error}'**
+  String pkPushNewMemberDialogError(String name, String error);
 }
 
 class _AppLocalizationsDelegate

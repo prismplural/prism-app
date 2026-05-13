@@ -9614,4 +9614,58 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get spAvatarZipFailedTitle => 'Could not import avatar ZIP';
+
+  @override
+  String get pkUnpushedMembersBannerTitle => 'Local members not on PluralKit';
+
+  @override
+  String get pkUnpushedMembersBannerMessageOne =>
+      '1 Prism member isn\'t on PluralKit yet.';
+
+  @override
+  String pkUnpushedMembersBannerMessageMany(int count) {
+    return '$count Prism members aren\'t on PluralKit yet.';
+  }
+
+  @override
+  String get pkUnpushedMembersReviewSheetTitle => 'Review local-only members';
+
+  @override
+  String get pkUnpushedMembersReviewIntro =>
+      'These members live only in Prism while push is off. Push them now without changing your sync settings.';
+
+  @override
+  String get pkUnpushedMembersRowPushOnce => 'Push once';
+
+  @override
+  String get pkUnpushedMembersRowKeepLocal => 'Keep local';
+
+  @override
+  String get pkUnpushedMembersDismissForNow => 'Dismiss for now';
+
+  @override
+  String pkPushNewMemberDialogTitle(String name) {
+    return 'Push $name to PluralKit?';
+  }
+
+  @override
+  String pkPushNewMemberDialogBody(String name) {
+    return 'Push is off, so $name and their sessions stay Prism-only. One-time push syncs them now without changing your sync settings.';
+  }
+
+  @override
+  String get pkPushNewMemberDialogConfirm => 'Push once';
+
+  @override
+  String get pkPushNewMemberDialogKeepLocal => 'Keep local';
+
+  @override
+  String pkPushNewMemberDialogSuccess(String name) {
+    return '$name pushed to PluralKit.';
+  }
+
+  @override
+  String pkPushNewMemberDialogError(String name, String error) {
+    return 'Couldn\'t push $name to PluralKit: $error';
+  }
 }

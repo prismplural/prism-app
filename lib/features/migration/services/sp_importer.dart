@@ -215,6 +215,7 @@ class SpImporter {
     bool clearExistingData = false,
     Map<String, CfDisposition>? customFrontDispositions,
     Map<String, SpMemberMappingDecision> memberMappingDecisions = const {},
+    bool markPushIgnored = false,
     void Function(int current, int total, String label)? onProgress,
   }) async {
     final stopwatch = Stopwatch()..start();
@@ -253,6 +254,7 @@ class SpImporter {
       existingMappings: existingMappings,
       customFrontDispositions: customFrontDispositions,
       importAsNewSpMemberIds: importAsNewSpIds,
+      markPushIgnored: markPushIgnored,
     );
     final mapped = mapper.mapAll(data);
     await _yieldToUi();

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart' hide Member;
+import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
@@ -12,6 +13,7 @@ import 'package:prism_plurality/features/pluralkit/providers/pk_unmapped_fronter
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_reset_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_one_shot_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
@@ -62,6 +64,29 @@ final pkGroupResetServiceProvider = Provider<PkGroupResetService>((ref) {
     memberGroupsRepository: ref.watch(memberGroupsRepositoryProvider),
   );
 });
+
+/// DAO accessor for the resumable PK mapping applier state table.
+///
+/// Existing call sites (e.g. `pk_mapping_controller.dart`) construct
+/// `PkMappingStateDao(db)` directly. This provider is added for the
+/// one-shot push service so the DAO can be substituted in tests via
+/// `databaseProvider.overrideWithValue(...)`. Plain `Provider` (not
+/// auto-dispose) so the DAO instance is stable for the lifetime of the
+/// container.
+final pkMappingStateDaoProvider = Provider<PkMappingStateDao>(
+  (ref) => PkMappingStateDao(ref.read(databaseProvider)),
+);
+
+/// One-shot push of a single local member to PluralKit, decoupled from
+/// global sync settings. **Must be non-auto-dispose** so the service's
+/// internal `_inFlight` lock survives unrelated widget rebuilds — a
+/// re-instantiated service would lose the lock and allow concurrent
+/// duplicate POSTs. Volatile dependencies are accessed via `ref.read`
+/// inside method bodies, never `ref.watch` here, to prevent Riverpod
+/// from invalidating the provider on unrelated state changes.
+final pkOneShotPushServiceProvider = Provider<PkOneShotPushService>(
+  PkOneShotPushService.new,
+);
 
 // ---------------------------------------------------------------------------
 // Sync direction state

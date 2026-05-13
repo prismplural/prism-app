@@ -1054,4 +1054,78 @@ void main() {
       );
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // markPushIgnored — PK push-disabled guard
+  //
+  // Mapper-level coverage for the new flag. Confirms that BOTH the regular
+  // SP member rows AND the custom-front-as-member rows get the flag set,
+  // since the SP importer wires both branches with the same constructor arg.
+  // ---------------------------------------------------------------------------
+
+  group('SP mapper — markPushIgnored guard', () {
+    test(
+      'default (markPushIgnored=false) leaves pluralkitSyncIgnored == false '
+      'on SP members and CF-as-member rows',
+      () {
+        final data = _data(
+          members: const [_alice, _bob],
+          customFronts: const [SpCustomFront(id: 'cf-1', name: 'Sleeping')],
+        );
+        final mapper = SpMapper();
+        final result = mapper.mapAll(data);
+
+        // Two SP members + one custom-front-as-member (legacy
+        // importAsMember default when no disposition map is supplied).
+        expect(result.members, hasLength(3));
+        for (final member in result.members) {
+          expect(
+            member.pluralkitSyncIgnored,
+            isFalse,
+            reason:
+                'Default markPushIgnored=false must preserve current '
+                'behavior — ${member.name} should be eligible for push.',
+          );
+        }
+      },
+    );
+
+    test(
+      'markPushIgnored=true sets pluralkitSyncIgnored on every member row '
+      '(SP members AND custom-front-as-member rows)',
+      () {
+        final data = _data(
+          members: const [_alice, _bob],
+          customFronts: const [SpCustomFront(id: 'cf-1', name: 'Sleeping')],
+        );
+        final mapper = SpMapper(markPushIgnored: true);
+        final result = mapper.mapAll(data);
+
+        expect(result.members, hasLength(3));
+        // The CF-as-member row is identifiable by the tag emoji set in
+        // _mapMembers; cover both kinds explicitly so a regression that
+        // forgets the CF branch is caught.
+        final spMembers =
+            result.members.where((m) => m.name != 'Sleeping').toList();
+        final cfAsMember =
+            result.members.firstWhere((m) => m.name == 'Sleeping');
+
+        expect(spMembers, hasLength(2));
+        for (final m in spMembers) {
+          expect(
+            m.pluralkitSyncIgnored,
+            isTrue,
+            reason: 'SP member ${m.name} must be marked pluralkitSyncIgnored',
+          );
+        }
+        expect(
+          cfAsMember.pluralkitSyncIgnored,
+          isTrue,
+          reason:
+              'Custom-front-as-member row must also be marked '
+              'pluralkitSyncIgnored — the CF branch shares the same gate.',
+        );
+      },
+    );
+  });
 }

@@ -137,6 +137,9 @@ class PkBidirectionalService {
     if (direction.pushEnabled) {
       for (final local in localMembers) {
         if (hasPluralKitLink(local)) continue;
+        // User picked Keep local via the push-on-create dialog or banner;
+        // respect their durable preference.
+        if (local.pluralkitSyncIgnored) continue;
         // New local member — push to PK
         final pkMember = await _pushService.pushMemberFull(local, client);
         // Store both PK identifiers back on the local member.

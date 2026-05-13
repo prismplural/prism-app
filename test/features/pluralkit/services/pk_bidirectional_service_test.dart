@@ -181,6 +181,7 @@ domain.Member _localMember({
   String? pluralkitDisplayName,
   String? birthday,
   String? proxyTagsJson,
+  bool pluralkitSyncIgnored = false,
 }) {
   return domain.Member(
     id: id,
@@ -195,6 +196,7 @@ domain.Member _localMember({
     pluralkitDisplayName: pluralkitDisplayName,
     birthday: birthday,
     proxyTagsJson: proxyTagsJson,
+    pluralkitSyncIgnored: pluralkitSyncIgnored,
     createdAt: DateTime(2026, 1, 1),
   );
 }
@@ -1150,6 +1152,92 @@ void main() {
 
       expect(summary.membersPushed, 1);
       expect(fakeClient.calls.any((c) => c.method == 'updateMember'), isTrue);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // pluralkitSyncIgnored — push-unlinked-locals respects the "Keep local" flag
+  // -------------------------------------------------------------------------
+
+  group('pluralkitSyncIgnored on unlinked locals', () {
+    test(
+      'does not push an unlinked local member flagged Keep local, but still '
+      'pushes a non-ignored sibling',
+      () async {
+        final ignored = _localMember(
+          id: 'local-ignored',
+          name: 'KeepLocal',
+          pluralkitSyncIgnored: true,
+        );
+        final pushable = _localMember(
+          id: 'local-pushable',
+          name: 'PushMe',
+        );
+
+        final summary = await service.syncMembers(
+          localMembers: [ignored, pushable],
+          pkMembers: const [],
+          fieldConfigs: {},
+          direction: PkSyncDirection.bidirectional,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        // Exactly one push (the non-ignored sibling).
+        expect(summary.membersPushed, 1);
+
+        final createCalls = fakeClient.calls
+            .where((c) => c.method == 'createMember')
+            .toList();
+        expect(createCalls, hasLength(1));
+        final payload = createCalls.single.args[0] as Map<String, dynamic>;
+        expect(
+          payload['name'],
+          'PushMe',
+          reason: 'Only the non-ignored member should be created in PK',
+        );
+
+        // No PK identifiers should have been written back for the ignored
+        // member.
+        for (final c in fakeRepo.calls.where(
+          (c) => c.method == 'updateMember',
+        )) {
+          final m = c.args[0] as domain.Member;
+          expect(
+            m.id,
+            isNot('local-ignored'),
+            reason: 'Ignored member must not be linked to a freshly-created PK '
+                'member',
+          );
+        }
+      },
+    );
+
+    test('pushOnly also honors pluralkitSyncIgnored on unlinked locals',
+        () async {
+      final ignored = _localMember(
+        id: 'local-ignored',
+        name: 'KeepLocal',
+        pluralkitSyncIgnored: true,
+      );
+
+      final summary = await service.syncMembers(
+        localMembers: [ignored],
+        pkMembers: const [],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(summary.membersPushed, 0);
+      expect(
+        fakeClient.calls.any((c) => c.method == 'createMember'),
+        isFalse,
+        reason: 'Keep-local members must never be created on PK',
+      );
     });
   });
 }

@@ -8,7 +8,9 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/birthday.dart';
 import 'package:prism_plurality/features/members/utils/proxy_tag.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
+import 'package:prism_plurality/features/pluralkit/widgets/pk_push_new_member_dialog.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -596,6 +598,27 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       }
 
       _saved = true;
+
+      // On member creation (NOT edit), if PluralKit is paired-and-ready but
+      // general push sync is disabled, prompt the user to one-shot push this
+      // new member without changing their global sync settings. The dialog
+      // handles its own success/error feedback; we always close the sheet
+      // afterwards regardless of dialog outcome (push / keep-local / dismiss).
+      if (!widget.isEditing && mounted) {
+        final pkSyncState = ref.read(pluralKitSyncProvider);
+        final pushEnabled = ref.read(pkSyncDirectionProvider).pushEnabled;
+        final mode = ref.read(pkSyncModeProvider);
+        final pushDisabled =
+            !pushEnabled || mode == PkSyncMode.liveFrontsOnly;
+        if (pkSyncState.canAutoSync && pushDisabled) {
+          await showPkPushNewMemberDialog(
+            context,
+            memberId: _memberId,
+            memberName: name,
+          );
+        }
+      }
+
       if (mounted) {
         Haptics.success();
         Navigator.of(context).pop(true);

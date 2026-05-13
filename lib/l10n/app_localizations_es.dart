@@ -9786,4 +9786,60 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get spAvatarZipFailedTitle => 'No se pudo importar el ZIP de avatares';
+
+  @override
+  String get pkUnpushedMembersBannerTitle =>
+      'Miembros locales que no están en PluralKit';
+
+  @override
+  String get pkUnpushedMembersBannerMessageOne =>
+      'Hay 1 miembro de Prism que aún no está en PluralKit.';
+
+  @override
+  String pkUnpushedMembersBannerMessageMany(int count) {
+    return 'Hay $count miembros de Prism que aún no están en PluralKit.';
+  }
+
+  @override
+  String get pkUnpushedMembersReviewSheetTitle =>
+      'Revisar miembros solo locales';
+
+  @override
+  String get pkUnpushedMembersReviewIntro =>
+      'Estos miembros solo existen en Prism mientras el envío está desactivado. Envíalos ahora sin cambiar tus ajustes de sincronización.';
+
+  @override
+  String get pkUnpushedMembersRowPushOnce => 'Enviar una vez';
+
+  @override
+  String get pkUnpushedMembersRowKeepLocal => 'Mantener local';
+
+  @override
+  String get pkUnpushedMembersDismissForNow => 'Descartar por ahora';
+
+  @override
+  String pkPushNewMemberDialogTitle(String name) {
+    return '¿Enviar a $name a PluralKit?';
+  }
+
+  @override
+  String pkPushNewMemberDialogBody(String name) {
+    return 'El envío está desactivado, así que $name y sus sesiones permanecerán solo en Prism. El envío único los sincroniza ahora sin cambiar tus ajustes de sincronización.';
+  }
+
+  @override
+  String get pkPushNewMemberDialogConfirm => 'Enviar una vez';
+
+  @override
+  String get pkPushNewMemberDialogKeepLocal => 'Mantener local';
+
+  @override
+  String pkPushNewMemberDialogSuccess(String name) {
+    return '$name se envió a PluralKit.';
+  }
+
+  @override
+  String pkPushNewMemberDialogError(String name, String error) {
+    return 'No se pudo enviar a $name a PluralKit: $error';
+  }
 }

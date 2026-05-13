@@ -10293,5 +10293,89 @@
   "spAvatarZipMemberPhotosUpdated": "Member photos updated",
   "spAvatarZipSystemPhotoUpdated": "System photo updated",
   "spAvatarZipUnmatchedImages": "Unmatched images",
-  "spAvatarZipFailedTitle": "Could not import avatar ZIP"
+  "spAvatarZipFailedTitle": "Could not import avatar ZIP",
+  "pkUnpushedMembersBannerTitle": "Local members not on PluralKit",
+  "@pkUnpushedMembersBannerTitle": {
+    "description": "Title of the banner shown on the fronting screen when local Prism members exist that haven't been pushed to PluralKit."
+  },
+  "pkUnpushedMembersBannerMessageOne": "1 Prism member isn't on PluralKit yet.",
+  "@pkUnpushedMembersBannerMessageOne": {
+    "description": "Body of the unpushed-members banner when exactly one local member is missing from PluralKit."
+  },
+  "pkUnpushedMembersBannerMessageMany": "{count} Prism members aren't on PluralKit yet.",
+  "@pkUnpushedMembersBannerMessageMany": {
+    "description": "Body of the unpushed-members banner when more than one local member is missing from PluralKit.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pkUnpushedMembersReviewSheetTitle": "Review local-only members",
+  "@pkUnpushedMembersReviewSheetTitle": {
+    "description": "Title of the sheet that lists local Prism members that aren't on PluralKit yet."
+  },
+  "pkUnpushedMembersReviewIntro": "These members live only in Prism while push is off. Push them now without changing your sync settings.",
+  "@pkUnpushedMembersReviewIntro": {
+    "description": "Intro paragraph explaining the local-only member review sheet."
+  },
+  "pkUnpushedMembersRowPushOnce": "Push once",
+  "@pkUnpushedMembersRowPushOnce": {
+    "description": "Per-row action button to push a single local member to PluralKit without enabling general push sync."
+  },
+  "pkUnpushedMembersRowKeepLocal": "Keep local",
+  "@pkUnpushedMembersRowKeepLocal": {
+    "description": "Per-row action button to mark a local member as durably Prism-only (sets pluralkitSyncIgnored)."
+  },
+  "pkUnpushedMembersDismissForNow": "Dismiss for now",
+  "@pkUnpushedMembersDismissForNow": {
+    "description": "Bottom-of-sheet action that hides the local-only members banner until the cohort of unpushed members changes."
+  },
+  "pkPushNewMemberDialogTitle": "Push {name} to PluralKit?",
+  "@pkPushNewMemberDialogTitle": {
+    "description": "Title of the dialog shown immediately after creating a new local member when PluralKit is paired but push is disabled.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pkPushNewMemberDialogBody": "Push is off, so {name} and their sessions stay Prism-only. One-time push syncs them now without changing your sync settings.",
+  "@pkPushNewMemberDialogBody": {
+    "description": "Body text of the push-on-create dialog explaining the one-time push escape hatch.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pkPushNewMemberDialogConfirm": "Push once",
+  "@pkPushNewMemberDialogConfirm": {
+    "description": "Primary action button on the push-on-create dialog that triggers a one-shot push of the newly-created member."
+  },
+  "pkPushNewMemberDialogKeepLocal": "Keep local",
+  "@pkPushNewMemberDialogKeepLocal": {
+    "description": "Secondary action button on the push-on-create dialog that durably marks the new member as Prism-only."
+  },
+  "pkPushNewMemberDialogSuccess": "{name} pushed to PluralKit.",
+  "@pkPushNewMemberDialogSuccess": {
+    "description": "Success toast shown after a one-shot push of a newly-created member completes.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pkPushNewMemberDialogError": "Couldn't push {name} to PluralKit: {error}",
+  "@pkPushNewMemberDialogError": {
+    "description": "Error toast shown when a one-shot push of a newly-created member fails.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

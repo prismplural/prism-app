@@ -2947,5 +2947,19 @@
   "spAvatarZipMemberPhotosUpdated": "Fotos de miembros actualizadas",
   "spAvatarZipSystemPhotoUpdated": "Foto del sistema actualizada",
   "spAvatarZipUnmatchedImages": "Imágenes sin coincidencia",
-  "spAvatarZipFailedTitle": "No se pudo importar el ZIP de avatares"
+  "spAvatarZipFailedTitle": "No se pudo importar el ZIP de avatares",
+  "pkUnpushedMembersBannerTitle": "Miembros locales que no están en PluralKit",
+  "pkUnpushedMembersBannerMessageOne": "Hay 1 miembro de Prism que aún no está en PluralKit.",
+  "pkUnpushedMembersBannerMessageMany": "Hay {count} miembros de Prism que aún no están en PluralKit.",
+  "pkUnpushedMembersReviewSheetTitle": "Revisar miembros solo locales",
+  "pkUnpushedMembersReviewIntro": "Estos miembros solo existen en Prism mientras el envío está desactivado. Envíalos ahora sin cambiar tus ajustes de sincronización.",
+  "pkUnpushedMembersRowPushOnce": "Enviar una vez",
+  "pkUnpushedMembersRowKeepLocal": "Mantener local",
+  "pkUnpushedMembersDismissForNow": "Descartar por ahora",
+  "pkPushNewMemberDialogTitle": "¿Enviar a {name} a PluralKit?",
+  "pkPushNewMemberDialogBody": "El envío está desactivado, así que {name} y sus sesiones permanecerán solo en Prism. El envío único los sincroniza ahora sin cambiar tus ajustes de sincronización.",
+  "pkPushNewMemberDialogConfirm": "Enviar una vez",
+  "pkPushNewMemberDialogKeepLocal": "Mantener local",
+  "pkPushNewMemberDialogSuccess": "{name} se envió a PluralKit.",
+  "pkPushNewMemberDialogError": "No se pudo enviar a {name} a PluralKit: {error}"
 }
