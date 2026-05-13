@@ -36,7 +36,77 @@ Widget _buildPicker(List<MemberGroup> groups, {String? excludeGroupId}) {
 }
 
 void main() {
-  testWidgets('blocks only parents that would exceed depth 5', (tester) async {
+  testWidgets(
+    'all non-self, non-descendant tiles are enabled regardless of depth',
+    (tester) async {
+      // Build a depth-7 chain: g0 -> g1 -> g2 -> g3 -> g4 -> g5 -> g6
+      final groups = <MemberGroup>[];
+      String? parent;
+      for (var i = 0; i < 7; i++) {
+        groups.add(_group(id: 'g$i', parentGroupId: parent));
+        parent = 'g$i';
+      }
+
+      await tester.pumpWidget(_buildPicker(groups));
+      await tester.pumpAndSettle();
+
+      // No tile should have opacity 0.4 (the old disabled-tile path).
+      final opacityWidgets = tester
+          .widgetList<Opacity>(find.byType(Opacity))
+          .where((o) => o.opacity == 0.4)
+          .toList();
+      expect(opacityWidgets, isEmpty);
+
+      // No tile should show the old "Can't nest deeper" subtitle.
+      expect(find.textContaining("Can't nest deeper"), findsNothing);
+
+      // Every group should be tappable (enabled).
+      for (var i = 0; i < 7; i++) {
+        final row = find.ancestor(
+          of: find.text('g$i'),
+          matching: find.byType(PrismListRow),
+        );
+        expect(tester.widget<PrismListRow>(row).enabled, isTrue);
+      }
+    },
+  );
+
+  testWidgets('excludes only the group itself and its descendants', (
+    tester,
+  ) async {
+    final root = _group(id: 'root');
+    final moving = _group(id: 'moving', parentGroupId: 'root');
+    final movingChild = _group(id: 'moving-child', parentGroupId: 'moving');
+    final sibling = _group(id: 'sibling', parentGroupId: 'root');
+
+    await tester.pumpWidget(
+      _buildPicker(
+        [root, moving, movingChild, sibling],
+        excludeGroupId: 'moving',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 'moving' and 'moving-child' should not appear (excluded).
+    expect(find.text('moving'), findsNothing);
+    expect(find.text('moving-child'), findsNothing);
+
+    // 'root' and 'sibling' should appear and be enabled.
+    for (final name in ['root', 'sibling']) {
+      final row = find.ancestor(
+        of: find.text(name),
+        matching: find.byType(PrismListRow),
+      );
+      expect(row, findsOneWidget);
+      expect(tester.widget<PrismListRow>(row).enabled, isTrue);
+    }
+  });
+
+  testWidgets('all groups in a formerly-blocked deep tree are now enabled', (
+    tester,
+  ) async {
+    // The old code blocked groups at depth 4 (would push a child to depth 6).
+    // With the depth gate removed, every group should be enabled.
     final root = _group(id: 'root');
     final level2 = _group(id: 'level-2', parentGroupId: 'root');
     final level3 = _group(id: 'level-3', parentGroupId: 'level-2');
@@ -48,63 +118,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final level4Row = find.ancestor(
-      of: find.text('level-4'),
-      matching: find.byType(PrismListRow),
-    );
-    final level5Row = find.ancestor(
-      of: find.text('level-5'),
-      matching: find.byType(PrismListRow),
-    );
+    for (final name in ['root', 'level-2', 'level-3', 'level-4', 'level-5']) {
+      final row = find.ancestor(
+        of: find.text(name),
+        matching: find.byType(PrismListRow),
+      );
+      expect(tester.widget<PrismListRow>(row).enabled, isTrue,
+          reason: '$name should be enabled with no depth limit');
+    }
 
-    expect(tester.widget<PrismListRow>(level4Row).enabled, isTrue);
-    expect(tester.widget<PrismListRow>(level5Row).enabled, isFalse);
-    expect(find.text("Can't nest deeper"), findsOneWidget);
-  });
-
-  testWidgets('blocks reparenting a subtree past depth 5', (tester) async {
-    final root = _group(id: 'root');
-    final moving = _group(id: 'moving', parentGroupId: 'root');
-    final movingChild = _group(id: 'moving-child', parentGroupId: 'moving');
-    final allowedParent = _group(
-      id: 'allowed-parent',
-      parentGroupId: 'level-2',
-    );
-    final level2 = _group(id: 'level-2', parentGroupId: 'root');
-    final blockedLevel2 = _group(id: 'blocked-level-2', parentGroupId: 'root');
-    final blockedLevel3 = _group(
-      id: 'blocked-level-3',
-      parentGroupId: 'blocked-level-2',
-    );
-    final blockedParent = _group(
-      id: 'blocked-parent',
-      parentGroupId: 'blocked-level-3',
-    );
-
-    await tester.pumpWidget(
-      _buildPicker([
-        root,
-        moving,
-        movingChild,
-        level2,
-        allowedParent,
-        blockedLevel2,
-        blockedLevel3,
-        blockedParent,
-      ], excludeGroupId: 'moving'),
-    );
-    await tester.pumpAndSettle();
-
-    final allowedRow = find.ancestor(
-      of: find.text('allowed-parent'),
-      matching: find.byType(PrismListRow),
-    );
-    final blockedRow = find.ancestor(
-      of: find.text('blocked-parent'),
-      matching: find.byType(PrismListRow),
-    );
-
-    expect(tester.widget<PrismListRow>(allowedRow).enabled, isTrue);
-    expect(tester.widget<PrismListRow>(blockedRow).enabled, isFalse);
+    // Old depth-limit subtitle must not appear.
+    expect(find.textContaining("Can't nest deeper"), findsNothing);
   });
 }
