@@ -605,6 +605,17 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       // handles its own success/error feedback; we always close the sheet
       // afterwards regardless of dialog outcome (push / keep-local / dismiss).
       if (!widget.isEditing && mounted) {
+        // Await the persisted PK settings before reading the gate. Each of
+        // these notifiers loads from the DAO asynchronously on first read
+        // (fire-and-forget in build()), so a synchronous read on the first
+        // member creation after launch could see defaults and either prompt
+        // when it shouldn't or skip when it should.
+        await Future.wait<void>([
+          ref.read(pluralKitSyncServiceProvider).loadState(),
+          ref.read(pkSyncDirectionProvider.notifier).load(),
+          ref.read(pkSyncModeProvider.notifier).load(),
+        ]);
+        if (!mounted) return;
         final pkSyncState = ref.read(pluralKitSyncProvider);
         final pushEnabled = ref.read(pkSyncDirectionProvider).pushEnabled;
         final mode = ref.read(pkSyncModeProvider);

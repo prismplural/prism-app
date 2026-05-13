@@ -128,14 +128,6 @@ class SpMapper {
   final Map<String, CfDisposition> _customFrontDispositions;
   final Set<String> _importAsNewSpMemberIds;
 
-  /// When true, every member companion built by this mapper sets
-  /// `pluralkitSyncIgnored: true`. Used by the SP importer when PluralKit is
-  /// paired but push is disabled at import time, so a large SP import doesn't
-  /// flood the "local-only members" banner with every imported member.
-  /// Mirrors the user's "Keep local" preference for these members until they
-  /// explicitly opt them in via the mapping screen.
-  final bool _markPushIgnored;
-
   /// SP CF ids whose persisted member mapping was scrubbed on init because
   /// the user's new disposition is no longer importAsMember. The importer
   /// reads [pendingStaleMappingDeletes] and asks the DAO to drop these rows.
@@ -172,7 +164,6 @@ class SpMapper {
     Map<String, Map<String, String>>? existingMappings,
     Map<String, CfDisposition>? customFrontDispositions,
     Set<String> importAsNewSpMemberIds = const {},
-    bool markPushIgnored = false,
   }) : _memberIdMap = Map.of(existingMappings?['member'] ?? {}),
        _channelIdMap = Map.of(existingMappings?['channel'] ?? {}),
        _sessionIdMap = Map.of(existingMappings?['session'] ?? {}),
@@ -180,8 +171,7 @@ class SpMapper {
        _fieldIdMap = Map.of(existingMappings?['field'] ?? {}),
        _categoryIdMap = Map.of(existingMappings?['category'] ?? {}),
        _customFrontDispositions = Map.of(customFrontDispositions ?? {}),
-       _importAsNewSpMemberIds = Set.of(importAsNewSpMemberIds),
-       _markPushIgnored = markPushIgnored;
+       _importAsNewSpMemberIds = Set.of(importAsNewSpMemberIds);
 
   // Expose ID maps as unmodifiable views so the importer can persist them.
   Map<String, String> get memberIdMap => Map.unmodifiable(_memberIdMap);
@@ -356,7 +346,6 @@ class SpMapper {
           customColorEnabled: colorHex != null,
           customColorHex: colorHex,
           pluralkitId: _importAsNewSpMemberIds.contains(sp.id) ? null : sp.pkId,
-          pluralkitSyncIgnored: _markPushIgnored,
         ),
       );
     }
@@ -393,7 +382,6 @@ class SpMapper {
           displayOrder: spMembers.length + i,
           customColorEnabled: colorHex != null,
           customColorHex: colorHex,
-          pluralkitSyncIgnored: _markPushIgnored,
         ),
       );
     }
