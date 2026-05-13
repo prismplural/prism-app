@@ -10038,7 +10038,11 @@
   },
   "pkMappingEmptySubtitle": "Your PluralKit system has no members and there are no local members to push.",
   "@pkMappingEmptySubtitle": {
-    "description": "Empty state subtitle on the PK mapping screen."
+    "description": "Empty state subtitle on the PK mapping screen when neither side has anything to map."
+  },
+  "pkMappingAllLinkedSubtitle": "Every member is already linked to PluralKit — nothing to map.",
+  "@pkMappingAllLinkedSubtitle": {
+    "description": "Empty state subtitle on the PK mapping screen when every local member already carries a PluralKit link and every PluralKit member is already mapped (e.g. after restoring Prism data on an account that was previously PK-paired)."
   },
   "pkMappingIntro": "For each PluralKit member, link to an existing Prism member, import as new, or skip. Unlinked Prism members can be pushed to PluralKit below.",
   "@pkMappingIntro": {
