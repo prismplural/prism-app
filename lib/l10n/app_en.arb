@@ -9022,6 +9022,93 @@
     "description": "Button label inside the mapping banner that opens the mapping flow",
     "placeholders": { "termPluralLower": { "type": "String" } }
   },
+  "pluralkitDirectionStepHeading": "How should this sync?",
+  "@pluralkitDirectionStepHeading": {
+    "description": "Heading for the sync direction step in the PluralKit setup wizard"
+  },
+  "pluralkitDirectionStepHint": "Pick a sync direction to finish setting up.",
+  "@pluralkitDirectionStepHint": {
+    "description": "Hint text below the heading for the sync direction step"
+  },
+  "pluralkitModeFullSyncCaption": "Sync members, history, and current fronters.",
+  "@pluralkitModeFullSyncCaption": {
+    "description": "Caption for the full-sync mode option in the direction step"
+  },
+  "pluralkitModeLiveOnlyCaption": "Sync only who's currently fronting.",
+  "@pluralkitModeLiveOnlyCaption": {
+    "description": "Caption for the live-fronters-only mode option in the direction step"
+  },
+  "pluralkitDirectionCaption": "Pull from PluralKit, push to PluralKit, or both.",
+  "@pluralkitDirectionCaption": {
+    "description": "Caption explaining the sync direction choices"
+  },
+  "pluralkitDirectionContinue": "Continue",
+  "@pluralkitDirectionContinue": {
+    "description": "Continue button label in the sync direction step"
+  },
+  "pluralkitDirectionMustChoose": "Choose a sync direction to continue.",
+  "@pluralkitDirectionMustChoose": {
+    "description": "Validation message when user taps Continue without choosing a direction"
+  },
+  "pluralkitWhosFrontingTitle": "Who's fronting?",
+  "@pluralkitWhosFrontingTitle": {
+    "description": "Title of the 'Who's fronting?' resolution sheet"
+  },
+  "pluralkitWhosFrontingSubtitle": "Prism and PluralKit have different answers for who's currently fronting. Pick the one that's correct and we'll sync from there.",
+  "@pluralkitWhosFrontingSubtitle": {
+    "description": "Subtitle explaining the fronter disagreement in the resolution sheet"
+  },
+  "pluralkitWhosFrontingDecideLater": "Decide later",
+  "@pluralkitWhosFrontingDecideLater": {
+    "description": "Button label to defer the fronter resolution decision"
+  },
+  "pluralkitWhosFrontingUsePrism": "Use Prism's",
+  "@pluralkitWhosFrontingUsePrism": {
+    "description": "Option label to use Prism's current fronters"
+  },
+  "pluralkitWhosFrontingUsePk": "Use PluralKit's",
+  "@pluralkitWhosFrontingUsePk": {
+    "description": "Option label to use PluralKit's current fronters"
+  },
+  "pluralkitWhosFrontingCofront": "Co-front (both)",
+  "@pluralkitWhosFrontingCofront": {
+    "description": "Option label to co-front with both Prism and PluralKit fronters"
+  },
+  "pluralkitWhosFrontingSetMembers": "Set {names} fronting",
+  "@pluralkitWhosFrontingSetMembers": {
+    "description": "Card action label to set the listed members as fronting",
+    "placeholders": { "names": { "type": "String" } }
+  },
+  "pluralkitWhosFrontingKeepMembers": "Keep {names} fronting",
+  "@pluralkitWhosFrontingKeepMembers": {
+    "description": "Card action label to keep the listed members fronting",
+    "placeholders": { "names": { "type": "String" } }
+  },
+  "pluralkitWhosFrontingNoneFronting": "Leave no one fronting",
+  "@pluralkitWhosFrontingNoneFronting": {
+    "description": "Option label to leave no one fronting"
+  },
+  "pluralkitWhosFrontingMatchPkNone": "Match PluralKit (no one fronting)",
+  "@pluralkitWhosFrontingMatchPkNone": {
+    "description": "Option label to match PluralKit's empty fronters state"
+  },
+  "pluralkitWhosFrontingRecommended": "Recommended",
+  "@pluralkitWhosFrontingRecommended": {
+    "description": "Badge label shown on the recommended fronter choice card"
+  },
+  "pluralkitPullOnlyHeadsUp": "PluralKit currently has {names} fronting; this will become your active fronter when you sync.",
+  "@pluralkitPullOnlyHeadsUp": {
+    "description": "Heads-up notice shown in pull-only mode before mapping, naming the current PK fronter(s)",
+    "placeholders": { "names": { "type": "String" } }
+  },
+  "pluralkitFirstSyncDeferred": "First sync deferred. Tap **Sync recent** when you're ready — it'll pull your full PluralKit history.",
+  "@pluralkitFirstSyncDeferred": {
+    "description": "Banner shown when the user chose 'Decide later' during the fronter resolution step"
+  },
+  "pluralkitMigrationBlockedNotice": "Resolve the fronting migration to finish setting up PluralKit sync.",
+  "@pluralkitMigrationBlockedNotice": {
+    "description": "Notice shown when a pending fronting migration is blocking PluralKit setup"
+  },
   "sleepWakeUpMorning": "Good morning!",
   "@sleepWakeUpMorning": {
     "description": "Wake-up sheet greeting shown between 5am and noon"

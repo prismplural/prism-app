@@ -13405,6 +13405,132 @@ abstract class AppLocalizations {
   /// **'Link {termPluralLower}'**
   String pluralkitMappingBannerButton(String termPluralLower);
 
+  /// Heading for the sync direction step in the PluralKit setup wizard
+  ///
+  /// In en, this message translates to:
+  /// **'How should this sync?'**
+  String get pluralkitDirectionStepHeading;
+
+  /// Hint text below the heading for the sync direction step
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a sync direction to finish setting up.'**
+  String get pluralkitDirectionStepHint;
+
+  /// Caption for the full-sync mode option in the direction step
+  ///
+  /// In en, this message translates to:
+  /// **'Sync members, history, and current fronters.'**
+  String get pluralkitModeFullSyncCaption;
+
+  /// Caption for the live-fronters-only mode option in the direction step
+  ///
+  /// In en, this message translates to:
+  /// **'Sync only who\'s currently fronting.'**
+  String get pluralkitModeLiveOnlyCaption;
+
+  /// Caption explaining the sync direction choices
+  ///
+  /// In en, this message translates to:
+  /// **'Pull from PluralKit, push to PluralKit, or both.'**
+  String get pluralkitDirectionCaption;
+
+  /// Continue button label in the sync direction step
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get pluralkitDirectionContinue;
+
+  /// Validation message when user taps Continue without choosing a direction
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a sync direction to continue.'**
+  String get pluralkitDirectionMustChoose;
+
+  /// Title of the 'Who's fronting?' resolution sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Who\'s fronting?'**
+  String get pluralkitWhosFrontingTitle;
+
+  /// Subtitle explaining the fronter disagreement in the resolution sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Prism and PluralKit have different answers for who\'s currently fronting. Pick the one that\'s correct and we\'ll sync from there.'**
+  String get pluralkitWhosFrontingSubtitle;
+
+  /// Button label to defer the fronter resolution decision
+  ///
+  /// In en, this message translates to:
+  /// **'Decide later'**
+  String get pluralkitWhosFrontingDecideLater;
+
+  /// Option label to use Prism's current fronters
+  ///
+  /// In en, this message translates to:
+  /// **'Use Prism\'s'**
+  String get pluralkitWhosFrontingUsePrism;
+
+  /// Option label to use PluralKit's current fronters
+  ///
+  /// In en, this message translates to:
+  /// **'Use PluralKit\'s'**
+  String get pluralkitWhosFrontingUsePk;
+
+  /// Option label to co-front with both Prism and PluralKit fronters
+  ///
+  /// In en, this message translates to:
+  /// **'Co-front (both)'**
+  String get pluralkitWhosFrontingCofront;
+
+  /// Card action label to set the listed members as fronting
+  ///
+  /// In en, this message translates to:
+  /// **'Set {names} fronting'**
+  String pluralkitWhosFrontingSetMembers(String names);
+
+  /// Card action label to keep the listed members fronting
+  ///
+  /// In en, this message translates to:
+  /// **'Keep {names} fronting'**
+  String pluralkitWhosFrontingKeepMembers(String names);
+
+  /// Option label to leave no one fronting
+  ///
+  /// In en, this message translates to:
+  /// **'Leave no one fronting'**
+  String get pluralkitWhosFrontingNoneFronting;
+
+  /// Option label to match PluralKit's empty fronters state
+  ///
+  /// In en, this message translates to:
+  /// **'Match PluralKit (no one fronting)'**
+  String get pluralkitWhosFrontingMatchPkNone;
+
+  /// Badge label shown on the recommended fronter choice card
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get pluralkitWhosFrontingRecommended;
+
+  /// Heads-up notice shown in pull-only mode before mapping, naming the current PK fronter(s)
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit currently has {names} fronting; this will become your active fronter when you sync.'**
+  String pluralkitPullOnlyHeadsUp(String names);
+
+  /// Banner shown when the user chose 'Decide later' during the fronter resolution step
+  ///
+  /// In en, this message translates to:
+  /// **'First sync deferred. Tap **Sync recent** when you\'re ready — it\'ll pull your full PluralKit history.'**
+  String get pluralkitFirstSyncDeferred;
+
+  /// Notice shown when a pending fronting migration is blocking PluralKit setup
+  ///
+  /// In en, this message translates to:
+  /// **'Resolve the fronting migration to finish setting up PluralKit sync.'**
+  String get pluralkitMigrationBlockedNotice;
+
   /// Wake-up sheet greeting shown between 5am and noon
   ///
   /// In en, this message translates to:

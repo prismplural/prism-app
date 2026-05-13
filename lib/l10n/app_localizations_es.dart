@@ -8349,6 +8349,84 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get pluralkitDirectionStepHeading => 'How should this sync?';
+
+  @override
+  String get pluralkitDirectionStepHint =>
+      'Pick a sync direction to finish setting up.';
+
+  @override
+  String get pluralkitModeFullSyncCaption =>
+      'Sync members, history, and current fronters.';
+
+  @override
+  String get pluralkitModeLiveOnlyCaption =>
+      'Sync only who\'s currently fronting.';
+
+  @override
+  String get pluralkitDirectionCaption =>
+      'Pull from PluralKit, push to PluralKit, or both.';
+
+  @override
+  String get pluralkitDirectionContinue => 'Continue';
+
+  @override
+  String get pluralkitDirectionMustChoose =>
+      'Choose a sync direction to continue.';
+
+  @override
+  String get pluralkitWhosFrontingTitle => 'Who\'s fronting?';
+
+  @override
+  String get pluralkitWhosFrontingSubtitle =>
+      'Prism and PluralKit have different answers for who\'s currently fronting. Pick the one that\'s correct and we\'ll sync from there.';
+
+  @override
+  String get pluralkitWhosFrontingDecideLater => 'Decide later';
+
+  @override
+  String get pluralkitWhosFrontingUsePrism => 'Use Prism\'s';
+
+  @override
+  String get pluralkitWhosFrontingUsePk => 'Use PluralKit\'s';
+
+  @override
+  String get pluralkitWhosFrontingCofront => 'Co-front (both)';
+
+  @override
+  String pluralkitWhosFrontingSetMembers(String names) {
+    return 'Set $names fronting';
+  }
+
+  @override
+  String pluralkitWhosFrontingKeepMembers(String names) {
+    return 'Keep $names fronting';
+  }
+
+  @override
+  String get pluralkitWhosFrontingNoneFronting => 'Leave no one fronting';
+
+  @override
+  String get pluralkitWhosFrontingMatchPkNone =>
+      'Match PluralKit (no one fronting)';
+
+  @override
+  String get pluralkitWhosFrontingRecommended => 'Recommended';
+
+  @override
+  String pluralkitPullOnlyHeadsUp(String names) {
+    return 'PluralKit currently has $names fronting; this will become your active fronter when you sync.';
+  }
+
+  @override
+  String get pluralkitFirstSyncDeferred =>
+      'First sync deferred. Tap **Sync recent** when you\'re ready — it\'ll pull your full PluralKit history.';
+
+  @override
+  String get pluralkitMigrationBlockedNotice =>
+      'Resolve the fronting migration to finish setting up PluralKit sync.';
+
+  @override
   String get sleepWakeUpMorning => '¡Buenos días!';
 
   @override
