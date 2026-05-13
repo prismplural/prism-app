@@ -61,21 +61,25 @@ class GroupTreeUtils {
   /// Use this when computing depths for many nodes at once (e.g. in a list view
   /// or picker) — calling [getGroupDepth] per node is O(n) per call due to the
   /// internal id-map rebuild.
+  ///
+  /// Implemented as an iterative DFS using an explicit stack to avoid blowing
+  /// Dart's call stack on arbitrarily deep trees.
   static Map<String, int> getGroupDepthsAll(
     Map<String?, List<MemberGroup>> tree,
   ) {
     final depths = <String, int>{};
     final visited = <String>{};
-    void visit(MemberGroup g, int d) {
-      if (!visited.add(g.id)) return; // cycle guard
+    final stack = <(MemberGroup, int)>[];
+    for (final root in tree[null] ?? const <MemberGroup>[]) {
+      stack.add((root, 1));
+    }
+    while (stack.isNotEmpty) {
+      final (g, d) = stack.removeLast();
+      if (!visited.add(g.id)) continue; // cycle guard
       depths[g.id] = d;
       for (final child in tree[g.id] ?? const <MemberGroup>[]) {
-        visit(child, d + 1);
+        stack.add((child, d + 1));
       }
-    }
-
-    for (final root in tree[null] ?? const <MemberGroup>[]) {
-      visit(root, 1);
     }
     return depths;
   }
