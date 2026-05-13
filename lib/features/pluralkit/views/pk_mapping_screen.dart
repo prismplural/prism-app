@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
 import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
+import 'package:prism_plurality/features/pluralkit/widgets/pk_profile_disclosure_helper.dart';
+import 'package:prism_plurality/features/pluralkit/widgets/pk_who_is_fronting_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
@@ -78,18 +82,107 @@ class _MappingBody extends ConsumerWidget {
     // Pre-resolve the localized phase status strings here so the controller
     // (which has no BuildContext) can use them when transitioning into the
     // importing / pushing phases.
-    await ref.read(pkMappingControllerProvider.notifier).apply(
+    final outcome = await ref.read(pkMappingControllerProvider.notifier).apply(
           importingHistoryStatus: l10n.pkMappingImportingHistory,
           pushingHistoryStatus: l10n.pkMappingPushingHistory,
           offlineErrorMessage: l10n.pkMappingNetworkErrorOffline,
         );
-    final latest = ref.read(pkMappingControllerProvider).value;
     if (!context.mounted) return;
-    if (latest != null &&
-        latest.lastResults != null &&
-        latest.lastResults!.every((r) => r.outcome != PkApplyOutcome.failed) &&
-        latest.error == null) {
-      Navigator.of(context).pop();
+
+    switch (outcome) {
+      case PkMappingApplyOutcomeApplied():
+        final syncState = ref.read(pluralKitSyncProvider);
+        final mode = ref.read(pkSyncModeProvider);
+        final direction = ref.read(pkSyncDirectionProvider);
+        await maybeShowPkProfileDisclosure(
+          context: context,
+          ref: ref,
+          syncState: syncState,
+          mode: mode,
+          direction: direction,
+        );
+        if (!context.mounted) return;
+        Navigator.of(context).pop();
+
+      case PkMappingApplyOutcomeNeedsFronterResolution(
+          :final localFronterMemberIds,
+          :final pkFronterMemberIds,
+          :final direction,
+          :final mode,
+          :final pkCurrentSwitch,
+        ):
+        // Resolve local member IDs to (id, name) pairs for the sheet.
+        final memberRepo = ref.read(memberRepositoryProvider);
+
+        Future<List<({String id, String name})>> resolveNames(
+          Set<String> ids,
+        ) async {
+          final list = <({String id, String name})>[];
+          for (final id in ids) {
+            final member = await memberRepo.getMemberById(id);
+            if (member != null) {
+              list.add((
+                id: id,
+                name: member.displayName ?? member.name,
+              ));
+            }
+          }
+          return list;
+        }
+
+        final localFronters = await resolveNames(localFronterMemberIds);
+        final pkFronters = await resolveNames(pkFronterMemberIds);
+        if (!context.mounted) return;
+
+        final chosen = await PkWhoIsFrontingSheet.show(
+          context: context,
+          localFronters: localFronters,
+          pkFronters: pkFronters,
+          direction: direction,
+        );
+        if (!context.mounted) return;
+
+        if (chosen == null) {
+          // "Decide later" — defer bootstrap.
+          await ref.read(pkMappingControllerProvider.notifier).deferBootstrap();
+          if (!context.mounted) return;
+          Navigator.of(context).pop();
+          return;
+        }
+
+        // User chose a set — apply fronter resolution then pop.
+        await ref
+            .read(pkMappingControllerProvider.notifier)
+            .applyFronterResolution(
+              chosenLocalMemberIds: chosen,
+              direction: direction,
+              mode: mode,
+              pkCurrentSwitch: pkCurrentSwitch,
+              importingHistoryStatus: l10n.pkMappingImportingHistory,
+              pushingHistoryStatus: l10n.pkMappingPushingHistory,
+            );
+        if (!context.mounted) return;
+
+        final syncState = ref.read(pluralKitSyncProvider);
+        await maybeShowPkProfileDisclosure(
+          context: context,
+          ref: ref,
+          syncState: syncState,
+          mode: mode,
+          direction: direction,
+        );
+        if (!context.mounted) return;
+        Navigator.of(context).pop();
+
+      case PkMappingApplyOutcomeFailed():
+        // Failure UI is driven by state.lastResults (rendered by
+        // _ResultsSummary) and state.error. No navigation — stay on screen.
+        break;
+
+      case null:
+        // Null outcome means an early exit (not connected, ref unmounted,
+        // unhandled exception). State.error is already set; stay on screen.
+        break;
     }
   }
 

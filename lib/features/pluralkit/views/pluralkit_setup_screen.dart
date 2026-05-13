@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
-import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
-import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_auto_poll_provider.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pk_current_fronters_provider.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pk_first_sync_deferred_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_sync_event_log_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
@@ -19,9 +19,7 @@ import 'package:prism_plurality/features/pluralkit/views/pk_file_import_screen.d
 import 'package:prism_plurality/features/pluralkit/views/pk_mapping_screen.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_direction_picker.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_summary_card.dart';
-import 'package:prism_plurality/features/pluralkit/widgets/pk_system_profile_disclosure.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
-import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -90,18 +88,205 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     await ref.read(pluralKitSyncProvider.notifier).setToken(token);
     _tokenController.clear();
 
-    // First-pull disclosure: if the token successfully connected and we haven't
-    // shown the system-profile prompt for this PK system before, offer to
-    // import name/description/tag/avatar into system_settings.
-    final syncState = ref.read(pluralKitSyncProvider);
-    if (syncState.isConnected && syncState.syncError == null) {
-      await _loadPersistedSyncPreferences();
-      final mode = ref.read(pkSyncModeProvider);
-      final direction = ref.read(pkSyncDirectionProvider);
-      if (mode == PkSyncMode.fullSync && direction.pullEnabled) {
-        await _maybeShowProfileDisclosure();
-      }
-    }
+    // NOTE: profile disclosure no longer fires here. It moves to the mapping
+    // screen's resolution path (T16) so the user picks a direction before any
+    // disclosure prompt appears. The helper is left in place so T16 can call
+    // it from the mapping screen.
+  }
+
+  Widget _buildDirectionStep(ThemeData theme) {
+    final mode = ref.watch(pkSyncModeProvider);
+    final direction = ref.watch(pkSyncDirectionProvider);
+    return PrismSectionCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.l10n.pluralkitDirectionStepHint,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Mode segmented control
+          SizedBox(
+            width: double.infinity,
+            child: PrismSegmentedControl<PkSyncMode>(
+              segments: [
+                PrismSegment(
+                  value: PkSyncMode.fullSync,
+                  label: context.l10n.pluralkitSyncModeFullSync,
+                ),
+                PrismSegment(
+                  value: PkSyncMode.liveFrontsOnly,
+                  label: context.l10n.pluralkitSyncModeLiveFrontsOnly,
+                ),
+              ],
+              selected: mode,
+              onChanged: (next) {
+                ref.read(pkSyncModeProvider.notifier).setMode(next);
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            mode == PkSyncMode.liveFrontsOnly
+                ? context.l10n.pluralkitModeLiveOnlyCaption
+                : context.l10n.pluralkitModeFullSyncCaption,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Direction picker
+          SizedBox(
+            width: double.infinity,
+            child: PkSyncDirectionPicker(
+              selected: direction,
+              onChanged: (d) {
+                ref.read(pkSyncDirectionProvider.notifier).setDirection(d);
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.l10n.pluralkitDirectionCaption,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Continue button advances the direction gate.
+          PrismButton(
+            onPressed: () async {
+              await ref
+                  .read(pluralKitSyncProvider.notifier)
+                  .confirmDirection();
+            },
+            label: context.l10n.pluralkitDirectionContinue,
+            tone: PrismButtonTone.filled,
+            expanded: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMigrationBlockedNotice(ThemeData theme) {
+    return PrismSurface(
+      fillColor: theme.colorScheme.errorContainer,
+      borderColor: theme.colorScheme.error.withValues(alpha: 0.3),
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Icon(
+            AppIcons.warningAmber,
+            color: theme.colorScheme.onErrorContainer,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              context.l10n.pluralkitMigrationBlockedNotice,
+              style: TextStyle(color: theme.colorScheme.onErrorContainer),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPullOnlyHeadsUp(ThemeData theme) {
+    final frontersAsync = ref.watch(pkCurrentFrontersProvider);
+
+    // While loading, show nothing (avoids layout shift).
+    if (frontersAsync is AsyncLoading) return const SizedBox.shrink();
+
+    // On error or null result, suppress the banner entirely.
+    final pkSwitch = frontersAsync.value;
+    if (pkSwitch == null) return const SizedBox.shrink();
+
+    // An empty switch (nobody currently fronting in PK) — no banner needed.
+    if (pkSwitch.members.isEmpty) return const SizedBox.shrink();
+
+    // Resolve display names from the rich memberDetails if available;
+    // fall back to the 5-char short ID so we never show a blank name.
+    final names = pkSwitch.memberDetails.isNotEmpty
+        ? pkSwitch.memberDetails
+            .map((m) => m.displayName ?? m.name ?? m.id)
+            .join(', ')
+        : pkSwitch.members.join(', ');
+
+    return PrismSurface(
+      fillColor: theme.colorScheme.secondaryContainer,
+      borderColor: theme.colorScheme.secondary.withValues(alpha: 0.3),
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Icon(
+            AppIcons.sync,
+            color: theme.colorScheme.onSecondaryContainer,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              context.l10n.pluralkitPullOnlyHeadsUp(names),
+              style: TextStyle(color: theme.colorScheme.onSecondaryContainer),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeferredSyncBannerIfNeeded(ThemeData theme) {
+    final deferredAsync = ref.watch(pkFirstSyncDeferredProvider);
+    return deferredAsync.when(
+      loading: () => const SizedBox.shrink(),
+      // ignore: avoid_unused_parameters
+      error: (e, s) => const SizedBox.shrink(),
+      data: (isDeferred) {
+        if (!isDeferred) return const SizedBox.shrink();
+        return Column(
+          children: [
+            PrismSurface(
+              fillColor: theme.colorScheme.tertiaryContainer,
+              borderColor: theme.colorScheme.tertiary.withValues(alpha: 0.3),
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Icon(
+                    AppIcons.sync,
+                    color: theme.colorScheme.onTertiaryContainer,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.l10n.pluralkitFirstSyncDeferred,
+                      style: TextStyle(
+                        color: theme.colorScheme.onTertiaryContainer,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    color: theme.colorScheme.onTertiaryContainer,
+                    onPressed: () {
+                      ref
+                          .read(pkFirstSyncDeferredProvider.notifier)
+                          .clear();
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _loadPersistedSyncPreferences() async {
@@ -184,51 +369,6 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     );
   }
 
-  Future<void> _maybeShowProfileDisclosure() async {
-    final notifier = ref.read(pluralKitSyncProvider.notifier);
-    final PKSystem? pkSystem;
-    try {
-      pkSystem = await notifier.fetchSystemProfile();
-    } catch (_) {
-      return;
-    }
-    if (pkSystem == null) return;
-    // Short-circuit if PK has nothing worth offering.
-    final anyField =
-        (pkSystem.name?.isNotEmpty ?? false) ||
-        (pkSystem.description?.isNotEmpty ?? false) ||
-        (pkSystem.tag?.isNotEmpty ?? false) ||
-        (pkSystem.avatarUrl?.isNotEmpty ?? false);
-    if (!anyField) return;
-
-    // One-shot per PK system: once a user decides (import or skip) we don't
-    // show the sheet again on subsequent reconnects with the same systemId.
-    final prefs = await SharedPreferences.getInstance();
-    final sentinelKey = 'pk_profile_disclosure_shown_${pkSystem.id}';
-    if (prefs.getBool(sentinelKey) == true) return;
-
-    final currentSettings = await ref
-        .read(systemSettingsRepositoryProvider)
-        .getSettings();
-    if (!mounted) return;
-
-    final accepted = await PrismSheet.show<Set<PkProfileField>?>(
-      context: context,
-      builder: (sheetCtx) => PkSystemProfileDisclosureSheet(
-        pkSystem: pkSystem!,
-        currentPrismSettings: currentSettings,
-        onConfirm: (selected) => Navigator.of(sheetCtx).pop(selected),
-        onSkip: () => Navigator.of(sheetCtx).pop(<PkProfileField>{}),
-      ),
-    );
-
-    await prefs.setBool(sentinelKey, true);
-
-    if (accepted != null && accepted.isNotEmpty) {
-      await notifier.adoptSystemProfile(pk: pkSystem, accepted: accepted);
-    }
-  }
-
   Future<void> _disconnect() async {
     final confirmed = await PrismDialog.confirm(
       context: context,
@@ -303,6 +443,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   Widget build(BuildContext context) {
     final syncState = ref.watch(pluralKitSyncProvider);
     final theme = Theme.of(context);
+    final migrationBlocked = ref.watch(frontingMigrationWritesBlockedProvider);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -347,10 +488,39 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             ),
           ],
 
-          // -- Mapping gate banner --
-          if (syncState.isConnected && syncState.needsMapping) ...[
+          // -- Migration-blocked notice --
+          // When the fronting migration is blocking writes AND the wizard is
+          // in progress (direction or mapping step), show a notice in place of
+          // the wizard sections. Steady-state sections (canAutoSync) render
+          // normally since those writes are also gated at the service layer.
+          if (migrationBlocked &&
+              (syncState.needsDirection || syncState.needsMapping)) ...[
             const SizedBox(height: 16),
-            _buildMappingBanner(theme),
+            _buildMigrationBlockedNotice(theme),
+          ] else ...[
+            // -- Direction step (gated on needsDirection) --
+            if (syncState.needsDirection) ...[
+              const SizedBox(height: 24),
+              _SectionHeader(title: context.l10n.pluralkitDirectionStepHeading),
+              const SizedBox(height: 8),
+              _buildDirectionStep(theme),
+            ],
+
+            // -- Mapping gate banner (gated on needsMapping) --
+            if (syncState.needsMapping) ...[
+              const SizedBox(height: 16),
+              _buildMappingBanner(theme),
+
+              // Pull-only heads-up: shown when direction is pullOnly AND
+              // mapping is pending. The banner is driven by live PK fronter
+              // data from pkCurrentFrontersProvider; it suppresses itself
+              // when the fetch fails or returns an empty switch.
+              if (ref.watch(pkSyncDirectionProvider) ==
+                  PkSyncDirection.pullOnly) ...[
+                const SizedBox(height: 8),
+                _buildPullOnlyHeadsUp(theme),
+              ],
+            ],
           ],
 
           // -- Section 2: Sync Direction --
@@ -374,6 +544,9 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             const SizedBox(height: 24),
             _SectionHeader(title: context.l10n.pluralkitSyncActions),
             const SizedBox(height: 8),
+            // Deferred-sync banner: shown when the user tapped "Decide later"
+            // in the Who's fronting? sheet (T10 writes the prefs flag).
+            _buildDeferredSyncBannerIfNeeded(theme),
             if (syncState.isSyncing)
               _buildSyncProgress(syncState, theme)
             else
