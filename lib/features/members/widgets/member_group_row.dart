@@ -31,7 +31,7 @@ class MemberGroupRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final leftOffset = depth > 0 ? depth * 24.0 : 0.0;
+    final leftOffset = depth > 0 ? depth * 10.0 : 0.0;
     final row = Semantics(
       label: _semanticLabel(context),
       button: true,

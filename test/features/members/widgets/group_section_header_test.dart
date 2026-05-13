@@ -17,7 +17,21 @@ MemberGroup _group(String name, {String? emoji, String? colorHex}) =>
       createdAt: DateTime(2024, 1, 1),
     );
 
+MemberGroup _grp(String name) => MemberGroup(
+  id: name,
+  name: name,
+  createdAt: DateTime(2024, 1, 1),
+);
+
 Widget _host(Widget child) => ProviderScope(
+  child: MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: const [Locale('en')],
+    home: Scaffold(body: child),
+  ),
+);
+
+Widget _wrap(Widget child) => ProviderScope(
   child: MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: const [Locale('en')],
@@ -82,5 +96,68 @@ void main() {
 
     expect(find.byType(TintedGlassSurface), findsOneWidget);
     expect(find.text('⚧️'), findsOneWidget);
+  });
+
+  group('GroupSectionHeader detail-view affordance', () {
+    testWidgets('absent at depth < cap even with deeper descendants', (tester) async {
+      bool tapped = false;
+      await tester.pumpWidget(_wrap(GroupSectionHeader(
+        group: _grp('alpha'),
+        depth: 3,
+        memberCount: 0,
+        isCollapsed: false,
+        canCollapse: true,
+        onToggle: () {},
+        hasDeeperDescendants: true,
+        onOpenDetail: () => tapped = true,
+      )));
+      expect(find.byIcon(Icons.account_tree_outlined), findsNothing);
+      expect(tapped, isFalse);
+    });
+
+    testWidgets('present at cap when hasDeeperDescendants is true', (tester) async {
+      await tester.pumpWidget(_wrap(GroupSectionHeader(
+        group: _grp('alpha'),
+        depth: kSectionsVisualDepthCap,
+        memberCount: 0,
+        isCollapsed: false,
+        canCollapse: true,
+        onToggle: () {},
+        hasDeeperDescendants: true,
+        onOpenDetail: () {},
+      )));
+      expect(find.byIcon(Icons.account_tree_outlined), findsOneWidget);
+    });
+
+    testWidgets('absent at cap when hasDeeperDescendants is false', (tester) async {
+      await tester.pumpWidget(_wrap(GroupSectionHeader(
+        group: _grp('alpha'),
+        depth: kSectionsVisualDepthCap,
+        memberCount: 0,
+        isCollapsed: false,
+        canCollapse: true,
+        onToggle: () {},
+        hasDeeperDescendants: false,
+        onOpenDetail: () {},
+      )));
+      expect(find.byIcon(Icons.account_tree_outlined), findsNothing);
+    });
+
+    testWidgets('tap fires onOpenDetail', (tester) async {
+      var tapped = 0;
+      await tester.pumpWidget(_wrap(GroupSectionHeader(
+        group: _grp('alpha'),
+        depth: kSectionsVisualDepthCap,
+        memberCount: 0,
+        isCollapsed: false,
+        canCollapse: true,
+        onToggle: () {},
+        hasDeeperDescendants: true,
+        onOpenDetail: () => tapped++,
+      )));
+      await tester.tap(find.byIcon(Icons.account_tree_outlined));
+      await tester.pump();
+      expect(tapped, 1);
+    });
   });
 }

@@ -655,13 +655,16 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 final header = GroupSectionHeader(
                   key: key,
                   group: item.group,
-                  depth: item.depth.clamp(0, 2),
+                  depth: item.depth.clamp(0, kSectionsVisualDepthCap),
                   memberCount: counts[item.group.id] ?? 0,
                   isCollapsed: item.isCollapsed,
                   canCollapse: true,
                   onToggle: () => ref
                       .read(collapsedGroupsProvider.notifier)
                       .toggle(item.group.id),
+                  hasDeeperDescendants: item.depth > kSectionsVisualDepthCap,
+                  onOpenDetail: () =>
+                      context.push(_groupPath(context, item.group.id)),
                 );
                 if (item.depth == 0 && index > 0) {
                   return Column(
@@ -692,7 +695,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               }
               if (item is MemberRowItem) {
                 final isFronting = frontingIds.contains(item.member.id);
-                final indent = item.depth.clamp(0, 2) * 16.0;
+                final indent = item.depth.clamp(0, kSectionsVisualDepthCap) * 8.0;
                 return Padding(
                   padding: EdgeInsets.only(left: indent),
                   child: _buildMemberTile(item.member, isFronting),

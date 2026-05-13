@@ -10,6 +10,7 @@ import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart';
+import 'package:prism_plurality/features/members/widgets/group_section_header.dart';
 import 'package:prism_plurality/features/members/widgets/member_group_row.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
@@ -157,7 +158,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                 return MemberGroupRow(
                   key: ValueKey(entry.group.id),
                   group: entry.group,
-                  depth: entry.depth.clamp(0, 2),
+                  depth: entry.depth.clamp(0, kSectionsVisualDepthCap),
                   reorderIndex: index,
                   memberCount: counts[entry.group.id] ?? 0,
                   onTap: () =>

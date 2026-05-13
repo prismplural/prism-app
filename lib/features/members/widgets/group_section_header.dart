@@ -6,6 +6,14 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
+/// Visual cap for how many indent levels the sections view renders.
+///
+/// Depths beyond this value render at the same indent as this cap. The section
+/// header for a group at this depth (or deeper) with descendants below it
+/// surfaces a "open in detail view" affordance so users can drill into the
+/// deeper subtree.
+const int kSectionsVisualDepthCap = 6;
+
 /// Section header for a member group (or the ungrouped section) in the
 /// grouped sections members list.
 class GroupSectionHeader extends StatelessWidget {
@@ -17,6 +25,8 @@ class GroupSectionHeader extends StatelessWidget {
     required this.isCollapsed,
     required this.canCollapse,
     required this.onToggle,
+    this.hasDeeperDescendants = false,
+    this.onOpenDetail,
   });
 
   /// The group this header represents. `null` indicates the ungrouped section.
@@ -29,6 +39,15 @@ class GroupSectionHeader extends StatelessWidget {
   final bool canCollapse;
   final VoidCallback? onToggle;
 
+  /// True when this group has descendants below the visual depth cap, so the
+  /// inline indent can't represent them. When this is true and [depth] reaches
+  /// [kSectionsVisualDepthCap], a "open in detail view" icon is shown.
+  final bool hasDeeperDescendants;
+
+  /// Called when the user taps the "open in detail view" affordance. Required
+  /// for the affordance to render.
+  final VoidCallback? onOpenDetail;
+
   static const double _avatarSize = 28.0;
   static const double _barHeight = 40.0;
 
@@ -37,7 +56,7 @@ class GroupSectionHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final name = group?.name ?? l10n.memberGroupFilterUngrouped;
-    final leftIndent = depth * 30.0;
+    final leftIndent = depth * 12.0;
 
     Color? groupColor;
     if (group?.colorHex != null && group!.colorHex!.isNotEmpty) {
@@ -115,6 +134,31 @@ class GroupSectionHeader extends StatelessWidget {
                       ),
                     ),
                   ),
+                if (depth >= kSectionsVisualDepthCap &&
+                    hasDeeperDescendants &&
+                    onOpenDetail != null) ...[
+                  const SizedBox(width: 4),
+                  Semantics(
+                    button: true,
+                    label: 'Open ${group?.name ?? ''} in detail view',
+                    excludeSemantics: true,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.account_tree_outlined,
+                        size: 18,
+                        color: theme.colorScheme.outline,
+                      ),
+                      onPressed: onOpenDetail,
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      tooltip: 'Open in detail view',
+                    ),
+                  ),
+                ],
                 if (canCollapse) ...[
                   const SizedBox(width: 4),
                   AnimatedRotation(
