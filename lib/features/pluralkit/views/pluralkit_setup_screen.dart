@@ -48,6 +48,12 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   Timer? _cooldownTimer;
   int _cooldownSeconds = 0;
 
+  /// True once the user has interacted with the direction picker, OR once a
+  /// non-default preserved value has been loaded from a prior session.
+  /// Gates the Continue button on the direction step — the wizard is meant
+  /// to force the choice (see spec "direction-first"). Bug I3.
+  bool _directionTouched = false;
+
   @override
   void dispose() {
     _tokenController.dispose();
@@ -97,6 +103,19 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   Widget _buildDirectionStep(ThemeData theme) {
     final mode = ref.watch(pkSyncModeProvider);
     final direction = ref.watch(pkSyncDirectionProvider);
+    // Pre-mark touched if the user had previously persisted a non-default
+    // direction (resumed from a prior session). The provider defaults to
+    // `pullOnly` until `load()` resolves — once it does, any non-default
+    // value reflects a deliberate prior choice. This avoids forcing a
+    // re-tap for users who already picked something. See bug I3.
+    if (!_directionTouched && direction != PkSyncDirection.pullOnly) {
+      // Defer the state change out of build to avoid setState-in-build.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_directionTouched) {
+          setState(() => _directionTouched = true);
+        }
+      });
+    }
     return PrismSectionCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -145,6 +164,9 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             child: PkSyncDirectionPicker(
               selected: direction,
               onChanged: (d) {
+                if (!_directionTouched) {
+                  setState(() => _directionTouched = true);
+                }
                 ref.read(pkSyncDirectionProvider.notifier).setDirection(d);
               },
             ),
@@ -157,13 +179,17 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          // Continue button advances the direction gate.
+          // Continue button advances the direction gate. Disabled until the
+          // user has interacted with the picker (or a non-default preserved
+          // value was loaded). The whole point of the direction step is to
+          // force the choice — see spec "direction-first" / bug I3.
           PrismButton(
             onPressed: () async {
               await ref
                   .read(pluralKitSyncProvider.notifier)
                   .confirmDirection();
             },
+            enabled: _directionTouched,
             label: context.l10n.pluralkitDirectionContinue,
             tone: PrismButtonTone.filled,
             expanded: true,

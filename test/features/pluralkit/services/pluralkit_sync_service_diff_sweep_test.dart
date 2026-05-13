@@ -417,6 +417,7 @@ void main() {
 
         final service = _makeService(db: db, client: client);
         await service.setToken('t');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         await service.importSwitchesAfterLink();
 
@@ -491,6 +492,7 @@ void main() {
 
       final service = _makeService(db: db, client: client);
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await service.importSwitchesAfterLink();
 
@@ -553,6 +555,7 @@ void main() {
 
       final service = _makeService(db: db, client: client);
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await service.importSwitchesAfterLink();
 
@@ -602,6 +605,7 @@ void main() {
 
       final service = _makeService(db: db, client: client);
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await service.importSwitchesAfterLink();
 
@@ -680,6 +684,7 @@ void main() {
         ]);
         final svc1 = _makeService(db: db, client: client1);
         await svc1.setToken('t');
+        await svc1.confirmDirection();
         await svc1.acknowledgeMapping();
         await svc1.performFullImport();
 
@@ -701,6 +706,7 @@ void main() {
           memberRepo: memberRepo,
         );
         await svc2.setToken('t');
+        await svc2.confirmDirection();
         await svc2.acknowledgeMapping();
         await svc2.performFullImport();
 
@@ -761,6 +767,7 @@ void main() {
           sessionRepo: sessionRepo,
         );
         await svc1.setToken('t');
+        await svc1.confirmDirection();
         await svc1.acknowledgeMapping();
         await svc1.performFullImport();
 
@@ -780,6 +787,7 @@ void main() {
           sessionRepo: sessionRepo,
         );
         await svc2.setToken('t');
+        await svc2.confirmDirection();
         await svc2.acknowledgeMapping();
         await svc2.performFullImport();
 
@@ -827,6 +835,7 @@ void main() {
 
       final service = _makeService(db: db, client: client);
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await service.importSwitchesAfterLink();
 
@@ -874,6 +883,7 @@ void main() {
         memberRepo: memberRepo,
       );
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await service.performFullImport();
 
@@ -939,6 +949,7 @@ void main() {
           sessionRepo: sessionRepo,
         );
         await service.setToken('t');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         // performFullImport = corrective re-import path.
         await service.performFullImport();
@@ -1011,6 +1022,7 @@ void main() {
         sessionRepo: sessionRepo,
       );
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await service.performFullImport();
 
@@ -1089,6 +1101,7 @@ void main() {
         sessionRepo: sessionRepo,
       );
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await service.performFullImport();
 
@@ -1160,6 +1173,7 @@ void main() {
         sessionRepo: sessionRepo,
       );
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
 
       await service.performFullImport();
@@ -1219,6 +1233,7 @@ void main() {
           memberRepo: memberRepo,
         );
         await service.setToken('t');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         await service.importSwitchesAfterLink();
 
@@ -1269,6 +1284,7 @@ void main() {
           memberRepo: memberRepo,
         );
         await service.setToken('t');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         await expectLater(service.importSwitchesAfterLink(), completes);
 
@@ -1316,6 +1332,7 @@ void main() {
           memberRepo: memberRepo,
         );
         await service.setToken('t');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         await service.importSwitchesAfterLink();
 
@@ -1363,6 +1380,7 @@ void main() {
         memberRepo: memberRepo,
       );
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await service.importSwitchesAfterLink();
 
@@ -1447,6 +1465,7 @@ void main() {
         sessionRepo: sessionRepo,
       );
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await service.importSwitchesAfterLink();
 
@@ -1521,6 +1540,7 @@ void main() {
         sessionRepo: sessionRepo,
       );
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await service.importSwitchesAfterLink();
 
@@ -1598,6 +1618,7 @@ void main() {
         sessionRepo: sessionRepo,
       );
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await service.performFullImport();
 
@@ -1673,6 +1694,7 @@ void main() {
         sessionRepo: sessionRepo,
       );
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await expectLater(
         service.importSwitchesAfterLink(),
@@ -1782,6 +1804,7 @@ void main() {
 
         final service = _makeService(db: db, client: client);
         await service.setToken('t');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         await service.loadState();
 
@@ -1851,6 +1874,7 @@ void main() {
 
         final service = _makeService(db: db, client: client);
         await service.setToken('t');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         // performFullImport runs the canonicalization + diff sweep; if the
         // two paths derive different ids, canonicalization will tombstone
@@ -1934,6 +1958,7 @@ void main() {
         sessionRepo: sessionRepo,
       );
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await service.performFullImport();
 
@@ -2011,6 +2036,7 @@ void main() {
         sessionRepo: sessionRepo,
       );
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await service.performFullImport();
 
@@ -2065,6 +2091,7 @@ void main() {
 
       final service = _makeService(db: db, client: client);
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       // The sweep must complete without throwing.
       await expectLater(service.importSwitchesAfterLink(), completes);
@@ -2143,6 +2170,7 @@ void main() {
           sessionRepo: sessionRepo,
         );
         await service.setToken('t');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
 
         await expectLater(service.importSwitchesAfterLink(), completes);
@@ -2235,6 +2263,7 @@ void main() {
       );
 
       await service.setToken('t');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       // The flaky 3rd delete must propagate up.
       await expectLater(
@@ -2335,6 +2364,7 @@ void main() {
           sessionRepo: sessionRepo,
         );
         await service.setToken('t');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         await expectLater(
           service.importSwitchesAfterLink(),

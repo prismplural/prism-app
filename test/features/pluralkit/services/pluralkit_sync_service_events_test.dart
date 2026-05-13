@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -274,8 +275,14 @@ void main() {
           db: db,
           bus: capture.bus,
           client: client,
-          tokenOverride: 'tok',
         );
+
+        // Bring the service into canAutoSync=true via the normal setToken path.
+        // _FakeClient.getSystem() returns a valid system, so setToken succeeds.
+        // Then confirm direction and acknowledge mapping to unlock auto-sync.
+        await service.setToken('tok');
+        await service.confirmDirection();
+        await service.acknowledgeMapping();
 
         // No lastSyncDate -> takes the performFullImport branch. With empty
         // PK members + empty switches that's a no-op and returns null.
@@ -316,6 +323,19 @@ void main() {
           client: client,
           tokenOverride: token,
         );
+
+        // Seed the DB so the service believes it is fully set up (isConnected,
+        // directionConfirmed, mappingAcknowledged). We can't call setToken here
+        // because the client throws on getSystem — that's the point of this test.
+        await db.pluralKitSyncDao.upsertSyncState(
+          const PluralKitSyncStateCompanion(
+            id: Value('pk_config'),
+            isConnected: Value(true),
+            directionConfirmed: Value(true),
+            mappingAcknowledged: Value(true),
+          ),
+        );
+        await service.loadState();
 
         await expectLater(
           service.syncRecentData(direction: PkSyncDirection.pullOnly),

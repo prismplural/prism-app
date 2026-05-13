@@ -344,9 +344,15 @@ class _BootstrapCountingSyncService extends PluralKitSyncService {
   /// Member IDs passed to the last [pushOverrideSwitch] call.
   List<String>? lastPushOverrideMemberIds;
 
-  /// The switch ID returned by [pushOverrideSwitch]. Override to null to
-  /// simulate a failure.
-  String? pushOverrideSwitchReturnId = 'override-switch-id';
+  /// The full switch returned by [pushOverrideSwitch]. Override to null to
+  /// simulate a failure. Tests that care about the cursor timestamp should
+  /// set this to a switch whose `timestamp` differs from the caller's `now`
+  /// so cursor-advance assertions are unambiguous.
+  PKSwitch? pushOverrideSwitchReturn = PKSwitch(
+    id: 'override-switch-id',
+    timestamp: DateTime.utc(2026, 1, 1, 12),
+    members: const [],
+  );
 
   /// Last (switchId, timestamp) pair passed to [advanceImportCursorPast].
   ({String switchId, DateTime timestamp})? lastAdvanceCursorArgs;
@@ -382,13 +388,13 @@ class _BootstrapCountingSyncService extends PluralKitSyncService {
   }
 
   @override
-  Future<String?> pushOverrideSwitch(
+  Future<PKSwitch?> pushOverrideSwitch(
     List<String> localMemberIds,
     DateTime at,
   ) async {
     pushOverrideSwitchCallCount++;
     lastPushOverrideMemberIds = List.of(localMemberIds);
-    return pushOverrideSwitchReturnId;
+    return pushOverrideSwitchReturn;
   }
 
   @override
@@ -635,8 +641,29 @@ void main() {
         isFalse,
         reason: 'Bootstrap must not run when returning NeedsFronterResolution',
       );
-      // Mapping is acknowledged (apply() already called acknowledgeMapping).
-      expect(svc.state.needsMapping, isFalse);
+      // C5: mapping is NOT yet acknowledged on the NeedsFronterResolution
+      // path. Acknowledgement is deferred until applyFronterResolution() or
+      // deferBootstrap() completes — otherwise canAutoSync would flip true
+      // while the "Who's fronting?" sheet is being shown and auto-poll could
+      // fire before the user has decided.
+      //
+      // We check mappingAcknowledged directly (not needsMapping) because
+      // this test container never calls confirmDirection(), so
+      // directionConfirmed=false and needsMapping is always false via that
+      // composite gate.
+      expect(
+        svc.state.mappingAcknowledged,
+        isFalse,
+        reason: 'mappingAcknowledged must stay false on the '
+            'NeedsFronterResolution path — otherwise auto-poll could fire '
+            'while the "Who\'s fronting?" sheet is pending',
+      );
+      expect(
+        svc.state.canAutoSync,
+        isFalse,
+        reason: 'canAutoSync must stay false while the resolution sheet '
+            'is pending',
+      );
     },
   );
 
@@ -741,7 +768,7 @@ void main() {
   // Builds a container wired for applyFronterResolution: tracking fronting
   // repo, real FrontingMutationService (needs DB for MutationRunner), and the
   // bootstrap-counting sync service with pushOverrideSwitch stubbed.
-  (ProviderContainer, _BootstrapCountingSyncService) _makeResolutionContainer({
+  (ProviderContainer, _BootstrapCountingSyncService) makeResolutionContainer({
     required _TrackingFrontingSessionRepo trackingRepo,
     PkSyncDirection direction = PkSyncDirection.bidirectional,
     PkSyncMode mode = PkSyncMode.fullSync,
@@ -799,7 +826,7 @@ void main() {
       );
       final trackingRepo = _TrackingFrontingSessionRepo([activeSession]);
 
-      final (container, svc) = _makeResolutionContainer(
+      final (container, svc) = makeResolutionContainer(
         trackingRepo: trackingRepo,
         direction: PkSyncDirection.bidirectional,
       );
@@ -871,7 +898,7 @@ void main() {
   // ---------------------------------------------------------------------------
 
   test(
-    'applyFronterResolution(chosen={}, bidirectional) → ends all active sessions, no PK push, bootstrap runs',
+    'applyFronterResolution(chosen={}, bidirectional) → ends all active sessions, pushes empty switch to PK, bootstrap runs',
     () async {
       final activeSession = fronting.FrontingSession(
         id: 'sess-alice',
@@ -880,7 +907,7 @@ void main() {
       );
       final trackingRepo = _TrackingFrontingSessionRepo([activeSession]);
 
-      final (container, svc) = _makeResolutionContainer(
+      final (container, svc) = makeResolutionContainer(
         trackingRepo: trackingRepo,
         direction: PkSyncDirection.bidirectional,
       );
@@ -908,16 +935,24 @@ void main() {
         reason: 'Alice is NOT in empty chosen set → session must be ended',
       );
 
-      // No PK push (guarded by isNotEmpty).
+      // C1: Empty chosen set MUST still push to PK when push is enabled —
+      // PK's API accepts `members: []` to clear the current front, and
+      // without the push the bootstrap pull would re-apply PK's old
+      // fronters and silently undo the user's clear.
       expect(
         svc.pushOverrideSwitchCallCount,
-        equals(0),
-        reason: 'Empty chosen set must NOT trigger a PK push',
+        equals(1),
+        reason: 'Empty chosen set must still push to PK when push is enabled',
+      );
+      expect(
+        svc.lastPushOverrideMemberIds,
+        isEmpty,
+        reason: 'Push payload for empty resolution must be an empty list',
       );
       expect(
         svc.advanceCursorCallCount,
-        equals(0),
-        reason: 'No cursor advance when no push happened',
+        equals(1),
+        reason: 'Cursor advances on successful empty push too',
       );
 
       // Bootstrap still runs.
@@ -939,7 +974,7 @@ void main() {
       // Local: empty. PK has B fronting. User chose A locally.
       final trackingRepo = _TrackingFrontingSessionRepo([]); // no active sessions
 
-      final (container, svc) = _makeResolutionContainer(
+      final (container, svc) = makeResolutionContainer(
         trackingRepo: trackingRepo,
         direction: PkSyncDirection.pullOnly,
       );
@@ -989,6 +1024,205 @@ void main() {
   );
 
   // ---------------------------------------------------------------------------
+  // M3: pushOverrideSwitch returns null (network failure) → no cursor advance,
+  //     local writes still happened, bootstrap still ran. Includes both the
+  //     non-empty and empty (C1) chosen-set sub-cases.
+  // ---------------------------------------------------------------------------
+
+  test(
+    'M3 (non-empty): pushOverrideSwitch null → local writes + bootstrap still run; no cursor advance',
+    () async {
+      repo = _FakeMemberRepo([
+        _local('l1', 'Alice', pkUuid: 'pk-uuid-alice', pkId: 'aaaaa'),
+      ]);
+
+      final trackingRepo = _TrackingFrontingSessionRepo([]); // nobody fronting
+
+      final (container, svc) = makeResolutionContainer(
+        trackingRepo: trackingRepo,
+        direction: PkSyncDirection.bidirectional,
+      );
+      addTearDown(container.dispose);
+      await svc.setToken('fake');
+
+      // Simulate network failure on push.
+      svc.pushOverrideSwitchReturn = null;
+
+      final pkSwitch = PKSwitch(
+        id: 'pk-sw-1',
+        timestamp: DateTime(2026, 1, 1),
+        members: const [],
+      );
+
+      final ctrl = container.read(pkMappingControllerProvider.notifier);
+      await ctrl.applyFronterResolution(
+        chosenLocalMemberIds: {'l1'},
+        direction: PkSyncDirection.bidirectional,
+        mode: PkSyncMode.fullSync,
+        pkCurrentSwitch: pkSwitch,
+      );
+
+      // Push attempted.
+      expect(svc.pushOverrideSwitchCallCount, equals(1));
+      // Cursor NOT advanced (null return).
+      expect(
+        svc.advanceCursorCallCount,
+        equals(0),
+        reason: 'Null push must NOT advance the cursor',
+      );
+      // Local writes still happened.
+      expect(
+        trackingRepo.createdSessions.any((s) => s.memberId == 'l1'),
+        isTrue,
+        reason: 'Local write must proceed even when push fails',
+      );
+      // Bootstrap still ran.
+      expect(svc.bootstrapRan, isTrue);
+    },
+  );
+
+  test(
+    'M3 (empty/C1): pushOverrideSwitch null on empty resolution → local end happens; no cursor advance',
+    () async {
+      // C1 path: empty chosen set, push enabled. Network fails.
+      final activeSession = fronting.FrontingSession(
+        id: 'sess-alice',
+        memberId: 'l1',
+        startTime: DateTime(2026, 1, 1),
+      );
+      final trackingRepo = _TrackingFrontingSessionRepo([activeSession]);
+
+      final (container, svc) = makeResolutionContainer(
+        trackingRepo: trackingRepo,
+        direction: PkSyncDirection.bidirectional,
+      );
+      addTearDown(container.dispose);
+      await svc.setToken('fake');
+
+      svc.pushOverrideSwitchReturn = null;
+
+      final pkSwitch = PKSwitch(
+        id: 'pk-sw-empty',
+        timestamp: DateTime(2026, 1, 1),
+        members: const [],
+      );
+
+      final ctrl = container.read(pkMappingControllerProvider.notifier);
+      await ctrl.applyFronterResolution(
+        chosenLocalMemberIds: {},
+        direction: PkSyncDirection.bidirectional,
+        mode: PkSyncMode.fullSync,
+        pkCurrentSwitch: pkSwitch,
+      );
+
+      // C1: empty push was attempted (the whole point of the fix).
+      expect(
+        svc.pushOverrideSwitchCallCount,
+        equals(1),
+        reason: 'C1: empty chosen set must still attempt PK push',
+      );
+      expect(svc.lastPushOverrideMemberIds, isEmpty);
+      // Null push → no cursor advance.
+      expect(svc.advanceCursorCallCount, equals(0));
+      // Local end still happened.
+      expect(trackingRepo.endedSessionIds, contains('sess-alice'));
+      // Bootstrap still ran.
+      expect(svc.bootstrapRan, isTrue);
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // M4: applyFronterResolution under frontingMigrationWritesBlocked → no-op
+  //     (no push, no local writes, no cursor advance, no bootstrap)
+  // ---------------------------------------------------------------------------
+
+  test(
+    'M4: applyFronterResolution under migration-blocked is a no-op',
+    () async {
+      final activeSession = fronting.FrontingSession(
+        id: 'sess-alice',
+        memberId: 'l1',
+        startTime: DateTime(2026, 1, 1),
+      );
+      final trackingRepo = _TrackingFrontingSessionRepo([activeSession]);
+
+      // Hand-build container so we can flip the migration override true.
+      final svc = _BootstrapCountingSyncService(
+        memberRepository: repo,
+        frontingSessionRepository: trackingRepo,
+        syncDao: PluralKitSyncDao(db),
+        bus: PkSyncEventBus(),
+        clientFactory: (_) => client,
+        tokenOverride: 'fake',
+      );
+      final mutSvc = FrontingMutationService(
+        repository: trackingRepo,
+        mutationRunner: MutationRunner.forDatabase(db),
+        memberRepository: repo,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          memberRepositoryProvider.overrideWithValue(repo),
+          pluralKitSyncServiceProvider.overrideWithValue(svc),
+          frontingSessionRepositoryProvider.overrideWithValue(trackingRepo),
+          frontingMutationServiceProvider.overrideWithValue(mutSvc),
+          // Migration is BLOCKED — fronting writes must not happen.
+          frontingMigrationWritesBlockedProvider.overrideWithValue(true),
+        ],
+      );
+      addTearDown(container.dispose);
+      await svc.setToken('fake');
+
+      final pkSwitch = PKSwitch(
+        id: 'pk-sw-1',
+        timestamp: DateTime(2026, 1, 1),
+        members: const [],
+      );
+
+      final ctrl = container.read(pkMappingControllerProvider.notifier);
+      await ctrl.applyFronterResolution(
+        chosenLocalMemberIds: {'l1'},
+        direction: PkSyncDirection.bidirectional,
+        mode: PkSyncMode.fullSync,
+        pkCurrentSwitch: pkSwitch,
+      );
+
+      // Nothing happens — same gate semantics as pushPendingSwitches.
+      expect(
+        svc.pushOverrideSwitchCallCount,
+        equals(0),
+        reason: 'Migration-blocked must skip PK push',
+      );
+      expect(
+        svc.advanceCursorCallCount,
+        equals(0),
+        reason: 'Migration-blocked must skip cursor advance',
+      );
+      expect(
+        trackingRepo.createdSessions,
+        isEmpty,
+        reason: 'Migration-blocked must skip local writes',
+      );
+      expect(
+        trackingRepo.endedSessionIds,
+        isEmpty,
+        reason: 'Migration-blocked must skip local writes',
+      );
+      expect(
+        svc.bootstrapRan,
+        isFalse,
+        reason: 'Migration-blocked must skip bootstrap',
+      );
+      expect(
+        svc.state.mappingAcknowledged,
+        isFalse,
+        reason: 'Migration-blocked must not acknowledge the mapping',
+      );
+    },
+  );
+
+  // ---------------------------------------------------------------------------
   // T10: deferBootstrap() — sets SharedPreferences flag; no bootstrap ran
   // ---------------------------------------------------------------------------
 
@@ -1032,7 +1266,7 @@ void main() {
 
       // Assert: SharedPreferences must have the deferred-sync flag.
       final prefs = await SharedPreferences.getInstance();
-      final key = 'pk_first_sync_deferred_sys-1';
+      const key = 'pk_first_sync_deferred_sys-1';
       expect(
         prefs.getBool(key),
         isTrue,
@@ -1046,8 +1280,15 @@ void main() {
         reason: 'deferBootstrap must not trigger any bootstrap methods',
       );
 
-      // Assert: mapping was acknowledged by apply().
-      expect(svc.state.needsMapping, isFalse);
+      // Assert: mapping was acknowledged by deferBootstrap() (C5 — the
+      // acknowledgement is deferred until either applyFronterResolution() or
+      // deferBootstrap() completes, since apply() only acknowledges on the
+      // Applied outcome path when no resolution is needed).
+      expect(
+        svc.state.mappingAcknowledged,
+        isTrue,
+        reason: 'deferBootstrap must call acknowledgeMapping (C5)',
+      );
     },
   );
 

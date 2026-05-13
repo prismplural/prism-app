@@ -646,9 +646,15 @@ class PluralKitSyncService {
   /// POST /switches with the chosen local members at [at].
   ///
   /// Resolves local member IDs → PK short IDs via the persisted mapping table
-  /// (the [domain.Member.pluralkitId] column). Returns the new PK switch ID,
-  /// or null on failure. Used by [PkMappingController.applyFronterResolution]
+  /// (the [domain.Member.pluralkitId] column). Returns the new [PKSwitch]
+  /// (full server-side record, including PK's stored timestamp), or null on
+  /// network failure. Used by [PkMappingController.applyFronterResolution]
   /// to record the user's authoritative fronter choice in PluralKit.
+  ///
+  /// The full switch is returned (not just the ID) so the caller can advance
+  /// the import cursor using PK's stored timestamp rather than the local
+  /// clock — clock skew or PK truncation could otherwise leapfrog real PK
+  /// switches. See bug C4.
   ///
   /// IMPORTANT: the 1ms [linkedAt] nudge in [setToken] means switches written
   /// at `startTime = now` have `startTime > linkedAt`, so the regular push
@@ -656,7 +662,7 @@ class PluralKitSyncService {
   /// calling [advanceImportCursorPast], we avoid the duplicate and capture the
   /// exact switch ID needed for cursor advancement. Do NOT remove the 1ms
   /// nudge in [setToken] — this helper's correctness depends on it.
-  Future<String?> pushOverrideSwitch(
+  Future<PKSwitch?> pushOverrideSwitch(
     List<String> localMemberIds,
     DateTime at,
   ) async {
@@ -664,28 +670,44 @@ class PluralKitSyncService {
       final client = await _buildClient();
       if (client == null) return null;
       try {
-        // Resolve local IDs → PK short IDs (pluralkitId column).
-        final members = await _memberRepository.getAllMembers();
-        final localIdToPkId = <String, String>{};
-        for (final m in members) {
-          final pkId = m.pluralkitId?.trim();
-          if (pkId != null && pkId.isNotEmpty) {
-            localIdToPkId[m.id] = pkId;
+        // Resolve local IDs → PK short IDs (pluralkitId column). Use the
+        // batched lookup so we only fetch the members we need instead of
+        // walking the entire member table on every override push. The empty
+        // case is well-defined: createSwitch accepts `members: []` to clear
+        // PK's current fronters (see bug C1).
+        final pkMemberIds = <String>[];
+        if (localMemberIds.isNotEmpty) {
+          final members = await _memberRepository.getMembersByIds(
+            localMemberIds,
+          );
+          // Preserve the caller's intended ordering on the PK payload.
+          final localIdToPkId = <String, String>{};
+          for (final m in members) {
+            final pkId = m.pluralkitId?.trim();
+            if (pkId != null && pkId.isNotEmpty) {
+              localIdToPkId[m.id] = pkId;
+            }
+          }
+          for (final localId in localMemberIds) {
+            final pkId = localIdToPkId[localId];
+            if (pkId != null) pkMemberIds.add(pkId);
           }
         }
-        final pkMemberIds = localMemberIds
-            .map((id) => localIdToPkId[id])
-            .whereType<String>()
-            .toList();
 
-        final created = await client.createSwitch(pkMemberIds, timestamp: at);
-        return created.id;
+        return await client.createSwitch(pkMemberIds, timestamp: at);
       } finally {
         client.dispose();
       }
     } on Object catch (e) {
-      debugPrint('[PK_SVC] pushOverrideSwitch failed: $e');
-      return null;
+      // Only swallow network failures — they're retry-friendly and the
+      // caller treats `null` as "skip cursor advance, let the next sync
+      // reconcile." Auth errors, 4xx/5xx, etc. must propagate so the caller
+      // sees them instead of silently succeeding. See bug I2.
+      if (isPluralKitNetworkException(e)) {
+        debugPrint('[PK_SVC] pushOverrideSwitch network failure: $e');
+        return null;
+      }
+      rethrow;
     }
   }
 

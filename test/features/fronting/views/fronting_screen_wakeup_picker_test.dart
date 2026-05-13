@@ -335,6 +335,8 @@ void main() {
       final pkSync = _FakePluralKitSyncNotifier(
         PluralKitSyncState(
           isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
           lastSyncDate: DateTime(2024, 1, 1),
         ),
         deleteRiskPreview: const PkDeleteRiskPreview(membersToDelete: 1),
@@ -374,6 +376,8 @@ void main() {
       final pkSync = _FakePluralKitSyncNotifier(
         PluralKitSyncState(
           isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
           lastSyncDate: DateTime(2024, 1, 1),
         ),
         deleteRiskPreview: const PkDeleteRiskPreview(switchesToDelete: 10),
@@ -411,7 +415,11 @@ void main() {
       tester,
     ) async {
       final pkSync = _FakePluralKitSyncNotifier(
-        const PluralKitSyncState(isConnected: true),
+        const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
         deleteRiskPreview: const PkDeleteRiskPreview(membersToDelete: 1),
       );
 

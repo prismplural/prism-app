@@ -8349,82 +8349,82 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get pluralkitDirectionStepHeading => 'How should this sync?';
+  String get pluralkitDirectionStepHeading => '¿Cómo debería sincronizar?';
 
   @override
   String get pluralkitDirectionStepHint =>
-      'Pick a sync direction to finish setting up.';
+      'Elige una dirección de sincronización para terminar de configurar.';
 
   @override
   String get pluralkitModeFullSyncCaption =>
-      'Sync members, history, and current fronters.';
+      'Sincroniza miembros, historial y quién está al frente ahora.';
 
   @override
   String get pluralkitModeLiveOnlyCaption =>
-      'Sync only who\'s currently fronting.';
+      'Sincroniza solo quién está al frente ahora.';
 
   @override
   String get pluralkitDirectionCaption =>
-      'Pull from PluralKit, push to PluralKit, or both.';
+      'Importa desde PluralKit, envía a PluralKit, o ambas.';
 
   @override
-  String get pluralkitDirectionContinue => 'Continue';
+  String get pluralkitDirectionContinue => 'Continuar';
 
   @override
   String get pluralkitDirectionMustChoose =>
-      'Choose a sync direction to continue.';
+      'Elige una dirección de sincronización para continuar.';
 
   @override
-  String get pluralkitWhosFrontingTitle => 'Who\'s fronting?';
+  String get pluralkitWhosFrontingTitle => '¿Quién está al frente?';
 
   @override
   String get pluralkitWhosFrontingSubtitle =>
-      'Prism and PluralKit have different answers for who\'s currently fronting. Pick the one that\'s correct and we\'ll sync from there.';
+      'Prism y PluralKit tienen respuestas diferentes sobre quién está al frente. Elige la correcta y sincronizaremos desde ahí.';
 
   @override
-  String get pluralkitWhosFrontingDecideLater => 'Decide later';
+  String get pluralkitWhosFrontingDecideLater => 'Decidir luego';
 
   @override
-  String get pluralkitWhosFrontingUsePrism => 'Use Prism\'s';
+  String get pluralkitWhosFrontingUsePrism => 'Usar el de Prism';
 
   @override
-  String get pluralkitWhosFrontingUsePk => 'Use PluralKit\'s';
+  String get pluralkitWhosFrontingUsePk => 'Usar el de PluralKit';
 
   @override
-  String get pluralkitWhosFrontingCofront => 'Co-front (both)';
+  String get pluralkitWhosFrontingCofront => 'Co-frente (ambos)';
 
   @override
   String pluralkitWhosFrontingSetMembers(String names) {
-    return 'Set $names fronting';
+    return 'Marcar a $names al frente';
   }
 
   @override
   String pluralkitWhosFrontingKeepMembers(String names) {
-    return 'Keep $names fronting';
+    return 'Mantener a $names al frente';
   }
 
   @override
-  String get pluralkitWhosFrontingNoneFronting => 'Leave no one fronting';
+  String get pluralkitWhosFrontingNoneFronting => 'Dejar sin nadie al frente';
 
   @override
   String get pluralkitWhosFrontingMatchPkNone =>
-      'Match PluralKit (no one fronting)';
+      'Coincidir con PluralKit (sin nadie al frente)';
 
   @override
-  String get pluralkitWhosFrontingRecommended => 'Recommended';
+  String get pluralkitWhosFrontingRecommended => 'Recomendado';
 
   @override
   String pluralkitPullOnlyHeadsUp(String names) {
-    return 'PluralKit currently has $names fronting; this will become your active fronter when you sync.';
+    return 'PluralKit tiene actualmente a $names al frente; esto se convertirá en tu frente activo cuando sincronices.';
   }
 
   @override
   String get pluralkitFirstSyncDeferred =>
-      'First sync deferred. Tap **Sync recent** when you\'re ready — it\'ll pull your full PluralKit history.';
+      'Primera sincronización pospuesta. Toca **Sincronizar reciente** cuando estés listo — importará todo tu historial de PluralKit.';
 
   @override
   String get pluralkitMigrationBlockedNotice =>
-      'Resolve the fronting migration to finish setting up PluralKit sync.';
+      'Resuelve la migración de fronting para terminar de configurar la sincronización de PluralKit.';
 
   @override
   String get sleepWakeUpMorning => '¡Buenos días!';

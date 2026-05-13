@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
@@ -54,7 +55,11 @@ class _StaticPluralKitSyncNotifier extends PluralKitSyncNotifier {
   @override
   Future<void> setToken(String token) async {
     setTokenCallCount += 1;
-    state = const PluralKitSyncState(isConnected: true);
+    state = const PluralKitSyncState(
+      isConnected: true,
+      directionConfirmed: true,
+      mappingAcknowledged: true,
+    );
   }
 
   @override
@@ -168,6 +173,9 @@ Widget _buildScreen({
     ),
     pkSyncModeProvider.overrideWith(() => _StaticPkSyncModeNotifier(syncMode)),
     if (bus != null) pkSyncEventBusProvider.overrideWithValue(bus),
+    // Override the migration gate so the screen doesn't try to open a
+    // Drift database stream (which leaks a pending timer in tests).
+    frontingMigrationWritesBlockedProvider.overrideWithValue(false),
   ];
 
   if (router != null) {
@@ -237,7 +245,11 @@ void main() {
         tester,
         settingsRepository: settingsRepository,
         settingsStream: Stream.value(settingsRepository.settings),
-        syncState: const PluralKitSyncState(isConnected: true),
+        syncState: const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
       );
 
       expect(find.text('Full Sync'), findsOneWidget);
@@ -268,7 +280,11 @@ void main() {
 
       final settingsRepository = FakeSystemSettingsRepository();
       final syncNotifier = _StaticPluralKitSyncNotifier(
-        const PluralKitSyncState(isConnected: true),
+        const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
       );
 
       await _pumpScreen(
@@ -295,7 +311,11 @@ void main() {
 
       final settingsRepository = FakeSystemSettingsRepository();
       final syncNotifier = _StaticPluralKitSyncNotifier(
-        const PluralKitSyncState(isConnected: true),
+        const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
       );
 
       await _pumpScreen(
@@ -325,6 +345,8 @@ void main() {
         final syncNotifier = _StaticPluralKitSyncNotifier(
           PluralKitSyncState(
             isConnected: true,
+            directionConfirmed: true,
+            mappingAcknowledged: true,
             lastSyncDate: DateTime(2024, 1, 1),
           ),
           deleteRiskPreview: const PkDeleteRiskPreview(membersToDelete: 1),
@@ -361,6 +383,8 @@ void main() {
       final syncNotifier = _StaticPluralKitSyncNotifier(
         PluralKitSyncState(
           isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
           lastSyncDate: DateTime(2024, 1, 1),
         ),
         deleteRiskPreview: const PkDeleteRiskPreview(switchesToDelete: 10),
@@ -393,7 +417,11 @@ void main() {
 
       final settingsRepository = FakeSystemSettingsRepository();
       final syncNotifier = _StaticPluralKitSyncNotifier(
-        const PluralKitSyncState(isConnected: true),
+        const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
         deleteRiskPreview: const PkDeleteRiskPreview(membersToDelete: 1),
       );
 
@@ -420,7 +448,11 @@ void main() {
 
       final settingsRepository = FakeSystemSettingsRepository();
       final syncNotifier = _StaticPluralKitSyncNotifier(
-        const PluralKitSyncState(isConnected: true),
+        const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
         deleteRiskPreview: const PkDeleteRiskPreview(switchesToDelete: 1),
       );
 
@@ -449,7 +481,11 @@ void main() {
 
       final settingsRepository = FakeSystemSettingsRepository();
       final syncNotifier = _StaticPluralKitSyncNotifier(
-        const PluralKitSyncState(isConnected: true),
+        const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
         deleteRiskPreview: const PkDeleteRiskPreview(membersToDelete: 1),
       );
 
@@ -480,6 +516,8 @@ void main() {
       final syncNotifier = _StaticPluralKitSyncNotifier(
         PluralKitSyncState(
           isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
           lastSyncDate: DateTime(2024, 1, 1),
         ),
         deleteRiskPreviewError: StateError('preview failed'),
@@ -517,7 +555,11 @@ void main() {
         tester,
         settingsRepository: settingsRepository,
         settingsStream: Stream.value(settingsRepository.settings),
-        syncState: const PluralKitSyncState(isConnected: true),
+        syncState: const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
         syncMode: PkSyncMode.liveFrontsOnly,
       );
 
@@ -563,7 +605,11 @@ void main() {
       final settingsRepository = FakeSystemSettingsRepository();
       final syncCompleter = Completer<PkSyncSummary?>();
       final syncNotifier = _StaticPluralKitSyncNotifier(
-        const PluralKitSyncState(isConnected: true),
+        const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
         syncRecentDataCompleter: syncCompleter,
       );
 
@@ -599,9 +645,15 @@ void main() {
 
         final settingsRepository = FakeSystemSettingsRepository();
         final syncNotifier = _StaticPluralKitSyncNotifier(
-          const PluralKitSyncState(isConnected: true),
+          const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
           syncStateAfterManualSync: PluralKitSyncState(
             isConnected: true,
+            directionConfirmed: true,
+            mappingAcknowledged: true,
             lastManualSyncDate: DateTime.now(),
           ),
         );
@@ -646,7 +698,11 @@ void main() {
           tester,
           settingsRepository: settingsRepository,
           settingsStream: Stream.value(settingsRepository.settings),
-          syncState: const PluralKitSyncState(isConnected: true),
+          syncState: const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
           bus: capture.bus,
         );
 
@@ -705,7 +761,11 @@ void main() {
           tester,
           settingsRepository: settingsRepository,
           settingsStream: Stream.value(settingsRepository.settings),
-          syncState: const PluralKitSyncState(isConnected: true),
+          syncState: const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
           bus: bus,
           router: router,
         );

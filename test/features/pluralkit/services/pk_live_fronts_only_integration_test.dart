@@ -221,6 +221,8 @@ Future<PluralKitSyncService> _makeConnectedService(AppDatabase db) async {
     PluralKitSyncStateCompanion(
       id: const Value('pk_config'),
       isConnected: const Value(true),
+      systemId: const Value('test-system'),
+      directionConfirmed: const Value(true),
       mappingAcknowledged: const Value(true),
       linkedAt: Value(now.subtract(const Duration(minutes: 1))),
     ),

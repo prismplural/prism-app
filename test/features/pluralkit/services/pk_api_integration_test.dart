@@ -22,6 +22,7 @@ library;
 import 'dart:io' show Platform;
 import 'dart:math' show Random;
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -72,6 +73,32 @@ class _CreatedResources {
 }
 
 final _CreatedResources _created = _CreatedResources();
+
+// ---------------------------------------------------------------------------
+// State-machine helper
+// ---------------------------------------------------------------------------
+
+/// Seeds the DAO with the post-wizard state so [PluralKitSyncService.canAutoSync]
+/// is true and auto-sync-gated operations don't throw "Setup incomplete".
+///
+/// Production reaches this state by walking setToken → confirmDirection →
+/// mapping apply → acknowledgeMapping. Tests using [tokenOverride] bypass
+/// setToken, so we have to seed the row directly and then reload state.
+Future<void> _seedPostWizardState(
+  PluralKitSyncService service,
+  AppDatabase db,
+) async {
+  await db.pluralKitSyncDao.upsertSyncState(
+    const PluralKitSyncStateCompanion(
+      id: Value('pk_config'),
+      isConnected: Value(true),
+      systemId: Value('test-system'),
+      directionConfirmed: Value(true),
+      mappingAcknowledged: Value(true),
+    ),
+  );
+  await service.loadState();
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -147,6 +174,11 @@ void main() {
             tokenOverride: _token,
           );
 
+          // tokenOverride bypasses setToken, so the DAO row stays at defaults
+          // and canAutoSync=false. Seed the post-wizard state so the
+          // performFullImport guard passes.
+          await _seedPostWizardState(service, db);
+
           // Full import — pulls members and all switch history from live API.
           await service.performFullImport();
 
@@ -204,6 +236,8 @@ void main() {
             bus: PkSyncEventBus(),
             tokenOverride: _token,
           );
+
+          await _seedPostWizardState(service, db);
 
           await service.performFullImport();
 

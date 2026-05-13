@@ -41,7 +41,7 @@ class _FakePkMappingController extends PkMappingController {
   String? lastPushingHistoryStatus;
 
   @override
-  Future<void> apply({
+  Future<PkMappingApplyOutcome?> apply({
     String? importingHistoryStatus,
     String? pushingHistoryStatus,
     String? offlineErrorMessage,
@@ -50,14 +50,24 @@ class _FakePkMappingController extends PkMappingController {
     lastImportingHistoryStatus = importingHistoryStatus;
     lastPushingHistoryStatus = pushingHistoryStatus;
     final current = state.value;
-    if (current == null) return;
+    if (current == null) return null;
+    final results = appliedResults ?? const [];
     state = AsyncData(
       current.copyWith(
         isApplying: false,
         applyProgress: 1.0,
-        lastResults: appliedResults ?? const [],
+        lastResults: results,
       ),
     );
+    // Mirror the real controller: return Failed if any result failed,
+    // otherwise Applied.
+    final hasFailed = results.any((r) => r.outcome == PkApplyOutcome.failed);
+    if (hasFailed) {
+      return PkMappingApplyOutcomeFailed(
+        results.where((r) => r.outcome == PkApplyOutcome.failed).toList(),
+      );
+    }
+    return const PkMappingApplyOutcomeApplied();
   }
 
   @override

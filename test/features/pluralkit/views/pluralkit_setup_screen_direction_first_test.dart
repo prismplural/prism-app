@@ -261,10 +261,11 @@ void main() {
       },
     );
 
-    // (b) Tap Continue → confirmDirection invoked → state becomes
-    //     needsMapping → mapping banner appears.
+    // (b) I3: Continue is disabled until the user touches the picker.
+    //     Once touched, tapping Continue → confirmDirection → needsMapping.
     testWidgets(
-      '(b) Tapping Continue calls confirmDirection and transitions to needsMapping state',
+      '(b) Continue is disabled until the picker is touched; '
+      'after tapping a segment and Continue, state transitions to needsMapping',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(600, 3000));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -288,11 +289,34 @@ void main() {
         expect(find.text('How should this sync?'), findsOneWidget);
         expect(notifier.confirmDirectionCallCount, 0);
 
+        // (i) Continue must be disabled before the user interacts with the
+        //     picker — tapping it must NOT call confirmDirection. Bug I3.
+        await tester.tap(find.text('Continue'), warnIfMissed: false);
+        await tester.pump();
+        expect(
+          notifier.confirmDirectionCallCount,
+          0,
+          reason: 'I3: Continue must be disabled until the user picks a '
+              'direction.',
+        );
+
+        // (ii) Tap the "Both" segment in the direction picker. The default
+        //      direction is pullOnly so picking "Both" registers a genuine
+        //      change. Picker labels are "Pull-only", "Both", "Push-only".
+        await tester.tap(find.text('Both'));
+        await tester.pump();
+
+        // (iii) Continue must now be enabled — tapping it advances the gate.
         await tester.tap(find.text('Continue'));
         await tester.pump();
         await tester.pump();
 
-        expect(notifier.confirmDirectionCallCount, 1);
+        expect(
+          notifier.confirmDirectionCallCount,
+          1,
+          reason: 'I3: after the user touches the picker, Continue must be '
+              'enabled and confirmDirection must fire on tap.',
+        );
 
         // After confirmDirection, state has directionConfirmed=true,
         // mappingAcknowledged=false → needsMapping=true → mapping banner shows.
@@ -300,6 +324,54 @@ void main() {
         // headmates (from FakeSystemSettingsRepository default settings).
         expect(find.text('How should this sync?'), findsNothing);
         expect(find.text('Link headmates'), findsOneWidget);
+      },
+    );
+
+    // (b2) I3: when a non-default direction is preserved from a prior
+    //     session (e.g. bidirectional), Continue must be pre-enabled — no
+    //     re-tap required. Bug I3.
+    testWidgets(
+      '(b2) preserved non-default direction pre-enables Continue',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(600, 3000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final repo = FakeSystemSettingsRepository();
+        final notifier = _FakeSyncNotifier(
+          const PluralKitSyncState(
+            isConnected: true,
+            directionConfirmed: false,
+            mappingAcknowledged: false,
+          ),
+        );
+
+        await _pumpScreen(
+          tester,
+          settingsRepository: repo,
+          settingsStream: Stream.value(repo.settings),
+          syncNotifier: notifier,
+          // Simulate a preserved non-default direction from a prior session.
+          syncDirection: PkSyncDirection.bidirectional,
+        );
+
+        // Pump once more so the post-frame callback that pre-marks
+        // _directionTouched can run.
+        await tester.pump();
+
+        expect(find.text('How should this sync?'), findsOneWidget);
+        expect(notifier.confirmDirectionCallCount, 0);
+
+        // Continue must work immediately — no re-tap required.
+        await tester.tap(find.text('Continue'));
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          notifier.confirmDirectionCallCount,
+          1,
+          reason: 'I3: preserved non-default direction must pre-enable '
+              'Continue — re-touch is annoying for resumed sessions.',
+        );
       },
     );
 

@@ -268,6 +268,9 @@ void main() {
       tokenOverride: 'fake',
     );
     await syncService.setToken('fake');
+    // After T3: setToken lands in needsDirection; advance to needsMapping by
+    // confirming the sync direction so the mapping controller tests can run.
+    await syncService.confirmDirection();
 
     container = ProviderContainer(
       overrides: [
@@ -414,6 +417,8 @@ void main() {
       tokenOverride: 'fake',
     );
     await failSyncService.setToken('fake');
+    // After T3: setToken lands in needsDirection; advance to needsMapping.
+    await failSyncService.confirmDirection();
 
     final localContainer = ProviderContainer(
       overrides: [
@@ -618,6 +623,8 @@ void main() {
         tokenOverride: 'fake',
       );
       await emptySync.setToken('fake');
+      // After T3: setToken lands in needsDirection; advance to needsMapping.
+      await emptySync.confirmDirection();
       expect(emptySync.state.needsMapping, isTrue);
 
       final localContainer = ProviderContainer(

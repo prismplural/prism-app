@@ -929,7 +929,7 @@ void main() {
         members: pkMembers,
         switchesNewestFirst: pkSwitchesNewestFirst,
       );
-      await _makePkImportService(db, firstClient).performFullImport();
+      await _makePkImportService(db, firstClient).performOneTimeFullImport();
 
       final members = await db.membersDao.getAllMembers();
       final aliceLocalId = members
@@ -991,7 +991,7 @@ void main() {
         members: pkMembers,
         switchesNewestFirst: pkSwitchesNewestFirst,
       );
-      await _makePkImportService(db, secondClient).performFullImport();
+      await _makePkImportService(db, secondClient).performOneTimeFullImport();
 
       final rebuiltRows = await db.frontingSessionsDao.getAllSessions();
       final rebuiltById = {for (final row in rebuiltRows) row.id: row};

@@ -117,17 +117,16 @@ class _MappingBody extends ConsumerWidget {
         Future<List<({String id, String name})>> resolveNames(
           Set<String> ids,
         ) async {
-          final list = <({String id, String name})>[];
-          for (final id in ids) {
-            final member = await memberRepo.getMemberById(id);
-            if (member != null) {
-              list.add((
-                id: id,
-                name: member.displayName ?? member.name,
-              ));
-            }
-          }
-          return list;
+          if (ids.isEmpty) return const <({String id, String name})>[];
+          // Batch lookup — one query instead of N sequential
+          // getMemberById calls. The fronter resolution sheet rarely lists
+          // more than a handful of IDs, but batching keeps this O(1) round
+          // trips regardless of system size.
+          final members = await memberRepo.getMembersByIds(ids.toList());
+          return [
+            for (final m in members)
+              (id: m.id, name: m.displayName ?? m.name),
+          ];
         }
 
         final localFronters = await resolveNames(localFronterMemberIds);

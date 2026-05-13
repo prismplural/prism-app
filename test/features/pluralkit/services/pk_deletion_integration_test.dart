@@ -491,6 +491,7 @@ Future<({PluralKitSyncService svc, int epoch})> _makeService({
       id: const Value('pk_config'),
       systemId: Value(systemId),
       isConnected: const Value(true),
+      directionConfirmed: const Value(true),
       mappingAcknowledged: const Value(true),
       linkedAt: Value(DateTime(2026, 1, 1)),
       lastSyncDate: Value(DateTime(2026, 1, 2)),

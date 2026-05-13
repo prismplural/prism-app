@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
@@ -1644,6 +1645,7 @@ void main() {
       );
 
       await service.setToken('valid-token');
+      await service.confirmDirection();
       await PkMappingStateDao(db).upsert(
         PkMappingStateCompanion(
           id: const Value('skip:pk:pk-skip'),
@@ -1675,6 +1677,7 @@ void main() {
 
       // Connect the service (sets isConnected = true in state and storage)
       await service.setToken('valid-token');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       expect(service.state.isConnected, isTrue);
 
@@ -1722,6 +1725,7 @@ void main() {
         );
 
         await service.setToken('valid-token');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         expect(service.state.lastSyncDate, isNull);
 
@@ -1788,6 +1792,7 @@ void main() {
           sessionRepo: sessionRepo,
         );
         await service.setToken('valid-token');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         await db.pluralKitSyncDao.upsertSyncState(
           PluralKitSyncStateCompanion(
@@ -1841,6 +1846,7 @@ void main() {
           memberRepo: memberRepo,
         );
         await service.setToken('valid-token');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         await db.pluralKitSyncDao.upsertSyncState(
           PluralKitSyncStateCompanion(
@@ -1890,6 +1896,7 @@ void main() {
         );
 
         await service.setToken('valid-token');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         // lastSyncDate null → full import path
         await service.syncRecentData();
@@ -1969,6 +1976,7 @@ void main() {
         );
 
         await service.setToken('valid-token');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         await service.syncRecentData();
 
@@ -2018,6 +2026,7 @@ void main() {
         );
 
         await service.setToken('valid-token');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
 
         // Pin linkedAt to a known point and seed a lastSyncDate so syncRecentData
@@ -2141,6 +2150,7 @@ void main() {
         clientFactory: (_) => fakeClient,
       );
       await service.setToken('valid-token');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await db.pluralKitSyncDao.upsertSyncState(
         PluralKitSyncStateCompanion(
@@ -2361,6 +2371,7 @@ void main() {
         clientFactory: (_) => client,
       );
       await service.setToken('valid-token');
+      await service.confirmDirection();
       await service.acknowledgeMapping();
       await db.pluralKitSyncDao.upsertSyncState(
         PluralKitSyncStateCompanion(
@@ -2719,6 +2730,7 @@ void _registerWs3PrDTests() {
           clientFactory: (_) => fakeClient,
         );
         await service.setToken('valid-token');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         await service.loadState();
 
@@ -2798,6 +2810,7 @@ void _registerWs3PrDTests() {
           clientFactory: (_) => fakeClient,
         );
         await service.setToken('valid-token');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         await service.loadState();
 
@@ -2870,6 +2883,7 @@ void _registerWs3PrDTests() {
           clientFactory: (_) => fakeClient,
         );
         await service.setToken('valid-token');
+        await service.confirmDirection();
         await service.acknowledgeMapping();
         await service.loadState();
 
@@ -2882,4 +2896,114 @@ void _registerWs3PrDTests() {
       timeout: const Timeout(Duration(minutes: 2)),
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // I2 — pushOverrideSwitch error handling
+  // ---------------------------------------------------------------------------
+
+  group('pushOverrideSwitch error handling', () {
+    test(
+      'auth error from createSwitch propagates (does NOT silently return null)',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final fakeClient = _AuthFailingCreateSwitchClient();
+        final memberRepo = FakeMemberRepository()
+          ..seed([
+            domain.Member(
+              id: 'l1',
+              name: 'Alice',
+              createdAt: DateTime(2026),
+              pluralkitId: 'aaaaa',
+            ),
+          ]);
+        final service = _makeService(
+          fakeClient: fakeClient,
+          db: db,
+          memberRepo: memberRepo,
+        );
+
+        await service.setToken('valid-token');
+
+        // Before the I2 fix, the broad `catch (_)` swallowed everything and
+        // returned `null` — the caller would silently advance past an auth
+        // failure. The fix keeps the network-only swallow and rethrows
+        // non-network errors so the caller sees them.
+        await expectLater(
+          service.pushOverrideSwitch(['l1'], DateTime(2026, 1, 1, 12)),
+          throwsA(isA<PluralKitAuthError>()),
+          reason:
+              'I2: auth errors from createSwitch must propagate out of '
+              'pushOverrideSwitch — silently returning null hides real '
+              'failures from the user.',
+        );
+      },
+    );
+
+    test(
+      'network error from createSwitch returns null (preserved swallow)',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final fakeClient = _NetworkFailingCreateSwitchClient();
+        final memberRepo = FakeMemberRepository()
+          ..seed([
+            domain.Member(
+              id: 'l1',
+              name: 'Alice',
+              createdAt: DateTime(2026),
+              pluralkitId: 'aaaaa',
+            ),
+          ]);
+        final service = _makeService(
+          fakeClient: fakeClient,
+          db: db,
+          memberRepo: memberRepo,
+        );
+
+        await service.setToken('valid-token');
+
+        final result = await service.pushOverrideSwitch(
+          ['l1'],
+          DateTime(2026, 1, 1, 12),
+        );
+
+        expect(
+          result,
+          isNull,
+          reason:
+              'Network failures stay retry-friendly: caller treats null as '
+              '"skip cursor advance" and lets the next sync reconcile.',
+        );
+      },
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
+// I2 test fakes — clients whose createSwitch fails in different ways
+// ---------------------------------------------------------------------------
+
+class _AuthFailingCreateSwitchClient extends FakePluralKitClient {
+  @override
+  Future<PKSwitch> createSwitch(
+    List<String> memberIds, {
+    DateTime? timestamp,
+  }) async {
+    throw const PluralKitAuthError();
+  }
+}
+
+class _NetworkFailingCreateSwitchClient extends FakePluralKitClient {
+  @override
+  Future<PKSwitch> createSwitch(
+    List<String> memberIds, {
+    DateTime? timestamp,
+  }) async {
+    // `isPluralKitNetworkException` does `is SocketException`; constructing
+    // a real one from dart:io is the cleanest signal.
+    throw const SocketException('no network');
+  }
 }
