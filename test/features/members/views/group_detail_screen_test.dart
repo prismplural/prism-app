@@ -16,6 +16,15 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 
+List<MemberGroup> _chain(int n) => [
+  for (var i = 0; i < n; i++)
+    MemberGroup(
+      id: 'ancestor_$i',
+      name: 'ancestor_$i',
+      createdAt: DateTime(2024, 1, 1),
+    ),
+];
+
 class _FakeGroupNotifier extends GroupNotifier {
   final addedMemberIds = <String>[];
 
@@ -348,6 +357,74 @@ void main() {
 
       expect(notifier.addedMemberIds, containsAll(['alice', 'bob']));
       await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
+  Widget wrapBreadcrumb(List<MemberGroup> ancestors) {
+    return MaterialApp(
+      home: Scaffold(
+        body: SizedBox(
+          width: 800,
+          child: AncestorBreadcrumb(ancestors: ancestors),
+        ),
+      ),
+    );
+  }
+
+  testWidgets(
+    'breadcrumb renders all 5 ancestors with no ellipsis when chain length == 5',
+    (tester) async {
+      final ancestors = _chain(5);
+
+      await tester.pumpWidget(wrapBreadcrumb(ancestors));
+      await tester.pumpAndSettle();
+
+      for (var i = 0; i < 5; i++) {
+        expect(find.text('ancestor_$i'), findsOneWidget);
+      }
+      expect(find.text('…'), findsNothing);
+    },
+  );
+
+  testWidgets('breadcrumb front-truncates when chain length > 5', (
+    tester,
+  ) async {
+    // 7 ancestors: ancestor_0 .. ancestor_6
+    // Expected visible: ancestor_0, …, ancestor_4, ancestor_5, ancestor_6.
+    final ancestors = _chain(7);
+
+    await tester.pumpWidget(wrapBreadcrumb(ancestors));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ancestor_0'), findsOneWidget);
+    expect(find.text('…'), findsOneWidget);
+    expect(find.text('ancestor_4'), findsOneWidget);
+    expect(find.text('ancestor_5'), findsOneWidget);
+    expect(find.text('ancestor_6'), findsOneWidget);
+
+    expect(find.text('ancestor_1'), findsNothing);
+    expect(find.text('ancestor_2'), findsNothing);
+    expect(find.text('ancestor_3'), findsNothing);
+  });
+
+  testWidgets(
+    'breadcrumb renders ellipsis exactly once even at very long chains',
+    (tester) async {
+      final ancestors = _chain(10);
+
+      await tester.pumpWidget(wrapBreadcrumb(ancestors));
+      await tester.pumpAndSettle();
+
+      expect(find.text('…'), findsOneWidget);
+
+      // First + last 3 are visible; the middle six are hidden.
+      expect(find.text('ancestor_0'), findsOneWidget);
+      expect(find.text('ancestor_7'), findsOneWidget);
+      expect(find.text('ancestor_8'), findsOneWidget);
+      expect(find.text('ancestor_9'), findsOneWidget);
+      for (var i = 1; i <= 6; i++) {
+        expect(find.text('ancestor_$i'), findsNothing);
+      }
     },
   );
 }

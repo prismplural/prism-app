@@ -502,7 +502,7 @@ class _GroupInfoHeader extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (ancestors.isNotEmpty) ...[
-                            _AncestorBreadcrumb(ancestors: ancestors),
+                            AncestorBreadcrumb(ancestors: ancestors),
                             const SizedBox(height: 2),
                           ],
                           Padding(
@@ -723,8 +723,9 @@ List<MemberGroup> _resolveAncestors(MemberGroup group, List<MemberGroup> all) {
   return chain;
 }
 
-class _AncestorBreadcrumb extends StatelessWidget {
-  const _AncestorBreadcrumb({required this.ancestors});
+@visibleForTesting
+class AncestorBreadcrumb extends StatelessWidget {
+  const AncestorBreadcrumb({super.key, required this.ancestors});
 
   final List<MemberGroup> ancestors;
 
