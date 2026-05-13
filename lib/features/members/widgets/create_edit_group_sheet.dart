@@ -209,12 +209,14 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
         GroupTreeUtils.resolveSyncCycles(allGroupsAsync.value ?? const []),
       );
       if (hierarchyValidationNeeded &&
-          GroupTreeUtils.wouldExceedMaxDepth(
-            movingGroupId: widget.group?.id,
-            proposedParentId: _parentGroupId,
-            tree: tree,
+          widget.group != null &&
+          _parentGroupId != null &&
+          GroupTreeUtils.wouldCreateCycle(
+            widget.group!.id,
+            _parentGroupId!,
+            tree,
           )) {
-        throw StateError('selected parent would exceed nesting limit');
+        throw StateError('selected parent would create a cycle');
       }
 
       final notifier = ref.read(groupNotifierProvider.notifier);
