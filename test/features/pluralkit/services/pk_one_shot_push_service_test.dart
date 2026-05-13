@@ -262,7 +262,7 @@ void main() {
     // pluralkitSyncIgnored must NOT be touched (was false before, still false).
     expect(stored.pluralkitSyncIgnored, isFalse);
 
-    final stateRow = await dao.getById('push:m1');
+    final stateRow = await dao.getById('one_shot_push:m1');
     expect(stateRow, isNotNull);
     expect(stateRow!.status, 'applied');
     expect(stateRow.pkMemberId, 'abcde');
@@ -286,7 +286,7 @@ void main() {
 
     // Seed a prior pending state row with the PK UUID already populated —
     // simulates a crash between the PK POST and the local writeback.
-    await dao.upsert(_priorStateRow('push:m1', 'm1', 'abcde', 'uuid-alice'));
+    await dao.upsert(_priorStateRow('one_shot_push:m1', 'm1', 'abcde', 'uuid-alice'));
 
     client.onGet = (ref) => PKMember(id: 'abcde', uuid: ref, name: 'Alice');
 
@@ -300,7 +300,7 @@ void main() {
     expect(stored!.pluralkitId, 'abcde');
     expect(stored.pluralkitUuid, 'uuid-alice');
 
-    final stateRow = await dao.getById('push:m1');
+    final stateRow = await dao.getById('one_shot_push:m1');
     expect(stateRow!.status, 'applied');
   });
 
@@ -330,7 +330,7 @@ void main() {
     expect(stored.pluralkitId, isNull, reason: 'local write must be skipped');
     expect(stored.pluralkitUuid, isNull);
 
-    final stateRow = await dao.getById('push:m1');
+    final stateRow = await dao.getById('one_shot_push:m1');
     expect(stateRow!.status, 'failed');
     expect(stateRow.errorMessage, isNotNull);
     expect(
@@ -360,7 +360,7 @@ void main() {
     expect(stored.pluralkitId, isNull, reason: 'local write must be skipped');
     expect(stored.pluralkitUuid, isNull);
 
-    final stateRow = await dao.getById('push:m1');
+    final stateRow = await dao.getById('one_shot_push:m1');
     expect(stateRow!.status, 'failed');
     expect(stateRow.errorMessage, isNotNull);
     expect(

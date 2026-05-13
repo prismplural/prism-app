@@ -24,12 +24,15 @@ class PkOneShotPushBusyException implements Exception {
       'already in flight.';
 }
 
-/// Deterministic state-row key shared with `PkMappingApplier`'s
-/// `PkPushNewDecision.id` (see `pk_mapping_applier.dart` — `'push:$localMemberId'`).
-/// Sharing the key means a row written by either flow naturally short-circuits
-/// the other on retry / crash recovery — there is no duplicate POST hazard
-/// from the two flows running for the same member.
-String _pushStateId(String memberId) => 'push:$memberId';
+/// Deterministic state-row key for this flow's crash-recovery state.
+///
+/// Intentionally NOT shared with `PkMappingApplier`'s `PkPushNewDecision.id`
+/// (`'push:$memberId'`). If we shared the key and marked it `applied`, the
+/// mapping applier's `_applyOne` would later short-circuit on the same row
+/// (`alreadyApplied`) even when the local PK link has since been cleared and
+/// the user wants the mapping screen to re-POST. Keep the namespaces separate
+/// so each flow owns its own state-row lifecycle.
+String _pushStateId(String memberId) => 'one_shot_push:$memberId';
 
 /// One-shot push of a single local member to PluralKit, decoupled from
 /// the global sync settings (`PkSyncDirection`, `PkSyncMode`).
