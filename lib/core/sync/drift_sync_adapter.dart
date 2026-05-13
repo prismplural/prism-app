@@ -213,7 +213,11 @@ String? _asString(dynamic value) => value is String ? value : null;
 
 int? _asInt(dynamic value) {
   if (value is int) return value;
-  if (value is double) return value.toInt();
+  // `double.toInt()` throws `UnsupportedError` for NaN/Infinity. The
+  // wire format can carry those (see `_asDouble`) — reject them here so
+  // a misencoded Int field surfaces as a quarantined type mismatch
+  // instead of aborting the whole strict-apply batch.
+  if (value is double) return value.isFinite ? value.toInt() : null;
   if (value is String) return int.tryParse(value);
   return null;
 }
@@ -221,9 +225,17 @@ int? _asInt(dynamic value) {
 bool? _asBool(dynamic value) => value is bool ? value : null;
 
 double? _asDouble(dynamic value) {
-  if (value is double) return value;
+  // Drift writes non-finite doubles (NaN, +/-Infinity) into a NOT NULL Real
+  // column by coercing them to NULL at the SQLite layer — which then trips
+  // the column's NOT NULL constraint and aborts strict-apply pairing for
+  // the whole row. Reject non-finite here so the column falls back to its
+  // declared default instead.
+  if (value is double) return value.isFinite ? value : null;
   if (value is int) return value.toDouble();
-  if (value is String) return double.tryParse(value);
+  if (value is String) {
+    final parsed = double.tryParse(value);
+    return (parsed != null && parsed.isFinite) ? parsed : null;
+  }
   return null;
 }
 
