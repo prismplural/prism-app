@@ -352,11 +352,13 @@ void main() {
     test(
       'previewPendingDestructivePush returns empty while mapping is pending',
       () async {
+        // needsMapping = isConnected && directionConfirmed && !mappingAcknowledged
         final ctx = await primedContainer(
           FrontingMigrationService.modeComplete,
           initialServiceState: const PluralKitSyncState(
             isConnected: true,
-            needsMapping: true,
+            directionConfirmed: true,
+            mappingAcknowledged: false,
           ),
         );
         final notifier = ctx.container.read(pluralKitSyncProvider.notifier);

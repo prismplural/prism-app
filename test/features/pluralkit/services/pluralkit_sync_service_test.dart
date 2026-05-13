@@ -555,8 +555,9 @@ void main() {
       expect(service.state.isConnected, isTrue);
       expect(service.state.syncError, isNull);
       expect(storageStub._store[_pkTokenKey], 'valid-token');
-      // Fresh connection gates auto-sync until mapping completes.
-      expect(service.state.needsMapping, isTrue);
+      // Fresh connection gates auto-sync until direction + mapping are confirmed.
+      expect(service.state.needsDirection, isTrue);
+      expect(service.state.needsMapping, isFalse); // mapping gated behind direction
       expect(service.state.canAutoSync, isFalse);
     });
 
@@ -572,6 +573,17 @@ void main() {
         await service.setToken('valid-token');
         expect(service.state.canAutoSync, isFalse);
 
+        // Simulate direction step completing (directionConfirmed is the prior
+        // gate in the new 3-step flow: connected → direction → mapping → ready).
+        await db.pluralKitSyncDao.upsertSyncState(
+          const PluralKitSyncStateCompanion(
+            id: Value('pk_config'),
+            directionConfirmed: Value(true),
+          ),
+        );
+        await service.loadState();
+        expect(service.state.needsMapping, isTrue);
+
         await service.acknowledgeMapping();
         expect(service.state.needsMapping, isFalse);
         expect(service.state.canAutoSync, isTrue);
@@ -584,7 +596,7 @@ void main() {
       },
     );
 
-    test('buildClientIfConnected returns null while mapping pending', () async {
+    test('buildClientIfConnected returns null while setup incomplete', () async {
       final db = _makeDb();
       addTearDown(db.close);
 
@@ -592,12 +604,27 @@ void main() {
       final service = _makeService(fakeClient: fakeClient, db: db);
 
       await service.setToken('valid-token');
+      // After fresh connect: needsDirection=true → canAutoSync=false.
+      expect(service.state.needsDirection, isTrue);
       expect(await service.buildClientIfConnected(), isNull);
 
-      // But the mapping-aware path still gives a client.
+      // The mapping-aware bypass still gives a client (used by mapping screen).
       expect(await service.buildClientIgnoringMappingGate(), isNotNull);
 
+      // Simulate direction step completing, then acknowledge mapping.
+      await db.pluralKitSyncDao.upsertSyncState(
+        const PluralKitSyncStateCompanion(
+          id: Value('pk_config'),
+          directionConfirmed: Value(true),
+        ),
+      );
+      await service.loadState();
+      // needsMapping now true — still gated.
+      expect(service.state.needsMapping, isTrue);
+      expect(await service.buildClientIfConnected(), isNull);
+
       await service.acknowledgeMapping();
+      // Both gates cleared → canAutoSync=true → client available.
       expect(await service.buildClientIfConnected(), isNotNull);
     });
 
@@ -662,7 +689,7 @@ void main() {
     );
 
     test(
-      'truncates pk_mapping_state + resets needsMapping (regression B3)',
+      'truncates pk_mapping_state + resets setup state (regression B3)',
       () async {
         final db = _makeDb();
         addTearDown(db.close);
@@ -686,7 +713,10 @@ void main() {
         );
 
         await service.setToken('valid-token');
-        expect(service.state.needsMapping, isTrue);
+        // New state machine: fresh connect puts us in needsDirection, not needsMapping.
+        expect(service.state.needsDirection, isTrue);
+        expect(service.state.needsMapping, isFalse);
+        expect(service.state.canAutoSync, isFalse);
 
         // Precondition — row exists.
         final before = await db.pkMappingStateDao.getAll();
@@ -702,10 +732,12 @@ void main() {
           reason: 'clearToken must truncate pk_mapping_state (B3)',
         );
 
-        // needsMapping / mappingAcknowledged are reset so a reconnect will
-        // trigger the mapping flow again rather than silently inheriting
-        // the prior acknowledgement.
+        // After clearToken, isConnected=false → all setup gates off.
+        expect(service.state.needsDirection, isFalse);
         expect(service.state.needsMapping, isFalse);
+        expect(service.state.canAutoSync, isFalse);
+        // mappingAcknowledged is reset so a reconnect will trigger the full
+        // setup flow rather than silently inheriting the prior acknowledgement.
         final row = await db.pluralKitSyncDao.getSyncState();
         expect(row.mappingAcknowledged, isFalse);
       },
@@ -819,7 +851,17 @@ void main() {
         );
 
         await service.setToken('valid-token');
+        // Seed directionConfirmed so the full setup flow (direction → mapping)
+        // is treated as complete, enabling canAutoSync.
+        await db.pluralKitSyncDao.upsertSyncState(
+          const PluralKitSyncStateCompanion(
+            id: Value('pk_config'),
+            directionConfirmed: Value(true),
+          ),
+        );
         await service.acknowledgeMapping();
+        await service.loadState();
+        expect(service.state.canAutoSync, isTrue);
         expect(service.state.lastSyncDate, isNull);
 
         final pulled = await service.pollFrontersOnly();
@@ -848,6 +890,7 @@ void main() {
           PluralKitSyncStateCompanion(
             id: const Value('pk_config'),
             isConnected: const Value(true),
+            directionConfirmed: const Value(true),
             mappingAcknowledged: const Value(true),
             lastSyncDate: Value(switchTimestamp),
             switchCursorTimestamp: Value(switchTimestamp),
@@ -982,6 +1025,14 @@ void main() {
       );
 
       await service.setToken('valid-token');
+      // Seed directionConfirmed so the full setup flow is complete and
+      // canAutoSync=true, which is required for syncLiveFrontersOnly to run.
+      await db.pluralKitSyncDao.upsertSyncState(
+        const PluralKitSyncStateCompanion(
+          id: Value('pk_config'),
+          directionConfirmed: Value(true),
+        ),
+      );
       await service.acknowledgeMapping();
       await service.loadState();
 

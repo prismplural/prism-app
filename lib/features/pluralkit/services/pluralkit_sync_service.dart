@@ -128,10 +128,17 @@ class PluralKitSyncState {
   final String? syncError;
   final bool isConnected;
 
-  /// True while a connection exists but the user hasn't completed (or
-  /// dismissed) the member mapping flow yet. See plan 08 — in this state,
-  /// auto-push and auto-sync are gated off to prevent duplicate members.
-  final bool needsMapping;
+  /// True once the user has confirmed a sync direction and mode for the
+  /// current PK system. Reset only when the connected systemId changes
+  /// (token rotation against the same system preserves it).
+  final bool directionConfirmed;
+
+  /// True once the user has completed (or dismissed) the member mapping flow.
+  /// Mirrors the DAO's `mappingAcknowledged` column directly — stored as
+  /// a positive flag so the in-memory model stays in sync with the DB without
+  /// a polarity inversion. See plan 08.
+  final bool mappingAcknowledged;
+
   final DateTime? lastSyncDate;
   final DateTime? lastManualSyncDate;
 
@@ -146,7 +153,8 @@ class PluralKitSyncState {
     this.syncStatus = '',
     this.syncError,
     this.isConnected = false,
-    this.needsMapping = false,
+    this.directionConfirmed = false,
+    this.mappingAcknowledged = false,
     this.lastSyncDate,
     this.lastManualSyncDate,
     this.linkedAt,
@@ -159,7 +167,8 @@ class PluralKitSyncState {
     String? syncError,
     bool clearError = false,
     bool? isConnected,
-    bool? needsMapping,
+    bool? directionConfirmed,
+    bool? mappingAcknowledged,
     DateTime? lastSyncDate,
     DateTime? lastManualSyncDate,
     DateTime? linkedAt,
@@ -171,22 +180,64 @@ class PluralKitSyncState {
       syncStatus: syncStatus ?? this.syncStatus,
       syncError: clearError ? null : (syncError ?? this.syncError),
       isConnected: isConnected ?? this.isConnected,
-      needsMapping: needsMapping ?? this.needsMapping,
+      directionConfirmed: directionConfirmed ?? this.directionConfirmed,
+      mappingAcknowledged: mappingAcknowledged ?? this.mappingAcknowledged,
       lastSyncDate: lastSyncDate ?? this.lastSyncDate,
       lastManualSyncDate: lastManualSyncDate ?? this.lastManualSyncDate,
       linkedAt: clearLinkedAt ? null : (linkedAt ?? this.linkedAt),
     );
   }
 
-  /// True when the connection is fully usable — connected AND mapping
-  /// complete. Callers gate auto-push / auto-sync on this.
-  bool get canAutoSync => isConnected && !needsMapping;
+  /// True when connected but the user hasn't confirmed a sync direction yet.
+  /// When this is true, [needsMapping] and [canAutoSync] are both false.
+  bool get needsDirection => isConnected && !directionConfirmed;
+
+  /// True while a connection exists and direction is confirmed but the user
+  /// hasn't completed (or dismissed) the member mapping flow yet.
+  /// In this state, auto-push and auto-sync are gated off to prevent
+  /// duplicate members.
+  bool get needsMapping => isConnected && directionConfirmed && !mappingAcknowledged;
+
+  /// True when the connection is fully usable — connected, direction
+  /// confirmed, AND mapping complete. Callers gate auto-push / auto-sync on
+  /// this.
+  bool get canAutoSync => isConnected && directionConfirmed && mappingAcknowledged;
 
   /// Whether a manual sync can be triggered (60-second cooldown).
   bool get canManualSync =>
       lastManualSyncDate == null ||
       DateTime.now().difference(lastManualSyncDate!) >=
           const Duration(seconds: 60);
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PluralKitSyncState &&
+        other.isSyncing == isSyncing &&
+        other.syncProgress == syncProgress &&
+        other.syncStatus == syncStatus &&
+        other.syncError == syncError &&
+        other.isConnected == isConnected &&
+        other.directionConfirmed == directionConfirmed &&
+        other.mappingAcknowledged == mappingAcknowledged &&
+        other.lastSyncDate == lastSyncDate &&
+        other.lastManualSyncDate == lastManualSyncDate &&
+        other.linkedAt == linkedAt;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    isSyncing,
+    syncProgress,
+    syncStatus,
+    syncError,
+    isConnected,
+    directionConfirmed,
+    mappingAcknowledged,
+    lastSyncDate,
+    lastManualSyncDate,
+    linkedAt,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -552,7 +603,8 @@ class PluralKitSyncService {
     _emit(
       _state.copyWith(
         isConnected: row.isConnected,
-        needsMapping: row.isConnected && !row.mappingAcknowledged,
+        directionConfirmed: row.directionConfirmed,
+        mappingAcknowledged: row.mappingAcknowledged,
         lastSyncDate: row.lastSyncDate,
         lastManualSyncDate: row.lastManualSyncDate,
         linkedAt: row.linkedAt,
@@ -570,7 +622,7 @@ class PluralKitSyncService {
         mappingAcknowledged: Value(true),
       ),
     );
-    _emit(_state.copyWith(needsMapping: false));
+    _emit(_state.copyWith(mappingAcknowledged: true));
   }
 
   /// Store the token, test the connection, and persist connected state.
@@ -636,7 +688,7 @@ class PluralKitSyncService {
       _emit(
         _state.copyWith(
           isConnected: true,
-          needsMapping: true,
+          mappingAcknowledged: false,
           linkedAt: linkedAt,
           clearError: true,
         ),
