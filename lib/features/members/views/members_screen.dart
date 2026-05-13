@@ -362,15 +362,17 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       (m) => ref.read(memberFrontingStatsProvider(m.id).future),
     );
     final allStats = await Future.wait(statsFutures);
-    final statsMap = <String, int>{
+    final statsMap = <String, Duration>{
       for (var i = 0; i < members.length; i++)
-        members[i].id: allStats[i].totalSessions,
+        members[i].id: allStats[i].totalDuration,
     };
     final sorted = [...members]
       ..sort((a, b) {
-        final aCount = statsMap[a.id] ?? 0;
-        final bCount = statsMap[b.id] ?? 0;
-        return descending ? bCount.compareTo(aCount) : aCount.compareTo(bCount);
+        final aDuration = statsMap[a.id] ?? Duration.zero;
+        final bDuration = statsMap[b.id] ?? Duration.zero;
+        return descending
+            ? bDuration.compareTo(aDuration)
+            : aDuration.compareTo(bDuration);
       });
     unawaited(
       ref.read(membersNotifierProvider.notifier).reorderMembers(sorted),
