@@ -755,13 +755,11 @@ class _AncestorBreadcrumb extends StatelessWidget {
         parts.add(const SizedBox(width: 4));
       }
       parts.add(
-        Flexible(
-          child: Text(
-            ancestor.name,
-            style: style,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+        Text(
+          ancestor.name,
+          style: style,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       );
       return Row(mainAxisSize: MainAxisSize.min, children: parts);
@@ -794,6 +792,9 @@ class _AncestorBreadcrumb extends StatelessWidget {
     children.add(const SizedBox(width: 6));
     children.add(Icon(AppIcons.chevronRight, size: 12, color: separatorColor));
 
-    return Row(mainAxisSize: MainAxisSize.min, children: children);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(mainAxisSize: MainAxisSize.min, children: children),
+    );
   }
 }
