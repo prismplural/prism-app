@@ -14955,11 +14955,17 @@ abstract class AppLocalizations {
   /// **'Nothing to map'**
   String get pkMappingEmptyTitle;
 
-  /// Empty state subtitle on the PK mapping screen.
+  /// Empty state subtitle on the PK mapping screen when neither side has anything to map.
   ///
   /// In en, this message translates to:
   /// **'Your PluralKit system has no members and there are no local members to push.'**
   String get pkMappingEmptySubtitle;
+
+  /// Empty state subtitle on the PK mapping screen when every local member already carries a PluralKit link and every PluralKit member is already mapped (e.g. after restoring Prism data on an account that was previously PK-paired).
+  ///
+  /// In en, this message translates to:
+  /// **'Every member is already linked to PluralKit — nothing to map.'**
+  String get pkMappingAllLinkedSubtitle;
 
   /// Intro paragraph at the top of the PK mapping screen explaining the per-row decisions.
   ///

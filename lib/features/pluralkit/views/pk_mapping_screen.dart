@@ -195,15 +195,24 @@ class _MappingBody extends ConsumerWidget {
     final theme = Theme.of(context);
     final l10n = context.l10n;
 
-    if (state.pkMembers.isEmpty && state.localMembers.isEmpty) {
+    final unlinkedLocals = state.unlinkedLocals;
+
+    // Nothing for the user to act on — every PK member is already linked
+    // and every local already carries a PK link. Most commonly hit after a
+    // Prism data restore on an account that was previously PluralKit-paired:
+    // the imported local rows still carry their old pluralkitUuid/pluralkitId,
+    // so the controller filters every fetched PK member out as "already
+    // mapped." Without this branch we'd render the intro + footer buttons
+    // with no rows between them, which reads as a broken screen.
+    if (state.pkMembers.isEmpty && unlinkedLocals.isEmpty) {
       return EmptyState(
         icon: Icon(AppIcons.people),
         title: l10n.pkMappingEmptyTitle,
-        subtitle: l10n.pkMappingEmptySubtitle,
+        subtitle: state.localMembers.isEmpty
+            ? l10n.pkMappingEmptySubtitle
+            : l10n.pkMappingAllLinkedSubtitle,
       );
     }
-
-    final unlinkedLocals = state.unlinkedLocals;
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

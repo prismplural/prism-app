@@ -307,6 +307,70 @@ void main() {
     );
   });
 
+  group('PkMappingScreen — empty state', () {
+    testWidgets(
+      'all-already-linked state renders the Nothing-to-map empty state, '
+      'not an apparently-blank screen with just the footer buttons',
+      (tester) async {
+        // Reproduces the bug where a fresh Prism install + data restore on an
+        // account that was previously PK-paired leaves every local row with a
+        // pluralkitUuid set. The controller filters every fetched PK member out
+        // as "already mapped" and unlinkedLocals is empty too. Before the fix
+        // the screen fell through to the data branch with no rows between the
+        // intro and the footer buttons, which read as a broken screen.
+        final alreadyLinked = _local('l1', 'Alice', pkUuid: 'pk-alice');
+        final state = PkMappingState(
+          pkMembers: const [],
+          localMembers: [alreadyLinked],
+          decisionsByPkUuid: const {},
+          decisionsByLocalId: const {},
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Nothing to map'), findsOneWidget);
+        expect(
+          find.text('Every member is already linked to PluralKit — '
+              'nothing to map.'),
+          findsOneWidget,
+        );
+
+        // The Apply / I'll-do-this-later buttons must NOT be present in the
+        // empty state — they belong to the row-rendering branch.
+        expect(find.text('Apply'), findsNothing);
+        expect(find.text("I'll do this later"), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'genuinely-empty state (PK empty + no locals) still uses the original '
+      'subtitle so existing copy is preserved for that case',
+      (tester) async {
+        final state = const PkMappingState(
+          pkMembers: [],
+          localMembers: [],
+          decisionsByPkUuid: {},
+          decisionsByLocalId: {},
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Nothing to map'), findsOneWidget);
+        expect(
+          find.text(
+            'Your PluralKit system has no members and there are no '
+            'local members to push.',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+  });
+
   group('PkMappingScreen — apply results', () {
     testWidgets('per-item errors are surfaced in the results summary', (
       tester,

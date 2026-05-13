@@ -9513,6 +9513,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Tu sistema en PluralKit no tiene miembros y no hay miembros locales para enviar.';
 
   @override
+  String get pkMappingAllLinkedSubtitle =>
+      'Todos los miembros ya están vinculados con PluralKit — no hay nada que vincular.';
+
+  @override
   String get pkMappingIntro =>
       'Por cada miembro de PluralKit, vincúlalo con un miembro existente de Prism, impórtalo como nuevo o sáltalo. Los miembros de Prism sin vincular pueden enviarse a PluralKit más abajo.';
 
