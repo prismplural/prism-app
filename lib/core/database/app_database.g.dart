@@ -11109,6 +11109,20 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _directionConfirmedMeta =
+      const VerificationMeta('directionConfirmed');
+  @override
+  late final GeneratedColumn<bool> directionConfirmed = GeneratedColumn<bool>(
+    'direction_confirmed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("direction_confirmed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -11122,6 +11136,7 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
     linkEpoch,
     switchCursorTimestamp,
     switchCursorId,
+    directionConfirmed,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -11221,6 +11236,15 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
         ),
       );
     }
+    if (data.containsKey('direction_confirmed')) {
+      context.handle(
+        _directionConfirmedMeta,
+        directionConfirmed.isAcceptableOrUnknown(
+          data['direction_confirmed']!,
+          _directionConfirmedMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -11274,6 +11298,10 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
         DriftSqlType.string,
         data['${effectivePrefix}switch_cursor_id'],
       ),
+      directionConfirmed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}direction_confirmed'],
+      )!,
     );
   }
 
@@ -11323,6 +11351,11 @@ class PluralKitSyncStateData extends DataClass
   /// Deduplicates within the fetched page when the cursor timestamp falls
   /// on a page boundary shared by multiple switches.
   final String? switchCursorId;
+
+  /// Set to true once the user has confirmed a sync direction and mode
+  /// for the current PK system. Reset only when the connected systemId
+  /// changes (token rotation against the same system preserves it).
+  final bool directionConfirmed;
   const PluralKitSyncStateData({
     required this.id,
     this.systemId,
@@ -11335,6 +11368,7 @@ class PluralKitSyncStateData extends DataClass
     required this.linkEpoch,
     this.switchCursorTimestamp,
     this.switchCursorId,
+    required this.directionConfirmed,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -11366,6 +11400,7 @@ class PluralKitSyncStateData extends DataClass
     if (!nullToAbsent || switchCursorId != null) {
       map['switch_cursor_id'] = Variable<String>(switchCursorId);
     }
+    map['direction_confirmed'] = Variable<bool>(directionConfirmed);
     return map;
   }
 
@@ -11396,6 +11431,7 @@ class PluralKitSyncStateData extends DataClass
       switchCursorId: switchCursorId == null && nullToAbsent
           ? const Value.absent()
           : Value(switchCursorId),
+      directionConfirmed: Value(directionConfirmed),
     );
   }
 
@@ -11422,6 +11458,7 @@ class PluralKitSyncStateData extends DataClass
         json['switchCursorTimestamp'],
       ),
       switchCursorId: serializer.fromJson<String?>(json['switchCursorId']),
+      directionConfirmed: serializer.fromJson<bool>(json['directionConfirmed']),
     );
   }
   @override
@@ -11441,6 +11478,7 @@ class PluralKitSyncStateData extends DataClass
         switchCursorTimestamp,
       ),
       'switchCursorId': serializer.toJson<String?>(switchCursorId),
+      'directionConfirmed': serializer.toJson<bool>(directionConfirmed),
     };
   }
 
@@ -11456,6 +11494,7 @@ class PluralKitSyncStateData extends DataClass
     int? linkEpoch,
     Value<DateTime?> switchCursorTimestamp = const Value.absent(),
     Value<String?> switchCursorId = const Value.absent(),
+    bool? directionConfirmed,
   }) => PluralKitSyncStateData(
     id: id ?? this.id,
     systemId: systemId.present ? systemId.value : this.systemId,
@@ -11476,6 +11515,7 @@ class PluralKitSyncStateData extends DataClass
     switchCursorId: switchCursorId.present
         ? switchCursorId.value
         : this.switchCursorId,
+    directionConfirmed: directionConfirmed ?? this.directionConfirmed,
   );
   PluralKitSyncStateData copyWithCompanion(PluralKitSyncStateCompanion data) {
     return PluralKitSyncStateData(
@@ -11504,6 +11544,9 @@ class PluralKitSyncStateData extends DataClass
       switchCursorId: data.switchCursorId.present
           ? data.switchCursorId.value
           : this.switchCursorId,
+      directionConfirmed: data.directionConfirmed.present
+          ? data.directionConfirmed.value
+          : this.directionConfirmed,
     );
   }
 
@@ -11520,7 +11563,8 @@ class PluralKitSyncStateData extends DataClass
           ..write('linkedAt: $linkedAt, ')
           ..write('linkEpoch: $linkEpoch, ')
           ..write('switchCursorTimestamp: $switchCursorTimestamp, ')
-          ..write('switchCursorId: $switchCursorId')
+          ..write('switchCursorId: $switchCursorId, ')
+          ..write('directionConfirmed: $directionConfirmed')
           ..write(')'))
         .toString();
   }
@@ -11538,6 +11582,7 @@ class PluralKitSyncStateData extends DataClass
     linkEpoch,
     switchCursorTimestamp,
     switchCursorId,
+    directionConfirmed,
   );
   @override
   bool operator ==(Object other) =>
@@ -11553,7 +11598,8 @@ class PluralKitSyncStateData extends DataClass
           other.linkedAt == this.linkedAt &&
           other.linkEpoch == this.linkEpoch &&
           other.switchCursorTimestamp == this.switchCursorTimestamp &&
-          other.switchCursorId == this.switchCursorId);
+          other.switchCursorId == this.switchCursorId &&
+          other.directionConfirmed == this.directionConfirmed);
 }
 
 class PluralKitSyncStateCompanion
@@ -11569,6 +11615,7 @@ class PluralKitSyncStateCompanion
   final Value<int> linkEpoch;
   final Value<DateTime?> switchCursorTimestamp;
   final Value<String?> switchCursorId;
+  final Value<bool> directionConfirmed;
   final Value<int> rowid;
   const PluralKitSyncStateCompanion({
     this.id = const Value.absent(),
@@ -11582,6 +11629,7 @@ class PluralKitSyncStateCompanion
     this.linkEpoch = const Value.absent(),
     this.switchCursorTimestamp = const Value.absent(),
     this.switchCursorId = const Value.absent(),
+    this.directionConfirmed = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PluralKitSyncStateCompanion.insert({
@@ -11596,6 +11644,7 @@ class PluralKitSyncStateCompanion
     this.linkEpoch = const Value.absent(),
     this.switchCursorTimestamp = const Value.absent(),
     this.switchCursorId = const Value.absent(),
+    this.directionConfirmed = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<PluralKitSyncStateData> custom({
@@ -11610,6 +11659,7 @@ class PluralKitSyncStateCompanion
     Expression<int>? linkEpoch,
     Expression<DateTime>? switchCursorTimestamp,
     Expression<String>? switchCursorId,
+    Expression<bool>? directionConfirmed,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -11627,6 +11677,7 @@ class PluralKitSyncStateCompanion
       if (switchCursorTimestamp != null)
         'switch_cursor_timestamp': switchCursorTimestamp,
       if (switchCursorId != null) 'switch_cursor_id': switchCursorId,
+      if (directionConfirmed != null) 'direction_confirmed': directionConfirmed,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -11643,6 +11694,7 @@ class PluralKitSyncStateCompanion
     Value<int>? linkEpoch,
     Value<DateTime?>? switchCursorTimestamp,
     Value<String?>? switchCursorId,
+    Value<bool>? directionConfirmed,
     Value<int>? rowid,
   }) {
     return PluralKitSyncStateCompanion(
@@ -11658,6 +11710,7 @@ class PluralKitSyncStateCompanion
       switchCursorTimestamp:
           switchCursorTimestamp ?? this.switchCursorTimestamp,
       switchCursorId: switchCursorId ?? this.switchCursorId,
+      directionConfirmed: directionConfirmed ?? this.directionConfirmed,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -11702,6 +11755,9 @@ class PluralKitSyncStateCompanion
     if (switchCursorId.present) {
       map['switch_cursor_id'] = Variable<String>(switchCursorId.value);
     }
+    if (directionConfirmed.present) {
+      map['direction_confirmed'] = Variable<bool>(directionConfirmed.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -11722,6 +11778,7 @@ class PluralKitSyncStateCompanion
           ..write('linkEpoch: $linkEpoch, ')
           ..write('switchCursorTimestamp: $switchCursorTimestamp, ')
           ..write('switchCursorId: $switchCursorId, ')
+          ..write('directionConfirmed: $directionConfirmed, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -29014,6 +29071,7 @@ typedef $$PluralKitSyncStateTableCreateCompanionBuilder =
       Value<int> linkEpoch,
       Value<DateTime?> switchCursorTimestamp,
       Value<String?> switchCursorId,
+      Value<bool> directionConfirmed,
       Value<int> rowid,
     });
 typedef $$PluralKitSyncStateTableUpdateCompanionBuilder =
@@ -29029,6 +29087,7 @@ typedef $$PluralKitSyncStateTableUpdateCompanionBuilder =
       Value<int> linkEpoch,
       Value<DateTime?> switchCursorTimestamp,
       Value<String?> switchCursorId,
+      Value<bool> directionConfirmed,
       Value<int> rowid,
     });
 
@@ -29093,6 +29152,11 @@ class $$PluralKitSyncStateTableFilterComposer
 
   ColumnFilters<String> get switchCursorId => $composableBuilder(
     column: $table.switchCursorId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get directionConfirmed => $composableBuilder(
+    column: $table.directionConfirmed,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -29160,6 +29224,11 @@ class $$PluralKitSyncStateTableOrderingComposer
     column: $table.switchCursorId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get directionConfirmed => $composableBuilder(
+    column: $table.directionConfirmed,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PluralKitSyncStateTableAnnotationComposer
@@ -29217,6 +29286,11 @@ class $$PluralKitSyncStateTableAnnotationComposer
     column: $table.switchCursorId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get directionConfirmed => $composableBuilder(
+    column: $table.directionConfirmed,
+    builder: (column) => column,
+  );
 }
 
 class $$PluralKitSyncStateTableTableManager
@@ -29270,6 +29344,7 @@ class $$PluralKitSyncStateTableTableManager
                 Value<int> linkEpoch = const Value.absent(),
                 Value<DateTime?> switchCursorTimestamp = const Value.absent(),
                 Value<String?> switchCursorId = const Value.absent(),
+                Value<bool> directionConfirmed = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PluralKitSyncStateCompanion(
                 id: id,
@@ -29283,6 +29358,7 @@ class $$PluralKitSyncStateTableTableManager
                 linkEpoch: linkEpoch,
                 switchCursorTimestamp: switchCursorTimestamp,
                 switchCursorId: switchCursorId,
+                directionConfirmed: directionConfirmed,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -29298,6 +29374,7 @@ class $$PluralKitSyncStateTableTableManager
                 Value<int> linkEpoch = const Value.absent(),
                 Value<DateTime?> switchCursorTimestamp = const Value.absent(),
                 Value<String?> switchCursorId = const Value.absent(),
+                Value<bool> directionConfirmed = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PluralKitSyncStateCompanion.insert(
                 id: id,
@@ -29311,6 +29388,7 @@ class $$PluralKitSyncStateTableTableManager
                 linkEpoch: linkEpoch,
                 switchCursorTimestamp: switchCursorTimestamp,
                 switchCursorId: switchCursorId,
+                directionConfirmed: directionConfirmed,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

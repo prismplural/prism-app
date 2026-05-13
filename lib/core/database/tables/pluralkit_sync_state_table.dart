@@ -50,6 +50,12 @@ class PluralKitSyncState extends Table {
   /// on a page boundary shared by multiple switches.
   TextColumn get switchCursorId => text().nullable()();
 
+  /// Set to true once the user has confirmed a sync direction and mode
+  /// for the current PK system. Reset only when the connected systemId
+  /// changes (token rotation against the same system preserves it).
+  BoolColumn get directionConfirmed =>
+      boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

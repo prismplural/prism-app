@@ -96,7 +96,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -586,6 +586,24 @@ class AppDatabase extends _$AppDatabase {
           'UPDATE members SET markdown_enabled = 1 WHERE markdown_enabled = 0',
         );
         current = 20;
+      }
+      if (current == 20 && to >= 21) {
+        // Direction-first setup: add direction_confirmed to track whether the
+        // user has picked a sync direction before the first sync runs.
+        // Default false so fresh installs and mid-setup users see the wizard.
+        // Backfill: existing fully-set-up users (mapping_acknowledged=1) have
+        // already implicitly accepted a direction, so flip them to true so
+        // they land on the steady-state screen after upgrading.
+        await migrator.addColumn(
+          pluralKitSyncState,
+          pluralKitSyncState.directionConfirmed,
+        );
+        await customStatement(
+          'UPDATE plural_kit_sync_state '
+          'SET direction_confirmed = 1 '
+          'WHERE mapping_acknowledged = 1',
+        );
+        current = 21;
       }
       if (current != to) {
         throw UnsupportedError(
