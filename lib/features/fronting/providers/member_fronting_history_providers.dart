@@ -43,8 +43,6 @@ class MemberFrontingHistoryData {
   }
 }
 
-typedef _HistoryRange = ({DateTime start, DateTime end});
-
 final _memberFrontingHistoryTargetSessionsProvider = StreamProvider.autoDispose
     .family<List<FrontingSession>, String>((ref, memberId) {
       final limit = ref.watch(memberFrontingHistoryLimitProvider(memberId));
@@ -54,11 +52,36 @@ final _memberFrontingHistoryTargetSessionsProvider = StreamProvider.autoDispose
           .map((rows) => rows.map(FrontingSessionMapper.toDomain).toList());
     });
 
-final _frontingSessionsOverlappingRangeProvider = StreamProvider.autoDispose
-    .family<List<FrontingSession>, _HistoryRange>((ref, range) {
+/// Overlap context for one member's history.
+///
+/// Keyed by `memberId` (not by the derived range) so the family instance stays
+/// stable across pagination. When the target stream emits a longer page with
+/// an earlier `rangeStart`, this provider rebuilds in place and Riverpod keeps
+/// the previous list available via `.value`. A range-keyed family would spin
+/// up a fresh instance with no `.value`, forcing the outer provider to a bare
+/// `AsyncLoading` mid-scroll — that collapses the list, resets the scroll
+/// position, and is exactly the flicker we hit before.
+final _memberFrontingHistoryOverlappingSessionsProvider =
+    StreamProvider.autoDispose.family<List<FrontingSession>, String>((
+      ref,
+      memberId,
+    ) {
+      final targetSessions =
+          ref
+              .watch(_memberFrontingHistoryTargetSessionsProvider(memberId))
+              .value ??
+          const <FrontingSession>[];
+      if (targetSessions.isEmpty) {
+        return Stream.value(const <FrontingSession>[]);
+      }
+      final rangeStart = targetSessions
+          .map((session) => session.startTime)
+          .reduce((a, b) => a.isBefore(b) ? a : b);
       final dao = ref.watch(frontingSessionsDaoProvider);
       return dao
-          .watchSessionsOverlappingRange(range.start, range.end)
+          // Keep the end stable across rebuilds. Future-dated rows are still
+          // filtered by computeDerivedPeriods(now: ...).
+          .watchSessionsOverlappingRange(rangeStart, DateTime(9999))
           .map((rows) => rows.map(FrontingSessionMapper.toDomain).toList());
     });
 
@@ -92,16 +115,8 @@ final memberFrontingHistoryProvider = Provider.autoDispose
         );
       }
 
-      final rangeStart = targetSessions
-          .map((session) => session.startTime)
-          .reduce((a, b) => a.isBefore(b) ? a : b);
       final allSessionsAsync = ref.watch(
-        _frontingSessionsOverlappingRangeProvider((
-          start: rangeStart,
-          // Keep this value stable across provider rebuilds. Future-dated
-          // rows are still filtered by computeDerivedPeriods(now: ...).
-          end: DateTime(9999),
-        )),
+        _memberFrontingHistoryOverlappingSessionsProvider(memberId),
       );
       final allSessions = allSessionsAsync.value;
       if (allSessions == null) {
@@ -112,6 +127,9 @@ final memberFrontingHistoryProvider = Provider.autoDispose
         );
       }
 
+      final rangeStart = targetSessions
+          .map((session) => session.startTime)
+          .reduce((a, b) => a.isBefore(b) ? a : b);
       final periods = computeDerivedPeriods(
         allSessions,
         members,

@@ -171,5 +171,72 @@ void main() {
       );
       expect(secondPage.hasMore, isFalse);
     });
+
+    test(
+      'load-more never emits a bare loading state after first page settles',
+      () async {
+        // Regression: scrolling fast caused MemberFrontingHistoryList to
+        // collapse to a spinner mid-pagination, which dropped the scroll
+        // extent and snapped the user back to the top. The overlap context
+        // provider used to be keyed by the derived range, so a longer page
+        // swapped in a fresh family instance with no `.value`. This test
+        // walks several load-more cycles and asserts the outer provider
+        // keeps `hasValue == true` from the first settled page onward.
+        final member = _member('a', 'Alex');
+        final base = DateTime(2026, 4, 30, 12);
+        const totalSessions = memberFrontingHistoryPageSize * 3 + 5;
+        for (var i = 0; i < totalSessions; i++) {
+          final start = base.subtract(Duration(days: i));
+          await _insert(
+            db,
+            _session(
+              id: 'a$i',
+              memberId: 'a',
+              start: start,
+              end: start.add(const Duration(hours: 1)),
+            ),
+          );
+        }
+
+        final container = containerWithMembers([member]);
+
+        // Wait for the first page to settle so we have a baseline value.
+        await _readHistory(container, 'a');
+
+        final transitions = <AsyncValue<MemberFrontingHistoryData>>[];
+        final sub = container.listen<AsyncValue<MemberFrontingHistoryData>>(
+          memberFrontingHistoryProvider('a'),
+          (_, next) => transitions.add(next),
+          fireImmediately: true,
+        );
+        addTearDown(sub.close);
+
+        for (var page = 2; page <= 3; page++) {
+          container
+              .read(memberFrontingHistoryLimitProvider('a').notifier)
+              .loadMore();
+          await _readHistory(
+            container,
+            'a',
+            targetSessionCount: memberFrontingHistoryPageSize * page,
+          );
+        }
+
+        expect(
+          transitions,
+          isNotEmpty,
+          reason: 'expected at least one provider update during pagination',
+        );
+        for (final state in transitions) {
+          expect(
+            state.hasValue,
+            isTrue,
+            reason:
+                'every state after the first settled page must carry a value '
+                '(bare AsyncLoading collapses the list and snaps scroll to top)',
+          );
+        }
+      },
+    );
   });
 }
