@@ -4073,8 +4073,6 @@
   "@memberGroupParentLabel": {"description": "Label for parent group selector in create/edit sheet"},
   "memberGroupParentNone": "None (top level)",
   "@memberGroupParentNone": {"description": "Placeholder when no parent group is selected"},
-  "memberGroupParentDepthLimit": "Can't nest deeper",
-  "@memberGroupParentDepthLimit": {"description": "Label for groups that are at max depth in parent picker"},
   "memberGroupFilterAll": "All",
   "@memberGroupFilterAll": {
     "description": "Filter chip label to show all members (no group filter)"

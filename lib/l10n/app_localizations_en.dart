@@ -2972,9 +2972,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupParentNone => 'None (top level)';
 
   @override
-  String get memberGroupParentDepthLimit => 'Can\'t nest deeper';
-
-  @override
   String get memberGroupFilterAll => 'All';
 
   @override

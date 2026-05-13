@@ -5158,12 +5158,6 @@ abstract class AppLocalizations {
   /// **'None (top level)'**
   String get memberGroupParentNone;
 
-  /// Label for groups that are at max depth in parent picker
-  ///
-  /// In en, this message translates to:
-  /// **'Can\'t nest deeper'**
-  String get memberGroupParentDepthLimit;
-
   /// Filter chip label to show all members (no group filter)
   ///
   /// In en, this message translates to:

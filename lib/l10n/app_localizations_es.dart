@@ -3035,9 +3035,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupParentNone => 'Ninguno (nivel superior)';
 
   @override
-  String get memberGroupParentDepthLimit => 'No se puede anidar más';
-
-  @override
   String get memberGroupFilterAll => 'Todos';
 
   @override
