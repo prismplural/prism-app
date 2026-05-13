@@ -103,6 +103,7 @@ class _StaticPluralKitSyncNotifier extends PluralKitSyncNotifier {
   Future<PkSyncSummary?> syncLiveFrontersOnly({
     bool isManual = false,
     PkSyncDirection direction = PkSyncDirection.pullOnly,
+    PKSwitch? knownCurrentFronters,
   }) async {
     syncLiveFrontersOnlyCallCount += 1;
     lastManualSyncFlag = isManual;

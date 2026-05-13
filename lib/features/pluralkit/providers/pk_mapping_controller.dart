@@ -1,16 +1,21 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_unmapped_fronters_notice_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_member_matcher.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_prefs_keys.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
@@ -22,6 +27,72 @@ import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 /// string they can match against.
 const _defaultOfflineErrorMessage =
     "Couldn't reach PluralKit. Check your internet connection and try again.";
+
+// ---------------------------------------------------------------------------
+// Outcome type
+// ---------------------------------------------------------------------------
+
+/// Sealed outcome returned by [PkMappingController.apply].
+///
+/// The mapping screen inspects this value to decide whether to navigate back
+/// immediately ([PkMappingApplyOutcomeApplied]), show the "Who's fronting?"
+/// resolution sheet ([PkMappingApplyOutcomeNeedsFronterResolution]), or surface
+/// an error ([PkMappingApplyOutcomeFailed]).
+///
+/// Named `PkMappingApplyOutcome` rather than `PkApplyOutcome` to avoid
+/// collision with the existing `enum PkApplyOutcome` in `pk_mapping_applier.dart`.
+sealed class PkMappingApplyOutcome {
+  const PkMappingApplyOutcome();
+}
+
+/// Returned when all decisions succeeded and active fronter sets agreed (or
+/// disagreement was not actionable in the current direction). The post-apply
+/// bootstrap has already run.
+class PkMappingApplyOutcomeApplied extends PkMappingApplyOutcome {
+  const PkMappingApplyOutcomeApplied();
+}
+
+/// Returned when decisions succeeded but the local and PK active fronter sets
+/// disagree AND the chosen direction can act on the difference. The post-apply
+/// bootstrap has NOT yet run — it is deferred until the user resolves the
+/// conflict via [PkMappingController.applyFronterResolution] or defers it via
+/// [PkMappingController.deferBootstrap] (both T9 / T10, not yet implemented).
+class PkMappingApplyOutcomeNeedsFronterResolution extends PkMappingApplyOutcome {
+  /// Local Prism member IDs of active (non-sleep) sessions.
+  final Set<String> localFronterMemberIds;
+
+  /// PK members projected to local member IDs via the just-applied mapping
+  /// decisions. PK members with no mapping decision are excluded (unmapped
+  /// fronter notice handles them separately).
+  final Set<String> pkFronterMemberIds;
+
+  final PkSyncDirection direction;
+  final PkSyncMode mode;
+
+  /// Raw PK switch, passed through so T9 can use it without a second network
+  /// call (cache pass-through — see spec "liveFrontsOnly mode" section).
+  final PKSwitch pkCurrentSwitch;
+
+  const PkMappingApplyOutcomeNeedsFronterResolution({
+    required this.localFronterMemberIds,
+    required this.pkFronterMemberIds,
+    required this.direction,
+    required this.mode,
+    required this.pkCurrentSwitch,
+  });
+}
+
+/// Returned when one or more per-decision applier calls produced a failure.
+/// [PkMappingController.acknowledgeMapping] was NOT called; `needsMapping`
+/// remains true.
+class PkMappingApplyOutcomeFailed extends PkMappingApplyOutcome {
+  final List<PkApplyResult> failures;
+  const PkMappingApplyOutcomeFailed(this.failures);
+}
+
+// ---------------------------------------------------------------------------
+// Phase enum + state
+// ---------------------------------------------------------------------------
 
 /// Phase tracker for the mapping screen's Apply pipeline.
 ///
@@ -130,6 +201,10 @@ class PkMappingState {
         .toList();
   }
 }
+
+// ---------------------------------------------------------------------------
+// Controller
+// ---------------------------------------------------------------------------
 
 /// Controller for the PluralKit mapping screen.
 class PkMappingController extends AsyncNotifier<PkMappingState> {
@@ -293,13 +368,24 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
   /// localized strings shown above the button during phases 2 and 3. The
   /// caller (the mapping screen) resolves them from [BuildContext]; the
   /// controller has no BuildContext of its own.
-  Future<void> apply({
+  ///
+  /// Returns a [PkMappingApplyOutcome]:
+  /// - [PkMappingApplyOutcomeApplied]: success, bootstrap ran.
+  /// - [PkMappingApplyOutcomeNeedsFronterResolution]: success, but active
+  ///   fronter sets disagree and direction can act on the difference. Bootstrap
+  ///   NOT yet run — deferred to [applyFronterResolution] (T9).
+  /// - [PkMappingApplyOutcomeFailed]: one or more decisions failed.
+  ///
+  /// The return value is `null` on early exits (not connected, already
+  /// applying, ref unmounted before completion, unhandled exception). The
+  /// caller should treat `null` as "stay on screen and show state.error".
+  Future<PkMappingApplyOutcome?> apply({
     String? importingHistoryStatus,
     String? pushingHistoryStatus,
     String? offlineErrorMessage,
   }) async {
     final current = state.value;
-    if (current == null || current.isApplying) return;
+    if (current == null || current.isApplying) return null;
 
     state = AsyncData(
       current.copyWith(
@@ -316,7 +402,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
     final client = await syncService.buildClientIgnoringMappingGate();
     if (!ref.mounted) {
       client?.dispose();
-      return;
+      return null;
     }
     if (client == null) {
       final after = state.value;
@@ -328,7 +414,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
           ),
         );
       }
-      return;
+      return null;
     }
 
     try {
@@ -342,7 +428,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
         await client.getSystem().timeout(const Duration(seconds: 5));
       } on Object catch (e) {
         if (isPluralKitNetworkException(e)) {
-          if (!ref.mounted) return;
+          if (!ref.mounted) return null;
           final after = state.value;
           if (after != null) {
             state = AsyncData(
@@ -353,7 +439,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
               ),
             );
           }
-          return;
+          return null;
         }
         rethrow;
       }
@@ -379,7 +465,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       final results = <PkApplyResult>[];
       for (var i = 0; i < decisions.length; i++) {
         final r = await applier.apply([decisions[i]]);
-        if (!ref.mounted) return;
+        if (!ref.mounted) return null;
         results.addAll(r);
         final next = state.value;
         if (next != null) {
@@ -393,84 +479,137 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
         (r) => r.outcome == PkApplyOutcome.failed,
       );
 
-      if (!hasFailures) {
-        await syncService.acknowledgeMapping();
-        if (!ref.mounted) return;
-
-        // Post-apply bootstrap: sync only the surfaces allowed by the
-        // persisted mode/direction. Errors here must not undo the Apply itself
-        // — log and continue so the UI still flips out of `needsMapping`.
-        try {
-          await ref.read(pkSyncModeProvider.notifier).load();
-          await ref.read(pkSyncDirectionProvider.notifier).load();
-          if (!ref.mounted) return;
-          final mode = ref.read(pkSyncModeProvider);
-          final direction = ref.read(pkSyncDirectionProvider);
-
-          if (mode == PkSyncMode.liveFrontsOnly) {
-            if (direction.pullEnabled || direction.pushEnabled) {
-              if (!ref.read(frontingMigrationWritesBlockedProvider)) {
-                final summary = await syncService.syncLiveFrontersOnly(
-                  direction: direction,
-                );
-                if (!ref.mounted) return;
-                if (summary != null && direction.pullEnabled) {
-                  await ref
-                      .read(pkUnmappedFrontersNoticeProvider.notifier)
-                      .applyLiveFrontersSummary(summary);
-                }
-              }
-            }
-          } else {
-            if (direction.pullEnabled) {
-              final beforeImport = state.value;
-              if (beforeImport != null) {
-                state = AsyncData(
-                  beforeImport.copyWith(
-                    phase: PkMappingPhase.importingSwitches,
-                    applyProgress: 0.0,
-                    statusText: importingHistoryStatus,
-                  ),
-                );
-              }
-              await syncService.importSwitchesAfterLink(
-                onProgress: (fraction, message) {
-                  if (!ref.mounted) return;
-                  final cur = state.value;
-                  if (cur == null) return;
-                  state = AsyncData(
-                    cur.copyWith(
-                      applyProgress: fraction.clamp(0.0, 1.0),
-                      statusText: message,
-                    ),
-                  );
-                },
-              );
-              if (!ref.mounted) return;
-            }
-
-            if (direction.pushEnabled) {
-              final beforePush = state.value;
-              if (beforePush != null) {
-                state = AsyncData(
-                  beforePush.copyWith(
-                    phase: PkMappingPhase.pushingSwitches,
-                    applyProgress: 0.0,
-                    statusText: pushingHistoryStatus,
-                  ),
-                );
-              }
-              await syncService.pushPendingSwitches();
-            }
-          }
-        } catch (_) {
-          // Non-fatal — surfaces on next syncRecentData via state.syncError.
+      // On failure: do NOT acknowledge mapping and do NOT run bootstrap.
+      // Return the failure outcome so the screen can surface it.
+      if (hasFailures) {
+        final failures = results
+            .where((r) => r.outcome == PkApplyOutcome.failed)
+            .toList();
+        final after = state.value;
+        if (after != null) {
+          state = AsyncData(
+            after.copyWith(
+              isApplying: false,
+              applyProgress: 1.0,
+              lastResults: results,
+              clearStatusText: true,
+            ),
+          );
         }
-        if (!ref.mounted) return;
-
-        // Refresh the PK sync provider so UI picks up the new canAutoSync.
-        ref.invalidate(pluralKitSyncProvider);
+        return PkMappingApplyOutcomeFailed(failures);
       }
+
+      // All decisions succeeded — acknowledge mapping.
+      await syncService.acknowledgeMapping();
+      if (!ref.mounted) return null;
+
+      // Load the persisted sync mode and direction.
+      await ref.read(pkSyncModeProvider.notifier).load();
+      await ref.read(pkSyncDirectionProvider.notifier).load();
+      if (!ref.mounted) return null;
+      final mode = ref.read(pkSyncModeProvider);
+      final direction = ref.read(pkSyncDirectionProvider);
+
+      // Check for fronter disagreement.
+      //
+      // Fetch PK's current fronters with a 5s cap. On timeout or any network
+      // error, treat as "no disagreement detectable" and proceed directly to
+      // the bootstrap.
+      PKSwitch? pkCurrentSwitch;
+      var skipDisagreementCheck = false;
+      try {
+        pkCurrentSwitch = await client
+            .getCurrentFronters()
+            .timeout(const Duration(seconds: 5));
+      } on Object catch (e) {
+        // Network or timeout — log and skip the disagreement check.
+        debugPrint('[PK_MAPPING] getCurrentFronters failed; skipping fronter '
+            'disagreement check: $e');
+        skipDisagreementCheck = true;
+      }
+
+      // If direction can't act on a disagreement, skip the check too.
+      if (!skipDisagreementCheck &&
+          direction != PkSyncDirection.disabled &&
+          (direction.pullEnabled || direction.pushEnabled)) {
+        // Compute the local active fronter set.
+        final frontingRepo = ref.read(frontingSessionRepositoryProvider);
+        final activeSessions =
+            await frontingRepo.getAllActiveSessionsUnfiltered();
+        final localFronterIds = activeSessions
+            .where((s) => s.memberId != null && !s.isSleep && !s.isDeleted)
+            .map((s) => s.memberId!)
+            .toSet();
+
+        // Project PK current fronters (short IDs) → local member IDs via the
+        // just-applied mapping decisions.
+        //
+        // PKSwitch.members contains 5-char PK short IDs. PkLinkDecision holds
+        // both the short ID (pkMember.id) and the local member ID. For members
+        // without a Link decision in this batch (they were Imported or
+        // already-linked), they won't appear here — leaving them unmapped
+        // (the unmapped-fronters notice handles those separately).
+        final pkShortIdToLocalId = <String, String>{};
+        for (final d in current.decisionsByPkUuid.values) {
+          if (d is PkLinkDecision) {
+            pkShortIdToLocalId[d.pkMember.id] = d.localMemberId;
+          }
+        }
+        final pkFronterLocalIds = <String>{};
+        if (pkCurrentSwitch != null) {
+          for (final pkShortId in pkCurrentSwitch.members) {
+            final localId = pkShortIdToLocalId[pkShortId];
+            if (localId != null) pkFronterLocalIds.add(localId);
+          }
+        }
+
+        // If the sets differ, defer the bootstrap and return the resolution
+        // outcome so the screen can show the "Who's fronting?" sheet.
+        if (!setEquals(localFronterIds, pkFronterLocalIds)) {
+          final after = state.value;
+          if (after != null) {
+            state = AsyncData(
+              after.copyWith(
+                isApplying: false,
+                applyProgress: 1.0,
+                lastResults: results,
+                clearStatusText: true,
+              ),
+            );
+          }
+          ref.invalidate(pluralKitSyncProvider);
+          return PkMappingApplyOutcomeNeedsFronterResolution(
+            localFronterMemberIds: localFronterIds,
+            pkFronterMemberIds: pkFronterLocalIds,
+            direction: direction,
+            mode: mode,
+            pkCurrentSwitch: pkCurrentSwitch ??
+                PKSwitch(
+                  id: '',
+                  timestamp: DateTime.now(),
+                  members: const [],
+                ),
+          );
+        }
+      }
+
+      // Sets match (or check was skipped) — run the bootstrap inline.
+      // Pass the fetched pkCurrentSwitch as a cache so the liveFrontsOnly
+      // bootstrap branch can skip a redundant getCurrentFronters network call.
+      // When skipDisagreementCheck was true, pkCurrentSwitch is null and the
+      // bootstrap will fetch fresh (safe fallback).
+      await _runPostApplyBootstrap(
+        mode: mode,
+        direction: direction,
+        syncService: syncService,
+        importingHistoryStatus: importingHistoryStatus,
+        pushingHistoryStatus: pushingHistoryStatus,
+        knownCurrentFronters: pkCurrentSwitch,
+      );
+      if (!ref.mounted) return null;
+
+      // Refresh the PK sync provider so UI picks up the new canAutoSync.
+      ref.invalidate(pluralKitSyncProvider);
 
       final after = state.value;
       if (after != null) {
@@ -483,8 +622,9 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
           ),
         );
       }
+      return const PkMappingApplyOutcomeApplied();
     } catch (e, st) {
-      if (!ref.mounted) return;
+      if (!ref.mounted) return null;
       final after = state.value;
       if (after != null) {
         state = AsyncData(
@@ -497,9 +637,187 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       } else {
         state = AsyncError(e, st);
       }
+      return null;
     } finally {
       client.dispose();
     }
+  }
+
+  /// Runs the post-apply bootstrap: syncs the surfaces allowed by the persisted
+  /// mode and direction. Errors here are non-fatal — they surface on the next
+  /// `syncRecentData` call via `state.syncError`.
+  ///
+  /// This method is extracted so it can be reused by [applyFronterResolution]
+  /// (T9) after the user resolves the fronter disagreement.
+  ///
+  /// [syncService] must be the already-read service (avoids a second
+  /// `ref.read` after a potential `await` boundary in the caller).
+  ///
+  /// [knownCurrentFronters] is an optional cache pass-through: when the caller
+  /// already fetched the current PK switch (e.g. during the disagreement check
+  /// in [apply] or from [applyFronterResolution]'s `pkCurrentSwitch` param),
+  /// pass it here so `syncLiveFrontersOnly` can skip a redundant network call
+  /// in the liveFrontsOnly bootstrap branch.
+  Future<void> _runPostApplyBootstrap({
+    required PkSyncMode mode,
+    required PkSyncDirection direction,
+    required PluralKitSyncService syncService,
+    String? importingHistoryStatus,
+    String? pushingHistoryStatus,
+    PKSwitch? knownCurrentFronters,
+  }) async {
+    try {
+      if (mode == PkSyncMode.liveFrontsOnly) {
+        if (direction.pullEnabled || direction.pushEnabled) {
+          if (!ref.read(frontingMigrationWritesBlockedProvider)) {
+            final summary = await syncService.syncLiveFrontersOnly(
+              direction: direction,
+              knownCurrentFronters: knownCurrentFronters,
+            );
+            if (!ref.mounted) return;
+            if (summary != null && direction.pullEnabled) {
+              await ref
+                  .read(pkUnmappedFrontersNoticeProvider.notifier)
+                  .applyLiveFrontersSummary(summary);
+            }
+          }
+        }
+      } else {
+        if (direction.pullEnabled) {
+          final beforeImport = state.value;
+          if (beforeImport != null) {
+            state = AsyncData(
+              beforeImport.copyWith(
+                phase: PkMappingPhase.importingSwitches,
+                applyProgress: 0.0,
+                statusText: importingHistoryStatus,
+              ),
+            );
+          }
+          await syncService.importSwitchesAfterLink(
+            onProgress: (fraction, message) {
+              if (!ref.mounted) return;
+              final cur = state.value;
+              if (cur == null) return;
+              state = AsyncData(
+                cur.copyWith(
+                  applyProgress: fraction.clamp(0.0, 1.0),
+                  statusText: message,
+                ),
+              );
+            },
+          );
+          if (!ref.mounted) return;
+        }
+
+        if (direction.pushEnabled) {
+          final beforePush = state.value;
+          if (beforePush != null) {
+            state = AsyncData(
+              beforePush.copyWith(
+                phase: PkMappingPhase.pushingSwitches,
+                applyProgress: 0.0,
+                statusText: pushingHistoryStatus,
+              ),
+            );
+          }
+          await syncService.pushPendingSwitches();
+        }
+      }
+    } catch (_) {
+      // Non-fatal — surfaces on next syncRecentData via state.syncError.
+    }
+  }
+
+  /// Called by the "Who's fronting?" sheet after the user picks an option.
+  ///
+  /// Writes the chosen fronter set locally (ends any active sessions not in
+  /// the set; starts sessions for chosen members not currently fronting),
+  /// optionally pushes to PK with cursor advancement (when direction allows
+  /// and set is non-empty), then runs the deferred post-apply bootstrap.
+  ///
+  /// Sub-case: empty [chosenLocalMemberIds] (user picked "Leave no one
+  /// fronting" / "Match PK no one") — all non-sleep sessions are ended; no
+  /// PK push (guarded by isNotEmpty); bootstrap still runs.
+  Future<void> applyFronterResolution({
+    required Set<String> chosenLocalMemberIds,
+    required PkSyncDirection direction,
+    required PkSyncMode mode,
+    required PKSwitch pkCurrentSwitch,
+    String? importingHistoryStatus,
+    String? pushingHistoryStatus,
+  }) async {
+    // 1. Local writes
+    final repo = ref.read(frontingSessionRepositoryProvider);
+    final mutationService = ref.read(frontingMutationServiceProvider);
+    final activeSessions = await repo.getAllActiveSessionsUnfiltered();
+    final now = DateTime.now();
+
+    // End sessions not in the chosen set (skip sleep sessions — they are
+    // managed independently of the fronting-resolution flow).
+    for (final s in activeSessions) {
+      if (s.memberId == null || s.isSleep) continue;
+      if (!chosenLocalMemberIds.contains(s.memberId)) {
+        await repo.endSession(s.id, now);
+      }
+    }
+
+    // Start sessions for chosen members not currently fronting.
+    final currentlyFronting = activeSessions
+        .where((s) => s.memberId != null && !s.isSleep)
+        .map((s) => s.memberId!)
+        .toSet();
+    final toStart = chosenLocalMemberIds.difference(currentlyFronting);
+    if (toStart.isNotEmpty) {
+      await mutationService.startFronting(toStart.toList(), startTime: now);
+    }
+
+    if (!ref.mounted) return;
+
+    // 2. PK push (if direction allows + non-empty).
+    final syncService = ref.read(pluralKitSyncServiceProvider);
+    if (direction.pushEnabled && chosenLocalMemberIds.isNotEmpty) {
+      final newSwitchId = await syncService.pushOverrideSwitch(
+        chosenLocalMemberIds.toList(),
+        now,
+      );
+      if (!ref.mounted) return;
+      if (newSwitchId != null) {
+        await syncService.advanceImportCursorPast(
+          switchId: newSwitchId,
+          timestamp: now,
+        );
+        if (!ref.mounted) return;
+      }
+    }
+
+    // 3. Run the deferred post-apply bootstrap.
+    // Pass the caller-supplied pkCurrentSwitch as a cache so the liveFrontsOnly
+    // bootstrap branch can skip a redundant getCurrentFronters network call.
+    await _runPostApplyBootstrap(
+      mode: mode,
+      direction: direction,
+      syncService: syncService,
+      importingHistoryStatus: importingHistoryStatus,
+      pushingHistoryStatus: pushingHistoryStatus,
+      knownCurrentFronters: pkCurrentSwitch,
+    );
+
+    if (!ref.mounted) return;
+    ref.invalidate(pluralKitSyncProvider);
+  }
+
+  /// Called by the setup screen after the user picks "Decide later" in the
+  /// "Who's fronting?" sheet. The mapping itself is already acknowledged by
+  /// [apply]; we just persist a deferred-sync flag so the setup screen can
+  /// render a banner reminding the user to manually sync when ready.
+  Future<void> deferBootstrap() async {
+    final dao = ref.read(pluralKitSyncDaoProvider);
+    final row = await dao.getSyncState();
+    final systemId = row.systemId;
+    if (systemId == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(PkPrefsKeys.firstSyncDeferred(systemId), true);
   }
 
   /// Retry the initial build — used from the screen when `build()` errored

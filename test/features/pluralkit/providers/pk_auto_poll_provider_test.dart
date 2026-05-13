@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_auto_poll_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
@@ -31,6 +32,7 @@ class _FakePkSyncService implements PluralKitSyncService {
   Future<PkSyncSummary?> syncLiveFrontersOnly({
     bool isManual = false,
     required PkSyncDirection direction,
+    PKSwitch? knownCurrentFronters,
   }) async {
     liveFrontsOnlyCount++;
     lastLiveIsManual = isManual;
@@ -121,10 +123,11 @@ class _ProxyPkSync extends PluralKitSyncNotifier {
   Future<PkSyncSummary?> syncLiveFrontersOnly({
     bool isManual = false,
     PkSyncDirection direction = PkSyncDirection.pullOnly,
+    PKSwitch? knownCurrentFronters,
   }) {
     return ref
         .read(pluralKitSyncServiceProvider)
-        .syncLiveFrontersOnly(isManual: isManual, direction: direction);
+        .syncLiveFrontersOnly(isManual: isManual, direction: direction, knownCurrentFronters: knownCurrentFronters);
   }
 }
 

@@ -1332,11 +1332,12 @@ class _PhaseProbeSyncService extends PluralKitSyncService {
   Future<PkSyncSummary?> syncLiveFrontersOnly({
     required PkSyncDirection direction,
     bool isManual = false,
+    PKSwitch? knownCurrentFronters,
   }) {
     liveFrontsOnlyCallCount++;
     liveFrontsOnlyDirection = direction;
     final summary = liveFrontsOnlySummary;
     if (summary != null) return Future.value(summary);
-    return super.syncLiveFrontersOnly(direction: direction, isManual: isManual);
+    return super.syncLiveFrontersOnly(direction: direction, isManual: isManual, knownCurrentFronters: knownCurrentFronters);
   }
 }

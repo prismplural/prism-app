@@ -19,6 +19,7 @@ import 'package:prism_plurality/features/fronting/widgets/quick_front_section.da
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
@@ -97,6 +98,7 @@ class _FakePluralKitSyncNotifier extends PluralKitSyncNotifier {
   Future<PkSyncSummary?> syncLiveFrontersOnly({
     bool isManual = false,
     PkSyncDirection direction = PkSyncDirection.pullOnly,
+    PKSwitch? knownCurrentFronters,
   }) async {
     syncLiveFrontersOnlyCallCount += 1;
     lastSyncDirection = direction;

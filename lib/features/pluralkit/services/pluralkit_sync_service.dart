@@ -639,6 +639,74 @@ class PluralKitSyncService {
     _emit(_state.copyWith(mappingAcknowledged: true));
   }
 
+  // ---------------------------------------------------------------------------
+  // Override-switch helpers (T9 — "Who's fronting?" resolution)
+  // ---------------------------------------------------------------------------
+
+  /// POST /switches with the chosen local members at [at].
+  ///
+  /// Resolves local member IDs → PK short IDs via the persisted mapping table
+  /// (the [domain.Member.pluralkitId] column). Returns the new PK switch ID,
+  /// or null on failure. Used by [PkMappingController.applyFronterResolution]
+  /// to record the user's authoritative fronter choice in PluralKit.
+  ///
+  /// IMPORTANT: the 1ms [linkedAt] nudge in [setToken] means switches written
+  /// at `startTime = now` have `startTime > linkedAt`, so the regular push
+  /// pipeline would pick these up too. By POSTing directly here and then
+  /// calling [advanceImportCursorPast], we avoid the duplicate and capture the
+  /// exact switch ID needed for cursor advancement. Do NOT remove the 1ms
+  /// nudge in [setToken] — this helper's correctness depends on it.
+  Future<String?> pushOverrideSwitch(
+    List<String> localMemberIds,
+    DateTime at,
+  ) async {
+    try {
+      final client = await _buildClient();
+      if (client == null) return null;
+      try {
+        // Resolve local IDs → PK short IDs (pluralkitId column).
+        final members = await _memberRepository.getAllMembers();
+        final localIdToPkId = <String, String>{};
+        for (final m in members) {
+          final pkId = m.pluralkitId?.trim();
+          if (pkId != null && pkId.isNotEmpty) {
+            localIdToPkId[m.id] = pkId;
+          }
+        }
+        final pkMemberIds = localMemberIds
+            .map((id) => localIdToPkId[id])
+            .whereType<String>()
+            .toList();
+
+        final created = await client.createSwitch(pkMemberIds, timestamp: at);
+        return created.id;
+      } finally {
+        client.dispose();
+      }
+    } on Object catch (e) {
+      debugPrint('[PK_SVC] pushOverrideSwitch failed: $e');
+      return null;
+    }
+  }
+
+  /// Advance the import cursor past a known switch so the next diff sweep
+  /// won't re-import it as a duplicate session.
+  ///
+  /// Called after [pushOverrideSwitch] to prevent the post-apply bootstrap
+  /// from re-importing the just-created override switch.
+  Future<void> advanceImportCursorPast({
+    required String switchId,
+    required DateTime timestamp,
+  }) async {
+    await _syncDao.upsertSyncState(
+      PluralKitSyncStateCompanion(
+        id: const Value('pk_config'),
+        switchCursorTimestamp: Value(timestamp),
+        switchCursorId: Value(switchId),
+      ),
+    );
+  }
+
   /// Store the token, test the connection, and persist connected state.
   Future<void> setToken(String token) async {
     final trimmed = token.trim();
@@ -1750,6 +1818,7 @@ class PluralKitSyncService {
   Future<PkSyncSummary?> syncLiveFrontersOnly({
     required PkSyncDirection direction,
     bool isManual = false,
+    PKSwitch? knownCurrentFronters,
   }) async {
     if (!_state.canAutoSync) return null;
     if (_state.isSyncing) return null;
@@ -1790,32 +1859,41 @@ class PluralKitSyncService {
       final staleLinkMessages = <String>[];
 
       if (direction.pullEnabled) {
-        final client = await _buildClient();
-        if (client == null) {
-          _emit(_state.copyWith(isSyncing: false));
-          throw StateError('Not connected');
-        }
-        clientToken = client.currentToken;
-
-        try {
-          current = await client.getCurrentFronters();
+        // Use the caller-supplied switch (cache pass-through) when available to
+        // avoid a redundant network round trip. Only fetch from the API when
+        // no cached value was provided.
+        if (knownCurrentFronters != null) {
+          current = knownCurrentFronters;
           observedLiveFronters = true;
-          if (current != null) {
-            final pullResult = await _pullLiveFronterSwitch(current);
-            switchesPulled = pullResult.pulled ? 1 : 0;
-            liveUnmappedFronters = pullResult.unmappedNotice;
-            observedLiveFrontersDismissalKey = pullResult.observedDismissalKey;
-            skipPush = pullResult.skippedForUnmapped;
-            if (pullResult.pulled) {
-              _bus.emit(
-                PkLiveFronterApplied(memberCount: current.members.length),
-              );
-            } else if (pullResult.skippedForUnmapped) {
-              _bus.emit(const PkLiveFronterSkipped(reason: 'unmapped'));
-            }
+        } else {
+          final client = await _buildClient();
+          if (client == null) {
+            _emit(_state.copyWith(isSyncing: false));
+            throw StateError('Not connected');
           }
-        } finally {
-          client.dispose();
+          clientToken = client.currentToken;
+
+          try {
+            current = await client.getCurrentFronters();
+            observedLiveFronters = true;
+          } finally {
+            client.dispose();
+          }
+        }
+
+        if (current != null) {
+          final pullResult = await _pullLiveFronterSwitch(current);
+          switchesPulled = pullResult.pulled ? 1 : 0;
+          liveUnmappedFronters = pullResult.unmappedNotice;
+          observedLiveFrontersDismissalKey = pullResult.observedDismissalKey;
+          skipPush = pullResult.skippedForUnmapped;
+          if (pullResult.pulled) {
+            _bus.emit(
+              PkLiveFronterApplied(memberCount: current.members.length),
+            );
+          } else if (pullResult.skippedForUnmapped) {
+            _bus.emit(const PkLiveFronterSkipped(reason: 'unmapped'));
+          }
         }
       }
 
