@@ -222,6 +222,8 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
     return _service.performOneTimeFullImport(token: token);
   }
 
+  Future<void> confirmDirection() => _service.confirmDirection();
+
   Future<void> acknowledgeMapping() => _service.acknowledgeMapping();
 
   Future<bool> hasRepairToken({String? token}) =>
@@ -266,7 +268,7 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
   /// modal is the user's recovery surface.
   Future<int> pushPendingSwitches() async {
     if (ref.read(frontingMigrationWritesBlockedProvider)) return 0;
-    if (!state.isConnected || state.needsMapping) return 0;
+    if (!state.canAutoSync) return 0;
     await ref.read(pkSyncDirectionProvider.notifier).load();
     if (!ref.mounted) return 0;
     if (!ref.read(pkSyncDirectionProvider).pushEnabled) return 0;
@@ -282,7 +284,7 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
     if (ref.read(frontingMigrationWritesBlockedProvider)) {
       return Future.value(const PkDeleteRiskPreview());
     }
-    if (!state.isConnected || state.needsMapping) {
+    if (!state.canAutoSync) {
       return Future.value(const PkDeleteRiskPreview());
     }
     return _service.previewPendingDestructivePush();

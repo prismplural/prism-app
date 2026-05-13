@@ -450,7 +450,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
     final wakeUpGroups = watchMemberSearchGroups(ref, activeMembers);
     final pkState = ref.watch(pluralKitSyncProvider);
     final pkReady =
-        pkState.isConnected && !pkState.needsMapping && !pkState.isSyncing;
+        pkState.canAutoSync && !pkState.isSyncing;
 
     // Build menu items for the blur popup.
     final menuItems = <_MenuItem>[];

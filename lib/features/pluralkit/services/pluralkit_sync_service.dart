@@ -612,6 +612,20 @@ class PluralKitSyncService {
     );
   }
 
+  /// Confirm that the user has chosen a sync direction for the current PK
+  /// system. Clears [PluralKitSyncState.needsDirection] and unblocks the
+  /// mapping step. Only written once per PK system; same-system token
+  /// rotation preserves this flag via [setToken]'s isSameSystem branch.
+  Future<void> confirmDirection() async {
+    await _syncDao.upsertSyncState(
+      const PluralKitSyncStateCompanion(
+        id: Value('pk_config'),
+        directionConfirmed: Value(true),
+      ),
+    );
+    _emit(_state.copyWith(directionConfirmed: true));
+  }
+
   /// Flip the connection out of `connected_pending_map` — called after the
   /// mapping screen finishes Apply, or when the user explicitly dismisses it.
   /// Auto-push / auto-sync unlock after this is called.
@@ -668,16 +682,24 @@ class PluralKitSyncService {
       // Plan 02 R1: bump the local link epoch whenever the connected system
       // changes identity. Tombstones stamped under the prior epoch will be
       // skipped at push time on this device.
-      final bumpEpoch = existing.systemId != system.id;
+      final isSameSystem = existing.systemId == system.id;
+      final bumpEpoch = !isSameSystem;
 
+      // Preserve setup state (directionConfirmed + mappingAcknowledged) when
+      // the user is rotating their token against the same PK system. A
+      // different system (or no prior row) resets both flags so the wizard
+      // runs from the direction step.
       await _syncDao.upsertSyncState(
         PluralKitSyncStateCompanion(
           id: const Value('pk_config'),
           systemId: Value(system.id),
           isConnected: const Value(true),
-          // Fresh connection → user hasn't mapped yet. Gate auto-sync until
-          // the mapping screen runs (or user dismisses it).
-          mappingAcknowledged: const Value(false),
+          mappingAcknowledged: isSameSystem
+              ? Value(existing.mappingAcknowledged)
+              : const Value(false),
+          directionConfirmed: isSameSystem
+              ? Value(existing.directionConfirmed)
+              : const Value(false),
           linkedAt: Value(linkedAt),
         ),
       );
@@ -688,7 +710,12 @@ class PluralKitSyncService {
       _emit(
         _state.copyWith(
           isConnected: true,
-          mappingAcknowledged: false,
+          mappingAcknowledged: isSameSystem
+              ? existing.mappingAcknowledged
+              : false,
+          directionConfirmed: isSameSystem
+              ? existing.directionConfirmed
+              : false,
           linkedAt: linkedAt,
           clearError: true,
         ),
@@ -934,9 +961,9 @@ class PluralKitSyncService {
     bool useRepairToken = false,
     String? token,
   }) async {
-    if (!useRepairToken && _state.needsMapping) {
+    if (!useRepairToken && !_state.canAutoSync) {
       throw StateError(
-        'Mapping pending — complete the mapping flow before auto-syncing.',
+        'Setup incomplete — confirm direction and mapping before auto-syncing.',
       );
     }
     if (_state.isSyncing) {
@@ -1272,9 +1299,9 @@ class PluralKitSyncService {
     bool isManual = false,
     PkSyncDirection direction = PkSyncDirection.pullOnly,
   }) async {
-    if (_state.needsMapping) {
+    if (!_state.canAutoSync) {
       throw StateError(
-        'Mapping pending — complete the mapping flow before auto-syncing.',
+        'Setup incomplete — confirm direction and mapping before auto-syncing.',
       );
     }
     // Claim isSyncing before the first await so no concurrent caller can
@@ -3603,7 +3630,7 @@ class PluralKitSyncService {
     if (!_state.isConnected) {
       throw StateError('Not connected — cannot push switches');
     }
-    if (_state.needsMapping) {
+    if (!_state.canAutoSync) {
       return const PkPushSwitchesResult();
     }
     final linkedAt = _state.linkedAt;

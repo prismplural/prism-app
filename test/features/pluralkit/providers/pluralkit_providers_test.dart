@@ -311,7 +311,11 @@ void main() {
     test('pushPendingSwitches delegates in pushOnly direction', () async {
       final ctx = await primedContainer(
         FrontingMigrationService.modeComplete,
-        initialServiceState: const PluralKitSyncState(isConnected: true),
+        initialServiceState: const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
         syncDirection: PkSyncDirection.pushOnly,
       );
       ctx.service.pushReturn = 3;
@@ -374,7 +378,11 @@ void main() {
       () async {
         final ctx = await primedContainer(
           FrontingMigrationService.modeComplete,
-          initialServiceState: const PluralKitSyncState(isConnected: true),
+          initialServiceState: const PluralKitSyncState(
+            isConnected: true,
+            directionConfirmed: true,
+            mappingAcknowledged: true,
+          ),
         );
         ctx.service.previewError = StateError('preview failed');
         final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
@@ -494,7 +502,11 @@ void main() {
     test('complete mode does not gate (control)', () async {
       final ctx = await primedContainer(
         FrontingMigrationService.modeComplete,
-        initialServiceState: const PluralKitSyncState(isConnected: true),
+        initialServiceState: const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
       );
       // pushPendingSwitches reaches `_service.pushPendingSwitches`; the
       // stub returns 7 deliberately so we can distinguish "gate fired"
