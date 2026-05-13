@@ -7,6 +7,12 @@ import 'package:prism_plurality/domain/models/member_group.dart';
 class GroupTreeUtils {
   GroupTreeUtils._();
 
+  /// Maximum iterations when walking the parent chain in [getGroupDepth].
+  ///
+  /// Defends against cycles that bypass [resolveSyncCycles]. The depth value
+  /// saturates at this number (chains longer than this report as this depth).
+  static const int _maxDepthIterations = 64;
+
   /// Build an O(n) adjacency map from a flat list.
   ///
   /// Groups whose `parentGroupId` does not exist in the list are treated as
@@ -28,8 +34,8 @@ class GroupTreeUtils {
 
   /// Walk up the `parentGroupId` chain. Returns 1 for root groups.
   ///
-  /// Saturates at 64 to defend against cycles that bypass [resolveSyncCycles].
-  /// Cycles are also caught by the visited-set guard.
+  /// Saturates at [_maxDepthIterations] to defend against cycles that bypass
+  /// [resolveSyncCycles]. Cycles are also caught by the visited-set guard.
   static int getGroupDepth(
     String groupId,
     Map<String?, List<MemberGroup>> tree,
@@ -38,7 +44,7 @@ class GroupTreeUtils {
     final visited = <String>{};
     int depth = 1;
     String? currentId = groupId;
-    for (int i = 0; i < 63; i++) {
+    for (int i = 1; i < _maxDepthIterations; i++) {
       if (currentId == null) break;
       if (!visited.add(currentId)) break; // cycle guard
       final group = idMap[currentId];
@@ -85,7 +91,7 @@ class GroupTreeUtils {
     final queue = <String>[groupId];
     while (queue.isNotEmpty) {
       final current = queue.removeLast();
-      final children = tree[current] ?? [];
+      final children = tree[current] ?? const <MemberGroup>[];
       for (final child in children) {
         if (result.add(child.id)) {
           queue.add(child.id);
@@ -168,12 +174,12 @@ class GroupTreeUtils {
     void visit(MemberGroup g, int d) {
       if (!visited.add(g.id)) return; // cycle guard
       result.add((group: g, depth: d));
-      for (final child in tree[g.id] ?? []) {
+      for (final child in tree[g.id] ?? const <MemberGroup>[]) {
         visit(child, d + 1);
       }
     }
 
-    for (final root in tree[null] ?? []) {
+    for (final root in tree[null] ?? const <MemberGroup>[]) {
       visit(root, 0);
     }
     return result;

@@ -139,9 +139,9 @@ void main() {
         'a': [b],
         'b': [a],
       };
-      // Must return without infinite-looping. Exact depth value not asserted; just bounded.
+      // Trace: depth=1 visit 'a'→depth=2 visit 'b'→depth=3 try 'a' (duplicate) break.
       final depth = GroupTreeUtils.getGroupDepth('a', tree);
-      expect(depth, lessThanOrEqualTo(64));
+      expect(depth, 3);
     });
   });
 
@@ -174,6 +174,17 @@ void main() {
       expect(depths['r1cc'], 3);
     });
 
+    test('empty tree returns empty map', () {
+      expect(GroupTreeUtils.getGroupDepthsAll({}), isEmpty);
+    });
+
+    test('singleton root returns {root: 1}', () {
+      final root = _group(id: 'root');
+      final tree = GroupTreeUtils.buildGroupTree([root]);
+      final depths = GroupTreeUtils.getGroupDepthsAll(tree);
+      expect(depths, {'root': 1});
+    });
+
     test('cycle guard: each node visited at most once', () {
       final a = _group(id: 'a');
       final b = _group(id: 'b');
@@ -184,6 +195,10 @@ void main() {
       };
       final depths = GroupTreeUtils.getGroupDepthsAll(tree);
       expect(depths.keys.toSet().length, depths.length); // unique keys
+      expect(depths.containsKey('a'), isTrue);
+      expect(depths.containsKey('b'), isTrue);
+      expect(depths['a'], isNotNull);
+      expect(depths['b'], isNotNull);
     });
   });
 
