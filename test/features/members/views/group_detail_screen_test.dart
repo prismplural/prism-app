@@ -168,7 +168,9 @@ void main() {
     expect(find.text('Add sub-group'), findsOneWidget);
   });
 
-  testWidgets('hides add subgroup from the menu at depth 5', (tester) async {
+  testWidgets('shows add subgroup in the menu at depth 5 (no cap)', (
+    tester,
+  ) async {
     final root = _group(id: 'root', name: 'Root');
     final level2 = _group(
       id: 'level-2',
@@ -206,7 +208,8 @@ void main() {
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Add sub-group'), findsNothing);
+    // Depth cap is removed — Add sub-group is always available.
+    expect(find.text('Add sub-group'), findsOneWidget);
   });
 
   testWidgets('keeps the inline add button when subgroups are visible', (

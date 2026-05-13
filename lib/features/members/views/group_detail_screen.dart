@@ -12,7 +12,6 @@ import 'package:prism_plurality/features/chat/views/create_conversation_sheet.da
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
-import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart';
@@ -92,10 +91,7 @@ class _GroupDetailBody extends ConsumerWidget {
     ref.watch(activeMembersProvider);
     final allGroupsAsync = ref.watch(allGroupsProvider);
     ref.watch(allGroupEntriesProvider);
-    final tree = ref.watch(groupTreeProvider);
-    final groupDepth = GroupTreeUtils.getGroupDepth(group.id, tree);
-    final canAddSubGroup =
-        allGroupsAsync.hasValue && groupDepth < GroupTreeUtils.maxGroupDepth;
+    final canAddSubGroup = allGroupsAsync.hasValue;
     final allGroups =
         allGroupsAsync.whenOrNull(data: (g) => g) ?? const <MemberGroup>[];
     final ancestors = _resolveAncestors(group, allGroups);
@@ -712,13 +708,12 @@ class _GroupMemberTile extends ConsumerWidget {
 enum _GroupMenuAction { frontGroup, startChat, addSubGroup, delete }
 
 List<MemberGroup> _resolveAncestors(MemberGroup group, List<MemberGroup> all) {
+  const maxWalk = 64;
   final byId = {for (final g in all) g.id: g};
   final chain = <MemberGroup>[];
   final visited = <String>{group.id};
   String? cur = group.parentGroupId;
-  while (cur != null &&
-      !visited.contains(cur) &&
-      chain.length < GroupTreeUtils.maxGroupDepth) {
+  for (int i = 0; i < maxWalk && cur != null && !visited.contains(cur); i++) {
     final parent = byId[cur];
     if (parent == null) break;
     chain.insert(0, parent);
@@ -744,16 +739,22 @@ class _AncestorBreadcrumb extends StatelessWidget {
       alpha: 0.5,
     );
 
-    final children = <Widget>[];
-    for (var i = 0; i < ancestors.length; i++) {
-      final ancestor = ancestors[i];
+    // Front-truncate when the chain is longer than 5:
+    // render [first, ellipsis, ...last 3].
+    final visible = ancestors.length <= 5
+        ? ancestors
+        : [ancestors.first, ...ancestors.sublist(ancestors.length - 3)];
+    final showEllipsis = ancestors.length > 5;
+
+    Widget buildAncestorChip(MemberGroup ancestor) {
+      final parts = <Widget>[];
       if (ancestor.emoji != null && ancestor.emoji!.isNotEmpty) {
-        children.add(
+        parts.add(
           Text(ancestor.emoji!, style: const TextStyle(fontSize: 12)),
         );
-        children.add(const SizedBox(width: 4));
+        parts.add(const SizedBox(width: 4));
       }
-      children.add(
+      parts.add(
         Flexible(
           child: Text(
             ancestor.name,
@@ -763,14 +764,35 @@ class _AncestorBreadcrumb extends StatelessWidget {
           ),
         ),
       );
-      children.add(const SizedBox(width: 6));
-      children.add(
-        Icon(AppIcons.chevronRight, size: 12, color: separatorColor),
-      );
-      if (i < ancestors.length - 1) {
-        children.add(const SizedBox(width: 6));
+      return Row(mainAxisSize: MainAxisSize.min, children: parts);
+    }
+
+    Widget buildSeparator() => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(width: 6),
+            Icon(AppIcons.chevronRight, size: 12, color: separatorColor),
+            const SizedBox(width: 6),
+          ],
+        );
+
+    final children = <Widget>[];
+    for (var i = 0; i < visible.length; i++) {
+      children.add(buildAncestorChip(visible[i]));
+
+      if (showEllipsis && i == 0) {
+        // Insert ellipsis marker after the first ancestor.
+        children.add(buildSeparator());
+        children.add(Text('…', style: style));
+      }
+
+      if (i < visible.length - 1) {
+        children.add(buildSeparator());
       }
     }
+    // Trailing chevron after the last ancestor (matches original behaviour).
+    children.add(const SizedBox(width: 6));
+    children.add(Icon(AppIcons.chevronRight, size: 12, color: separatorColor));
 
     return Row(mainAxisSize: MainAxisSize.min, children: children);
   }
