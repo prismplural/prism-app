@@ -57,7 +57,7 @@ class _PluralKitUnpushedMembersNoticeBannerState
     // controller itself does not subscribe — this is the only activation
     // point.
     ref.listenManual<AsyncValue<List<Member>>>(
-      activeMembersProvider,
+      allMembersProvider,
       (_, _) => _recompute(),
     );
     ref.listenManual<PluralKitSyncState>(
@@ -81,7 +81,7 @@ class _PluralKitUnpushedMembersNoticeBannerState
 
   void _recompute() {
     if (!mounted) return;
-    final membersAsync = ref.read(activeMembersProvider);
+    final membersAsync = ref.read(allMembersProvider);
     final members = membersAsync.value;
     if (members == null) return; // wait for first emission
 

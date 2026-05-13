@@ -122,11 +122,16 @@ class PkOneShotPushService {
     }
 
     // Crash-recovery: same row key as the mapping-applier's `PkPushNewDecision`
-    // (`'push:$memberId'`). If a prior attempt (this flow OR the mapping flow)
-    // already POSTed and stamped the PK uuid, reuse it instead of POSTing again.
-    // Mirrors `pk_mapping_applier.dart` `_applyPushNew` reuse branch.
+    // (`'push:$memberId'`). Only reuse rows whose previous attempt did NOT
+    // finish the local writeback — those are the rows that risk a duplicate
+    // POST on retry. Already-`applied` rows belong to a successful prior push
+    // whose local link has since been cleared (e.g. user unlinked via the
+    // mapping screen); for those, this is a fresh push, not a retry. Mirrors
+    // `pk_mapping_applier.dart` `_applyPushNew` reuse branch.
     final prior = await mappingState.getById(stateId);
-    if (prior != null && prior.pkMemberUuid != null) {
+    if (prior != null &&
+        prior.pkMemberUuid != null &&
+        prior.status == 'pending') {
       final existing = await client.getMember(prior.pkMemberUuid!);
       await _linkBackLocally(memberId, existing);
       return existing;

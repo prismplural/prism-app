@@ -212,7 +212,7 @@ Widget _wrap({
       pkUnpushedMembersNoticeProvider.overrideWith(() => controller),
       pkOneShotPushServiceProvider.overrideWithValue(pushService),
       memberRepositoryProvider.overrideWithValue(repo),
-      activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+      allMembersProvider.overrideWith((ref) => Stream.value(members)),
       pluralKitSyncProvider.overrideWith(
         () => _StaticPluralKitSyncNotifier(syncState ?? _readyState()),
       ),
@@ -313,7 +313,7 @@ void main() {
             memberRepositoryProvider.overrideWithValue(
               _FakeMemberRepository({'m-1': m1}),
             ),
-            activeMembersProvider.overrideWith((ref) => Stream.value([m1])),
+            allMembersProvider.overrideWith((ref) => Stream.value([m1])),
             pluralKitSyncProvider.overrideWith(
               () => _StaticPluralKitSyncNotifier(_readyState()),
             ),
