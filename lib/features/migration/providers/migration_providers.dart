@@ -387,6 +387,18 @@ class ImporterNotifier extends Notifier<MigrationState> {
     // imported member as `pluralkitSyncIgnored: true`. Without this, the new
     // local-only members banner would flood with every imported member after
     // a large SP import. Mirrors the predicate used by the banner.
+    //
+    // Each of the three PK providers loads its persisted state asynchronously
+    // from the DAO on first read (fire-and-forget in build()), returning a
+    // default until the load completes. Await all three loads here so the
+    // guard sees the user's actual paired/direction/mode rather than defaults
+    // — otherwise an SP import that's the first reader after launch would
+    // miscompute markPushIgnored on a paired-but-push-disabled account.
+    await Future.wait<void>([
+      ref.read(pluralKitSyncServiceProvider).loadState(),
+      ref.read(pkSyncDirectionProvider.notifier).load(),
+      ref.read(pkSyncModeProvider.notifier).load(),
+    ]);
     final pkState = ref.read(pluralKitSyncProvider);
     final pkDirection = ref.read(pkSyncDirectionProvider);
     final pkMode = ref.read(pkSyncModeProvider);
