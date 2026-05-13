@@ -59,6 +59,28 @@ class DriftCustomFieldsRepository
   }
 
   @override
+  Future<void> reorderFields(List<domain.CustomField> fields) async {
+    final displayOrders = <String, int>{};
+    final changedIds = <String>[];
+
+    for (var i = 0; i < fields.length; i++) {
+      final field = fields[i];
+      if (field.displayOrder == i) continue;
+      displayOrders[field.id] = i;
+      changedIds.add(field.id);
+    }
+
+    if (displayOrders.isEmpty) return;
+
+    await _dao.bulkUpdateDisplayOrders(displayOrders);
+    for (final id in changedIds) {
+      await syncRecordUpdate(_fieldsTable, id, {
+        'display_order': displayOrders[id],
+      });
+    }
+  }
+
+  @override
   Future<void> deleteField(String id) async {
     // Fetch values before bulk soft-delete so we can emit sync ops for each.
     final values = await _dao.watchValuesForField(id).first;

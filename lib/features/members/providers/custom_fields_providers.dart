@@ -69,9 +69,7 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
   Future<void> reorderFields(List<CustomField> fields) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
-      for (int i = 0; i < fields.length; i++) {
-        await repo.updateField(fields[i].copyWith(displayOrder: i));
-      }
+      await repo.reorderFields(fields);
     });
   }
 }

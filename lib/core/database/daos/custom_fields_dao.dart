@@ -34,6 +34,39 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateField(String id, CustomFieldsCompanion companion) =>
       (update(customFields)..where((f) => f.id.equals(id))).write(companion);
 
+  /// Bulk-update field display orders in one SQL statement.
+  ///
+  /// Per-row updates each emit a fresh `watchAllFields` value, which makes
+  /// ReorderableListView snap back to the partial state mid-drag. One write,
+  /// one emit — no flicker.
+  Future<void> bulkUpdateDisplayOrders(Map<String, int> displayOrders) async {
+    if (displayOrders.isEmpty) return;
+
+    final ids = displayOrders.keys.toList(growable: false);
+    final whenClauses = ids.map((_) => 'WHEN ? THEN ?').join(' ');
+    final wherePlaceholders = List.filled(ids.length, '?').join(', ');
+    final variables = <Variable>[];
+
+    for (final entry in displayOrders.entries) {
+      variables.add(Variable.withString(entry.key));
+      variables.add(Variable.withInt(entry.value));
+    }
+    variables.addAll(ids.map(Variable.withString));
+
+    await customUpdate(
+      '''
+      UPDATE custom_fields
+      SET display_order = CASE id
+        $whenClauses
+        ELSE display_order
+      END
+      WHERE id IN ($wherePlaceholders)
+      ''',
+      variables: variables,
+      updates: {customFields},
+    );
+  }
+
   Future<void> deleteField(String id) async {
     // Soft-delete all values for this field
     await (update(customFieldValues)

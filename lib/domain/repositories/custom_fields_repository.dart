@@ -7,6 +7,7 @@ abstract class CustomFieldsRepository {
   Future<domain.CustomField?> getFieldById(String id);
   Future<void> createField(domain.CustomField field);
   Future<void> updateField(domain.CustomField field);
+  Future<void> reorderFields(List<domain.CustomField> fields);
   Future<void> deleteField(String id);
 
   Stream<List<domain.CustomFieldValue>> watchValuesForMember(String memberId);
