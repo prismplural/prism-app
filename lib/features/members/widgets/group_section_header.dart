@@ -138,25 +138,20 @@ class GroupSectionHeader extends StatelessWidget {
                     hasDeeperDescendants &&
                     onOpenDetail != null) ...[
                   const SizedBox(width: 4),
-                  Semantics(
-                    button: true,
-                    label: 'Open ${group?.name ?? ''} in detail view',
-                    excludeSemantics: true,
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.account_tree_outlined,
-                        size: 18,
-                        color: theme.colorScheme.outline,
-                      ),
-                      onPressed: onOpenDetail,
-                      padding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
-                      constraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                      tooltip: 'Open in detail view',
+                  IconButton(
+                    icon: Icon(
+                      Icons.account_tree_outlined,
+                      size: 18,
+                      color: theme.colorScheme.outline,
                     ),
+                    onPressed: onOpenDetail,
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    tooltip: 'Open ${group?.name ?? ''} in detail view',
                   ),
                 ],
                 if (canCollapse) ...[

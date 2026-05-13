@@ -639,6 +639,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     Map<String, int> counts,
     Set<String> frontingIds,
   ) {
+    final tree = ref.watch(groupTreeProvider);
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
@@ -662,7 +663,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   onToggle: () => ref
                       .read(collapsedGroupsProvider.notifier)
                       .toggle(item.group.id),
-                  hasDeeperDescendants: item.depth > kSectionsVisualDepthCap,
+                  hasDeeperDescendants: item.depth >= kSectionsVisualDepthCap &&
+                      (tree[item.group.id]?.isNotEmpty ?? false),
                   onOpenDetail: () =>
                       context.push(_groupPath(context, item.group.id)),
                 );
