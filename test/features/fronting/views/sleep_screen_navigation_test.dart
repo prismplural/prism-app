@@ -39,9 +39,7 @@ Widget _buildSubject(FrontingSession session) {
   return ProviderScope(
     overrides: [
       activeSleepSessionProvider.overrideWith((ref) => Stream.value(null)),
-      recentSleepSessionsPaginatedProvider.overrideWith(
-        (ref, limit) => Stream.value([session]),
-      ),
+      sleepHistoryProvider.overrideWith((ref) => Stream.value([session])),
       sleepStatsProvider.overrideWith(
         (ref) => Future.value(
           SleepStatsView(

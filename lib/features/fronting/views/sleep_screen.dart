@@ -24,11 +24,6 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 
-/// Initial page size for the recent sleep sessions list. Pagination
-/// increments this in steps of [_kSleepPageSize] when the user scrolls
-/// near the bottom.
-const int _kSleepPageSize = 20;
-
 class SleepScreen extends ConsumerStatefulWidget {
   const SleepScreen({super.key, this.showBackButton = true});
 
@@ -40,7 +35,6 @@ class SleepScreen extends ConsumerStatefulWidget {
 
 class _SleepScreenState extends ConsumerState<SleepScreen> {
   final _scrollController = ScrollController();
-  int _limit = _kSleepPageSize;
 
   @override
   void initState() {
@@ -57,16 +51,14 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
-    if (pos.pixels >= pos.maxScrollExtent - 300) {
-      final loaded =
-          ref
-              .read(recentSleepSessionsPaginatedProvider(_limit))
-              .value
-              ?.length ??
-          0;
-      if (loaded >= _limit) {
-        setState(() => _limit += _kSleepPageSize);
-      }
+    if (pos.pixels < pos.maxScrollExtent - 300) return;
+
+    final history = ref.read(sleepHistoryProvider);
+    if (history.isLoading) return;
+    final loaded = history.value?.length ?? 0;
+    final currentLimit = ref.read(sleepHistoryLimitProvider);
+    if (loaded >= currentLimit) {
+      ref.read(sleepHistoryLimitProvider.notifier).loadMore();
     }
   }
 
@@ -93,9 +85,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final activeSleep = ref.watch(activeSleepSessionProvider).value;
-    final sessionsAsync = ref.watch(
-      recentSleepSessionsPaginatedProvider(_limit),
-    );
+    final sessionsAsync = ref.watch(sleepHistoryProvider);
     final statsAsync = ref.watch(sleepStatsProvider);
 
     return Scaffold(

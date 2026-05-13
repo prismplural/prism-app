@@ -95,12 +95,42 @@ final sleepStatsProvider = FutureProvider.autoDispose<SleepStatsView>((
 });
 
 /// Recent completed sleep sessions, parameterized by limit.
-/// Default limit of 20 is appropriate for most list views.
+///
+/// For fixed-size consumers (e.g. the timeline). **Do not drive a
+/// paginated scroll list off this family** — limit-as-key means a
+/// load-more bump spawns a fresh instance with no `.value` and snaps
+/// scroll to top. Use [sleepHistoryProvider] for that.
 final recentSleepSessionsPaginatedProvider = StreamProvider.autoDispose
     .family<List<FrontingSession>, int>((ref, limit) {
       final repo = ref.watch(frontingSessionRepositoryProvider);
       return repo.watchRecentSleepSessions(limit: limit);
     });
+
+const sleepHistoryPageSize = 20;
+
+class SleepHistoryLimitNotifier extends Notifier<int> {
+  @override
+  int build() => sleepHistoryPageSize;
+
+  void loadMore() => state = state + sleepHistoryPageSize;
+}
+
+final sleepHistoryLimitProvider =
+    NotifierProvider.autoDispose<SleepHistoryLimitNotifier, int>(
+      SleepHistoryLimitNotifier.new,
+    );
+
+/// Sleep history list, paginated via [sleepHistoryLimitProvider].
+///
+/// Singleton (no family) so a limit bump rebuilds in place and Riverpod
+/// preserves `.value` across stream re-subscription.
+final sleepHistoryProvider = StreamProvider.autoDispose<List<FrontingSession>>((
+  ref,
+) {
+  final limit = ref.watch(sleepHistoryLimitProvider);
+  final repo = ref.watch(frontingSessionRepositoryProvider);
+  return repo.watchRecentSleepSessions(limit: limit);
+});
 
 /// Member fronting frequency during morning hours (6am-12pm) over last 60 days.
 /// Used by the wake-up sheet to suggest likely morning fronters.
