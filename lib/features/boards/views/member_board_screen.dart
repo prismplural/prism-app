@@ -98,22 +98,54 @@ class _MemberBoardTopBar extends StatelessWidget
 // Body — paginated list
 // ---------------------------------------------------------------------------
 
-class _MemberBoardBody extends ConsumerWidget {
+class _MemberBoardBody extends ConsumerStatefulWidget {
   const _MemberBoardBody({required this.memberId, required this.viewerMember});
 
   final String memberId;
   final Member? viewerMember;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
+  ConsumerState<_MemberBoardBody> createState() => _MemberBoardBodyState();
+}
 
-    // v1: render the first page only.
-    // TODO(pagination): implement infinite scroll with keyset cursor.
-    final firstPage = MemberBoardCursor(memberId: memberId);
-    final postsAsync = ref.watch(memberBoardPostsProvider(firstPage));
+class _MemberBoardBodyState extends ConsumerState<_MemberBoardBody> {
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels < pos.maxScrollExtent - 300) return;
+
+    final feed = ref.read(memberBoardFeedProvider(widget.memberId));
+    if (feed.isLoading) return;
+    final loaded = feed.value?.length ?? 0;
+    final currentLimit = ref.read(memberBoardLimitProvider(widget.memberId));
+    if (loaded >= currentLimit) {
+      ref
+          .read(memberBoardLimitProvider(widget.memberId).notifier)
+          .loadMore();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final postsAsync = ref.watch(memberBoardFeedProvider(widget.memberId));
 
     return postsAsync.when(
+      skipLoadingOnReload: true,
       loading: () => Center(
         child: Builder(
           builder: (context) =>
@@ -131,6 +163,7 @@ class _MemberBoardBody extends ConsumerWidget {
         }
 
         return CustomScrollView(
+          controller: _scrollController,
           slivers: [
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -139,7 +172,7 @@ class _MemberBoardBody extends ConsumerWidget {
                 itemBuilder: (context, index) {
                   return PostTile(
                     post: posts[index],
-                    viewerMember: viewerMember,
+                    viewerMember: widget.viewerMember,
                     showAudiencePill: false,
                   );
                 },

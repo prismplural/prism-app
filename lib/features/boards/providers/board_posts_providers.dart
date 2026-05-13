@@ -94,20 +94,73 @@ class MemberBoardSection {
 const _kPublicLastViewedAt = 'boards.public_last_viewed_at';
 
 // ---------------------------------------------------------------------------
+// Pagination limit notifiers
+//
+// Each scroll-paginated feed is driven by a limit notifier that lives in
+// Riverpod (not widget state) so the feed provider can watch it internally.
+// Bumping the limit re-subscribes the underlying stream on the SAME provider
+// instance, which preserves `.value` across reload — keyset/limit cursors as
+// family keys would spin up a fresh instance per page, dropping the list to
+// bare `AsyncLoading` and snapping scroll to top. Mirrors
+// sleepHistoryLimitProvider.
+// ---------------------------------------------------------------------------
+
+const boardPostsPageSize = 30;
+
+class PublicBoardLimitNotifier extends Notifier<int> {
+  @override
+  int build() => boardPostsPageSize;
+
+  void loadMore() => state = state + boardPostsPageSize;
+}
+
+final publicBoardLimitProvider =
+    NotifierProvider.autoDispose<PublicBoardLimitNotifier, int>(
+      PublicBoardLimitNotifier.new,
+    );
+
+/// Inbox limit resets to [boardPostsPageSize] when the fronter set or view
+/// filter changes — different inbox composition, so the prior page count is
+/// meaningless. Reset is implicit via `ref.watch` inside `build()`.
+class InboxBoardLimitNotifier extends Notifier<int> {
+  @override
+  int build() {
+    ref.watch(currentFronterMemberIdsProvider);
+    ref.watch(inboxViewFilterProvider);
+    return boardPostsPageSize;
+  }
+
+  void loadMore() => state = state + boardPostsPageSize;
+}
+
+final inboxBoardLimitProvider =
+    NotifierProvider.autoDispose<InboxBoardLimitNotifier, int>(
+      InboxBoardLimitNotifier.new,
+    );
+
+class MemberBoardLimitNotifier extends Notifier<int> {
+  @override
+  int build() => boardPostsPageSize;
+
+  void loadMore() => state = state + boardPostsPageSize;
+}
+
+final memberBoardLimitProvider =
+    NotifierProvider.autoDispose
+        .family<MemberBoardLimitNotifier, int, String>(
+          (_) => MemberBoardLimitNotifier(),
+        );
+
+// ---------------------------------------------------------------------------
 // Public timeline feed
 // ---------------------------------------------------------------------------
 
-/// Public sub-tab feed, keyset-paginated.
-///
-/// Pass `BoardPagingCursor()` (no arguments) for the first page.
-final publicBoardPostsProvider = StreamProvider.autoDispose
-    .family<List<MemberBoardPost>, BoardPagingCursor>((ref, cursor) {
+/// Public sub-tab feed. Drive pagination via [publicBoardLimitProvider].
+final publicBoardFeedProvider =
+    StreamProvider.autoDispose<List<MemberBoardPost>>((ref) {
+      final limit = ref.watch(publicBoardLimitProvider);
       final repo = ref.watch(memberBoardPostsRepositoryProvider);
-      return repo.watchPublicPaginated(
-        afterWrittenAt: cursor.afterWrittenAt,
-        afterId: cursor.afterId,
-        limit: cursor.limit,
-      );
+      return repo.watchPublicPaginated(limit: limit);
     });
 
 // ---------------------------------------------------------------------------
@@ -150,23 +203,17 @@ final currentFronterMembersProvider = Provider<List<Member>>((ref) {
 });
 
 /// Inbox sub-tab feed — private posts addressed to the currently-selected
-/// member, or to the currently-fronting members when no member filter is set.
-///
-/// Watches [currentFronterMemberIdsProvider] so the feed updates when
-/// co-fronters change. Pass `BoardPagingCursor()` for the first page.
-final inboxBoardPostsProvider = StreamProvider.autoDispose
-    .family<List<MemberBoardPost>, BoardPagingCursor>((ref, cursor) {
+/// member, or to the currently-fronting members when no filter is set. Drive
+/// pagination via [inboxBoardLimitProvider].
+final inboxBoardFeedProvider =
+    StreamProvider.autoDispose<List<MemberBoardPost>>((ref) {
       final filterId = ref.watch(inboxViewFilterProvider);
       final targetMemberIds = filterId != null
           ? [filterId]
           : ref.watch(currentFronterMemberIdsProvider);
+      final limit = ref.watch(inboxBoardLimitProvider);
       final repo = ref.watch(memberBoardPostsRepositoryProvider);
-      return repo.watchInboxPaginated(
-        targetMemberIds,
-        afterWrittenAt: cursor.afterWrittenAt,
-        afterId: cursor.afterId,
-        limit: cursor.limit,
-      );
+      return repo.watchInboxPaginated(targetMemberIds, limit: limit);
     });
 
 // ---------------------------------------------------------------------------
@@ -232,19 +279,13 @@ final memberBoardSectionProvider = StreamProvider.autoDispose
 // Per-member board posts (full paginated list)
 // ---------------------------------------------------------------------------
 
-/// Full paginated list of public posts by or about [cursor.memberId].
-///
-/// WHERE `(author_id = memberId OR target_member_id = memberId)
-///        AND audience = 'public' AND is_deleted = false`.
-final memberBoardPostsProvider = StreamProvider.autoDispose
-    .family<List<MemberBoardPost>, MemberBoardCursor>((ref, cursor) {
+/// Full paginated list of public posts by or about [memberId]. Drive
+/// pagination via [memberBoardLimitProvider].
+final memberBoardFeedProvider = StreamProvider.autoDispose
+    .family<List<MemberBoardPost>, String>((ref, memberId) {
+      final limit = ref.watch(memberBoardLimitProvider(memberId));
       final repo = ref.watch(memberBoardPostsRepositoryProvider);
-      return repo.watchPublicForMemberPaginated(
-        cursor.memberId,
-        afterWrittenAt: cursor.afterWrittenAt,
-        afterId: cursor.afterId,
-        limit: cursor.limit,
-      );
+      return repo.watchPublicForMemberPaginated(memberId, limit: limit);
     });
 
 // ---------------------------------------------------------------------------

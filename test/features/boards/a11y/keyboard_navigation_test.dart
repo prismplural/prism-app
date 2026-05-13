@@ -101,11 +101,11 @@ Widget _buildBoardsScreen({
               ),
         ),
       ),
-      publicBoardPostsProvider.overrideWith(
-        (ref, cursor) => Stream.value(publicPosts),
+      publicBoardFeedProvider.overrideWith(
+        (ref) => Stream.value(publicPosts),
       ),
-      inboxBoardPostsProvider.overrideWith(
-        (ref, cursor) => Stream.value(const []),
+      inboxBoardFeedProvider.overrideWith(
+        (ref) => Stream.value(const []),
       ),
       publicBoardUnreadDotProvider.overrideWithValue(false),
       boardsTabBadgeProvider.overrideWithValue(0),

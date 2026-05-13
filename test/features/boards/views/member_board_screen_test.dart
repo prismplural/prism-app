@@ -77,8 +77,8 @@ Widget _buildScreen({
               ),
         ),
       ),
-      memberBoardPostsProvider.overrideWith(
-        (ref, c) => Stream.value(posts),
+      memberBoardFeedProvider.overrideWith(
+        (ref, memberId) => Stream.value(posts),
       ),
       memberBoardPostNotifierProvider.overrideWith(_FakeBoardPostNotifier.new),
     ],
@@ -177,8 +177,8 @@ void main() {
             memberByIdProvider.overrideWith(
               (ref, id) => Stream.value(null),
             ),
-            memberBoardPostsProvider.overrideWith(
-              (ref, cursor) => const Stream.empty(),
+            memberBoardFeedProvider.overrideWith(
+              (ref, memberId) => const Stream.empty(),
             ),
             memberBoardPostNotifierProvider
                 .overrideWith(_FakeBoardPostNotifier.new),

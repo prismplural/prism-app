@@ -111,11 +111,11 @@ Widget _buildBoardsScreen({
           ].cast<Member?>().firstWhere((m) => m?.id == id, orElse: () => null),
         ),
       ),
-      publicBoardPostsProvider.overrideWith(
-        (ref, cursor) => Stream.value(publicPosts),
+      publicBoardFeedProvider.overrideWith(
+        (ref) => Stream.value(publicPosts),
       ),
-      inboxBoardPostsProvider.overrideWith(
-        (ref, cursor) => Stream.value(inboxPosts),
+      inboxBoardFeedProvider.overrideWith(
+        (ref) => Stream.value(inboxPosts),
       ),
       publicBoardUnreadDotProvider.overrideWithValue(hasUnreadPublic),
       boardsTabBadgeProvider.overrideWithValue(inboxBadge),

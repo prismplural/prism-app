@@ -407,11 +407,13 @@ class _PublicPage extends ConsumerStatefulWidget {
 }
 
 class _PublicPageState extends ConsumerState<_PublicPage> {
+  final _scrollController = ScrollController();
   bool _markedViewed = false;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     // Mark public viewed on first frame — clears the unread dot.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -420,6 +422,26 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
         ref.read(memberBoardPostNotifierProvider.notifier).markPublicViewed();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels < pos.maxScrollExtent - 300) return;
+
+    final feed = ref.read(publicBoardFeedProvider);
+    if (feed.isLoading) return;
+    final loaded = feed.value?.length ?? 0;
+    final currentLimit = ref.read(publicBoardLimitProvider);
+    if (loaded >= currentLimit) {
+      ref.read(publicBoardLimitProvider.notifier).loadMore();
+    }
   }
 
   @override
@@ -432,10 +454,10 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
         : const AsyncValue<Member?>.data(null);
     final viewerMember = viewerAsync.value;
 
-    const firstCursor = BoardPagingCursor();
-    final postsAsync = ref.watch(publicBoardPostsProvider(firstCursor));
+    final postsAsync = ref.watch(publicBoardFeedProvider);
 
     return postsAsync.when(
+      skipLoadingOnReload: true,
       loading: () => Center(
         child: Builder(
           builder: (context) =>
@@ -465,9 +487,11 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
 
         return RefreshIndicator(
           onRefresh: () async {
-            ref.invalidate(publicBoardPostsProvider);
+            ref.invalidate(publicBoardFeedProvider);
+            ref.invalidate(publicBoardLimitProvider);
           },
           child: ListView.builder(
+            controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             itemCount: filteredPosts.length,
             itemBuilder: (context, index) {
@@ -498,6 +522,7 @@ class _InboxPage extends ConsumerStatefulWidget {
 }
 
 class _InboxPageState extends ConsumerState<_InboxPage> {
+  final _scrollController = ScrollController();
   bool _inboxOpenedCalled = false;
 
   @override
@@ -517,11 +542,18 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     // If the inbox is the initial tab, mark on first frame.
     if (widget.activeTab == _BoardsSubTab.inbox) {
       _inboxOpenedCalled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _markInboxOpened());
     }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _markInboxOpened() {
@@ -532,6 +564,20 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
           .read(memberBoardPostNotifierProvider.notifier)
           .markInboxOpenedFor(fronterIds),
     );
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels < pos.maxScrollExtent - 300) return;
+
+    final feed = ref.read(inboxBoardFeedProvider);
+    if (feed.isLoading) return;
+    final loaded = feed.value?.length ?? 0;
+    final currentLimit = ref.read(inboxBoardLimitProvider);
+    if (loaded >= currentLimit) {
+      ref.read(inboxBoardLimitProvider.notifier).loadMore();
+    }
   }
 
   @override
@@ -546,8 +592,7 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
         : const AsyncValue<Member?>.data(null);
     final viewerMember = viewerAsync.value;
 
-    const firstCursor = BoardPagingCursor();
-    final postsAsync = ref.watch(inboxBoardPostsProvider(firstCursor));
+    final postsAsync = ref.watch(inboxBoardFeedProvider);
 
     final filteredPosts = postsAsync.whenOrNull(
       data: (posts) {
@@ -561,6 +606,7 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
     );
 
     return postsAsync.when(
+      skipLoadingOnReload: true,
       loading: () => Center(
         child: PrismSpinner(color: Theme.of(context).colorScheme.primary),
       ),
@@ -583,6 +629,7 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
           );
         }
         return ListView.builder(
+          controller: _scrollController,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           itemCount: posts.length,
           itemBuilder: (context, index) {
