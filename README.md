@@ -2,7 +2,7 @@
 
 Hi. This is the source for the Prism app — a plural system management app built
 by a plural system that uses it every day. If you're here to use Prism instead
-of hack on it, [prism.plural](https://prism.plural) is the place to go.
+of hack on it, [prismplural.com](https://prismplural.com) is the place to go.
 
 The app is Flutter. The sync engine is Rust, lives in
 [prism-sync](https://github.com/prismplural/prism-sync), and is wired in over
