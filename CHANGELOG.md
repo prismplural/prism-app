@@ -2,26 +2,44 @@
 
 All notable changes to Prism will be documented in this file.
 
-## [0.8.4] - 2026-05-11
+## [0.8.4] - 2026-05-13
 
-This release focuses on sync recovery, PluralKit visibility, and privacy hardening for the next beta build.
+This release focuses on sync recovery, PluralKit setup and visibility, deeper group nesting, and privacy hardening for the next beta build.
 
 ### Added
 - Device pairing now recovers when your wrapped device key is missing from the sync chain: Prism prompts you to re-confirm your PIN and recovery phrase before pairing instead of failing silently.
 - Sync now surfaces quarantined batch warnings and includes a repair action for recoverable oversized batches.
 - PluralKit imports now show per-member progress and post-apply status, with a warning before applying destructive remote changes.
+- PluralKit setup is now direction-first: you confirm push/pull intent before member mapping, and reconnecting the same system preserves your previous direction.
+- A Who's fronting? sheet surfaces PluralKit fronters and is fully localized.
+- New members get a PluralKit push confirmation dialog at creation plus a local-only banner, so you can choose what to push and what to keep local.
 - Settings now include a PluralKit sync debug log and a Screen Privacy toggle for hiding app contents in app switchers and screen capture surfaces.
+- Group nesting now supports up to depth 6 in sections view with tighter indents, and any non-descendant group can be a parent. Breadcrumbs front-truncate gracefully on deep trees.
+- Chat now shows unread badges on DM and group chat segments.
+- Boards scroll-paginate across public, inbox, and member boards.
+- Custom fields can be switched between short and long text in edit mode.
+- Member bios default to markdown on, with a global settings toggle to override.
 
 ### Changed
 - Simply Plural member imports now use an explicit mapping flow before applying imported members.
 - Pull-only PluralKit sync now refreshes member fields while preserving the local-only sync boundary.
+- Members list sorts by total fronting duration rather than session count.
+- Time displays across the app honor your 12/24-hour preference consistently.
 
 ### Fixed
 - Devices with a missing wrapped device key are marked as needing rewrap, and pairing is blocked until recovery has completed.
 - iOS and Android screen privacy handling is more reliable, including stale Activity cases on Android.
+- iOS Screen Privacy no longer crashes the app when iOS toggles system appearance (dark/light mode), including from Control Center.
 - Deleted or tombstoned members are removed from groups and hidden from UI surfaces.
 - Always-fronting sessions, PluralKit live-front notices, and PluralKit failure messages behave more predictably.
-- Chat keeps keyboard focus after sending and avoids avatar flicker during PluralKit sync.
+- PluralKit empty-state, one-shot push reuse, and SP-import handoff no longer silently block mapping pushes.
+- Sync tolerates non-finite numeric fields during pairing apply instead of failing.
+- Sleep no longer counts as untracked gap time in stats, and Fronting and Sleep history lists stay mounted across pagination.
+- Chat keeps keyboard focus after sending, avoids avatar flicker during PluralKit sync, renders blockquotes consistently, and keeps the speaking picker menu above the bar when the keyboard rises.
+- iOS keyboard handling: full-screen sheets shrink above the keyboard and PrismDialog shifts up instead of being covered.
+- Onboarding PIN keypad and PluralKit Link members no longer break at large text scales.
+- In-app image saves stop aliasing, theme stops leaking the Material 3 default surface color, and the members list scrolls to top after re-sort so the new first row isn't hidden.
+- Custom-field display orders update in bulk on reorder, and Notes give the last card clearance past the nav bar gradient.
 
 ## [0.8.3] - 2026-05-10
 
