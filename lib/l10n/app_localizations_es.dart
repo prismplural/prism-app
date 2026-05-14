@@ -8153,6 +8153,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get navBoards => 'Tableros';
 
   @override
+  String get navGroups => 'Grupos';
+
+  @override
   String get sleepScreenTitle => 'Sueño';
 
   @override

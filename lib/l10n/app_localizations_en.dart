@@ -8016,6 +8016,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navBoards => 'Boards';
 
   @override
+  String get navGroups => 'Groups';
+
+  @override
   String get sleepScreenTitle => 'Sleep';
 
   @override

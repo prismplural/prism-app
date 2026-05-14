@@ -15,6 +15,7 @@ abstract final class AppRoutePaths {
   static const statistics = '/statistics';
   static const sleep = '/sleep';
   static const boards = '/boards';
+  static const groups = '/groups';
 
   // Settings sub-routes
   static const settingsMembers = '/settings/members';
@@ -61,6 +62,11 @@ abstract final class AppRoutePaths {
   // Parameterized helpers — groups
   static String memberGroup(String id) => '/members/groups/$id';
   static String settingsGroup(String id) => '/settings/members/groups/$id';
+  static String group(String id) => '/groups/$id';
+  static String groupMember(String groupId, String memberId) =>
+      '/groups/$groupId/member/$memberId';
+  static String groupMemberFrontingHistory(String groupId, String memberId) =>
+      '/groups/$groupId/member/$memberId/fronting';
 
   // Full-screen routes
   static const onboarding = '/onboarding';
@@ -116,6 +122,7 @@ abstract final class AppRouteNames {
   static const boards = 'boards';
   static const memberBoard = 'member-board';
   static const boardPost = 'board-post';
+  static const groups = 'groups';
 }
 
 enum AppShellTabId {
@@ -131,6 +138,7 @@ enum AppShellTabId {
   timeline,
   sleep,
   boards,
+  groups,
 }
 
 class AppShellTab {
@@ -187,6 +195,7 @@ class AppShellTab {
       AppShellTabId.timeline => l10n.navTimeline,
       AppShellTabId.sleep => l10n.navSleep,
       AppShellTabId.boards => l10n.navBoards,
+      AppShellTabId.groups => l10n.navGroups,
     };
   }
 
@@ -215,6 +224,7 @@ class AppShellTab {
       AppShellTabId.timeline => true,
       AppShellTabId.sleep => flags.sleep,
       AppShellTabId.boards => flags.boards,
+      AppShellTabId.groups => true,
     };
   }
 }
@@ -317,6 +327,14 @@ final appShellTabs = [
     branchIndex: 11,
     rootLocation: AppRoutePaths.boards,
   ),
+  AppShellTab(
+    id: AppShellTabId.groups,
+    label: 'Groups',
+    icon: AppIcons.navGroups,
+    activeIcon: AppIcons.navGroupsActive,
+    branchIndex: 12,
+    rootLocation: AppRoutePaths.groups,
+  ),
 ];
 
 /// The default nav bar tab IDs when no custom configuration exists.
@@ -328,6 +346,7 @@ const defaultNavBarTabIds = ['home', 'chat', 'habits', 'polls', 'settings'];
 /// removes them automatically.
 const defaultNavBarOverflowTabIds = [
   'members',
+  'groups',
   'notes',
   'reminders',
   'statistics',

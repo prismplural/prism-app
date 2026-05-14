@@ -64,6 +64,7 @@ void main() {
       expect(AppShellTabId.timeline.name, 'timeline');
       expect(AppShellTabId.sleep.name, 'sleep');
       expect(AppShellTabId.boards.name, 'boards');
+      expect(AppShellTabId.groups.name, 'groups');
     });
   });
 
@@ -93,6 +94,7 @@ void main() {
         AppShellTabId.timeline,
         AppShellTabId.sleep,
         AppShellTabId.boards,
+        AppShellTabId.groups,
       ];
       for (final id in unlockedIds) {
         final tab = appShellTabs.firstWhere((t) => t.id == id);
@@ -122,6 +124,12 @@ void main() {
 
     test('members is always enabled', () {
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.members);
+      expect(tab.isEnabled(allEnabled), isTrue);
+      expect(tab.isEnabled(_withDisabled(chat: false)), isTrue);
+    });
+
+    test('groups is always enabled', () {
+      final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.groups);
       expect(tab.isEnabled(allEnabled), isTrue);
       expect(tab.isEnabled(_withDisabled(chat: false)), isTrue);
     });
@@ -187,13 +195,13 @@ void main() {
   });
 
   group('appShellTabs', () {
-    test('has 12 entries', () {
-      expect(appShellTabs, hasLength(12));
+    test('has 13 entries', () {
+      expect(appShellTabs, hasLength(13));
     });
 
-    test('branch indices are 0 through 11', () {
+    test('branch indices are 0 through 12', () {
       final indices = appShellTabs.map((t) => t.branchIndex).toList();
-      expect(indices, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+      expect(indices, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
     });
 
     test('no duplicate branch indices', () {
@@ -290,6 +298,38 @@ void main() {
         AppRoutePaths.settingsMemberFrontingHistory('m1'),
         '/settings/members/m1/fronting',
       );
+    });
+  });
+
+  group('groups tab routes', () {
+    test('groups root path', () {
+      expect(AppRoutePaths.groups, '/groups');
+    });
+
+    test('builds group detail path under /groups branch', () {
+      expect(AppRoutePaths.group('g1'), '/groups/g1');
+    });
+
+    test('builds nested member detail path under /groups branch', () {
+      expect(
+        AppRoutePaths.groupMember('g1', 'm1'),
+        '/groups/g1/member/m1',
+      );
+    });
+
+    test('builds nested fronting history path under /groups branch', () {
+      expect(
+        AppRoutePaths.groupMemberFrontingHistory('g1', 'm1'),
+        '/groups/g1/member/m1/fronting',
+      );
+    });
+
+    test('groups is registered in defaultNavBarOverflowTabIds', () {
+      expect(defaultNavBarOverflowTabIds, contains('groups'));
+    });
+
+    test('groups is not in defaultNavBarTabIds (opt-in only)', () {
+      expect(defaultNavBarTabIds, isNot(contains('groups')));
     });
   });
 }

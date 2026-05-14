@@ -27,13 +27,28 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 
 /// Screen listing all member groups with reordering support.
 class GroupsScreen extends ConsumerStatefulWidget {
-  const GroupsScreen({super.key});
+  const GroupsScreen({super.key, this.showBackButton = true});
+
+  final bool showBackButton;
 
   @override
   ConsumerState<GroupsScreen> createState() => _GroupsScreenState();
 }
 
 class _GroupsScreenState extends ConsumerState<GroupsScreen> {
+  /// Path of the current location, used to derive which navigation branch
+  /// this screen is rendering in (settings, members, or groups tab).
+  String _groupPathFor(String id) {
+    final location = GoRouterState.of(context).uri.path;
+    if (location.startsWith(AppRoutePaths.groups)) {
+      return AppRoutePaths.group(id);
+    }
+    if (location.startsWith(AppRoutePaths.members)) {
+      return AppRoutePaths.memberGroup(id);
+    }
+    return AppRoutePaths.settingsGroup(id);
+  }
+
   void _openCreateSheet() {
     PrismSheet.showFullScreen(
       context: context,
@@ -85,7 +100,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     return PrismPageScaffold(
       topBar: PrismTopBar(
         title: l10n.memberGroupsTitle,
-        showBackButton: true,
+        showBackButton: widget.showBackButton,
         actions: [
           PrismTopBarAction(
             icon: AppIcons.add,
@@ -161,8 +176,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                   depth: entry.depth.clamp(0, kSectionsVisualDepthCap),
                   reorderIndex: index,
                   memberCount: counts[entry.group.id] ?? 0,
-                  onTap: () =>
-                      context.push(AppRoutePaths.settingsGroup(entry.group.id)),
+                  onTap: () => context.push(_groupPathFor(entry.group.id)),
                   onDelete: () => _confirmDelete(entry.group),
                 );
               },

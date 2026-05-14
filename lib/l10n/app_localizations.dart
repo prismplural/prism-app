@@ -13129,6 +13129,12 @@ abstract class AppLocalizations {
   /// **'Boards'**
   String get navBoards;
 
+  /// Bottom navigation tab label for the Groups tab (optional; lists member groups)
+  ///
+  /// In en, this message translates to:
+  /// **'Groups'**
+  String get navGroups;
+
   /// Title shown in the top bar of the Sleep screen
   ///
   /// In en, this message translates to:

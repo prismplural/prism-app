@@ -112,8 +112,9 @@ void main() {
       // The "Available" section header should be present.
       expect(find.text('Available'), findsOneWidget);
 
-      // Chat, Habits, Polls, Members, Reminders, Notes, Statistics are all
-      // enabled by default and not in the nav, so they should appear as available.
+      // Chat, Habits, Polls, Members, Reminders, Notes, Statistics, Groups are
+      // all enabled by default and not in the nav, so they should appear as
+      // available.
       expect(find.text('Chat'), findsOneWidget);
       expect(find.text('Habits'), findsOneWidget);
       expect(find.text('Polls'), findsOneWidget);
@@ -122,9 +123,10 @@ void main() {
       expect(find.text('Notes'), findsOneWidget);
       expect(find.text('Statistics'), findsOneWidget);
       expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text('Groups'), findsOneWidget);
 
       // Each available tab gets an add button.
-      expect(find.byIcon(AppIcons.addCircleOutline), findsNWidgets(9));
+      expect(find.byIcon(AppIcons.addCircleOutline), findsNWidgets(10));
     });
 
     testWidgets('disabled features appear in Disabled Features section', (

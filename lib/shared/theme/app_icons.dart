@@ -24,6 +24,8 @@ abstract final class AppIcons {
   static final navSettingsActive = PhosphorIcons.gear(PhosphorIconsStyle.fill);
   static final navMembers = PhosphorIcons.usersThree();
   static final navMembersActive = PhosphorIcons.usersThree(PhosphorIconsStyle.fill);
+  static final navGroups = PhosphorIcons.circlesThree();
+  static final navGroupsActive = PhosphorIcons.circlesThree(PhosphorIconsStyle.fill);
   static final navReminders = PhosphorIcons.alarm();
   static final navRemindersActive = PhosphorIcons.alarm(PhosphorIconsStyle.fill);
   static final navNotes = PhosphorIcons.notepad();

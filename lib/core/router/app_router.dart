@@ -93,6 +93,7 @@ final _statisticsNavigatorKey = GlobalKey<NavigatorState>(
 final _timelineNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'timeline');
 final _sleepNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'sleep');
 final _boardsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'boards');
+final _groupsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'groups');
 
 /// Notifier that triggers GoRouter redirect re-evaluation when onboarding
 /// status changes.
@@ -663,7 +664,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'groups/:id',
                     builder: (context, state) => GroupDetailScreen(
                       groupId: state.pathParameters['id']!,
-                      settingsBranch: false,
                     ),
                   ),
                   GoRoute(
@@ -796,6 +796,43 @@ final routerProvider = Provider<GoRouter>((ref) {
                     builder: (context, state) => PostDetailScreen(
                       postId: state.pathParameters['postId']!,
                     ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          // Branch 12: Groups (optional top-level tab)
+          StatefulShellBranch(
+            navigatorKey: _groupsNavigatorKey,
+            routes: [
+              GoRoute(
+                name: AppRouteNames.groups,
+                path: AppRoutePaths.groups,
+                builder: (context, state) =>
+                    const GroupsScreen(showBackButton: false),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) => GroupDetailScreen(
+                      groupId: state.pathParameters['id']!,
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: 'member/:memberId',
+                        builder: (context, state) => MemberDetailScreen(
+                          memberId: state.pathParameters['memberId']!,
+                        ),
+                        routes: [
+                          GoRoute(
+                            path: 'fronting',
+                            builder: (context, state) =>
+                                MemberFrontingHistoryScreen(
+                                  memberId: state.pathParameters['memberId']!,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ],
               ),
