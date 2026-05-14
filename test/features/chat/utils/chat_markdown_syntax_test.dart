@@ -413,6 +413,34 @@ void main() {
         findsNothing,
       );
     });
+
+    testWidgets('multi-word link text is not duplicated', (tester) async {
+      late ThemeData capturedTheme;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(builder: (ctx) {
+              capturedTheme = Theme.of(ctx);
+              return MarkdownBody(
+                data: '[link 3 tutorial](https://example.com/web-1)',
+                extensionSet: chatExtensionSet,
+                builders: {
+                  'a': SafeLinkBuilder(
+                    onTap: (_) {},
+                    theme: capturedTheme,
+                  ),
+                },
+              );
+            }),
+          ),
+        ),
+      );
+
+      expect(find.text('link 3 tutorial'), findsOneWidget);
+      expect(find.text('3 tutorial'), findsNothing);
+      expect(find.text('link 3 tutorial3 tutorial'), findsNothing);
+    });
   });
 
   // -------------------------------------------------------------------------

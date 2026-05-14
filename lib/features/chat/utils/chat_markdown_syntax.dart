@@ -130,6 +130,23 @@ class SafeLinkBuilder extends MarkdownElementBuilder {
   final void Function(String url) onTap;
   final ThemeData theme;
 
+  // `markdown` splits 3+ word link text into multiple Text nodes; flutter_markdown_plus
+  // then only swaps children[0] for the builder's widget, so trailing nodes duplicate.
+  // Coalesce here so the builder owns the whole label.
+  @override
+  void visitElementBefore(md.Element element) {
+    final children = element.children;
+    if (children == null || children.length < 2) return;
+    final buffer = StringBuffer();
+    for (final node in children) {
+      if (node is! md.Text) return;
+      buffer.write(node.text);
+    }
+    children
+      ..clear()
+      ..add(md.Text(buffer.toString()));
+  }
+
   @override
   Widget? visitElementAfterWithContext(
     BuildContext context,
