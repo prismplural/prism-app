@@ -396,6 +396,9 @@ void main() {
         'pluralkit_uuid': 'pk-group-1',
         'last_seen_from_pk_at':
             stored.lastSeenFromPkAt!.toUtc().toIso8601String(),
+        // sort_state is part of _groupFields after Batch 3; default is
+        // manual mode with empty order on a freshly seeded group.
+        'sort_state': '{"mode":0,"order":[]}',
         'is_deleted': false,
       });
     },
@@ -493,7 +496,13 @@ void main() {
     );
 
     expect(repo.creates, hasLength(1));
-    expect(repo.updates, isEmpty);
+    // Batch 4: addMemberToGroup in a manual-mode group also emits a parent
+    // member_groups update that appends the new entry id to
+    // sort_state.manualOrder. The seeded group defaults to manual + empty.
+    expect(repo.updates, hasLength(1));
+    expect(repo.updates.single['table'], 'member_groups');
+    expect(repo.updates.single['entityId'],
+        _canonicalPkGroupEntityId('pk-group-1'));
 
     final create = repo.creates.single;
     final expectedEntryId = _deterministicPkEntryId(
