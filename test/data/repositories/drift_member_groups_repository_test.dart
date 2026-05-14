@@ -295,6 +295,28 @@ void main() {
       final stored = await _readSortState(db, 'g1');
       expect(stored.manualOrder, ['e1', 'e2']);
     });
+
+    test('empty supplied list: recovers all live entries sorted by id',
+        () async {
+      await setupRepo();
+      await _seedGroup(db, id: 'g1');
+      await _seedEntry(db, id: 'e2', groupId: 'g1', memberId: 'm2');
+      await _seedEntry(db, id: 'e1', groupId: 'g1', memberId: 'm1');
+      await _seedEntry(db, id: 'e3', groupId: 'g1', memberId: 'm3');
+
+      final result = await repo.setGroupManualOrderSnapshot('g1', const []);
+
+      expect(result, isA<SnapshotRecovered>());
+      final recovered = result as SnapshotRecovered;
+      expect(recovered.droppedIds, isEmpty);
+      expect(recovered.appendedIds, ['e1', 'e2', 'e3']);
+
+      final stored = await _readSortState(db, 'g1');
+      expect(stored.mode, GroupSortMode.manual);
+      expect(stored.manualOrder, ['e1', 'e2', 'e3']);
+
+      expect(_groupUpdates(repo), 1);
+    });
   });
 
   group('setGroupSortMode', () {
