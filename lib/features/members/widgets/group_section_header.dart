@@ -87,7 +87,7 @@ class GroupSectionHeader extends StatelessWidget {
           '${canCollapse ? ', double-tap to toggle' : ''}',
       excludeSemantics: true,
       child: Material(
-        color: theme.cardColor,
+        color: Colors.transparent,
         child: InkWell(
           onTap: canCollapse ? onToggle : null,
           child: Padding(
