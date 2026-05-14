@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
@@ -96,7 +98,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 22;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -604,6 +606,58 @@ class AppDatabase extends _$AppDatabase {
           'WHERE mapping_acknowledged = 1',
         );
         current = 21;
+      }
+      if (current == 21 && to >= 22) {
+        // Per-group sort state lives on the parent `member_groups` row as a
+        // single TEXT column (JSON-encoded) so (mode, manualOrder) always
+        // converges to one device's snapshot under per-field LWW sync.
+        // See docs/plans/2026-05-14-group-member-ordering.md.
+        //
+        // Backfill semantic: No prior persisted order existed for entries
+        // within a group. Backfill orders entries by SQLite `rowid` as a
+        // stable-enough proxy for insertion order. Users on existing devices
+        // will see their entries in whatever rowid order produced; this is
+        // acceptable because no user has ever relied on a persistent
+        // within-group order before this migration.
+        //
+        // Why Dart loop, not a `ROW_NUMBER()` window function: SQLite docs
+        // note non-INTEGER-PK rowids "might change"
+        // (https://www.sqlite.org/rowidtable.html). The Dart loop makes the
+        // "best-effort" assumption explicit in code rather than burying it
+        // in SQL, and sidesteps the SQLite 3.25+ window-function dependency.
+        //
+        // Wrapped in a single transaction so the addColumn + per-group
+        // backfill UPDATEs are atomic: a crash mid-loop leaves the schema
+        // at v21 (no partial column), and Drift's user_version bump only
+        // commits on successful return.
+        await transaction(() async {
+          await migrator.addColumn(memberGroups, memberGroups.sortState);
+
+          final groupRows = await customSelect(
+            'SELECT id FROM member_groups WHERE is_deleted = 0',
+          ).get();
+          for (final groupRow in groupRows) {
+            final groupId = groupRow.read<String>('id');
+            final entryRows = await customSelect(
+              'SELECT id FROM member_group_entries '
+              'WHERE group_id = ? AND is_deleted = 0 '
+              'ORDER BY rowid',
+              variables: [Variable.withString(groupId)],
+            ).get();
+            final orderedEntryIds = entryRows
+                .map((row) => row.read<String>('id'))
+                .toList(growable: false);
+            final sortStateJson = jsonEncode({
+              'mode': 0,
+              'order': orderedEntryIds,
+            });
+            await customStatement(
+              'UPDATE member_groups SET sort_state = ? WHERE id = ?',
+              [sortStateJson, groupId],
+            );
+          }
+        });
+        current = 22;
       }
       if (current != to) {
         throw UnsupportedError(

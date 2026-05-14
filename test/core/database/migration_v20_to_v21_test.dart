@@ -18,9 +18,16 @@ Future<void> _seedV20Db(File dbFile) async {
   await seeded.customSelect('SELECT 1').get();
   await seeded.close();
 
-  // Drop the new column and reset the version to v20 to simulate a v20 DB.
+  // Drop columns added by newer migrations and reset the version to v20 to
+  // simulate a v20 DB.
   final rawDb = raw.sqlite3.open(dbFile.path);
   try {
+    // Remove the column added by v22 so its migration can add it back when
+    // stepping through v20 → 22. Drop before v21's column for symmetry; both
+    // are no-ops if the column is somehow already gone (defensive guard).
+    rawDb.execute(
+      'ALTER TABLE member_groups DROP COLUMN sort_state',
+    );
     // Remove the column added by v21 so the migration has to add it back.
     rawDb.execute(
       'ALTER TABLE plural_kit_sync_state DROP COLUMN direction_confirmed',
@@ -64,11 +71,13 @@ void main() {
         addTearDown(upgraded.close);
         await upgraded.customSelect('SELECT 1').get();
 
-        // Verify the schema version advanced to 21.
+        // Verify the schema version advanced past 21. Drift always migrates
+        // to the current schemaVersion, so for tests that target a specific
+        // migration step we assert "at least 21" rather than equality.
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(version.read<int>('user_version'), 21);
+        expect(version.read<int>('user_version'), greaterThanOrEqualTo(21));
 
         // Verify the column exists.
         final cols = await upgraded

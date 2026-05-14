@@ -14550,6 +14550,18 @@ class $MemberGroupsTable extends MemberGroups
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _sortStateMeta = const VerificationMeta(
+    'sortState',
+  );
+  @override
+  late final GeneratedColumn<String> sortState = GeneratedColumn<String>(
+    'sort_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{"mode":0,"order":[]}'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -14568,6 +14580,7 @@ class $MemberGroupsTable extends MemberGroups
     lastSeenFromPkAt,
     syncSuppressed,
     suspectedPkGroupUuid,
+    sortState,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -14707,6 +14720,12 @@ class $MemberGroupsTable extends MemberGroups
         ),
       );
     }
+    if (data.containsKey('sort_state')) {
+      context.handle(
+        _sortStateMeta,
+        sortState.isAcceptableOrUnknown(data['sort_state']!, _sortStateMeta),
+      );
+    }
     return context;
   }
 
@@ -14780,6 +14799,10 @@ class $MemberGroupsTable extends MemberGroups
         DriftSqlType.string,
         data['${effectivePrefix}suspected_pk_group_uuid'],
       ),
+      sortState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sort_state'],
+      )!,
     );
   }
 
@@ -14820,6 +14843,15 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
   /// Local-only review hint for ambiguous rows that likely map to a canonical
   /// PK group UUID but cannot be merged safely without user confirmation.
   final String? suspectedPkGroupUuid;
+
+  /// Per-group sort state, stored as JSON: `{"mode": <int>, "order": [...]}`.
+  /// `mode` is the int index of `GroupSortMode` (manual/nameAsc/nameDesc/
+  /// recentDesc). `order` is the manual-mode list of entry ids.
+  ///
+  /// Persisted as a single column so the (mode, manualOrder) pair always
+  /// converges to one device's complete state under per-field LWW sync —
+  /// see `docs/plans/2026-05-14-group-member-ordering.md` §"Design decision".
+  final String sortState;
   const MemberGroupRow({
     required this.id,
     required this.name,
@@ -14837,6 +14869,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     this.lastSeenFromPkAt,
     required this.syncSuppressed,
     this.suspectedPkGroupUuid,
+    required this.sortState,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -14875,6 +14908,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     if (!nullToAbsent || suspectedPkGroupUuid != null) {
       map['suspected_pk_group_uuid'] = Variable<String>(suspectedPkGroupUuid);
     }
+    map['sort_state'] = Variable<String>(sortState);
     return map;
   }
 
@@ -14914,6 +14948,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       suspectedPkGroupUuid: suspectedPkGroupUuid == null && nullToAbsent
           ? const Value.absent()
           : Value(suspectedPkGroupUuid),
+      sortState: Value(sortState),
     );
   }
 
@@ -14943,6 +14978,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       suspectedPkGroupUuid: serializer.fromJson<String?>(
         json['suspectedPkGroupUuid'],
       ),
+      sortState: serializer.fromJson<String>(json['sortState']),
     );
   }
   @override
@@ -14965,6 +15001,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       'lastSeenFromPkAt': serializer.toJson<DateTime?>(lastSeenFromPkAt),
       'syncSuppressed': serializer.toJson<bool>(syncSuppressed),
       'suspectedPkGroupUuid': serializer.toJson<String?>(suspectedPkGroupUuid),
+      'sortState': serializer.toJson<String>(sortState),
     };
   }
 
@@ -14985,6 +15022,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     Value<DateTime?> lastSeenFromPkAt = const Value.absent(),
     bool? syncSuppressed,
     Value<String?> suspectedPkGroupUuid = const Value.absent(),
+    String? sortState,
   }) => MemberGroupRow(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -15010,6 +15048,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     suspectedPkGroupUuid: suspectedPkGroupUuid.present
         ? suspectedPkGroupUuid.value
         : this.suspectedPkGroupUuid,
+    sortState: sortState ?? this.sortState,
   );
   MemberGroupRow copyWithCompanion(MemberGroupsCompanion data) {
     return MemberGroupRow(
@@ -15047,6 +15086,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       suspectedPkGroupUuid: data.suspectedPkGroupUuid.present
           ? data.suspectedPkGroupUuid.value
           : this.suspectedPkGroupUuid,
+      sortState: data.sortState.present ? data.sortState.value : this.sortState,
     );
   }
 
@@ -15068,7 +15108,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           ..write('pluralkitUuid: $pluralkitUuid, ')
           ..write('lastSeenFromPkAt: $lastSeenFromPkAt, ')
           ..write('syncSuppressed: $syncSuppressed, ')
-          ..write('suspectedPkGroupUuid: $suspectedPkGroupUuid')
+          ..write('suspectedPkGroupUuid: $suspectedPkGroupUuid, ')
+          ..write('sortState: $sortState')
           ..write(')'))
         .toString();
   }
@@ -15091,6 +15132,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     lastSeenFromPkAt,
     syncSuppressed,
     suspectedPkGroupUuid,
+    sortState,
   );
   @override
   bool operator ==(Object other) =>
@@ -15111,7 +15153,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           other.pluralkitUuid == this.pluralkitUuid &&
           other.lastSeenFromPkAt == this.lastSeenFromPkAt &&
           other.syncSuppressed == this.syncSuppressed &&
-          other.suspectedPkGroupUuid == this.suspectedPkGroupUuid);
+          other.suspectedPkGroupUuid == this.suspectedPkGroupUuid &&
+          other.sortState == this.sortState);
 }
 
 class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
@@ -15131,6 +15174,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
   final Value<DateTime?> lastSeenFromPkAt;
   final Value<bool> syncSuppressed;
   final Value<String?> suspectedPkGroupUuid;
+  final Value<String> sortState;
   final Value<int> rowid;
   const MemberGroupsCompanion({
     this.id = const Value.absent(),
@@ -15149,6 +15193,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.lastSeenFromPkAt = const Value.absent(),
     this.syncSuppressed = const Value.absent(),
     this.suspectedPkGroupUuid = const Value.absent(),
+    this.sortState = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MemberGroupsCompanion.insert({
@@ -15168,6 +15213,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.lastSeenFromPkAt = const Value.absent(),
     this.syncSuppressed = const Value.absent(),
     this.suspectedPkGroupUuid = const Value.absent(),
+    this.sortState = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -15189,6 +15235,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Expression<DateTime>? lastSeenFromPkAt,
     Expression<bool>? syncSuppressed,
     Expression<String>? suspectedPkGroupUuid,
+    Expression<String>? sortState,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -15209,6 +15256,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       if (syncSuppressed != null) 'sync_suppressed': syncSuppressed,
       if (suspectedPkGroupUuid != null)
         'suspected_pk_group_uuid': suspectedPkGroupUuid,
+      if (sortState != null) 'sort_state': sortState,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -15230,6 +15278,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Value<DateTime?>? lastSeenFromPkAt,
     Value<bool>? syncSuppressed,
     Value<String?>? suspectedPkGroupUuid,
+    Value<String>? sortState,
     Value<int>? rowid,
   }) {
     return MemberGroupsCompanion(
@@ -15249,6 +15298,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       lastSeenFromPkAt: lastSeenFromPkAt ?? this.lastSeenFromPkAt,
       syncSuppressed: syncSuppressed ?? this.syncSuppressed,
       suspectedPkGroupUuid: suspectedPkGroupUuid ?? this.suspectedPkGroupUuid,
+      sortState: sortState ?? this.sortState,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -15306,6 +15356,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
         suspectedPkGroupUuid.value,
       );
     }
+    if (sortState.present) {
+      map['sort_state'] = Variable<String>(sortState.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -15331,6 +15384,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
           ..write('lastSeenFromPkAt: $lastSeenFromPkAt, ')
           ..write('syncSuppressed: $syncSuppressed, ')
           ..write('suspectedPkGroupUuid: $suspectedPkGroupUuid, ')
+          ..write('sortState: $sortState, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -30634,6 +30688,7 @@ typedef $$MemberGroupsTableCreateCompanionBuilder =
       Value<DateTime?> lastSeenFromPkAt,
       Value<bool> syncSuppressed,
       Value<String?> suspectedPkGroupUuid,
+      Value<String> sortState,
       Value<int> rowid,
     });
 typedef $$MemberGroupsTableUpdateCompanionBuilder =
@@ -30654,6 +30709,7 @@ typedef $$MemberGroupsTableUpdateCompanionBuilder =
       Value<DateTime?> lastSeenFromPkAt,
       Value<bool> syncSuppressed,
       Value<String?> suspectedPkGroupUuid,
+      Value<String> sortState,
       Value<int> rowid,
     });
 
@@ -30743,6 +30799,11 @@ class $$MemberGroupsTableFilterComposer
 
   ColumnFilters<String> get suspectedPkGroupUuid => $composableBuilder(
     column: $table.suspectedPkGroupUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sortState => $composableBuilder(
+    column: $table.sortState,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -30835,6 +30896,11 @@ class $$MemberGroupsTableOrderingComposer
     column: $table.suspectedPkGroupUuid,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get sortState => $composableBuilder(
+    column: $table.sortState,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MemberGroupsTableAnnotationComposer
@@ -30911,6 +30977,9 @@ class $$MemberGroupsTableAnnotationComposer
     column: $table.suspectedPkGroupUuid,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get sortState =>
+      $composableBuilder(column: $table.sortState, builder: (column) => column);
 }
 
 class $$MemberGroupsTableTableManager
@@ -30960,6 +31029,7 @@ class $$MemberGroupsTableTableManager
                 Value<DateTime?> lastSeenFromPkAt = const Value.absent(),
                 Value<bool> syncSuppressed = const Value.absent(),
                 Value<String?> suspectedPkGroupUuid = const Value.absent(),
+                Value<String> sortState = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupsCompanion(
                 id: id,
@@ -30978,6 +31048,7 @@ class $$MemberGroupsTableTableManager
                 lastSeenFromPkAt: lastSeenFromPkAt,
                 syncSuppressed: syncSuppressed,
                 suspectedPkGroupUuid: suspectedPkGroupUuid,
+                sortState: sortState,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -30998,6 +31069,7 @@ class $$MemberGroupsTableTableManager
                 Value<DateTime?> lastSeenFromPkAt = const Value.absent(),
                 Value<bool> syncSuppressed = const Value.absent(),
                 Value<String?> suspectedPkGroupUuid = const Value.absent(),
+                Value<String> sortState = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupsCompanion.insert(
                 id: id,
@@ -31016,6 +31088,7 @@ class $$MemberGroupsTableTableManager
                 lastSeenFromPkAt: lastSeenFromPkAt,
                 syncSuppressed: syncSuppressed,
                 suspectedPkGroupUuid: suspectedPkGroupUuid,
+                sortState: sortState,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

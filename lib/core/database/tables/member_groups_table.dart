@@ -34,6 +34,16 @@ class MemberGroups extends Table {
   /// PK group UUID but cannot be merged safely without user confirmation.
   TextColumn get suspectedPkGroupUuid => text().nullable()();
 
+  /// Per-group sort state, stored as JSON: `{"mode": <int>, "order": [...]}`.
+  /// `mode` is the int index of `GroupSortMode` (manual/nameAsc/nameDesc/
+  /// recentDesc). `order` is the manual-mode list of entry ids.
+  ///
+  /// Persisted as a single column so the (mode, manualOrder) pair always
+  /// converges to one device's complete state under per-field LWW sync —
+  /// see `docs/plans/2026-05-14-group-member-ordering.md` §"Design decision".
+  TextColumn get sortState =>
+      text().withDefault(const Constant('{"mode":0,"order":[]}'))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
