@@ -529,6 +529,12 @@ class DriftMemberGroupsRepository
       'pluralkit_id': row.pluralkitId,
       'pluralkit_uuid': row.pluralkitUuid,
       'last_seen_from_pk_at': toSyncUtcOrNull(row.lastSeenFromPkAt),
+      // `row.sortState` is always the encoded-valid string from the local
+      // write path (mapper / DAO helper), so this can never propagate
+      // garbage. Apply-time validation in `drift_sync_adapter.dart`
+      // guarantees invalid remote payloads are rejected before they reach
+      // the column.
+      'sort_state': row.sortState,
       'is_deleted': row.isDeleted,
     };
   }

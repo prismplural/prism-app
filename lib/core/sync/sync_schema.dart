@@ -243,6 +243,7 @@ const String prismSyncSchema = '''
         "pluralkit_id": "String",
         "pluralkit_uuid": "String",
         "last_seen_from_pk_at": "DateTime",
+        "sort_state": "String",
         "is_deleted": "Bool"
       }
     },

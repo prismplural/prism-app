@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_sync_drift/prism_sync_drift.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/core/sync/sync_schema.dart';
@@ -79,6 +80,7 @@ void main() {
         'pluralkit_id',
         'pluralkit_uuid',
         'last_seen_from_pk_at',
+        'sort_state',
         'is_deleted',
       });
     },
@@ -1228,6 +1230,311 @@ void main() {
     expect(rows.single.id, canonicalId);
     expect(rows.single.name, 'Replayed Remote');
     expect(rows.single.isDeleted, isFalse);
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // sort_state wiring (Batch 3 — Task 3.1)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('member_groups: sort_state sync wiring', () {
+    // The ErrorReportingService is a process-wide singleton. Snapshot the
+    // pre-test error count so warn-emission assertions are robust to other
+    // tests in the same process having pushed entries first.
+    late int baselineErrorCount;
+    setUp(() {
+      baselineErrorCount = ErrorReportingService.instance.errors.length;
+    });
+
+    int warningsEmittedSinceBaseline() {
+      final entries = ErrorReportingService.instance.errors;
+      var count = 0;
+      for (var i = baselineErrorCount; i < entries.length; i++) {
+        if (entries[i].severity == ErrorSeverity.warning) count++;
+      }
+      return count;
+    }
+
+    const defaultSortStateJson = '{"mode":0,"order":[]}';
+    final createdAt = DateTime.utc(2026, 4, 18, 12);
+
+    test('toSyncFields emits default sort_state on a freshly-created group',
+        () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      // Mimic a local create: insert via the Drift table with the default
+      // sort_state value (the column's `withDefault` constant).
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: 'g-create',
+              name: 'New Group',
+              createdAt: createdAt,
+            ),
+          );
+
+      final row = await (db.select(db.memberGroups)
+            ..where((t) => t.id.equals('g-create')))
+          .getSingle();
+      final groupsEntity = _entityFor(db, 'member_groups');
+      final encoded = groupsEntity.toSyncFields(row);
+
+      expect(encoded.containsKey('sort_state'), isTrue);
+      expect(encoded['sort_state'], defaultSortStateJson);
+      expect(warningsEmittedSinceBaseline(), 0);
+    });
+
+    test('toSyncFields emits updated sort_state after updateGroupSortState',
+        () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: 'g-update',
+              name: 'G',
+              createdAt: createdAt,
+            ),
+          );
+
+      const updatedJson = '{"mode":1,"order":["a","b"]}';
+      await db.memberGroupsDao.updateGroupSortState('g-update', updatedJson);
+
+      final row = await (db.select(db.memberGroups)
+            ..where((t) => t.id.equals('g-update')))
+          .getSingle();
+      final groupsEntity = _entityFor(db, 'member_groups');
+      final encoded = groupsEntity.toSyncFields(row);
+
+      expect(encoded['sort_state'], updatedJson);
+      // Also check readRow (the engine-facing snapshot used to emit updates).
+      final read = await groupsEntity.readRow('g-update');
+      expect(read?['sort_state'], updatedJson);
+      expect(warningsEmittedSinceBaseline(), 0);
+    });
+
+    test('member_group_entries: toSyncFields never includes sort_state '
+        '(parity guard)', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final entriesEntity = _entityFor(db, 'member_group_entries');
+      await entriesEntity.applyFields('entry-parity', {
+        'group_id': 'group-1',
+        'member_id': 'member-1',
+        'is_deleted': false,
+      });
+
+      final row = await (db.select(db.memberGroupEntries)
+            ..where((t) => t.id.equals('entry-parity')))
+          .getSingle();
+      final encoded = entriesEntity.toSyncFields(row);
+      expect(encoded.containsKey('sort_state'), isFalse);
+    });
+
+    test('applyFields with sort_state absent leaves the column unchanged',
+        () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      const priorJson = '{"mode":2,"order":["x","y"]}';
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: 'g-absent',
+              name: 'Pre',
+              createdAt: createdAt,
+              sortState: const Value(priorJson),
+            ),
+          );
+
+      final groupsEntity = _entityFor(db, 'member_groups');
+      // Apply an update that omits sort_state entirely (older peer).
+      await groupsEntity.applyFields('g-absent', {
+        'name': 'Renamed',
+        'display_order': 0,
+        'group_type': 0,
+        'created_at': createdAt.toIso8601String(),
+        'is_deleted': false,
+      });
+
+      final row = await (db.select(db.memberGroups)
+            ..where((t) => t.id.equals('g-absent')))
+          .getSingle();
+      expect(row.name, 'Renamed');
+      expect(
+        row.sortState,
+        priorJson,
+        reason: 'sort_state must be unchanged when absent in payload',
+      );
+      expect(warningsEmittedSinceBaseline(), 0);
+    });
+
+    Future<void> seedGroupForApply(
+      AppDatabase db, {
+      required String id,
+      String sortState = defaultSortStateJson,
+    }) async {
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: id,
+              name: 'G',
+              createdAt: createdAt,
+              sortState: Value(sortState),
+            ),
+          );
+    }
+
+    Map<String, dynamic> applyPayloadWithSortState(dynamic sortState) => {
+          'name': 'G',
+          'display_order': 0,
+          'group_type': 0,
+          'created_at': createdAt.toIso8601String(),
+          'sort_state': sortState,
+          'is_deleted': false,
+        };
+
+    test('applyFields rejects sort_state="not json"', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      const priorJson = '{"mode":1,"order":["a"]}';
+      await seedGroupForApply(db, id: 'g-bad-1', sortState: priorJson);
+
+      final groupsEntity = _entityFor(db, 'member_groups');
+      await groupsEntity.applyFields(
+        'g-bad-1',
+        applyPayloadWithSortState('not json'),
+      );
+
+      final row = await (db.select(db.memberGroups)
+            ..where((t) => t.id.equals('g-bad-1')))
+          .getSingle();
+      expect(row.sortState, priorJson, reason: 'garbage must be rejected');
+      expect(warningsEmittedSinceBaseline(), 1);
+    });
+
+    test('applyFields rejects sort_state="[]" (array, not object)', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      const priorJson = '{"mode":2,"order":["a"]}';
+      await seedGroupForApply(db, id: 'g-bad-2', sortState: priorJson);
+
+      final groupsEntity = _entityFor(db, 'member_groups');
+      await groupsEntity.applyFields(
+        'g-bad-2',
+        applyPayloadWithSortState('[]'),
+      );
+
+      final row = await (db.select(db.memberGroups)
+            ..where((t) => t.id.equals('g-bad-2')))
+          .getSingle();
+      expect(row.sortState, priorJson);
+      expect(warningsEmittedSinceBaseline(), 1);
+    });
+
+    test('applyFields rejects sort_state missing the "order" key', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      const priorJson = '{"mode":3,"order":[]}';
+      await seedGroupForApply(db, id: 'g-bad-3', sortState: priorJson);
+
+      final groupsEntity = _entityFor(db, 'member_groups');
+      await groupsEntity.applyFields(
+        'g-bad-3',
+        applyPayloadWithSortState('{"mode": 0}'),
+      );
+
+      final row = await (db.select(db.memberGroups)
+            ..where((t) => t.id.equals('g-bad-3')))
+          .getSingle();
+      expect(row.sortState, priorJson);
+      expect(warningsEmittedSinceBaseline(), 1);
+    });
+
+    test(
+      'applyFields ACCEPTS sort_state with unknown mode int '
+      '(forward-compatible)',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        await seedGroupForApply(db, id: 'g-fwd');
+
+        final groupsEntity = _entityFor(db, 'member_groups');
+        const fwdJson = '{"mode":99,"order":[]}';
+        await groupsEntity.applyFields(
+          'g-fwd',
+          applyPayloadWithSortState(fwdJson),
+        );
+
+        final row = await (db.select(db.memberGroups)
+              ..where((t) => t.id.equals('g-fwd')))
+            .getSingle();
+        // Stored byte-identical to the peer's payload — no re-encode.
+        expect(row.sortState, fwdJson);
+        expect(warningsEmittedSinceBaseline(), 0);
+      },
+    );
+
+    test('applyFields ACCEPTS valid sort_state and stores it byte-identical',
+        () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await seedGroupForApply(db, id: 'g-ok');
+
+      const incomingJson = '{"mode":1,"order":["a","b"]}';
+      final groupsEntity = _entityFor(db, 'member_groups');
+      await groupsEntity.applyFields(
+        'g-ok',
+        applyPayloadWithSortState(incomingJson),
+      );
+
+      final row = await (db.select(db.memberGroups)
+            ..where((t) => t.id.equals('g-ok')))
+          .getSingle();
+      expect(row.sortState, incomingJson);
+      expect(warningsEmittedSinceBaseline(), 0);
+    });
+
+    test(
+      'round-trip after garbage rejection emits the pre-garbage valid state',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        const priorJson = '{"mode":1,"order":["alpha","beta"]}';
+        await seedGroupForApply(db, id: 'g-round', sortState: priorJson);
+
+        final groupsEntity = _entityFor(db, 'member_groups');
+        // Garbage payload — must NOT reach the column.
+        await groupsEntity.applyFields(
+          'g-round',
+          applyPayloadWithSortState('utter garbage'),
+        );
+
+        final row = await (db.select(db.memberGroups)
+              ..where((t) => t.id.equals('g-round')))
+            .getSingle();
+        expect(row.sortState, priorJson);
+
+        // Now simulate the local write path that re-emits via the
+        // adapter's toSyncFields (mirrors `_groupFields(row)` semantics —
+        // both helpers ship `'sort_state': row.sortState`).
+        final encoded = groupsEntity.toSyncFields(row);
+        expect(
+          encoded['sort_state'],
+          priorJson,
+          reason:
+              'invalid remote payloads must NEVER round-trip back to peers '
+              'via the local DB',
+        );
+        expect(warningsEmittedSinceBaseline(), 1);
+      },
+    );
   });
 }
 

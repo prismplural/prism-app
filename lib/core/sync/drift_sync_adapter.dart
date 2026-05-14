@@ -8,7 +8,10 @@ import 'package:prism_sync_drift/prism_sync_drift.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
+import 'package:prism_plurality/data/mappers/member_group_mapper.dart'
+    show tryDecodeSortState;
 
 /// Applies remote CRDT changes from the Rust sync engine to the local Drift DB.
 ///
@@ -2594,6 +2597,12 @@ DriftSyncEntity _memberGroupsEntity(
         'pluralkit_id': r.pluralkitId,
         'pluralkit_uuid': r.pluralkitUuid,
         'last_seen_from_pk_at': _dateTimeToSyncStringOrNull(r.lastSeenFromPkAt),
+        // Always emitted: local writes go through
+        // `MemberGroupMapper.encodeSortStateForColumn`, so the column is
+        // guaranteed to hold a valid JSON-encoded `GroupSortState`. No
+        // re-validation here — propagating it byte-identical keeps peer
+        // merge metadata stable for other-device-vs-other-device rounds.
+        'sort_state': r.sortState,
         'is_deleted': r.isDeleted,
       };
     },
@@ -2633,6 +2642,7 @@ DriftSyncEntity _memberGroupsEntity(
             ? Value(resolvedPkGroupUuid)
             : const Value.absent(),
         lastSeenFromPkAt: f.dateTimeFieldNullable('last_seen_from_pk_at'),
+        sortState: _validatedSortStateValue(id, fields),
         isDeleted: f.boolField('is_deleted'),
       );
       await _insertOrUpdateById(
@@ -2685,6 +2695,7 @@ DriftSyncEntity _memberGroupsEntity(
         'last_seen_from_pk_at': _dateTimeToSyncStringOrNull(
           row.lastSeenFromPkAt,
         ),
+        'sort_state': row.sortState,
         'is_deleted': row.isDeleted,
       };
     },
@@ -2694,6 +2705,53 @@ DriftSyncEntity _memberGroupsEntity(
     },
   );
 }
+
+/// Apply-time validator for the incoming `sort_state` field on
+/// `member_groups`. This is the primary defense against garbage `sort_state`
+/// payloads from peers — invalid strings are rejected here so they never
+/// reach the local column, which means a subsequent local write
+/// (`_groupFields(row)`) can never round-trip the garbage back to peers.
+///
+/// Rules (matching the shared decoder [tryDecodeSortState]):
+///   - absent from the incoming map → [Value.absent] (older peer that does
+///     not know the field; local column keeps its previous valid value).
+///   - present and decodes successfully → write through the *original*
+///     string byte-for-byte (no re-encode). Keeping the wire string
+///     identical avoids spurious peer-vs-peer merge churn.
+///   - present and decode fails → [Value.absent] and a warn log entry.
+///     Unknown enum modes are NOT failures (forward-compatible).
+Value<String> _validatedSortStateValue(
+  String entityId,
+  Map<String, dynamic> fields,
+) {
+  if (!fields.containsKey('sort_state')) return const Value.absent();
+  final raw = fields['sort_state'];
+  if (raw is! String) {
+    ErrorReportingService.instance.report(
+      'member_groups sort_state decode failed: '
+      'expected String, got ${raw?.runtimeType ?? 'null'} '
+      '(entityId=$entityId)',
+      severity: ErrorSeverity.warning,
+    );
+    return const Value.absent();
+  }
+  final decoded = tryDecodeSortState(raw);
+  if (decoded == null) {
+    ErrorReportingService.instance.report(
+      'member_groups sort_state decode failed: invalid JSON shape '
+      '(entityId=$entityId, raw=${_truncateSortState(raw)})',
+      severity: ErrorSeverity.warning,
+    );
+    return const Value.absent();
+  }
+  // Pass the original string through unchanged. Decoded successfully → its
+  // bytes are already valid, so other-device-vs-other-device merges stay
+  // stable.
+  return Value(raw);
+}
+
+String _truncateSortState(String s) =>
+    s.length > 120 ? '${s.substring(0, 120)}...' : s;
 
 // ---------------------------------------------------------------------------
 // member_group_entries
