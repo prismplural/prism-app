@@ -166,7 +166,8 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
         .toDouble();
     final visibleBounds = Rect.fromLTRB(0, 0, overlaySize.width, visibleBottom);
 
-    // Decide direction: how much space above vs below the anchor.
+    // Decide direction: how much space above vs below the anchor. Fixed at
+    // show time so the popup does not flip if insets change later.
     final spaceAbove = anchorOffset.dy - visibleBounds.top;
     final spaceBelow =
         visibleBounds.bottom - anchorOffset.dy - anchorSize.height;
@@ -187,10 +188,10 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
       builder: (context) {
         return _BlurPopupOverlay(
           animation: curved,
-          anchorOffset: anchorOffset,
-          anchorSize: anchorSize,
-          screenSize: overlaySize,
-          visibleBounds: visibleBounds,
+          anchorKey: _anchorKey,
+          fallbackAnchorOffset: anchorOffset,
+          fallbackAnchorSize: anchorSize,
+          fallbackScreenSize: overlaySize,
           direction: direction,
           itemCount: widget.itemCount,
           itemBuilder: widget.itemBuilder,
@@ -319,10 +320,10 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
 class _BlurPopupOverlay extends StatelessWidget {
   const _BlurPopupOverlay({
     required this.animation,
-    required this.anchorOffset,
-    required this.anchorSize,
-    required this.screenSize,
-    required this.visibleBounds,
+    required this.anchorKey,
+    required this.fallbackAnchorOffset,
+    required this.fallbackAnchorSize,
+    required this.fallbackScreenSize,
     required this.direction,
     required this.itemCount,
     required this.itemBuilder,
@@ -333,10 +334,11 @@ class _BlurPopupOverlay extends StatelessWidget {
   });
 
   final Animation<double> animation;
-  final Offset anchorOffset;
-  final Size anchorSize;
-  final Size screenSize;
-  final Rect visibleBounds;
+  final GlobalKey anchorKey;
+  // Fallbacks used only if the anchor RenderBox can't be re-measured.
+  final Offset fallbackAnchorOffset;
+  final Size fallbackAnchorSize;
+  final Size fallbackScreenSize;
   final BlurPopupDirection direction;
   final int itemCount;
   final Widget Function(BuildContext, int, VoidCallback) itemBuilder;
@@ -347,6 +349,46 @@ class _BlurPopupOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Reading MediaQuery here registers an inset dependency so this overlay
+    // rebuilds when the soft keyboard shows/hides. Without it the popup
+    // would stay anchored at the old bar position and slip behind the keyboard
+    // when the keyboard rises after the popup opens.
+    final mediaQuery = MediaQuery.of(context);
+    final overlayRenderBox =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    final anchorRenderBox =
+        anchorKey.currentContext?.findRenderObject() as RenderBox?;
+
+    final Size screenSize;
+    final Offset anchorOffset;
+    final Size anchorSize;
+    if (anchorRenderBox != null &&
+        anchorRenderBox.attached &&
+        anchorRenderBox.hasSize) {
+      anchorSize = anchorRenderBox.size;
+      anchorOffset = overlayRenderBox != null
+          ? anchorRenderBox.localToGlobal(
+              Offset.zero,
+              ancestor: overlayRenderBox,
+            )
+          : anchorRenderBox.localToGlobal(Offset.zero);
+      screenSize = overlayRenderBox?.size ?? fallbackScreenSize;
+    } else {
+      anchorOffset = fallbackAnchorOffset;
+      anchorSize = fallbackAnchorSize;
+      screenSize = fallbackScreenSize;
+    }
+
+    final bottomInset = math.max(
+      mediaQuery.viewInsets.bottom,
+      mediaQuery.viewPadding.bottom,
+    );
+    final visibleBottom = (screenSize.height - bottomInset)
+        .clamp(0.0, screenSize.height)
+        .toDouble();
+    final visibleBounds =
+        Rect.fromLTRB(0, 0, screenSize.width, visibleBottom);
+
     // Scale origin: from the anchor edge.
     final alignment = direction == BlurPopupDirection.up
         ? Alignment.bottomCenter

@@ -125,6 +125,83 @@ void main() {
     },
   );
 
+  testWidgets(
+    'BlurPopupAnchor follows anchor up when keyboard rises while open',
+    (tester) async {
+      // Regression: tapping the speaking-as picker with the keyboard closed
+      // opens the popup at the bar's current position. If the keyboard then
+      // appears, the chat bar moves up but the popup must move with it, not
+      // get stranded behind the keyboard.
+      await tester.binding.setSurfaceSize(const Size(400, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const anchorKey = Key('keyboard-follow-anchor');
+
+      Widget build() => MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en'), Locale('es')],
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomLeft,
+            child: BlurPopupAnchor(
+              preferredDirection: BlurPopupDirection.up,
+              width: 180,
+              maxHeight: 260,
+              itemCount: 6,
+              itemBuilder: (context, index, close) => SizedBox(
+                height: 44,
+                child: Center(child: Text('Menu $index')),
+              ),
+              child: const SizedBox(
+                key: anchorKey,
+                width: 80,
+                height: 40,
+                child: Center(child: Text('Anchor')),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+
+      final anchorTopBefore = tester.getTopLeft(find.byKey(anchorKey)).dy;
+      await tester.tap(find.text('Anchor'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Menu 0'), findsOneWidget);
+
+      // Raise the soft keyboard while the popup is showing. Scaffold's default
+      // resizeToAvoidBottomInset shifts the bottom-aligned anchor up.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpAndSettle();
+
+      final anchorTopAfter = tester.getTopLeft(find.byKey(anchorKey)).dy;
+      expect(
+        anchorTopAfter,
+        lessThan(anchorTopBefore),
+        reason: 'Scaffold should lift the anchor when the keyboard rises',
+      );
+
+      // Popup must remain above the anchor and inside the visible area.
+      final menuBottomAfter = tester.getBottomLeft(find.text('Menu 5')).dy;
+      expect(
+        menuBottomAfter,
+        lessThanOrEqualTo(anchorTopAfter),
+        reason: 'Popup must stay above the anchor after the keyboard rises',
+      );
+
+      const visibleBottom = 800.0 - 300.0;
+      expect(
+        menuBottomAfter,
+        lessThanOrEqualTo(visibleBottom),
+        reason: 'Popup must not slip behind the keyboard',
+      );
+    },
+  );
+
   testWidgets('BlurPopupAnchor dismisses before route pop on system back', (
     tester,
   ) async {
