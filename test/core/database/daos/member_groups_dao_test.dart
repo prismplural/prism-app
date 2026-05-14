@@ -487,4 +487,69 @@ void main() {
       },
     );
   });
+
+  // ── updateGroupSortState ──────────────────────────────────────────────────
+
+  group('updateGroupSortState', () {
+    test('writes sort_state JSON to the targeted group row', () async {
+      await db
+          .into(db.memberGroups)
+          .insert(pkFixtureGroup(id: 'g1', displayOrder: 0));
+
+      const json = '{"mode":1,"order":["a","b"]}';
+      final affected = await db.memberGroupsDao
+          .updateGroupSortState('g1', json);
+
+      expect(affected, 1);
+      final row = await db.memberGroupsDao.getGroupById('g1');
+      expect(row, isNotNull);
+      expect(row!.sortState, json);
+    });
+
+    test('second call wins — last write semantics, no transaction abort',
+        () async {
+      await db
+          .into(db.memberGroups)
+          .insert(pkFixtureGroup(id: 'g2', displayOrder: 0));
+
+      const first = '{"mode":1,"order":["a","b"]}';
+      const second = '{"mode":0,"order":["b","a","c"]}';
+
+      final firstAffected =
+          await db.memberGroupsDao.updateGroupSortState('g2', first);
+      final secondAffected =
+          await db.memberGroupsDao.updateGroupSortState('g2', second);
+
+      expect(firstAffected, 1);
+      expect(secondAffected, 1);
+
+      final row = await db.memberGroupsDao.getGroupById('g2');
+      expect(row, isNotNull);
+      expect(row!.sortState, second);
+    });
+
+    test('does not affect other groups', () async {
+      await db
+          .into(db.memberGroups)
+          .insert(pkFixtureGroup(id: 'target', displayOrder: 0));
+      await db
+          .into(db.memberGroups)
+          .insert(pkFixtureGroup(id: 'sibling', displayOrder: 1));
+
+      const targetJson = '{"mode":2,"order":[]}';
+      await db.memberGroupsDao.updateGroupSortState('target', targetJson);
+
+      final target = await db.memberGroupsDao.getGroupById('target');
+      final sibling = await db.memberGroupsDao.getGroupById('sibling');
+      expect(target!.sortState, targetJson);
+      // Default carried through the table default.
+      expect(sibling!.sortState, '{"mode":0,"order":[]}');
+    });
+
+    test('returns 0 when no row matches the id', () async {
+      final affected = await db.memberGroupsDao
+          .updateGroupSortState('nonexistent', '{"mode":0,"order":[]}');
+      expect(affected, 0);
+    });
+  });
 }

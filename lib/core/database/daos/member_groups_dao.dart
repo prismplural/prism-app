@@ -105,6 +105,18 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateGroup(String id, MemberGroupsCompanion companion) =>
       (update(memberGroups)..where((g) => g.id.equals(id))).write(companion);
 
+  /// Write the JSON-encoded `sort_state` for a single group.
+  ///
+  /// The DAO is intentionally dumb: it does NOT re-encode the JSON. The
+  /// repository is the source of truth for `GroupSortState` serialization
+  /// (and validates that the produced string is a well-formed shape by
+  /// construction). Returns the number of rows affected by the underlying
+  /// `update().write(...)`.
+  Future<int> updateGroupSortState(String groupId, String sortStateJson) =>
+      (update(memberGroups)..where((g) => g.id.equals(groupId))).write(
+        MemberGroupsCompanion(sortState: Value(sortStateJson)),
+      );
+
   Future<void> deleteGroup(String id) async {
     // Soft-delete entries for this group
     await (update(memberGroupEntries)..where((e) => e.groupId.equals(id)))
