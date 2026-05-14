@@ -1098,4 +1098,103 @@ void main() {
     );
   });
 
+  // ── Task 5.2 sub-group reorder ───────────────────────────────────────────
+
+  group('sub-group reorder', () {
+    testWidgets(
+      'drag handle hidden when there is one sub-group',
+      (tester) async {
+        final parent = _group(id: 'parent', name: 'Parent');
+        final child = _group(
+          id: 'child',
+          name: 'Child',
+          parentGroupId: 'parent',
+        );
+        await tester.pumpWidget(
+          _buildSubject(
+            group: parent,
+            allGroups: [parent, child],
+            allEntries: const [],
+            activeMembers: const [],
+            notifier: _FakeGroupNotifier(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // No drag handles inside the sub-groups section when count == 1.
+        // (The lone row uses a plain ListView.builder.)
+        expect(
+          find.descendant(
+            of: find.byType(ReorderableDragStartListener),
+            matching: find.text('Child'),
+          ),
+          findsNothing,
+        );
+        // No ReorderableListView in the sub-groups area.
+        expect(find.byType(ReorderableListView), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'drag handles visible at 2+ sub-groups; reorder triggers reorderGroups',
+      (tester) async {
+        final parent = _group(id: 'parent', name: 'Parent');
+        final child1 = _group(
+          id: 'c1',
+          name: 'Alpha',
+          parentGroupId: 'parent',
+        );
+        final child2 = _group(
+          id: 'c2',
+          name: 'Beta',
+          parentGroupId: 'parent',
+        );
+        final notifier = _ReorderingFakeGroupNotifier();
+        await tester.pumpWidget(
+          _buildSubject(
+            group: parent,
+            allGroups: [parent, child1, child2],
+            allEntries: const [],
+            activeMembers: const [],
+            notifier: notifier,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Two reorderable items + drag handles render.
+        expect(find.byType(ReorderableListView), findsOneWidget);
+        expect(find.text('Alpha'), findsOneWidget);
+        expect(find.text('Beta'), findsOneWidget);
+
+        // The ReorderableDragStartListener belongs to MemberGroupRow; with
+        // a custom listener we drive it via `tester.timedDrag`. The default
+        // `tester.drag` uses too-fast a velocity and the framework treats it
+        // as a scroll instead of a reorder gesture.
+        final handle = find
+            .byType(ReorderableDragStartListener)
+            .first;
+        await tester.timedDrag(
+          handle,
+          const Offset(0, 120),
+          const Duration(seconds: 1),
+        );
+        await tester.pumpAndSettle();
+
+        expect(notifier.reorderedSequences.length, greaterThanOrEqualTo(1));
+        expect(
+          notifier.reorderedSequences.last.map((g) => g.id).toList(),
+          ['c2', 'c1'],
+        );
+      },
+    );
+  });
+}
+
+class _ReorderingFakeGroupNotifier extends _FakeGroupNotifier {
+  final reorderedSequences = <List<MemberGroup>>[];
+
+  @override
+  Future<void> reorderGroups(List<MemberGroup> groups) async {
+    reorderedSequences.add(List.of(groups));
+  }
 }

@@ -1106,30 +1106,90 @@ class _SubGroupsSection extends ConsumerWidget {
             ],
           ),
         ),
-        if (children.isNotEmpty)
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            itemCount: children.length,
-            itemBuilder: (context, index) {
-              final group = children[index];
-              final count = ref.watch(
-                groupMemberCountsProvider.select((m) => m[group.id] ?? 0),
-              );
-              return MemberGroupRow(
-                group: group,
-                memberCount: count,
-                onTap: () => context.push(
-                  settingsBranch
-                      ? AppRoutePaths.settingsGroup(group.id)
-                      : AppRoutePaths.memberGroup(group.id),
-                ),
-              );
-            },
-          ),
+        if (children.isNotEmpty) _buildChildrenList(context, ref, children),
         const SizedBox(height: 20),
       ],
+    );
+  }
+
+  // Inline drag-reorder for sub-groups (plan §Task 5.2). When the list has
+  // 2+ children we use ReorderableListView; with a single child we fall back
+  // to a plain ListView (no drag handle).
+  Widget _buildChildrenList(
+    BuildContext context,
+    WidgetRef ref,
+    List<MemberGroup> children,
+  ) {
+    if (children.length < 2) {
+      return ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        itemCount: children.length,
+        itemBuilder: (context, index) =>
+            _buildChildRow(context, ref, children[index]),
+      );
+    }
+
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      buildDefaultDragHandles: false,
+      itemCount: children.length,
+      onReorder: (oldIndex, newIndex) {
+        if (newIndex > oldIndex) newIndex -= 1;
+        if (oldIndex == newIndex) return;
+        final reordered = [...children];
+        final item = reordered.removeAt(oldIndex);
+        reordered.insert(newIndex, item);
+        Haptics.selection();
+        unawaited(
+          ref.read(groupNotifierProvider.notifier).reorderGroups(reordered),
+        );
+      },
+      proxyDecorator: (child, index, animation) => AnimatedBuilder(
+        animation: animation,
+        builder: (context, child) => Material(
+          elevation: 4,
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(12),
+          ),
+          child: child,
+        ),
+        child: child,
+      ),
+      itemBuilder: (context, index) {
+        final group = children[index];
+        return _buildChildRow(
+          context,
+          ref,
+          group,
+          reorderIndex: index,
+        );
+      },
+    );
+  }
+
+  Widget _buildChildRow(
+    BuildContext context,
+    WidgetRef ref,
+    MemberGroup group, {
+    int? reorderIndex,
+  }) {
+    final count = ref.watch(
+      groupMemberCountsProvider.select((m) => m[group.id] ?? 0),
+    );
+    return MemberGroupRow(
+      key: ValueKey('subgroup_${group.id}'),
+      group: group,
+      memberCount: count,
+      reorderIndex: reorderIndex,
+      onTap: () => context.push(
+        settingsBranch
+            ? AppRoutePaths.settingsGroup(group.id)
+            : AppRoutePaths.memberGroup(group.id),
+      ),
     );
   }
 }
