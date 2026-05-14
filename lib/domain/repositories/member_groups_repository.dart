@@ -1,5 +1,7 @@
+import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 import 'package:prism_plurality/domain/models/member_group.dart' as domain;
 import 'package:prism_plurality/domain/models/member_group_entry.dart' as domain;
+import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 
 abstract class MemberGroupsRepository {
   Stream<List<domain.MemberGroup>> watchAllGroups();
@@ -28,4 +30,20 @@ abstract class MemberGroupsRepository {
   /// was recently dismissed from PK review. Used by repair/dismissal flows to
   /// push accumulated local edits to peers after the suppression window.
   Future<void> emitGroupSyncState(String groupId);
+
+  /// Atomically writes the group's `sortState` with `mode = manual` and
+  /// `manualOrder = orderedEntryIds`, intersected with the currently live
+  /// entries (concurrently-tombstoned ids in [orderedEntryIds] are dropped;
+  /// concurrently-added live ids missing from [orderedEntryIds] are appended
+  /// sorted by id ascending). Emits one parent `syncRecordUpdate` so the
+  /// `(mode, manualOrder)` pair converges as a single LWW field on peers.
+  Future<SnapshotApplyResult> setGroupManualOrderSnapshot(
+    String groupId,
+    List<String> orderedEntryIds,
+  );
+
+  /// Writes a new `sortState` for [groupId] with the given [mode] while
+  /// preserving the current `manualOrder` from the stored row. Emits one
+  /// parent `syncRecordUpdate`. No-op when the group is not found.
+  Future<void> setGroupSortMode(String groupId, GroupSortMode mode);
 }

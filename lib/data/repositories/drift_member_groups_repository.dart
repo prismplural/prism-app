@@ -10,12 +10,15 @@ import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
 import 'package:prism_plurality/data/mappers/member_group_entry_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/data/utils/sync_datetime.dart';
+import 'package:prism_plurality/domain/models/group_sort_mode.dart';
+import 'package:prism_plurality/domain/models/group_sort_state.dart';
 import 'package:prism_plurality/domain/models/member.dart' as member_domain;
 import 'package:prism_plurality/domain/models/member_group.dart' as domain;
 import 'package:prism_plurality/domain/models/member_group_entry.dart'
     as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_groups_repository.dart';
+import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 
 class DriftMemberGroupsRepository
     with SyncRecordMixin
@@ -289,6 +292,15 @@ class DriftMemberGroupsRepository
     if (stored != null) {
       await _syncEntryCreateIfAllowed(stored, member: member);
     }
+
+    // The entry create and the parent sort_state update are independent sync
+    // records. A peer can observe one without the other. The read path
+    // (sortedGroupMembersProvider) tolerates both directions: an entry not in
+    // sort_state.manualOrder is appended at end; an id in sort_state.manualOrder
+    // with no live entry is filtered out at read time.
+    if (stored != null) {
+      await _appendEntryToManualOrderIfManual(group, stored.id);
+    }
   }
 
   @override
@@ -319,6 +331,12 @@ class DriftMemberGroupsRepository
       entry.id,
       pendingPkOp: isPkLinked ? 'push_remove' : 'none',
     );
+
+    // Mirror of addMemberToGroup: when the parent is in manual mode, prune
+    // the tombstoned entry id from sort_state.manualOrder and emit a parent
+    // sync update. Same cross-record tolerance applies on the read side.
+    await _removeEntryFromManualOrderIfManual(group, entry.id);
+
     if (isSuppressed) return;
     if (!await _shouldEmitPkBackedGroupSync(group)) return;
     await syncRecordDelete(_entryTable, entryEntityId);
@@ -352,6 +370,139 @@ class DriftMemberGroupsRepository
         _entryTable,
         _entryEntityIdFromStoredEntry(entry, group: group, member: member),
         _entryFields(entry, group: group, member: member),
+      );
+    }
+  }
+
+  @override
+  Future<SnapshotApplyResult> setGroupManualOrderSnapshot(
+    String groupId,
+    List<String> orderedEntryIds,
+  ) async {
+    final liveEntries = await _dao.entriesForGroup(groupId);
+    final liveIds = liveEntries.map((e) => e.id).toSet();
+    final suppliedIds = orderedEntryIds.toSet();
+
+    final droppedIds = orderedEntryIds
+        .where((id) => !liveIds.contains(id))
+        .toList();
+    final appendedIds = liveIds.where((id) => !suppliedIds.contains(id)).toList()
+      ..sort();
+    final retainedSupplied = orderedEntryIds
+        .where(liveIds.contains)
+        .toList();
+    final finalOrder = [...retainedSupplied, ...appendedIds];
+
+    final newState = GroupSortState(
+      mode: GroupSortMode.manual,
+      manualOrder: finalOrder,
+    );
+    final encoded = MemberGroupMapper.encodeSortStateForColumn(newState);
+    await _dao.updateGroupSortState(groupId, encoded);
+
+    final row = await _dao.getGroupById(groupId);
+    if (row != null &&
+        !await _dao.isGroupSyncSuppressed(groupId) &&
+        await _shouldEmitPkBackedGroupSync(row)) {
+      await syncRecordUpdate(
+        _groupTable,
+        _groupEntityId(row),
+        _groupFields(row),
+      );
+    }
+
+    if (droppedIds.isEmpty && appendedIds.isEmpty) {
+      return const SnapshotApplyResult.applied();
+    }
+    return SnapshotApplyResult.recovered(
+      droppedIds: droppedIds,
+      appendedIds: appendedIds,
+    );
+  }
+
+  @override
+  Future<void> setGroupSortMode(String groupId, GroupSortMode mode) async {
+    final row = await _dao.getGroupById(groupId);
+    if (row == null) return;
+
+    // Decode the current state; on corrupt JSON, fall back to manualEmpty so
+    // we don't blow up the caller. The fallback keeps manualOrder empty —
+    // acceptable here because corrupt sort_state means we lost prior order
+    // anyway, and the apply-time validator should prevent this in practice.
+    final current =
+        tryDecodeSortState(row.sortState) ?? GroupSortState.manualEmpty;
+    final newState = current.copyWith(mode: mode);
+    final encoded = MemberGroupMapper.encodeSortStateForColumn(newState);
+    await _dao.updateGroupSortState(groupId, encoded);
+
+    final refreshed = await _dao.getGroupById(groupId);
+    if (refreshed != null &&
+        !await _dao.isGroupSyncSuppressed(groupId) &&
+        await _shouldEmitPkBackedGroupSync(refreshed)) {
+      await syncRecordUpdate(
+        _groupTable,
+        _groupEntityId(refreshed),
+        _groupFields(refreshed),
+      );
+    }
+  }
+
+  /// Appends [entryId] to the group's `sort_state.manualOrder` IFF the group
+  /// is currently in [GroupSortMode.manual]. No-op for sorted modes — the
+  /// read-time sort handles new members. Emits one parent sync update when
+  /// the column changes.
+  Future<void> _appendEntryToManualOrderIfManual(
+    MemberGroupRow group,
+    String entryId,
+  ) async {
+    final current = tryDecodeSortState(group.sortState);
+    if (current == null || !current.isManual) return;
+    if (current.manualOrder.contains(entryId)) return;
+
+    final newState = current.copyWith(
+      manualOrder: [...current.manualOrder, entryId],
+    );
+    final encoded = MemberGroupMapper.encodeSortStateForColumn(newState);
+    await _dao.updateGroupSortState(group.id, encoded);
+
+    final refreshed = await _dao.getGroupById(group.id);
+    if (refreshed != null &&
+        !await _dao.isGroupSyncSuppressed(group.id) &&
+        await _shouldEmitPkBackedGroupSync(refreshed)) {
+      await syncRecordUpdate(
+        _groupTable,
+        _groupEntityId(refreshed),
+        _groupFields(refreshed),
+      );
+    }
+  }
+
+  /// Mirror of [_appendEntryToManualOrderIfManual]: prunes [entryId] from the
+  /// group's `sort_state.manualOrder` when present. Emits one parent sync
+  /// update when the column changes.
+  Future<void> _removeEntryFromManualOrderIfManual(
+    MemberGroupRow group,
+    String entryId,
+  ) async {
+    final current = tryDecodeSortState(group.sortState);
+    if (current == null) return;
+    if (!current.manualOrder.contains(entryId)) return;
+
+    final newOrder = current.manualOrder
+        .where((id) => id != entryId)
+        .toList(growable: false);
+    final newState = current.copyWith(manualOrder: newOrder);
+    final encoded = MemberGroupMapper.encodeSortStateForColumn(newState);
+    await _dao.updateGroupSortState(group.id, encoded);
+
+    final refreshed = await _dao.getGroupById(group.id);
+    if (refreshed != null &&
+        !await _dao.isGroupSyncSuppressed(group.id) &&
+        await _shouldEmitPkBackedGroupSync(refreshed)) {
+      await syncRecordUpdate(
+        _groupTable,
+        _groupEntityId(refreshed),
+        _groupFields(refreshed),
       );
     }
   }
