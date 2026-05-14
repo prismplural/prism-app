@@ -53,6 +53,7 @@ void main() {
         isDeleted: false,
         syncSuppressed: false,
         createdAt: DateTime.utc(2024),
+        sortState: '{"mode":0,"order":[]}',
       );
       expect(entity.entityIdFor(row), 'abc');
     });
@@ -73,6 +74,7 @@ void main() {
           syncSuppressed: false,
           createdAt: DateTime.utc(2024),
           pluralkitUuid: 'deadbeef',
+          sortState: '{"mode":0,"order":[]}',
         );
 
         expect(entity.entityIdFor(row), 'pk-group:deadbeef');
@@ -94,6 +96,7 @@ void main() {
           isDeleted: false,
           syncSuppressed: false,
           createdAt: DateTime.utc(2024),
+          sortState: '{"mode":0,"order":[]}',
         );
 
         expect(entity.entityIdFor(row), 'random-uuid');
