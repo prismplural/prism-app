@@ -587,7 +587,7 @@ packages:
   flutter_soloud:
     dependency: "direct main"
     description:
-      path: "../../flutter_soloud"
+      path: "../flutter_soloud"
       relative: true
     source: path
     version: "4.0.2"
@@ -1006,7 +1006,7 @@ packages:
   ogg_caf_converter:
     dependency: "direct main"
     description:
-      path: "../../ogg_caf_converter"
+      path: "../ogg_caf_converter"
       relative: true
     source: path
     version: "0.1.4"
@@ -1197,24 +1197,30 @@ packages:
   prism_sync:
     dependency: "direct main"
     description:
-      path: "../sync/dart/packages/prism_sync"
-      relative: true
-    source: path
-    version: "0.1.0"
+      path: "dart/packages/prism_sync"
+      ref: "4c7775cee47e245daa4863d29f8905044bc19674"
+      resolved-ref: "4c7775cee47e245daa4863d29f8905044bc19674"
+      url: "https://github.com/prismplural/prism-sync.git"
+    source: git
+    version: "0.1.1"
   prism_sync_drift:
     dependency: "direct main"
     description:
-      path: "../sync/dart/packages/prism_sync_drift"
-      relative: true
-    source: path
-    version: "0.1.0"
+      path: "dart/packages/prism_sync_drift"
+      ref: "4c7775cee47e245daa4863d29f8905044bc19674"
+      resolved-ref: "4c7775cee47e245daa4863d29f8905044bc19674"
+      url: "https://github.com/prismplural/prism-sync.git"
+    source: git
+    version: "0.1.1"
   prism_sync_flutter:
     dependency: "direct main"
     description:
-      path: "../sync/dart/packages/prism_sync_flutter"
-      relative: true
-    source: path
-    version: "0.1.0"
+      path: "dart/packages/prism_sync_flutter"
+      ref: "4c7775cee47e245daa4863d29f8905044bc19674"
+      resolved-ref: "4c7775cee47e245daa4863d29f8905044bc19674"
+      url: "https://github.com/prismplural/prism-sync.git"
+    source: git
+    version: "0.1.1"
   process:
     dependency: transitive
     description:
