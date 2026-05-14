@@ -1,16 +1,21 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
+import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 import 'package:prism_plurality/features/chat/views/create_conversation_sheet.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
@@ -19,10 +24,12 @@ import 'package:prism_plurality/features/members/widgets/member_group_row.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_card.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -33,6 +40,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -76,14 +84,24 @@ class GroupDetailScreen extends ConsumerWidget {
   }
 }
 
-class _GroupDetailBody extends ConsumerWidget {
+class _GroupDetailBody extends ConsumerStatefulWidget {
   const _GroupDetailBody({required this.group, required this.settingsBranch});
 
   final MemberGroup group;
   final bool settingsBranch;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_GroupDetailBody> createState() => _GroupDetailBodyState();
+}
+
+class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
+  final GlobalKey<BlurPopupAnchorState> _optionsPopupKey = GlobalKey();
+
+  MemberGroup get group => widget.group;
+  bool get settingsBranch => widget.settingsBranch;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final terms = watchTerminology(context, ref);
@@ -98,6 +116,13 @@ class _GroupDetailBody extends ConsumerWidget {
     final entries = entriesAsync.whenOrNull(data: (entries) => entries);
     final hasMembers = entries?.isNotEmpty ?? false;
 
+    // sortedGroupMembersProvider handles all the read-path invariants:
+    // filtering (showInactive, missing members), per-mode ordering, and
+    // dedupe of stale ids in sortState.manualOrder. See plan §"Read path
+    // invariants".
+    final visiblePairs = ref.watch(sortedGroupMembersProvider(group.id));
+    final visibleMembers = [for (final pair in visiblePairs) pair.$2];
+
     return PrismPageScaffold(
       topBar: PrismTopBar(
         title: '',
@@ -108,6 +133,7 @@ class _GroupDetailBody extends ConsumerWidget {
             tooltip: l10n.edit,
             onPressed: () => _openEditSheet(context),
           ),
+          _buildOptionsMenuAction(visiblePairs, visibleMembers, terms),
           PrismPopupMenu<_GroupMenuAction>(
             tooltip: l10n.moreOptions,
             items: [
@@ -186,6 +212,11 @@ class _GroupDetailBody extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  // Lock chip — right-aligned, inline. Hidden in manual mode.
+                  _GroupSortBadge(
+                    sortMode: group.sortState.mode,
+                    onTap: () => _optionsPopupKey.currentState?.show(),
+                  ),
                   PrismInlineIconButton(
                     icon: AppIcons.personAddOutlined,
                     tooltip: l10n.memberGroupAddMember(terms.singularLower),
@@ -220,17 +251,66 @@ class _GroupDetailBody extends ConsumerWidget {
                     ),
                   );
                 }
+                if (visiblePairs.isEmpty) {
+                  // All entries are filtered out — every member in this group
+                  // is inactive and the toggle hides them.
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    child: EmptyState(
+                      icon: Icon(AppIcons.visibilityOffOutlined),
+                      title: l10n.memberGroupAllInactiveHiddenTitle,
+                      subtitle: l10n.memberGroupAllInactiveHiddenSubtitle(
+                        terms.pluralLower,
+                      ),
+                    ),
+                  );
+                }
 
-                return ListView.builder(
+                // Drag-reorder list. Handles always live in the trailing slot
+                // of each MemberCard (see MemberCard.reorderIndex). Dragging
+                // in a sorted mode does *implicit unlock* (plan §Task 5.1 B).
+                return ReorderableListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   padding: EdgeInsets.zero,
-                  itemCount: entries.length,
-                  itemBuilder: (context, index) => _GroupMemberTile(
-                    entry: entries[index],
-                    groupId: group.id,
-                    settingsBranch: settingsBranch,
-                  ),
+                  buildDefaultDragHandles: false,
+                  itemCount: visiblePairs.length,
+                  onReorder: (oldIndex, newIndex) {
+                    _onReorder(visiblePairs, oldIndex, newIndex);
+                  },
+                  proxyDecorator: (child, index, animation) {
+                    return AnimatedBuilder(
+                      animation: animation,
+                      builder: (context, child) => Material(
+                        elevation: 4,
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(
+                          PrismShapes.of(context).radius(12),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: child,
+                      ),
+                      child: child,
+                    );
+                  },
+                  itemBuilder: (context, index) {
+                    final (entry, member) = visiblePairs[index];
+                    return _GroupMemberTile(
+                      key: ValueKey('member_${entry.id}'),
+                      entry: entry,
+                      member: member,
+                      groupId: group.id,
+                      settingsBranch: settingsBranch,
+                      reorderIndex: index,
+                      totalCount: visiblePairs.length,
+                      sortMode: group.sortState.mode,
+                      onMoveTo: (newIndex) =>
+                          _moveTo(visiblePairs, index, newIndex),
+                    );
+                  },
                 );
               },
             ),
@@ -240,6 +320,327 @@ class _GroupDetailBody extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  // ── Reorder + sort-mode plumbing ───────────────────────────────────────────
+
+  Future<void> _onReorder(
+    List<(MemberGroupEntry, Member)> pairs,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    if (newIndex > oldIndex) newIndex -= 1;
+    if (oldIndex == newIndex) return;
+    final reordered = [...pairs];
+    final item = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, item);
+    final newOrder = [for (final p in reordered) p.$1.id];
+    await _applyManualOrder(newOrder, wasManual: group.sortState.isManual);
+  }
+
+  Future<void> _moveTo(
+    List<(MemberGroupEntry, Member)> pairs,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    if (oldIndex == newIndex) return;
+    final reordered = [...pairs];
+    final item = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, item);
+    final newOrder = [for (final p in reordered) p.$1.id];
+    await _applyManualOrder(newOrder, wasManual: group.sortState.isManual);
+    if (!mounted) return;
+    final l10n = context.l10n;
+    _announce(
+      l10n.groupSortActionMoved(newIndex + 1, reordered.length),
+    );
+  }
+
+  Future<void> _applyManualOrder(
+    List<String> newOrder, {
+    required bool wasManual,
+  }) async {
+    Haptics.selection();
+    final repo = ref.read(memberGroupsRepositoryProvider);
+    final result = await repo.setGroupManualOrderSnapshot(group.id, newOrder);
+    if (!mounted) return;
+    final l10n = context.l10n;
+    if (result is SnapshotRecovered) {
+      PrismToast.show(
+        context,
+        message: l10n.groupSortRecoveredFromConcurrentChanges,
+      );
+    }
+    if (!wasManual) {
+      PrismToast.show(context, message: l10n.groupSortSwitchedToManual);
+      _announce(l10n.groupSortSwitchedToManualAnnouncement);
+    }
+  }
+
+  Future<void> _setSortMode(GroupSortMode mode) async {
+    final repo = ref.read(memberGroupsRepositoryProvider);
+    await repo.setGroupSortMode(group.id, mode);
+    Haptics.selection();
+  }
+
+  /// Fire a polite screen-reader announcement scoped to the current view.
+  /// Wraps the new `SemanticsService.sendAnnouncement` API. Safe to call
+  /// without awaiting; returns silently if the view can't be resolved.
+  void _announce(String message) {
+    if (!mounted) return;
+    try {
+      final view = View.maybeOf(context);
+      if (view == null) return;
+      unawaited(
+        SemanticsService.sendAnnouncement(view, message, TextDirection.ltr),
+      );
+    } catch (_) {
+      // Best-effort — screen-reader hints, not a contract.
+    }
+  }
+
+  Future<void> _sortManuallyFromCurrent(
+    List<(MemberGroupEntry, Member)> pairs,
+  ) async {
+    final wasManual = group.sortState.isManual;
+    final newOrder = [for (final p in pairs) p.$1.id];
+    await _applyManualOrder(newOrder, wasManual: wasManual);
+  }
+
+  Future<void> _applyFrontingOrder(
+    List<(MemberGroupEntry, Member)> pairs, {
+    required bool descending,
+  }) async {
+    final members = [for (final p in pairs) p.$2];
+    final statsFutures = members.map(
+      (m) => ref.read(memberFrontingStatsProvider(m.id).future),
+    );
+    final allStats = await Future.wait(statsFutures);
+    final statsMap = <String, Duration>{
+      for (var i = 0; i < members.length; i++)
+        members[i].id: allStats[i].totalDuration,
+    };
+    final sorted = [...pairs]
+      ..sort((a, b) {
+        final ad = statsMap[a.$2.id] ?? Duration.zero;
+        final bd = statsMap[b.$2.id] ?? Duration.zero;
+        return descending ? bd.compareTo(ad) : ad.compareTo(bd);
+      });
+    final newOrder = [for (final p in sorted) p.$1.id];
+    if (!mounted) return;
+    await _applyManualOrder(newOrder, wasManual: group.sortState.isManual);
+  }
+
+  // ── Options menu ───────────────────────────────────────────────────────────
+
+  Widget _buildOptionsMenuAction(
+    List<(MemberGroupEntry, Member)> visiblePairs,
+    List<Member> visibleMembers,
+    Terminology terms,
+  ) {
+    final l10n = context.l10n;
+    final canSearch = visibleMembers.isNotEmpty;
+    final canSort = visibleMembers.length > 1;
+    final currentMode = group.sortState.mode;
+
+    Widget sortItemRow({
+      required BuildContext ctx,
+      required IconData icon,
+      required String label,
+      required bool isActive,
+      required VoidCallback onTap,
+    }) {
+      final theme = Theme.of(ctx);
+      return PrismListRow(
+        dense: true,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        leading: Icon(icon, size: 20),
+        title: Text(label, style: theme.textTheme.bodyMedium),
+        trailing: isActive
+            ? Icon(AppIcons.check, size: 18, color: theme.colorScheme.primary)
+            : null,
+        onTap: onTap,
+      );
+    }
+
+    final entries = <Widget Function(BuildContext, VoidCallback)>[
+      (ctx, close) {
+        final theme = Theme.of(ctx);
+        final ctxL10n = ctx.l10n;
+        return PrismListRow(
+          dense: true,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          leading: Icon(AppIcons.search, size: 20),
+          title: Text(
+            ctxL10n.terminologySearchHint(terms.pluralLower),
+            style: theme.textTheme.bodyMedium,
+          ),
+          enabled: canSearch,
+          onTap: canSearch
+              ? () {
+                  close();
+                  _openSearch(visibleMembers);
+                }
+              : null,
+        );
+      },
+      (_, _) => const Divider(height: 1),
+      (ctx, close) {
+        final theme = Theme.of(ctx);
+        final ctxL10n = ctx.l10n;
+        final showInactive = ref.watch(showInactiveMembersProvider);
+        return PrismListRow(
+          dense: true,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          leading: Icon(
+            showInactive ? AppIcons.visibility : AppIcons.visibilityOutlined,
+            size: 20,
+          ),
+          title: Text(
+            showInactive
+                ? ctxL10n.memberHideInactive
+                : ctxL10n.memberShowInactive,
+            style: theme.textTheme.bodyMedium,
+          ),
+          trailing: showInactive
+              ? Icon(AppIcons.check, size: 18, color: theme.colorScheme.primary)
+              : null,
+          onTap: () {
+            close();
+            ref
+                .read(showInactiveMembersProvider.notifier)
+                .set(!showInactive);
+          },
+        );
+      },
+    ];
+
+    if (canSort) {
+      entries.addAll([
+        (_, _) => const Divider(height: 1),
+        // ── "Sort by" — locked modes ──────────────────────────────────────
+        (ctx, _) => _sectionHeader(ctx, ctx.l10n.groupSortSectionSortBy),
+        (ctx, close) => sortItemRow(
+          ctx: ctx,
+          icon: AppIcons.arrowUpward,
+          label: ctx.l10n.groupSortItemNameAsc,
+          isActive: currentMode == GroupSortMode.nameAsc,
+          onTap: () {
+            close();
+            unawaited(_setSortMode(GroupSortMode.nameAsc));
+          },
+        ),
+        (ctx, close) => sortItemRow(
+          ctx: ctx,
+          icon: AppIcons.arrowDownward,
+          label: ctx.l10n.groupSortItemNameDesc,
+          isActive: currentMode == GroupSortMode.nameDesc,
+          onTap: () {
+            close();
+            unawaited(_setSortMode(GroupSortMode.nameDesc));
+          },
+        ),
+        (ctx, close) => sortItemRow(
+          ctx: ctx,
+          icon: AppIcons.history,
+          label: ctx.l10n.groupSortItemRecentDesc,
+          isActive: currentMode == GroupSortMode.recentDesc,
+          onTap: () {
+            close();
+            unawaited(_setSortMode(GroupSortMode.recentDesc));
+          },
+        ),
+        (ctx, close) => sortItemRow(
+          ctx: ctx,
+          icon: AppIcons.dragHandle,
+          label: ctx.l10n.groupSortItemManual,
+          isActive: currentMode == GroupSortMode.manual,
+          onTap: () {
+            close();
+            unawaited(_sortManuallyFromCurrent(visiblePairs));
+          },
+        ),
+        (_, _) => const Divider(height: 1),
+        // ── "Apply current order" — one-shot snapshots ────────────────────
+        (ctx, _) =>
+            _sectionHeader(ctx, ctx.l10n.groupSortSectionApplyCurrent),
+        (ctx, close) => sortItemRow(
+          ctx: ctx,
+          icon: AppIcons.flashOn,
+          label: ctx.l10n.groupSortItemFrontingMost,
+          isActive: false,
+          onTap: () {
+            close();
+            unawaited(_applyFrontingOrder(visiblePairs, descending: true));
+          },
+        ),
+        (ctx, close) => sortItemRow(
+          ctx: ctx,
+          icon: AppIcons.frontHandOutlined,
+          label: ctx.l10n.groupSortItemFrontingLeast,
+          isActive: false,
+          onTap: () {
+            close();
+            unawaited(_applyFrontingOrder(visiblePairs, descending: false));
+          },
+        ),
+      ]);
+    }
+
+    return BlurPopupAnchor(
+      key: _optionsPopupKey,
+      trigger: BlurPopupTrigger.manual,
+      preferredDirection: BlurPopupDirection.down,
+      width: 280,
+      maxHeight: 480,
+      itemCount: entries.length,
+      semanticLabel: l10n.options,
+      itemBuilder: (ctx, index, close) => entries[index](ctx, close),
+      child: PrismTopBarAction(
+        icon: AppIcons.moreVert,
+        tooltip: l10n.options,
+        onPressed: () => _optionsPopupKey.currentState?.show(),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(BuildContext context, String label) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSearch(List<Member> members) async {
+    final terms = readTerminology(context, ref);
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: members,
+      termPlural: terms.plural,
+      groups: readMemberSearchGroups(ref, members),
+    );
+    if (!mounted) return;
+    switch (result) {
+      case MemberSearchResultSelected(:final memberId):
+        unawaited(
+          context.push(
+            settingsBranch
+                ? AppRoutePaths.settingsMember(memberId)
+                : AppRoutePaths.member(memberId),
+          ),
+        );
+      case MemberSearchResultDismissed():
+      case MemberSearchResultCleared():
+      case MemberSearchResultUnknown():
+        break;
+    }
   }
 
   void _openEditSheet(BuildContext context) {
@@ -451,6 +852,117 @@ class _GroupDetailBody extends ConsumerWidget {
   }
 }
 
+// ── Lock chip ────────────────────────────────────────────────────────────────
+
+/// Right-aligned chip in the Members section header that indicates the active
+/// locked sort mode. Hidden in [GroupSortMode.manual] — drag is the only
+/// affordance there. Tap opens the options dropdown.
+///
+/// Wrapped in [Semantics(liveRegion: true)] so VO/TalkBack picks up state
+/// transitions (Flutter issue 122101 — `announce` alone is unreliable on
+/// iOS: https://github.com/flutter/flutter/issues/122101).
+class _GroupSortBadge extends StatelessWidget {
+  const _GroupSortBadge({required this.sortMode, required this.onTap});
+
+  final GroupSortMode sortMode;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final isManual = sortMode == GroupSortMode.manual;
+
+    return AnimatedSwitcher(
+      duration: Anim.md,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, -0.15),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        ),
+      ),
+      child: isManual
+          ? const SizedBox.shrink(key: ValueKey('manual'))
+          : Padding(
+              key: ValueKey('badge_${sortMode.name}'),
+              padding: const EdgeInsets.only(right: 4),
+              child: Semantics(
+                liveRegion: true,
+                button: true,
+                label: _labelFor(sortMode, l10n),
+                hint: l10n.options,
+                child: Material(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(
+                    PrismShapes.of(context).radius(10),
+                  ),
+                  child: InkWell(
+                    onTap: onTap,
+                    borderRadius: BorderRadius.circular(
+                      PrismShapes.of(context).radius(10),
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 220),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              AppIcons.lock,
+                              size: 14,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                _labelFor(sortMode, l10n),
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(
+                              AppIcons.chevronRight,
+                              size: 12,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+    );
+  }
+
+  static String _labelFor(GroupSortMode mode, dynamic l10n) {
+    switch (mode) {
+      case GroupSortMode.nameAsc:
+        return l10n.groupSortBadgeNameAsc as String;
+      case GroupSortMode.nameDesc:
+        return l10n.groupSortBadgeNameDesc as String;
+      case GroupSortMode.recentDesc:
+        return l10n.groupSortBadgeRecentDesc as String;
+      case GroupSortMode.manual:
+        return l10n.groupSortBadgeManual as String;
+    }
+  }
+}
+
 class _GroupInfoHeader extends StatelessWidget {
   const _GroupInfoHeader({required this.group, required this.ancestors});
 
@@ -624,49 +1136,73 @@ class _SubGroupsSection extends ConsumerWidget {
 
 class _GroupMemberTile extends ConsumerWidget {
   const _GroupMemberTile({
+    super.key,
     required this.entry,
+    required this.member,
     required this.groupId,
     required this.settingsBranch,
+    required this.reorderIndex,
+    required this.totalCount,
+    required this.sortMode,
+    required this.onMoveTo,
   });
 
   final MemberGroupEntry entry;
+  final Member member;
   final String groupId;
   final bool settingsBranch;
+  final int reorderIndex;
+  final int totalCount;
+  final GroupSortMode sortMode;
+  final Future<void> Function(int newIndex) onMoveTo;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final memberAsync = ref.watch(activeMemberByIdProvider(entry.memberId));
+    final l10n = context.l10n;
+    final isManual = sortMode == GroupSortMode.manual;
 
-    return memberAsync.when(
-      loading: () => const SizedBox(height: 64),
-      error: (_, _) => const SizedBox.shrink(),
-      data: (member) {
-        if (member == null) return const SizedBox.shrink();
-
-        return Dismissible(
-          key: ValueKey('member_${entry.id}'),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 24),
-            color: theme.colorScheme.error,
-            child: Icon(
-              AppIcons.removeCircleOutline,
-              color: theme.colorScheme.onError,
-            ),
-          ),
-          confirmDismiss: (_) => _confirmRemove(context, ref, member),
-          child: MemberCard(
-            member: member,
-            onTap: () => context.push(
-              settingsBranch
-                  ? AppRoutePaths.settingsMember(member.id)
-                  : AppRoutePaths.member(member.id),
-            ),
-          ),
-        );
+    return Semantics(
+      customSemanticsActions: <CustomSemanticsAction, VoidCallback>{
+        if (reorderIndex > 0)
+          CustomSemanticsAction(label: l10n.groupSortActionMoveUp):
+              () => unawaited(onMoveTo(reorderIndex - 1)),
+        if (reorderIndex < totalCount - 1)
+          CustomSemanticsAction(label: l10n.groupSortActionMoveDown):
+              () => unawaited(onMoveTo(reorderIndex + 1)),
+        if (reorderIndex > 0)
+          CustomSemanticsAction(label: l10n.groupSortActionMoveToTop):
+              () => unawaited(onMoveTo(0)),
+        if (reorderIndex < totalCount - 1)
+          CustomSemanticsAction(label: l10n.groupSortActionMoveToBottom):
+              () => unawaited(onMoveTo(totalCount - 1)),
       },
+      child: Dismissible(
+        key: ValueKey('member_dismiss_${entry.id}'),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 24),
+          color: theme.colorScheme.error,
+          child: Icon(
+            AppIcons.removeCircleOutline,
+            color: theme.colorScheme.onError,
+          ),
+        ),
+        confirmDismiss: (_) => _confirmRemove(context, ref, member),
+        child: MemberCard(
+          member: member,
+          reorderIndex: reorderIndex,
+          dragHandleHint: isManual
+              ? l10n.groupMemberDragHandleHintManual
+              : l10n.groupMemberDragHandleHintSorted,
+          onTap: () => context.push(
+            settingsBranch
+                ? AppRoutePaths.settingsMember(member.id)
+                : AppRoutePaths.member(member.id),
+          ),
+        ),
+      ),
     );
   }
 

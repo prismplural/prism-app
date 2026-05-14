@@ -2711,6 +2711,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get memberGroupAllInactiveHiddenTitle => 'All hidden by filter';
+
+  @override
+  String memberGroupAllInactiveHiddenSubtitle(String termPlural) {
+    return 'Every $termPlural in this group is inactive. Turn on Show inactive to see them.';
+  }
+
+  @override
   String get memberArchived => 'Inactive';
 
   @override
@@ -2736,6 +2744,83 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memberSortLeastFronting => 'Least fronting';
+
+  @override
+  String get groupSortBadgeNameAsc => 'Name (A-Z)';
+
+  @override
+  String get groupSortBadgeNameDesc => 'Name (Z-A)';
+
+  @override
+  String get groupSortBadgeRecentDesc => 'Recently added';
+
+  @override
+  String get groupSortBadgeManual => 'Manual';
+
+  @override
+  String get groupSortSectionSortBy => 'Sort by';
+
+  @override
+  String get groupSortSectionApplyCurrent => 'Apply current order';
+
+  @override
+  String get groupSortItemNameAsc => 'Name A-Z';
+
+  @override
+  String get groupSortItemNameDesc => 'Name Z-A';
+
+  @override
+  String get groupSortItemRecentDesc => 'Recently added';
+
+  @override
+  String get groupSortItemManual => 'Sort manually';
+
+  @override
+  String get groupSortItemFrontingMost => 'Apply most-fronting order';
+
+  @override
+  String get groupSortItemFrontingLeast => 'Apply least-fronting order';
+
+  @override
+  String get groupSortSwitchedToManual => 'Switched to manual sort.';
+
+  @override
+  String get groupSortSwitchedToManualAnnouncement =>
+      'Group is now sorted manually.';
+
+  @override
+  String get groupSortRecoveredFromConcurrentChanges =>
+      'Members changed during your reorder. Your order has been merged.';
+
+  @override
+  String get groupMemberDragHandleTooltip => 'Drag to reorder';
+
+  @override
+  String get groupMemberDragHandleLabel => 'Reorder member';
+
+  @override
+  String get groupMemberDragHandleHintManual => 'Drag to reorder this member.';
+
+  @override
+  String get groupMemberDragHandleHintSorted =>
+      'Drag to reorder. This will switch the group to manual order.';
+
+  @override
+  String get groupSortActionMoveUp => 'Move up';
+
+  @override
+  String get groupSortActionMoveDown => 'Move down';
+
+  @override
+  String get groupSortActionMoveToTop => 'Move to top';
+
+  @override
+  String get groupSortActionMoveToBottom => 'Move to bottom';
+
+  @override
+  String groupSortActionMoved(int position, int total) {
+    return 'Moved to position $position of $total';
+  }
 
   @override
   String get memberShowInactive => 'Show inactive';

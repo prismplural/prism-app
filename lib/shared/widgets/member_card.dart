@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 
@@ -9,6 +11,17 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 /// Shows the member's avatar, name, pronouns, and an optional trailing widget
 /// (e.g., a fronting indicator). When the member has a custom color enabled,
 /// a thin accent strip is shown on the leading edge of the card.
+///
+/// When [reorderIndex] is set, an accessible drag handle is rendered in the
+/// trailing slot. The handle wires up [ReorderableDragStartListener] so the
+/// surrounding [ReorderableListView] can pick up the drag. The host is
+/// responsible for the [Semantics] hint and tooltip strings; the card uses
+/// the i18n defaults from [groupMemberDragHandleTooltip] /
+/// [groupMemberDragHandleLabel] / [groupMemberDragHandleHintManual] when
+/// [dragHandleHint] is null.
+///
+/// Trailing slot priority (per plan §Task 5.1 E):
+/// fronting pill (via [trailing]) > drag handle > front button (via [trailing])
 class MemberCard extends StatelessWidget {
   const MemberCard({
     super.key,
@@ -16,12 +29,24 @@ class MemberCard extends StatelessWidget {
     this.showPronouns = true,
     this.trailing,
     this.onTap,
+    this.reorderIndex,
+    this.dragHandleHint,
   });
 
   final Member member;
   final bool showPronouns;
   final Widget? trailing;
   final VoidCallback? onTap;
+
+  /// When non-null, the card renders a drag handle wired to a parent
+  /// [ReorderableListView] at this index.
+  final int? reorderIndex;
+
+  /// Optional override for the drag handle's screen-reader hint. Defaults to
+  /// [AppLocalizations.groupMemberDragHandleHintManual]. Hosts in a sorted
+  /// mode should pass [AppLocalizations.groupMemberDragHandleHintSorted] so
+  /// VO/TalkBack surfaces the implicit-unlock semantic.
+  final String? dragHandleHint;
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +115,16 @@ class MemberCard extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  if (!member.isActive) ...[
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      AppIcons.visibilityOffOutlined,
+                                      size: 16,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                      semanticLabel:
+                                          context.l10n.memberInactiveChip,
+                                    ),
+                                  ],
                                   if (member.displayName != null &&
                                       member.displayName!
                                           .trim()
@@ -129,6 +164,30 @@ class MemberCard extends StatelessWidget {
                         if (trailing != null) ...[
                           const SizedBox(width: 8),
                           trailing!,
+                        ],
+                        if (reorderIndex != null) ...[
+                          const SizedBox(width: 4),
+                          Semantics(
+                            label: context.l10n.groupMemberDragHandleLabel,
+                            hint: dragHandleHint ??
+                                context.l10n.groupMemberDragHandleHintManual,
+                            button: true,
+                            child: Tooltip(
+                              message: context.l10n.groupMemberDragHandleTooltip,
+                              child: ReorderableDragStartListener(
+                                index: reorderIndex!,
+                                child: SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: Icon(
+                                    AppIcons.dragHandle,
+                                    color: theme.colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.5),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ],
                     ),

@@ -2768,6 +2768,14 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get memberGroupAllInactiveHiddenTitle => 'Todes ocultes por el filtro';
+
+  @override
+  String memberGroupAllInactiveHiddenSubtitle(String termPlural) {
+    return 'Todes les $termPlural de este grupo están inactives. Activa Mostrar inactives para verles.';
+  }
+
+  @override
   String get memberArchived => 'Inactivo';
 
   @override
@@ -2793,6 +2801,86 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get memberSortLeastFronting => 'Menos tiempo al frente';
+
+  @override
+  String get groupSortBadgeNameAsc => 'Nombre (A-Z)';
+
+  @override
+  String get groupSortBadgeNameDesc => 'Nombre (Z-A)';
+
+  @override
+  String get groupSortBadgeRecentDesc => 'Recientes';
+
+  @override
+  String get groupSortBadgeManual => 'Manual';
+
+  @override
+  String get groupSortSectionSortBy => 'Ordenar por';
+
+  @override
+  String get groupSortSectionApplyCurrent => 'Aplicar orden actual';
+
+  @override
+  String get groupSortItemNameAsc => 'Nombre A-Z';
+
+  @override
+  String get groupSortItemNameDesc => 'Nombre Z-A';
+
+  @override
+  String get groupSortItemRecentDesc => 'Recientes';
+
+  @override
+  String get groupSortItemManual => 'Ordenar manualmente';
+
+  @override
+  String get groupSortItemFrontingMost =>
+      'Aplicar orden por más tiempo al frente';
+
+  @override
+  String get groupSortItemFrontingLeast =>
+      'Aplicar orden por menos tiempo al frente';
+
+  @override
+  String get groupSortSwitchedToManual => 'Cambiado a orden manual.';
+
+  @override
+  String get groupSortSwitchedToManualAnnouncement =>
+      'El grupo ahora está ordenado manualmente.';
+
+  @override
+  String get groupSortRecoveredFromConcurrentChanges =>
+      'Los miembros cambiaron durante el reordenamiento. Tu orden se ha fusionado.';
+
+  @override
+  String get groupMemberDragHandleTooltip => 'Arrastra para reordenar';
+
+  @override
+  String get groupMemberDragHandleLabel => 'Reordenar miembro';
+
+  @override
+  String get groupMemberDragHandleHintManual =>
+      'Arrastra para reordenar este miembro.';
+
+  @override
+  String get groupMemberDragHandleHintSorted =>
+      'Arrastra para reordenar. Esto cambiará el grupo a orden manual.';
+
+  @override
+  String get groupSortActionMoveUp => 'Mover arriba';
+
+  @override
+  String get groupSortActionMoveDown => 'Mover abajo';
+
+  @override
+  String get groupSortActionMoveToTop => 'Mover al principio';
+
+  @override
+  String get groupSortActionMoveToBottom => 'Mover al final';
+
+  @override
+  String groupSortActionMoved(int position, int total) {
+    return 'Movido a la posición $position de $total';
+  }
 
   @override
   String get memberShowInactive => 'Mostrar inactivos';

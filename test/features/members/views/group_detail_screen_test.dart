@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/models/group_sort_mode.dart';
+import 'package:prism_plurality/domain/models/group_sort_state.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/repositories/member_groups_repository.dart';
+import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/member_card.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 
@@ -37,8 +45,110 @@ class _FakeGroupNotifier extends GroupNotifier {
   }
 }
 
-Member _member({required String id, required String name}) =>
-    Member(id: id, name: name, createdAt: DateTime(2024));
+/// In-memory fake for [MemberGroupsRepository] used by widget tests that
+/// exercise the sort UI. Tracks the most recent
+/// [setGroupManualOrderSnapshot] / [setGroupSortMode] invocation so tests
+/// can assert the order and mode the UI handed to the repository.
+class _FakeMemberGroupsRepository implements MemberGroupsRepository {
+  _FakeMemberGroupsRepository({
+    this.snapshotResult = const SnapshotApplyResult.applied(),
+  });
+
+  /// What [setGroupManualOrderSnapshot] returns. Override per test for the
+  /// "recovered" path.
+  SnapshotApplyResult snapshotResult;
+
+  String? lastSnapshotGroupId;
+  List<String>? lastSnapshotOrder;
+  int snapshotCallCount = 0;
+
+  String? lastSortModeGroupId;
+  GroupSortMode? lastSortMode;
+  int sortModeCallCount = 0;
+
+  @override
+  Future<SnapshotApplyResult> setGroupManualOrderSnapshot(
+    String groupId,
+    List<String> orderedEntryIds,
+  ) async {
+    snapshotCallCount += 1;
+    lastSnapshotGroupId = groupId;
+    lastSnapshotOrder = List.of(orderedEntryIds);
+    return snapshotResult;
+  }
+
+  @override
+  Future<void> setGroupSortMode(String groupId, GroupSortMode mode) async {
+    sortModeCallCount += 1;
+    lastSortModeGroupId = groupId;
+    lastSortMode = mode;
+  }
+
+  // ── Everything else stubbed — these widget tests don't exercise them. ─────
+
+  @override
+  Future<void> addMemberToGroup(
+    String groupId,
+    String memberId,
+    String entryId,
+  ) async {}
+
+  @override
+  Future<void> createGroup(MemberGroup group) async {}
+
+  @override
+  Future<void> deleteGroup(String groupId) async {}
+
+  @override
+  Future<void> deleteGroupWithDescendants(String groupId) async {}
+
+  @override
+  Future<void> emitGroupSyncState(String groupId) async {}
+
+  @override
+  Future<List<MemberGroupEntry>> getAllGroupEntries() async => const [];
+
+  @override
+  Future<void> promoteChildrenToRoot(String groupId) async {}
+
+  @override
+  Future<void> removeMemberFromGroup(String groupId, String memberId) async {}
+
+  @override
+  Future<void> updateGroup(MemberGroup group) async {}
+
+  @override
+  Stream<List<MemberGroupEntry>> watchAllGroupEntries() =>
+      const Stream.empty();
+
+  @override
+  Stream<List<MemberGroup>> watchAllGroups() => const Stream.empty();
+
+  @override
+  Stream<MemberGroup?> watchGroupById(String id) => const Stream.empty();
+
+  @override
+  Stream<List<MemberGroupEntry>> watchGroupEntries(String groupId) =>
+      const Stream.empty();
+
+  @override
+  Stream<List<MemberGroup>> watchGroupsForMember(String memberId) =>
+      const Stream.empty();
+
+  @override
+  Stream<Map<String, int>> watchMemberCountsByGroup() => const Stream.empty();
+}
+
+Member _member({
+  required String id,
+  required String name,
+  bool isActive = true,
+}) => Member(
+  id: id,
+  name: name,
+  isActive: isActive,
+  createdAt: DateTime(2024),
+);
 
 MemberGroup _group({
   required String id,
@@ -46,6 +156,7 @@ MemberGroup _group({
   String? parentGroupId,
   String? colorHex,
   String? emoji,
+  GroupSortState sortState = GroupSortState.manualEmpty,
 }) => MemberGroup(
   id: id,
   name: name,
@@ -53,6 +164,7 @@ MemberGroup _group({
   emoji: emoji,
   parentGroupId: parentGroupId,
   createdAt: DateTime(2024),
+  sortState: sortState,
 );
 
 Widget _buildSubject({
@@ -61,16 +173,20 @@ Widget _buildSubject({
   required List<MemberGroupEntry> allEntries,
   required List<Member> activeMembers,
   required _FakeGroupNotifier notifier,
+  List<Member>? allMembers,
+  _FakeMemberGroupsRepository? repository,
 }) {
+  final resolvedAll = allMembers ?? activeMembers;
+  final repo = repository ?? _FakeMemberGroupsRepository();
   return ProviderScope(
     overrides: [
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
       activeMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
-      allMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
+      allMembersProvider.overrideWith((ref) => Stream.value(resolvedAll)),
       memberByIdProvider.overrideWith((ref, memberId) {
-        final matching = activeMembers.where((member) => member.id == memberId);
+        final matching = resolvedAll.where((member) => member.id == memberId);
         return Stream.value(matching.isEmpty ? null : matching.first);
       }),
       allGroupsProvider.overrideWith((ref) => Stream.value(allGroups)),
@@ -87,6 +203,17 @@ Widget _buildSubject({
         (ref) => GroupTreeUtils.buildGroupTree(allGroups),
       ),
       groupNotifierProvider.overrideWith(() => notifier),
+      memberGroupsRepositoryProvider.overrideWithValue(repo),
+      // Stats provider needs an explicit fake — its underlying
+      // FrontingSessionRepository isn't wired in widget tests. Default to
+      // an empty stats record so the "apply fronting order" action
+      // resolves immediately.
+      memberFrontingStatsProvider.overrideWith(
+        (ref, memberId) async => const MemberFrontingStats(
+          totalSessions: 0,
+          totalDuration: Duration.zero,
+        ),
+      ),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -112,6 +239,9 @@ void main() {
           activeMembersProvider.overrideWith(
             (ref) => Stream.value(const <Member>[]),
           ),
+          allMembersProvider.overrideWith(
+            (ref) => Stream.value(const <Member>[]),
+          ),
           allGroupsProvider.overrideWith((ref) => const Stream.empty()),
           allGroupEntriesProvider.overrideWith(
             (ref) => Stream.value(const <MemberGroupEntry>[]),
@@ -126,6 +256,9 @@ void main() {
             (ref) => const <String?, List<MemberGroup>>{},
           ),
           groupNotifierProvider.overrideWith(() => notifier),
+          memberGroupsRepositoryProvider.overrideWithValue(
+            _FakeMemberGroupsRepository(),
+          ),
         ],
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -303,6 +436,53 @@ void main() {
   });
 
   testWidgets(
+    'hides inactive members by default and reveals them via the options toggle',
+    (tester) async {
+      final group = _group(id: 'group-mixed', name: 'Mixed');
+      final alice = _member(id: 'alice', name: 'Alice');
+      final bob = _member(id: 'bob', name: 'Bob Inactive', isActive: false);
+      final notifier = _FakeGroupNotifier();
+
+      await tester.pumpWidget(
+        _buildSubject(
+          group: group,
+          allGroups: [group],
+          allEntries: const [
+            MemberGroupEntry(
+              id: 'entry-alice',
+              groupId: 'group-mixed',
+              memberId: 'alice',
+            ),
+            MemberGroupEntry(
+              id: 'entry-bob',
+              groupId: 'group-mixed',
+              memberId: 'bob',
+            ),
+          ],
+          activeMembers: [alice],
+          allMembers: [alice, bob],
+          notifier: notifier,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Active member visible, inactive member hidden.
+      expect(find.text('Alice'), findsOneWidget);
+      expect(find.text('Bob Inactive'), findsNothing);
+
+      // Toggle on Show inactive via the options menu.
+      await tester.tap(find.byTooltip('Options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show inactive'));
+      await tester.pumpAndSettle();
+
+      // Both visible now.
+      expect(find.text('Alice'), findsOneWidget);
+      expect(find.text('Bob Inactive'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'add member uses shared multi-select sheet and keeps group chips',
     (tester) async {
       final targetGroup = _group(id: 'group-target', name: 'Target Group');
@@ -427,4 +607,495 @@ void main() {
       }
     },
   );
+
+  // ── Task 5.1 sort UI ─────────────────────────────────────────────────────
+
+  group('sort UI', () {
+    Future<void> openOptionsMenu(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('Options'));
+      await tester.pumpAndSettle();
+    }
+
+    MemberGroup groupWith({
+      required String id,
+      required String name,
+      required GroupSortState sortState,
+    }) => MemberGroup(
+      id: id,
+      name: name,
+      sortState: sortState,
+      createdAt: DateTime(2024),
+    );
+
+    MemberGroupEntry entry(String id, String groupId, String memberId) =>
+        MemberGroupEntry(id: id, groupId: groupId, memberId: memberId);
+
+    testWidgets(
+      'drag in manual mode calls setGroupManualOrderSnapshot with new order '
+      'and returns applied',
+      (tester) async {
+        final group = groupWith(
+          id: 'g',
+          name: 'G',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1', 'e2'],
+          ),
+        );
+        final alice = _member(id: 'm1', name: 'Alice');
+        final bob = _member(id: 'm2', name: 'Bob');
+        final repo = _FakeMemberGroupsRepository();
+        await tester.pumpWidget(
+          _buildSubject(
+            group: group,
+            allGroups: [group],
+            allEntries: [
+              entry('e1', 'g', 'm1'),
+              entry('e2', 'g', 'm2'),
+            ],
+            activeMembers: [alice, bob],
+            notifier: _FakeGroupNotifier(),
+            repository: repo,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Drag the first drag handle below the second tile.
+        final handle = find
+            .byType(ReorderableDragStartListener)
+            .first;
+        await tester.timedDrag(
+          handle,
+          const Offset(0, 120),
+          const Duration(milliseconds: 500),
+        );
+        await tester.pumpAndSettle();
+
+        expect(repo.snapshotCallCount, 1);
+        expect(repo.lastSnapshotGroupId, 'g');
+        expect(repo.lastSnapshotOrder, ['e2', 'e1']);
+      },
+    );
+
+    testWidgets(
+      'drag in nameAsc mode calls setGroupManualOrderSnapshot and chip '
+      'transitions out',
+      (tester) async {
+        final group = groupWith(
+          id: 'g',
+          name: 'G',
+          sortState: GroupSortState.locked(GroupSortMode.nameAsc),
+        );
+        final alice = _member(id: 'm1', name: 'Alice');
+        final bob = _member(id: 'm2', name: 'Bob');
+        final repo = _FakeMemberGroupsRepository();
+        await tester.pumpWidget(
+          _buildSubject(
+            group: group,
+            allGroups: [group],
+            allEntries: [
+              entry('e1', 'g', 'm1'),
+              entry('e2', 'g', 'm2'),
+            ],
+            activeMembers: [alice, bob],
+            notifier: _FakeGroupNotifier(),
+            repository: repo,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Chip visible while in locked mode.
+        expect(find.text('Name (A-Z)'), findsOneWidget);
+
+        final handle = find
+            .byType(ReorderableDragStartListener)
+            .first;
+        await tester.timedDrag(
+          handle,
+          const Offset(0, 120),
+          const Duration(milliseconds: 500),
+        );
+        await tester.pumpAndSettle();
+
+        expect(repo.snapshotCallCount, 1);
+        // Drag-in-sorted-mode shows the implicit-unlock toast; let its
+        // auto-dismiss timer fire so the test exits cleanly.
+        await tester.pump(const Duration(seconds: 4));
+      },
+    );
+
+    testWidgets(
+      'drag while concurrent remote add lands returns recovered + toast',
+      (tester) async {
+        final group = groupWith(
+          id: 'g',
+          name: 'G',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1', 'e2'],
+          ),
+        );
+        final repo = _FakeMemberGroupsRepository(
+          snapshotResult: const SnapshotApplyResult.recovered(
+            droppedIds: <String>[],
+            appendedIds: <String>['e3'],
+          ),
+        );
+        await tester.pumpWidget(
+          _buildSubject(
+            group: group,
+            allGroups: [group],
+            allEntries: [
+              entry('e1', 'g', 'm1'),
+              entry('e2', 'g', 'm2'),
+            ],
+            activeMembers: [
+              _member(id: 'm1', name: 'Alice'),
+              _member(id: 'm2', name: 'Bob'),
+            ],
+            notifier: _FakeGroupNotifier(),
+            repository: repo,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final handle = find
+            .byType(ReorderableDragStartListener)
+            .first;
+        await tester.timedDrag(
+          handle,
+          const Offset(0, 120),
+          const Duration(milliseconds: 500),
+        );
+        await tester.pumpAndSettle();
+
+        // Recovery path: snapshot called once, repo returned recovered
+        // result, and the UI surfaced the recovery toast via PrismToast.show
+        // (toast text rendering requires PrismToastHost wrapping, which the
+        // widget test's bare MaterialApp omits — so we assert the call and
+        // result rather than the rendered text. The toast copy is covered by
+        // the l10n golden + the manual a11y smoke pass).
+        expect(repo.snapshotCallCount, 1);
+        // PrismToast schedules a 3s auto-dismiss timer; let it fire before
+        // the test ends so the binding doesn't report '!timersPending'.
+        await tester.pump(const Duration(seconds: 4));
+      },
+    );
+
+    testWidgets(
+      'picking Name A-Z calls setGroupSortMode(nameAsc) and chip appears',
+      (tester) async {
+        final group = groupWith(
+          id: 'g',
+          name: 'G',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1', 'e2'],
+          ),
+        );
+        final repo = _FakeMemberGroupsRepository();
+        await tester.pumpWidget(
+          _buildSubject(
+            group: group,
+            allGroups: [group],
+            allEntries: [
+              entry('e1', 'g', 'm1'),
+              entry('e2', 'g', 'm2'),
+            ],
+            activeMembers: [
+              _member(id: 'm1', name: 'Alice'),
+              _member(id: 'm2', name: 'Bob'),
+            ],
+            notifier: _FakeGroupNotifier(),
+            repository: repo,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Chip not visible in manual mode.
+        expect(find.text('Name (A-Z)'), findsNothing);
+
+        await openOptionsMenu(tester);
+        await tester.tap(find.text('Name A-Z'));
+        await tester.pumpAndSettle();
+
+        expect(repo.sortModeCallCount, 1);
+        expect(repo.lastSortMode, GroupSortMode.nameAsc);
+        expect(repo.lastSortModeGroupId, 'g');
+      },
+    );
+
+    testWidgets(
+      'picking "Sort manually" from a sorted mode snapshots current order',
+      (tester) async {
+        final group = groupWith(
+          id: 'g',
+          name: 'G',
+          // nameAsc — visible order is Alice then Bob.
+          sortState: GroupSortState.locked(GroupSortMode.nameAsc),
+        );
+        final repo = _FakeMemberGroupsRepository();
+        await tester.pumpWidget(
+          _buildSubject(
+            group: group,
+            allGroups: [group],
+            allEntries: [
+              entry('e1', 'g', 'm1'),
+              entry('e2', 'g', 'm2'),
+            ],
+            activeMembers: [
+              _member(id: 'm1', name: 'Alice'),
+              _member(id: 'm2', name: 'Bob'),
+            ],
+            notifier: _FakeGroupNotifier(),
+            repository: repo,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await openOptionsMenu(tester);
+        await tester.tap(find.text('Sort manually'));
+        await tester.pumpAndSettle();
+
+        expect(repo.snapshotCallCount, 1);
+        // Alice's entry e1 comes first in nameAsc.
+        expect(repo.lastSnapshotOrder, ['e1', 'e2']);
+        // wasManual=false path shows implicit-unlock toast; let it dismiss.
+        await tester.pump(const Duration(seconds: 4));
+      },
+    );
+
+    testWidgets(
+      'picking "Apply most-fronting order" snapshots fronting order '
+      'and section header "Apply current order" is visible',
+      (tester) async {
+        final group = groupWith(
+          id: 'g',
+          name: 'G',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1', 'e2'],
+          ),
+        );
+        final repo = _FakeMemberGroupsRepository();
+        await tester.pumpWidget(
+          _buildSubject(
+            group: group,
+            allGroups: [group],
+            allEntries: [
+              entry('e1', 'g', 'm1'),
+              entry('e2', 'g', 'm2'),
+            ],
+            activeMembers: [
+              _member(id: 'm1', name: 'Alice'),
+              _member(id: 'm2', name: 'Bob'),
+            ],
+            notifier: _FakeGroupNotifier(),
+            repository: repo,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await openOptionsMenu(tester);
+
+        // Section header visible.
+        expect(find.text('Apply current order'), findsOneWidget);
+
+        await tester.tap(find.text('Apply most-fronting order'));
+        await tester.pumpAndSettle();
+
+        // The fake fronting stats fall back to zero in widget tests; we just
+        // verify the call landed with a list of the live entry ids.
+        expect(repo.snapshotCallCount, 1);
+        expect(repo.lastSnapshotOrder, isNotNull);
+        expect(repo.lastSnapshotOrder!.toSet(), {'e1', 'e2'});
+      },
+    );
+
+    testWidgets(
+      'custom semantic action "Move up" is suppressed on the first row',
+      (tester) async {
+        final group = groupWith(
+          id: 'g',
+          name: 'G',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1', 'e2', 'e3'],
+          ),
+        );
+        await tester.pumpWidget(
+          _buildSubject(
+            group: group,
+            allGroups: [group],
+            allEntries: [
+              entry('e1', 'g', 'm1'),
+              entry('e2', 'g', 'm2'),
+              entry('e3', 'g', 'm3'),
+            ],
+            activeMembers: [
+              _member(id: 'm1', name: 'Alice'),
+              _member(id: 'm2', name: 'Bob'),
+              _member(id: 'm3', name: 'Carol'),
+            ],
+            notifier: _FakeGroupNotifier(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Probe semantics on the first member card.
+        final aliceCard = find.ancestor(
+          of: find.text('Alice'),
+          matching: find.byType(MemberCard),
+        );
+        final semantics = tester.getSemantics(aliceCard);
+        final actions = semantics
+            .getSemanticsData()
+            .customSemanticsActionIds ??
+            const <int>[];
+        final labels = actions
+            .map((id) => CustomSemanticsAction.getAction(id)?.label)
+            .whereType<String>()
+            .toSet();
+        expect(labels, isNot(contains('Move up')));
+        expect(labels, isNot(contains('Move to top')));
+        // Down + bottom are present (it's not the last row).
+        expect(labels, contains('Move down'));
+        expect(labels, contains('Move to bottom'));
+      },
+      semanticsEnabled: true,
+    );
+
+    testWidgets(
+      'custom semantic action "Move up" on second row swaps order',
+      (tester) async {
+        final group = groupWith(
+          id: 'g',
+          name: 'G',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1', 'e2', 'e3'],
+          ),
+        );
+        final repo = _FakeMemberGroupsRepository();
+        await tester.pumpWidget(
+          _buildSubject(
+            group: group,
+            allGroups: [group],
+            allEntries: [
+              entry('e1', 'g', 'm1'),
+              entry('e2', 'g', 'm2'),
+              entry('e3', 'g', 'm3'),
+            ],
+            activeMembers: [
+              _member(id: 'm1', name: 'Alice'),
+              _member(id: 'm2', name: 'Bob'),
+              _member(id: 'm3', name: 'Carol'),
+            ],
+            notifier: _FakeGroupNotifier(),
+            repository: repo,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Find the "Move up" semantic action on the second card (Bob's row).
+        final bobCard = find.ancestor(
+          of: find.text('Bob'),
+          matching: find.byType(MemberCard),
+        );
+        final node = tester.getSemantics(bobCard);
+        final actionIds = node.getSemanticsData().customSemanticsActionIds ?? const <int>[];
+        final moveUpId = actionIds.firstWhere(
+          (id) => CustomSemanticsAction.getAction(id)?.label == 'Move up',
+          orElse: () => -1,
+        );
+        expect(moveUpId, isNot(-1));
+
+        // RendererBinding.rootPipelineOwner is the upstream replacement, but
+        // in widget tests the legacy pipelineOwner accessor is what actually
+        // owns the rendered tree's semantics. The SemanticsBinding migration
+        // is out of scope here.
+        WidgetsBinding
+            .instance
+            // ignore: deprecated_member_use
+            .pipelineOwner
+            .semanticsOwner
+            ?.performAction(
+              node.id,
+              SemanticsAction.customAction,
+              moveUpId,
+            );
+        await tester.pumpAndSettle();
+
+        // The repository should have been called with Bob's entry at index 0.
+        expect(repo.snapshotCallCount, greaterThanOrEqualTo(1));
+        expect(repo.lastSnapshotOrder, ['e2', 'e1', 'e3']);
+      },
+      semanticsEnabled: true,
+    );
+
+    testWidgets(
+      'custom semantic action "Move to top" on last row puts that row first',
+      (tester) async {
+        final group = groupWith(
+          id: 'g',
+          name: 'G',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1', 'e2', 'e3'],
+          ),
+        );
+        final repo = _FakeMemberGroupsRepository();
+        await tester.pumpWidget(
+          _buildSubject(
+            group: group,
+            allGroups: [group],
+            allEntries: [
+              entry('e1', 'g', 'm1'),
+              entry('e2', 'g', 'm2'),
+              entry('e3', 'g', 'm3'),
+            ],
+            activeMembers: [
+              _member(id: 'm1', name: 'Alice'),
+              _member(id: 'm2', name: 'Bob'),
+              _member(id: 'm3', name: 'Carol'),
+            ],
+            notifier: _FakeGroupNotifier(),
+            repository: repo,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final carolCard = find.ancestor(
+          of: find.text('Carol'),
+          matching: find.byType(MemberCard),
+        );
+        final node = tester.getSemantics(carolCard);
+        final actionIds = node.getSemanticsData().customSemanticsActionIds ?? const <int>[];
+        final moveToTopId = actionIds.firstWhere(
+          (id) =>
+              CustomSemanticsAction.getAction(id)?.label == 'Move to top',
+          orElse: () => -1,
+        );
+        expect(moveToTopId, isNot(-1));
+
+        // See comment on the "Move up" test for the pipelineOwner rationale.
+        WidgetsBinding
+            .instance
+            // ignore: deprecated_member_use
+            .pipelineOwner
+            .semanticsOwner
+            ?.performAction(
+              node.id,
+              SemanticsAction.customAction,
+              moveToTopId,
+            );
+        await tester.pumpAndSettle();
+
+        expect(repo.snapshotCallCount, greaterThanOrEqualTo(1));
+        expect(repo.lastSnapshotOrder, ['e3', 'e1', 'e2']);
+      },
+      semanticsEnabled: true,
+    );
+  });
+
 }

@@ -136,7 +136,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             close();
             setState(() => _showInactive = !_showInactive);
             ref
-                .read(showInactiveInGroupedListProvider.notifier)
+                .read(showInactiveMembersProvider.notifier)
                 .set(_showInactive);
           },
         );

@@ -3690,6 +3690,19 @@
       }
     }
   },
+  "memberGroupAllInactiveHiddenTitle": "All hidden by filter",
+  "@memberGroupAllInactiveHiddenTitle": {
+    "description": "Empty state title in group detail when every member is inactive and the show-inactive toggle is off"
+  },
+  "memberGroupAllInactiveHiddenSubtitle": "Every {termPlural} in this group is inactive. Turn on Show inactive to see them.",
+  "@memberGroupAllInactiveHiddenSubtitle": {
+    "description": "Empty state subtitle in group detail when every member is inactive and the show-inactive toggle is off",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
+  },
   "memberArchived": "Inactive",
   "@memberArchived": {
     "description": "Label for the inactive/archived filter chip in system management screen"
@@ -3725,6 +3738,110 @@
   "memberSortLeastFronting": "Least fronting",
   "@memberSortLeastFronting": {
     "description": "Sort option: fewest fronting sessions"
+  },
+  "groupSortBadgeNameAsc": "Name (A-Z)",
+  "@groupSortBadgeNameAsc": {
+    "description": "Lock chip label on the group detail screen when sorted by name ascending"
+  },
+  "groupSortBadgeNameDesc": "Name (Z-A)",
+  "@groupSortBadgeNameDesc": {
+    "description": "Lock chip label on the group detail screen when sorted by name descending"
+  },
+  "groupSortBadgeRecentDesc": "Recently added",
+  "@groupSortBadgeRecentDesc": {
+    "description": "Lock chip label on the group detail screen when sorted by recently-added members"
+  },
+  "groupSortBadgeManual": "Manual",
+  "@groupSortBadgeManual": {
+    "description": "Lock chip label on the group detail screen when in manual sort mode (chip is hidden in this mode; kept for completeness)"
+  },
+  "groupSortSectionSortBy": "Sort by",
+  "@groupSortSectionSortBy": {
+    "description": "Section header in the group detail options dropdown for locked-sort modes"
+  },
+  "groupSortSectionApplyCurrent": "Apply current order",
+  "@groupSortSectionApplyCurrent": {
+    "description": "Section header in the group detail options dropdown for one-shot order snapshot actions"
+  },
+  "groupSortItemNameAsc": "Name A-Z",
+  "@groupSortItemNameAsc": {
+    "description": "Dropdown item: lock the group to sort members A-Z by name"
+  },
+  "groupSortItemNameDesc": "Name Z-A",
+  "@groupSortItemNameDesc": {
+    "description": "Dropdown item: lock the group to sort members Z-A by name"
+  },
+  "groupSortItemRecentDesc": "Recently added",
+  "@groupSortItemRecentDesc": {
+    "description": "Dropdown item: lock the group to show most-recently-added members first"
+  },
+  "groupSortItemManual": "Sort manually",
+  "@groupSortItemManual": {
+    "description": "Dropdown item: switch the group back to manual drag-reorder mode"
+  },
+  "groupSortItemFrontingMost": "Apply most-fronting order",
+  "@groupSortItemFrontingMost": {
+    "description": "Dropdown item: take a one-shot snapshot ordered by total fronting time (most first)"
+  },
+  "groupSortItemFrontingLeast": "Apply least-fronting order",
+  "@groupSortItemFrontingLeast": {
+    "description": "Dropdown item: take a one-shot snapshot ordered by total fronting time (least first)"
+  },
+  "groupSortSwitchedToManual": "Switched to manual sort.",
+  "@groupSortSwitchedToManual": {
+    "description": "Toast shown when a drag implicitly unlocks the group from a sorted mode"
+  },
+  "groupSortSwitchedToManualAnnouncement": "Group is now sorted manually.",
+  "@groupSortSwitchedToManualAnnouncement": {
+    "description": "Screen-reader announcement shown when a drag implicitly unlocks the group from a sorted mode"
+  },
+  "groupSortRecoveredFromConcurrentChanges": "Members changed during your reorder. Your order has been merged.",
+  "@groupSortRecoveredFromConcurrentChanges": {
+    "description": "Toast shown when a manual reorder collided with a concurrent remote add or remove"
+  },
+  "groupMemberDragHandleTooltip": "Drag to reorder",
+  "@groupMemberDragHandleTooltip": {
+    "description": "Tooltip on the drag handle next to a group member row"
+  },
+  "groupMemberDragHandleLabel": "Reorder member",
+  "@groupMemberDragHandleLabel": {
+    "description": "Screen-reader label on the drag handle next to a group member row"
+  },
+  "groupMemberDragHandleHintManual": "Drag to reorder this member.",
+  "@groupMemberDragHandleHintManual": {
+    "description": "Screen-reader hint on the drag handle when the group is in manual sort mode"
+  },
+  "groupMemberDragHandleHintSorted": "Drag to reorder. This will switch the group to manual order.",
+  "@groupMemberDragHandleHintSorted": {
+    "description": "Screen-reader hint on the drag handle when the group is in a locked sort mode (drag implicitly unlocks)"
+  },
+  "groupSortActionMoveUp": "Move up",
+  "@groupSortActionMoveUp": {
+    "description": "Custom semantic action label: move this member up one position in the manual order"
+  },
+  "groupSortActionMoveDown": "Move down",
+  "@groupSortActionMoveDown": {
+    "description": "Custom semantic action label: move this member down one position in the manual order"
+  },
+  "groupSortActionMoveToTop": "Move to top",
+  "@groupSortActionMoveToTop": {
+    "description": "Custom semantic action label: move this member to the first position in the manual order"
+  },
+  "groupSortActionMoveToBottom": "Move to bottom",
+  "@groupSortActionMoveToBottom": {
+    "description": "Custom semantic action label: move this member to the last position in the manual order"
+  },
+  "groupSortActionMoved": "Moved to position {position} of {total}",
+  "@groupSortActionMoved": {
+    "description": "Screen-reader announcement after a custom move semantic action completes",
+    "placeholders": {
+      "position": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   },
   "memberShowInactive": "Show inactive",
   "@memberShowInactive": {

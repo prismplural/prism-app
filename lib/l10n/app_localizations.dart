@@ -4714,6 +4714,18 @@ abstract class AppLocalizations {
   /// **'Add {termPlural} to this group'**
   String memberGroupNoMembersSubtitle(String termPlural);
 
+  /// Empty state title in group detail when every member is inactive and the show-inactive toggle is off
+  ///
+  /// In en, this message translates to:
+  /// **'All hidden by filter'**
+  String get memberGroupAllInactiveHiddenTitle;
+
+  /// Empty state subtitle in group detail when every member is inactive and the show-inactive toggle is off
+  ///
+  /// In en, this message translates to:
+  /// **'Every {termPlural} in this group is inactive. Turn on Show inactive to see them.'**
+  String memberGroupAllInactiveHiddenSubtitle(String termPlural);
+
   /// Label for the inactive/archived filter chip in system management screen
   ///
   /// In en, this message translates to:
@@ -4767,6 +4779,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Least fronting'**
   String get memberSortLeastFronting;
+
+  /// Lock chip label on the group detail screen when sorted by name ascending
+  ///
+  /// In en, this message translates to:
+  /// **'Name (A-Z)'**
+  String get groupSortBadgeNameAsc;
+
+  /// Lock chip label on the group detail screen when sorted by name descending
+  ///
+  /// In en, this message translates to:
+  /// **'Name (Z-A)'**
+  String get groupSortBadgeNameDesc;
+
+  /// Lock chip label on the group detail screen when sorted by recently-added members
+  ///
+  /// In en, this message translates to:
+  /// **'Recently added'**
+  String get groupSortBadgeRecentDesc;
+
+  /// Lock chip label on the group detail screen when in manual sort mode (chip is hidden in this mode; kept for completeness)
+  ///
+  /// In en, this message translates to:
+  /// **'Manual'**
+  String get groupSortBadgeManual;
+
+  /// Section header in the group detail options dropdown for locked-sort modes
+  ///
+  /// In en, this message translates to:
+  /// **'Sort by'**
+  String get groupSortSectionSortBy;
+
+  /// Section header in the group detail options dropdown for one-shot order snapshot actions
+  ///
+  /// In en, this message translates to:
+  /// **'Apply current order'**
+  String get groupSortSectionApplyCurrent;
+
+  /// Dropdown item: lock the group to sort members A-Z by name
+  ///
+  /// In en, this message translates to:
+  /// **'Name A-Z'**
+  String get groupSortItemNameAsc;
+
+  /// Dropdown item: lock the group to sort members Z-A by name
+  ///
+  /// In en, this message translates to:
+  /// **'Name Z-A'**
+  String get groupSortItemNameDesc;
+
+  /// Dropdown item: lock the group to show most-recently-added members first
+  ///
+  /// In en, this message translates to:
+  /// **'Recently added'**
+  String get groupSortItemRecentDesc;
+
+  /// Dropdown item: switch the group back to manual drag-reorder mode
+  ///
+  /// In en, this message translates to:
+  /// **'Sort manually'**
+  String get groupSortItemManual;
+
+  /// Dropdown item: take a one-shot snapshot ordered by total fronting time (most first)
+  ///
+  /// In en, this message translates to:
+  /// **'Apply most-fronting order'**
+  String get groupSortItemFrontingMost;
+
+  /// Dropdown item: take a one-shot snapshot ordered by total fronting time (least first)
+  ///
+  /// In en, this message translates to:
+  /// **'Apply least-fronting order'**
+  String get groupSortItemFrontingLeast;
+
+  /// Toast shown when a drag implicitly unlocks the group from a sorted mode
+  ///
+  /// In en, this message translates to:
+  /// **'Switched to manual sort.'**
+  String get groupSortSwitchedToManual;
+
+  /// Screen-reader announcement shown when a drag implicitly unlocks the group from a sorted mode
+  ///
+  /// In en, this message translates to:
+  /// **'Group is now sorted manually.'**
+  String get groupSortSwitchedToManualAnnouncement;
+
+  /// Toast shown when a manual reorder collided with a concurrent remote add or remove
+  ///
+  /// In en, this message translates to:
+  /// **'Members changed during your reorder. Your order has been merged.'**
+  String get groupSortRecoveredFromConcurrentChanges;
+
+  /// Tooltip on the drag handle next to a group member row
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to reorder'**
+  String get groupMemberDragHandleTooltip;
+
+  /// Screen-reader label on the drag handle next to a group member row
+  ///
+  /// In en, this message translates to:
+  /// **'Reorder member'**
+  String get groupMemberDragHandleLabel;
+
+  /// Screen-reader hint on the drag handle when the group is in manual sort mode
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to reorder this member.'**
+  String get groupMemberDragHandleHintManual;
+
+  /// Screen-reader hint on the drag handle when the group is in a locked sort mode (drag implicitly unlocks)
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to reorder. This will switch the group to manual order.'**
+  String get groupMemberDragHandleHintSorted;
+
+  /// Custom semantic action label: move this member up one position in the manual order
+  ///
+  /// In en, this message translates to:
+  /// **'Move up'**
+  String get groupSortActionMoveUp;
+
+  /// Custom semantic action label: move this member down one position in the manual order
+  ///
+  /// In en, this message translates to:
+  /// **'Move down'**
+  String get groupSortActionMoveDown;
+
+  /// Custom semantic action label: move this member to the first position in the manual order
+  ///
+  /// In en, this message translates to:
+  /// **'Move to top'**
+  String get groupSortActionMoveToTop;
+
+  /// Custom semantic action label: move this member to the last position in the manual order
+  ///
+  /// In en, this message translates to:
+  /// **'Move to bottom'**
+  String get groupSortActionMoveToBottom;
+
+  /// Screen-reader announcement after a custom move semantic action completes
+  ///
+  /// In en, this message translates to:
+  /// **'Moved to position {position} of {total}'**
+  String groupSortActionMoved(int position, int total);
 
   /// Toggle option to show inactive members
   ///
