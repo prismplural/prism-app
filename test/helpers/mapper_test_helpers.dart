@@ -175,6 +175,7 @@ db.MemberGroupRow makeDbMemberGroup({
   bool syncSuppressed = false,
   String? suspectedPkGroupUuid,
   DateTime? createdAt,
+  String sortState = '{"mode":0,"order":[]}',
 }) {
   return db.MemberGroupRow(
     id: id,
@@ -193,6 +194,7 @@ db.MemberGroupRow makeDbMemberGroup({
     lastSeenFromPkAt: lastSeenFromPkAt,
     syncSuppressed: syncSuppressed,
     suspectedPkGroupUuid: suspectedPkGroupUuid,
+    sortState: sortState,
   );
 }
 

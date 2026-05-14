@@ -17,6 +17,9 @@ _MemberGroup _$MemberGroupFromJson(Map<String, dynamic> json) => _MemberGroup(
   groupType: (json['groupType'] as num?)?.toInt() ?? 0,
   filterRules: json['filterRules'] as String?,
   createdAt: DateTime.parse(json['createdAt'] as String),
+  sortState: json['sortState'] == null
+      ? GroupSortState.manualEmpty
+      : GroupSortState.fromJson(json['sortState'] as Map<String, dynamic>),
 );
 
 Map<String, dynamic> _$MemberGroupToJson(_MemberGroup instance) =>
@@ -31,4 +34,5 @@ Map<String, dynamic> _$MemberGroupToJson(_MemberGroup instance) =>
       'groupType': instance.groupType,
       'filterRules': instance.filterRules,
       'createdAt': instance.createdAt.toIso8601String(),
+      'sortState': instance.sortState,
     };

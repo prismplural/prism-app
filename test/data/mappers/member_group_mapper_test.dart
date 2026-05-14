@@ -1,7 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart' as db;
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
 import 'package:prism_plurality/data/mappers/member_group_entry_mapper.dart';
+import 'package:prism_plurality/domain/models/group_sort_mode.dart';
+import 'package:prism_plurality/domain/models/group_sort_state.dart';
 import 'package:prism_plurality/domain/models/member_group.dart' as domain;
 import 'package:prism_plurality/domain/models/member_group_entry.dart'
     as domain;
@@ -102,6 +107,7 @@ void main() {
         createdAt: companion.createdAt.value,
         isDeleted: false,
         syncSuppressed: false,
+        sortState: companion.sortState.value,
       );
 
       final restored = MemberGroupMapper.toDomain(row);
@@ -215,7 +221,12 @@ void main() {
         createdAt: DateTime(2026, 3, 20),
       );
 
-      final json = group.toJson();
+      // Round-trip via a real JSON string so nested freezed objects
+      // (sortState) are normalized to Map<String, dynamic> before being
+      // re-parsed. The generated `toJson` writes nested freezed values
+      // as-is, which is fine for jsonEncode but not for direct fromJson.
+      final json = jsonDecode(jsonEncode(group.toJson()))
+          as Map<String, dynamic>;
       final restored = domain.MemberGroup.fromJson(json);
       expect(restored.id, group.id);
       expect(restored.name, group.name);
@@ -224,6 +235,121 @@ void main() {
       expect(restored.emoji, group.emoji);
       expect(restored.displayOrder, group.displayOrder);
       expect(restored.parentGroupId, group.parentGroupId);
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // MemberGroupMapper sort_state cases
+  // ══════════════════════════════════════════════════════════════════════════
+
+  group('MemberGroupMapper sort_state', () {
+    // The ErrorReportingService is a process-wide singleton. Snapshot the
+    // pre-test error count so warn-emission assertions are robust to other
+    // tests in the same process having pushed entries first.
+    late int baselineErrorCount;
+    setUp(() {
+      baselineErrorCount =
+          ErrorReportingService.instance.errors.length;
+    });
+
+    int warningsEmittedSinceBaseline() {
+      final entries = ErrorReportingService.instance.errors;
+      var count = 0;
+      for (var i = baselineErrorCount; i < entries.length; i++) {
+        if (entries[i].severity == ErrorSeverity.warning) count++;
+      }
+      return count;
+    }
+
+    domain.MemberGroup decodeWithSortState(String sortStateJson) {
+      final row = makeDbMemberGroup(sortState: sortStateJson);
+      return MemberGroupMapper.toDomain(row);
+    }
+
+    domain.MemberGroup roundTrip(GroupSortState state) {
+      final original = domain.MemberGroup(
+        id: 'rt',
+        name: 'rt',
+        createdAt: DateTime(2026, 1, 1),
+        sortState: state,
+      );
+      final companion = MemberGroupMapper.toCompanion(original);
+      final row = makeDbMemberGroup(
+        id: companion.id.value,
+        sortState: companion.sortState.value,
+      );
+      return MemberGroupMapper.toDomain(row);
+    }
+
+    test('round-trips every mode with empty manualOrder', () {
+      for (final mode in GroupSortMode.values) {
+        final restored = roundTrip(
+          GroupSortState(mode: mode, manualOrder: const []),
+        );
+        expect(restored.sortState.mode, mode);
+        expect(restored.sortState.manualOrder, isEmpty);
+      }
+      expect(warningsEmittedSinceBaseline(), 0);
+    });
+
+    test('round-trips manualOrder of length 0, 1, 50, 1000', () {
+      for (final length in [0, 1, 50, 1000]) {
+        final order = List.generate(length, (i) => 'entry-$i');
+        final restored = roundTrip(
+          GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: order,
+          ),
+        );
+        expect(restored.sortState.manualOrder.length, length);
+        expect(restored.sortState.manualOrder, order);
+      }
+      expect(warningsEmittedSinceBaseline(), 0);
+    });
+
+    test('decode of unknown mode int falls back to manual', () {
+      final restored = decodeWithSortState('{"mode": 99, "order": []}');
+      expect(restored.sortState.mode, GroupSortMode.manual);
+      expect(restored.sortState.manualOrder, isEmpty);
+      // Unknown int is forward-compatible — NOT a decode failure.
+      expect(warningsEmittedSinceBaseline(), 0);
+    });
+
+    test('decode of non-JSON falls back to manualEmpty + warn', () {
+      final restored = decodeWithSortState('not json');
+      expect(restored.sortState, GroupSortState.manualEmpty);
+      expect(warningsEmittedSinceBaseline(), 1);
+    });
+
+    test('decode of JSON array (not object) falls back + warn', () {
+      final restored = decodeWithSortState('[]');
+      expect(restored.sortState, GroupSortState.manualEmpty);
+      expect(warningsEmittedSinceBaseline(), 1);
+    });
+
+    test('decode of object missing "order" key falls back + warn', () {
+      final restored = decodeWithSortState('{"mode": 1}');
+      expect(restored.sortState, GroupSortState.manualEmpty);
+      expect(warningsEmittedSinceBaseline(), 1);
+    });
+
+    test('decode dedupes duplicate ids in order, preserving first occurrence',
+        () {
+      final restored = decodeWithSortState(
+        jsonEncode({
+          'mode': 0,
+          'order': ['a', 'a', 'b'],
+        }),
+      );
+      expect(restored.sortState.mode, GroupSortMode.manual);
+      expect(restored.sortState.manualOrder, ['a', 'b']);
+      expect(warningsEmittedSinceBaseline(), 0);
+    });
+
+    test('decode of mixed-type order array falls back + warn', () {
+      final restored = decodeWithSortState('{"mode": 0, "order": [1, "b"]}');
+      expect(restored.sortState, GroupSortState.manualEmpty);
+      expect(warningsEmittedSinceBaseline(), 1);
     });
   });
 }

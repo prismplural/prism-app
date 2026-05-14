@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'group_sort_state.dart';
+
 part 'member_group.freezed.dart';
 part 'member_group.g.dart';
 
@@ -16,6 +18,7 @@ abstract class MemberGroup with _$MemberGroup {
     @Default(0) int groupType,
     String? filterRules,
     required DateTime createdAt,
+    @Default(GroupSortState.manualEmpty) GroupSortState sortState,
   }) = _MemberGroup;
 
   factory MemberGroup.fromJson(Map<String, dynamic> json) =>
