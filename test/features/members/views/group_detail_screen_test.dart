@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -23,6 +24,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_card.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 List<MemberGroup> _chain(int n) => [
   for (var i = 0; i < n; i++)
@@ -218,9 +220,45 @@ Widget _buildSubject({
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
+      // Mirror production: `PrismToastHost` is mounted in
+      // `MaterialApp.builder` so toast text becomes findable via
+      // `find.text(...)`.
+      builder: (context, child) =>
+          PrismToastHost(child: child ?? const SizedBox.shrink()),
       home: GroupDetailScreen(groupId: group.id),
     ),
   );
+}
+
+/// Installs a mock handler on the `flutter/accessibility` BasicMessageChannel
+/// so the test can assert on `SemanticsService.sendAnnouncement` payloads.
+///
+/// Returns the list captured messages will be appended to. The handler is
+/// torn down via [addTearDown] so it doesn't leak between tests.
+List<Map<Object?, Object?>> _captureSemanticAnnouncements() {
+  final captured = <Map<Object?, Object?>>[];
+  const channel = BasicMessageChannel<Object?>(
+    'flutter/accessibility',
+    StandardMessageCodec(),
+  );
+  TestDefaultBinaryMessengerBinding
+      .instance
+      .defaultBinaryMessenger
+      .setMockMessageHandler(channel.name, (ByteData? message) async {
+        if (message == null) return null;
+        final decoded = const StandardMessageCodec().decodeMessage(message);
+        if (decoded is Map) {
+          captured.add(Map<Object?, Object?>.from(decoded));
+        }
+        return null;
+      });
+  addTearDown(() {
+    TestDefaultBinaryMessengerBinding
+        .instance
+        .defaultBinaryMessenger
+        .setMockMessageHandler(channel.name, null);
+  });
+  return captured;
 }
 
 void main() {
@@ -718,6 +756,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(repo.snapshotCallCount, 1);
+        // Toast text assertion (host wired via PrismToastHost in
+        // _buildSubject): the drag-from-sorted path fires the
+        // implicit-unlock toast.
+        expect(find.text('Switched to manual sort.'), findsOneWidget);
         // Drag-in-sorted-mode shows the implicit-unlock toast; let its
         // auto-dismiss timer fire so the test exits cleanly.
         await tester.pump(const Duration(seconds: 4));
@@ -771,11 +813,14 @@ void main() {
 
         // Recovery path: snapshot called once, repo returned recovered
         // result, and the UI surfaced the recovery toast via PrismToast.show
-        // (toast text rendering requires PrismToastHost wrapping, which the
-        // widget test's bare MaterialApp omits — so we assert the call and
-        // result rather than the rendered text. The toast copy is covered by
-        // the l10n golden + the manual a11y smoke pass).
+        // (toast text findable now that _buildSubject mounts PrismToastHost).
         expect(repo.snapshotCallCount, 1);
+        expect(
+          find.text(
+            'Members changed during your reorder. Your order has been merged.',
+          ),
+          findsOneWidget,
+        );
         // PrismToast schedules a 3s auto-dismiss timer; let it fire before
         // the test ends so the binding doesn't report '!timersPending'.
         await tester.pump(const Duration(seconds: 4));
@@ -1192,6 +1237,138 @@ void main() {
         // print('moved hasFocus: ${movedFocus.focusNode?.hasFocus}');
       },
       semanticsEnabled: true,
+    );
+
+    testWidgets(
+      'custom semantic action "Move up" sends the "Moved to position N of M" '
+      'announcement on the flutter/accessibility channel',
+      (tester) async {
+        final announcements = _captureSemanticAnnouncements();
+        final group = groupWith(
+          id: 'g',
+          name: 'G',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1', 'e2', 'e3'],
+          ),
+        );
+        final repo = _FakeMemberGroupsRepository();
+        await tester.pumpWidget(
+          _buildSubject(
+            group: group,
+            allGroups: [group],
+            allEntries: [
+              entry('e1', 'g', 'm1'),
+              entry('e2', 'g', 'm2'),
+              entry('e3', 'g', 'm3'),
+            ],
+            activeMembers: [
+              _member(id: 'm1', name: 'Alice'),
+              _member(id: 'm2', name: 'Bob'),
+              _member(id: 'm3', name: 'Carol'),
+            ],
+            notifier: _FakeGroupNotifier(),
+            repository: repo,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Move Bob up (from position 2 to position 1 of 3).
+        final bobCard = find.ancestor(
+          of: find.text('Bob'),
+          matching: find.byType(MemberCard),
+        );
+        final node = tester.getSemantics(bobCard);
+        final actionIds =
+            node.getSemanticsData().customSemanticsActionIds ?? const <int>[];
+        final moveUpId = actionIds.firstWhere(
+          (id) => CustomSemanticsAction.getAction(id)?.label == 'Move up',
+          orElse: () => -1,
+        );
+        expect(moveUpId, isNot(-1));
+
+        WidgetsBinding
+            .instance
+            // ignore: deprecated_member_use
+            .pipelineOwner
+            .semanticsOwner
+            ?.performAction(
+              node.id,
+              SemanticsAction.customAction,
+              moveUpId,
+            );
+        await tester.pumpAndSettle();
+
+        // Announcement event payloads have type 'announce' and a data.message
+        // field carrying the l10n string.
+        final announceMessages = announcements
+            .where((event) => event['type'] == 'announce')
+            .map((event) =>
+                (event['data'] as Map)['message']?.toString() ?? '')
+            .toList();
+        expect(
+          announceMessages,
+          contains('Moved to position 1 of 3'),
+          reason:
+              'a11y move-up must announce the new position via '
+              'SemanticsService.sendAnnouncement',
+        );
+      },
+      semanticsEnabled: true,
+    );
+
+    testWidgets(
+      'drag in sorted mode sends the "Group is now sorted manually" '
+      'announcement on the flutter/accessibility channel',
+      (tester) async {
+        final announcements = _captureSemanticAnnouncements();
+        final group = groupWith(
+          id: 'g',
+          name: 'G',
+          sortState: GroupSortState.locked(GroupSortMode.nameAsc),
+        );
+        final repo = _FakeMemberGroupsRepository();
+        await tester.pumpWidget(
+          _buildSubject(
+            group: group,
+            allGroups: [group],
+            allEntries: [
+              entry('e1', 'g', 'm1'),
+              entry('e2', 'g', 'm2'),
+            ],
+            activeMembers: [
+              _member(id: 'm1', name: 'Alice'),
+              _member(id: 'm2', name: 'Bob'),
+            ],
+            notifier: _FakeGroupNotifier(),
+            repository: repo,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final handle = find.byType(ReorderableDragStartListener).first;
+        await tester.timedDrag(
+          handle,
+          const Offset(0, 120),
+          const Duration(milliseconds: 500),
+        );
+        await tester.pumpAndSettle();
+
+        final announceMessages = announcements
+            .where((event) => event['type'] == 'announce')
+            .map((event) =>
+                (event['data'] as Map)['message']?.toString() ?? '')
+            .toList();
+        expect(
+          announceMessages,
+          contains('Group is now sorted manually.'),
+          reason:
+              'implicit-unlock drag must announce the mode change via '
+              'SemanticsService.sendAnnouncement',
+        );
+        // Let the implicit-unlock toast auto-dismiss before the test ends.
+        await tester.pump(const Duration(seconds: 4));
+      },
     );
   });
 

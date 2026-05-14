@@ -469,29 +469,34 @@ void main() {
 
   group('cross-device convergence', () {
     // Concurrent-reorder convergence regression test.
-    // Requires two DriftMemberGroupsRepository instances on separate DBs and
-    // the adapter's apply path with an HLC tiebreak. The single-field design
-    // makes this convergence true by construction (one pending_op per write,
-    // deterministic LWW).
+    // The single-field design makes this convergence true by construction
+    // (one pending_op per write, deterministic LWW), but proving it
+    // end-to-end requires two repositories backed by separate DBs running
+    // through a real sync engine with HLC tiebreaking.
     test(
       'two repositories with opposing manual snapshots converge to one HLC winner',
       () {
-        // Stub: see TODO above.
+        // Stub: needs a multi-peer harness (see skip message).
       },
-      skip: 'Stubbed: requires multi-peer test harness',
+      skip: 'Deferred: cross-device LWW with real HLC tiebreaking requires '
+          'a multi-peer test harness not currently set up. The integration '
+          'tests exercise applyFields in sequence on one DB but do not '
+          'simulate real cross-device merge.',
     );
 
     // Cross-device sort-mode-only race regression test.
-    // Same infrastructure requirement as above — needs the full sync
-    // adapter to demonstrate that a setGroupSortMode call and a
-    // setGroupManualOrderSnapshot call converge atomically because they
-    // both write to the single sort_state field.
+    // Needs the same multi-peer harness to show that a setGroupSortMode
+    // call and a setGroupManualOrderSnapshot call converge atomically
+    // (both write to the single sort_state field).
     test(
       'sort-mode-only race: loser writes are not visible (single-field LWW)',
       () {
-        // Stub: see TODO above.
+        // Stub: needs a multi-peer harness (see skip message).
       },
-      skip: 'Stubbed: requires multi-peer test harness',
+      skip: 'Deferred: cross-device LWW with real HLC tiebreaking requires '
+          'a multi-peer test harness not currently set up. The integration '
+          'tests exercise applyFields in sequence on one DB but do not '
+          'simulate real cross-device merge.',
     );
   });
 

@@ -269,6 +269,73 @@ void main() {
     expect(groupOps.single.entityId, 'pk-group:pk-group-1');
     expect(prefs.getBool(PkGroupSyncV2CatchupService.flagKey), isTrue);
   });
+
+  // Emission-path coverage: the existing tests check that
+  // `debugGroupFields(row)` returns a sanitized map. These add an end-to-end
+  // assertion that runOnce hands that sanitized map to the recordGroupUpdate
+  // callback (the actual emit boundary), so a future regression where the
+  // service stops calling sanitizeSortStateForEmission would fail here.
+  test(
+    'runOnce passes sanitized sort_state to recordGroupUpdate for valid rows',
+    () async {
+      await db.systemSettingsDao.getSettings();
+      await db.systemSettingsDao.updatePkGroupSyncV2Enabled(true);
+      await db.into(db.memberGroups).insert(
+            pkFixtureGroup(
+              id: 'pk-group-local-1',
+              name: 'Cluster',
+              createdAt: DateTime.utc(2024, 1, 1),
+              pluralkitUuid: 'pk-group-1',
+            ),
+          );
+
+      final result = await service().runOnce();
+
+      expect(result.groupsEmitted, 1);
+      expect(groupOps, hasLength(1));
+      expect(
+        groupOps.single.fields['sort_state'],
+        '{"mode":0,"order":[]}',
+        reason:
+            'emit boundary must carry the sanitized JSON, not a stale or '
+            'absent column',
+      );
+    },
+  );
+
+  test(
+    'runOnce substitutes manualEmpty when a corrupt sort_state column is '
+    'emitted via the catch-up path',
+    () async {
+      await db.systemSettingsDao.getSettings();
+      await db.systemSettingsDao.updatePkGroupSyncV2Enabled(true);
+      await db.into(db.memberGroups).insert(
+            pkFixtureGroup(
+              id: 'pk-group-local-1',
+              name: 'Cluster',
+              createdAt: DateTime.utc(2024, 1, 1),
+              pluralkitUuid: 'pk-group-1',
+            ),
+          );
+      // Bypass the mapper to plant a corrupt column value — simulates legacy
+      // pre-validation rows or a manual DB edit.
+      await db.customStatement(
+        'UPDATE member_groups SET sort_state = ? WHERE id = ?',
+        ['garbage', 'pk-group-local-1'],
+      );
+
+      final result = await service().runOnce();
+
+      expect(result.groupsEmitted, 1);
+      expect(
+        groupOps.single.fields['sort_state'],
+        '{"mode":0,"order":[]}',
+        reason:
+            'corrupt local rows must never re-broadcast through the PK '
+            'catch-up emit path',
+      );
+    },
+  );
 }
 
 class _RecordedOp {

@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart' as raw;
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
+import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 
 /// Seeds a v21 database — the helper opens the file via [AppDatabase] to
 /// create the current schema, then defensively drops the v22 column
@@ -155,10 +157,17 @@ void main() {
             variables: [Variable.withString('g1')],
           )
           .getSingle();
-      final json = jsonDecode(row.read<String>('sort_state'))
-          as Map<String, dynamic>;
+      final rawSortState = row.read<String>('sort_state');
+      final json = jsonDecode(rawSortState) as Map<String, dynamic>;
       expect(json['mode'], 0);
       expect(json['order'], ['e1']);
+
+      // Closes the loop: the JSON the migration writes must parse cleanly
+      // through the production decoder.
+      final decoded = tryDecodeSortState(rawSortState);
+      expect(decoded, isNotNull);
+      expect(decoded!.mode, GroupSortMode.manual);
+      expect(decoded.manualOrder, ['e1']);
     });
 
     test('group with 5 entries → JSON order length 5 in rowid order',
@@ -333,11 +342,20 @@ void main() {
               variables: [Variable.withString('g_big')],
             )
             .getSingle();
-        final json = jsonDecode(row.read<String>('sort_state'))
-            as Map<String, dynamic>;
+        final rawSortState = row.read<String>('sort_state');
+        final json = jsonDecode(rawSortState) as Map<String, dynamic>;
         final order = (json['order'] as List).cast<String>();
         expect(order.length, 1000);
         expect(order.toSet().length, 1000, reason: 'no duplicates');
+
+        // Closes the loop: even a 1000-element backfill must round-trip
+        // cleanly through the production decoder (sort_state has to be
+        // readable on next app launch).
+        final decoded = tryDecodeSortState(rawSortState);
+        expect(decoded, isNotNull);
+        expect(decoded!.mode, GroupSortMode.manual);
+        expect(decoded.manualOrder.length, 1000);
+        expect(decoded.manualOrder.first, 'e_0');
       },
     );
 

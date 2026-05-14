@@ -423,10 +423,15 @@ void main() {
     expect(state.manualOrder, ['e2', 'e1']);
   });
 
-  // ── Scenarios 4 + 5: Cross-device convergence via applyFields ────────────
-  // We simulate two peers' emitted field maps via the adapter's
-  // applyFields. The single sort_state field means LWW always picks one
-  // device's complete (mode, order) pair — the test confirms this.
+  // ── Scenarios 4 + 5: applyFields-sequential exercise ─────────────────────
+  // These tests drive two emitted field maps through applyFields in
+  // sequence against a single in-memory DB. They exercise the apply path
+  // with realistic payloads, but they do NOT simulate a real cross-device
+  // sync: there is no HLC tiebreak, no separate device contexts, and no
+  // real sync engine — the "winner" here is whichever applyFields call
+  // happens last in the test. True cross-device LWW convergence remains
+  // uncovered (see the deferred skips in
+  // drift_member_groups_repository_test.dart).
 
   test('scenario 4: cross-device sync convergence — last applyFields wins '
       'the complete (mode, order) pair', () async {
@@ -450,7 +455,8 @@ void main() {
       manualOrder: ['e1', 'e2'],
     );
 
-    // Peer C receives A's then B's fields. B's HLC is newer → B wins.
+    // Sequential apply: B is applied after A → B's payload overwrites A.
+    // (Not a real cross-device HLC race — see comment above.)
     await entity.applyFields('g', {
       'sort_state': MemberGroupMapper.encodeSortStateForColumn(deviceAState),
     });
@@ -462,7 +468,7 @@ void main() {
     expect(state.manualOrder, [
       'e1',
       'e2',
-    ], reason: 'B applied last → B wins atomically');
+    ], reason: 'B applied last → B overwrites the column atomically');
   });
 
   test('scenario 5: cross-device sort-mode race — single-field LWW means '
@@ -487,7 +493,8 @@ void main() {
       manualOrder: ['e1'],
     );
 
-    // Apply B then A; A wins (latest applyFields wins).
+    // Sequential apply: A is applied after B → A's payload overwrites B.
+    // (Not a real cross-device HLC race — see comment above.)
     await entity.applyFields('g', {
       'sort_state': MemberGroupMapper.encodeSortStateForColumn(deviceB),
     });
