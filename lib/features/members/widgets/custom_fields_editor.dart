@@ -451,8 +451,8 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
           context: context,
           anchorContext: anchorContext,
           initialDate: initial,
-          firstDate: DateTime(1900),
-          lastDate: DateTime(2100),
+          firstDate: DateTime(1),
+          lastDate: DateTime(9999, 12, 31),
           initialDatePickerMode:
               precision == DatePrecision.year ||
                   precision == DatePrecision.monthYear
@@ -499,8 +499,8 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
           context: context,
           anchorContext: anchorContext,
           initialDate: initial,
-          firstDate: DateTime(1900),
-          lastDate: DateTime(2100),
+          firstDate: DateTime(1),
+          lastDate: DateTime(9999, 12, 31),
         );
         if (pickedDate == null || !context.mounted) return;
         final pickedTime = await showPrismTimePicker(

@@ -29,6 +29,27 @@ void main() {
       expect(parseBirthday('1993-07-15T00:00:00Z'), isNull);
       expect(parseBirthday('1993/07/15'), isNull);
     });
+
+    test('accepts pre-1900 years', () {
+      final dt = parseBirthday('1850-03-12');
+      expect(dt, isNotNull);
+      expect(dt!.year, 1850);
+      expect(isBirthdayYearHidden(dt), isFalse);
+    });
+
+    test('accepts year 0001 (minimum 4-digit year)', () {
+      final dt = parseBirthday('0001-01-01');
+      expect(dt, isNotNull);
+      expect(dt!.year, 1);
+      expect(isBirthdayYearHidden(dt), isFalse);
+    });
+
+    test('accepts far-future years', () {
+      final dt = parseBirthday('9999-12-31');
+      expect(dt, isNotNull);
+      expect(dt!.year, 9999);
+      expect(isBirthdayYearHidden(dt), isFalse);
+    });
   });
 
   group('formatBirthdayWire', () {
@@ -56,6 +77,20 @@ void main() {
     test('single-digit months and days are zero-padded', () {
       final dt = DateTime(2001, 1, 5);
       expect(formatBirthdayWire(dt), equals('2001-01-05'));
+    });
+
+    test('pads single- and double-digit years to four digits', () {
+      expect(formatBirthdayWire(DateTime(1, 1, 1)), equals('0001-01-01'));
+      expect(formatBirthdayWire(DateTime(42, 6, 15)), equals('0042-06-15'));
+      expect(formatBirthdayWire(DateTime(850, 3, 12)), equals('0850-03-12'));
+    });
+
+    test('round-trips pre-1900 and far-future years', () {
+      for (final wire in ['0001-01-01', '0850-03-12', '1750-11-30', '9999-12-31']) {
+        final parsed = parseBirthday(wire);
+        expect(parsed, isNotNull, reason: 'should parse $wire');
+        expect(formatBirthdayWire(parsed!), equals(wire));
+      }
     });
   });
 

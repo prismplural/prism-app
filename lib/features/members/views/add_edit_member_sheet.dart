@@ -431,8 +431,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       context: context,
       anchorContext: anchorContext,
       initialDate: initial,
-      firstDate: DateTime(1900),
-      lastDate: DateTime(2100),
+      firstDate: DateTime(1),
+      lastDate: DateTime(9999, 12, 31),
     );
     if (picked != null && mounted) {
       setState(() => _birthday = picked);
