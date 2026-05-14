@@ -148,13 +148,22 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     // dedupe of stale ids in sortState.manualOrder. See plan §"Read path
     // invariants".
     final visiblePairs = ref.watch(sortedGroupMembersProvider(group.id));
-    final liveEntryIds = visiblePairs.map((pair) => pair.$1.id).toSet();
-    final staleEntryIds = _entryFocusNodes.keys
-        .where((id) => !liveEntryIds.contains(id))
-        .toList();
-    for (final id in staleEntryIds) {
-      _entryFocusNodes.remove(id)?.dispose();
-    }
+    // Prune stale FocusNodes only when the provider's value actually changes
+    // (membership add/remove/reorder), not on every build. For groups with
+    // hundreds-to-thousands of members this avoids O(n) set-construction
+    // during scroll, drag ticks (60/sec), and search-field keystrokes.
+    ref.listen<List<(MemberGroupEntry, Member)>>(
+      sortedGroupMembersProvider(group.id),
+      (_, next) {
+        final liveIds = next.map((pair) => pair.$1.id).toSet();
+        final stale = _entryFocusNodes.keys
+            .where((id) => !liveIds.contains(id))
+            .toList();
+        for (final id in stale) {
+          _entryFocusNodes.remove(id)?.dispose();
+        }
+      },
+    );
     final visibleMembers = [for (final pair in visiblePairs) pair.$2];
 
     return PrismPageScaffold(
