@@ -1097,18 +1097,17 @@ void main() {
       semanticsEnabled: true,
     );
 
-    // P2.2 — best-effort focus retention after an a11y "Move up". The
-    // polite announcement is the reliable a11y signal (verified by the
-    // sibling tests); focus retention is a soft signal that helps a screen
-    // reader keep its caret on the moved row.
+    // Best-effort focus retention after an a11y "Move up". The polite
+    // announcement is the reliable a11y signal (verified by the sibling
+    // tests); focus retention is a soft signal that helps a screen reader
+    // keep its caret on the moved row.
     //
     // Note: Flutter's widget-test focus system is known-flaky for
     // non-input widgets that are torn down and rebuilt across reorders.
-    // The production code wires up `_focusNodeFor(entry.id)` and
-    // schedules a post-frame `requestFocus`. We assert here that the
-    // wiring is wired (the rebuilt tile has a non-null FocusNode), and
-    // leave the actual `hasFocus == true` assertion to the manual a11y
-    // smoke pass — the plan's cleanup notes explicitly OK this trade.
+    // The production code wires up `_focusNodeFor(entry.id)` and schedules
+    // a post-frame `requestFocus`. We assert here that the wiring is wired
+    // (the rebuilt tile has a non-null FocusNode), and leave the actual
+    // `hasFocus == true` assertion to the manual a11y smoke pass.
     testWidgets(
       '"Move up" on second row attaches a FocusNode to the moved entry '
       '(focus retention wiring)',

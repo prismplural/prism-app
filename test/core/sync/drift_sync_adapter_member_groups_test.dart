@@ -1544,7 +1544,7 @@ void main() {
       },
     );
 
-    // P1.1 — strict mode type at apply time.
+    // Strict mode type at apply time.
     test('applyFields rejects sort_state with wrong-type mode '
         '(string "nameAsc")', () async {
       final db = AppDatabase(NativeDatabase.memory());
@@ -1607,11 +1607,11 @@ void main() {
       expect(warningsEmittedSinceBaseline(), 1);
     });
 
-    // P1.2 — toSyncFields sanitizes a corrupt LOCAL row instead of
-    // re-broadcasting it. The apply path's _validatedSortStateValue can't
-    // prevent corruption that snuck in pre-validation (legacy state, manual
-    // DB edit, file corruption); sanitizeSortStateForEmission catches it
-    // on the way OUT.
+    // toSyncFields sanitizes a corrupt LOCAL row instead of re-broadcasting
+    // it. The apply path's _validatedSortStateValue can't prevent
+    // corruption that snuck in pre-validation (legacy state, manual DB
+    // edit, file corruption); sanitizeSortStateForEmission catches it on
+    // the way OUT.
     test(
       'toSyncFields substitutes manualEmpty for a corrupt local row + warn',
       () async {

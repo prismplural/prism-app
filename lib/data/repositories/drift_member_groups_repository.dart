@@ -282,9 +282,8 @@ class DriftMemberGroupsRepository
     // Atomic local write: the entry insert AND the parent sort_state
     // manualOrder update happen in a single Drift transaction so an
     // exception between them rolls both back. Sync emissions happen AFTER
-    // commit — the local DB is always consistent, even if a crash interrupts
-    // the emission phase. Read path tolerates partial cross-record sync
-    // arrival on peers (see _appendEntryToManualOrder docs).
+    // commit. Entry create and parent sort_state update are independent
+    // sync records; read path tolerates partial arrival on peers.
     MemberGroupEntryRow? stored;
     bool parentOrderChanged = false;
     await _dao.transaction(() async {
@@ -406,12 +405,11 @@ class DriftMemberGroupsRepository
     final appendedIds = liveIds.where((id) => !suppliedIds.contains(id)).toList()
       ..sort();
 
-    // P1.5: stable dedupe of the supplied permutation (first occurrence
-    // wins). Duplicates in the input must NOT round-trip through the
-    // stored column — even if the read path dedupes for display, the raw
-    // list ships on the wire to peers. Also track the duplicate
-    // occurrences so we can flag the call as recovered (the contract is:
-    // only exact permutations return `applied`).
+    // Stable dedupe of the supplied permutation (first occurrence wins).
+    // Duplicates in the input must NOT round-trip through the stored column
+    // — even if the read path dedupes for display, the raw list ships on
+    // the wire to peers. Track duplicates so we can flag the call as
+    // recovered (only exact permutations return `applied`).
     final seen = <String>{};
     final retainedSupplied = <String>[];
     final duplicateIds = <String>[];
@@ -443,13 +441,7 @@ class DriftMemberGroupsRepository
       );
     }
 
-    // Recovery indicator: any deviation from an exact permutation (drops,
-    // appends, OR duplicates in the supplied list) is a "recovered" outcome
-    // — the UI surfaces the generic "snapshot recovered" toast in all three
-    // cases. Duplicate occurrences are reported via `droppedIds` (the field
-    // is a recovery indicator, not strict semantic "removed from live"); the
-    // toast copy is generic per plan §"Snapshot apply recovery toast", so a
-    // dedicated `duplicateIds` slot would only add API churn.
+    // Duplicates surfaced via `droppedIds` (shared recovery indicator).
     if (droppedIds.isEmpty && appendedIds.isEmpty && duplicateIds.isEmpty) {
       return const SnapshotApplyResult.applied();
     }
@@ -514,11 +506,10 @@ class DriftMemberGroupsRepository
   /// [entryId] from the group's `sort_state.manualOrder` IFF the group is
   /// currently in [GroupSortMode.manual] AND the id is present.
   ///
-  /// CRITICAL: the `isManual` guard mirrors [_appendEntryToManualOrder].
-  /// `setGroupSortMode` preserves a non-empty `manualOrder` when flipping
-  /// to a sorted mode, so a remove in `nameAsc` mode must NOT prune that
-  /// preserved order — that would lose the user's prior manual ordering
-  /// AND emit a stray parent sync update on every remove-in-sorted-mode.
+  /// The `isManual` guard mirrors [_appendEntryToManualOrder]:
+  /// [setGroupSortMode] preserves `manualOrder` across sorted-mode flips,
+  /// so prune-on-remove in sorted mode would destroy that and emit a stray
+  /// parent update.
   ///
   /// Returns `true` when the column changed (caller should emit a parent
   /// sync update AFTER the surrounding transaction commits).
@@ -727,14 +718,6 @@ class DriftMemberGroupsRepository
       'pluralkit_id': row.pluralkitId,
       'pluralkit_uuid': row.pluralkitUuid,
       'last_seen_from_pk_at': toSyncUtcOrNull(row.lastSeenFromPkAt),
-      // `row.sortState` is always the encoded-valid string from the local
-      // write path (mapper / DAO helper), and apply-time validation in
-      // `drift_sync_adapter.dart` rejects invalid remote payloads before
-      // they reach the column. The sanitizer is a belt-and-suspenders
-      // defense for pre-validation corruption (legacy state, manual DB
-      // edit, file corruption): on a valid value it returns `raw`
-      // byte-identical (preserves peer-merge metadata stability); on a
-      // corrupt value it substitutes `manualEmpty` + warn.
       'sort_state': sanitizeSortStateForEmission(
         row.sortState,
         contextId: row.id,

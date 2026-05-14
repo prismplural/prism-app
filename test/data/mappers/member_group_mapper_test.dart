@@ -352,8 +352,8 @@ void main() {
       expect(warningsEmittedSinceBaseline(), 1);
     });
 
-    // P1.1 — strict mode type. Wrong-type mode (string, null, double, bool)
-    // must be rejected as garbage; only unknown *ints* are forward-compat.
+    // Strict mode type. Wrong-type mode (string, null, double, bool) must
+    // be rejected as garbage; only unknown *ints* are forward-compat.
     test('decode of string-type mode falls back + warn', () {
       final restored =
           decodeWithSortState('{"mode": "nameAsc", "order": []}');

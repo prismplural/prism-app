@@ -611,13 +611,9 @@ class AppDatabase extends _$AppDatabase {
         // Per-group sort state lives on the parent `member_groups` row as a
         // single TEXT column (JSON-encoded) so (mode, manualOrder) always
         // converges to one device's snapshot under per-field LWW sync.
-        // See docs/plans/2026-05-14-group-member-ordering.md.
         //
-        // Backfill semantic: No prior persisted order existed for entries
-        // within a group. Backfill orders entries by SQLite `rowid` as a
-        // stable-enough proxy for insertion order. Users on existing devices
-        // will see their entries in whatever rowid order produced; this is
-        // acceptable because no user has ever relied on a persistent
+        // Backfill orders entries by SQLite `rowid` as a stable-enough proxy
+        // for insertion order — no user has ever relied on a persistent
         // within-group order before this migration.
         //
         // Why Dart loop, not a `ROW_NUMBER()` window function: SQLite docs
@@ -625,11 +621,6 @@ class AppDatabase extends _$AppDatabase {
         // (https://www.sqlite.org/rowidtable.html). The Dart loop makes the
         // "best-effort" assumption explicit in code rather than burying it
         // in SQL, and sidesteps the SQLite 3.25+ window-function dependency.
-        //
-        // Wrapped in a single transaction so the addColumn + per-group
-        // backfill UPDATEs are atomic: a crash mid-loop leaves the schema
-        // at v21 (no partial column), and Drift's user_version bump only
-        // commits on successful return.
         await transaction(() async {
           await migrator.addColumn(memberGroups, memberGroups.sortState);
 

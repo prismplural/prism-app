@@ -7,25 +7,11 @@ import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 import 'package:prism_plurality/domain/models/group_sort_state.dart';
 import 'package:prism_plurality/domain/models/member_group.dart' as domain;
 
-/// Strict decode of a stored or wire `sort_state` JSON blob.
-///
-/// Shape: `{"mode": <int>, "order": ["<entryId>", ...]}`. Returns `null` on
-/// any structural failure (parse error, non-object, missing required keys,
-/// wrong-type `mode` (not int), wrong-type `order` (not list), non-string
-/// elements, mixed types).
-///
-/// Unknown `mode` *ints* are NOT a decode failure — they are
-/// forward-compatible and fall back to [GroupSortMode.manual] via
-/// [GroupSortMode.fromInt]. Wrong-type `mode` (string, null, bool, double)
-/// IS a decode failure — that's garbage, not a forward-compat unknown.
-///
-/// Defensive normalization on success: duplicate entry ids in `order` are
-/// deduped, preserving first occurrence.
-///
-/// Shared between the apply-time validator in `drift_sync_adapter.dart`
-/// (`_memberGroupsEntity.applyFields`) and the on-read mapper below. See plan
-/// §"Validation: reject at apply, never store garbage" in
-/// `docs/plans/2026-05-14-group-member-ordering.md`.
+/// Strict decode of a stored or wire `sort_state` JSON blob. Returns `null`
+/// on any structural failure. Wrong-type `mode` (string, null, bool, double)
+/// is rejected; unknown `mode` ints fall back to [GroupSortMode.manual] via
+/// [GroupSortMode.fromInt] (forward-compat). `order` is deduped, first
+/// occurrence wins.
 GroupSortState? tryDecodeSortState(String? raw) {
   if (raw == null) return null;
   try {
@@ -122,12 +108,10 @@ class MemberGroupMapper {
   }
 
   /// JSON-encode a [GroupSortState] for persistence in the
-  /// `member_groups.sort_state` column.
-  ///
-  /// Shape: `{"mode": <int>, "order": ["<entryId>", ...]}`. By construction
-  /// this is always valid for the on-wire schema — local writes can never
-  /// propagate corrupt state to peers. See plan §"Validation: reject at
-  /// apply, never store garbage" (`docs/plans/2026-05-14-group-member-ordering.md`).
+  /// `member_groups.sort_state` column. Shape:
+  /// `{"mode": <int>, "order": ["<entryId>", ...]}`. Always valid for local
+  /// writes; remote payloads are validated separately by
+  /// [tryDecodeSortState] in the adapter apply path.
   static String encodeSortStateForColumn(GroupSortState state) =>
       jsonEncode({
         'mode': state.mode.asInt,

@@ -2597,13 +2597,8 @@ DriftSyncEntity _memberGroupsEntity(
         'pluralkit_id': r.pluralkitId,
         'pluralkit_uuid': r.pluralkitUuid,
         'last_seen_from_pk_at': _dateTimeToSyncStringOrNull(r.lastSeenFromPkAt),
-        // Local writes go through `MemberGroupMapper.encodeSortStateForColumn`,
-        // and apply-time validation rejects invalid remote payloads, so the
-        // column should always be valid. The sanitizer is a belt-and-suspenders
-        // defense against pre-validation corruption (legacy state, manual DB
-        // edit, file corruption): on a valid value it returns the string
-        // byte-identical (keeps merge metadata stable); on a corrupt value it
-        // substitutes `manualEmpty` + warn instead of re-broadcasting garbage.
+        // Sanitized so locally-corrupt rows can't propagate to peers.
+        // See [sanitizeSortStateForEmission] for the full rationale.
         'sort_state': sanitizeSortStateForEmission(
           r.sortState,
           contextId: r.id,

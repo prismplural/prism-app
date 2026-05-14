@@ -173,25 +173,14 @@ final showInactiveMembersProvider =
 // ── Sorted group members ──────────────────────────────────────────────────────
 
 /// Ordered, filtered list of (entry, member) pairs for a single group's
-/// detail view.
-///
-/// Order is computed from `group.sortState`:
-///   - [GroupSortMode.manual]   : `sortState.manualOrder` positions, with
-///                                live-but-unindexed entries appended at end
-///                                by entry id ascending (deterministic).
-///   - [GroupSortMode.nameAsc]  : member name lowercased ascending, with id
-///                                tiebreaker.
-///   - [GroupSortMode.nameDesc] : member name lowercased descending, with id
-///                                tiebreaker.
-///   - [GroupSortMode.recentDesc]: member createdAt descending, with id
-///                                 tiebreaker.
+/// detail view. Order derives from `group.sortState` (see the switch below
+/// for per-mode behavior).
 ///
 /// Filters: entries whose member is missing (unknown id) are dropped; when
 /// [showInactiveMembersProvider] is false, inactive members are also
 /// dropped. Soft-deleted entries are already excluded by the stream.
 ///
-/// Implements the read-path invariants from
-/// `docs/plans/2026-05-14-group-member-ordering.md` §"Read path invariants":
+/// Read-path invariants:
 ///   1. Live entry not in manualOrder → appended at end (unindexed bucket).
 ///   2. Id in manualOrder with no live entry → filtered (we iterate live
 ///      entries only, not manualOrder).

@@ -91,8 +91,7 @@ void main() {
       expect(captured, isNotNull);
       expect(captured!.method, 'POST');
       expect(captured!.url.path, endsWith('/groups/group-uuid/members/add'));
-      // Body must be a raw JSON array — NOT {"members": [...]} as v1 plan
-      // initially assumed. Caught in a later review pass.
+      // Body must be a raw JSON array — NOT {"members": [...]}.
       expect(jsonDecode(captured!.body), ['m1', 'm2']);
     });
 

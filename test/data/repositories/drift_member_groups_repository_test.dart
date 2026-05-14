@@ -420,11 +420,10 @@ void main() {
       expect(_groupUpdates(repo), 0);
     });
 
-    // P1.3 regression: setGroupSortMode preserves manualOrder when flipping
-    // to a sorted mode. A subsequent remove in that sorted mode must NOT
+    // Regression: setGroupSortMode preserves manualOrder when flipping to
+    // a sorted mode. A subsequent remove in that sorted mode must NOT
     // prune the preserved order, and must NOT emit a parent sync update —
-    // the plan §"Sort-mode invariants" requires sorted modes leave
-    // sortState untouched on add/remove.
+    // sorted modes leave sortState untouched on add/remove.
     test(
       'nameAsc group with preserved manualOrder: remove leaves manualOrder '
       'intact and emits no parent update',
@@ -469,37 +468,30 @@ void main() {
   });
 
   group('cross-device convergence', () {
-    // TODO(batch-5.3): Concurrent-reorder convergence P0 regression test.
+    // Concurrent-reorder convergence regression test.
     // Requires two DriftMemberGroupsRepository instances on separate DBs and
-    // the adapter's apply path with an HLC tiebreak — that infra lives in
-    // the integration-test layer (see plan §Task 5.3 scenario 4). The
-    // single-field design makes this convergence true by construction (one
-    // pending_op per write, deterministic LWW), so the assertion lives at
-    // the integration test where a full sync engine roundtrip is feasible.
+    // the adapter's apply path with an HLC tiebreak. The single-field design
+    // makes this convergence true by construction (one pending_op per write,
+    // deterministic LWW).
     test(
       'two repositories with opposing manual snapshots converge to one HLC winner',
       () {
-        // Stub: see TODO above. Batch 5.3 fills this in with the full
-        // adapter + HLC infrastructure.
+        // Stub: see TODO above.
       },
-      skip: 'Stubbed for batch-5.3 integration test infra',
+      skip: 'Stubbed: requires multi-peer test harness',
     );
 
-    // TODO(batch-5.3): Cross-device sort-mode-only race regression test.
+    // Cross-device sort-mode-only race regression test.
     // Same infrastructure requirement as above — needs the full sync
     // adapter to demonstrate that a setGroupSortMode call and a
     // setGroupManualOrderSnapshot call converge atomically because they
-    // both write to the single sort_state field. The repository-layer
-    // assertion is "encodeSortStateForColumn always emits the full
-    // (mode, order) pair," already enforced by the mapper-side tests in
-    // Batch 2.2.
+    // both write to the single sort_state field.
     test(
       'sort-mode-only race: loser writes are not visible (single-field LWW)',
       () {
-        // Stub: see TODO above. Batch 5.3 fills this in with the full
-        // adapter + HLC infrastructure.
+        // Stub: see TODO above.
       },
-      skip: 'Stubbed for batch-5.3 integration test infra',
+      skip: 'Stubbed: requires multi-peer test harness',
     );
   });
 
@@ -521,7 +513,7 @@ void main() {
     expect(parsed.containsKey('order'), isTrue);
   });
 
-  // ── P1.5: duplicate detection in setGroupManualOrderSnapshot ────────────
+  // ── Duplicate detection in setGroupManualOrderSnapshot ─────────────────
   group('setGroupManualOrderSnapshot duplicate detection', () {
     test(
       'duplicate id in supplied permutation: returns recovered, stored '
@@ -568,7 +560,7 @@ void main() {
     );
   });
 
-  // ── P1.4: atomicity of entry write + parent sort_state update ───────────
+  // ── Atomicity of entry write + parent sort_state update ────────────────
   group('addMemberToGroup atomicity', () {
     test(
       'an exception in the parent sort_state update rolls back the entry '
@@ -616,7 +608,7 @@ void main() {
     );
   });
 
-  // ── Corrupt-local-row regression (P1.2) ──────────────────────────────────
+  // ── Corrupt-local-row regression ────────────────────────────────────────
   group('emitGroupSyncState corrupt-local-row sanitization', () {
     int errorCountBaseline() =>
         ErrorReportingService.instance.errors.length;

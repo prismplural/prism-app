@@ -98,12 +98,11 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
   final GlobalKey<BlurPopupAnchorState> _optionsPopupKey = GlobalKey();
 
   /// FocusNodes per entry id for best-effort focus retention across a11y
-  /// reorder. Lazily allocated by [_focusNodeFor] and disposed in [dispose].
-  /// When a custom semantic action moves a row, we schedule a post-frame
-  /// `requestFocus` on the moved entry's node so the screen reader's
-  /// caret tracks the moved item. The polite `_announce` call remains the
-  /// reliable signal — focus retention is BEST EFFORT (Flutter's focus
-  /// system isn't a guaranteed contract for non-input widgets).
+  /// reorder. When a custom semantic action moves a row, we schedule a
+  /// post-frame `requestFocus` so the screen reader's caret tracks the
+  /// moved item. The polite `_announce` call is the reliable signal —
+  /// focus retention is BEST EFFORT (Flutter's focus system isn't a
+  /// guaranteed contract for non-input widgets).
   final Map<String, FocusNode> _entryFocusNodes = {};
   String? _pendingFocusEntryId;
 
