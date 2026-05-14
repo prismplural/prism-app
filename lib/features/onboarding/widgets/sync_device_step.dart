@@ -267,6 +267,8 @@ class _JoinPromptView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final fg = isDark ? AppColors.warmWhite : AppColors.warmBlack;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -278,12 +280,12 @@ class _JoinPromptView extends StatelessWidget {
             child: _BackLink(label: context.l10n.back, onTap: onBack),
           ),
           const SizedBox(height: 20),
-          Icon(AppIcons.devices, color: AppColors.warmWhite, size: 48),
+          Icon(AppIcons.devices, color: fg, size: 48),
           const SizedBox(height: 16),
           Text(
             context.l10n.onboardingSyncJoinYourGroup,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: AppColors.warmWhite,
+              color: fg,
               fontWeight: FontWeight.w700,
             ),
             textAlign: TextAlign.center,
@@ -292,7 +294,7 @@ class _JoinPromptView extends StatelessWidget {
           Text(
             context.l10n.onboardingSyncJoinDescription,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.warmWhite.withValues(alpha: 0.7),
+              color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
             ),
             textAlign: TextAlign.center,
           ),
@@ -318,13 +320,13 @@ class _JoinPromptView extends StatelessWidget {
                           ? AppIcons.expandLess
                           : AppIcons.expandMore,
                       size: 18,
-                      color: AppColors.warmWhite.withValues(alpha: 0.72),
+                      color: fg.withValues(alpha: 0.72),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       context.l10n.syncSetupSelfHosted,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.warmWhite.withValues(alpha: 0.72),
+                        color: fg.withValues(alpha: 0.72),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -338,12 +340,12 @@ class _JoinPromptView extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.warmWhite.withValues(alpha: 0.06),
+                color: fg.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(
                   PrismShapes.of(context).radius(18),
                 ),
                 border: Border.all(
-                  color: AppColors.warmWhite.withValues(alpha: 0.12),
+                  color: fg.withValues(alpha: 0.12),
                 ),
               ),
               child: Column(
@@ -368,7 +370,7 @@ class _JoinPromptView extends StatelessWidget {
                     Text(
                       context.l10n.syncSetupRegistrationTokenHelp,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.warmWhite.withValues(alpha: 0.65),
+                        color: fg.withValues(alpha: 0.65),
                       ),
                     ),
                   ],
@@ -386,7 +388,7 @@ class _JoinPromptView extends StatelessWidget {
           Text(
             context.l10n.onboardingSyncRequestToJoinHint,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppColors.warmWhite.withValues(alpha: 0.5),
+              color: fg.withValues(alpha: 0.5),
             ),
             textAlign: TextAlign.center,
           ),
@@ -413,6 +415,8 @@ class _ShowingRequestView extends StatelessWidget {
   Widget build(BuildContext context) {
     // Encode token bytes as base64 for the QR code display
     final qrData = base64Encode(qrPayload);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fg = isDark ? AppColors.warmWhite : AppColors.warmBlack;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -424,12 +428,12 @@ class _ShowingRequestView extends StatelessWidget {
             child: _BackLink(label: context.l10n.back, onTap: onBack),
           ),
           const SizedBox(height: 20),
-          Icon(AppIcons.qrCode, color: AppColors.warmWhite, size: 48),
+          Icon(AppIcons.qrCode, color: fg, size: 48),
           const SizedBox(height: 16),
           Text(
             context.l10n.onboardingSyncShowToExistingDevice,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: AppColors.warmWhite,
+              color: fg,
               fontWeight: FontWeight.w700,
             ),
             textAlign: TextAlign.center,
@@ -438,7 +442,7 @@ class _ShowingRequestView extends StatelessWidget {
           Text(
             context.l10n.onboardingSyncScanInstructions,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.warmWhite.withValues(alpha: 0.7),
+              color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
             ),
             textAlign: TextAlign.center,
           ),
@@ -463,12 +467,12 @@ class _ShowingRequestView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const PrismSpinner(color: AppColors.warmWhite, size: 16),
+              PrismSpinner(color: fg, size: 16),
               const SizedBox(width: 12),
               Text(
                 context.l10n.onboardingSyncWaitingForScan,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.warmWhite.withValues(alpha: 0.7),
+                  color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
                 ),
               ),
             ],
@@ -487,23 +491,25 @@ class _WaitingForSasView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final fg = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(48),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const PrismSpinner(
-              color: AppColors.warmWhite,
+            PrismSpinner(
+              color: fg,
               size: 52,
               dotCount: 8,
-              duration: Duration(milliseconds: 3000),
+              duration: const Duration(milliseconds: 3000),
             ),
             const SizedBox(height: 24),
             Text(
               context.l10n.onboardingSyncWaitingForVerification,
               style: theme.textTheme.titleMedium?.copyWith(
-                color: AppColors.warmWhite,
+                color: fg,
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
@@ -512,7 +518,7 @@ class _WaitingForSasView extends StatelessWidget {
             Text(
               context.l10n.onboardingSyncWaitingForVerificationSubtitle,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.warmWhite.withValues(alpha: 0.6),
+                color: fg.withValues(alpha: 0.6),
               ),
               textAlign: TextAlign.center,
             ),
@@ -539,18 +545,20 @@ class _SasVerificationView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final fg = isDark ? AppColors.warmWhite : AppColors.warmBlack;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(AppIcons.shieldOutlined, color: AppColors.warmWhite, size: 48),
+          Icon(AppIcons.shieldOutlined, color: fg, size: 48),
           const SizedBox(height: 16),
           Text(
             context.l10n.onboardingSyncVerifySecurityCode,
             style: theme.textTheme.titleLarge?.copyWith(
-              color: AppColors.warmWhite,
+              color: fg,
               fontWeight: FontWeight.w700,
             ),
             textAlign: TextAlign.center,
@@ -559,7 +567,7 @@ class _SasVerificationView extends StatelessWidget {
           Text(
             context.l10n.onboardingSyncVerifyDescription,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.warmWhite.withValues(alpha: 0.7),
+              color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
             ),
             textAlign: TextAlign.center,
           ),
@@ -567,12 +575,12 @@ class _SasVerificationView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             decoration: BoxDecoration(
-              color: AppColors.warmWhite.withValues(alpha: 0.1),
+              color: fg.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(
                 PrismShapes.of(context).radius(16),
               ),
               border: Border.all(
-                color: AppColors.warmWhite.withValues(alpha: 0.2),
+                color: fg.withValues(alpha: 0.2),
               ),
             ),
             child: Column(
@@ -585,8 +593,8 @@ class _SasVerificationView extends StatelessWidget {
                       .map(
                         (word) => Text(
                           word,
-                          style: const TextStyle(
-                            color: AppColors.warmWhite,
+                          style: TextStyle(
+                            color: fg,
                             fontSize: 24,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0,
@@ -686,6 +694,8 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final fg = isDark ? AppColors.warmWhite : AppColors.warmBlack;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -697,12 +707,12 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
             child: _BackLink(label: context.l10n.back, onTap: widget.onBack),
           ),
           const SizedBox(height: 24),
-          Icon(AppIcons.lockOutline, color: AppColors.warmWhite, size: 48),
+          Icon(AppIcons.lockOutline, color: fg, size: 48),
           const SizedBox(height: 16),
           Text(
             context.l10n.onboardingSyncEnterPassword,
             style: theme.textTheme.titleLarge?.copyWith(
-              color: AppColors.warmWhite,
+              color: fg,
               fontWeight: FontWeight.w700,
             ),
             textAlign: TextAlign.center,
@@ -711,7 +721,7 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
           Text(
             context.l10n.onboardingSyncEnterPasswordDescription,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.warmWhite.withValues(alpha: 0.7),
+              color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
             ),
             textAlign: TextAlign.center,
           ),
@@ -736,9 +746,7 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
                     decoration: BoxDecoration(
                       // Intentionally circular even in angular mode — progress indicator convention.
                       shape: BoxShape.circle,
-                      color: filled
-                          ? AppColors.warmWhite
-                          : AppColors.warmWhite.withValues(alpha: 0.2),
+                      color: filled ? fg : fg.withValues(alpha: 0.2),
                     ),
                   ),
                 );
@@ -784,6 +792,9 @@ class _NumpadButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fg = isDark ? AppColors.warmWhite : AppColors.warmBlack;
+    final buttonBg = fg.withValues(alpha: 0.13);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -791,21 +802,21 @@ class _NumpadButton extends StatelessWidget {
         width: 72,
         height: 72,
         alignment: Alignment.center,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           // Intentionally circular even in angular mode — progress indicator convention.
           shape: BoxShape.circle,
-          color: Color(0x22FFFFFF),
+          color: buttonBg,
         ),
         child: label != null
             ? Text(
                 label!,
-                style: const TextStyle(
-                  color: AppColors.warmWhite,
+                style: TextStyle(
+                  color: fg,
                   fontSize: 24,
                   fontWeight: FontWeight.w500,
                 ),
               )
-            : Icon(icon, size: 24, color: AppColors.warmWhite),
+            : Icon(icon, size: 24, color: fg),
       ),
     );
   }
@@ -824,6 +835,8 @@ class _ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final fg = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     final l10n = context.l10n;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -836,7 +849,7 @@ class _ErrorView extends StatelessWidget {
           Text(
             l10n.onboardingPairingFailed,
             style: theme.textTheme.headlineSmall?.copyWith(
-              color: AppColors.warmWhite,
+              color: fg,
               fontWeight: FontWeight.w700,
             ),
             textAlign: TextAlign.center,
@@ -845,7 +858,7 @@ class _ErrorView extends StatelessWidget {
           Text(
             message,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.warmWhite.withValues(alpha: 0.75),
+              color: fg.withValues(alpha: 0.75),
             ),
             textAlign: TextAlign.center,
           ),
@@ -884,6 +897,8 @@ class _SnapshotFailureView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final fg = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     final l10n = context.l10n;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -896,7 +911,7 @@ class _SnapshotFailureView extends StatelessWidget {
           Text(
             l10n.onboardingPairingIncomplete,
             style: theme.textTheme.headlineSmall?.copyWith(
-              color: AppColors.warmWhite,
+              color: fg,
               fontWeight: FontWeight.w700,
             ),
             textAlign: TextAlign.center,
@@ -905,7 +920,7 @@ class _SnapshotFailureView extends StatelessWidget {
           Text(
             message,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.warmWhite.withValues(alpha: 0.75),
+              color: fg.withValues(alpha: 0.75),
             ),
             textAlign: TextAlign.center,
           ),
@@ -965,6 +980,8 @@ class _BackLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final fg = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     return GestureDetector(
       onTap: onTap,
       child: Padding(
@@ -975,13 +992,13 @@ class _BackLink extends StatelessWidget {
             Icon(
               AppIcons.arrowBackIosNew,
               size: 14,
-              color: AppColors.warmWhite.withValues(alpha: 0.8),
+              color: fg.withValues(alpha: 0.8),
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.warmWhite.withValues(alpha: 0.8),
+                color: fg.withValues(alpha: 0.8),
               ),
             ),
           ],
