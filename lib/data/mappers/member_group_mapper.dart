@@ -11,10 +11,13 @@ import 'package:prism_plurality/domain/models/member_group.dart' as domain;
 ///
 /// Shape: `{"mode": <int>, "order": ["<entryId>", ...]}`. Returns `null` on
 /// any structural failure (parse error, non-object, missing required keys,
-/// non-list `order`, non-string elements, mixed types).
+/// wrong-type `mode` (not int), wrong-type `order` (not list), non-string
+/// elements, mixed types).
 ///
-/// Unknown `mode` ints are NOT a decode failure — they are forward-compatible
-/// and fall back to [GroupSortMode.manual] via [GroupSortMode.fromInt].
+/// Unknown `mode` *ints* are NOT a decode failure — they are
+/// forward-compatible and fall back to [GroupSortMode.manual] via
+/// [GroupSortMode.fromInt]. Wrong-type `mode` (string, null, bool, double)
+/// IS a decode failure — that's garbage, not a forward-compat unknown.
 ///
 /// Defensive normalization on success: duplicate entry ids in `order` are
 /// deduped, preserving first occurrence.
@@ -32,10 +35,12 @@ GroupSortState? tryDecodeSortState(String? raw) {
       return null;
     }
 
+    // Strict: mode must be an int. Wrong-type (string "nameAsc", null,
+    // bool, double 1.5) is garbage — reject. Unknown int (99) is
+    // forward-compat — resolve to manual via GroupSortMode.fromInt.
     final rawMode = decoded['mode'];
-    final mode = rawMode is int
-        ? GroupSortMode.fromInt(rawMode)
-        : GroupSortMode.manual;
+    if (rawMode is! int) return null;
+    final mode = GroupSortMode.fromInt(rawMode);
 
     final rawOrder = decoded['order'];
     if (rawOrder is! List) return null;
@@ -51,6 +56,35 @@ GroupSortState? tryDecodeSortState(String? raw) {
     return null;
   }
 }
+
+/// Sanitize a stored `sort_state` string for outbound emission.
+///
+/// Apply-time validation in `drift_sync_adapter.dart` prevents *new* garbage
+/// from peers reaching the local column. But the column can hold pre-existing
+/// corruption from before that validation landed, a manual DB edit, or
+/// file-level corruption. Calling this helper before emitting protects peers
+/// from re-broadcasting that corruption.
+///
+/// Behavior:
+/// - Valid input: returns `raw` byte-for-byte unchanged (keeps merge metadata
+///   stable for other-device-vs-other-device rounds).
+/// - Invalid input: returns the JSON encoding of [GroupSortState.manualEmpty]
+///   AND logs a warning via [ErrorReportingService].
+String sanitizeSortStateForEmission(String raw, {String? contextId}) {
+  if (tryDecodeSortState(raw) != null) return raw;
+  ErrorReportingService.instance.report(
+    'Refusing to emit corrupt sort_state for member_group '
+    '${contextId ?? '<unknown>'}: raw=${_truncateForLog(raw)}; '
+    'substituting manualEmpty',
+    severity: ErrorSeverity.warning,
+  );
+  return MemberGroupMapper.encodeSortStateForColumn(
+    GroupSortState.manualEmpty,
+  );
+}
+
+String _truncateForLog(String s) =>
+    s.length > 120 ? '${s.substring(0, 120)}...' : s;
 
 class MemberGroupMapper {
   MemberGroupMapper._();

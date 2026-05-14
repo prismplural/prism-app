@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
 import 'package:prism_plurality/data/utils/sync_datetime.dart';
 
 typedef PkGroupCatchupRecordCallback =
@@ -200,6 +201,10 @@ class PkGroupSyncV2CatchupService {
       'pluralkit_id': row.pluralkitId,
       'pluralkit_uuid': row.pluralkitUuid,
       'last_seen_from_pk_at': toSyncUtcOrNull(row.lastSeenFromPkAt),
+      'sort_state': sanitizeSortStateForEmission(
+        row.sortState,
+        contextId: row.id,
+      ),
       'is_deleted': row.isDeleted,
     };
   }

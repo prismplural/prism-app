@@ -11,7 +11,7 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart'
-    show tryDecodeSortState;
+    show sanitizeSortStateForEmission, tryDecodeSortState;
 
 /// Applies remote CRDT changes from the Rust sync engine to the local Drift DB.
 ///
@@ -2597,12 +2597,17 @@ DriftSyncEntity _memberGroupsEntity(
         'pluralkit_id': r.pluralkitId,
         'pluralkit_uuid': r.pluralkitUuid,
         'last_seen_from_pk_at': _dateTimeToSyncStringOrNull(r.lastSeenFromPkAt),
-        // Always emitted: local writes go through
-        // `MemberGroupMapper.encodeSortStateForColumn`, so the column is
-        // guaranteed to hold a valid JSON-encoded `GroupSortState`. No
-        // re-validation here — propagating it byte-identical keeps peer
-        // merge metadata stable for other-device-vs-other-device rounds.
-        'sort_state': r.sortState,
+        // Local writes go through `MemberGroupMapper.encodeSortStateForColumn`,
+        // and apply-time validation rejects invalid remote payloads, so the
+        // column should always be valid. The sanitizer is a belt-and-suspenders
+        // defense against pre-validation corruption (legacy state, manual DB
+        // edit, file corruption): on a valid value it returns the string
+        // byte-identical (keeps merge metadata stable); on a corrupt value it
+        // substitutes `manualEmpty` + warn instead of re-broadcasting garbage.
+        'sort_state': sanitizeSortStateForEmission(
+          r.sortState,
+          contextId: r.id,
+        ),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2695,7 +2700,10 @@ DriftSyncEntity _memberGroupsEntity(
         'last_seen_from_pk_at': _dateTimeToSyncStringOrNull(
           row.lastSeenFromPkAt,
         ),
-        'sort_state': row.sortState,
+        'sort_state': sanitizeSortStateForEmission(
+          row.sortState,
+          contextId: row.id,
+        ),
         'is_deleted': row.isDeleted,
       };
     },

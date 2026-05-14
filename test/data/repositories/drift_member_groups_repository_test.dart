@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
 import 'package:prism_plurality/data/repositories/drift_member_groups_repository.dart';
 import 'package:prism_plurality/domain/models/group_sort_mode.dart';
@@ -19,9 +20,24 @@ class _TestMemberGroupsDao extends MemberGroupsDao {
 
   final suppressedGroupIds = <String>{};
 
+  /// When non-null, every call to [updateGroupSortState] throws this. Used
+  /// to drive the atomicity regression — simulates an exception in the
+  /// parent-update step of addMemberToGroup so we can assert the
+  /// surrounding transaction rolls back the entry insert.
+  Object? failUpdateGroupSortStateWith;
+
   @override
   Future<bool> isGroupSyncSuppressed(String groupId) async {
     return suppressedGroupIds.contains(groupId);
+  }
+
+  @override
+  Future<int> updateGroupSortState(String groupId, String sortStateJson) {
+    final injected = failUpdateGroupSortStateWith;
+    if (injected != null) {
+      throw injected;
+    }
+    return super.updateGroupSortState(groupId, sortStateJson);
   }
 }
 
@@ -403,6 +419,53 @@ void main() {
       expect(stored.manualOrder, isEmpty);
       expect(_groupUpdates(repo), 0);
     });
+
+    // P1.3 regression: setGroupSortMode preserves manualOrder when flipping
+    // to a sorted mode. A subsequent remove in that sorted mode must NOT
+    // prune the preserved order, and must NOT emit a parent sync update —
+    // the plan §"Sort-mode invariants" requires sorted modes leave
+    // sortState untouched on add/remove.
+    test(
+      'nameAsc group with preserved manualOrder: remove leaves manualOrder '
+      'intact and emits no parent update',
+      () async {
+        await setupRepo(members: [_member(id: 'm1'), _member(id: 'm2'),
+          _member(id: 'm3')]);
+        await _seedGroup(
+          db,
+          id: 'g1',
+          sortState: const GroupSortState(
+            // Mode = nameAsc, but manualOrder is preserved from a prior
+            // manual state (setGroupSortMode preserves it across the flip).
+            mode: GroupSortMode.nameAsc,
+            manualOrder: ['a', 'b', 'c'],
+          ),
+        );
+        await _seedEntry(db, id: 'b', groupId: 'g1', memberId: 'm2');
+
+        await repo.removeMemberFromGroup('g1', 'm2');
+
+        final stored = await _readSortState(db, 'g1');
+        expect(stored.mode, GroupSortMode.nameAsc);
+        expect(
+          stored.manualOrder,
+          ['a', 'b', 'c'],
+          reason:
+              'sorted-mode remove must leave the preserved manualOrder '
+              'untouched',
+        );
+        expect(_groupUpdates(repo), 0,
+            reason:
+                'sorted-mode remove must not emit a parent sync update');
+
+        // The entry itself IS tombstoned — the parent state is just left
+        // alone.
+        final entryRow = await (db.select(db.memberGroupEntries)
+              ..where((e) => e.id.equals('b')))
+            .getSingle();
+        expect(entryRow.isDeleted, isTrue);
+      },
+    );
   });
 
   group('cross-device convergence', () {
@@ -456,5 +519,143 @@ void main() {
     final parsed = jsonDecode(raw) as Map<String, dynamic>;
     expect(parsed.containsKey('mode'), isTrue);
     expect(parsed.containsKey('order'), isTrue);
+  });
+
+  // ── P1.5: duplicate detection in setGroupManualOrderSnapshot ────────────
+  group('setGroupManualOrderSnapshot duplicate detection', () {
+    test(
+      'duplicate id in supplied permutation: returns recovered, stored '
+      'manualOrder is deduped (first occurrence wins), duplicate flagged '
+      'via droppedIds',
+      () async {
+        await setupRepo();
+        await _seedGroup(db, id: 'g1');
+        await _seedEntry(db, id: 'e1', groupId: 'g1', memberId: 'm1');
+        await _seedEntry(db, id: 'e2', groupId: 'g1', memberId: 'm2');
+        await _seedEntry(db, id: 'e3', groupId: 'g1', memberId: 'm3');
+
+        // UI handed us a list with a duplicate. The stored column must
+        // not contain the duplicate (it would ship on the wire to peers).
+        final result = await repo.setGroupManualOrderSnapshot(
+          'g1',
+          ['e1', 'e1', 'e2', 'e3'],
+        );
+
+        // Not an exact permutation → recovered, not applied.
+        expect(result, isA<SnapshotRecovered>());
+        final recovered = result as SnapshotRecovered;
+        // Duplicate id is reported via droppedIds (the field is a recovery
+        // indicator; the toast copy is generic).
+        expect(recovered.droppedIds, contains('e1'));
+        expect(recovered.appendedIds, isEmpty);
+
+        final stored = await _readSortState(db, 'g1');
+        expect(
+          stored.manualOrder,
+          ['e1', 'e2', 'e3'],
+          reason:
+              'duplicate occurrence must be dropped (first wins); '
+              'no duplicates on the wire',
+        );
+
+        // And nothing should leak duplicates into the emitted sync record.
+        final update = _lastGroupUpdate(repo)!;
+        final fields = update['fields']! as Map<String, dynamic>;
+        final emittedState =
+            tryDecodeSortState(fields['sort_state'] as String?)!;
+        expect(emittedState.manualOrder, ['e1', 'e2', 'e3']);
+      },
+    );
+  });
+
+  // ── P1.4: atomicity of entry write + parent sort_state update ───────────
+  group('addMemberToGroup atomicity', () {
+    test(
+      'an exception in the parent sort_state update rolls back the entry '
+      'insert (no entry persisted, no sync records emitted)',
+      () async {
+        await setupRepo(members: [_member(id: 'm1')]);
+        // Manual mode → addMemberToGroup will try to update sort_state.
+        await _seedGroup(
+          db,
+          id: 'g1',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['existing'],
+          ),
+        );
+
+        // Inject failure in the parent-update step.
+        dao.failUpdateGroupSortStateWith = StateError('boom');
+
+        try {
+          await repo.addMemberToGroup('g1', 'm1', 'e1');
+          fail('addMemberToGroup should have rethrown the injected error');
+        } on StateError catch (e) {
+          expect(e.message, 'boom');
+        }
+
+        // Entry row was rolled back — neither active nor tombstoned.
+        final entryRow = await (db.select(db.memberGroupEntries)
+              ..where((e) => e.groupId.equals('g1')))
+            .get();
+        expect(entryRow, isEmpty,
+            reason:
+                'transaction rollback must drop the entry insert when the '
+                'parent update throws');
+
+        // No sync records emitted — emissions happen AFTER commit.
+        expect(repo.creates, isEmpty);
+        expect(repo.updates, isEmpty);
+        expect(repo.deletes, isEmpty);
+
+        // Parent column is also unchanged.
+        final stored = await _readSortState(db, 'g1');
+        expect(stored.manualOrder, ['existing']);
+      },
+    );
+  });
+
+  // ── Corrupt-local-row regression (P1.2) ──────────────────────────────────
+  group('emitGroupSyncState corrupt-local-row sanitization', () {
+    int errorCountBaseline() =>
+        ErrorReportingService.instance.errors.length;
+
+    int warningsSinceBaseline(int baseline) {
+      final entries = ErrorReportingService.instance.errors;
+      var count = 0;
+      for (var i = baseline; i < entries.length; i++) {
+        if (entries[i].severity == ErrorSeverity.warning) count++;
+      }
+      return count;
+    }
+
+    test(
+      'corrupt sort_state in the local column is substituted with '
+      'manualEmpty on emit + warn',
+      () async {
+        await setupRepo();
+        await _seedGroup(db, id: 'g1');
+        // Bypass the mapper/DAO helpers and inject garbage directly into
+        // the column. Simulates pre-validation legacy state, a manual DB
+        // edit, or file-level corruption.
+        await db.customStatement(
+          'UPDATE member_groups SET sort_state = ? WHERE id = ?',
+          ['utter garbage', 'g1'],
+        );
+
+        final baseline = errorCountBaseline();
+        await repo.emitGroupSyncState('g1');
+
+        final update = _lastGroupUpdate(repo)!;
+        final fields = update['fields']! as Map<String, dynamic>;
+        expect(
+          fields['sort_state'],
+          '{"mode":0,"order":[]}',
+          reason: 'corrupt local row must not propagate to peers',
+        );
+        expect(warningsSinceBaseline(baseline), 1);
+      },
+    );
   });
 }

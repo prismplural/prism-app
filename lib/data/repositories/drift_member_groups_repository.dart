@@ -278,28 +278,39 @@ class DriftMemberGroupsRepository
       isDeleted: const Value(false),
       pendingPkOp: Value(pendingPkOp),
     );
-    if (isPkLinked) {
-      // upsertEntry on the deterministic SHA id revives a prior soft-deleted
-      // row (e.g. a tombstone with pending_pk_op = push_remove). The
-      // companion's push_add intent overwrites whatever pending was queued —
-      // the user's revival intent wins, and the next push round restores the
-      // member to PK regardless of whether the prior remove already shipped.
-      await _dao.upsertEntry(companion);
-    } else {
-      await _dao.createEntry(companion);
-    }
-    final stored = await _dao.findEntry(groupId, memberId);
-    if (stored != null) {
-      await _syncEntryCreateIfAllowed(stored, member: member);
-    }
 
-    // The entry create and the parent sort_state update are independent sync
-    // records. A peer can observe one without the other. The read path
-    // (sortedGroupMembersProvider) tolerates both directions: an entry not in
-    // sort_state.manualOrder is appended at end; an id in sort_state.manualOrder
-    // with no live entry is filtered out at read time.
-    if (stored != null) {
-      await _appendEntryToManualOrderIfManual(group, stored.id);
+    // Atomic local write: the entry insert AND the parent sort_state
+    // manualOrder update happen in a single Drift transaction so an
+    // exception between them rolls both back. Sync emissions happen AFTER
+    // commit — the local DB is always consistent, even if a crash interrupts
+    // the emission phase. Read path tolerates partial cross-record sync
+    // arrival on peers (see _appendEntryToManualOrder docs).
+    MemberGroupEntryRow? stored;
+    bool parentOrderChanged = false;
+    await _dao.transaction(() async {
+      if (isPkLinked) {
+        // upsertEntry on the deterministic SHA id revives a prior
+        // soft-deleted row (e.g. a tombstone with pending_pk_op =
+        // push_remove). The companion's push_add intent overwrites whatever
+        // pending was queued — the user's revival intent wins, and the next
+        // push round restores the member to PK regardless of whether the
+        // prior remove already shipped.
+        await _dao.upsertEntry(companion);
+      } else {
+        await _dao.createEntry(companion);
+      }
+      stored = await _dao.findEntry(groupId, memberId);
+      if (stored != null) {
+        parentOrderChanged =
+            await _appendEntryToManualOrder(group, stored!.id);
+      }
+    });
+
+    final committedEntry = stored;
+    if (committedEntry == null) return;
+    await _syncEntryCreateIfAllowed(committedEntry, member: member);
+    if (parentOrderChanged) {
+      await _emitGroupSortStateUpdateIfAllowed(group.id);
     }
   }
 
@@ -327,16 +338,22 @@ class DriftMemberGroupsRepository
       member: member,
     );
     final isSuppressed = await _dao.isGroupSyncSuppressed(groupId);
-    await _dao.softDeleteEntryWithPendingOp(
-      entry.id,
-      pendingPkOp: isPkLinked ? 'push_remove' : 'none',
-    );
 
-    // Mirror of addMemberToGroup: when the parent is in manual mode, prune
-    // the tombstoned entry id from sort_state.manualOrder and emit a parent
-    // sync update. Same cross-record tolerance applies on the read side.
-    await _removeEntryFromManualOrderIfManual(group, entry.id);
+    // Atomic local write: tombstone the entry AND (if the group is in manual
+    // mode) prune the entry id from sort_state.manualOrder in one
+    // transaction. Sync emissions happen AFTER commit.
+    bool parentOrderChanged = false;
+    await _dao.transaction(() async {
+      await _dao.softDeleteEntryWithPendingOp(
+        entry.id,
+        pendingPkOp: isPkLinked ? 'push_remove' : 'none',
+      );
+      parentOrderChanged = await _removeEntryFromManualOrder(group, entry.id);
+    });
 
+    if (parentOrderChanged) {
+      await _emitGroupSortStateUpdateIfAllowed(group.id);
+    }
     if (isSuppressed) return;
     if (!await _shouldEmitPkBackedGroupSync(group)) return;
     await syncRecordDelete(_entryTable, entryEntityId);
@@ -388,9 +405,24 @@ class DriftMemberGroupsRepository
         .toList();
     final appendedIds = liveIds.where((id) => !suppliedIds.contains(id)).toList()
       ..sort();
-    final retainedSupplied = orderedEntryIds
-        .where(liveIds.contains)
-        .toList();
+
+    // P1.5: stable dedupe of the supplied permutation (first occurrence
+    // wins). Duplicates in the input must NOT round-trip through the
+    // stored column — even if the read path dedupes for display, the raw
+    // list ships on the wire to peers. Also track the duplicate
+    // occurrences so we can flag the call as recovered (the contract is:
+    // only exact permutations return `applied`).
+    final seen = <String>{};
+    final retainedSupplied = <String>[];
+    final duplicateIds = <String>[];
+    for (final id in orderedEntryIds) {
+      if (!liveIds.contains(id)) continue; // dropped, handled above
+      if (seen.add(id)) {
+        retainedSupplied.add(id);
+      } else {
+        duplicateIds.add(id);
+      }
+    }
     final finalOrder = [...retainedSupplied, ...appendedIds];
 
     final newState = GroupSortState(
@@ -411,11 +443,18 @@ class DriftMemberGroupsRepository
       );
     }
 
-    if (droppedIds.isEmpty && appendedIds.isEmpty) {
+    // Recovery indicator: any deviation from an exact permutation (drops,
+    // appends, OR duplicates in the supplied list) is a "recovered" outcome
+    // — the UI surfaces the generic "snapshot recovered" toast in all three
+    // cases. Duplicate occurrences are reported via `droppedIds` (the field
+    // is a recovery indicator, not strict semantic "removed from live"); the
+    // toast copy is generic per plan §"Snapshot apply recovery toast", so a
+    // dedicated `duplicateIds` slot would only add API churn.
+    if (droppedIds.isEmpty && appendedIds.isEmpty && duplicateIds.isEmpty) {
       return const SnapshotApplyResult.applied();
     }
     return SnapshotApplyResult.recovered(
-      droppedIds: droppedIds,
+      droppedIds: [...droppedIds, ...duplicateIds],
       appendedIds: appendedIds,
     );
   }
@@ -447,46 +486,49 @@ class DriftMemberGroupsRepository
     }
   }
 
-  /// Appends [entryId] to the group's `sort_state.manualOrder` IFF the group
-  /// is currently in [GroupSortMode.manual]. No-op for sorted modes — the
-  /// read-time sort handles new members. Emits one parent sync update when
-  /// the column changes.
-  Future<void> _appendEntryToManualOrderIfManual(
+  /// Pure DB mutation: appends [entryId] to the group's
+  /// `sort_state.manualOrder` IFF the group is currently in
+  /// [GroupSortMode.manual]. No-op for sorted modes (read-time sort handles
+  /// new members). Returns `true` when the column changed (caller should
+  /// emit a parent sync update AFTER the surrounding transaction commits).
+  ///
+  /// Must be called from within a `_dao.transaction(...)` block — the caller
+  /// pairs this with the entry insert so an exception rolls back both.
+  Future<bool> _appendEntryToManualOrder(
     MemberGroupRow group,
     String entryId,
   ) async {
     final current = tryDecodeSortState(group.sortState);
-    if (current == null || !current.isManual) return;
-    if (current.manualOrder.contains(entryId)) return;
+    if (current == null || !current.isManual) return false;
+    if (current.manualOrder.contains(entryId)) return false;
 
     final newState = current.copyWith(
       manualOrder: [...current.manualOrder, entryId],
     );
     final encoded = MemberGroupMapper.encodeSortStateForColumn(newState);
     await _dao.updateGroupSortState(group.id, encoded);
-
-    final refreshed = await _dao.getGroupById(group.id);
-    if (refreshed != null &&
-        !await _dao.isGroupSyncSuppressed(group.id) &&
-        await _shouldEmitPkBackedGroupSync(refreshed)) {
-      await syncRecordUpdate(
-        _groupTable,
-        _groupEntityId(refreshed),
-        _groupFields(refreshed),
-      );
-    }
+    return true;
   }
 
-  /// Mirror of [_appendEntryToManualOrderIfManual]: prunes [entryId] from the
-  /// group's `sort_state.manualOrder` when present. Emits one parent sync
-  /// update when the column changes.
-  Future<void> _removeEntryFromManualOrderIfManual(
+  /// Pure DB mutation mirror of [_appendEntryToManualOrder]: prunes
+  /// [entryId] from the group's `sort_state.manualOrder` IFF the group is
+  /// currently in [GroupSortMode.manual] AND the id is present.
+  ///
+  /// CRITICAL: the `isManual` guard mirrors [_appendEntryToManualOrder].
+  /// `setGroupSortMode` preserves a non-empty `manualOrder` when flipping
+  /// to a sorted mode, so a remove in `nameAsc` mode must NOT prune that
+  /// preserved order — that would lose the user's prior manual ordering
+  /// AND emit a stray parent sync update on every remove-in-sorted-mode.
+  ///
+  /// Returns `true` when the column changed (caller should emit a parent
+  /// sync update AFTER the surrounding transaction commits).
+  Future<bool> _removeEntryFromManualOrder(
     MemberGroupRow group,
     String entryId,
   ) async {
     final current = tryDecodeSortState(group.sortState);
-    if (current == null) return;
-    if (!current.manualOrder.contains(entryId)) return;
+    if (current == null || !current.isManual) return false;
+    if (!current.manualOrder.contains(entryId)) return false;
 
     final newOrder = current.manualOrder
         .where((id) => id != entryId)
@@ -494,17 +536,22 @@ class DriftMemberGroupsRepository
     final newState = current.copyWith(manualOrder: newOrder);
     final encoded = MemberGroupMapper.encodeSortStateForColumn(newState);
     await _dao.updateGroupSortState(group.id, encoded);
+    return true;
+  }
 
-    final refreshed = await _dao.getGroupById(group.id);
-    if (refreshed != null &&
-        !await _dao.isGroupSyncSuppressed(group.id) &&
-        await _shouldEmitPkBackedGroupSync(refreshed)) {
-      await syncRecordUpdate(
-        _groupTable,
-        _groupEntityId(refreshed),
-        _groupFields(refreshed),
-      );
-    }
+  /// Emits a parent `member_groups` sync record update after the local
+  /// sort_state column has been mutated. Re-reads the row to capture the
+  /// latest column values for the emit. Honors suppression + PK gating.
+  Future<void> _emitGroupSortStateUpdateIfAllowed(String groupId) async {
+    final refreshed = await _dao.getGroupById(groupId);
+    if (refreshed == null) return;
+    if (await _dao.isGroupSyncSuppressed(groupId)) return;
+    if (!await _shouldEmitPkBackedGroupSync(refreshed)) return;
+    await syncRecordUpdate(
+      _groupTable,
+      _groupEntityId(refreshed),
+      _groupFields(refreshed),
+    );
   }
 
   Future<void> _syncGroupCreateIfAllowed(MemberGroupRow group) async {
@@ -681,11 +728,17 @@ class DriftMemberGroupsRepository
       'pluralkit_uuid': row.pluralkitUuid,
       'last_seen_from_pk_at': toSyncUtcOrNull(row.lastSeenFromPkAt),
       // `row.sortState` is always the encoded-valid string from the local
-      // write path (mapper / DAO helper), so this can never propagate
-      // garbage. Apply-time validation in `drift_sync_adapter.dart`
-      // guarantees invalid remote payloads are rejected before they reach
-      // the column.
-      'sort_state': row.sortState,
+      // write path (mapper / DAO helper), and apply-time validation in
+      // `drift_sync_adapter.dart` rejects invalid remote payloads before
+      // they reach the column. The sanitizer is a belt-and-suspenders
+      // defense for pre-validation corruption (legacy state, manual DB
+      // edit, file corruption): on a valid value it returns `raw`
+      // byte-identical (preserves peer-merge metadata stability); on a
+      // corrupt value it substitutes `manualEmpty` + warn.
+      'sort_state': sanitizeSortStateForEmission(
+        row.sortState,
+        contextId: row.id,
+      ),
       'is_deleted': row.isDeleted,
     };
   }

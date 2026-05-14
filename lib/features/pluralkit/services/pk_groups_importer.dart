@@ -8,6 +8,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
+import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
@@ -171,6 +172,10 @@ class PkGroupsImporter with SyncRecordMixin {
       'pluralkit_id': row.pluralkitId,
       'pluralkit_uuid': row.pluralkitUuid,
       'last_seen_from_pk_at': toSyncUtcOrNull(row.lastSeenFromPkAt),
+      'sort_state': sanitizeSortStateForEmission(
+        row.sortState,
+        contextId: row.id,
+      ),
       'is_deleted': row.isDeleted,
     };
   }

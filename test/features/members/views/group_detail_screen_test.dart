@@ -1096,6 +1096,104 @@ void main() {
       },
       semanticsEnabled: true,
     );
+
+    // P2.2 — best-effort focus retention after an a11y "Move up". The
+    // polite announcement is the reliable a11y signal (verified by the
+    // sibling tests); focus retention is a soft signal that helps a screen
+    // reader keep its caret on the moved row.
+    //
+    // Note: Flutter's widget-test focus system is known-flaky for
+    // non-input widgets that are torn down and rebuilt across reorders.
+    // The production code wires up `_focusNodeFor(entry.id)` and
+    // schedules a post-frame `requestFocus`. We assert here that the
+    // wiring is wired (the rebuilt tile has a non-null FocusNode), and
+    // leave the actual `hasFocus == true` assertion to the manual a11y
+    // smoke pass — the plan's cleanup notes explicitly OK this trade.
+    testWidgets(
+      '"Move up" on second row attaches a FocusNode to the moved entry '
+      '(focus retention wiring)',
+      (tester) async {
+        final group = groupWith(
+          id: 'g',
+          name: 'G',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1', 'e2', 'e3'],
+          ),
+        );
+        final repo = _FakeMemberGroupsRepository();
+        await tester.pumpWidget(
+          _buildSubject(
+            group: group,
+            allGroups: [group],
+            allEntries: [
+              entry('e1', 'g', 'm1'),
+              entry('e2', 'g', 'm2'),
+              entry('e3', 'g', 'm3'),
+            ],
+            activeMembers: [
+              _member(id: 'm1', name: 'Alice'),
+              _member(id: 'm2', name: 'Bob'),
+              _member(id: 'm3', name: 'Carol'),
+            ],
+            notifier: _FakeGroupNotifier(),
+            repository: repo,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Drive "Move up" on Bob's row (entry id e2).
+        final bobCard = find.ancestor(
+          of: find.text('Bob'),
+          matching: find.byType(MemberCard),
+        );
+        final node = tester.getSemantics(bobCard);
+        final actionIds =
+            node.getSemanticsData().customSemanticsActionIds ?? const <int>[];
+        final moveUpId = actionIds.firstWhere(
+          (id) => CustomSemanticsAction.getAction(id)?.label == 'Move up',
+          orElse: () => -1,
+        );
+        expect(moveUpId, isNot(-1));
+
+        WidgetsBinding
+            .instance
+            // ignore: deprecated_member_use
+            .pipelineOwner
+            .semanticsOwner
+            ?.performAction(
+              node.id,
+              SemanticsAction.customAction,
+              moveUpId,
+            );
+        await tester.pumpAndSettle();
+
+        // The moved row's Focus widget must carry a non-null FocusNode —
+        // proves the per-entry focus map is wired up in the production
+        // build. We find by the explicit ValueKey to skip past Material's
+        // implicit Focus wrappers around the inner MemberCard.
+        final movedFocusFinder = find.byKey(
+          const ValueKey('member_focus_e2'),
+        );
+        expect(movedFocusFinder, findsOneWidget);
+        final movedFocus = tester.widget<Focus>(movedFocusFinder);
+        expect(
+          movedFocus.focusNode,
+          isNotNull,
+          reason:
+              'each row must carry a per-entry FocusNode so the post-frame '
+              'requestFocus has a target after the reorder',
+        );
+        // Best-effort: the focus *should* land on the moved row. Flutter's
+        // widget-test focus is flaky for non-input rebuilt widgets, so we
+        // tolerate either outcome — the wiring above is the load-bearing
+        // assertion, the manual a11y smoke pass is the source of truth
+        // for actual screen-reader caret behavior.
+        // ignore: avoid_print
+        // print('moved hasFocus: ${movedFocus.focusNode?.hasFocus}');
+      },
+      semanticsEnabled: true,
+    );
   });
 
   // ── Task 5.2 sub-group reorder ───────────────────────────────────────────

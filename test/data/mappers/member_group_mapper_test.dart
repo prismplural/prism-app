@@ -351,5 +351,78 @@ void main() {
       expect(restored.sortState, GroupSortState.manualEmpty);
       expect(warningsEmittedSinceBaseline(), 1);
     });
+
+    // P1.1 — strict mode type. Wrong-type mode (string, null, double, bool)
+    // must be rejected as garbage; only unknown *ints* are forward-compat.
+    test('decode of string-type mode falls back + warn', () {
+      final restored =
+          decodeWithSortState('{"mode": "nameAsc", "order": []}');
+      expect(restored.sortState, GroupSortState.manualEmpty);
+      expect(warningsEmittedSinceBaseline(), 1);
+    });
+
+    test('decode of null-type mode falls back + warn', () {
+      final restored = decodeWithSortState('{"mode": null, "order": []}');
+      expect(restored.sortState, GroupSortState.manualEmpty);
+      expect(warningsEmittedSinceBaseline(), 1);
+    });
+
+    test('decode of double-type mode falls back + warn', () {
+      final restored = decodeWithSortState('{"mode": 1.5, "order": []}');
+      expect(restored.sortState, GroupSortState.manualEmpty);
+      expect(warningsEmittedSinceBaseline(), 1);
+    });
+
+    test('decode of bool-type mode falls back + warn', () {
+      final restored = decodeWithSortState('{"mode": true, "order": []}');
+      expect(restored.sortState, GroupSortState.manualEmpty);
+      expect(warningsEmittedSinceBaseline(), 1);
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // sanitizeSortStateForEmission
+  // ══════════════════════════════════════════════════════════════════════════
+
+  group('sanitizeSortStateForEmission', () {
+    late int baselineErrorCount;
+    setUp(() {
+      baselineErrorCount =
+          ErrorReportingService.instance.errors.length;
+    });
+
+    int warningsEmittedSinceBaseline() {
+      final entries = ErrorReportingService.instance.errors;
+      var count = 0;
+      for (var i = baselineErrorCount; i < entries.length; i++) {
+        if (entries[i].severity == ErrorSeverity.warning) count++;
+      }
+      return count;
+    }
+
+    test('valid input returns string byte-for-byte unchanged, no warn', () {
+      const input = '{"mode":0,"order":["a","b"]}';
+      final out = sanitizeSortStateForEmission(input, contextId: 'g1');
+      expect(out, input);
+      expect(warningsEmittedSinceBaseline(), 0);
+    });
+
+    test('invalid JSON returns manualEmpty encoding + warn', () {
+      final out = sanitizeSortStateForEmission(
+        'not-json-garbage',
+        contextId: 'g1',
+      );
+      expect(out, '{"mode":0,"order":[]}');
+      expect(warningsEmittedSinceBaseline(), 1);
+    });
+
+    test('wrong-type mode returns manualEmpty encoding + warn', () {
+      final out = sanitizeSortStateForEmission(
+        '{"mode":"nameAsc","order":[]}',
+        contextId: 'g1',
+      );
+      expect(out, '{"mode":0,"order":[]}');
+      expect(warningsEmittedSinceBaseline(), 1);
+    });
   });
 }

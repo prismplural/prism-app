@@ -430,9 +430,11 @@ void main() {
         'pluralkit_id',
         'pluralkit_uuid',
         'last_seen_from_pk_at',
+        'sort_state',
         'is_deleted',
       });
       expect(groupFields['name'], 'Core');
+      expect(groupFields['sort_state'], '{"mode":0,"order":[]}');
       expect(groupFields['description'], 'A group');
       expect(groupFields['color_hex'], '#ff00aa');
       expect(groupFields['pluralkit_id'], 'abcde');
@@ -840,6 +842,7 @@ void main() {
       'pluralkit_id',
       'pluralkit_uuid',
       'last_seen_from_pk_at',
+      'sort_state',
       'is_deleted',
     });
     expect(groupFields['name'], 'Original');
@@ -847,6 +850,7 @@ void main() {
     expect(groupFields['color_hex'], isNull);
     expect(groupFields['pluralkit_id'], 'abcde');
     expect(groupFields['pluralkit_uuid'], 'pk-g-1');
+    expect(groupFields['sort_state'], '{"mode":0,"order":[]}');
 
     expect(
       deletes.map((call) => '${call['table']}:${call['entityId']}').toList(),

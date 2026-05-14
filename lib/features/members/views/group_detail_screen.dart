@@ -97,8 +97,35 @@ class _GroupDetailBody extends ConsumerStatefulWidget {
 class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
   final GlobalKey<BlurPopupAnchorState> _optionsPopupKey = GlobalKey();
 
+  /// FocusNodes per entry id for best-effort focus retention across a11y
+  /// reorder. Lazily allocated by [_focusNodeFor] and disposed in [dispose].
+  /// When a custom semantic action moves a row, we schedule a post-frame
+  /// `requestFocus` on the moved entry's node so the screen reader's
+  /// caret tracks the moved item. The polite `_announce` call remains the
+  /// reliable signal — focus retention is BEST EFFORT (Flutter's focus
+  /// system isn't a guaranteed contract for non-input widgets).
+  final Map<String, FocusNode> _entryFocusNodes = {};
+  String? _pendingFocusEntryId;
+
   MemberGroup get group => widget.group;
   bool get settingsBranch => widget.settingsBranch;
+
+  FocusNode _focusNodeFor(String entryId) {
+    return _entryFocusNodes.putIfAbsent(
+      entryId,
+      () =>
+          FocusNode(debugLabel: 'group_member_$entryId', skipTraversal: false),
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final node in _entryFocusNodes.values) {
+      node.dispose();
+    }
+    _entryFocusNodes.clear();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -121,6 +148,13 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     // dedupe of stale ids in sortState.manualOrder. See plan §"Read path
     // invariants".
     final visiblePairs = ref.watch(sortedGroupMembersProvider(group.id));
+    final liveEntryIds = visiblePairs.map((pair) => pair.$1.id).toSet();
+    final staleEntryIds = _entryFocusNodes.keys
+        .where((id) => !liveEntryIds.contains(id))
+        .toList();
+    for (final id in staleEntryIds) {
+      _entryFocusNodes.remove(id)?.dispose();
+    }
     final visibleMembers = [for (final pair in visiblePairs) pair.$2];
 
     return PrismPageScaffold(
@@ -307,6 +341,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
                       reorderIndex: index,
                       totalCount: visiblePairs.length,
                       sortMode: group.sortState.mode,
+                      focusNode: _focusNodeFor(entry.id),
                       onMoveTo: (newIndex) =>
                           _moveTo(visiblePairs, index, newIndex),
                     );
@@ -347,13 +382,29 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     final reordered = [...pairs];
     final item = reordered.removeAt(oldIndex);
     reordered.insert(newIndex, item);
+    final movedEntryId = item.$1.id;
     final newOrder = [for (final p in reordered) p.$1.id];
     await _applyManualOrder(newOrder, wasManual: group.sortState.isManual);
     if (!mounted) return;
     final l10n = context.l10n;
-    _announce(
-      l10n.groupSortActionMoved(newIndex + 1, reordered.length),
-    );
+    _announce(l10n.groupSortActionMoved(newIndex + 1, reordered.length));
+    // Best-effort focus retention: after the list rebuilds with the new
+    // order, request focus on the moved row's node so a screen-reader
+    // keeps its caret tracking the moved item. The polite announcement
+    // above is the reliable signal; focus is a soft contract because
+    // Flutter's focus system doesn't guarantee delivery to non-input
+    // widgets and the tile is rebuilt on rebuild. Mark the id as pending
+    // so the next paint's post-frame callback fires the request on
+    // whichever FocusNode actually exists after the rebuild.
+    _pendingFocusEntryId = movedEntryId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final pending = _pendingFocusEntryId;
+      if (pending == null) return;
+      _pendingFocusEntryId = null;
+      final node = _entryFocusNodes[pending];
+      node?.requestFocus();
+    });
   }
 
   Future<void> _applyManualOrder(
@@ -507,9 +558,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
               : null,
           onTap: () {
             close();
-            ref
-                .read(showInactiveMembersProvider.notifier)
-                .set(!showInactive);
+            ref.read(showInactiveMembersProvider.notifier).set(!showInactive);
           },
         );
       },
@@ -562,8 +611,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
         ),
         (_, _) => const Divider(height: 1),
         // ── "Apply current order" — one-shot snapshots ────────────────────
-        (ctx, _) =>
-            _sectionHeader(ctx, ctx.l10n.groupSortSectionApplyCurrent),
+        (ctx, _) => _sectionHeader(ctx, ctx.l10n.groupSortSectionApplyCurrent),
         (ctx, close) => sortItemRow(
           ctx: ctx,
           icon: AppIcons.flashOn,
@@ -1161,12 +1209,7 @@ class _SubGroupsSection extends ConsumerWidget {
       ),
       itemBuilder: (context, index) {
         final group = children[index];
-        return _buildChildRow(
-          context,
-          ref,
-          group,
-          reorderIndex: index,
-        );
+        return _buildChildRow(context, ref, group, reorderIndex: index);
       },
     );
   }
@@ -1204,6 +1247,7 @@ class _GroupMemberTile extends ConsumerWidget {
     required this.reorderIndex,
     required this.totalCount,
     required this.sortMode,
+    required this.focusNode,
     required this.onMoveTo,
   });
 
@@ -1214,6 +1258,12 @@ class _GroupMemberTile extends ConsumerWidget {
   final int reorderIndex;
   final int totalCount;
   final GroupSortMode sortMode;
+
+  /// Per-entry focus node owned by the parent state. After a custom-action
+  /// reorder, the parent requests focus on this node so screen-reader
+  /// caret tracking follows the moved row. Best-effort — see
+  /// `_GroupDetailBodyState._moveTo` for the rationale.
+  final FocusNode focusNode;
   final Future<void> Function(int newIndex) onMoveTo;
 
   @override
@@ -1222,44 +1272,50 @@ class _GroupMemberTile extends ConsumerWidget {
     final l10n = context.l10n;
     final isManual = sortMode == GroupSortMode.manual;
 
-    return Semantics(
-      customSemanticsActions: <CustomSemanticsAction, VoidCallback>{
-        if (reorderIndex > 0)
-          CustomSemanticsAction(label: l10n.groupSortActionMoveUp):
-              () => unawaited(onMoveTo(reorderIndex - 1)),
-        if (reorderIndex < totalCount - 1)
-          CustomSemanticsAction(label: l10n.groupSortActionMoveDown):
-              () => unawaited(onMoveTo(reorderIndex + 1)),
-        if (reorderIndex > 0)
-          CustomSemanticsAction(label: l10n.groupSortActionMoveToTop):
-              () => unawaited(onMoveTo(0)),
-        if (reorderIndex < totalCount - 1)
-          CustomSemanticsAction(label: l10n.groupSortActionMoveToBottom):
-              () => unawaited(onMoveTo(totalCount - 1)),
-      },
-      child: Dismissible(
-        key: ValueKey('member_dismiss_${entry.id}'),
-        direction: DismissDirection.endToStart,
-        background: Container(
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 24),
-          color: theme.colorScheme.error,
-          child: Icon(
-            AppIcons.removeCircleOutline,
-            color: theme.colorScheme.onError,
+    return Focus(
+      key: ValueKey('member_focus_${entry.id}'),
+      focusNode: focusNode,
+      child: Semantics(
+        customSemanticsActions: <CustomSemanticsAction, VoidCallback>{
+          if (reorderIndex > 0)
+            CustomSemanticsAction(label: l10n.groupSortActionMoveUp): () =>
+                unawaited(onMoveTo(reorderIndex - 1)),
+          if (reorderIndex < totalCount - 1)
+            CustomSemanticsAction(label: l10n.groupSortActionMoveDown): () =>
+                unawaited(onMoveTo(reorderIndex + 1)),
+          if (reorderIndex > 0)
+            CustomSemanticsAction(label: l10n.groupSortActionMoveToTop): () =>
+                unawaited(onMoveTo(0)),
+          if (reorderIndex < totalCount - 1)
+            CustomSemanticsAction(
+              label: l10n.groupSortActionMoveToBottom,
+            ): () =>
+                unawaited(onMoveTo(totalCount - 1)),
+        },
+        child: Dismissible(
+          key: ValueKey('member_dismiss_${entry.id}'),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 24),
+            color: theme.colorScheme.error,
+            child: Icon(
+              AppIcons.removeCircleOutline,
+              color: theme.colorScheme.onError,
+            ),
           ),
-        ),
-        confirmDismiss: (_) => _confirmRemove(context, ref, member),
-        child: MemberCard(
-          member: member,
-          reorderIndex: reorderIndex,
-          dragHandleHint: isManual
-              ? l10n.groupMemberDragHandleHintManual
-              : l10n.groupMemberDragHandleHintSorted,
-          onTap: () => context.push(
-            settingsBranch
-                ? AppRoutePaths.settingsMember(member.id)
-                : AppRoutePaths.member(member.id),
+          confirmDismiss: (_) => _confirmRemove(context, ref, member),
+          child: MemberCard(
+            member: member,
+            reorderIndex: reorderIndex,
+            dragHandleHint: isManual
+                ? l10n.groupMemberDragHandleHintManual
+                : l10n.groupMemberDragHandleHintSorted,
+            onTap: () => context.push(
+              settingsBranch
+                  ? AppRoutePaths.settingsMember(member.id)
+                  : AppRoutePaths.member(member.id),
+            ),
           ),
         ),
       ),
@@ -1346,9 +1402,7 @@ class AncestorBreadcrumb extends StatelessWidget {
     Widget buildAncestorChip(MemberGroup ancestor) {
       final parts = <Widget>[];
       if (ancestor.emoji != null && ancestor.emoji!.isNotEmpty) {
-        parts.add(
-          Text(ancestor.emoji!, style: const TextStyle(fontSize: 12)),
-        );
+        parts.add(Text(ancestor.emoji!, style: const TextStyle(fontSize: 12)));
         parts.add(const SizedBox(width: 4));
       }
       parts.add(
@@ -1363,13 +1417,13 @@ class AncestorBreadcrumb extends StatelessWidget {
     }
 
     Widget buildSeparator() => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(width: 6),
-            Icon(AppIcons.chevronRight, size: 12, color: separatorColor),
-            const SizedBox(width: 6),
-          ],
-        );
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(width: 6),
+        Icon(AppIcons.chevronRight, size: 12, color: separatorColor),
+        const SizedBox(width: 6),
+      ],
+    );
 
     final children = <Widget>[];
     for (var i = 0; i < visible.length; i++) {
