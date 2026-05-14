@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/domain/models/group_sort_mode.dart';
+import 'package:prism_plurality/domain/models/group_sort_state.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
@@ -526,6 +528,437 @@ void main() {
       expect(c.read(transitiveGroupMemberIdsProvider('grandchild')), {
         'm-grandchild',
       });
+    });
+  });
+
+  // ── sortedGroupMembersProvider ─────────────────────────────────────────────
+
+  group('sortedGroupMembersProvider', () {
+    MemberGroup groupWith({
+      required String id,
+      GroupSortState? sortState,
+    }) => MemberGroup(
+      id: id,
+      name: id,
+      createdAt: DateTime.utc(2024, 1, 1),
+      sortState: sortState ?? GroupSortState.manualEmpty,
+    );
+
+    Member memberWith({
+      required String id,
+      String? name,
+      bool isActive = true,
+      DateTime? createdAt,
+    }) => Member(
+      id: id,
+      name: name ?? id,
+      createdAt: createdAt ?? DateTime.utc(2024, 1, 1),
+      isActive: isActive,
+    );
+
+    MemberGroupEntry entryWith({
+      required String id,
+      required String groupId,
+      required String memberId,
+    }) => MemberGroupEntry(id: id, groupId: groupId, memberId: memberId);
+
+    ProviderContainer container({
+      required MemberGroup group,
+      required List<MemberGroupEntry> entries,
+      required List<Member> members,
+      bool showInactive = false,
+    }) {
+      final c = ProviderContainer(
+        overrides: [
+          groupByIdProvider(group.id).overrideWith(
+            (ref) => Stream<MemberGroup?>.value(group),
+          ),
+          groupEntriesProvider(
+            group.id,
+          ).overrideWith((ref) => Stream<List<MemberGroupEntry>>.value(entries)),
+          allMembersProvider.overrideWith(
+            (ref) => Stream<List<Member>>.value(members),
+          ),
+        ],
+      );
+      if (showInactive) {
+        c.read(showInactiveMembersProvider.notifier).set(true);
+      }
+      addTearDown(c.dispose);
+      return c;
+    }
+
+    // Pump pending stream subscriptions to deliver their first value before
+    // we read sortedGroupMembersProvider. StreamProviders start in
+    // AsyncLoading until the underlying stream emits, and `Stream.value(x)`
+    // emits on the next microtask. The .future getter waits for the first
+    // value, so awaiting all three lifts the container into the data state.
+    Future<void> pumpStreams(ProviderContainer c, String groupId) async {
+      // Keep listeners alive so autoDispose families don't tear down between
+      // the .future awaits and the .read of sortedGroupMembersProvider.
+      final subs = [
+        c.listen(groupByIdProvider(groupId), (_, _) {}),
+        c.listen(groupEntriesProvider(groupId), (_, _) {}),
+        c.listen(allMembersProvider, (_, _) {}),
+      ];
+      addTearDown(() {
+        for (final s in subs) {
+          s.close();
+        }
+      });
+      await c.read(groupByIdProvider(groupId).future);
+      await c.read(groupEntriesProvider(groupId).future);
+      await c.read(allMembersProvider.future);
+    }
+
+    test('each of the 4 sort modes produces the expected order on a clean 3-member group', () async {
+      final m1 = memberWith(
+        id: 'm1',
+        name: 'Charlie',
+        createdAt: DateTime.utc(2024, 3, 1),
+      );
+      final m2 = memberWith(
+        id: 'm2',
+        name: 'Alex',
+        createdAt: DateTime.utc(2024, 1, 1),
+      );
+      final m3 = memberWith(
+        id: 'm3',
+        name: 'Bea',
+        createdAt: DateTime.utc(2024, 2, 1),
+      );
+      final entries = [
+        entryWith(id: 'e1', groupId: 'g', memberId: 'm1'),
+        entryWith(id: 'e2', groupId: 'g', memberId: 'm2'),
+        entryWith(id: 'e3', groupId: 'g', memberId: 'm3'),
+      ];
+
+      // manual: order follows manualOrder = e2, e3, e1
+      final cManual = container(
+        group: groupWith(
+          id: 'g',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e2', 'e3', 'e1'],
+          ),
+        ),
+        entries: entries,
+        members: [m1, m2, m3],
+      );
+      await pumpStreams(cManual, 'g');
+      expect(
+        cManual.read(sortedGroupMembersProvider('g')).map((p) => p.$1.id),
+        ['e2', 'e3', 'e1'],
+      );
+
+      // nameAsc: Alex, Bea, Charlie
+      final cAsc = container(
+        group: groupWith(
+          id: 'g',
+          sortState: GroupSortState.locked(GroupSortMode.nameAsc),
+        ),
+        entries: entries,
+        members: [m1, m2, m3],
+      );
+      await pumpStreams(cAsc, 'g');
+      expect(
+        cAsc.read(sortedGroupMembersProvider('g')).map((p) => p.$2.name),
+        ['Alex', 'Bea', 'Charlie'],
+      );
+
+      // nameDesc: Charlie, Bea, Alex
+      final cDesc = container(
+        group: groupWith(
+          id: 'g',
+          sortState: GroupSortState.locked(GroupSortMode.nameDesc),
+        ),
+        entries: entries,
+        members: [m1, m2, m3],
+      );
+      await pumpStreams(cDesc, 'g');
+      expect(
+        cDesc.read(sortedGroupMembersProvider('g')).map((p) => p.$2.name),
+        ['Charlie', 'Bea', 'Alex'],
+      );
+
+      // recentDesc: m1 (Mar) → m3 (Feb) → m2 (Jan)
+      final cRecent = container(
+        group: groupWith(
+          id: 'g',
+          sortState: GroupSortState.locked(GroupSortMode.recentDesc),
+        ),
+        entries: entries,
+        members: [m1, m2, m3],
+      );
+      await pumpStreams(cRecent, 'g');
+      expect(
+        cRecent.read(sortedGroupMembersProvider('g')).map((p) => p.$2.id),
+        ['m1', 'm3', 'm2'],
+      );
+    });
+
+    test('showInactive=false filters inactive in every mode', () async {
+      final mActive = memberWith(id: 'a', name: 'Alex');
+      final mInactive = memberWith(id: 'b', name: 'Bea', isActive: false);
+      final entries = [
+        entryWith(id: 'ea', groupId: 'g', memberId: 'a'),
+        entryWith(id: 'eb', groupId: 'g', memberId: 'b'),
+      ];
+
+      for (final mode in GroupSortMode.values) {
+        final state = mode == GroupSortMode.manual
+            ? const GroupSortState(
+                mode: GroupSortMode.manual,
+                manualOrder: ['ea', 'eb'],
+              )
+            : GroupSortState.locked(mode);
+        final c = container(
+          group: groupWith(id: 'g', sortState: state),
+          entries: entries,
+          members: [mActive, mInactive],
+        );
+        await pumpStreams(c, 'g');
+        final ids =
+            c.read(sortedGroupMembersProvider('g')).map((p) => p.$2.id);
+        expect(ids, ['a'], reason: 'mode $mode must filter inactive');
+      }
+    });
+
+    test('unknown member id in an entry is dropped, no crash', () async {
+      final m1 = memberWith(id: 'm1');
+      // e2 references missing member id 'ghost' — should be dropped.
+      final c = container(
+        group: groupWith(
+          id: 'g',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1', 'e2'],
+          ),
+        ),
+        entries: [
+          entryWith(id: 'e1', groupId: 'g', memberId: 'm1'),
+          entryWith(id: 'e2', groupId: 'g', memberId: 'ghost'),
+        ],
+        members: [m1],
+      );
+      await pumpStreams(c, 'g');
+      final ids =
+          c.read(sortedGroupMembersProvider('g')).map((p) => p.$1.id).toList();
+      expect(ids, ['e1']);
+    });
+
+    test('manual mode: entry id NOT in manualOrder appends at end by id ascending',
+        () async {
+      // manualOrder lists only e2. e1 and e3 are live but unindexed —
+      // appended at end, sorted by entry id ascending. (Invariant §1.)
+      final members = [
+        memberWith(id: 'm1'),
+        memberWith(id: 'm2'),
+        memberWith(id: 'm3'),
+      ];
+      final c = container(
+        group: groupWith(
+          id: 'g',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e2'],
+          ),
+        ),
+        entries: [
+          entryWith(id: 'e3', groupId: 'g', memberId: 'm3'),
+          entryWith(id: 'e2', groupId: 'g', memberId: 'm2'),
+          entryWith(id: 'e1', groupId: 'g', memberId: 'm1'),
+        ],
+        members: members,
+      );
+      await pumpStreams(c, 'g');
+      expect(
+        c.read(sortedGroupMembersProvider('g')).map((p) => p.$1.id),
+        ['e2', 'e1', 'e3'],
+      );
+    });
+
+    test('manual mode: id in manualOrder with no live entry is filtered (invariant §2)',
+        () async {
+      final c = container(
+        group: groupWith(
+          id: 'g',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1', 'ghost', 'e2'],
+          ),
+        ),
+        entries: [
+          entryWith(id: 'e1', groupId: 'g', memberId: 'm1'),
+          entryWith(id: 'e2', groupId: 'g', memberId: 'm2'),
+        ],
+        members: [memberWith(id: 'm1'), memberWith(id: 'm2')],
+      );
+      await pumpStreams(c, 'g');
+      expect(
+        c.read(sortedGroupMembersProvider('g')).map((p) => p.$1.id),
+        ['e1', 'e2'],
+      );
+    });
+
+    test('manual mode: duplicate id in manualOrder — second occurrence ignored (invariant §3)',
+        () async {
+      // First occurrence of e1 wins its position; second occurrence is a
+      // no-op in the position map. e2 follows at its own position.
+      final c = container(
+        group: groupWith(
+          id: 'g',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1', 'e2', 'e1'],
+          ),
+        ),
+        entries: [
+          entryWith(id: 'e1', groupId: 'g', memberId: 'm1'),
+          entryWith(id: 'e2', groupId: 'g', memberId: 'm2'),
+        ],
+        members: [memberWith(id: 'm1'), memberWith(id: 'm2')],
+      );
+      await pumpStreams(c, 'g');
+      expect(
+        c.read(sortedGroupMembersProvider('g')).map((p) => p.$1.id),
+        ['e1', 'e2'],
+      );
+    });
+
+    test('nameAsc with duplicate names: deterministic by id ascending',
+        () async {
+      final c = container(
+        group: groupWith(
+          id: 'g',
+          sortState: GroupSortState.locked(GroupSortMode.nameAsc),
+        ),
+        entries: [
+          entryWith(id: 'eA', groupId: 'g', memberId: 'b-alex'),
+          entryWith(id: 'eB', groupId: 'g', memberId: 'a-alex'),
+        ],
+        members: [
+          memberWith(id: 'b-alex', name: 'Alex'),
+          memberWith(id: 'a-alex', name: 'Alex'),
+        ],
+      );
+      await pumpStreams(c, 'g');
+      expect(
+        c.read(sortedGroupMembersProvider('g')).map((p) => p.$2.id),
+        ['a-alex', 'b-alex'],
+      );
+    });
+
+    test(
+        'corrupt sortState surfaces as manualEmpty at the model layer; list orders by entry id ascending, no crash',
+        () async {
+      // Provider receives the domain model directly. The mapper's
+      // fallback for a corrupt column produces GroupSortState.manualEmpty,
+      // so we construct that runtime state here. Behavior: manual mode +
+      // empty manualOrder → all entries land in the "unindexed" bucket,
+      // sorted by entry id ascending.
+      final c = container(
+        group: groupWith(
+          id: 'g',
+          sortState: GroupSortState.manualEmpty,
+        ),
+        entries: [
+          entryWith(id: 'e3', groupId: 'g', memberId: 'm3'),
+          entryWith(id: 'e1', groupId: 'g', memberId: 'm1'),
+          entryWith(id: 'e2', groupId: 'g', memberId: 'm2'),
+        ],
+        members: [
+          memberWith(id: 'm1'),
+          memberWith(id: 'm2'),
+          memberWith(id: 'm3'),
+        ],
+      );
+      await pumpStreams(c, 'g');
+      expect(
+        c.read(sortedGroupMembersProvider('g')).map((p) => p.$1.id),
+        ['e1', 'e2', 'e3'],
+      );
+    });
+
+    test(
+        'large-group algorithmic correctness: 1000 entries in manual mode returned in manualOrder positions',
+        () async {
+      // Deterministic ids zero-padded so sort and equality checks line up.
+      String pad(int i) => i.toString().padLeft(4, '0');
+      final entries = [
+        for (var i = 0; i < 1000; i++)
+          entryWith(id: 'e${pad(i)}', groupId: 'g', memberId: 'm${pad(i)}'),
+      ];
+      final members = [for (var i = 0; i < 1000; i++) memberWith(id: 'm${pad(i)}')];
+      // Reverse order for manualOrder so we exercise a non-identity
+      // permutation, not just "the input is already sorted."
+      final manualOrder = [
+        for (var i = 999; i >= 0; i--) 'e${pad(i)}',
+      ];
+
+      final c = container(
+        group: groupWith(
+          id: 'g',
+          sortState: GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: manualOrder,
+          ),
+        ),
+        entries: entries,
+        members: members,
+      );
+      await pumpStreams(c, 'g');
+
+      final result = c.read(sortedGroupMembersProvider('g'));
+      // Assert via Set equality on length and id-set membership; the
+      // ordered list must match manualOrder exactly. (No wall-clock checks.)
+      expect(result, hasLength(1000));
+      final resultIds = result.map((p) => p.$1.id).toList();
+      expect(resultIds.toSet(), entries.map((e) => e.id).toSet());
+      expect(resultIds, manualOrder);
+    });
+
+    test(
+        'manualOrder longer than live entries: only live entries returned in their manualOrder positions',
+        () async {
+      // manualOrder has 10 ids but only 3 live entries. The 3 live entries
+      // should be returned in their manualOrder positions among themselves.
+      final c = container(
+        group: groupWith(
+          id: 'g',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: [
+              'g0',
+              'g1',
+              'eC',
+              'g3',
+              'g4',
+              'eA',
+              'g6',
+              'g7',
+              'eB',
+              'g9',
+            ],
+          ),
+        ),
+        entries: [
+          entryWith(id: 'eA', groupId: 'g', memberId: 'mA'),
+          entryWith(id: 'eB', groupId: 'g', memberId: 'mB'),
+          entryWith(id: 'eC', groupId: 'g', memberId: 'mC'),
+        ],
+        members: [
+          memberWith(id: 'mA'),
+          memberWith(id: 'mB'),
+          memberWith(id: 'mC'),
+        ],
+      );
+      await pumpStreams(c, 'g');
+      expect(
+        c.read(sortedGroupMembersProvider('g')).map((p) => p.$1.id),
+        // manualOrder positions: eC=2, eA=5, eB=8 → eC, eA, eB
+        ['eC', 'eA', 'eB'],
+      );
     });
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
@@ -153,19 +154,116 @@ final collapsedGroupsProvider =
       CollapsedGroupsNotifier.new,
     );
 
-/// When true, the grouped member list includes inactive members.
-/// Kept in sync with the show-inactive toggle in MembersScreen.
-class ShowInactiveInGroupedListNotifier extends Notifier<bool> {
+/// When true, member-management surfaces include inactive members.
+///
+/// Shared by the members tab show-inactive toggle, the grouped member list,
+/// and the group detail screen so toggling once applies everywhere.
+class ShowInactiveMembersNotifier extends Notifier<bool> {
   @override
   bool build() => false;
 
   void set(bool value) => state = value;
 }
 
-final showInactiveInGroupedListProvider =
-    NotifierProvider<ShowInactiveInGroupedListNotifier, bool>(
-      ShowInactiveInGroupedListNotifier.new,
+final showInactiveMembersProvider =
+    NotifierProvider<ShowInactiveMembersNotifier, bool>(
+      ShowInactiveMembersNotifier.new,
     );
+
+// ── Sorted group members ──────────────────────────────────────────────────────
+
+/// Ordered, filtered list of (entry, member) pairs for a single group's
+/// detail view.
+///
+/// Order is computed from `group.sortState`:
+///   - [GroupSortMode.manual]   : `sortState.manualOrder` positions, with
+///                                live-but-unindexed entries appended at end
+///                                by entry id ascending (deterministic).
+///   - [GroupSortMode.nameAsc]  : member name lowercased ascending, with id
+///                                tiebreaker.
+///   - [GroupSortMode.nameDesc] : member name lowercased descending, with id
+///                                tiebreaker.
+///   - [GroupSortMode.recentDesc]: member createdAt descending, with id
+///                                 tiebreaker.
+///
+/// Filters: entries whose member is missing (unknown id) are dropped; when
+/// [showInactiveMembersProvider] is false, inactive members are also
+/// dropped. Soft-deleted entries are already excluded by the stream.
+///
+/// Implements the read-path invariants from
+/// `docs/plans/2026-05-14-group-member-ordering.md` §"Read path invariants":
+///   1. Live entry not in manualOrder → appended at end (unindexed bucket).
+///   2. Id in manualOrder with no live entry → filtered (we iterate live
+///      entries only, not manualOrder).
+///   3. Duplicate id in manualOrder → first occurrence wins in the position
+///      map; later occurrences are no-ops.
+final sortedGroupMembersProvider =
+    Provider.family<List<(MemberGroupEntry, Member)>, String>((ref, groupId) {
+  final group = ref.watch(groupByIdProvider(groupId)).value;
+  if (group == null) return const [];
+
+  final entries = ref.watch(groupEntriesProvider(groupId)).value ?? const [];
+  final members = ref.watch(allMembersProvider).value ?? const [];
+  final showInactive = ref.watch(showInactiveMembersProvider);
+
+  final membersById = {for (final m in members) m.id: m};
+
+  // Pair live entries with their member. Filter: missing member or
+  // (when !showInactive) inactive member → dropped, no crash.
+  final pairs = <(MemberGroupEntry, Member)>[];
+  for (final entry in entries) {
+    final member = membersById[entry.memberId];
+    if (member == null) continue;
+    if (!showInactive && !member.isActive) continue;
+    pairs.add((entry, member));
+  }
+
+  final sortState = group.sortState;
+  switch (sortState.mode) {
+    case GroupSortMode.manual:
+      // Position map: first occurrence wins (invariant §3 dedupe).
+      final position = <String, int>{};
+      for (var i = 0; i < sortState.manualOrder.length; i++) {
+        position.putIfAbsent(sortState.manualOrder[i], () => i);
+      }
+      final indexed = <(MemberGroupEntry, Member)>[];
+      final unindexed = <(MemberGroupEntry, Member)>[];
+      for (final pair in pairs) {
+        if (position.containsKey(pair.$1.id)) {
+          indexed.add(pair);
+        } else {
+          unindexed.add(pair);
+        }
+      }
+      indexed.sort((a, b) => position[a.$1.id]!.compareTo(position[b.$1.id]!));
+      unindexed.sort((a, b) => a.$1.id.compareTo(b.$1.id));
+      return [...indexed, ...unindexed];
+
+    case GroupSortMode.nameAsc:
+      pairs.sort((a, b) {
+        final cmp = a.$2.name.toLowerCase().compareTo(b.$2.name.toLowerCase());
+        if (cmp != 0) return cmp;
+        return a.$2.id.compareTo(b.$2.id);
+      });
+      return pairs;
+
+    case GroupSortMode.nameDesc:
+      pairs.sort((a, b) {
+        final cmp = b.$2.name.toLowerCase().compareTo(a.$2.name.toLowerCase());
+        if (cmp != 0) return cmp;
+        return a.$2.id.compareTo(b.$2.id);
+      });
+      return pairs;
+
+    case GroupSortMode.recentDesc:
+      pairs.sort((a, b) {
+        final cmp = b.$2.createdAt.compareTo(a.$2.createdAt);
+        if (cmp != 0) return cmp;
+        return a.$2.id.compareTo(b.$2.id);
+      });
+      return pairs;
+  }
+});
 
 // ── Grouped member list ───────────────────────────────────────────────────────
 
@@ -210,7 +308,7 @@ final _groupedMemberListStructureProvider = Provider<List<GroupedMemberListItem>
   final allEntries = ref.watch(allGroupEntriesProvider).value ?? [];
   // Member-management surface: hide the Unknown sentinel from the grouped list.
   final allMembers = ref.watch(userVisibleAllMembersProvider).value ?? [];
-  final showInactive = ref.watch(showInactiveInGroupedListProvider);
+  final showInactive = ref.watch(showInactiveMembersProvider);
 
   final memberById = {for (final m in allMembers) m.id: m};
 
