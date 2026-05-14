@@ -124,14 +124,20 @@ class RunnerTests: XCTestCase {
     )
   }
 
-  // MARK: - SecureDisplayOverlay
+  // MARK: - PrivacyOverlay
 
-  /// The empty-secure-text-field variant (no layer swap) leaves window.layer
-  /// untouched, which is why the old implementation silently did nothing
-  /// when toggled. This test pins the fix: enabling MUST move window.layer
-  /// into the field's secure sublayer, and disabling MUST put it back.
+  private func privacyOverlayView(in window: UIWindow) -> UIView? {
+    return window.subviews.first { subview in
+      subview.backgroundColor == .black
+        && subview.isUserInteractionEnabled == true
+        && subview.accessibilityElementsHidden == true
+    }
+  }
+
+  // willResignActive must install before iOS snapshots — applicationState
+  // is still .active then, so reconcile alone would skip the install.
   @MainActor
-  func testSecureDisplayOverlayRelocatesWindowLayer() throws {
+  func testPrivacyOverlayInstallsOnWillResignActive() throws {
     let scene = UIApplication.shared.connectedScenes
       .compactMap({ $0 as? UIWindowScene })
       .first
@@ -144,38 +150,28 @@ class RunnerTests: XCTestCase {
     window.makeKeyAndVisible()
     defer { window.isHidden = true }
 
-    let originalParent = window.layer.superlayer
-    XCTAssertNotNil(originalParent, "Visible window should have a superlayer")
-
-    let overlay = SecureDisplayOverlay()
+    let overlay = PrivacyOverlay()
     overlay.setEnabled(true, in: window)
-
-    XCTAssertTrue(overlay.isInstalled, "Overlay should be installed")
-    let secureSuperlayer = window.layer.superlayer
-    XCTAssertNotNil(secureSuperlayer)
-    XCTAssertNotEqual(
-      secureSuperlayer,
-      originalParent,
-      "window.layer must be re-parented into the secure sublayer"
-    )
-    XCTAssertEqual(
-      secureSuperlayer?.superlayer?.superlayer,
-      originalParent,
-      "Expected hierarchy: originalParent > field.layer > secureSublayer > window.layer"
+    XCTAssertFalse(
+      overlay.isOverlayInstalled,
+      "Overlay should not appear until a capture/background event"
     )
 
-    overlay.setEnabled(false, in: window)
-
-    XCTAssertFalse(overlay.isInstalled)
-    XCTAssertEqual(
-      window.layer.superlayer,
-      originalParent,
-      "Disabling must restore window.layer's original superlayer"
+    NotificationCenter.default.post(
+      name: UIApplication.willResignActiveNotification,
+      object: nil
     )
+
+    XCTAssertTrue(overlay.isOverlayInstalled)
+    let overlayView = try XCTUnwrap(
+      privacyOverlayView(in: window),
+      "Overlay view should be a subview of the protected window"
+    )
+    XCTAssertEqual(overlayView.frame, window.bounds)
   }
 
   @MainActor
-  func testSecureDisplayOverlayIsIdempotent() throws {
+  func testPrivacyOverlayRemovesOnDidBecomeActive() throws {
     let scene = UIApplication.shared.connectedScenes
       .compactMap({ $0 as? UIWindowScene })
       .first
@@ -188,27 +184,64 @@ class RunnerTests: XCTestCase {
     window.makeKeyAndVisible()
     defer { window.isHidden = true }
 
-    let overlay = SecureDisplayOverlay()
+    let overlay = PrivacyOverlay()
     overlay.setEnabled(true, in: window)
-    let firstSecureSuperlayer = window.layer.superlayer
-    overlay.setEnabled(true, in: window)
-    XCTAssertEqual(
-      window.layer.superlayer,
-      firstSecureSuperlayer,
-      "Re-enabling should not create a second overlay"
+    NotificationCenter.default.post(
+      name: UIApplication.willResignActiveNotification,
+      object: nil
+    )
+    XCTAssertTrue(overlay.isOverlayInstalled)
+
+    NotificationCenter.default.post(
+      name: UIApplication.didBecomeActiveNotification,
+      object: nil
     )
 
-    overlay.setEnabled(false, in: window)
-    overlay.setEnabled(false, in: window) // No-op
-    XCTAssertFalse(overlay.isInstalled)
+    XCTAssertFalse(overlay.isOverlayInstalled)
+    XCTAssertNil(
+      privacyOverlayView(in: window),
+      "Overlay subview must be removed from the window"
+    )
   }
 
-  /// Regression: a window swap between install and remove must NOT pull
-  /// the new window into the old window's layer hierarchy. The overlay
-  /// captures the install-time window and restores exactly that mapping,
-  /// then migrates to the new window when re-enabled.
   @MainActor
-  func testSecureDisplayOverlayHandlesWindowChange() throws {
+  func testPrivacyOverlayDisableRemovesOverlayAndIgnoresEvents() throws {
+    let scene = UIApplication.shared.connectedScenes
+      .compactMap({ $0 as? UIWindowScene })
+      .first
+    guard let scene else {
+      throw XCTSkip("Test host has no UIWindowScene")
+    }
+    let window = UIWindow(windowScene: scene)
+    window.frame = UIScreen.main.bounds
+    window.rootViewController = UIViewController()
+    window.makeKeyAndVisible()
+    defer { window.isHidden = true }
+
+    let overlay = PrivacyOverlay()
+    overlay.setEnabled(true, in: window)
+    NotificationCenter.default.post(
+      name: UIApplication.willResignActiveNotification,
+      object: nil
+    )
+    XCTAssertTrue(overlay.isOverlayInstalled)
+
+    overlay.setEnabled(false, in: window)
+    XCTAssertFalse(overlay.isOverlayInstalled)
+    XCTAssertNil(privacyOverlayView(in: window))
+
+    NotificationCenter.default.post(
+      name: UIApplication.willResignActiveNotification,
+      object: nil
+    )
+    XCTAssertFalse(
+      overlay.isOverlayInstalled,
+      "Disabled overlay must ignore willResignActive"
+    )
+  }
+
+  @MainActor
+  func testPrivacyOverlayHandlesWindowChange() throws {
     let scene = UIApplication.shared.connectedScenes
       .compactMap({ $0 as? UIWindowScene })
       .first
@@ -219,98 +252,244 @@ class RunnerTests: XCTestCase {
     windowA.frame = UIScreen.main.bounds
     windowA.rootViewController = UIViewController()
     windowA.makeKeyAndVisible()
-    let originalParentA = windowA.layer.superlayer
 
     let windowB = UIWindow(windowScene: scene)
     windowB.frame = UIScreen.main.bounds
     windowB.rootViewController = UIViewController()
     windowB.makeKeyAndVisible()
-    let originalParentB = windowB.layer.superlayer
 
     defer {
       windowA.isHidden = true
       windowB.isHidden = true
     }
 
-    let overlay = SecureDisplayOverlay()
+    let overlay = PrivacyOverlay()
     overlay.setEnabled(true, in: windowA)
-    XCTAssertNotEqual(
-      windowA.layer.superlayer,
-      originalParentA,
-      "windowA must be re-parented into the secure sublayer"
+    NotificationCenter.default.post(
+      name: UIApplication.willResignActiveNotification,
+      object: nil
     )
+    XCTAssertNotNil(privacyOverlayView(in: windowA))
 
-    // Re-enable on a DIFFERENT window. The overlay must migrate: A goes
-    // back to its original parent, B becomes the protected window.
     overlay.setEnabled(true, in: windowB)
-    XCTAssertEqual(
-      windowA.layer.superlayer,
-      originalParentA,
-      "windowA must be restored when overlay migrates away"
-    )
-    XCTAssertNotEqual(
-      windowB.layer.superlayer,
-      originalParentB,
-      "windowB must now be protected"
+    XCTAssertNil(
+      privacyOverlayView(in: windowA),
+      "Old window must not retain the overlay after migration"
     )
 
-    // Disable while the helper is bound to B. windowB must be restored,
-    // and windowA must not be touched a second time.
-    overlay.setEnabled(false, in: windowB)
-    XCTAssertEqual(
-      windowB.layer.superlayer,
-      originalParentB,
-      "windowB must be restored on disable"
+    NotificationCenter.default.post(
+      name: UIApplication.willResignActiveNotification,
+      object: nil
     )
-    XCTAssertEqual(
-      windowA.layer.superlayer,
-      originalParentA,
-      "windowA must remain at its original parent throughout"
+    XCTAssertNotNil(
+      privacyOverlayView(in: windowB),
+      "New window should receive the overlay on the next event"
     )
-    XCTAssertFalse(overlay.isInstalled)
+    XCTAssertNil(
+      privacyOverlayView(in: windowA),
+      "Old window must remain clean throughout"
+    )
   }
 
-  /// Calling disable with a different window than the one we installed on
-  /// must restore the INSTALLED window, not the passed-in window. This
-  /// pins the P1 finding from the Codex review.
   @MainActor
-  func testSecureDisplayOverlayDisableIgnoresPassedWindow() throws {
+  func testPrivacyOverlayIsIdempotent() throws {
     let scene = UIApplication.shared.connectedScenes
       .compactMap({ $0 as? UIWindowScene })
       .first
     guard let scene else {
       throw XCTSkip("Test host has no UIWindowScene")
     }
-    let installed = UIWindow(windowScene: scene)
-    installed.frame = UIScreen.main.bounds
-    installed.rootViewController = UIViewController()
-    installed.makeKeyAndVisible()
-    let originalInstalledParent = installed.layer.superlayer
+    let window = UIWindow(windowScene: scene)
+    window.frame = UIScreen.main.bounds
+    window.rootViewController = UIViewController()
+    window.makeKeyAndVisible()
+    defer { window.isHidden = true }
 
-    let bystander = UIWindow(windowScene: scene)
-    bystander.frame = UIScreen.main.bounds
-    bystander.rootViewController = UIViewController()
-    bystander.makeKeyAndVisible()
-    let originalBystanderParent = bystander.layer.superlayer
-
-    defer {
-      installed.isHidden = true
-      bystander.isHidden = true
-    }
-
-    let overlay = SecureDisplayOverlay()
-    overlay.setEnabled(true, in: installed)
-    overlay.setEnabled(false, in: bystander)
-
-    XCTAssertEqual(
-      installed.layer.superlayer,
-      originalInstalledParent,
-      "Installed window must be restored even when disable is called with a different window"
+    let overlay = PrivacyOverlay()
+    overlay.setEnabled(true, in: window)
+    NotificationCenter.default.post(
+      name: UIApplication.willResignActiveNotification,
+      object: nil
     )
+    NotificationCenter.default.post(
+      name: UIApplication.willResignActiveNotification,
+      object: nil
+    )
+
+    let overlayCount = window.subviews.filter { subview in
+      subview.backgroundColor == .black
+        && subview.isUserInteractionEnabled == true
+        && subview.accessibilityElementsHidden == true
+    }.count
+    XCTAssertEqual(overlayCount, 1, "Re-firing willResignActive must not stack overlays")
+  }
+
+  // Regression: layer reparenting was the iOS 26 trait-visitor crash.
+  @MainActor
+  func testPrivacyOverlayDoesNotMutateLayerHierarchy() throws {
+    let scene = UIApplication.shared.connectedScenes
+      .compactMap({ $0 as? UIWindowScene })
+      .first
+    guard let scene else {
+      throw XCTSkip("Test host has no UIWindowScene")
+    }
+    let window = UIWindow(windowScene: scene)
+    window.frame = UIScreen.main.bounds
+    window.rootViewController = UIViewController()
+    window.makeKeyAndVisible()
+    defer { window.isHidden = true }
+
+    let originalSuperlayer = window.layer.superlayer
+
+    let overlay = PrivacyOverlay()
+    overlay.setEnabled(true, in: window)
+    NotificationCenter.default.post(
+      name: UIApplication.willResignActiveNotification,
+      object: nil
+    )
+
     XCTAssertEqual(
-      bystander.layer.superlayer,
-      originalBystanderParent,
-      "Bystander window must not be touched by an unrelated disable"
+      window.layer.superlayer,
+      originalSuperlayer,
+      "PrivacyOverlay must not reparent window.layer (regression: Flutter #181120)"
+    )
+    overlay.setEnabled(false, in: window)
+    XCTAssertEqual(
+      window.layer.superlayer,
+      originalSuperlayer,
+      "Layer hierarchy must remain stable after disable"
+    )
+  }
+
+  @MainActor
+  func testPrivacyOverlayBlocksTouches() throws {
+    let scene = UIApplication.shared.connectedScenes
+      .compactMap({ $0 as? UIWindowScene })
+      .first
+    guard let scene else {
+      throw XCTSkip("Test host has no UIWindowScene")
+    }
+    let window = UIWindow(windowScene: scene)
+    window.frame = UIScreen.main.bounds
+    let underlying = UIView(frame: window.bounds)
+    underlying.backgroundColor = .red
+    let rootVC = UIViewController()
+    rootVC.view.addSubview(underlying)
+    window.rootViewController = rootVC
+    window.makeKeyAndVisible()
+    defer { window.isHidden = true }
+
+    let overlay = PrivacyOverlay()
+    overlay.setEnabled(true, in: window)
+    NotificationCenter.default.post(
+      name: UIApplication.willResignActiveNotification,
+      object: nil
+    )
+
+    let overlayView = try XCTUnwrap(privacyOverlayView(in: window))
+    XCTAssertTrue(
+      overlayView.isUserInteractionEnabled,
+      "Overlay must intercept taps so users can't blind-mutate hidden UI"
+    )
+    let center = CGPoint(x: window.bounds.midX, y: window.bounds.midY)
+    let hit = window.hitTest(center, with: nil)
+    XCTAssertIdentical(
+      hit, overlayView,
+      "Touches at the overlay's location must land on the overlay, not the underlying view"
+    )
+  }
+
+  @MainActor
+  func testPrivacyOverlayInstallsWhenCaptured() throws {
+    let scene = UIApplication.shared.connectedScenes
+      .compactMap({ $0 as? UIWindowScene })
+      .first
+    guard let scene else {
+      throw XCTSkip("Test host has no UIWindowScene")
+    }
+    let window = UIWindow(windowScene: scene)
+    window.frame = UIScreen.main.bounds
+    window.rootViewController = UIViewController()
+    window.makeKeyAndVisible()
+    defer { window.isHidden = true }
+
+    let overlay = PrivacyOverlay()
+    var fakeCaptured = false
+    overlay.isScreenCapturedProvider = { fakeCaptured }
+    overlay.setEnabled(true, in: window)
+    XCTAssertFalse(
+      overlay.isOverlayInstalled,
+      "Overlay should not appear while not captured and app is active"
+    )
+
+    fakeCaptured = true
+    NotificationCenter.default.post(
+      name: UIScreen.capturedDidChangeNotification,
+      object: nil
+    )
+
+    XCTAssertTrue(overlay.isOverlayInstalled)
+    XCTAssertNotNil(privacyOverlayView(in: window))
+  }
+
+  @MainActor
+  func testPrivacyOverlayRemovesWhenCaptureEnds() throws {
+    let scene = UIApplication.shared.connectedScenes
+      .compactMap({ $0 as? UIWindowScene })
+      .first
+    guard let scene else {
+      throw XCTSkip("Test host has no UIWindowScene")
+    }
+    let window = UIWindow(windowScene: scene)
+    window.frame = UIScreen.main.bounds
+    window.rootViewController = UIViewController()
+    window.makeKeyAndVisible()
+    defer { window.isHidden = true }
+
+    let overlay = PrivacyOverlay()
+    var fakeCaptured = true
+    overlay.isScreenCapturedProvider = { fakeCaptured }
+    overlay.setEnabled(true, in: window)
+    XCTAssertTrue(overlay.isOverlayInstalled)
+
+    fakeCaptured = false
+    NotificationCenter.default.post(
+      name: UIScreen.capturedDidChangeNotification,
+      object: nil
+    )
+
+    XCTAssertFalse(overlay.isOverlayInstalled)
+    XCTAssertNil(privacyOverlayView(in: window))
+  }
+
+  @MainActor
+  func testPrivacyOverlayPersistsWhileCapturedDespiteDidBecomeActive() throws {
+    let scene = UIApplication.shared.connectedScenes
+      .compactMap({ $0 as? UIWindowScene })
+      .first
+    guard let scene else {
+      throw XCTSkip("Test host has no UIWindowScene")
+    }
+    let window = UIWindow(windowScene: scene)
+    window.frame = UIScreen.main.bounds
+    window.rootViewController = UIViewController()
+    window.makeKeyAndVisible()
+    defer { window.isHidden = true }
+
+    let overlay = PrivacyOverlay()
+    var fakeCaptured = true
+    overlay.isScreenCapturedProvider = { fakeCaptured }
+    overlay.setEnabled(true, in: window)
+    XCTAssertTrue(overlay.isOverlayInstalled)
+
+    NotificationCenter.default.post(
+      name: UIApplication.didBecomeActiveNotification,
+      object: nil
+    )
+
+    XCTAssertTrue(
+      overlay.isOverlayInstalled,
+      "Overlay must remain mounted while the screen is still captured"
     )
   }
 

@@ -239,91 +239,116 @@ enum PlatformAttestationError: Error, LocalizedError {
   }
 }
 
-/// Hides the host UIWindow from screen recording, screen mirroring, and the
-/// app-switcher snapshot by re-parenting its CALayer into a UITextField with
-/// `isSecureTextEntry = true`. The render server skips the secure sublayer
-/// during capture, so anything inside it (the entire window) is omitted.
-///
-/// An empty hidden secure text field does NOT trigger the effect — only the
-/// layer that lives inside `field.layer.sublayers.first` is protected.
-///
-/// The overlay captures the protected window + its original superlayer at
-/// install time and restores exactly that mapping at teardown, so a window
-/// change between install/remove (hot restart, scene swap) cannot corrupt
-/// the layer hierarchy of the wrong window. When `setEnabled(true, in:)`
-/// is called with a window different from the currently-protected one,
-/// the existing overlay is torn down and reinstalled on the new window.
-final class SecureDisplayOverlay {
-  private var field: UITextField?
+/// Overlays the host window with an opaque view during screen capture or
+/// app backgrounding. Replaces a layer-reparenting trick that crashed
+/// iOS 26 on trait changes (Flutter #181120 / `screen_protector` pattern).
+/// Does NOT block active screenshots — iOS provides no app-level API for
+/// that; the previous trick blocked them as a side effect, this one
+/// doesn't. Screenshot detection still goes through
+/// `userDidTakeScreenshotNotification`.
+final class PrivacyOverlay {
   private weak var protectedWindow: UIWindow?
-  private var originalSuperlayer: CALayer?
+  private var overlay: UIView?
+  private var enabled = false
+  private var observerTokens: [NSObjectProtocol] = []
 
-  var isInstalled: Bool { field != nil }
+  /// Test seam for the captured branch of `reconcile()`.
+  var isScreenCapturedProvider: () -> Bool = { UIScreen.main.isCaptured }
 
-  /// Returns true when the requested state was applied. Returns false when
-  /// install or remove could not be completed (e.g. UIKit didn't expose the
-  /// secure sublayer in time). Callers should propagate the failure so the
-  /// Dart side does not cache a stale "platform on" state.
+  var isOverlayInstalled: Bool { overlay?.superview != nil }
+
   @discardableResult
-  func setEnabled(_ enabled: Bool, in window: UIWindow) -> Bool {
-    if enabled {
-      // If we're already installed on this exact window, nothing to do.
-      if let existing = protectedWindow, existing === window, field != nil {
-        return true
-      }
-      // Installed on a different (or vanished) window — tear down so the
-      // new window doesn't get left unprotected behind a stale guard.
-      if field != nil {
-        teardown()
-      }
-      return install(in: window)
+  func setEnabled(_ newValue: Bool, in window: UIWindow) -> Bool {
+    let windowChanged = protectedWindow !== window
+    if windowChanged {
+      removeOverlay()
+    }
+    enabled = newValue
+    protectedWindow = newValue ? window : nil
+    if newValue {
+      installObserversIfNeeded()
+      reconcile()
     } else {
-      teardown()
-      return true
+      removeOverlay()
     }
-  }
-
-  private func install(in window: UIWindow) -> Bool {
-    let new = UITextField()
-    new.isSecureTextEntry = true
-    new.isUserInteractionEnabled = false
-    window.addSubview(new)
-    new.translatesAutoresizingMaskIntoConstraints = false
-    new.widthAnchor.constraint(equalToConstant: 0).isActive = true
-    new.heightAnchor.constraint(equalToConstant: 0).isActive = true
-
-    // The secure sublayer is created lazily by UIKit. Force layout so it
-    // exists before we try to reparent into it.
-    window.layoutIfNeeded()
-    guard let originalParent = window.layer.superlayer,
-          let secureSublayer = new.layer.sublayers?.first
-    else {
-      // UIKit internals shifted — bail out cleanly rather than half-applying.
-      new.removeFromSuperview()
-      return false
-    }
-    originalParent.addSublayer(new.layer)
-    secureSublayer.addSublayer(window.layer)
-    field = new
-    protectedWindow = window
-    originalSuperlayer = originalParent
     return true
   }
 
-  /// Restores the layer hierarchy for the window we installed on, NOT
-  /// whatever window is current at teardown time. If the protected window
-  /// has been deallocated, only the field is removed; the now-orphaned
-  /// window.layer is no longer referenced anywhere we need to clean up.
-  private func teardown() {
-    guard let installed = field else { return }
-    if let window = protectedWindow, let originalParent = originalSuperlayer {
-      originalParent.addSublayer(window.layer)
+  func reconcile() {
+    guard enabled, let window = protectedWindow else {
+      removeOverlay()
+      return
     }
-    installed.layer.removeFromSuperlayer()
-    installed.removeFromSuperview()
-    field = nil
-    protectedWindow = nil
-    originalSuperlayer = nil
+    let captured = isScreenCapturedProvider()
+    let inactive = UIApplication.shared.applicationState != .active
+    if captured || inactive {
+      installOverlayIfNeeded(in: window)
+    } else {
+      removeOverlay()
+    }
+  }
+
+  private func installObserversIfNeeded() {
+    guard observerTokens.isEmpty else { return }
+    let center = NotificationCenter.default
+    // queue: nil — UIKit posts these on main, so sync dispatch is safe
+    // and lets tests assert without an XCTestExpectation dance.
+    observerTokens.append(
+      center.addObserver(
+        forName: UIScreen.capturedDidChangeNotification,
+        object: nil,
+        queue: nil
+      ) { [weak self] _ in self?.reconcile() }
+    )
+    observerTokens.append(
+      center.addObserver(
+        forName: UIApplication.willResignActiveNotification,
+        object: nil,
+        queue: nil
+      ) { [weak self] _ in self?.installOverlayForBackground() }
+    )
+    observerTokens.append(
+      center.addObserver(
+        forName: UIApplication.didBecomeActiveNotification,
+        object: nil,
+        queue: nil
+      ) { [weak self] _ in self?.reconcile() }
+    )
+  }
+
+  // willResignActive fires while applicationState is still .active, so a
+  // generic reconcile would skip — force the install for the snapshot.
+  private func installOverlayForBackground() {
+    guard enabled, let window = protectedWindow else { return }
+    installOverlayIfNeeded(in: window)
+  }
+
+  private func installOverlayIfNeeded(in window: UIWindow) {
+    if let existing = overlay, existing.superview === window {
+      window.bringSubviewToFront(existing)
+      existing.frame = window.bounds
+      return
+    }
+    overlay?.removeFromSuperview()
+    let view = UIView(frame: window.bounds)
+    view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    view.backgroundColor = .black
+    // Swallow taps so users can't blind-interact with the hidden UI.
+    view.isUserInteractionEnabled = true
+    view.accessibilityElementsHidden = true
+    window.addSubview(view)
+    overlay = view
+  }
+
+  private func removeOverlay() {
+    overlay?.removeFromSuperview()
+    overlay = nil
+  }
+
+  deinit {
+    for token in observerTokens {
+      NotificationCenter.default.removeObserver(token)
+    }
   }
 }
 
@@ -334,7 +359,7 @@ final class SecureDisplayOverlay {
   private var secureDisplayChannel: FlutterMethodChannel?
   private var runtimeDekWrapChannel: FlutterMethodChannel?
   private var appClipboardChannel: FlutterMethodChannel?
-  private let secureDisplay = SecureDisplayOverlay()
+  private let privacyOverlay = PrivacyOverlay()
   private let appAttestKeychainService = "com.prism.prism_plurality.app_attest"
   private let appAttestKeychainAccount = "key_id"
   private let runtimeDekPrivateKeyTag = Data(
@@ -854,14 +879,10 @@ final class SecureDisplayOverlay {
     SecItemDelete(query as CFDictionary)
   }
 
-  /// Forward the toggle to the SecureDisplayOverlay helper, which performs
-  /// the actual CALayer re-parenting. Returns false when the toggle could
-  /// not be applied (no active window, UIKit didn't expose the secure
-  /// sublayer) — propagated through the channel so ScreenSecurityService
-  /// can retry.
+  // Returns false when no window — Dart side retries on next reconcile.
   private func setSecureDisplay(enabled: Bool) -> Bool {
     guard let window = activeWindow() else { return false }
-    return secureDisplay.setEnabled(enabled, in: window)
+    return privacyOverlay.setEnabled(enabled, in: window)
   }
 
   /// Pick the window to attach the overlay to: prefer the key window of a

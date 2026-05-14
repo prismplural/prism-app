@@ -3,19 +3,14 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// Controls platform-level secure display (FLAG_SECURE on Android when
-/// requested, secure text field overlay on iOS) to prevent screen recording
-/// and app-switcher screenshots of sensitive content.
+/// Platform-level capture protection. Android: `FLAG_SECURE` (also blocks
+/// active screenshots). iOS: black `PrivacyOverlay` during capture or
+/// background — does NOT block active screenshots; iOS has no API for that.
 ///
-/// Two ways to request protection:
-/// - [setGlobalEnabled] for the user-facing "Screen Privacy" setting that
-///   keeps the platform flag on for the whole app session.
-/// - [enable] / [disable] for per-screen `SecureScope` widgets that wrap
-///   one-off sensitive flows.
-///
-/// The platform flag stays on whenever the global mode is on OR any
-/// per-platform ref-count is above zero. Transitions are detected against
-/// `_platformStateOn`, so redundant calls don't hammer the channel.
+/// [setGlobalEnabled] backs the always-on Settings toggle; [enable] /
+/// [disable] are per-screen `SecureScope` ref-counted requests. The flag
+/// stays on whenever either path is requesting it; transitions guarded by
+/// `_platformStateOn` so redundant calls don't hammer the channel.
 class ScreenSecurityService {
   static const _channel = MethodChannel(
     'com.prism.prism_plurality/secure_display',
