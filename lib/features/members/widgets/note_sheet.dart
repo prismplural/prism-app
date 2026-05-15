@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/note.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/widgets/member_select_sheet.dart';
@@ -45,7 +46,8 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
   late final String _initialTitle;
   late final String _initialBody;
   late final DateTime _initialDate;
-  late final String? _initialMemberId;
+  late String? _initialMemberId;
+  bool _memberWasEdited = false;
 
   bool get _isEditing => widget.note != null;
 
@@ -55,7 +57,9 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
     _initialTitle = widget.note?.title ?? '';
     _initialBody = widget.note?.body ?? '';
     _initialDate = widget.note?.date ?? DateTime.now();
-    _initialMemberId = widget.note?.memberId ?? widget.memberId;
+    _initialMemberId = widget.note != null
+        ? widget.note!.memberId
+        : widget.memberId ?? ref.read(currentFronterProvider).value?.id;
 
     _titleController = TextEditingController(text: _initialTitle);
     _bodyController = MarkdownEditingController(text: _initialBody);
@@ -128,6 +132,7 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
     );
     if (result == null) return;
     setState(() {
+      _memberWasEdited = true;
       _selectedMemberId = result.isEmpty ? null : result;
     });
   }
@@ -148,6 +153,21 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     _bodyController.updateTheme(context);
+
+    if (!_isEditing && widget.memberId == null) {
+      ref.listen(currentFronterProvider, (_, next) {
+        final currentFronter = next.value;
+        if (_memberWasEdited ||
+            _selectedMemberId != null ||
+            currentFronter == null) {
+          return;
+        }
+        setState(() {
+          _selectedMemberId = currentFronter.id;
+          _initialMemberId = currentFronter.id;
+        });
+      });
+    }
 
     return ListenableBuilder(
       listenable: Listenable.merge([_titleController, _bodyController]),
