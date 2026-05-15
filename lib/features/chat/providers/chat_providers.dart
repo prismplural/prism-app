@@ -37,6 +37,49 @@ ConversationPermissions conversationPermissionsForViewer(
   );
 }
 
+bool currentFrontCanManageConversation(
+  Conversation conversation, {
+  required List<FrontingSession> activeSessions,
+  required List<Member> activeMembers,
+}) {
+  final activeMembersById = {
+    for (final member in activeMembers)
+      if (!member.isDeleted && member.isActive) member.id: member,
+  };
+
+  for (final session in activeSessions) {
+    final memberId = session.memberId;
+    if (memberId == null || session.endTime != null || session.isSleep) {
+      continue;
+    }
+
+    final member = activeMembersById[memberId];
+    if (member == null) continue;
+
+    final permissions = conversationPermissionsForViewer(
+      conversation,
+      speakingAsMemberId: memberId,
+      speakingAsMember: member,
+    );
+    if (permissions.canTransferOwnership) return true;
+  }
+
+  return false;
+}
+
+final currentFrontCanManageConversationProvider = Provider.autoDispose
+    .family<bool, Conversation>((ref, conversation) {
+      final activeSessions =
+          ref.watch(activeSessionsProvider).value ?? const <FrontingSession>[];
+      final activeMembers =
+          ref.watch(activeMembersProvider).value ?? const <Member>[];
+      return currentFrontCanManageConversation(
+        conversation,
+        activeSessions: activeSessions,
+        activeMembers: activeMembers,
+      );
+    });
+
 final currentChatViewerProvider = Provider<Member?>((ref) {
   final speakingAs = ref.watch(speakingAsProvider);
   final members = ref.watch(activeMembersProvider).value;
@@ -281,6 +324,29 @@ class ChatNotifier extends AsyncNotifier<void> {
     }
   }
 
+  Future<void> _requireCurrentFrontCanTransferOwnership(
+    String conversationId,
+    Conversation conversation,
+  ) async {
+    final activeSessions = await ref.read(activeSessionsProvider.future);
+    final activeMembers = await ref.read(activeMembersProvider.future);
+    final canTransfer = currentFrontCanManageConversation(
+      conversation,
+      activeSessions: activeSessions,
+      activeMembers: activeMembers,
+    );
+    if (canTransfer) return;
+
+    final selectedPermissions = await _conversationPermissions(conversationId);
+    if (selectedPermissions?.canTransferOwnership == true) {
+      return;
+    }
+
+    throw StateError(
+      'Only a currently-fronting owner or admin can transfer ownership.',
+    );
+  }
+
   Future<Conversation> createGroupConversation({
     required String title,
     String? emoji,
@@ -420,6 +486,11 @@ class ChatNotifier extends AsyncNotifier<void> {
       final convRepo = ref.read(conversationRepositoryProvider);
       final conv = await convRepo.getConversationById(conversationId);
       if (conv == null) return;
+      await _requireCurrentFrontCanTransferOwnership(conversationId, conv);
+      if (!conv.participantIds.contains(newCreatorId)) {
+        throw StateError('Conversation owner must be a participant.');
+      }
+      if (conv.creatorId == newCreatorId) return;
 
       await convRepo.updateConversation(conv.copyWith(creatorId: newCreatorId));
 

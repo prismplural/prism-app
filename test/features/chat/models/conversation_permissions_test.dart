@@ -47,6 +47,10 @@ void main() {
     test('isCreator is true', () => expect(perms.isCreator, isTrue));
     test('isParticipant is true', () => expect(perms.isParticipant, isTrue));
     test('canManage is true', () => expect(perms.canManage, isTrue));
+    test(
+      'canTransferOwnership is true',
+      () => expect(perms.canTransferOwnership, isTrue),
+    );
     test('canView is true', () => expect(perms.canView, isTrue));
     test('canWrite is true', () => expect(perms.canWrite, isTrue));
     test(
@@ -100,6 +104,10 @@ void main() {
     test('isParticipant is false', () => expect(perms.isParticipant, isFalse));
     test('isAdmin is true', () => expect(perms.isAdmin, isTrue));
     test('canManage is true', () => expect(perms.canManage, isTrue));
+    test(
+      'canTransferOwnership is true',
+      () => expect(perms.canTransferOwnership, isTrue),
+    );
     test('canView is true', () => expect(perms.canView, isTrue));
     test('canWrite is true for groups', () => expect(perms.canWrite, isTrue));
     test(
@@ -156,6 +164,10 @@ void main() {
     test('isParticipant is true', () => expect(perms.isParticipant, isTrue));
     test('isAdmin is false', () => expect(perms.isAdmin, isFalse));
     test('canManage is false', () => expect(perms.canManage, isFalse));
+    test(
+      'canTransferOwnership is false',
+      () => expect(perms.canTransferOwnership, isFalse),
+    );
     test('canView is true', () => expect(perms.canView, isTrue));
     test('canWrite is true', () => expect(perms.canWrite, isTrue));
     test(
@@ -250,6 +262,10 @@ void main() {
     test(
       'admin non-participant canWrite is false',
       () => expect(permsAdmin.canWrite, isFalse),
+    );
+    test(
+      'admin non-participant cannot transfer ownership in DM',
+      () => expect(permsAdmin.canTransferOwnership, isFalse),
     );
     test(
       'admin non-participant cannot edit title in DM',

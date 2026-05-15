@@ -54,6 +54,7 @@ class ConversationPermissions {
   bool get canEditTitleEmoji => isDirectMessage ? canWrite : canManage;
   bool get canAddMembers => !isDirectMessage && canManage;
   bool get canRemoveMembers => !isDirectMessage && canManage;
+  bool get canTransferOwnership => !isDirectMessage && canManage;
   bool get canDeleteConversation => isDirectMessage ? canView : canManage;
   bool get canLeave => !isDirectMessage && isParticipant;
   bool get canArchive => isDirectMessage ? canView : canWrite;
