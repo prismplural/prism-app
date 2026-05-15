@@ -206,6 +206,142 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appearanceUsesSystemPalette => 'Uses your system color palette';
 
   @override
+  String get appearanceStylePrism => 'Prism';
+
+  @override
+  String get appearanceStyleOled => 'OLED';
+
+  @override
+  String get appearanceStylePalette => 'Palette';
+
+  @override
+  String get paletteTitle => 'Palette';
+
+  @override
+  String paletteSummary(String source, String mood, String contrast) {
+    return '$source · $mood · $contrast';
+  }
+
+  @override
+  String paletteSummaryCustom(String color) {
+    return 'Custom $color';
+  }
+
+  @override
+  String get paletteSourceTitle => 'Source';
+
+  @override
+  String get paletteSourceDeviceColors => 'Device colors';
+
+  @override
+  String get paletteSourceCustomColor => 'Custom color';
+
+  @override
+  String get paletteSourceDeviceSubtitle =>
+      'Use colors from this device when Prism can read them';
+
+  @override
+  String get paletteSourceDeviceUnavailableSubtitle =>
+      'Available on Android devices with dynamic colors';
+
+  @override
+  String get paletteSourceCustomSubtitle =>
+      'Pick a seed color and let Prism generate the palette';
+
+  @override
+  String get paletteColorTitle => 'Color';
+
+  @override
+  String get paletteMoodTitle => 'Mood';
+
+  @override
+  String get paletteMoodTonal => 'Tonal';
+
+  @override
+  String get paletteMoodVibrant => 'Vibrant';
+
+  @override
+  String get paletteMoodExpressive => 'Expressive';
+
+  @override
+  String get paletteMoodFidelity => 'Fidelity';
+
+  @override
+  String get paletteMoodMonochrome => 'Monochrome';
+
+  @override
+  String get paletteMoodTonalDescription =>
+      'Balanced Prism color with gentle accents';
+
+  @override
+  String get paletteMoodVibrantDescription =>
+      'Higher saturation for stronger accents';
+
+  @override
+  String get paletteMoodExpressiveDescription =>
+      'Playful hue shifts around your seed color';
+
+  @override
+  String get paletteMoodFidelityDescription =>
+      'Stays close to the color you chose';
+
+  @override
+  String get paletteMoodMonochromeDescription =>
+      'Low-chroma surfaces with grayscale accents';
+
+  @override
+  String get paletteContrastTitle => 'Contrast';
+
+  @override
+  String get paletteContrastSoft => 'Soft';
+
+  @override
+  String get paletteContrastStandard => 'Standard';
+
+  @override
+  String get paletteContrastHigh => 'High';
+
+  @override
+  String get palettePreviewTitle => 'Preview';
+
+  @override
+  String get palettePreviewMemberOne => 'Lavender';
+
+  @override
+  String get palettePreviewMemberOneDetail => 'fronting now';
+
+  @override
+  String get palettePreviewMemberTwo => 'Sol';
+
+  @override
+  String get palettePreviewMemberTwoDetail => 'nearby';
+
+  @override
+  String get palettePreviewButton => 'Check in';
+
+  @override
+  String get palettePreviewInput => 'Share a note...';
+
+  @override
+  String get palettePreviewChip => 'Fronting';
+
+  @override
+  String get palettePreviewNavHint => 'Home · Members · Settings';
+
+  @override
+  String get paletteResetTitle => 'Reset';
+
+  @override
+  String get paletteResetAction => 'Reset palette';
+
+  @override
+  String get paletteResetDescription =>
+      'Restore source, mood, contrast, and seed color defaults';
+
+  @override
+  String get paletteSeedLavender => 'Lavender';
+
+  @override
   String get appearanceCornerStyleTitle => 'Corner style';
 
   @override

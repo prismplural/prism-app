@@ -285,6 +285,186 @@
   "@appearanceUsesSystemPalette": {
     "description": "Label shown when Material You style is active"
   },
+  "appearanceStylePrism": "Prism",
+  "@appearanceStylePrism": {
+    "description": "Theme style segment label for Prism's default theme"
+  },
+  "appearanceStyleOled": "OLED",
+  "@appearanceStyleOled": {
+    "description": "Theme style segment label for OLED theme"
+  },
+  "appearanceStylePalette": "Palette",
+  "@appearanceStylePalette": {
+    "description": "Theme style segment label for generated palette themes"
+  },
+  "paletteTitle": "Palette",
+  "@paletteTitle": {
+    "description": "Palette settings screen title"
+  },
+  "paletteSummary": "{source} · {mood} · {contrast}",
+  "@paletteSummary": {
+    "description": "Compact palette settings summary",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "mood": {
+        "type": "String"
+      },
+      "contrast": {
+        "type": "String"
+      }
+    }
+  },
+  "paletteSummaryCustom": "Custom {color}",
+  "@paletteSummaryCustom": {
+    "description": "Palette summary source label for a custom seed color",
+    "placeholders": {
+      "color": {
+        "type": "String"
+      }
+    }
+  },
+  "paletteSourceTitle": "Source",
+  "@paletteSourceTitle": {
+    "description": "Palette source section title"
+  },
+  "paletteSourceDeviceColors": "Device colors",
+  "@paletteSourceDeviceColors": {
+    "description": "Palette source option for device dynamic colors"
+  },
+  "paletteSourceCustomColor": "Custom color",
+  "@paletteSourceCustomColor": {
+    "description": "Palette source option for user selected color"
+  },
+  "paletteSourceDeviceSubtitle": "Use colors from this device when Prism can read them",
+  "@paletteSourceDeviceSubtitle": {
+    "description": "Subtitle for available device color source"
+  },
+  "paletteSourceDeviceUnavailableSubtitle": "Available on Android devices with dynamic colors",
+  "@paletteSourceDeviceUnavailableSubtitle": {
+    "description": "Subtitle for unavailable device color source"
+  },
+  "paletteSourceCustomSubtitle": "Pick a seed color and let Prism generate the palette",
+  "@paletteSourceCustomSubtitle": {
+    "description": "Subtitle for custom color palette source"
+  },
+  "paletteColorTitle": "Color",
+  "@paletteColorTitle": {
+    "description": "Palette seed color section title"
+  },
+  "paletteMoodTitle": "Mood",
+  "@paletteMoodTitle": {
+    "description": "Palette mood section title"
+  },
+  "paletteMoodTonal": "Tonal",
+  "@paletteMoodTonal": {
+    "description": "Palette mood label: tonal"
+  },
+  "paletteMoodVibrant": "Vibrant",
+  "@paletteMoodVibrant": {
+    "description": "Palette mood label: vibrant"
+  },
+  "paletteMoodExpressive": "Expressive",
+  "@paletteMoodExpressive": {
+    "description": "Palette mood label: expressive"
+  },
+  "paletteMoodFidelity": "Fidelity",
+  "@paletteMoodFidelity": {
+    "description": "Palette mood label: fidelity"
+  },
+  "paletteMoodMonochrome": "Monochrome",
+  "@paletteMoodMonochrome": {
+    "description": "Palette mood label: monochrome"
+  },
+  "paletteMoodTonalDescription": "Balanced Prism color with gentle accents",
+  "@paletteMoodTonalDescription": {
+    "description": "Palette mood description: tonal"
+  },
+  "paletteMoodVibrantDescription": "Higher saturation for stronger accents",
+  "@paletteMoodVibrantDescription": {
+    "description": "Palette mood description: vibrant"
+  },
+  "paletteMoodExpressiveDescription": "Playful hue shifts around your seed color",
+  "@paletteMoodExpressiveDescription": {
+    "description": "Palette mood description: expressive"
+  },
+  "paletteMoodFidelityDescription": "Stays close to the color you chose",
+  "@paletteMoodFidelityDescription": {
+    "description": "Palette mood description: fidelity"
+  },
+  "paletteMoodMonochromeDescription": "Low-chroma surfaces with grayscale accents",
+  "@paletteMoodMonochromeDescription": {
+    "description": "Palette mood description: monochrome"
+  },
+  "paletteContrastTitle": "Contrast",
+  "@paletteContrastTitle": {
+    "description": "Palette contrast section title"
+  },
+  "paletteContrastSoft": "Soft",
+  "@paletteContrastSoft": {
+    "description": "Palette contrast label: soft"
+  },
+  "paletteContrastStandard": "Standard",
+  "@paletteContrastStandard": {
+    "description": "Palette contrast label: standard"
+  },
+  "paletteContrastHigh": "High",
+  "@paletteContrastHigh": {
+    "description": "Palette contrast label: high"
+  },
+  "palettePreviewTitle": "Preview",
+  "@palettePreviewTitle": {
+    "description": "Palette preview section title"
+  },
+  "palettePreviewMemberOne": "Lavender",
+  "@palettePreviewMemberOne": {
+    "description": "First sample member name in the palette preview"
+  },
+  "palettePreviewMemberOneDetail": "fronting now",
+  "@palettePreviewMemberOneDetail": {
+    "description": "First sample member detail in the palette preview"
+  },
+  "palettePreviewMemberTwo": "Sol",
+  "@palettePreviewMemberTwo": {
+    "description": "Second sample member name in the palette preview"
+  },
+  "palettePreviewMemberTwoDetail": "nearby",
+  "@palettePreviewMemberTwoDetail": {
+    "description": "Second sample member detail in the palette preview"
+  },
+  "palettePreviewButton": "Check in",
+  "@palettePreviewButton": {
+    "description": "Sample filled button label in the palette preview"
+  },
+  "palettePreviewInput": "Share a note...",
+  "@palettePreviewInput": {
+    "description": "Sample input placeholder in the palette preview"
+  },
+  "palettePreviewChip": "Fronting",
+  "@palettePreviewChip": {
+    "description": "Sample chip label in the palette preview"
+  },
+  "palettePreviewNavHint": "Home · Members · Settings",
+  "@palettePreviewNavHint": {
+    "description": "Small navigation surface hint in the palette preview"
+  },
+  "paletteResetTitle": "Reset",
+  "@paletteResetTitle": {
+    "description": "Palette reset section title"
+  },
+  "paletteResetAction": "Reset palette",
+  "@paletteResetAction": {
+    "description": "Palette reset action row title"
+  },
+  "paletteResetDescription": "Restore source, mood, contrast, and seed color defaults",
+  "@paletteResetDescription": {
+    "description": "Palette reset action row subtitle"
+  },
+  "paletteSeedLavender": "Lavender",
+  "@paletteSeedLavender": {
+    "description": "Palette seed color name for Prism's lavender default"
+  },
   "appearanceCornerStyleTitle": "Corner style",
   "@appearanceCornerStyleTitle": {
     "description": "Appearance settings section: Corner style"

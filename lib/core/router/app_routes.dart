@@ -55,6 +55,7 @@ abstract final class AppRoutePaths {
   static const settingsReminders = '/settings/reminders';
   static const settingsNavigation = '/settings/navigation';
   static const settingsSystemInfo = '/settings/system-info';
+  static const settingsPalette = '/settings/appearance/palette';
   static const timeline = '/timeline';
 
   // Parameterized helpers — groups

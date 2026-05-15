@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/domain/models/system_settings.dart'
     hide CornerStyle;
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/accent_color_picker.dart';
+import 'package:prism_plurality/features/settings/views/palette_settings_screen.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/views/terminology_picker.dart';
 import 'package:prism_plurality/features/settings/widgets/font_settings_section.dart';
@@ -42,8 +45,16 @@ class AppearanceSettingsScreen extends ConsumerWidget {
         loading: () => const PrismLoadingState(),
         error: (e, _) => Center(child: Text(context.l10n.errorWithDetail(e))),
         data: (settings) {
-          final effectiveThemeStyle = ref.watch(effectiveThemeStyleProvider);
-          final platform = ref.watch(targetPlatformProvider);
+          final selectedBrightness = ref.watch(themeBrightnessProvider);
+          final selectedThemeStyle = ref.watch(themeStyleProvider);
+          final effectiveSettings = settings.copyWith(
+            themeBrightness: selectedBrightness,
+            themeStyle: selectedThemeStyle,
+            paletteSource: ref.watch(paletteSourceProvider),
+            paletteSeedColorHex: ref.watch(paletteSeedColorHexProvider),
+            paletteMood: ref.watch(paletteMoodProvider),
+            paletteContrast: ref.watch(paletteContrastProvider),
+          );
 
           return ListView(
             padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -54,7 +65,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                   segments: ThemeBrightness.values
                       .map((b) => PrismSegment(value: b, label: b.displayName))
                       .toList(),
-                  selected: settings.themeBrightness,
+                  selected: selectedBrightness,
                   onChanged: (value) {
                     ref
                         .read(settingsNotifierProvider.notifier)
@@ -69,34 +80,23 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                   children: [
                     PrismSegmentedControl<ThemeStyle>(
                       segments: ThemeStyle.values
-                          .where((s) {
-                            if (s == ThemeStyle.materialYou) {
-                              return platform == TargetPlatform.android;
-                            }
-                            return true;
-                          })
                           .map(
-                            (s) => PrismSegment(value: s, label: s.displayName),
+                            (s) => PrismSegment(
+                              value: s,
+                              label: appearanceThemeStyleLabel(context, s),
+                            ),
                           )
                           .toList(),
-                      selected: effectiveThemeStyle,
+                      selected: selectedThemeStyle,
                       onChanged: (value) {
                         ref
                             .read(settingsNotifierProvider.notifier)
                             .handleThemeStyleChange(value);
                       },
                     ),
-                    if (effectiveThemeStyle == ThemeStyle.materialYou &&
-                        platform == TargetPlatform.android) ...[
+                    if (selectedThemeStyle == ThemeStyle.materialYou) ...[
                       const SizedBox(height: 12),
-                      Text(
-                        context.l10n.appearanceUsesSystemPalette,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: 0.5),
-                        ),
-                      ),
+                      _PaletteSummaryCard(settings: effectiveSettings),
                     ],
                   ],
                 ),
@@ -123,19 +123,18 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                   },
                 ),
               ),
-              PrismSection(
-                title: context.l10n.appearanceAccentColor,
-                child: PrismSectionCard(
-                  child: AccentColorPicker(
-                    currentHex: settings.accentColorHex,
-                    onChanged: (hex) => ref
-                        .read(settingsNotifierProvider.notifier)
-                        .updateAccentColor(hex),
-                    materialYouActive:
-                        effectiveThemeStyle == ThemeStyle.materialYou,
+              if (selectedThemeStyle != ThemeStyle.materialYou)
+                PrismSection(
+                  title: context.l10n.appearanceAccentColor,
+                  child: PrismSectionCard(
+                    child: AccentColorPicker(
+                      currentHex: settings.accentColorHex,
+                      onChanged: (hex) => ref
+                          .read(settingsNotifierProvider.notifier)
+                          .updateAccentColor(hex),
+                    ),
                   ),
                 ),
-              ),
               FontSettingsSection(settings: settings),
               PrismSection(
                 title: context.l10n.appearancePerMemberColors(
@@ -218,6 +217,65 @@ class AppearanceSettingsScreen extends ConsumerWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _PaletteSummaryCard extends ConsumerWidget {
+  const _PaletteSummaryCard({required this.settings});
+
+  final SystemSettings settings;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final paletteSource = ref.watch(paletteSourceProvider);
+    final preview = palettePreviewForSettings(
+      context,
+      settings,
+      source: paletteSource,
+    );
+
+    return PrismSectionCard(
+      onTap: () => context.push(AppRoutePaths.settingsPalette),
+      accentColor: preview.primary,
+      child: Row(
+        children: [
+          PaletteDots(colors: preview.dots, size: 16),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.l10n.paletteTitle,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  paletteSettingsSummary(
+                    context,
+                    settings,
+                    source: paletteSource,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Icon(
+            AppIcons.chevronRightRounded,
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+          ),
+        ],
       ),
     );
   }

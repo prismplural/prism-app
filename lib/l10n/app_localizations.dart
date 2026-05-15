@@ -464,6 +464,252 @@ abstract class AppLocalizations {
   /// **'Uses your system color palette'**
   String get appearanceUsesSystemPalette;
 
+  /// Theme style segment label for Prism's default theme
+  ///
+  /// In en, this message translates to:
+  /// **'Prism'**
+  String get appearanceStylePrism;
+
+  /// Theme style segment label for OLED theme
+  ///
+  /// In en, this message translates to:
+  /// **'OLED'**
+  String get appearanceStyleOled;
+
+  /// Theme style segment label for generated palette themes
+  ///
+  /// In en, this message translates to:
+  /// **'Palette'**
+  String get appearanceStylePalette;
+
+  /// Palette settings screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Palette'**
+  String get paletteTitle;
+
+  /// Compact palette settings summary
+  ///
+  /// In en, this message translates to:
+  /// **'{source} · {mood} · {contrast}'**
+  String paletteSummary(String source, String mood, String contrast);
+
+  /// Palette summary source label for a custom seed color
+  ///
+  /// In en, this message translates to:
+  /// **'Custom {color}'**
+  String paletteSummaryCustom(String color);
+
+  /// Palette source section title
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get paletteSourceTitle;
+
+  /// Palette source option for device dynamic colors
+  ///
+  /// In en, this message translates to:
+  /// **'Device colors'**
+  String get paletteSourceDeviceColors;
+
+  /// Palette source option for user selected color
+  ///
+  /// In en, this message translates to:
+  /// **'Custom color'**
+  String get paletteSourceCustomColor;
+
+  /// Subtitle for available device color source
+  ///
+  /// In en, this message translates to:
+  /// **'Use colors from this device when Prism can read them'**
+  String get paletteSourceDeviceSubtitle;
+
+  /// Subtitle for unavailable device color source
+  ///
+  /// In en, this message translates to:
+  /// **'Available on Android devices with dynamic colors'**
+  String get paletteSourceDeviceUnavailableSubtitle;
+
+  /// Subtitle for custom color palette source
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a seed color and let Prism generate the palette'**
+  String get paletteSourceCustomSubtitle;
+
+  /// Palette seed color section title
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get paletteColorTitle;
+
+  /// Palette mood section title
+  ///
+  /// In en, this message translates to:
+  /// **'Mood'**
+  String get paletteMoodTitle;
+
+  /// Palette mood label: tonal
+  ///
+  /// In en, this message translates to:
+  /// **'Tonal'**
+  String get paletteMoodTonal;
+
+  /// Palette mood label: vibrant
+  ///
+  /// In en, this message translates to:
+  /// **'Vibrant'**
+  String get paletteMoodVibrant;
+
+  /// Palette mood label: expressive
+  ///
+  /// In en, this message translates to:
+  /// **'Expressive'**
+  String get paletteMoodExpressive;
+
+  /// Palette mood label: fidelity
+  ///
+  /// In en, this message translates to:
+  /// **'Fidelity'**
+  String get paletteMoodFidelity;
+
+  /// Palette mood label: monochrome
+  ///
+  /// In en, this message translates to:
+  /// **'Monochrome'**
+  String get paletteMoodMonochrome;
+
+  /// Palette mood description: tonal
+  ///
+  /// In en, this message translates to:
+  /// **'Balanced Prism color with gentle accents'**
+  String get paletteMoodTonalDescription;
+
+  /// Palette mood description: vibrant
+  ///
+  /// In en, this message translates to:
+  /// **'Higher saturation for stronger accents'**
+  String get paletteMoodVibrantDescription;
+
+  /// Palette mood description: expressive
+  ///
+  /// In en, this message translates to:
+  /// **'Playful hue shifts around your seed color'**
+  String get paletteMoodExpressiveDescription;
+
+  /// Palette mood description: fidelity
+  ///
+  /// In en, this message translates to:
+  /// **'Stays close to the color you chose'**
+  String get paletteMoodFidelityDescription;
+
+  /// Palette mood description: monochrome
+  ///
+  /// In en, this message translates to:
+  /// **'Low-chroma surfaces with grayscale accents'**
+  String get paletteMoodMonochromeDescription;
+
+  /// Palette contrast section title
+  ///
+  /// In en, this message translates to:
+  /// **'Contrast'**
+  String get paletteContrastTitle;
+
+  /// Palette contrast label: soft
+  ///
+  /// In en, this message translates to:
+  /// **'Soft'**
+  String get paletteContrastSoft;
+
+  /// Palette contrast label: standard
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get paletteContrastStandard;
+
+  /// Palette contrast label: high
+  ///
+  /// In en, this message translates to:
+  /// **'High'**
+  String get paletteContrastHigh;
+
+  /// Palette preview section title
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get palettePreviewTitle;
+
+  /// First sample member name in the palette preview
+  ///
+  /// In en, this message translates to:
+  /// **'Lavender'**
+  String get palettePreviewMemberOne;
+
+  /// First sample member detail in the palette preview
+  ///
+  /// In en, this message translates to:
+  /// **'fronting now'**
+  String get palettePreviewMemberOneDetail;
+
+  /// Second sample member name in the palette preview
+  ///
+  /// In en, this message translates to:
+  /// **'Sol'**
+  String get palettePreviewMemberTwo;
+
+  /// Second sample member detail in the palette preview
+  ///
+  /// In en, this message translates to:
+  /// **'nearby'**
+  String get palettePreviewMemberTwoDetail;
+
+  /// Sample filled button label in the palette preview
+  ///
+  /// In en, this message translates to:
+  /// **'Check in'**
+  String get palettePreviewButton;
+
+  /// Sample input placeholder in the palette preview
+  ///
+  /// In en, this message translates to:
+  /// **'Share a note...'**
+  String get palettePreviewInput;
+
+  /// Sample chip label in the palette preview
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting'**
+  String get palettePreviewChip;
+
+  /// Small navigation surface hint in the palette preview
+  ///
+  /// In en, this message translates to:
+  /// **'Home · Members · Settings'**
+  String get palettePreviewNavHint;
+
+  /// Palette reset section title
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get paletteResetTitle;
+
+  /// Palette reset action row title
+  ///
+  /// In en, this message translates to:
+  /// **'Reset palette'**
+  String get paletteResetAction;
+
+  /// Palette reset action row subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Restore source, mood, contrast, and seed color defaults'**
+  String get paletteResetDescription;
+
+  /// Palette seed color name for Prism's lavender default
+  ///
+  /// In en, this message translates to:
+  /// **'Lavender'**
+  String get paletteSeedLavender;
+
   /// Appearance settings section: Corner style
   ///
   /// In en, this message translates to:

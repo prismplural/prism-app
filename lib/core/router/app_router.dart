@@ -34,6 +34,7 @@ import '../../features/settings/views/reminders_feature_settings_screen.dart';
 import '../../features/settings/views/sync_settings_screen.dart';
 import '../../features/settings/views/notification_settings_screen.dart';
 import '../../features/settings/views/appearance_settings_screen.dart';
+import '../../features/settings/views/palette_settings_screen.dart';
 import '../../features/settings/views/statistics_screen.dart';
 import '../../features/settings/views/database_diagnostics_screen.dart';
 import '../../features/settings/views/component_gallery_screen.dart';
@@ -471,6 +472,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'appearance',
                     builder: (context, state) =>
                         const AppearanceSettingsScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'palette',
+                        builder: (context, state) =>
+                            const PaletteSettingsScreen(),
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: 'statistics',

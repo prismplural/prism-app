@@ -208,6 +208,142 @@ class AppLocalizationsEs extends AppLocalizations {
       'Usa la paleta de colores del sistema';
 
   @override
+  String get appearanceStylePrism => 'Prism';
+
+  @override
+  String get appearanceStyleOled => 'OLED';
+
+  @override
+  String get appearanceStylePalette => 'Paleta';
+
+  @override
+  String get paletteTitle => 'Paleta';
+
+  @override
+  String paletteSummary(String source, String mood, String contrast) {
+    return '$source · $mood · $contrast';
+  }
+
+  @override
+  String paletteSummaryCustom(String color) {
+    return '$color personalizado';
+  }
+
+  @override
+  String get paletteSourceTitle => 'Origen';
+
+  @override
+  String get paletteSourceDeviceColors => 'Colores del dispositivo';
+
+  @override
+  String get paletteSourceCustomColor => 'Color personalizado';
+
+  @override
+  String get paletteSourceDeviceSubtitle =>
+      'Usa los colores de este dispositivo cuando Prism pueda leerlos';
+
+  @override
+  String get paletteSourceDeviceUnavailableSubtitle =>
+      'Disponible en dispositivos Android con colores dinámicos';
+
+  @override
+  String get paletteSourceCustomSubtitle =>
+      'Elige un color base y Prism generará la paleta';
+
+  @override
+  String get paletteColorTitle => 'Color';
+
+  @override
+  String get paletteMoodTitle => 'Ánimo';
+
+  @override
+  String get paletteMoodTonal => 'Tonal';
+
+  @override
+  String get paletteMoodVibrant => 'Vibrante';
+
+  @override
+  String get paletteMoodExpressive => 'Expresivo';
+
+  @override
+  String get paletteMoodFidelity => 'Fidelidad';
+
+  @override
+  String get paletteMoodMonochrome => 'Monocromo';
+
+  @override
+  String get paletteMoodTonalDescription =>
+      'Color Prism equilibrado con acentos suaves';
+
+  @override
+  String get paletteMoodVibrantDescription =>
+      'Más saturación para acentos más intensos';
+
+  @override
+  String get paletteMoodExpressiveDescription =>
+      'Cambios de tono juguetones alrededor del color base';
+
+  @override
+  String get paletteMoodFidelityDescription =>
+      'Se mantiene cerca del color que elegiste';
+
+  @override
+  String get paletteMoodMonochromeDescription =>
+      'Superficies con poco croma y acentos en gris';
+
+  @override
+  String get paletteContrastTitle => 'Contraste';
+
+  @override
+  String get paletteContrastSoft => 'Suave';
+
+  @override
+  String get paletteContrastStandard => 'Estándar';
+
+  @override
+  String get paletteContrastHigh => 'Alto';
+
+  @override
+  String get palettePreviewTitle => 'Vista previa';
+
+  @override
+  String get palettePreviewMemberOne => 'Lavanda';
+
+  @override
+  String get palettePreviewMemberOneDetail => 'al frente ahora';
+
+  @override
+  String get palettePreviewMemberTwo => 'Sol';
+
+  @override
+  String get palettePreviewMemberTwoDetail => 'cerca';
+
+  @override
+  String get palettePreviewButton => 'Registrar';
+
+  @override
+  String get palettePreviewInput => 'Comparte una nota...';
+
+  @override
+  String get palettePreviewChip => 'Al frente';
+
+  @override
+  String get palettePreviewNavHint => 'Inicio · Integrantes · Ajustes';
+
+  @override
+  String get paletteResetTitle => 'Restablecer';
+
+  @override
+  String get paletteResetAction => 'Restablecer paleta';
+
+  @override
+  String get paletteResetDescription =>
+      'Restaura origen, ánimo, contraste y color base predeterminados';
+
+  @override
+  String get paletteSeedLavender => 'Lavanda';
+
+  @override
   String get appearanceCornerStyleTitle => 'Estilo de esquinas';
 
   @override

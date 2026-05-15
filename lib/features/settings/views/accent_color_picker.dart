@@ -231,34 +231,40 @@ class _ColorCircle extends StatelessWidget {
 
     final circle = Semantics(
       button: true,
-      label: 'Select color',
+      label: tooltip ?? 'Select color',
       child: GestureDetector(
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: isCustom && color == null
-                ? theme.colorScheme.surfaceContainerHighest
-                : color,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isSelected
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outline.withValues(alpha: 0.3),
-              width: isSelected ? 3 : 1,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isCustom && color == null
+                    ? theme.colorScheme.surfaceContainerHighest
+                    : color,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outline.withValues(alpha: 0.3),
+                  width: isSelected ? 3 : 1,
+                ),
+              ),
+              child: isCustom && !isSelected
+                  ? Icon(
+                      AppIcons.colorize,
+                      size: 20,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    )
+                  : isSelected
+                  ? Icon(AppIcons.check, size: 20, color: AppColors.warmWhite)
+                  : null,
             ),
           ),
-          child: isCustom && !isSelected
-              ? Icon(
-                  AppIcons.colorize,
-                  size: 20,
-                  color: theme.colorScheme.onSurfaceVariant,
-                )
-              : isSelected
-              ? Icon(AppIcons.check, size: 20, color: AppColors.warmWhite)
-              : null,
         ),
       ),
     );
