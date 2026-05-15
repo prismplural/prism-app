@@ -302,11 +302,11 @@ class AppTheme {
     Color accent, {
     required bool isDark,
   }) {
-    final lowestAlpha = isDark ? 0.06 : 0.035;
-    final lowAlpha = isDark ? 0.08 : 0.05;
-    final containerAlpha = isDark ? 0.10 : 0.065;
-    final highAlpha = isDark ? 0.12 : 0.08;
-    final highestAlpha = isDark ? 0.14 : 0.095;
+    final lowestAlpha = isDark ? 0.08 : 0.11;
+    final lowAlpha = isDark ? 0.11 : 0.15;
+    final containerAlpha = isDark ? 0.14 : 0.18;
+    final highAlpha = isDark ? 0.17 : 0.21;
+    final highestAlpha = isDark ? 0.20 : 0.24;
 
     return colorScheme.copyWith(
       surface: _tintPaletteSurface(
@@ -342,13 +342,121 @@ class AppTheme {
     );
   }
 
+  static _ThemeColors _paletteThemeColors(
+    ColorScheme colorScheme,
+    Color accent, {
+    required bool isDark,
+  }) {
+    if (isDark) {
+      return _ThemeColors(
+        scaffold: colorScheme.surfaceContainerLow,
+        cardColor: colorScheme.surfaceContainer,
+        fillColor: colorScheme.surfaceContainerHigh,
+        borderColor: colorScheme.onSurface.withValues(alpha: 0.1),
+        focusBorderColor: accent.withValues(alpha: 0.7),
+        dividerColor: colorScheme.onSurface.withValues(alpha: 0.06),
+        sheetBg: colorScheme.surfaceContainerHigh,
+        dialogBg: colorScheme.surfaceContainerHigh,
+        popupBg: colorScheme.surfaceContainerHigh,
+        snackBarBg: colorScheme.inverseSurface,
+        dragHandleColor: colorScheme.onSurface.withValues(alpha: 0.3),
+        filledButtonBg: colorScheme.primary,
+        filledButtonFg: colorScheme.onPrimary,
+        iconButtonBg: colorScheme.primary.withValues(alpha: 0.16),
+        iconButtonFg: colorScheme.primary,
+        textButtonFg: colorScheme.primary,
+        isDark: true,
+      );
+    }
+
+    return _ThemeColors(
+      scaffold: colorScheme.surfaceContainerLowest,
+      cardColor: colorScheme.surfaceContainerLow,
+      fillColor: colorScheme.primary.withValues(alpha: 0.05),
+      borderColor: colorScheme.onSurface.withValues(alpha: 0.1),
+      focusBorderColor: accent.withValues(alpha: 0.6),
+      dividerColor: colorScheme.onSurface.withValues(alpha: 0.06),
+      sheetBg: colorScheme.surfaceContainerLow,
+      dialogBg: colorScheme.surfaceContainerLow,
+      popupBg: colorScheme.surfaceContainerLow,
+      snackBarBg: colorScheme.inverseSurface,
+      dragHandleColor: colorScheme.onSurface.withValues(alpha: 0.2),
+      filledButtonBg: colorScheme.primary,
+      filledButtonFg: colorScheme.onPrimary,
+      iconButtonBg: colorScheme.primary.withValues(alpha: 0.12),
+      iconButtonFg: colorScheme.primary,
+      textButtonFg: colorScheme.primary,
+      isDark: false,
+    );
+  }
+
+  static ThemeData _paletteThemeFromScheme({
+    required ColorScheme baseColorScheme,
+    required bool isDark,
+    required PrismShapes shapes,
+  }) {
+    final accent = contrastAdjustedAccent(
+      baseColorScheme.primary,
+      isDark
+          ? baseColorScheme.surfaceContainerLow
+          : baseColorScheme.surfaceContainerLowest,
+    );
+    final colorScheme = _paletteSurfaceTintedScheme(
+      baseColorScheme.copyWith(
+        primary: accent,
+        onPrimary: highContrastForeground(accent),
+      ),
+      accent,
+      isDark: isDark,
+    );
+
+    return _buildTheme(
+      colorScheme,
+      accent,
+      _paletteThemeColors(colorScheme, accent, isDark: isDark),
+      shapes,
+    );
+  }
+
+  /// Builds a seeded Palette-style theme for a local subtree, preserving the
+  /// parent typography and shape settings while replacing the palette seed.
+  static ThemeData localPaletteTheme(
+    ThemeData baseTheme, {
+    required Color seedColor,
+    PaletteMood paletteMood = PaletteMood.tonal,
+    PaletteContrast paletteContrast = PaletteContrast.standard,
+  }) {
+    final isDark = baseTheme.brightness == Brightness.dark;
+    final shapes =
+        baseTheme.extension<PrismShapes>() ??
+        const PrismShapes(cornerStyle: CornerStyle.rounded);
+    final localTheme = _paletteThemeFromScheme(
+      baseColorScheme: ColorScheme.fromSeed(
+        seedColor: seedColor,
+        brightness: isDark ? Brightness.dark : Brightness.light,
+        dynamicSchemeVariant: _dynamicSchemeVariantFor(paletteMood),
+        contrastLevel: _contrastLevelFor(paletteContrast),
+      ),
+      isDark: isDark,
+      shapes: shapes,
+    );
+
+    return localTheme.copyWith(
+      textTheme: baseTheme.textTheme,
+      primaryTextTheme: baseTheme.primaryTextTheme,
+    );
+  }
+
   /// Minimal switch theme shared across all variants.
   static SwitchThemeData _switchTheme({
     required ColorScheme colorScheme,
     required Color accent,
   }) {
+    final isDark = colorScheme.brightness == Brightness.dark;
     final unselectedTrack = colorScheme.surfaceContainerHighest;
-    final unselectedThumb = colorScheme.surfaceContainerLow;
+    final unselectedThumb = isDark
+        ? colorScheme.onSurfaceVariant
+        : colorScheme.surfaceContainerLow;
     return SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
         final disabled = states.contains(WidgetState.disabled);
@@ -729,44 +837,10 @@ class AppTheme {
       contrast: paletteContrast,
     );
 
-    final accent = contrastAdjustedAccent(
-      baseColorScheme.primary,
-      baseColorScheme.surfaceContainerLowest,
-    );
-    final colorScheme = _paletteSurfaceTintedScheme(
-      baseColorScheme.copyWith(
-        primary: accent,
-        onPrimary: highContrastForeground(accent),
-      ),
-      accent,
+    return _paletteThemeFromScheme(
+      baseColorScheme: baseColorScheme,
       isDark: false,
-    );
-
-    final colors = _ThemeColors(
-      scaffold: colorScheme.surfaceContainerLowest,
-      cardColor: colorScheme.surfaceContainerLow,
-      fillColor: colorScheme.primary.withValues(alpha: 0.05),
-      borderColor: colorScheme.onSurface.withValues(alpha: 0.1),
-      focusBorderColor: accent.withValues(alpha: 0.6),
-      dividerColor: colorScheme.onSurface.withValues(alpha: 0.06),
-      sheetBg: colorScheme.surfaceContainerLow,
-      dialogBg: colorScheme.surfaceContainerLow,
-      popupBg: colorScheme.surfaceContainerLow,
-      snackBarBg: colorScheme.inverseSurface,
-      dragHandleColor: colorScheme.onSurface.withValues(alpha: 0.2),
-      filledButtonBg: colorScheme.primary,
-      filledButtonFg: colorScheme.onPrimary,
-      iconButtonBg: colorScheme.primary.withValues(alpha: 0.12),
-      iconButtonFg: colorScheme.primary,
-      textButtonFg: colorScheme.primary,
-      isDark: false,
-    );
-
-    return _buildTheme(
-      colorScheme,
-      accent,
-      colors,
-      PrismShapes(cornerStyle: cornerStyle),
+      shapes: PrismShapes(cornerStyle: cornerStyle),
     );
   }
 
@@ -787,44 +861,10 @@ class AppTheme {
       contrast: paletteContrast,
     );
 
-    final accent = contrastAdjustedAccent(
-      baseColorScheme.primary,
-      baseColorScheme.surfaceContainerLow,
-    );
-    final colorScheme = _paletteSurfaceTintedScheme(
-      baseColorScheme.copyWith(
-        primary: accent,
-        onPrimary: highContrastForeground(accent),
-      ),
-      accent,
+    return _paletteThemeFromScheme(
+      baseColorScheme: baseColorScheme,
       isDark: true,
-    );
-
-    final colors = _ThemeColors(
-      scaffold: colorScheme.surfaceContainerLow,
-      cardColor: colorScheme.surfaceContainer,
-      fillColor: colorScheme.surfaceContainerHigh,
-      borderColor: colorScheme.onSurface.withValues(alpha: 0.1),
-      focusBorderColor: accent.withValues(alpha: 0.7),
-      dividerColor: colorScheme.onSurface.withValues(alpha: 0.06),
-      sheetBg: colorScheme.surfaceContainerHigh,
-      dialogBg: colorScheme.surfaceContainerHigh,
-      popupBg: colorScheme.surfaceContainerHigh,
-      snackBarBg: colorScheme.inverseSurface,
-      dragHandleColor: colorScheme.onSurface.withValues(alpha: 0.3),
-      filledButtonBg: colorScheme.primary,
-      filledButtonFg: colorScheme.onPrimary,
-      iconButtonBg: colorScheme.primary.withValues(alpha: 0.16),
-      iconButtonFg: colorScheme.primary,
-      textButtonFg: colorScheme.primary,
-      isDark: true,
-    );
-
-    return _buildTheme(
-      colorScheme,
-      accent,
-      colors,
-      PrismShapes(cornerStyle: cornerStyle),
+      shapes: PrismShapes(cornerStyle: cornerStyle),
     );
   }
 }

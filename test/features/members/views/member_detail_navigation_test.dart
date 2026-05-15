@@ -19,6 +19,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/app_theme.dart';
 
 final _now = DateTime(2026, 5, 1, 12);
 
@@ -128,6 +129,10 @@ Widget _buildApp({
   required Member member,
   List<FrontingSession> recentSessions = const [],
   List<Conversation> conversations = const [],
+  SystemSettings settings = const SystemSettings(
+    notesEnabled: false,
+    boardsEnabled: false,
+  ),
 }) {
   final stats = recentSessions.isEmpty
       ? const MemberFrontingStats(
@@ -145,11 +150,7 @@ Widget _buildApp({
 
   return ProviderScope(
     overrides: [
-      systemSettingsProvider.overrideWith(
-        (ref) => Stream.value(
-          const SystemSettings(notesEnabled: false, boardsEnabled: false),
-        ),
-      ),
+      systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
       notesEnabledProvider.overrideWithValue(false),
       boardsEnabledProvider.overrideWithValue(false),
       memberByIdProvider(member.id).overrideWith((ref) => Stream.value(member)),
@@ -183,6 +184,59 @@ Widget _buildApp({
 }
 
 void main() {
+  testWidgets('member detail uses a seeded local profile theme', (
+    tester,
+  ) async {
+    final member = _member('alice', 'Alice').copyWith(
+      customColorEnabled: true,
+      customColorHex: '#16A34A',
+      bio: 'Profile body',
+    );
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(
+        router: router,
+        member: member,
+        settings: const SystemSettings(
+          notesEnabled: false,
+          boardsEnabled: false,
+          perMemberAccentColors: true,
+          paletteMood: PaletteMood.vibrant,
+          paletteContrast: PaletteContrast.high,
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final profileContext = tester.element(find.byType(SingleChildScrollView));
+    final profileTheme = Theme.of(profileContext);
+    final expectedTheme = AppTheme.localPaletteTheme(
+      ThemeData.light(),
+      seedColor: const Color(0xFF16A34A),
+      paletteMood: PaletteMood.vibrant,
+      paletteContrast: PaletteContrast.high,
+    );
+
+    expect(profileTheme.colorScheme.primary, expectedTheme.colorScheme.primary);
+    expect(
+      profileTheme.scaffoldBackgroundColor,
+      expectedTheme.scaffoldBackgroundColor,
+    );
+    expect(profileTheme.cardColor, expectedTheme.cardColor);
+    expect(
+      profileTheme.filledButtonTheme.style!.backgroundColor!.resolve(
+        const <WidgetState>{},
+      ),
+      expectedTheme.colorScheme.primary,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
   testWidgets('member detail pushes recent session so back returns', (
     tester,
   ) async {

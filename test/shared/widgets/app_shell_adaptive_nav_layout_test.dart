@@ -527,8 +527,116 @@ void main() {
       );
 
       expect(navBarColor, isNot(legacyParchmentColor));
-      expect(navBarColor.a, lessThan(0.8));
-      expect(navBarColor.a, greaterThan(0.65));
+      expect(navBarColor.a, lessThan(0.60));
+      expect(navBarColor.a, greaterThan(0.54));
+      expect(
+        find.descendant(
+          of: find.bySemanticsLabel('Navigation bar'),
+          matching: find.byType(BackdropFilter),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('mobile nav bar dark glass remains translucent', (tester) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final semantics = tester.ensureSemantics();
+    try {
+      const settings = SystemSettings();
+      final configuredPrimaryTabs = appShellTabs.take(5).toList();
+      const configuredOverflowTabs = <AppShellTab>[];
+      final theme = AppTheme.materialYouDark(
+        null,
+        paletteSource: PaletteSource.custom,
+        paletteSeedColorHex: '#9070A0',
+        paletteMood: PaletteMood.tonal,
+      );
+
+      final router = GoRouter(
+        initialLocation: AppRoutePaths.home,
+        routes: [
+          StatefulShellRoute.indexedStack(
+            builder: (context, state, navigationShell) {
+              return AppShell(navigationShell: navigationShell);
+            },
+            branches: [
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: AppRoutePaths.home,
+                    builder: (context, state) =>
+                        const Scaffold(body: SizedBox.expand()),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            activeNavBarTabsProvider.overrideWithValue(configuredPrimaryTabs),
+            navBarOverflowTabsProvider.overrideWithValue(
+              configuredOverflowTabs,
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(settings),
+            ),
+            isPinSetProvider.overrideWith((ref) async => false),
+            syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
+            pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
+            pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
+            habitsBadgeEnabledProvider.overrideWith((ref) => false),
+            activeSessionsProvider.overrideWith(
+              (ref) => Stream.value(const []),
+            ),
+            allMembersProvider.overrideWith((ref) => Stream.value(const [])),
+            unreadConversationCountProvider.overrideWith((ref) => 0),
+            frontingMigrationGateProvider.overrideWith(
+              (ref) => FrontingMigrationGateStatus.complete,
+            ),
+          ],
+          child: MaterialApp.router(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            theme: theme,
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final navBarColor = _floatingNavBarDecorationColor(tester);
+      final expectedNavBarColor = Color.alphaBlend(
+        theme.colorScheme.primary.withValues(alpha: 0.06),
+        theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.50),
+      );
+
+      expect(navBarColor, expectedNavBarColor);
+      expect(
+        navBarColor,
+        isNot(
+          Color.alphaBlend(
+            theme.colorScheme.primary.withValues(alpha: 0.06),
+            theme.colorScheme.surfaceContainer.withValues(alpha: 0.50),
+          ),
+        ),
+      );
+      expect(navBarColor.a, lessThan(0.56));
+      expect(navBarColor.a, greaterThan(0.50));
       expect(
         find.descendant(
           of: find.bySemanticsLabel('Navigation bar'),
@@ -561,8 +669,8 @@ void main() {
     final gradient = decoration.gradient! as LinearGradient;
 
     expect(gradient.colors[0], backdropColor.withValues(alpha: 0));
-    expect(gradient.colors[1], backdropColor.withValues(alpha: 0.36));
-    expect(gradient.colors[2], backdropColor.withValues(alpha: 0.62));
+    expect(gradient.colors[1], backdropColor.withValues(alpha: 0.60));
+    expect(gradient.colors[2], backdropColor.withValues(alpha: 0.86));
   });
 }
 

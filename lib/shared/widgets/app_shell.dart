@@ -1631,13 +1631,12 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final baseColor = isDark
-        ? (isOled ? colors.surfaceContainerLow : colors.surfaceContainer)
-              .withValues(alpha: isOled ? 0.82 : 0.78)
-        : colors.surfaceContainer.withValues(alpha: 0.70);
+        ? colors.surfaceContainerHigh.withValues(alpha: 0.50)
+        : colors.surfaceContainer.withValues(alpha: 0.54);
 
     return BoxDecoration(
       color: Color.alphaBlend(
-        widget.accentColor.withValues(alpha: isDark ? 0.10 : 0.08),
+        widget.accentColor.withValues(alpha: 0.06),
         baseColor,
       ),
       borderRadius: BorderRadius.circular(shapes.radius(radius)),

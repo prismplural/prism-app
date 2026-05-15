@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
@@ -17,6 +18,7 @@ import 'package:prism_plurality/features/members/utils/member_accent_color.dart'
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/app_theme.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -40,6 +42,7 @@ import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
+import 'package:prism_plurality/shared/utils/animations.dart';
 
 /// Detail screen for a single system member, pushed via go_router.
 class MemberDetailScreen extends ConsumerWidget {
@@ -97,6 +100,8 @@ class _MemberDetailBody extends ConsumerWidget {
     final terms = watchTerminology(context, ref);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final perMemberAccentColors = ref.watch(perMemberAccentColorsProvider);
+    final paletteMood = ref.watch(paletteMoodProvider);
+    final paletteContrast = ref.watch(paletteContrastProvider);
     final bioMarkdownEnabled = ref.watch(bioMarkdownEnabledProvider);
     final isFronting =
         activeSessionsAsync.whenOrNull(data: _isFronting) ?? false;
@@ -107,26 +112,18 @@ class _MemberDetailBody extends ConsumerWidget {
       perMemberAccentColors: perMemberAccentColors,
     );
 
-    Widget body = SingleChildScrollView(
+    final body = SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
-      child: _buildBodyColumn(
-        context,
-        theme,
-        isFronting,
-        bioMarkdownEnabled: bioMarkdownEnabled,
+      child: Builder(
+        builder: (context) => _buildBodyColumn(
+          context,
+          isFronting,
+          bioMarkdownEnabled: bioMarkdownEnabled,
+        ),
       ),
     );
 
-    if (memberAccent != null) {
-      body = Theme(
-        data: theme.copyWith(
-          colorScheme: theme.colorScheme.copyWith(primary: memberAccent),
-        ),
-        child: body,
-      );
-    }
-
-    return PrismPageScaffold(
+    final screen = PrismPageScaffold(
       topBar: PrismTopBar(
         title: '',
         showBackButton: true,
@@ -145,14 +142,22 @@ class _MemberDetailBody extends ConsumerWidget {
       bodyPadding: EdgeInsets.zero,
       body: body,
     );
+
+    return _MemberProfileTheme(
+      baseTheme: theme,
+      accentColor: memberAccent,
+      paletteMood: paletteMood,
+      paletteContrast: paletteContrast,
+      child: screen,
+    );
   }
 
   Widget _buildBodyColumn(
     BuildContext context,
-    ThemeData theme,
     bool isFronting, {
     required bool bioMarkdownEnabled,
   }) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -244,6 +249,50 @@ class _MemberDetailBody extends ConsumerWidget {
       );
       if (context.mounted) Navigator.of(context).pop();
     }
+  }
+}
+
+class _MemberProfileTheme extends StatelessWidget {
+  const _MemberProfileTheme({
+    required this.baseTheme,
+    required this.accentColor,
+    required this.paletteMood,
+    required this.paletteContrast,
+    required this.child,
+  });
+
+  final ThemeData baseTheme;
+  final Color? accentColor;
+  final PaletteMood paletteMood;
+  final PaletteContrast paletteContrast;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = accentColor;
+    if (accent == null) return child;
+
+    final profileTheme = AppTheme.localPaletteTheme(
+      baseTheme,
+      seedColor: accent,
+      paletteMood: paletteMood,
+      paletteContrast: paletteContrast,
+    );
+
+    if (MediaQuery.of(context).disableAnimations) {
+      return Theme(data: profileTheme, child: child);
+    }
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: Anim.md,
+      curve: Anim.enter,
+      child: child,
+      builder: (context, value, child) => Theme(
+        data: ThemeData.lerp(baseTheme, profileTheme, value),
+        child: child!,
+      ),
+    );
   }
 }
 
