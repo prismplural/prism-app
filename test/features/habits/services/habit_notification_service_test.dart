@@ -625,6 +625,7 @@ void main() {
         await container
             .read(habitNotifierProvider.notifier)
             .completeHabit(habitId: habitId, completedAt: todayAt19);
+        await Future<void>.delayed(Duration.zero);
 
         // Should have at least one daily schedule with a non-null notBefore
         // (the post-completion reschedule).

@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/features/habits/services/habit_notification_service.dart';
 import 'package:prism_plurality/features/habits/utils/habit_due.dart';
 
@@ -328,7 +329,6 @@ class HabitNotifier extends AsyncNotifier<void> {
       // a same-day notification scheduled minutes from now doesn't slip through.
       // Also clears any already-shown notification from notification center on
       // iOS/Android (FLN.cancel removes delivered as well as pending).
-      final notifService = ref.read(habitNotificationServiceProvider);
       final skipCurrentPeriod = isPastDated
           ? isHabitCompletedForCurrentPeriod(
               habit: updated,
@@ -339,7 +339,7 @@ class HabitNotifier extends AsyncNotifier<void> {
               now: now,
             )
           : true; // today-default: skip (we just completed it)
-      await notifService.scheduleForHabit(
+      _scheduleForHabitBestEffort(
         updated,
         skipCurrentPeriod: skipCurrentPeriod,
       );
@@ -387,7 +387,6 @@ class HabitNotifier extends AsyncNotifier<void> {
       // reminder fires again if today is no longer completed. Previously this
       // relied on the 500ms debounced listener — the explicit call here keeps
       // the two paths (complete / uncomplete) symmetric.
-      final notifService = ref.read(habitNotificationServiceProvider);
       final now = DateTime.now();
       final todayCompletions = completions
           .where((c) => DateUtils.isSameDay(c.completedAt, now))
@@ -398,7 +397,7 @@ class HabitNotifier extends AsyncNotifier<void> {
         allCompletions: completions,
         now: now,
       );
-      await notifService.scheduleForHabit(
+      _scheduleForHabitBestEffort(
         updatedHabit,
         skipCurrentPeriod: skipCurrentPeriod,
       );
@@ -456,7 +455,6 @@ class HabitNotifier extends AsyncNotifier<void> {
         if (affected != 1) return;
       }
 
-      final notifService = ref.read(habitNotificationServiceProvider);
       final now = DateTime.now();
       final todayCompletions = completions
           .where((c) => DateUtils.isSameDay(c.completedAt, now))
@@ -467,11 +465,32 @@ class HabitNotifier extends AsyncNotifier<void> {
         allCompletions: completions,
         now: now,
       );
-      await notifService.scheduleForHabit(
+      _scheduleForHabitBestEffort(
         updatedHabit,
         skipCurrentPeriod: skipCurrentPeriod,
       );
     });
+  }
+
+  void _scheduleForHabitBestEffort(
+    Habit habit, {
+    bool skipCurrentPeriod = false,
+  }) {
+    final notifService = ref.read(habitNotificationServiceProvider);
+    unawaited(
+      notifService
+          .scheduleForHabit(habit, skipCurrentPeriod: skipCurrentPeriod)
+          .catchError((Object error, StackTrace stackTrace) {
+            debugPrint(
+              'Habit notification schedule failed (non-fatal): $error',
+            );
+            ErrorReportingService.instance.report(
+              'Habit notification schedule failed: $error',
+              severity: ErrorSeverity.warning,
+              stackTrace: stackTrace,
+            );
+          }),
+    );
   }
 
   // ── Streak Calculation ───────────────────────────────────────────

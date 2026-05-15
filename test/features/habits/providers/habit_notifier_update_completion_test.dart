@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
@@ -217,6 +219,30 @@ class _SpyHabitNotificationService extends HabitNotificationService {
 /// constructor requires but never invokes (spy overrides scheduleForHabit
 /// directly, so none of these are reached).
 class _FakeLocalService extends LocalNotificationService {}
+
+class _HangingHabitNotificationService extends HabitNotificationService {
+  _HangingHabitNotificationService() : super(_FakeLocalService());
+
+  final List<({Habit habit, bool skipCurrentPeriod})> scheduleForHabitCalls =
+      [];
+  final Completer<void> _neverCompletes = Completer<void>();
+
+  @override
+  Future<void> scheduleForHabit(
+    Habit habit, {
+    bool skipCurrentPeriod = false,
+    DateTime? now,
+  }) {
+    scheduleForHabitCalls.add((
+      habit: habit,
+      skipCurrentPeriod: skipCurrentPeriod,
+    ));
+    return _neverCompletes.future;
+  }
+
+  @override
+  Future<void> cancelForHabit(String id) async {}
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -930,6 +956,47 @@ void main() {
       // Today is completed → reminder SHOULD be skipped
       expect(spy.scheduleForHabitCalls.first.skipCurrentPeriod, isTrue);
     });
+
+    test(
+      'completeHabit returns after DB write when notification scheduling stalls',
+      () async {
+        final habit = Habit(
+          id: 'h1',
+          name: 'Meditate',
+          createdAt: _daysAgo(10),
+          modifiedAt: _daysAgo(1),
+          frequency: HabitFrequency.daily,
+          notificationsEnabled: true,
+        );
+
+        final repo = _MutableFakeHabitRepository(habit: habit, completions: []);
+        final hangingNotifications = _HangingHabitNotificationService();
+
+        final container = ProviderContainer(
+          overrides: [
+            habitRepositoryProvider.overrideWithValue(repo),
+            habitNotificationServiceProvider.overrideWith(
+              (ref) => hangingNotifications,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final notifier = container.read(habitNotifierProvider.notifier);
+
+        await notifier
+            .completeHabit(habitId: 'h1')
+            .timeout(const Duration(milliseconds: 250));
+
+        expect(await repo.getAllCompletions(), hasLength(1));
+        expect(repo.updateHabitFieldsCalls, hasLength(1));
+        expect(hangingNotifications.scheduleForHabitCalls, hasLength(1));
+        expect(
+          hangingNotifications.scheduleForHabitCalls.first.skipCurrentPeriod,
+          isTrue,
+        );
+      },
+    );
 
     test(
       'completeHabit deletes the created completion when stats patch loses a delete race',

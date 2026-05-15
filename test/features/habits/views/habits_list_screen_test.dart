@@ -7,12 +7,19 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/repositories/habit_repository.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
+import 'package:prism_plurality/features/habits/services/habit_notification_service.dart';
 import 'package:prism_plurality/features/habits/views/habits_list_screen.dart';
 import 'package:prism_plurality/features/habits/widgets/today_habits_container.dart';
+import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 /// Integration tests for the habits list screen's Today Due/Complete
 /// presentation.
@@ -58,6 +65,7 @@ void main() {
     required _FakeHabitRepository repository,
     required ValueNotifier<String?> lastRoute,
     String initialLocation = '/habits',
+    DateTime? currentDate,
   }) {
     Widget detail(BuildContext context, GoRouterState state) {
       lastRoute.value = state.uri.path;
@@ -93,7 +101,18 @@ void main() {
     return ProviderScope(
       overrides: [
         habitRepositoryProvider.overrideWithValue(repository),
-        currentDateProvider.overrideWith((ref) => today),
+        currentDateProvider.overrideWith((ref) => currentDate ?? today),
+        habitNotificationServiceProvider.overrideWithValue(
+          _NoopHabitNotificationService(),
+        ),
+        currentFronterProvider.overrideWithValue(const AsyncValue.data(null)),
+        activeMembersProvider.overrideWith((ref) => Stream.value(const [])),
+        allMembersProvider.overrideWith((ref) => Stream.value(const [])),
+        allGroupsProvider.overrideWithValue(const AsyncValue.data([])),
+        allGroupEntriesProvider.overrideWithValue(const AsyncValue.data([])),
+        systemSettingsProvider.overrideWithValue(
+          const AsyncValue.data(SystemSettings()),
+        ),
       ],
       child: MaterialApp.router(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -210,6 +229,56 @@ void main() {
       expect(find.byKey(const ValueKey('today-due-full')), findsNothing);
       expect(find.text('all done'), findsOneWidget);
       // Complete section shows the now-completed habit.
+      expect(find.text('Complete'), findsOneWidget);
+      expect(find.text('Meditate'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'quick-completing the last due daily habit dismisses sheet and shows Complete',
+    (tester) async {
+      final actualNow = DateTime.now();
+      final actualToday = DateTime(
+        actualNow.year,
+        actualNow.month,
+        actualNow.day,
+      );
+      final habit = Habit(
+        id: 'h1',
+        name: 'Meditate',
+        createdAt: actualToday.subtract(const Duration(days: 7)),
+        modifiedAt: actualToday,
+        frequency: HabitFrequency.daily,
+      );
+      final repo = _FakeHabitRepository(
+        habits: [habit],
+        allCompletions: const [],
+      );
+      addTearDown(repo.dispose);
+
+      final lastRoute = ValueNotifier<String?>(null);
+      await tester.pumpWidget(
+        buildApp(
+          repository: repo,
+          lastRoute: lastRoute,
+          currentDate: actualToday,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.bySemanticsLabel('Complete Meditate'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('Complete Habit'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Save'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(find.text('Complete Habit'), findsNothing);
+      expect(repo.createdCompletionIds, hasLength(1));
+      expect(find.byKey(const ValueKey('today-due-collapsed')), findsOneWidget);
       expect(find.text('Complete'), findsOneWidget);
       expect(find.text('Meditate'), findsOneWidget);
     },
@@ -346,6 +415,7 @@ class _FakeHabitRepository implements HabitRepository {
 
   final List<Habit> _habits;
   final List<HabitCompletion> _allCompletions;
+  final List<String> createdCompletionIds = [];
   final List<String> deletedCompletionIds = [];
 
   final StreamController<List<HabitCompletion>> _allCompletionsController =
@@ -434,8 +504,12 @@ class _FakeHabitRepository implements HabitRepository {
   // ── Unused write paths ───────────────────────────────────────────────────
 
   @override
-  Future<int> createCompletion(HabitCompletion completion) async =>
-      throw UnimplementedError();
+  Future<int> createCompletion(HabitCompletion completion) async {
+    _allCompletions.add(completion);
+    createdCompletionIds.add(completion.id);
+    _emitCompletions();
+    return 1;
+  }
 
   @override
   Future<void> createHabit(Habit habit) async => throw UnimplementedError();
@@ -573,3 +647,25 @@ class _FakeHabitRepository implements HabitRepository {
     Map<String, dynamic> changedFields,
   ) async => 0;
 }
+
+class _NoopHabitNotificationService extends HabitNotificationService {
+  _NoopHabitNotificationService() : super(_NoopLocalNotificationService());
+
+  @override
+  Future<void> scheduleForHabit(
+    Habit habit, {
+    bool skipCurrentPeriod = false,
+    DateTime? now,
+  }) async {}
+
+  @override
+  Future<void> rescheduleAll(
+    List<Habit> habits, {
+    bool Function(Habit habit)? skipCurrentPeriodFor,
+  }) async {}
+
+  @override
+  Future<void> cancelForHabit(String id) async {}
+}
+
+class _NoopLocalNotificationService extends LocalNotificationService {}
