@@ -69,6 +69,10 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(previousAccentColorHex: Value(value)),
   );
 
+  Future<void> updatePaletteSeedColorHex(String value) => _updateField(
+    SystemSettingsTableCompanion(paletteSeedColorHex: Value(value)),
+  );
+
   // --- Bool fields ---
 
   Future<void> updateShowQuickFront(bool value) =>
@@ -300,6 +304,15 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateThemeCornerStyle(int value) => _updateField(
     SystemSettingsTableCompanion(themeCornerStyle: Value(value)),
   );
+
+  Future<void> updatePaletteSource(int value) =>
+      _updateField(SystemSettingsTableCompanion(paletteSource: Value(value)));
+
+  Future<void> updatePaletteMood(int value) =>
+      _updateField(SystemSettingsTableCompanion(paletteMood: Value(value)));
+
+  Future<void> updatePaletteContrast(int value) =>
+      _updateField(SystemSettingsTableCompanion(paletteContrast: Value(value)));
 
   Future<void> updateTimingMode(int value) =>
       _updateField(SystemSettingsTableCompanion(timingMode: Value(value)));

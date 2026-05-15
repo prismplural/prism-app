@@ -76,6 +76,24 @@ void main() {
       expect(fields['auto_promote_long_fronting_sessions'], isA<bool>());
     });
 
+    test('palette appearance fields emit sync-safe values', () {
+      const settings = SystemSettings(
+        paletteSource: PaletteSource.device,
+        paletteSeedColorHex: '#ABCDEF',
+        paletteMood: PaletteMood.expressive,
+        paletteContrast: PaletteContrast.high,
+      );
+      final fields = repo.debugSettingsFields(settings);
+
+      expect(fields['palette_source'], PaletteSource.device.index);
+      expect(fields['palette_seed_color_hex'], '#ABCDEF');
+      expect(fields['palette_mood'], PaletteMood.expressive.index);
+      expect(fields['palette_contrast'], PaletteContrast.high.index);
+      expect(fields['palette_source'], isA<int>());
+      expect(fields['palette_mood'], isA<int>());
+      expect(fields['palette_contrast'], isA<int>());
+    });
+
     test('has_completed_onboarding stays local-only', () {
       const settings = SystemSettings(hasCompletedOnboarding: true);
       final fields = repo.debugSettingsFields(settings);

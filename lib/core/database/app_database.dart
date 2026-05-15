@@ -98,7 +98,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 22;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -641,6 +641,30 @@ class AppDatabase extends _$AppDatabase {
           }
         });
         current = 22;
+      }
+      if (current == 22 && to >= 23) {
+        // Palette theme controls.
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.paletteSource,
+        );
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.paletteSeedColorHex,
+        );
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.paletteMood,
+        );
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.paletteContrast,
+        );
+        await customStatement(
+          'UPDATE system_settings SET palette_source = 0 '
+          'WHERE theme_style = 2',
+        );
+        current = 23;
       }
       if (current != to) {
         throw UnsupportedError(

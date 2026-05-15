@@ -5078,6 +5078,54 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _paletteSourceMeta = const VerificationMeta(
+    'paletteSource',
+  );
+  @override
+  late final GeneratedColumn<int> paletteSource = GeneratedColumn<int>(
+    'palette_source',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _paletteSeedColorHexMeta =
+      const VerificationMeta('paletteSeedColorHex');
+  @override
+  late final GeneratedColumn<String> paletteSeedColorHex =
+      GeneratedColumn<String>(
+        'palette_seed_color_hex',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('#9070A0'),
+      );
+  static const VerificationMeta _paletteMoodMeta = const VerificationMeta(
+    'paletteMood',
+  );
+  @override
+  late final GeneratedColumn<int> paletteMood = GeneratedColumn<int>(
+    'palette_mood',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _paletteContrastMeta = const VerificationMeta(
+    'paletteContrast',
+  );
+  @override
+  late final GeneratedColumn<int> paletteContrast = GeneratedColumn<int>(
+    'palette_contrast',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
   static const VerificationMeta _chatEnabledMeta = const VerificationMeta(
     'chatEnabled',
   );
@@ -5803,6 +5851,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     themeBrightness,
     themeStyle,
     themeCornerStyle,
+    paletteSource,
+    paletteSeedColorHex,
+    paletteMood,
+    paletteContrast,
     chatEnabled,
     pollsEnabled,
     habitsEnabled,
@@ -6002,6 +6054,42 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         themeCornerStyle.isAcceptableOrUnknown(
           data['theme_corner_style']!,
           _themeCornerStyleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('palette_source')) {
+      context.handle(
+        _paletteSourceMeta,
+        paletteSource.isAcceptableOrUnknown(
+          data['palette_source']!,
+          _paletteSourceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('palette_seed_color_hex')) {
+      context.handle(
+        _paletteSeedColorHexMeta,
+        paletteSeedColorHex.isAcceptableOrUnknown(
+          data['palette_seed_color_hex']!,
+          _paletteSeedColorHexMeta,
+        ),
+      );
+    }
+    if (data.containsKey('palette_mood')) {
+      context.handle(
+        _paletteMoodMeta,
+        paletteMood.isAcceptableOrUnknown(
+          data['palette_mood']!,
+          _paletteMoodMeta,
+        ),
+      );
+    }
+    if (data.containsKey('palette_contrast')) {
+      context.handle(
+        _paletteContrastMeta,
+        paletteContrast.isAcceptableOrUnknown(
+          data['palette_contrast']!,
+          _paletteContrastMeta,
         ),
       );
     }
@@ -6553,6 +6641,22 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.int,
         data['${effectivePrefix}theme_corner_style'],
       )!,
+      paletteSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}palette_source'],
+      )!,
+      paletteSeedColorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}palette_seed_color_hex'],
+      )!,
+      paletteMood: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}palette_mood'],
+      )!,
+      paletteContrast: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}palette_contrast'],
+      )!,
       chatEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}chat_enabled'],
@@ -6797,6 +6901,10 @@ class SystemSettingsData extends DataClass
   final int themeBrightness;
   final int themeStyle;
   final int themeCornerStyle;
+  final int paletteSource;
+  final String paletteSeedColorHex;
+  final int paletteMood;
+  final int paletteContrast;
   final bool chatEnabled;
   final bool pollsEnabled;
   final bool habitsEnabled;
@@ -6897,6 +7005,10 @@ class SystemSettingsData extends DataClass
     required this.themeBrightness,
     required this.themeStyle,
     required this.themeCornerStyle,
+    required this.paletteSource,
+    required this.paletteSeedColorHex,
+    required this.paletteMood,
+    required this.paletteContrast,
     required this.chatEnabled,
     required this.pollsEnabled,
     required this.habitsEnabled,
@@ -6988,6 +7100,10 @@ class SystemSettingsData extends DataClass
     map['theme_brightness'] = Variable<int>(themeBrightness);
     map['theme_style'] = Variable<int>(themeStyle);
     map['theme_corner_style'] = Variable<int>(themeCornerStyle);
+    map['palette_source'] = Variable<int>(paletteSource);
+    map['palette_seed_color_hex'] = Variable<String>(paletteSeedColorHex);
+    map['palette_mood'] = Variable<int>(paletteMood);
+    map['palette_contrast'] = Variable<int>(paletteContrast);
     map['chat_enabled'] = Variable<bool>(chatEnabled);
     map['polls_enabled'] = Variable<bool>(pollsEnabled);
     map['habits_enabled'] = Variable<bool>(habitsEnabled);
@@ -7104,6 +7220,10 @@ class SystemSettingsData extends DataClass
       themeBrightness: Value(themeBrightness),
       themeStyle: Value(themeStyle),
       themeCornerStyle: Value(themeCornerStyle),
+      paletteSource: Value(paletteSource),
+      paletteSeedColorHex: Value(paletteSeedColorHex),
+      paletteMood: Value(paletteMood),
+      paletteContrast: Value(paletteContrast),
       chatEnabled: Value(chatEnabled),
       pollsEnabled: Value(pollsEnabled),
       habitsEnabled: Value(habitsEnabled),
@@ -7210,6 +7330,12 @@ class SystemSettingsData extends DataClass
       themeBrightness: serializer.fromJson<int>(json['themeBrightness']),
       themeStyle: serializer.fromJson<int>(json['themeStyle']),
       themeCornerStyle: serializer.fromJson<int>(json['themeCornerStyle']),
+      paletteSource: serializer.fromJson<int>(json['paletteSource']),
+      paletteSeedColorHex: serializer.fromJson<String>(
+        json['paletteSeedColorHex'],
+      ),
+      paletteMood: serializer.fromJson<int>(json['paletteMood']),
+      paletteContrast: serializer.fromJson<int>(json['paletteContrast']),
       chatEnabled: serializer.fromJson<bool>(json['chatEnabled']),
       pollsEnabled: serializer.fromJson<bool>(json['pollsEnabled']),
       habitsEnabled: serializer.fromJson<bool>(json['habitsEnabled']),
@@ -7357,6 +7483,10 @@ class SystemSettingsData extends DataClass
       'themeBrightness': serializer.toJson<int>(themeBrightness),
       'themeStyle': serializer.toJson<int>(themeStyle),
       'themeCornerStyle': serializer.toJson<int>(themeCornerStyle),
+      'paletteSource': serializer.toJson<int>(paletteSource),
+      'paletteSeedColorHex': serializer.toJson<String>(paletteSeedColorHex),
+      'paletteMood': serializer.toJson<int>(paletteMood),
+      'paletteContrast': serializer.toJson<int>(paletteContrast),
       'chatEnabled': serializer.toJson<bool>(chatEnabled),
       'pollsEnabled': serializer.toJson<bool>(pollsEnabled),
       'habitsEnabled': serializer.toJson<bool>(habitsEnabled),
@@ -7458,6 +7588,10 @@ class SystemSettingsData extends DataClass
     int? themeBrightness,
     int? themeStyle,
     int? themeCornerStyle,
+    int? paletteSource,
+    String? paletteSeedColorHex,
+    int? paletteMood,
+    int? paletteContrast,
     bool? chatEnabled,
     bool? pollsEnabled,
     bool? habitsEnabled,
@@ -7538,6 +7672,10 @@ class SystemSettingsData extends DataClass
     themeBrightness: themeBrightness ?? this.themeBrightness,
     themeStyle: themeStyle ?? this.themeStyle,
     themeCornerStyle: themeCornerStyle ?? this.themeCornerStyle,
+    paletteSource: paletteSource ?? this.paletteSource,
+    paletteSeedColorHex: paletteSeedColorHex ?? this.paletteSeedColorHex,
+    paletteMood: paletteMood ?? this.paletteMood,
+    paletteContrast: paletteContrast ?? this.paletteContrast,
     chatEnabled: chatEnabled ?? this.chatEnabled,
     pollsEnabled: pollsEnabled ?? this.pollsEnabled,
     habitsEnabled: habitsEnabled ?? this.habitsEnabled,
@@ -7664,6 +7802,18 @@ class SystemSettingsData extends DataClass
       themeCornerStyle: data.themeCornerStyle.present
           ? data.themeCornerStyle.value
           : this.themeCornerStyle,
+      paletteSource: data.paletteSource.present
+          ? data.paletteSource.value
+          : this.paletteSource,
+      paletteSeedColorHex: data.paletteSeedColorHex.present
+          ? data.paletteSeedColorHex.value
+          : this.paletteSeedColorHex,
+      paletteMood: data.paletteMood.present
+          ? data.paletteMood.value
+          : this.paletteMood,
+      paletteContrast: data.paletteContrast.present
+          ? data.paletteContrast.value
+          : this.paletteContrast,
       chatEnabled: data.chatEnabled.present
           ? data.chatEnabled.value
           : this.chatEnabled,
@@ -7847,6 +7997,10 @@ class SystemSettingsData extends DataClass
           ..write('themeBrightness: $themeBrightness, ')
           ..write('themeStyle: $themeStyle, ')
           ..write('themeCornerStyle: $themeCornerStyle, ')
+          ..write('paletteSource: $paletteSource, ')
+          ..write('paletteSeedColorHex: $paletteSeedColorHex, ')
+          ..write('paletteMood: $paletteMood, ')
+          ..write('paletteContrast: $paletteContrast, ')
           ..write('chatEnabled: $chatEnabled, ')
           ..write('pollsEnabled: $pollsEnabled, ')
           ..write('habitsEnabled: $habitsEnabled, ')
@@ -7932,6 +8086,10 @@ class SystemSettingsData extends DataClass
     themeBrightness,
     themeStyle,
     themeCornerStyle,
+    paletteSource,
+    paletteSeedColorHex,
+    paletteMood,
+    paletteContrast,
     chatEnabled,
     pollsEnabled,
     habitsEnabled,
@@ -8009,6 +8167,10 @@ class SystemSettingsData extends DataClass
           other.themeBrightness == this.themeBrightness &&
           other.themeStyle == this.themeStyle &&
           other.themeCornerStyle == this.themeCornerStyle &&
+          other.paletteSource == this.paletteSource &&
+          other.paletteSeedColorHex == this.paletteSeedColorHex &&
+          other.paletteMood == this.paletteMood &&
+          other.paletteContrast == this.paletteContrast &&
           other.chatEnabled == this.chatEnabled &&
           other.pollsEnabled == this.pollsEnabled &&
           other.habitsEnabled == this.habitsEnabled &&
@@ -8091,6 +8253,10 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<int> themeBrightness;
   final Value<int> themeStyle;
   final Value<int> themeCornerStyle;
+  final Value<int> paletteSource;
+  final Value<String> paletteSeedColorHex;
+  final Value<int> paletteMood;
+  final Value<int> paletteContrast;
   final Value<bool> chatEnabled;
   final Value<bool> pollsEnabled;
   final Value<bool> habitsEnabled;
@@ -8164,6 +8330,10 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.themeBrightness = const Value.absent(),
     this.themeStyle = const Value.absent(),
     this.themeCornerStyle = const Value.absent(),
+    this.paletteSource = const Value.absent(),
+    this.paletteSeedColorHex = const Value.absent(),
+    this.paletteMood = const Value.absent(),
+    this.paletteContrast = const Value.absent(),
     this.chatEnabled = const Value.absent(),
     this.pollsEnabled = const Value.absent(),
     this.habitsEnabled = const Value.absent(),
@@ -8238,6 +8408,10 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.themeBrightness = const Value.absent(),
     this.themeStyle = const Value.absent(),
     this.themeCornerStyle = const Value.absent(),
+    this.paletteSource = const Value.absent(),
+    this.paletteSeedColorHex = const Value.absent(),
+    this.paletteMood = const Value.absent(),
+    this.paletteContrast = const Value.absent(),
     this.chatEnabled = const Value.absent(),
     this.pollsEnabled = const Value.absent(),
     this.habitsEnabled = const Value.absent(),
@@ -8312,6 +8486,10 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<int>? themeBrightness,
     Expression<int>? themeStyle,
     Expression<int>? themeCornerStyle,
+    Expression<int>? paletteSource,
+    Expression<String>? paletteSeedColorHex,
+    Expression<int>? paletteMood,
+    Expression<int>? paletteContrast,
     Expression<bool>? chatEnabled,
     Expression<bool>? pollsEnabled,
     Expression<bool>? habitsEnabled,
@@ -8391,6 +8569,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       if (themeBrightness != null) 'theme_brightness': themeBrightness,
       if (themeStyle != null) 'theme_style': themeStyle,
       if (themeCornerStyle != null) 'theme_corner_style': themeCornerStyle,
+      if (paletteSource != null) 'palette_source': paletteSource,
+      if (paletteSeedColorHex != null)
+        'palette_seed_color_hex': paletteSeedColorHex,
+      if (paletteMood != null) 'palette_mood': paletteMood,
+      if (paletteContrast != null) 'palette_contrast': paletteContrast,
       if (chatEnabled != null) 'chat_enabled': chatEnabled,
       if (pollsEnabled != null) 'polls_enabled': pollsEnabled,
       if (habitsEnabled != null) 'habits_enabled': habitsEnabled,
@@ -8500,6 +8683,10 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<int>? themeBrightness,
     Value<int>? themeStyle,
     Value<int>? themeCornerStyle,
+    Value<int>? paletteSource,
+    Value<String>? paletteSeedColorHex,
+    Value<int>? paletteMood,
+    Value<int>? paletteContrast,
     Value<bool>? chatEnabled,
     Value<bool>? pollsEnabled,
     Value<bool>? habitsEnabled,
@@ -8580,6 +8767,10 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       themeBrightness: themeBrightness ?? this.themeBrightness,
       themeStyle: themeStyle ?? this.themeStyle,
       themeCornerStyle: themeCornerStyle ?? this.themeCornerStyle,
+      paletteSource: paletteSource ?? this.paletteSource,
+      paletteSeedColorHex: paletteSeedColorHex ?? this.paletteSeedColorHex,
+      paletteMood: paletteMood ?? this.paletteMood,
+      paletteContrast: paletteContrast ?? this.paletteContrast,
       chatEnabled: chatEnabled ?? this.chatEnabled,
       pollsEnabled: pollsEnabled ?? this.pollsEnabled,
       habitsEnabled: habitsEnabled ?? this.habitsEnabled,
@@ -8720,6 +8911,20 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     }
     if (themeCornerStyle.present) {
       map['theme_corner_style'] = Variable<int>(themeCornerStyle.value);
+    }
+    if (paletteSource.present) {
+      map['palette_source'] = Variable<int>(paletteSource.value);
+    }
+    if (paletteSeedColorHex.present) {
+      map['palette_seed_color_hex'] = Variable<String>(
+        paletteSeedColorHex.value,
+      );
+    }
+    if (paletteMood.present) {
+      map['palette_mood'] = Variable<int>(paletteMood.value);
+    }
+    if (paletteContrast.present) {
+      map['palette_contrast'] = Variable<int>(paletteContrast.value);
     }
     if (chatEnabled.present) {
       map['chat_enabled'] = Variable<bool>(chatEnabled.value);
@@ -8965,6 +9170,10 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('themeBrightness: $themeBrightness, ')
           ..write('themeStyle: $themeStyle, ')
           ..write('themeCornerStyle: $themeCornerStyle, ')
+          ..write('paletteSource: $paletteSource, ')
+          ..write('paletteSeedColorHex: $paletteSeedColorHex, ')
+          ..write('paletteMood: $paletteMood, ')
+          ..write('paletteContrast: $paletteContrast, ')
           ..write('chatEnabled: $chatEnabled, ')
           ..write('pollsEnabled: $pollsEnabled, ')
           ..write('habitsEnabled: $habitsEnabled, ')
@@ -26534,6 +26743,10 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<int> themeBrightness,
       Value<int> themeStyle,
       Value<int> themeCornerStyle,
+      Value<int> paletteSource,
+      Value<String> paletteSeedColorHex,
+      Value<int> paletteMood,
+      Value<int> paletteContrast,
       Value<bool> chatEnabled,
       Value<bool> pollsEnabled,
       Value<bool> habitsEnabled,
@@ -26609,6 +26822,10 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<int> themeBrightness,
       Value<int> themeStyle,
       Value<int> themeCornerStyle,
+      Value<int> paletteSource,
+      Value<String> paletteSeedColorHex,
+      Value<int> paletteMood,
+      Value<int> paletteContrast,
       Value<bool> chatEnabled,
       Value<bool> pollsEnabled,
       Value<bool> habitsEnabled,
@@ -26757,6 +26974,26 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<int> get themeCornerStyle => $composableBuilder(
     column: $table.themeCornerStyle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get paletteSource => $composableBuilder(
+    column: $table.paletteSource,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get paletteSeedColorHex => $composableBuilder(
+    column: $table.paletteSeedColorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get paletteMood => $composableBuilder(
+    column: $table.paletteMood,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get paletteContrast => $composableBuilder(
+    column: $table.paletteContrast,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -27127,6 +27364,26 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get paletteSource => $composableBuilder(
+    column: $table.paletteSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get paletteSeedColorHex => $composableBuilder(
+    column: $table.paletteSeedColorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get paletteMood => $composableBuilder(
+    column: $table.paletteMood,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get paletteContrast => $composableBuilder(
+    column: $table.paletteContrast,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get chatEnabled => $composableBuilder(
     column: $table.chatEnabled,
     builder: (column) => ColumnOrderings(column),
@@ -27490,6 +27747,26 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get paletteSource => $composableBuilder(
+    column: $table.paletteSource,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get paletteSeedColorHex => $composableBuilder(
+    column: $table.paletteSeedColorHex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get paletteMood => $composableBuilder(
+    column: $table.paletteMood,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get paletteContrast => $composableBuilder(
+    column: $table.paletteContrast,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get chatEnabled => $composableBuilder(
     column: $table.chatEnabled,
     builder: (column) => column,
@@ -27819,6 +28096,10 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> themeBrightness = const Value.absent(),
                 Value<int> themeStyle = const Value.absent(),
                 Value<int> themeCornerStyle = const Value.absent(),
+                Value<int> paletteSource = const Value.absent(),
+                Value<String> paletteSeedColorHex = const Value.absent(),
+                Value<int> paletteMood = const Value.absent(),
+                Value<int> paletteContrast = const Value.absent(),
                 Value<bool> chatEnabled = const Value.absent(),
                 Value<bool> pollsEnabled = const Value.absent(),
                 Value<bool> habitsEnabled = const Value.absent(),
@@ -27896,6 +28177,10 @@ class $$SystemSettingsTableTableTableManager
                 themeBrightness: themeBrightness,
                 themeStyle: themeStyle,
                 themeCornerStyle: themeCornerStyle,
+                paletteSource: paletteSource,
+                paletteSeedColorHex: paletteSeedColorHex,
+                paletteMood: paletteMood,
+                paletteContrast: paletteContrast,
                 chatEnabled: chatEnabled,
                 pollsEnabled: pollsEnabled,
                 habitsEnabled: habitsEnabled,
@@ -27974,6 +28259,10 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> themeBrightness = const Value.absent(),
                 Value<int> themeStyle = const Value.absent(),
                 Value<int> themeCornerStyle = const Value.absent(),
+                Value<int> paletteSource = const Value.absent(),
+                Value<String> paletteSeedColorHex = const Value.absent(),
+                Value<int> paletteMood = const Value.absent(),
+                Value<int> paletteContrast = const Value.absent(),
                 Value<bool> chatEnabled = const Value.absent(),
                 Value<bool> pollsEnabled = const Value.absent(),
                 Value<bool> habitsEnabled = const Value.absent(),
@@ -28051,6 +28340,10 @@ class $$SystemSettingsTableTableTableManager
                 themeBrightness: themeBrightness,
                 themeStyle: themeStyle,
                 themeCornerStyle: themeCornerStyle,
+                paletteSource: paletteSource,
+                paletteSeedColorHex: paletteSeedColorHex,
+                paletteMood: paletteMood,
+                paletteContrast: paletteContrast,
                 chatEnabled: chatEnabled,
                 pollsEnabled: pollsEnabled,
                 habitsEnabled: habitsEnabled,

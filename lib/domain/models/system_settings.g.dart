@@ -34,6 +34,16 @@ _SystemSettings _$SystemSettingsFromJson(
   cornerStyle:
       $enumDecodeNullable(_$CornerStyleEnumMap, json['cornerStyle']) ??
       CornerStyle.rounded,
+  paletteSource:
+      $enumDecodeNullable(_$PaletteSourceEnumMap, json['paletteSource']) ??
+      PaletteSource.custom,
+  paletteSeedColorHex: json['paletteSeedColorHex'] as String? ?? '#9070A0',
+  paletteMood:
+      $enumDecodeNullable(_$PaletteMoodEnumMap, json['paletteMood']) ??
+      PaletteMood.tonal,
+  paletteContrast:
+      $enumDecodeNullable(_$PaletteContrastEnumMap, json['paletteContrast']) ??
+      PaletteContrast.standard,
   chatEnabled: json['chatEnabled'] as bool? ?? true,
   pollsEnabled: json['pollsEnabled'] as bool? ?? true,
   habitsEnabled: json['habitsEnabled'] as bool? ?? true,
@@ -167,6 +177,10 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'themeBrightness': _$ThemeBrightnessEnumMap[instance.themeBrightness]!,
   'themeStyle': _$ThemeStyleEnumMap[instance.themeStyle]!,
   'cornerStyle': _$CornerStyleEnumMap[instance.cornerStyle]!,
+  'paletteSource': _$PaletteSourceEnumMap[instance.paletteSource]!,
+  'paletteSeedColorHex': instance.paletteSeedColorHex,
+  'paletteMood': _$PaletteMoodEnumMap[instance.paletteMood]!,
+  'paletteContrast': _$PaletteContrastEnumMap[instance.paletteContrast]!,
   'chatEnabled': instance.chatEnabled,
   'pollsEnabled': instance.pollsEnabled,
   'habitsEnabled': instance.habitsEnabled,
@@ -262,6 +276,25 @@ const _$ThemeStyleEnumMap = {
 const _$CornerStyleEnumMap = {
   CornerStyle.rounded: 'rounded',
   CornerStyle.angular: 'angular',
+};
+
+const _$PaletteSourceEnumMap = {
+  PaletteSource.device: 'device',
+  PaletteSource.custom: 'custom',
+};
+
+const _$PaletteMoodEnumMap = {
+  PaletteMood.tonal: 'tonal',
+  PaletteMood.vibrant: 'vibrant',
+  PaletteMood.expressive: 'expressive',
+  PaletteMood.fidelity: 'fidelity',
+  PaletteMood.monochrome: 'monochrome',
+};
+
+const _$PaletteContrastEnumMap = {
+  PaletteContrast.soft: 'soft',
+  PaletteContrast.standard: 'standard',
+  PaletteContrast.high: 'high',
 };
 
 const _$FrontingTimingModeEnumMap = {

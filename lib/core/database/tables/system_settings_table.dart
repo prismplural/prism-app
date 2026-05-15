@@ -42,6 +42,14 @@ class SystemSettingsTable extends Table {
       integer().withDefault(const Constant(0))(); // ThemeStyle enum index
   IntColumn get themeCornerStyle =>
       integer().withDefault(const Constant(0))(); // CornerStyle enum index
+  IntColumn get paletteSource =>
+      integer().withDefault(const Constant(1))(); // PaletteSource enum index
+  TextColumn get paletteSeedColorHex =>
+      text().withDefault(const Constant('#9070A0'))();
+  IntColumn get paletteMood =>
+      integer().withDefault(const Constant(0))(); // PaletteMood enum index
+  IntColumn get paletteContrast =>
+      integer().withDefault(const Constant(1))(); // PaletteContrast enum index
   // Feature toggles
   BoolColumn get chatEnabled => boolean().withDefault(const Constant(true))();
   BoolColumn get pollsEnabled => boolean().withDefault(const Constant(true))();

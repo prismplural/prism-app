@@ -70,7 +70,51 @@ enum ThemeStyle {
     return switch (this) {
       ThemeStyle.standard => 'Default',
       ThemeStyle.oled => 'OLED',
-      ThemeStyle.materialYou => 'Material You',
+      ThemeStyle.materialYou => 'Palette',
+    };
+  }
+}
+
+enum PaletteSource {
+  device,
+  custom;
+
+  String get displayName {
+    return switch (this) {
+      PaletteSource.device => 'Device',
+      PaletteSource.custom => 'Custom',
+    };
+  }
+}
+
+enum PaletteMood {
+  tonal,
+  vibrant,
+  expressive,
+  fidelity,
+  monochrome;
+
+  String get displayName {
+    return switch (this) {
+      PaletteMood.tonal => 'Tonal',
+      PaletteMood.vibrant => 'Vibrant',
+      PaletteMood.expressive => 'Expressive',
+      PaletteMood.fidelity => 'Fidelity',
+      PaletteMood.monochrome => 'Monochrome',
+    };
+  }
+}
+
+enum PaletteContrast {
+  soft,
+  standard,
+  high;
+
+  String get displayName {
+    return switch (this) {
+      PaletteContrast.soft => 'Soft',
+      PaletteContrast.standard => 'Standard',
+      PaletteContrast.high => 'High',
     };
   }
 }
@@ -152,6 +196,10 @@ abstract class SystemSettings with _$SystemSettings {
     @Default(ThemeBrightness.system) ThemeBrightness themeBrightness,
     @Default(ThemeStyle.standard) ThemeStyle themeStyle,
     @Default(CornerStyle.rounded) CornerStyle cornerStyle,
+    @Default(PaletteSource.custom) PaletteSource paletteSource,
+    @Default('#9070A0') String paletteSeedColorHex,
+    @Default(PaletteMood.tonal) PaletteMood paletteMood,
+    @Default(PaletteContrast.standard) PaletteContrast paletteContrast,
     @Default(true) bool chatEnabled,
     @Default(true) bool pollsEnabled,
     @Default(true) bool habitsEnabled,

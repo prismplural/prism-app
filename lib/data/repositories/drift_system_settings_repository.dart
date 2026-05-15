@@ -86,6 +86,12 @@ class DriftSystemSettingsRepository
     // previousAccentColorHex is local-only, no sync needed
   }
 
+  @override
+  Future<void> updatePaletteSeedColorHex(String hex) async {
+    await _dao.updatePaletteSeedColorHex(hex);
+    await _syncFieldIfThemeEnabled('palette_seed_color_hex', hex);
+  }
+
   // Bool fields
 
   @override
@@ -264,6 +270,24 @@ class DriftSystemSettingsRepository
   Future<void> updateCornerStyle(domain.CornerStyle value) async {
     await _dao.updateThemeCornerStyle(value.index);
     await _syncFieldIfThemeEnabled('theme_corner_style', value.index);
+  }
+
+  @override
+  Future<void> updatePaletteSource(domain.PaletteSource value) async {
+    await _dao.updatePaletteSource(value.index);
+    await _syncFieldIfThemeEnabled('palette_source', value.index);
+  }
+
+  @override
+  Future<void> updatePaletteMood(domain.PaletteMood value) async {
+    await _dao.updatePaletteMood(value.index);
+    await _syncFieldIfThemeEnabled('palette_mood', value.index);
+  }
+
+  @override
+  Future<void> updatePaletteContrast(domain.PaletteContrast value) async {
+    await _dao.updatePaletteContrast(value.index);
+    await _syncFieldIfThemeEnabled('palette_contrast', value.index);
   }
 
   @override
@@ -579,6 +603,10 @@ class DriftSystemSettingsRepository
       'theme_brightness': s.themeBrightness.index,
       'theme_style': s.themeStyle.index,
       'theme_corner_style': s.cornerStyle.index,
+      'palette_source': s.paletteSource.index,
+      'palette_seed_color_hex': s.paletteSeedColorHex,
+      'palette_mood': s.paletteMood.index,
+      'palette_contrast': s.paletteContrast.index,
       'chat_enabled': s.chatEnabled,
       'polls_enabled': s.pollsEnabled,
       'habits_enabled': s.habitsEnabled,

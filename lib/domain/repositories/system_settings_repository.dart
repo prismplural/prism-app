@@ -45,6 +45,10 @@ abstract class SystemSettingsRepository {
   Future<void> updateThemeBrightness(domain.ThemeBrightness value);
   Future<void> updateThemeStyle(domain.ThemeStyle value);
   Future<void> updateCornerStyle(domain.CornerStyle value);
+  Future<void> updatePaletteSource(domain.PaletteSource value);
+  Future<void> updatePaletteSeedColorHex(String hex);
+  Future<void> updatePaletteMood(domain.PaletteMood value);
+  Future<void> updatePaletteContrast(domain.PaletteContrast value);
   Future<void> updateTimingMode(domain.FrontingTimingMode value);
   Future<void> updateFrontingListViewMode(domain.FrontingListViewMode value);
   Future<void> updateAddFrontDefaultBehavior(domain.FrontStartBehavior value);
