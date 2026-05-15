@@ -12343,6 +12343,90 @@ abstract class AppLocalizations {
   /// **'{name} deleted'**
   String settingsCustomFieldsDeletedToast(String name);
 
+  /// Tooltip for the Prism Iris accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Prism Iris'**
+  String get settingsAccentColorPrismIris;
+
+  /// Tooltip for the Heather accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Heather'**
+  String get settingsAccentColorHeather;
+
+  /// Tooltip for the Periwinkle accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Periwinkle'**
+  String get settingsAccentColorPeriwinkle;
+
+  /// Tooltip for the Dusty Rose accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Dusty Rose'**
+  String get settingsAccentColorDustyRose;
+
+  /// Tooltip for the Soft Coral accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Soft Coral'**
+  String get settingsAccentColorSoftCoral;
+
+  /// Tooltip for the Sage accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Sage'**
+  String get settingsAccentColorSage;
+
+  /// Tooltip for the Seafoam accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Seafoam'**
+  String get settingsAccentColorSeafoam;
+
+  /// Tooltip for the Azure accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Azure'**
+  String get settingsAccentColorAzure;
+
+  /// Tooltip for the Violet accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Violet'**
+  String get settingsAccentColorViolet;
+
+  /// Tooltip for the Orchid accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Orchid'**
+  String get settingsAccentColorOrchid;
+
+  /// Tooltip for the Raspberry accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Raspberry'**
+  String get settingsAccentColorRaspberry;
+
+  /// Tooltip for the Emerald accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Emerald'**
+  String get settingsAccentColorEmerald;
+
+  /// Tooltip for the Cyan accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Cyan'**
+  String get settingsAccentColorCyan;
+
+  /// Tooltip for the Ember accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Ember'**
+  String get settingsAccentColorEmber;
+
   /// Tooltip for the Prism Purple accent color option
   ///
   /// In en, this message translates to:

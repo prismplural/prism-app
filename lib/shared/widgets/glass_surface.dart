@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
@@ -88,30 +87,27 @@ class GlassSurface extends ConsumerWidget {
       );
     }
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
     final effectiveBorderRadius = shape == BoxShape.circle
         ? BorderRadius.circular((width ?? 40) / 2)
         : (borderRadius ??
-            BorderRadius.circular(
-              PrismShapes.of(context).radius(PrismTokens.radiusMedium),
-            ));
+              BorderRadius.circular(
+                PrismShapes.of(context).radius(PrismTokens.radiusMedium),
+              ));
 
-    final darkBase = AppColors.warmWhite.withValues(alpha: 0.08);
+    final baseSurface = isDark
+        ? colors.surfaceContainerHighest.withValues(alpha: 0.36)
+        : colors.surfaceContainerLow.withValues(alpha: 0.65);
     final fillColor = tint != null
-        ? Color.alphaBlend(
-            tint!.withValues(alpha: 0.15),
-            isDark ? darkBase : AppColors.warmWhite.withValues(alpha: 0.65),
-          )
-        : isDark
-        ? darkBase
-        : AppColors.warmWhite.withValues(alpha: 0.65);
+        ? Color.alphaBlend(tint!.withValues(alpha: 0.15), baseSurface)
+        : baseSurface;
     final effectiveFillColor = backgroundColor ?? fillColor;
     final effectiveBorderColor =
         borderColor ??
-        (isDark
-            ? AppColors.warmWhite.withValues(alpha: 0.1)
-            : AppColors.warmBlack.withValues(alpha: 0.06));
+        colors.outlineVariant.withValues(alpha: isDark ? 0.42 : 0.36);
 
     return ClipRRect(
       borderRadius: effectiveBorderRadius,

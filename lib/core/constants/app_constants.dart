@@ -7,7 +7,7 @@ abstract final class AppConstants {
   /// Default emoji for new members
   static const String defaultEmoji = '❔';
 
-  /// Default accent color (purple)
+  /// Default accent color (Prism Purple)
   static const String defaultAccentColorHex = '#9070A0';
 
   /// Quick reactions for chat

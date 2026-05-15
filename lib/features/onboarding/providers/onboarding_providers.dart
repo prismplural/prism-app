@@ -929,17 +929,20 @@ final onboardingProvider =
 /// Predefined accent color options.
 const predefinedColors = [
   '#9070A0', // Prism Purple (default)
-  '#FF6B6B', // Coral Red
-  '#4ECDC4', // Teal
-  '#45B7D1', // Sky Blue
-  '#96CEB4', // Sage Green
-  '#FFEAA7', // Warm Yellow
-  '#DDA0DD', // Plum
-  '#98D8C8', // Mint
-  '#F7DC6F', // Gold
-  '#BB8FCE', // Lavender
-  '#85C1E9', // Powder Blue
-  '#F1948A', // Salmon
+  '#8474B7', // Prism Iris
+  '#8B6FA8', // Heather
+  '#667DB6', // Periwinkle
+  '#AC6983', // Dusty Rose
+  '#B86457', // Soft Coral
+  '#6F8458', // Sage
+  '#4F8A83', // Seafoam
+  '#3476F2', // Azure
+  '#9160F2', // Violet
+  '#BB4CCB', // Orchid
+  '#C75286', // Raspberry
+  '#0B8F6A', // Emerald
+  '#0284A8', // Cyan
+  '#D05820', // Ember
 ];
 
 /// Parses a hex color string to a Color.

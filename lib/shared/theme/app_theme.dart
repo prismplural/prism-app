@@ -295,32 +295,36 @@ class AppTheme {
 
   /// Minimal switch theme shared across all variants.
   static SwitchThemeData _switchTheme({
-    required bool isDark,
+    required ColorScheme colorScheme,
     required Color accent,
   }) {
-    final onSurface = isDark ? AppColors.warmWhite : AppColors.warmBlack;
+    final unselectedTrack = colorScheme.surfaceContainerHighest;
+    final unselectedThumb = colorScheme.surfaceContainerLow;
     return SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
+        final disabled = states.contains(WidgetState.disabled);
         if (states.contains(WidgetState.selected)) {
-          return AppColors.warmWhite;
+          return disabled
+              ? colorScheme.onPrimary.withValues(alpha: 0.62)
+              : colorScheme.onPrimary;
         }
-        return isDark
-            ? onSurface.withValues(alpha: 0.6)
-            : AppColors.parchmentElevated;
+        if (disabled) return colorScheme.onSurface.withValues(alpha: 0.24);
+        return unselectedThumb;
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
+        final disabled = states.contains(WidgetState.disabled);
         if (states.contains(WidgetState.selected)) {
-          return accent;
+          return disabled ? accent.withValues(alpha: 0.34) : accent;
         }
-        return isDark
-            ? onSurface.withValues(alpha: 0.08)
-            : AppColors.parchmentStrong.withValues(alpha: 0.72);
+        return disabled
+            ? unselectedTrack.withValues(alpha: 0.42)
+            : unselectedTrack;
       }),
       trackOutlineColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
           return Colors.transparent;
         }
-        return onSurface.withValues(alpha: isDark ? 0.1 : 0.12);
+        return colorScheme.outlineVariant;
       }),
     );
   }
@@ -458,7 +462,7 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(foregroundColor: colors.textButtonFg),
       ),
-      switchTheme: _switchTheme(isDark: colors.isDark, accent: accent),
+      switchTheme: _switchTheme(colorScheme: colorScheme, accent: accent),
       progressIndicatorTheme: ProgressIndicatorThemeData(color: accent),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: colors.snackBarBg,
@@ -698,11 +702,11 @@ class AppTheme {
       popupBg: colorScheme.surfaceContainerLow,
       snackBarBg: colorScheme.inverseSurface,
       dragHandleColor: colorScheme.onSurface.withValues(alpha: 0.2),
-      filledButtonBg: colorScheme.onSurface.withValues(alpha: 0.06),
-      filledButtonFg: colorScheme.onSurface.withValues(alpha: 0.8),
-      iconButtonBg: colorScheme.onSurface.withValues(alpha: 0.06),
-      iconButtonFg: colorScheme.onSurface.withValues(alpha: 0.8),
-      textButtonFg: colorScheme.onSurface.withValues(alpha: 0.8),
+      filledButtonBg: colorScheme.primary,
+      filledButtonFg: colorScheme.onPrimary,
+      iconButtonBg: colorScheme.primary.withValues(alpha: 0.12),
+      iconButtonFg: colorScheme.primary,
+      textButtonFg: colorScheme.primary,
       isDark: false,
     );
 
@@ -733,18 +737,18 @@ class AppTheme {
 
     final accent = contrastAdjustedAccent(
       baseColorScheme.primary,
-      baseColorScheme.surfaceContainerLowest,
+      baseColorScheme.surfaceContainerLow,
     );
     final colorScheme = baseColorScheme.copyWith(
       primary: accent,
       onPrimary: highContrastForeground(accent),
-      surface: baseColorScheme.surfaceContainerLowest,
+      surface: baseColorScheme.surfaceContainerLow,
     );
 
     final colors = _ThemeColors(
-      scaffold: colorScheme.surfaceContainerLowest,
-      cardColor: colorScheme.onSurface.withValues(alpha: 0.06),
-      fillColor: colorScheme.onSurface.withValues(alpha: 0.06),
+      scaffold: colorScheme.surfaceContainerLow,
+      cardColor: colorScheme.surfaceContainer,
+      fillColor: colorScheme.surfaceContainerHigh,
       borderColor: colorScheme.onSurface.withValues(alpha: 0.1),
       focusBorderColor: accent.withValues(alpha: 0.7),
       dividerColor: colorScheme.onSurface.withValues(alpha: 0.06),
@@ -753,11 +757,11 @@ class AppTheme {
       popupBg: colorScheme.surfaceContainerHigh,
       snackBarBg: colorScheme.inverseSurface,
       dragHandleColor: colorScheme.onSurface.withValues(alpha: 0.3),
-      filledButtonBg: colorScheme.onSurface.withValues(alpha: 0.1),
-      filledButtonFg: colorScheme.onSurface,
-      iconButtonBg: colorScheme.onSurface.withValues(alpha: 0.1),
-      iconButtonFg: colorScheme.onSurface,
-      textButtonFg: colorScheme.onSurface.withValues(alpha: 0.8),
+      filledButtonBg: colorScheme.primary,
+      filledButtonFg: colorScheme.onPrimary,
+      iconButtonBg: colorScheme.primary.withValues(alpha: 0.16),
+      iconButtonFg: colorScheme.primary,
+      textButtonFg: colorScheme.primary,
       isDark: true,
     );
 

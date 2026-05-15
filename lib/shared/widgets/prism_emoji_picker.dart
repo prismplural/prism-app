@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/shared/emoji/prism_emoji_set.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
@@ -103,14 +102,16 @@ class PrismEmojiPicker extends StatelessWidget {
         iconColor: theme.colorScheme.onSurfaceVariant,
         iconColorSelected: theme.colorScheme.primary,
         backspaceColor: theme.colorScheme.onSurfaceVariant,
-        dividerColor: isDark
-            ? AppColors.warmWhite.withValues(alpha: 0.06)
-            : AppColors.warmBlack.withValues(alpha: 0.06),
+        dividerColor: theme.colorScheme.outlineVariant.withValues(
+          alpha: isDark ? 0.24 : 0.32,
+        ),
       ),
       skinToneConfig: SkinToneConfig(
-        dialogBackgroundColor: isDark
-            ? AppColors.charcoalSurface.withValues(alpha: 0.96)
-            : AppColors.parchmentElevated.withValues(alpha: 0.96),
+        dialogBackgroundColor:
+            (isDark
+                    ? theme.colorScheme.surfaceContainerHigh
+                    : theme.colorScheme.surfaceContainer)
+                .withValues(alpha: 0.96),
         indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.72),
       ),
       bottomActionBarConfig: const BottomActionBarConfig(enabled: false),

@@ -28,7 +28,6 @@ import 'package:prism_plurality/features/settings/widgets/sync_pin_sheet.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_rewrap_sheet.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -52,34 +51,37 @@ const _kNavBarBorderWidth = 1.0;
 /// still fits after decoration insets and font metric differences.
 const _kNavBarItemVerticalPadding = 12.0;
 
-Color _navSelectedPillColor(bool isDark) {
-  if (isDark) return AppColors.warmWhite.withValues(alpha: 0.15);
-
+Color _navSelectedPillColor(ThemeData theme) {
+  final colors = theme.colorScheme;
+  final isDark = theme.brightness == Brightness.dark;
   return Color.alphaBlend(
-    AppColors.warmBlack.withValues(alpha: 0.06),
-    AppColors.parchmentStrong,
-  ).withValues(alpha: 0.88);
+    colors.primary.withValues(alpha: isDark ? 0.20 : 0.14),
+    (isDark ? colors.surfaceContainerHighest : colors.surfaceContainerHigh)
+        .withValues(alpha: isDark ? 0.72 : 0.88),
+  );
 }
 
-Color _sidebarSelectedFillColor(bool isDark) {
-  if (isDark) return AppColors.warmWhite.withValues(alpha: 0.12);
-
+Color _sidebarSelectedFillColor(ThemeData theme) {
+  final colors = theme.colorScheme;
+  final isDark = theme.brightness == Brightness.dark;
   return Color.alphaBlend(
-    AppColors.warmBlack.withValues(alpha: 0.04),
-    AppColors.parchmentStrong,
-  ).withValues(alpha: 0.74);
+    colors.primary.withValues(alpha: isDark ? 0.16 : 0.10),
+    (isDark ? colors.surfaceContainerHigh : colors.surfaceContainer).withValues(
+      alpha: isDark ? 0.64 : 0.78,
+    ),
+  );
 }
 
-Color _navInactiveIconColor(bool isDark) {
-  return isDark
-      ? AppColors.warmWhite.withValues(alpha: 0.5)
-      : AppColors.warmBlack.withValues(alpha: 0.5);
+Color _navInactiveIconColor(ThemeData theme) {
+  return theme.colorScheme.onSurfaceVariant.withValues(
+    alpha: theme.brightness == Brightness.dark ? 0.68 : 0.72,
+  );
 }
 
-Color _navInactiveLabelColor(bool isDark, {double darkAlpha = 0.5}) {
-  return isDark
-      ? AppColors.warmWhite.withValues(alpha: darkAlpha)
-      : AppColors.warmBlack.withValues(alpha: 0.56);
+Color _navInactiveLabelColor(ThemeData theme, {double darkAlpha = 0.58}) {
+  return theme.colorScheme.onSurfaceVariant.withValues(
+    alpha: theme.brightness == Brightness.dark ? darkAlpha : 0.72,
+  );
 }
 
 @visibleForTesting
@@ -1407,9 +1409,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                           child: Container(
                             height: 0.5,
                             margin: const EdgeInsets.symmetric(horizontal: 20),
-                            color: isDark
-                                ? AppColors.warmWhite.withValues(alpha: 0.08)
-                                : AppColors.warmBlack.withValues(alpha: 0.05),
+                            color: Theme.of(context).colorScheme.outlineVariant
+                                .withValues(alpha: isDark ? 0.22 : 0.32),
                           ),
                         ),
                       ),
@@ -1423,7 +1424,9 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                 constraints.maxWidth - _kMoreButtonWidth;
                             final segWidth =
                                 availableForTabs / widget.primaryTabs.length;
-                            final pillColor = _navSelectedPillColor(isDark);
+                            final pillColor = _navSelectedPillColor(
+                              Theme.of(context),
+                            );
 
                             final pillWidth = segWidth - 16;
                             return Stack(
@@ -1625,25 +1628,26 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     double radius,
     PrismShapes shapes,
   ) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final baseColor = isDark
+        ? (isOled ? colors.surfaceContainerLow : colors.surfaceContainer)
+              .withValues(alpha: 0.88)
+        : colors.surfaceContainer.withValues(alpha: 0.86);
+
     return BoxDecoration(
       color: Color.alphaBlend(
-        widget.accentColor.withValues(alpha: isDark ? 0.08 : 0.06),
-        isDark
-            ? (isOled
-                  ? AppColors.oledSurface1.withValues(alpha: 0.85)
-                  : AppColors.warmWhite.withValues(alpha: 0.08))
-            : AppColors.parchmentElevated.withValues(alpha: 0.82),
+        widget.accentColor.withValues(alpha: isDark ? 0.10 : 0.08),
+        baseColor,
       ),
       borderRadius: BorderRadius.circular(shapes.radius(radius)),
       border: Border.all(
         width: _kNavBarBorderWidth,
-        color: isDark
-            ? AppColors.warmWhite.withValues(alpha: 0.1)
-            : AppColors.warmBlack.withValues(alpha: 0.08),
+        color: colors.outlineVariant.withValues(alpha: isDark ? 0.42 : 0.56),
       ),
       boxShadow: [
         BoxShadow(
-          color: AppColors.warmBlack.withValues(alpha: isDark ? 0.4 : 0.1),
+          color: colors.shadow.withValues(alpha: isDark ? 0.34 : 0.10),
           blurRadius: 20,
           offset: const Offset(0, 4),
         ),
@@ -1665,7 +1669,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     final shapes = PrismShapes.of(context);
 
     // Pill colors
-    final pillColor = _navSelectedPillColor(isDark);
+    final pillColor = _navSelectedPillColor(Theme.of(context));
 
     return Semantics(
       container: true,
@@ -1786,7 +1790,7 @@ class _MoreTrigger extends StatelessWidget {
   Widget build(BuildContext context) {
     final iconColor = isHighlighted
         ? accentColor
-        : _navInactiveIconColor(isDark);
+        : _navInactiveIconColor(Theme.of(context));
 
     return Semantics(
       button: true,
@@ -1848,6 +1852,7 @@ class _NavBarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final itemIcon = isSelected ? tab.activeIcon : tab.icon;
     final itemLabel = tab.localizedLabel(
       context,
@@ -1857,7 +1862,7 @@ class _NavBarItem extends StatelessWidget {
     Widget iconWidget = Icon(
       itemIcon,
       size: kNavBarItemIconSize,
-      color: isSelected ? accentColor : _navInactiveIconColor(isDark),
+      color: isSelected ? accentColor : _navInactiveIconColor(theme),
     );
 
     iconWidget = _maybeBadge(
@@ -1896,7 +1901,7 @@ class _NavBarItem extends StatelessWidget {
                 decoration: showItemPill
                     ? BoxDecoration(
                         color: isSelected
-                            ? _navSelectedPillColor(isDark)
+                            ? _navSelectedPillColor(theme)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(
                           PrismShapes.of(context).radius(16),
@@ -1912,8 +1917,8 @@ class _NavBarItem extends StatelessWidget {
                 context,
                 isSelected: isSelected,
                 color: isSelected
-                    ? (isDark ? AppColors.warmWhite : AppColors.warmBlack)
-                    : _navInactiveLabelColor(isDark),
+                    ? theme.colorScheme.onSurface
+                    : _navInactiveLabelColor(theme),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1951,8 +1956,10 @@ class _FloatingSidebar extends ConsumerWidget {
     final boardsBadge = ref.watch(boardsTabBadgeProvider);
     final terms = watchTerminology(context, ref);
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final isOled = theme.scaffoldBackgroundColor == Colors.black;
 
     return Semantics(
       container: true,
@@ -1969,25 +1976,26 @@ class _FloatingSidebar extends ConsumerWidget {
               height: double.infinity,
               decoration: BoxDecoration(
                 color: Color.alphaBlend(
-                  accentColor.withValues(alpha: isDark ? 0.04 : 0.03),
-                  isDark
-                      ? (isOled
-                            ? AppColors.oledSurface1.withValues(alpha: 0.50)
-                            : AppColors.warmWhite.withValues(alpha: 0.06))
-                      : AppColors.parchmentElevated.withValues(alpha: 0.70),
+                  accentColor.withValues(alpha: isDark ? 0.08 : 0.06),
+                  (isDark
+                          ? (isOled
+                                ? colors.surfaceContainerLow
+                                : colors.surfaceContainer)
+                          : colors.surfaceContainer)
+                      .withValues(alpha: isDark ? 0.72 : 0.78),
                 ),
                 borderRadius: BorderRadius.circular(
                   PrismShapes.of(context).radius(16),
                 ),
                 border: Border.all(
-                  color: isDark
-                      ? AppColors.warmWhite.withValues(alpha: 0.1)
-                      : AppColors.warmBlack.withValues(alpha: 0.08),
+                  color: colors.outlineVariant.withValues(
+                    alpha: isDark ? 0.42 : 0.56,
+                  ),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.warmBlack.withValues(
-                      alpha: isDark ? 0.3 : 0.08,
+                    color: colors.shadow.withValues(
+                      alpha: isDark ? 0.26 : 0.08,
                     ),
                     blurRadius: 12,
                     offset: const Offset(2, 2),
@@ -2062,21 +2070,22 @@ class _SidebarItemState extends State<_SidebarItem> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final fillColor = widget.isSelected
-        ? _sidebarSelectedFillColor(widget.isDark)
+        ? _sidebarSelectedFillColor(theme)
         : _hovering
-        ? (widget.isDark
-              ? AppColors.warmWhite.withValues(alpha: 0.06)
-              : AppColors.parchmentStrong.withValues(alpha: 0.36))
+        ? theme.colorScheme.surfaceContainerHigh.withValues(
+            alpha: widget.isDark ? 0.62 : 0.72,
+          )
         : Colors.transparent;
 
     final iconColor = widget.isSelected
         ? widget.accentColor
-        : _navInactiveIconColor(widget.isDark);
+        : _navInactiveIconColor(theme);
 
     final labelColor = widget.isSelected
-        ? (widget.isDark ? AppColors.warmWhite : AppColors.warmBlack)
-        : _navInactiveLabelColor(widget.isDark, darkAlpha: 0.6);
+        ? theme.colorScheme.onSurface
+        : _navInactiveLabelColor(theme, darkAlpha: 0.6);
 
     return Semantics(
       selected: widget.isSelected,

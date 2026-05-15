@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
@@ -65,26 +64,30 @@ class PrismDateTimePills extends StatelessWidget {
                 firstDate: firstDate,
                 lastDate: lastDate,
                 onChanged: (newDate) {
-                  onChanged(DateTime(
-                    newDate.year,
-                    newDate.month,
-                    newDate.day,
-                    dt.hour,
-                    dt.minute,
-                  ));
+                  onChanged(
+                    DateTime(
+                      newDate.year,
+                      newDate.month,
+                      newDate.day,
+                      dt.hour,
+                      dt.minute,
+                    ),
+                  );
                 },
               ),
               const SizedBox(width: 10),
               _TimePill(
                 dateTime: dt,
                 onChanged: (newTime) {
-                  onChanged(DateTime(
-                    dt.year,
-                    dt.month,
-                    dt.day,
-                    newTime.hour,
-                    newTime.minute,
-                  ));
+                  onChanged(
+                    DateTime(
+                      dt.year,
+                      dt.month,
+                      dt.day,
+                      newTime.hour,
+                      newTime.minute,
+                    ),
+                  );
                 },
               ),
             ],
@@ -108,13 +111,15 @@ class PrismDateTimePills extends StatelessWidget {
                   initialTime: TimeOfDay.now(),
                 );
                 if (time == null || !context.mounted) return;
-                onChanged(DateTime(
-                  date.year,
-                  date.month,
-                  date.day,
-                  time.hour,
-                  time.minute,
-                ));
+                onChanged(
+                  DateTime(
+                    date.year,
+                    date.month,
+                    date.day,
+                    time.hour,
+                    time.minute,
+                  ),
+                );
               },
             ),
           ),
@@ -158,10 +163,7 @@ class _DatePill extends StatelessWidget {
 }
 
 class _TimePill extends StatelessWidget {
-  const _TimePill({
-    required this.dateTime,
-    required this.onChanged,
-  });
+  const _TimePill({required this.dateTime, required this.onChanged});
 
   final DateTime dateTime;
   final ValueChanged<TimeOfDay> onChanged;
@@ -194,6 +196,7 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
     return Material(
@@ -206,16 +209,16 @@ class _Pill extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: isDark
-                ? AppColors.warmWhite.withValues(alpha: 0.08)
-                : AppColors.warmBlack.withValues(alpha: 0.04),
+            color: colors.surfaceContainerHighest.withValues(
+              alpha: isDark ? 0.38 : 0.52,
+            ),
             borderRadius: BorderRadius.circular(
               PrismShapes.of(context).radius(PrismTokens.radiusSmall),
             ),
             border: Border.all(
-              color: isDark
-                  ? AppColors.warmWhite.withValues(alpha: 0.12)
-                  : AppColors.warmBlack.withValues(alpha: 0.08),
+              color: colors.outlineVariant.withValues(
+                alpha: isDark ? 0.42 : 0.48,
+              ),
               width: 0.5,
             ),
           ),

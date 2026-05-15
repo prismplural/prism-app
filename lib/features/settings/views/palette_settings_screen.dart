@@ -5,6 +5,7 @@ import 'package:prism_plurality/domain/models/system_settings.dart'
     hide CornerStyle;
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/accent_color_picker.dart';
+import 'package:prism_plurality/features/settings/views/accent_color_presets.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -94,24 +95,15 @@ String paletteContrastLabel(BuildContext context, PaletteContrast contrast) {
 }
 
 String paletteSeedColorName(BuildContext context, String hex) {
-  return switch (hex.toUpperCase()) {
-    '#9070A0' => context.l10n.paletteSeedLavender,
-    '#2563EB' => context.l10n.settingsAccentColorBlue,
-    '#16A34A' => context.l10n.settingsAccentColorGreen,
-    '#DC2626' => context.l10n.settingsAccentColorRed,
-    '#EA580C' => context.l10n.settingsAccentColorOrange,
-    '#DB2777' => context.l10n.settingsAccentColorPink,
-    '#0D9488' => context.l10n.settingsAccentColorTeal,
-    '#D97706' => context.l10n.settingsAccentColorAmber,
-    '#4F46E5' => context.l10n.settingsAccentColorIndigo,
-    '#6B7280' => context.l10n.settingsAccentColorGray,
-    _ => hex.toUpperCase(),
-  };
+  return accentColorPresetName(context, hex);
 }
 
 Color parsePaletteHex(String hex) {
   final cleaned = hex.replaceFirst('#', '');
-  final value = int.tryParse('FF$cleaned', radix: 16) ?? 0xFF9070A0;
+  final fallback = prismDefaultAccentColorHex.replaceFirst('#', '');
+  final value =
+      int.tryParse('FF$cleaned', radix: 16) ??
+      int.parse('FF$fallback', radix: 16);
   return Color(value);
 }
 
@@ -167,34 +159,33 @@ class PaletteSettingsScreen extends ConsumerWidget {
           return ListView(
             padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
             children: [
-              PrismSection(
-                title: context.l10n.paletteSourceTitle,
-                child: Column(
-                  children: [
-                    _SourceCard(
-                      title: context.l10n.paletteSourceDeviceColors,
-                      subtitle: deviceSourceAvailable
-                          ? context.l10n.paletteSourceDeviceSubtitle
-                          : context.l10n.paletteSourceDeviceUnavailableSubtitle,
-                      icon: AppIcons.devicesOutlined,
-                      selected: paletteSource == PaletteSource.device,
-                      enabled: deviceSourceAvailable,
-                      onTap: () =>
-                          notifier.updatePaletteSource(PaletteSource.device),
-                    ),
-                    const SizedBox(height: 10),
-                    _SourceCard(
-                      title: context.l10n.paletteSourceCustomColor,
-                      subtitle: context.l10n.paletteSourceCustomSubtitle,
-                      icon: AppIcons.colorize,
-                      selected: paletteSource == PaletteSource.custom,
-                      enabled: true,
-                      onTap: () =>
-                          notifier.updatePaletteSource(PaletteSource.custom),
-                    ),
-                  ],
+              if (deviceSourceAvailable)
+                PrismSection(
+                  title: context.l10n.paletteSourceTitle,
+                  child: Column(
+                    children: [
+                      _SourceCard(
+                        title: context.l10n.paletteSourceDeviceColors,
+                        subtitle: context.l10n.paletteSourceDeviceSubtitle,
+                        icon: AppIcons.devicesOutlined,
+                        selected: paletteSource == PaletteSource.device,
+                        enabled: true,
+                        onTap: () =>
+                            notifier.updatePaletteSource(PaletteSource.device),
+                      ),
+                      const SizedBox(height: 10),
+                      _SourceCard(
+                        title: context.l10n.paletteSourceCustomColor,
+                        subtitle: context.l10n.paletteSourceCustomSubtitle,
+                        icon: AppIcons.colorize,
+                        selected: paletteSource == PaletteSource.custom,
+                        enabled: true,
+                        onTap: () =>
+                            notifier.updatePaletteSource(PaletteSource.custom),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               if (paletteSource == PaletteSource.custom)
                 PrismSection(
                   title: context.l10n.paletteColorTitle,
@@ -338,7 +329,7 @@ double _contrastLevel(PaletteContrast contrast) {
 
 Future<void> _resetPaletteSettings(SettingsNotifier notifier) async {
   await notifier.updatePaletteSource(PaletteSource.custom);
-  await notifier.updatePaletteSeedColorHex('#9070A0');
+  await notifier.updatePaletteSeedColorHex(prismDefaultAccentColorHex);
   await notifier.updatePaletteMood(PaletteMood.tonal);
   await notifier.updatePaletteContrast(PaletteContrast.standard);
 }

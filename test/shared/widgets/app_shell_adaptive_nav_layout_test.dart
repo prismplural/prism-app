@@ -18,6 +18,8 @@ import 'package:prism_plurality/features/settings/providers/pin_lock_providers.d
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_theme.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 
 void main() {
@@ -439,6 +441,117 @@ void main() {
       }
     },
   );
+
+  testWidgets('mobile nav bar base color follows Material You palette', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final semantics = tester.ensureSemantics();
+    try {
+      const settings = SystemSettings();
+      final configuredPrimaryTabs = appShellTabs.take(5).toList();
+      const configuredOverflowTabs = <AppShellTab>[];
+      final theme = AppTheme.materialYouLight(
+        null,
+        paletteSource: PaletteSource.custom,
+        paletteSeedColorHex: '#16A34A',
+        paletteMood: PaletteMood.vibrant,
+      );
+
+      final router = GoRouter(
+        initialLocation: AppRoutePaths.home,
+        routes: [
+          StatefulShellRoute.indexedStack(
+            builder: (context, state, navigationShell) {
+              return AppShell(navigationShell: navigationShell);
+            },
+            branches: [
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: AppRoutePaths.home,
+                    builder: (context, state) =>
+                        const Scaffold(body: SizedBox.expand()),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            activeNavBarTabsProvider.overrideWithValue(configuredPrimaryTabs),
+            navBarOverflowTabsProvider.overrideWithValue(
+              configuredOverflowTabs,
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(settings),
+            ),
+            isPinSetProvider.overrideWith((ref) async => false),
+            syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
+            pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
+            pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
+            habitsBadgeEnabledProvider.overrideWith((ref) => false),
+            activeSessionsProvider.overrideWith(
+              (ref) => Stream.value(const []),
+            ),
+            allMembersProvider.overrideWith((ref) => Stream.value(const [])),
+            unreadConversationCountProvider.overrideWith((ref) => 0),
+            frontingMigrationGateProvider.overrideWith(
+              (ref) => FrontingMigrationGateStatus.complete,
+            ),
+          ],
+          child: MaterialApp.router(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            theme: theme,
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final navBarColor = _floatingNavBarDecorationColor(tester);
+      final legacyParchmentColor = Color.alphaBlend(
+        theme.colorScheme.primary.withValues(alpha: 0.06),
+        AppColors.parchmentElevated.withValues(alpha: 0.82),
+      );
+
+      expect(navBarColor, isNot(legacyParchmentColor));
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    } finally {
+      semantics.dispose();
+    }
+  });
+}
+
+Color _floatingNavBarDecorationColor(WidgetTester tester) {
+  final navBarContainers = find.descendant(
+    of: find.bySemanticsLabel('Navigation bar'),
+    matching: find.byType(Container),
+  );
+  for (final element in navBarContainers.evaluate()) {
+    final container = element.widget as Container;
+    final decoration = container.decoration;
+    final renderObject = element.renderObject;
+    if (renderObject is RenderBox &&
+        renderObject.size.height >= kFloatingNavBarHeight &&
+        decoration is BoxDecoration &&
+        decoration.color != null) {
+      return decoration.color!;
+    }
+  }
+  throw TestFailure('Could not find floating nav bar decoration color.');
 }
 
 class _FakeSyncStatusNotifier extends SyncStatusNotifier {

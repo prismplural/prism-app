@@ -5,7 +5,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -386,8 +385,7 @@ class _BlurPopupOverlay extends StatelessWidget {
     final visibleBottom = (screenSize.height - bottomInset)
         .clamp(0.0, screenSize.height)
         .toDouble();
-    final visibleBounds =
-        Rect.fromLTRB(0, 0, screenSize.width, visibleBottom);
+    final visibleBounds = Rect.fromLTRB(0, 0, screenSize.width, visibleBottom);
 
     // Scale origin: from the anchor edge.
     final alignment = direction == BlurPopupDirection.up
@@ -414,7 +412,9 @@ class _BlurPopupOverlay extends StatelessWidget {
                   child: FadeTransition(
                     opacity: animation,
                     child: ColoredBox(
-                      color: AppColors.warmBlack.withValues(alpha: 0.15),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.scrim.withValues(alpha: 0.15),
                     ),
                   ),
                 ),
@@ -485,8 +485,10 @@ class _BlurPopupContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final isOled = theme.scaffoldBackgroundColor == Colors.black;
 
     const gap = 8.0;
     const edgePadding = 12.0;
@@ -549,22 +551,24 @@ class _BlurPopupContent extends StatelessWidget {
                 ),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isDark
-                        ? (isOled
-                              ? AppColors.oledSurface1.withValues(alpha: 0.85)
-                              : AppColors.warmWhite.withValues(alpha: 0.1))
-                        : AppColors.warmWhite.withValues(alpha: 0.75),
+                    color:
+                        (isDark
+                                ? (isOled
+                                      ? colors.surfaceContainerLow
+                                      : colors.surfaceContainerHigh)
+                                : colors.surfaceContainerLow)
+                            .withValues(alpha: isDark ? 0.86 : 0.78),
                     borderRadius: BorderRadius.circular(
                       PrismShapes.of(context).radius(borderRadius),
                     ),
                     border: Border.all(
-                      color: isDark
-                          ? AppColors.warmWhite.withValues(alpha: 0.1)
-                          : AppColors.warmBlack.withValues(alpha: 0.08),
+                      color: colors.outlineVariant.withValues(
+                        alpha: isDark ? 0.42 : 0.44,
+                      ),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.warmBlack.withValues(
+                        color: colors.shadow.withValues(
                           alpha: isDark ? 0.4 : 0.12,
                         ),
                         blurRadius: 20,

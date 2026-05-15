@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
@@ -107,6 +106,7 @@ class _PrismSegmentedControlState<T> extends State<PrismSegmentedControl<T>>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final isAccessible = MediaQuery.of(context).highContrast;
     final segmentCount = widget.segments.length;
@@ -115,28 +115,26 @@ class _PrismSegmentedControlState<T> extends State<PrismSegmentedControl<T>>
     final trackFillAlpha = isDark
         ? PrismTokens.tintedFillAlphaDark + (isAccessible ? 0.15 : 0.0)
         : PrismTokens.tintedFillAlphaLight + (isAccessible ? 0.15 : 0.0);
-    final trackColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: trackFillAlpha * 0.5)
-        : AppColors.parchmentStrong.withValues(
-            alpha: isAccessible ? 0.9 : 0.72,
-          );
+    final trackColor = colors.surfaceContainerHighest.withValues(
+      alpha: isDark ? trackFillAlpha * 2.4 : (isAccessible ? 0.9 : 0.72),
+    );
     final trackBorderAlpha = isDark
         ? PrismTokens.tintedBorderAlphaDark
         : PrismTokens.tintedBorderAlphaLight;
-    final trackBorderColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: trackBorderAlpha)
-        : AppColors.warmBlack.withValues(alpha: 0.12);
+    final trackBorderColor = colors.outlineVariant.withValues(
+      alpha: isDark ? trackBorderAlpha * 2.0 : 0.42,
+    );
 
     // --- Pill (selected indicator) colors ---
     final pillFillAlpha = isDark
         ? PrismTokens.tintedFillAlphaDark + 0.15 + (isAccessible ? 0.15 : 0.0)
         : PrismTokens.tintedFillAlphaLight + (isAccessible ? 0.15 : 0.0);
-    final pillColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: pillFillAlpha)
-        : AppColors.warmOffWhite.withValues(alpha: 0.92);
-    final pillBorderColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: trackBorderAlpha + 0.05)
-        : AppColors.warmBlack.withValues(alpha: 0.10);
+    final pillColor =
+        (isDark ? colors.surfaceContainerHighest : colors.surfaceContainerLow)
+            .withValues(alpha: isDark ? pillFillAlpha * 1.8 : 0.92);
+    final pillBorderColor = colors.outlineVariant.withValues(
+      alpha: isDark ? (trackBorderAlpha + 0.05) * 2.0 : 0.36,
+    );
 
     // --- Shadow ---
     final shadowAlpha = isDark
@@ -182,7 +180,7 @@ class _PrismSegmentedControlState<T> extends State<PrismSegmentedControl<T>>
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.warmBlack.withValues(
+                              color: colors.shadow.withValues(
                                 alpha: shadowAlpha,
                               ),
                               blurRadius: 4,
@@ -287,7 +285,9 @@ class _SegmentBadge extends StatelessWidget {
     // Cross-fade across the number when count changes so a 2 → 3 transition
     // doesn't snap. Width still adapts via the pill's intrinsic min/padding.
     final inner = AnimatedSwitcher(
-      duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 200),
       transitionBuilder: (child, animation) =>
           FadeTransition(opacity: animation, child: child),
       child: Text(

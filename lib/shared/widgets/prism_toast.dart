@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -141,10 +140,8 @@ class PrismToastHost extends StatelessWidget {
         // no toast is visible.
         ValueListenableBuilder<_ToastRequest?>(
           valueListenable: PrismToast._currentToast,
-          builder: (_, toast, child) => IgnorePointer(
-            ignoring: toast == null,
-            child: child,
-          ),
+          builder: (_, toast, child) =>
+              IgnorePointer(ignoring: toast == null, child: child),
           child: Overlay(
             initialEntries: [
               OverlayEntry(
@@ -237,6 +234,7 @@ class _ToastOverlayState extends State<_ToastOverlay>
     final isDark = theme.brightness == Brightness.dark;
     final isOled = theme.scaffoldBackgroundColor == Colors.black;
     final accentColor = theme.colorScheme.primary;
+    final colors = theme.colorScheme;
     final textColor = theme.colorScheme.onSurface;
     final messageStyle = theme.textTheme.bodyMedium?.copyWith(
       color: textColor.withValues(alpha: 0.92),
@@ -278,26 +276,27 @@ class _ToastOverlayState extends State<_ToastOverlay>
                         decoration: BoxDecoration(
                           color: Color.alphaBlend(
                             accentColor.withValues(alpha: isDark ? 0.08 : 0.06),
-                            isDark
-                                ? (isOled
-                                      ? const Color(
-                                          0xFF1A1A1A,
-                                        ).withValues(alpha: 0.85)
-                                      : AppColors.warmWhite.withValues(alpha: 0.08))
-                                : AppColors.warmWhite.withValues(alpha: 0.78),
+                            (isDark
+                                    ? (isOled
+                                          ? colors.surfaceContainerLow
+                                          : colors.surfaceContainerHigh)
+                                    : colors.surfaceContainerLow)
+                                .withValues(alpha: isDark ? 0.86 : 0.78),
                           ),
                           borderRadius: BorderRadius.circular(
-                            PrismShapes.of(context).radius(PrismTokens.radiusPill),
+                            PrismShapes.of(
+                              context,
+                            ).radius(PrismTokens.radiusPill),
                           ),
                           border: Border.all(
-                            color: isDark
-                                ? AppColors.warmWhite.withValues(alpha: 0.1)
-                                : AppColors.warmBlack.withValues(alpha: 0.08),
+                            color: colors.outlineVariant.withValues(
+                              alpha: isDark ? 0.42 : 0.48,
+                            ),
                             width: PrismTokens.hairlineBorderWidth,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.warmBlack.withValues(
+                              color: colors.shadow.withValues(
                                 alpha: isDark ? 0.3 : 0.08,
                               ),
                               blurRadius: 16,
@@ -331,14 +330,20 @@ class _ToastOverlayState extends State<_ToastOverlay>
                                 color: Colors.transparent,
                                 child: InkWell(
                                   onTap: widget.onDismiss,
-                                  customBorder: PrismShapes.of(context).circleOrSquareBorder(),
+                                  customBorder: PrismShapes.of(
+                                    context,
+                                  ).circleOrSquareBorder(),
                                   child: Ink(
                                     width: 30,
                                     height: 30,
                                     decoration: BoxDecoration(
                                       color: textColor.withValues(alpha: 0.08),
-                                      shape: PrismShapes.of(context).avatarShape(),
-                                      borderRadius: PrismShapes.of(context).avatarBorderRadius(),
+                                      shape: PrismShapes.of(
+                                        context,
+                                      ).avatarShape(),
+                                      borderRadius: PrismShapes.of(
+                                        context,
+                                      ).avatarBorderRadius(),
                                     ),
                                     child: Icon(
                                       AppIcons.closeRounded,

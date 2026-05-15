@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
@@ -63,7 +62,9 @@ class TintedGlassSurface extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final mode = VisualEffectsModeX.of(context, ref);
     final isAccessible = mode.highContrast;
     final shapes = PrismShapes.of(context);
@@ -78,9 +79,9 @@ class TintedGlassSurface extends ConsumerWidget {
         ? PrismTokens.tintedFillAlphaDark + (isAccessible ? 0.15 : 0.0)
         : PrismTokens.tintedFillAlphaLight + (isAccessible ? 0.15 : 0.0);
 
-    final Color baseColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: baseFillAlpha)
-        : AppColors.parchmentElevated.withValues(alpha: baseFillAlpha);
+    final Color baseColor = colors.surfaceContainerHigh.withValues(
+      alpha: isDark ? baseFillAlpha * 2.4 : baseFillAlpha,
+    );
 
     final Color fillColor = tint != null
         ? Color.alphaBlend(tint!.withValues(alpha: tintStrength), baseColor)
@@ -93,9 +94,9 @@ class TintedGlassSurface extends ConsumerWidget {
 
     final Color effectiveBorderColor =
         borderColor ??
-        (isDark
-            ? AppColors.warmWhite.withValues(alpha: borderAlpha)
-            : AppColors.warmBlack.withValues(alpha: borderAlpha));
+        colors.outlineVariant.withValues(
+          alpha: isDark ? borderAlpha * 2.2 : borderAlpha * 1.4,
+        );
 
     // --- Shadow ---
     final double shadowAlpha = isDark
@@ -104,7 +105,7 @@ class TintedGlassSurface extends ConsumerWidget {
 
     final List<BoxShadow> shadow = [
       BoxShadow(
-        color: AppColors.warmBlack.withValues(alpha: shadowAlpha),
+        color: colors.shadow.withValues(alpha: shadowAlpha),
         blurRadius: PrismTokens.tintedShadowBlur,
         offset: const Offset(0, 2),
       ),
@@ -128,7 +129,7 @@ class TintedGlassSurface extends ConsumerWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                AppColors.warmWhite.withValues(
+                colors.surfaceTint.withValues(
                   alpha: PrismTokens.tintedHighlightAlpha,
                 ),
                 Colors.transparent,

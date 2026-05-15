@@ -7556,6 +7556,48 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get settingsAccentColorPrismIris => 'Prism Iris';
+
+  @override
+  String get settingsAccentColorHeather => 'Heather';
+
+  @override
+  String get settingsAccentColorPeriwinkle => 'Periwinkle';
+
+  @override
+  String get settingsAccentColorDustyRose => 'Dusty Rose';
+
+  @override
+  String get settingsAccentColorSoftCoral => 'Soft Coral';
+
+  @override
+  String get settingsAccentColorSage => 'Sage';
+
+  @override
+  String get settingsAccentColorSeafoam => 'Seafoam';
+
+  @override
+  String get settingsAccentColorAzure => 'Azure';
+
+  @override
+  String get settingsAccentColorViolet => 'Violet';
+
+  @override
+  String get settingsAccentColorOrchid => 'Orchid';
+
+  @override
+  String get settingsAccentColorRaspberry => 'Raspberry';
+
+  @override
+  String get settingsAccentColorEmerald => 'Emerald';
+
+  @override
+  String get settingsAccentColorCyan => 'Cyan';
+
+  @override
+  String get settingsAccentColorEmber => 'Ember';
+
+  @override
   String get settingsAccentColorPrismPurple => 'Prism Purple';
 
   @override

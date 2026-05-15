@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -67,9 +66,9 @@ class _IconCircle extends StatelessWidget {
     final theme = Theme.of(context);
     final resolvedColor = color ?? theme.colorScheme.primary;
     final foregroundColor = enabled
-        ? (theme.brightness == Brightness.dark
-              ? AppColors.warmWhite.withValues(alpha: 0.85)
-              : AppColors.warmBlack.withValues(alpha: 0.82))
+        ? theme.colorScheme.onSurface.withValues(
+            alpha: theme.brightness == Brightness.dark ? 0.85 : 0.82,
+          )
         : theme.disabledColor.withValues(alpha: 0.5);
 
     return TintedGlassSurface.circle(

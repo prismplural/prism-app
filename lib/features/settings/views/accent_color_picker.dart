@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
+import 'package:prism_plurality/features/settings/views/accent_color_presets.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -8,27 +9,12 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
-class _PresetColor {
-  const _PresetColor(this.hex);
-  final String hex;
-}
-
-const _presetColors = [
-  _PresetColor('#9070A0'),
-  _PresetColor('#2563EB'),
-  _PresetColor('#16A34A'),
-  _PresetColor('#DC2626'),
-  _PresetColor('#EA580C'),
-  _PresetColor('#DB2777'),
-  _PresetColor('#0D9488'),
-  _PresetColor('#D97706'),
-  _PresetColor('#4F46E5'),
-  _PresetColor('#6B7280'),
-];
-
 Color _parseHex(String hex) {
   final cleaned = hex.replaceFirst('#', '');
-  final value = int.tryParse('FF$cleaned', radix: 16) ?? 0xFF9070A0;
+  final fallback = prismDefaultAccentColorHex.replaceFirst('#', '');
+  final value =
+      int.tryParse('FF$cleaned', radix: 16) ??
+      int.parse('FF$fallback', radix: 16);
   return Color(value);
 }
 
@@ -51,26 +37,6 @@ class AccentColorPicker extends StatelessWidget {
   final String currentHex;
   final ValueChanged<String> onChanged;
   final bool materialYouActive;
-
-  bool _isPreset(String hex) {
-    return _presetColors.any((c) => c.hex.toUpperCase() == hex.toUpperCase());
-  }
-
-  String _tooltipForPreset(BuildContext context, String hex) {
-    return switch (hex.toUpperCase()) {
-      '#9070A0' => context.l10n.settingsAccentColorPrismPurple,
-      '#2563EB' => context.l10n.settingsAccentColorBlue,
-      '#16A34A' => context.l10n.settingsAccentColorGreen,
-      '#DC2626' => context.l10n.settingsAccentColorRed,
-      '#EA580C' => context.l10n.settingsAccentColorOrange,
-      '#DB2777' => context.l10n.settingsAccentColorPink,
-      '#0D9488' => context.l10n.settingsAccentColorTeal,
-      '#D97706' => context.l10n.settingsAccentColorAmber,
-      '#4F46E5' => context.l10n.settingsAccentColorIndigo,
-      '#6B7280' => context.l10n.settingsAccentColorGray,
-      _ => hex,
-    };
-  }
 
   void _openColorPicker(BuildContext context) {
     var pickerColor = _parseHex(currentHex);
@@ -129,7 +95,7 @@ class AccentColorPicker extends StatelessWidget {
                 onTap: () {},
                 tooltip: context.l10n.settingsAccentColorSystemColor,
               ),
-            for (final preset in _presetColors)
+            for (final preset in accentColorPresets)
               _ColorCircle(
                 color: isMaterialYou
                     ? _parseHex(preset.hex).withValues(alpha: 0.35)
@@ -138,12 +104,14 @@ class AccentColorPicker extends StatelessWidget {
                     !isMaterialYou &&
                     preset.hex.toUpperCase() == currentHex.toUpperCase(),
                 onTap: isMaterialYou ? () {} : () => onChanged(preset.hex),
-                tooltip: _tooltipForPreset(context, preset.hex),
+                tooltip: accentColorPresetLabel(context, preset.label),
               ),
             if (!isMaterialYou)
               _ColorCircle(
-                color: !_isPreset(currentHex) ? _parseHex(currentHex) : null,
-                isSelected: !_isPreset(currentHex),
+                color: !isAccentColorPresetHex(currentHex)
+                    ? _parseHex(currentHex)
+                    : null,
+                isSelected: !isAccentColorPresetHex(currentHex),
                 isCustom: true,
                 onTap: () => _openColorPicker(context),
                 tooltip: context.l10n.settingsAccentColorCustom,
