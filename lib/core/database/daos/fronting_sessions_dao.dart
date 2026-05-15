@@ -412,16 +412,17 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
     ];
 
     if (withinDays != null) {
-      final cutoff = DateTime.now()
+      final cutoffMillis = DateTime.now()
           .subtract(Duration(days: withinDays))
           .millisecondsSinceEpoch;
+      final cutoff = cutoffMillis ~/ 1000;
       conditions.add('start_time > ?');
       variables.add(Variable.withInt(cutoff));
     }
 
     if (startHour != null && endHour != null) {
       conditions.add(
-        "CAST(strftime('%H', datetime(start_time / 1000, 'unixepoch', 'localtime')) AS INTEGER) BETWEEN ? AND ?",
+        "CAST(strftime('%H', datetime(start_time, 'unixepoch', 'localtime')) AS INTEGER) BETWEEN ? AND ?",
       );
       variables.add(Variable.withInt(startHour));
       variables.add(Variable.withInt(endHour));

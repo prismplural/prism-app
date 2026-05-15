@@ -3,6 +3,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
@@ -108,10 +109,25 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
       members: candidates,
       termPlural: termPlural,
       groups: groups,
+      specialRows: [
+        MemberSearchSpecialRow(
+          rowKey: '__unknown__',
+          title: context.l10n.unknown,
+          leading: const Text('\u2753', style: TextStyle(fontSize: 18)),
+          result: const MemberSearchResultUnknown(),
+        ),
+      ],
     );
 
-    if (result is MemberSearchResultSelected && mounted) {
-      setState(() => _selectedMemberId = result.memberId);
+    if (!mounted) return;
+    switch (result) {
+      case MemberSearchResultSelected(:final memberId):
+        setState(() => _selectedMemberId = memberId);
+      case MemberSearchResultUnknown():
+        setState(() => _selectedMemberId = unknownSentinelMemberId);
+      case MemberSearchResultCleared():
+      case MemberSearchResultDismissed():
+        break;
     }
   }
 
@@ -231,10 +247,12 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                     _selectedMemberId != null &&
                     !topMembers.any((m) => m.id == _selectedMemberId);
                 final selectedOutsideTopName = selectedOutsideTop
-                    ? members
-                          .where((m) => m.id == _selectedMemberId)
-                          .firstOrNull
-                          ?.name
+                    ? _selectedMemberId == unknownSentinelMemberId
+                          ? context.l10n.unknown
+                          : members
+                                .where((m) => m.id == _selectedMemberId)
+                                .firstOrNull
+                                ?.name
                     : null;
 
                 return Column(
@@ -313,45 +331,43 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                         );
                       }).toList(),
                     ),
-                    if (members.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      InkWell(
-                        key: const Key('wakeUpMemberSearchButton'),
-                        onTap: () =>
-                            _showMemberPicker(context, members, searchGroups),
-                        borderRadius: BorderRadius.circular(
-                          PrismShapes.of(context).radius(8),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                AppIcons.search,
-                                size: 16,
+                    const SizedBox(height: 4),
+                    InkWell(
+                      key: const Key('wakeUpMemberSearchButton'),
+                      onTap: () =>
+                          _showMemberPicker(context, members, searchGroups),
+                      borderRadius: BorderRadius.circular(
+                        PrismShapes.of(context).radius(8),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              AppIcons.search,
+                              size: 16,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              selectedOutsideTopName ??
+                                  (hasOthers
+                                      ? context.l10n.sleepWakeUpOthers
+                                      : context.l10n.search),
+                              style: theme.textTheme.bodyMedium?.copyWith(
                                 color: theme.colorScheme.primary,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                selectedOutsideTopName ??
-                                    (hasOthers
-                                        ? context.l10n.sleepWakeUpOthers
-                                        : context.l10n.search),
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                              Icon(
-                                AppIcons.chevronRightRounded,
-                                size: 16,
-                                color: theme.colorScheme.primary,
-                              ),
-                            ],
-                          ),
+                            ),
+                            Icon(
+                              AppIcons.chevronRightRounded,
+                              size: 16,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ],
                 );
               },

@@ -275,6 +275,56 @@ void main() {
     });
   });
 
+  group('getMemberFrontingCounts', () {
+    test('counts recent local morning fronting sessions', () async {
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final twoDaysAgo = DateTime.now().subtract(const Duration(days: 2));
+      final seventyDaysAgo = DateTime.now().subtract(const Duration(days: 70));
+
+      await insert(
+        makeFronting(
+          id: 'alice-morning-1',
+          memberId: 'alice',
+          start: DateTime(yesterday.year, yesterday.month, yesterday.day, 8),
+        ),
+      );
+      await insert(
+        makeFronting(
+          id: 'alice-morning-2',
+          memberId: 'alice',
+          start: DateTime(twoDaysAgo.year, twoDaysAgo.month, twoDaysAgo.day, 9),
+        ),
+      );
+      await insert(
+        makeFronting(
+          id: 'bob-afternoon',
+          memberId: 'bob',
+          start: DateTime(yesterday.year, yesterday.month, yesterday.day, 14),
+        ),
+      );
+      await insert(
+        makeFronting(
+          id: 'carol-old-morning',
+          memberId: 'carol',
+          start: DateTime(
+            seventyDaysAgo.year,
+            seventyDaysAgo.month,
+            seventyDaysAgo.day,
+            8,
+          ),
+        ),
+      );
+
+      final counts = await repo.getMemberFrontingCounts(
+        startHour: 6,
+        endHour: 11,
+        withinDays: 60,
+      );
+
+      expect(counts, {'alice': 2});
+    });
+  });
+
   group('watchRecentSleepSessions', () {
     test('emits at most limit sessions, newest first by startTime', () async {
       for (var i = 0; i < 8; i++) {

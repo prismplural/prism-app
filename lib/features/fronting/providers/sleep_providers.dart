@@ -136,6 +136,7 @@ final sleepHistoryProvider = StreamProvider.autoDispose<List<FrontingSession>>((
 /// Used by the wake-up sheet to suggest likely morning fronters.
 final morningFrontingCountsProvider =
     FutureProvider.autoDispose<Map<String, int>>((ref) {
+      ref.watch(frontingTableTickerProvider);
       final repo = ref.watch(frontingSessionRepositoryProvider);
       return repo.getMemberFrontingCounts(
         startHour: 6,

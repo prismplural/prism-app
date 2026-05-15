@@ -131,6 +131,20 @@ void main() {
 
         expect(find.byType(MemberSearchSheet), findsOneWidget);
       });
+
+      testWidgets('empty member sets can still choose Unknown', (tester) async {
+        await tester.pumpWidget(_buildSubject(members: const []));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('wakeUpMemberSearchButton')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Unknown'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(MemberSearchSheet), findsNothing);
+        expect(find.text('Unknown'), findsOneWidget);
+      });
     });
 
     // ── 3. Selecting from the shared sheet updates the chosen member ────────
@@ -154,6 +168,23 @@ void main() {
 
         // The "Others…" button now reflects Eve's name.
         expect(find.text('Eve'), findsOneWidget);
+        expect(find.text('Others...'), findsNothing);
+      });
+
+      testWidgets('selecting Unknown dismisses the sheet and updates label', (
+        tester,
+      ) async {
+        await tester.pumpWidget(_buildSubject());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Others...'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Unknown'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(MemberSearchSheet), findsNothing);
+        expect(find.text('Unknown'), findsOneWidget);
         expect(find.text('Others...'), findsNothing);
       });
     });

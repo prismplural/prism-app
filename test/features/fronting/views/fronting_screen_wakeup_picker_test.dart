@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
@@ -508,6 +509,37 @@ void main() {
 
       expect(sleep.endedIds, isEmpty);
       expect(fronting.startedIds, isEmpty);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('Wake Up As can start fronting as Unknown', (tester) async {
+      final sleep = _FakeSleepNotifier();
+      final fronting = _FakeFrontingNotifier();
+
+      await tester.pumpWidget(
+        _buildSubject(
+          sleepNotifier: sleep,
+          frontingNotifier: fronting,
+          members: [_member('m1', 'Alice')],
+          activeSleepSession: _sleepSession(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(_addButton());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Wake Up As...'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Unknown'));
+      await tester.pumpAndSettle();
+
+      expect(sleep.endedIds, ['sleep-1']);
+      expect(fronting.startedIds, [
+        [unknownSentinelMemberId],
+      ]);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();

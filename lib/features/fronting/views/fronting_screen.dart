@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -450,8 +451,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
     final activeMembers = ref.watch(activeMembersProvider).value ?? const [];
     final wakeUpGroups = watchMemberSearchGroups(ref, activeMembers);
     final pkState = ref.watch(pluralKitSyncProvider);
-    final pkReady =
-        pkState.canAutoSync && !pkState.isSyncing;
+    final pkReady = pkState.canAutoSync && !pkState.isSyncing;
 
     // Build menu items for the blur popup.
     final menuItems = <_MenuItem>[];
@@ -718,17 +718,30 @@ class _AddButtonState extends ConsumerState<_AddButton> {
       members: members,
       termPlural: termPlural,
       groups: groups,
+      specialRows: [
+        MemberSearchSpecialRow(
+          rowKey: '__unknown__',
+          title: context.l10n.unknown,
+          leading: const Text('\u2753', style: TextStyle(fontSize: 18)),
+          result: const MemberSearchResultUnknown(),
+        ),
+      ],
     );
 
     if (!mounted || !context.mounted) return;
-    if (result is! MemberSearchResultSelected) return;
+    final memberId = switch (result) {
+      MemberSearchResultSelected(:final memberId) => memberId,
+      MemberSearchResultUnknown() => unknownSentinelMemberId,
+      MemberSearchResultCleared() || MemberSearchResultDismissed() => null,
+    };
+    if (memberId == null) return;
     final activeSession = ref.read(activeSleepSessionProvider).value;
     if (activeSession?.id != session.id) return;
 
     try {
       await ref.read(sleepNotifierProvider.notifier).endSleep(session.id);
       await ref.read(frontingNotifierProvider.notifier).startFronting([
-        result.memberId,
+        memberId,
       ]); // single-member start post-sleep
     } catch (e) {
       if (context.mounted) {
