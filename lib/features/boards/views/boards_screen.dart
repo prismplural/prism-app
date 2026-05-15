@@ -13,7 +13,6 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -22,6 +21,7 @@ import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_selector_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
@@ -204,30 +204,20 @@ class _BoardsSegmentedControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final l10n = context.l10n;
-
-    final trackColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: 0.07)
-        : AppColors.warmBlack.withValues(alpha: 0.06);
-    final trackBorderColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: 0.12)
-        : AppColors.warmBlack.withValues(alpha: 0.10);
-    final pillColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: 0.18)
-        : AppColors.warmWhite.withValues(alpha: 0.85);
-    final pillBorderColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: 0.15)
-        : AppColors.warmBlack.withValues(alpha: 0.12);
+    final controlColors = PrismSegmentedControlColors.resolve(
+      theme,
+      highContrast: MediaQuery.highContrastOf(context),
+    );
 
     return Container(
       height: 44,
       decoration: BoxDecoration(
-        color: trackColor,
+        color: controlColors.trackColor,
         borderRadius: BorderRadius.circular(
           PrismShapes.of(context).radius(999),
         ),
-        border: Border.all(color: trackBorderColor, width: 0.5),
+        border: Border.all(color: controlColors.trackBorderColor, width: 0.5),
       ),
       child: Row(
         children: [
@@ -236,8 +226,9 @@ class _BoardsSegmentedControl extends StatelessWidget {
               label: l10n.boardsTabPublic,
               isSelected: activeTab == _BoardsSubTab.public,
               onTap: () => onTabSelected(_BoardsSubTab.public),
-              pillColor: pillColor,
-              pillBorderColor: pillBorderColor,
+              pillColor: controlColors.pillColor,
+              pillBorderColor: controlColors.pillBorderColor,
+              pillShadowColor: controlColors.shadowColor,
               theme: theme,
               suffix: hasPublicUnread
                   ? _UnreadDot(color: theme.colorScheme.primary)
@@ -252,8 +243,9 @@ class _BoardsSegmentedControl extends StatelessWidget {
               label: l10n.boardsTabInbox,
               isSelected: activeTab == _BoardsSubTab.inbox,
               onTap: () => onTabSelected(_BoardsSubTab.inbox),
-              pillColor: pillColor,
-              pillBorderColor: pillBorderColor,
+              pillColor: controlColors.pillColor,
+              pillBorderColor: controlColors.pillBorderColor,
+              pillShadowColor: controlColors.shadowColor,
               theme: theme,
               suffix: inboxBadge > 0 ? _NumericBadge(count: inboxBadge) : null,
               semanticsLabel: inboxBadge > 0
@@ -274,6 +266,7 @@ class _SegmentButton extends StatelessWidget {
     required this.onTap,
     required this.pillColor,
     required this.pillBorderColor,
+    required this.pillShadowColor,
     required this.theme,
     this.suffix,
     this.semanticsLabel,
@@ -284,6 +277,7 @@ class _SegmentButton extends StatelessWidget {
   final VoidCallback onTap;
   final Color pillColor;
   final Color pillBorderColor;
+  final Color pillShadowColor;
   final ThemeData theme;
   final Widget? suffix;
   final String? semanticsLabel;
@@ -310,7 +304,7 @@ class _SegmentButton extends StatelessWidget {
                   border: Border.all(color: pillBorderColor, width: 0.5),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.warmBlack.withValues(alpha: 0.06),
+                      color: pillShadowColor,
                       blurRadius: 4,
                       offset: const Offset(0, 1),
                     ),

@@ -100,6 +100,7 @@ class _MemberDetailBody extends ConsumerWidget {
     final terms = watchTerminology(context, ref);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final perMemberAccentColors = ref.watch(perMemberAccentColorsProvider);
+    final themeStyle = ref.watch(effectiveThemeStyleProvider);
     final paletteMood = ref.watch(paletteMoodProvider);
     final paletteContrast = ref.watch(paletteContrastProvider);
     final bioMarkdownEnabled = ref.watch(bioMarkdownEnabledProvider);
@@ -146,6 +147,7 @@ class _MemberDetailBody extends ConsumerWidget {
     return _MemberProfileTheme(
       baseTheme: theme,
       accentColor: memberAccent,
+      usePaletteTheme: themeStyle == ThemeStyle.materialYou,
       paletteMood: paletteMood,
       paletteContrast: paletteContrast,
       child: screen,
@@ -256,6 +258,7 @@ class _MemberProfileTheme extends StatelessWidget {
   const _MemberProfileTheme({
     required this.baseTheme,
     required this.accentColor,
+    required this.usePaletteTheme,
     required this.paletteMood,
     required this.paletteContrast,
     required this.child,
@@ -263,6 +266,7 @@ class _MemberProfileTheme extends StatelessWidget {
 
   final ThemeData baseTheme;
   final Color? accentColor;
+  final bool usePaletteTheme;
   final PaletteMood paletteMood;
   final PaletteContrast paletteContrast;
   final Widget child;
@@ -272,14 +276,18 @@ class _MemberProfileTheme extends StatelessWidget {
     final accent = accentColor;
     if (accent == null) return child;
 
-    final profileTheme = AppTheme.localPaletteTheme(
-      baseTheme,
-      seedColor: accent,
-      paletteMood: paletteMood,
-      paletteContrast: paletteContrast,
-    );
+    final profileTheme = usePaletteTheme
+        ? AppTheme.localPaletteTheme(
+            baseTheme,
+            seedColor: accent,
+            paletteMood: paletteMood,
+            paletteContrast: paletteContrast,
+          )
+        : baseTheme.copyWith(
+            colorScheme: baseTheme.colorScheme.copyWith(primary: accent),
+          );
 
-    if (MediaQuery.of(context).disableAnimations) {
+    if (!usePaletteTheme || MediaQuery.of(context).disableAnimations) {
       return Theme(data: profileTheme, child: child);
     }
 

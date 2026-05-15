@@ -184,7 +184,65 @@ Widget _buildApp({
 }
 
 void main() {
-  testWidgets('member detail uses a seeded local profile theme', (
+  testWidgets(
+    'member detail uses a seeded local profile theme in Palette mode',
+    (tester) async {
+      final member = _member('alice', 'Alice').copyWith(
+        customColorEnabled: true,
+        customColorHex: '#16A34A',
+        bio: 'Profile body',
+      );
+      final router = _router(memberId: member.id);
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        _buildApp(
+          router: router,
+          member: member,
+          settings: const SystemSettings(
+            notesEnabled: false,
+            boardsEnabled: false,
+            themeStyle: ThemeStyle.materialYou,
+            perMemberAccentColors: true,
+            paletteMood: PaletteMood.vibrant,
+            paletteContrast: PaletteContrast.high,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final profileContext = tester.element(find.byType(SingleChildScrollView));
+      final profileTheme = Theme.of(profileContext);
+      final expectedTheme = AppTheme.localPaletteTheme(
+        ThemeData.light(),
+        seedColor: const Color(0xFF16A34A),
+        paletteMood: PaletteMood.vibrant,
+        paletteContrast: PaletteContrast.high,
+      );
+
+      expect(
+        profileTheme.colorScheme.primary,
+        expectedTheme.colorScheme.primary,
+      );
+      expect(
+        profileTheme.scaffoldBackgroundColor,
+        expectedTheme.scaffoldBackgroundColor,
+      );
+      expect(profileTheme.cardColor, expectedTheme.cardColor);
+      expect(
+        profileTheme.filledButtonTheme.style!.backgroundColor!.resolve(
+          const <WidgetState>{},
+        ),
+        expectedTheme.colorScheme.primary,
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
+  testWidgets('member detail keeps accent-only theming outside Palette mode', (
     tester,
   ) async {
     final member = _member('alice', 'Alice').copyWith(
@@ -202,6 +260,7 @@ void main() {
         settings: const SystemSettings(
           notesEnabled: false,
           boardsEnabled: false,
+          themeStyle: ThemeStyle.standard,
           perMemberAccentColors: true,
           paletteMood: PaletteMood.vibrant,
           paletteContrast: PaletteContrast.high,
@@ -213,25 +272,25 @@ void main() {
 
     final profileContext = tester.element(find.byType(SingleChildScrollView));
     final profileTheme = Theme.of(profileContext);
-    final expectedTheme = AppTheme.localPaletteTheme(
-      ThemeData.light(),
+    final baseTheme = ThemeData.light();
+    final seededTheme = AppTheme.localPaletteTheme(
+      baseTheme,
       seedColor: const Color(0xFF16A34A),
       paletteMood: PaletteMood.vibrant,
       paletteContrast: PaletteContrast.high,
     );
 
-    expect(profileTheme.colorScheme.primary, expectedTheme.colorScheme.primary);
+    expect(profileTheme.colorScheme.primary, const Color(0xFF16A34A));
     expect(
       profileTheme.scaffoldBackgroundColor,
-      expectedTheme.scaffoldBackgroundColor,
+      baseTheme.scaffoldBackgroundColor,
     );
-    expect(profileTheme.cardColor, expectedTheme.cardColor);
+    expect(profileTheme.cardColor, baseTheme.cardColor);
     expect(
-      profileTheme.filledButtonTheme.style!.backgroundColor!.resolve(
-        const <WidgetState>{},
-      ),
-      expectedTheme.colorScheme.primary,
+      profileTheme.scaffoldBackgroundColor,
+      isNot(seededTheme.scaffoldBackgroundColor),
     );
+    expect(profileTheme.cardColor, isNot(seededTheme.cardColor));
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));

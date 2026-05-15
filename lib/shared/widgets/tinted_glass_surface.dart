@@ -83,9 +83,16 @@ class TintedGlassSurface extends ConsumerWidget {
       alpha: isDark ? baseFillAlpha * 2.4 : baseFillAlpha,
     );
 
-    final Color fillColor = tint != null
-        ? Color.alphaBlend(tint!.withValues(alpha: tintStrength), baseColor)
-        : baseColor;
+    final effectiveTint = tint ?? colors.primary;
+    final effectiveTintStrength = tint != null
+        ? tintStrength
+        : isDark
+        ? PrismTokens.tintedDefaultTintAlphaDark
+        : PrismTokens.tintedDefaultTintAlphaLight;
+    final Color fillColor = Color.alphaBlend(
+      effectiveTint.withValues(alpha: effectiveTintStrength),
+      baseColor,
+    );
 
     // --- Border color ---
     final double borderAlpha = isDark
@@ -107,7 +114,7 @@ class TintedGlassSurface extends ConsumerWidget {
       BoxShadow(
         color: colors.shadow.withValues(alpha: shadowAlpha),
         blurRadius: PrismTokens.tintedShadowBlur,
-        offset: const Offset(0, 2),
+        offset: const Offset(0, 1),
       ),
     ];
 
@@ -129,7 +136,7 @@ class TintedGlassSurface extends ConsumerWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                colors.surfaceTint.withValues(
+                effectiveTint.withValues(
                   alpha: PrismTokens.tintedHighlightAlpha,
                 ),
                 Colors.transparent,

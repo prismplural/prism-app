@@ -7,7 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -156,6 +160,67 @@ void main() {
       expect(decorations, isNotEmpty);
       expect(decorations.first.shape, BoxShape.rectangle);
       expect(decorations.first.borderRadius, BorderRadius.zero);
+    });
+
+    testWidgets('group avatars can split tint and ring member colors', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const GroupMemberAvatar(
+            members: [
+              GroupAvatarMember(
+                emoji: '🌟',
+                customColorEnabled: true,
+                customColorHex: '#16A34A',
+              ),
+              GroupAvatarMember(
+                emoji: '🌙',
+                customColorEnabled: true,
+                customColorHex: '#2563EB',
+              ),
+            ],
+          ),
+          shapes: PrismShapes.rounded,
+        ),
+      );
+
+      final decorations = tester
+          .widgetList<Container>(find.byType(Container))
+          .map((container) => container.decoration)
+          .whereType<BoxDecoration>()
+          .where((decoration) => decoration.boxShadow != null)
+          .toList();
+
+      expect(decorations, isNotEmpty);
+      final decoration = decorations.first;
+      final expectedTint = contrastAdjustedAccent(
+        AppColors.fromHex('#16A34A'),
+        prismLightAccentBackground,
+      );
+      final expectedBorder = contrastAdjustedAccent(
+        AppColors.fromHex('#2563EB'),
+        prismLightAccentBackground,
+      );
+
+      expect(decoration.border, isA<Border>());
+      final border = decoration.border! as Border;
+      expect(border.top.width, 1);
+      expect(
+        border.top.color,
+        expectedBorder.withValues(
+          alpha: PrismTokens.avatarAccentBorderAlphaLight,
+        ),
+      );
+      expect(
+        decoration.color,
+        Color.alphaBlend(
+          expectedTint.withValues(alpha: PrismTokens.avatarTintAlpha),
+          ThemeData.light().colorScheme.surfaceContainerHigh.withValues(
+            alpha: PrismTokens.tintedFillAlphaLight,
+          ),
+        ),
+      );
     });
   });
 }

@@ -25,6 +25,73 @@ class PrismSegment<T> {
   final String? badgeSemanticLabel;
 }
 
+class PrismSegmentedControlColors {
+  const PrismSegmentedControlColors({
+    required this.trackColor,
+    required this.trackBorderColor,
+    required this.pillColor,
+    required this.pillBorderColor,
+    required this.shadowColor,
+  });
+
+  final Color trackColor;
+  final Color trackBorderColor;
+  final Color pillColor;
+  final Color pillBorderColor;
+  final Color shadowColor;
+
+  static PrismSegmentedControlColors resolve(
+    ThemeData theme, {
+    required bool highContrast,
+  }) {
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final trackColor = Color.alphaBlend(
+      colors.onSurface.withValues(
+        alpha: isDark
+            ? (highContrast ? 0.12 : 0.08)
+            : (highContrast ? 0.12 : 0.06),
+      ),
+      colors.surfaceContainerHighest,
+    );
+    final trackBorderColor = colors.outline.withValues(
+      alpha: isDark
+          ? (highContrast ? 0.78 : 0.56)
+          : (highContrast ? 0.64 : 0.44),
+    );
+    final pillBase = isDark
+        ? colors.surfaceContainerHighest
+        : colors.surfaceContainerLowest;
+    final pillColor = isDark
+        ? Color.alphaBlend(
+            colors.onSurface.withValues(alpha: highContrast ? 0.36 : 0.26),
+            pillBase,
+          )
+        : Color.alphaBlend(
+            Colors.white.withValues(alpha: highContrast ? 0.78 : 0.58),
+            pillBase,
+          );
+    final pillBorderColor = colors.outline.withValues(
+      alpha: isDark
+          ? (highContrast ? 0.72 : 0.50)
+          : (highContrast ? 0.52 : 0.34),
+    );
+    final shadowColor = colors.shadow.withValues(
+      alpha: isDark
+          ? PrismTokens.tintedShadowAlphaDark * 0.6
+          : PrismTokens.tintedShadowAlphaLight,
+    );
+
+    return PrismSegmentedControlColors(
+      trackColor: trackColor,
+      trackBorderColor: trackBorderColor,
+      pillColor: pillColor,
+      pillBorderColor: pillBorderColor,
+      shadowColor: shadowColor,
+    );
+  }
+}
+
 /// A custom segmented control with a sliding frosted glass indicator.
 ///
 /// Replaces [SegmentedButton] with Prism's warm, glassy design language.
@@ -106,51 +173,22 @@ class _PrismSegmentedControlState<T> extends State<PrismSegmentedControl<T>>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final isAccessible = MediaQuery.of(context).highContrast;
+    final controlColors = PrismSegmentedControlColors.resolve(
+      theme,
+      highContrast: MediaQuery.highContrastOf(context),
+    );
     final segmentCount = widget.segments.length;
-
-    // --- Track colors ---
-    final trackFillAlpha = isDark
-        ? PrismTokens.tintedFillAlphaDark + (isAccessible ? 0.15 : 0.0)
-        : PrismTokens.tintedFillAlphaLight + (isAccessible ? 0.15 : 0.0);
-    final trackColor = colors.surfaceContainerHighest.withValues(
-      alpha: isDark ? trackFillAlpha * 2.4 : (isAccessible ? 0.9 : 0.72),
-    );
-    final trackBorderAlpha = isDark
-        ? PrismTokens.tintedBorderAlphaDark
-        : PrismTokens.tintedBorderAlphaLight;
-    final trackBorderColor = colors.outlineVariant.withValues(
-      alpha: isDark ? trackBorderAlpha * 2.0 : 0.42,
-    );
-
-    // --- Pill (selected indicator) colors ---
-    final pillFillAlpha = isDark
-        ? PrismTokens.tintedFillAlphaDark + 0.15 + (isAccessible ? 0.15 : 0.0)
-        : PrismTokens.tintedFillAlphaLight + (isAccessible ? 0.15 : 0.0);
-    final pillColor =
-        (isDark ? colors.surfaceContainerHighest : colors.surfaceContainerLow)
-            .withValues(alpha: isDark ? pillFillAlpha * 1.8 : 0.92);
-    final pillBorderColor = colors.outlineVariant.withValues(
-      alpha: isDark ? (trackBorderAlpha + 0.05) * 2.0 : 0.36,
-    );
-
-    // --- Shadow ---
-    final shadowAlpha = isDark
-        ? PrismTokens.tintedShadowAlphaDark * 0.5
-        : PrismTokens.tintedShadowAlphaLight;
 
     return Semantics(
       label: context.l10n.segmentedControl,
       child: Container(
         height: 44,
         decoration: BoxDecoration(
-          color: trackColor,
+          color: controlColors.trackColor,
           borderRadius: BorderRadius.circular(
             PrismShapes.of(context).radius(999),
           ),
-          border: Border.all(color: trackBorderColor, width: 0.5),
+          border: Border.all(color: controlColors.trackBorderColor, width: 0.5),
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -170,19 +208,17 @@ class _PrismSegmentedControlState<T> extends State<PrismSegmentedControl<T>>
                       width: segmentWidth - 4,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: pillColor,
+                          color: controlColors.pillColor,
                           borderRadius: BorderRadius.circular(
                             PrismShapes.of(context).radius(999),
                           ),
                           border: Border.all(
-                            color: pillBorderColor,
+                            color: controlColors.pillBorderColor,
                             width: 0.5,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: colors.shadow.withValues(
-                                alpha: shadowAlpha,
-                              ),
+                              color: controlColors.shadowColor,
                               blurRadius: 4,
                               offset: const Offset(0, 1),
                             ),

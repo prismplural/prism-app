@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -64,7 +67,14 @@ class GroupMemberAvatar extends ConsumerWidget {
     }
 
     final visible = members.take(4).toList();
-    final tintColor = tint ?? Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final avatarColors = _groupAvatarColors(context, visible);
+    final accentBorderColor = avatarColors.border.withValues(
+      alpha: isDark
+          ? PrismTokens.avatarAccentBorderAlphaDark
+          : PrismTokens.avatarAccentBorderAlphaLight,
+    );
 
     final angular = PrismShapes.of(context).cornerStyle == CornerStyle.angular;
     final clipper = angular
@@ -84,9 +94,59 @@ class GroupMemberAvatar extends ConsumerWidget {
 
     return TintedGlassSurface.circle(
       size: size,
-      tint: tintColor,
+      tint: avatarColors.tint,
+      tintStrength: PrismTokens.avatarTintAlpha,
+      borderColor: accentBorderColor,
+      borderWidth: 1,
       child: clipper,
     );
+  }
+
+  ({Color tint, Color border}) _groupAvatarColors(
+    BuildContext context,
+    List<GroupAvatarMember> visible,
+  ) {
+    final theme = Theme.of(context);
+    final rawTint =
+        tint ?? _firstCustomColor(visible) ?? theme.colorScheme.primary;
+    final rawBorder = _firstDistinctCustomColor(visible, rawTint) ?? rawTint;
+    return (
+      tint: _adjustGroupAccent(context, rawTint),
+      border: _adjustGroupAccent(context, rawBorder),
+    );
+  }
+
+  Color _adjustGroupAccent(BuildContext context, Color rawColor) {
+    final theme = Theme.of(context);
+    final adjustmentBackground = theme.brightness == Brightness.dark
+        ? prismDarkAccentBackground
+        : prismLightAccentBackground;
+    return contrastAdjustedAccent(rawColor, adjustmentBackground);
+  }
+
+  Color? _firstCustomColor(List<GroupAvatarMember> visible) {
+    for (final member in visible) {
+      if (!member.customColorEnabled || member.customColorHex == null) {
+        continue;
+      }
+      return AppColors.fromHex(member.customColorHex!);
+    }
+    return null;
+  }
+
+  Color? _firstDistinctCustomColor(
+    List<GroupAvatarMember> visible,
+    Color base,
+  ) {
+    final baseValue = base.toARGB32();
+    for (final member in visible) {
+      if (!member.customColorEnabled || member.customColorHex == null) {
+        continue;
+      }
+      final color = AppColors.fromHex(member.customColorHex!);
+      if (color.toARGB32() != baseValue) return color;
+    }
+    return null;
   }
 
   Widget _buildLayout(

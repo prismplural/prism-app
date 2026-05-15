@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/app_theme.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 
 enum _Tab { a, b }
@@ -104,4 +106,57 @@ void main() {
       handle.dispose();
     });
   });
+
+  group('PrismSegmentedControl colors', () {
+    test('stay separated from sheet surfaces in soft and regular palettes', () {
+      const minRgbSeparation = 0.08;
+
+      for (final contrast in [PaletteContrast.soft, PaletteContrast.standard]) {
+        for (final theme in [
+          AppTheme.materialYouLight(
+            null,
+            paletteSource: PaletteSource.custom,
+            paletteSeedColorHex: '#9070A0',
+            paletteContrast: contrast,
+          ),
+          AppTheme.materialYouDark(
+            null,
+            paletteSource: PaletteSource.custom,
+            paletteSeedColorHex: '#9070A0',
+            paletteContrast: contrast,
+          ),
+        ]) {
+          final controlColors = PrismSegmentedControlColors.resolve(
+            theme,
+            highContrast: false,
+          );
+          final sheetSurface = theme.bottomSheetTheme.backgroundColor!;
+
+          expect(controlColors.trackColor.toARGB32() >>> 24, 0xFF);
+          expect(
+            _rgbDistance(controlColors.trackColor, sheetSurface),
+            greaterThanOrEqualTo(minRgbSeparation),
+            reason: '${theme.brightness.name} ${contrast.name} track',
+          );
+          expect(
+            _rgbDistance(controlColors.pillColor, sheetSurface),
+            greaterThanOrEqualTo(minRgbSeparation),
+            reason: '${theme.brightness.name} ${contrast.name} pill',
+          );
+          expect(
+            _rgbDistance(controlColors.pillColor, controlColors.trackColor),
+            greaterThanOrEqualTo(minRgbSeparation),
+            reason: '${theme.brightness.name} ${contrast.name} selector',
+          );
+        }
+      }
+    });
+  });
+}
+
+double _rgbDistance(Color a, Color b) {
+  final dr = (a.r - b.r).abs();
+  final dg = (a.g - b.g).abs();
+  final db = (a.b - b.b).abs();
+  return (dr + dg + db) / 3;
 }
