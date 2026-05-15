@@ -15,6 +15,10 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 const _kThemeBrightnessCache = 'prism.cache.theme_brightness';
 const _kThemeStyleCache = 'prism.cache.theme_style';
 const _kThemeCornerStyleCache = 'prism.cache.theme_corner_style';
+const _kPaletteSourceCache = 'prism.cache.palette_source';
+const _kPaletteSeedColorHexCache = 'prism.cache.palette_seed_color_hex';
+const _kPaletteMoodCache = 'prism.cache.palette_mood';
+const _kPaletteContrastCache = 'prism.cache.palette_contrast';
 const _kIgnoreSyncedAppearance = 'prism.pref.ignore_synced_appearance';
 const _kUseProxyTagsForAuthoring = 'prism.pref.use_proxy_tags_for_authoring';
 const _kHardLockSyncOnAppLock = 'prism.pref.hard_lock_sync_on_app_lock';
@@ -23,9 +27,28 @@ const _kScreenPrivacyEnabled = 'prism.pref.screen_privacy_enabled';
 ThemeStyle effectiveThemeStyleForPlatform(
   ThemeStyle style,
   TargetPlatform platform,
-) => style == ThemeStyle.materialYou && platform != TargetPlatform.android
-    ? ThemeStyle.standard
-    : style;
+) => style;
+
+bool paletteDeviceSourceAvailableForPlatform(TargetPlatform platform) {
+  return switch (platform) {
+    TargetPlatform.android ||
+    TargetPlatform.linux ||
+    TargetPlatform.macOS ||
+    TargetPlatform.windows => true,
+    TargetPlatform.fuchsia || TargetPlatform.iOS => false,
+  };
+}
+
+PaletteSource effectivePaletteSourceForPlatform(
+  PaletteSource source,
+  TargetPlatform platform,
+) {
+  if (source == PaletteSource.device &&
+      !paletteDeviceSourceAvailableForPlatform(platform)) {
+    return PaletteSource.custom;
+  }
+  return source;
+}
 
 /// Transient storage for a generated mnemonic during secret key setup.
 /// Auto-disposed when no longer watched (Riverpod 3 auto-disposes by default).
@@ -159,6 +182,42 @@ class SettingsNotifier extends AsyncNotifier<void> {
       await repo.updateCornerStyle(domain.CornerStyle.values[style.index]);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_kThemeCornerStyleCache, style.index);
+    });
+  }
+
+  Future<void> updatePaletteSource(PaletteSource source) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updatePaletteSource(source);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kPaletteSourceCache, source.name);
+    });
+  }
+
+  Future<void> updatePaletteSeedColorHex(String hex) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updatePaletteSeedColorHex(hex);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kPaletteSeedColorHexCache, hex);
+    });
+  }
+
+  Future<void> updatePaletteMood(PaletteMood mood) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updatePaletteMood(mood);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kPaletteMoodCache, mood.name);
+    });
+  }
+
+  Future<void> updatePaletteContrast(PaletteContrast contrast) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updatePaletteContrast(contrast);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kPaletteContrastCache, contrast.name);
     });
   }
 
@@ -530,6 +589,20 @@ final cachedThemeStyleProvider = Provider<ThemeStyle>(
   (_) => ThemeStyle.standard,
 );
 
+final cachedPaletteSourceProvider = Provider<PaletteSource>(
+  (_) => PaletteSource.custom,
+);
+
+final cachedPaletteSeedColorHexProvider = Provider<String>((_) => '#9070A0');
+
+final cachedPaletteMoodProvider = Provider<PaletteMood>(
+  (_) => PaletteMood.tonal,
+);
+
+final cachedPaletteContrastProvider = Provider<PaletteContrast>(
+  (_) => PaletteContrast.standard,
+);
+
 final targetPlatformProvider = Provider<TargetPlatform>(
   (_) => defaultTargetPlatform,
 );
@@ -597,6 +670,61 @@ final effectiveThemeStyleProvider = Provider<ThemeStyle>((ref) {
   final style = ref.watch(themeStyleProvider);
   final platform = ref.watch(targetPlatformProvider);
   return effectiveThemeStyleForPlatform(style, platform);
+});
+
+/// Palette source preference, respecting the local appearance override.
+final paletteSourcePreferenceProvider = Provider<PaletteSource>((ref) {
+  final ignoreSynced =
+      ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ??
+      false;
+  if (ignoreSynced) return ref.watch(cachedPaletteSourceProvider);
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.paletteSource) ??
+      ref.watch(cachedPaletteSourceProvider);
+});
+
+/// Palette source after platform capability checks.
+final paletteSourceProvider = Provider<PaletteSource>((ref) {
+  final source = ref.watch(paletteSourcePreferenceProvider);
+  final platform = ref.watch(targetPlatformProvider);
+  return effectivePaletteSourceForPlatform(source, platform);
+});
+
+/// Custom palette seed, respecting the local appearance override.
+final paletteSeedColorHexProvider = Provider<String>((ref) {
+  final ignoreSynced =
+      ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ??
+      false;
+  if (ignoreSynced) return ref.watch(cachedPaletteSeedColorHexProvider);
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.paletteSeedColorHex) ??
+      ref.watch(cachedPaletteSeedColorHexProvider);
+});
+
+/// Palette mood, respecting the local appearance override.
+final paletteMoodProvider = Provider<PaletteMood>((ref) {
+  final ignoreSynced =
+      ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ??
+      false;
+  if (ignoreSynced) return ref.watch(cachedPaletteMoodProvider);
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.paletteMood) ??
+      ref.watch(cachedPaletteMoodProvider);
+});
+
+/// Palette contrast, respecting the local appearance override.
+final paletteContrastProvider = Provider<PaletteContrast>((ref) {
+  final ignoreSynced =
+      ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ??
+      false;
+  if (ignoreSynced) return ref.watch(cachedPaletteContrastProvider);
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.paletteContrast) ??
+      ref.watch(cachedPaletteContrastProvider);
 });
 
 /// Reactive corner style, gated by ignoreSyncedAppearance.

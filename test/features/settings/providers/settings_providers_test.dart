@@ -17,6 +17,10 @@ Future<ProviderContainer> makeContainerWithIgnore({
   domain.SystemSettings? settings,
   CornerStyle? cachedCornerStyle,
   domain.ThemeStyle? cachedThemeStyle,
+  domain.PaletteSource? cachedPaletteSource,
+  String? cachedPaletteSeedColorHex,
+  domain.PaletteMood? cachedPaletteMood,
+  domain.PaletteContrast? cachedPaletteContrast,
   TargetPlatform? targetPlatform,
 }) async {
   SharedPreferences.setMockInitialValues({
@@ -36,6 +40,16 @@ Future<ProviderContainer> makeContainerWithIgnore({
         cachedCornerStyleProvider.overrideWithValue(cachedCornerStyle),
       if (cachedThemeStyle != null)
         cachedThemeStyleProvider.overrideWithValue(cachedThemeStyle),
+      if (cachedPaletteSource != null)
+        cachedPaletteSourceProvider.overrideWithValue(cachedPaletteSource),
+      if (cachedPaletteSeedColorHex != null)
+        cachedPaletteSeedColorHexProvider.overrideWithValue(
+          cachedPaletteSeedColorHex,
+        ),
+      if (cachedPaletteMood != null)
+        cachedPaletteMoodProvider.overrideWithValue(cachedPaletteMood),
+      if (cachedPaletteContrast != null)
+        cachedPaletteContrastProvider.overrideWithValue(cachedPaletteContrast),
       if (targetPlatform != null)
         targetPlatformProvider.overrideWithValue(targetPlatform),
     ],
@@ -327,7 +341,7 @@ void main() {
       );
     });
 
-    test('downgrades synced materialYou to standard on iOS', () async {
+    test('keeps synced materialYou on iOS', () async {
       final container = await makeContainerWithIgnore(
         settings: const domain.SystemSettings(
           themeStyle: domain.ThemeStyle.materialYou,
@@ -338,33 +352,147 @@ void main() {
 
       expect(
         container.read(effectiveThemeStyleProvider),
-        domain.ThemeStyle.standard,
+        domain.ThemeStyle.materialYou,
       );
     });
 
+    test('keeps cached materialYou on iOS when ignore=true', () async {
+      final container = await makeContainerWithIgnore(
+        ignoreSynced: true,
+        settings: const domain.SystemSettings(
+          themeStyle: domain.ThemeStyle.oled,
+        ),
+        cachedThemeStyle: domain.ThemeStyle.materialYou,
+        targetPlatform: TargetPlatform.iOS,
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(themeStyleProvider), domain.ThemeStyle.materialYou);
+      expect(
+        container.read(effectiveThemeStyleProvider),
+        domain.ThemeStyle.materialYou,
+      );
+    });
+  });
+
+  group('palette providers', () {
     test(
-      'downgrades cached materialYou to standard on iOS when ignore=true',
+      'returns DB palette values when ignoreSyncedAppearance is false',
       () async {
         final container = await makeContainerWithIgnore(
-          ignoreSynced: true,
           settings: const domain.SystemSettings(
-            themeStyle: domain.ThemeStyle.oled,
+            paletteSource: domain.PaletteSource.custom,
+            paletteSeedColorHex: '#123456',
+            paletteMood: domain.PaletteMood.vibrant,
+            paletteContrast: domain.PaletteContrast.high,
           ),
-          cachedThemeStyle: domain.ThemeStyle.materialYou,
-          targetPlatform: TargetPlatform.iOS,
+          cachedPaletteSource: domain.PaletteSource.device,
+          cachedPaletteSeedColorHex: '#654321',
+          cachedPaletteMood: domain.PaletteMood.tonal,
+          cachedPaletteContrast: domain.PaletteContrast.soft,
+          targetPlatform: TargetPlatform.android,
         );
         addTearDown(container.dispose);
 
         expect(
-          container.read(themeStyleProvider),
-          domain.ThemeStyle.materialYou,
+          container.read(paletteSourceProvider),
+          domain.PaletteSource.custom,
         );
+        expect(container.read(paletteSeedColorHexProvider), '#123456');
+        expect(container.read(paletteMoodProvider), domain.PaletteMood.vibrant);
         expect(
-          container.read(effectiveThemeStyleProvider),
-          domain.ThemeStyle.standard,
+          container.read(paletteContrastProvider),
+          domain.PaletteContrast.high,
         );
       },
     );
+
+    test(
+      'returns cached palette values when ignoreSyncedAppearance is true',
+      () async {
+        final container = await makeContainerWithIgnore(
+          ignoreSynced: true,
+          settings: const domain.SystemSettings(
+            paletteSource: domain.PaletteSource.custom,
+            paletteSeedColorHex: '#123456',
+            paletteMood: domain.PaletteMood.vibrant,
+            paletteContrast: domain.PaletteContrast.high,
+          ),
+          cachedPaletteSource: domain.PaletteSource.device,
+          cachedPaletteSeedColorHex: '#654321',
+          cachedPaletteMood: domain.PaletteMood.monochrome,
+          cachedPaletteContrast: domain.PaletteContrast.soft,
+          targetPlatform: TargetPlatform.android,
+        );
+        addTearDown(container.dispose);
+
+        expect(
+          container.read(paletteSourceProvider),
+          domain.PaletteSource.device,
+        );
+        expect(container.read(paletteSeedColorHexProvider), '#654321');
+        expect(
+          container.read(paletteMoodProvider),
+          domain.PaletteMood.monochrome,
+        );
+        expect(
+          container.read(paletteContrastProvider),
+          domain.PaletteContrast.soft,
+        );
+      },
+    );
+
+    test('gates device palette source to custom off Android', () async {
+      final container = await makeContainerWithIgnore(
+        settings: const domain.SystemSettings(
+          paletteSource: domain.PaletteSource.device,
+        ),
+        targetPlatform: TargetPlatform.iOS,
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        container.read(paletteSourcePreferenceProvider),
+        domain.PaletteSource.device,
+      );
+      expect(
+        container.read(paletteSourceProvider),
+        domain.PaletteSource.custom,
+      );
+    });
+  });
+
+  group('palette updates (SettingsNotifier)', () {
+    test('writes palette fields to repo and SharedPreferences cache', () async {
+      SharedPreferences.setMockInitialValues({});
+      final fakeRepo = FakeSystemSettingsRepository();
+      final container = ProviderContainer(
+        overrides: [
+          systemSettingsProvider.overrideWithValue(
+            AsyncValue.data(fakeRepo.settings),
+          ),
+          systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(settingsNotifierProvider.notifier);
+      await notifier.updatePaletteSource(domain.PaletteSource.device);
+      await notifier.updatePaletteSeedColorHex('#ABCDEF');
+      await notifier.updatePaletteMood(domain.PaletteMood.expressive);
+      await notifier.updatePaletteContrast(domain.PaletteContrast.high);
+
+      expect(fakeRepo.settings.paletteSource, domain.PaletteSource.device);
+      expect(fakeRepo.settings.paletteSeedColorHex, '#ABCDEF');
+      expect(fakeRepo.settings.paletteMood, domain.PaletteMood.expressive);
+      expect(fakeRepo.settings.paletteContrast, domain.PaletteContrast.high);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('prism.cache.palette_source'), 'device');
+      expect(prefs.getString('prism.cache.palette_seed_color_hex'), '#ABCDEF');
+      expect(prefs.getString('prism.cache.palette_mood'), 'expressive');
+      expect(prefs.getString('prism.cache.palette_contrast'), 'high');
+    });
   });
 
   // ---------------------------------------------------------------------------

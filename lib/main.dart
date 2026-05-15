@@ -112,6 +112,26 @@ void main() async {
         (s) => s.name == prefs.getString('prism.cache.theme_style'),
       ) ??
       ThemeStyle.standard;
+  final cachedPaletteSourceName = prefs.getString('prism.cache.palette_source');
+  final cachedPaletteSource =
+      PaletteSource.values.firstWhereOrNull(
+        (s) => s.name == cachedPaletteSourceName,
+      ) ??
+      (cachedStyle == ThemeStyle.materialYou
+          ? PaletteSource.device
+          : PaletteSource.custom);
+  final cachedPaletteSeedColorHex =
+      prefs.getString('prism.cache.palette_seed_color_hex') ?? '#9070A0';
+  final cachedPaletteMood =
+      PaletteMood.values.firstWhereOrNull(
+        (m) => m.name == prefs.getString('prism.cache.palette_mood'),
+      ) ??
+      PaletteMood.tonal;
+  final cachedPaletteContrast =
+      PaletteContrast.values.firstWhereOrNull(
+        (c) => c.name == prefs.getString('prism.cache.palette_contrast'),
+      ) ??
+      PaletteContrast.standard;
   final cornerIndex = prefs.getInt('prism.cache.theme_corner_style') ?? 0;
   final cachedCornerStyle = CornerStyle.values[cornerIndex];
 
@@ -132,6 +152,12 @@ void main() async {
       overrides: [
         cachedThemeBrightnessProvider.overrideWithValue(cachedBrightness),
         cachedThemeStyleProvider.overrideWithValue(cachedStyle),
+        cachedPaletteSourceProvider.overrideWithValue(cachedPaletteSource),
+        cachedPaletteSeedColorHexProvider.overrideWithValue(
+          cachedPaletteSeedColorHex,
+        ),
+        cachedPaletteMoodProvider.overrideWithValue(cachedPaletteMood),
+        cachedPaletteContrastProvider.overrideWithValue(cachedPaletteContrast),
         cachedCornerStyleProvider.overrideWithValue(cachedCornerStyle),
       ],
       // Explicit retry filter — prevent infinite retry on programmer bugs.

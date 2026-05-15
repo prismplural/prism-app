@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart'
+    show PaletteContrast, PaletteMood, PaletteSource;
 import 'accent_legibility.dart';
 import 'app_colors.dart';
 import 'prism_shapes.dart';
@@ -243,6 +245,51 @@ class AppTheme {
             ? null
             : _textStyleWithoutDisplayFont(textTheme.headlineLarge!),
       ),
+    );
+  }
+
+  static DynamicSchemeVariant _dynamicSchemeVariantFor(PaletteMood mood) {
+    return switch (mood) {
+      PaletteMood.tonal => DynamicSchemeVariant.tonalSpot,
+      PaletteMood.vibrant => DynamicSchemeVariant.vibrant,
+      PaletteMood.expressive => DynamicSchemeVariant.expressive,
+      PaletteMood.fidelity => DynamicSchemeVariant.fidelity,
+      PaletteMood.monochrome => DynamicSchemeVariant.monochrome,
+    };
+  }
+
+  static double _contrastLevelFor(PaletteContrast contrast) {
+    return switch (contrast) {
+      PaletteContrast.soft => -0.25,
+      PaletteContrast.standard => 0.0,
+      PaletteContrast.high => 0.5,
+    };
+  }
+
+  static ColorScheme _paletteColorScheme({
+    required ColorScheme? dynamicScheme,
+    required Brightness brightness,
+    required PaletteSource source,
+    required String seedColorHex,
+    required PaletteMood mood,
+    required PaletteContrast contrast,
+  }) {
+    if (source == PaletteSource.device && dynamicScheme != null) {
+      if (mood == PaletteMood.tonal && contrast == PaletteContrast.standard) {
+        return dynamicScheme;
+      }
+      return ColorScheme.fromSeed(
+        seedColor: dynamicScheme.primary,
+        brightness: brightness,
+        dynamicSchemeVariant: _dynamicSchemeVariantFor(mood),
+        contrastLevel: _contrastLevelFor(contrast),
+      );
+    }
+    return ColorScheme.fromSeed(
+      seedColor: AppColors.fromHex(seedColorHex),
+      brightness: brightness,
+      dynamicSchemeVariant: _dynamicSchemeVariantFor(mood),
+      contrastLevel: _contrastLevelFor(contrast),
     );
   }
 
@@ -607,21 +654,27 @@ class AppTheme {
     );
   }
 
-  /// Material You theme — uses the system's dynamic color palette.
-  /// Falls back to the standard Prism theme if [dynamicScheme] is null.
+  /// Palette theme. Uses device colors when requested and available,
+  /// otherwise builds a seeded Material color scheme.
   ///
-  /// Routes through [_buildTheme] so Material You gets the same 15+
-  /// component-theme customizations as Standard / OLED variants.
+  /// Routes through [_buildTheme] so Palette keeps the shared Prism component
+  /// styling.
   static ThemeData materialYouLight(
     ColorScheme? dynamicScheme, {
     CornerStyle cornerStyle = CornerStyle.rounded,
+    PaletteSource paletteSource = PaletteSource.device,
+    String paletteSeedColorHex = '#9070A0',
+    PaletteMood paletteMood = PaletteMood.tonal,
+    PaletteContrast paletteContrast = PaletteContrast.standard,
   }) {
-    final baseColorScheme =
-        dynamicScheme ??
-        ColorScheme.fromSeed(
-          seedColor: AppColors.prismPurple,
-          brightness: Brightness.light,
-        );
+    final baseColorScheme = _paletteColorScheme(
+      dynamicScheme: dynamicScheme,
+      brightness: Brightness.light,
+      source: paletteSource,
+      seedColorHex: paletteSeedColorHex,
+      mood: paletteMood,
+      contrast: paletteContrast,
+    );
 
     final accent = contrastAdjustedAccent(
       baseColorScheme.primary,
@@ -664,13 +717,19 @@ class AppTheme {
   static ThemeData materialYouDark(
     ColorScheme? dynamicScheme, {
     CornerStyle cornerStyle = CornerStyle.rounded,
+    PaletteSource paletteSource = PaletteSource.device,
+    String paletteSeedColorHex = '#9070A0',
+    PaletteMood paletteMood = PaletteMood.tonal,
+    PaletteContrast paletteContrast = PaletteContrast.standard,
   }) {
-    final baseColorScheme =
-        dynamicScheme ??
-        ColorScheme.fromSeed(
-          seedColor: AppColors.prismPurple,
-          brightness: Brightness.dark,
-        );
+    final baseColorScheme = _paletteColorScheme(
+      dynamicScheme: dynamicScheme,
+      brightness: Brightness.dark,
+      source: paletteSource,
+      seedColorHex: paletteSeedColorHex,
+      mood: paletteMood,
+      contrast: paletteContrast,
+    );
 
     final accent = contrastAdjustedAccent(
       baseColorScheme.primary,

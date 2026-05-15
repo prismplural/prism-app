@@ -119,6 +119,10 @@ class _PrismAppState extends ConsumerState<PrismApp> {
 
     // Resolve the user's accent color and font settings from narrow providers.
     var accentHex = ref.watch(accentColorHexProvider);
+    final paletteSource = ref.watch(paletteSourceProvider);
+    final paletteSeedColorHex = ref.watch(paletteSeedColorHexProvider);
+    final paletteMood = ref.watch(paletteMoodProvider);
+    final paletteContrast = ref.watch(paletteContrastProvider);
     final onboardingAppearance = ref.watch(
       onboardingProvider.select(
         (state) => (
@@ -173,10 +177,18 @@ class _PrismAppState extends ConsumerState<PrismApp> {
             lightTheme = AppTheme.materialYouLight(
               lightDynamic,
               cornerStyle: cornerStyle,
+              paletteSource: paletteSource,
+              paletteSeedColorHex: paletteSeedColorHex,
+              paletteMood: paletteMood,
+              paletteContrast: paletteContrast,
             );
             darkTheme = AppTheme.materialYouDark(
               darkDynamic,
               cornerStyle: cornerStyle,
+              paletteSource: paletteSource,
+              paletteSeedColorHex: paletteSeedColorHex,
+              paletteMood: paletteMood,
+              paletteContrast: paletteContrast,
             );
           case ThemeStyle.oled:
             lightTheme = AppTheme.light(
