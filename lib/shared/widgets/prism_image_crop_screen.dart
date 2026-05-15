@@ -50,7 +50,7 @@ class _PrismImageCropScreen extends StatefulWidget {
 class _PrismImageCropScreenState extends State<_PrismImageCropScreen> {
   late final CropController _controller = CropController(
     aspectRatio: widget.request.aspectRatio,
-    defaultCrop: const Rect.fromLTRB(0.1, 0.1, 0.9, 0.9),
+    defaultCrop: const Rect.fromLTRB(0, 0, 1, 1),
   );
   bool _isSaving = false;
 

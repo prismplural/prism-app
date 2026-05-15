@@ -4,8 +4,10 @@ import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
+import 'package:prism_plurality/shared/utils/picked_image_normalizer.dart';
 import 'package:prism_plurality/shared/utils/prism_cropped_bitmap_encoder.dart';
 import 'package:prism_plurality/shared/widgets/prism_image_crop_screen.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 /// What a picked raw image has to expose for the cropper step to run.
 ///
@@ -34,6 +36,16 @@ typedef AvatarCropImageFn =
       required String cancelButtonTitle,
     });
 
+/// Injectable byte normalizer. Production runs picker output through
+/// `platform_image_converter` on iOS to dodge oversized JPEG / wide-gamut
+/// decode failures inside the cropper.
+@visibleForTesting
+typedef AvatarNormalizeBytesFn =
+    Future<Uint8List?> Function(
+      Uint8List sourceBytes, {
+      TargetPlatform? platform,
+    });
+
 /// Picks an avatar image and opens the native crop UI where the cropper plugin
 /// supports the current platform.
 class AvatarImagePicker {
@@ -47,23 +59,45 @@ class AvatarImagePicker {
     ImageSource source = ImageSource.gallery,
     @visibleForTesting AvatarPickImageFn? pickImage,
     @visibleForTesting AvatarCropImageFn? cropImage,
+    @visibleForTesting AvatarNormalizeBytesFn? normalizeBytes,
     @visibleForTesting TargetPlatform? platform,
   }) async {
     // Skip maxWidth/maxHeight/imageQuality here so image_picker passes the
     // raw image through. The cropper performs a single resize + re-encode.
+    final resolvedPlatform = platform ?? defaultTargetPlatform;
     final picked = await (pickImage ?? _defaultPickImage)(source);
     if (picked == null) return null;
     if (!context.mounted) return null;
     final l10n = context.l10n;
 
-    if (!_cropperIsSupported(platform ?? defaultTargetPlatform)) {
+    if (!_cropperIsSupported(resolvedPlatform)) {
       return picked.readAsBytes();
     }
 
     final pickedBytes = await picked.readAsBytes();
     if (!context.mounted) return null;
+
+    // image_picker_ios silently writes a 0-byte .jpg when UIImage initWithData:
+    // fails (HDR / depth / certain iOS-26 HEIC variants). Bail before the
+    // cropper opens to a blank canvas.
+    if (pickedBytes.isEmpty) {
+      PrismToast.error(context, message: l10n.imageCropProcessingError);
+      return null;
+    }
+
+    final normalizedBytes =
+        await (normalizeBytes ?? normalizePickedImageBytes)(
+          pickedBytes,
+          platform: resolvedPlatform,
+        );
+    if (!context.mounted) return null;
+    if (normalizedBytes == null || normalizedBytes.isEmpty) {
+      PrismToast.error(context, message: l10n.imageCropProcessingError);
+      return null;
+    }
+
     final cropped = await (cropImage ?? _defaultCropImage)(
-      pickedBytes,
+      normalizedBytes,
       context,
       title: l10n.avatarCropTitle,
       doneButtonTitle: l10n.done,

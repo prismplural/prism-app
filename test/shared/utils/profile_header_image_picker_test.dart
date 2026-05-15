@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/utils/profile_header_image_normalizer.dart';
 import 'package:prism_plurality/shared/utils/profile_header_image_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 class _PickedImage implements ProfileHeaderPickedImage {
   const _PickedImage();
@@ -135,6 +136,93 @@ void main() {
     expect(decoded!.width, ProfileHeaderImageNormalizer.maxWidth);
     expect(decoded.height, ProfileHeaderImageNormalizer.maxHeight);
   });
+
+  testWidgets(
+    'returns null and skips cropper when picker yields empty bytes',
+    (tester) async {
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      var cropCalls = 0;
+      final result = await ProfileHeaderImagePicker.pickCroppedHeaderBytes(
+        capturedContext,
+        platform: TargetPlatform.iOS,
+        pickImage: (_) async => _BytesPickedImage(Uint8List(0)),
+        cropImage:
+            (
+              sourceBytes,
+              context, {
+              required title,
+              required doneButtonTitle,
+              required cancelButtonTitle,
+            }) async {
+              cropCalls += 1;
+              return Uint8List.fromList([9, 8, 7]);
+            },
+        normalizeImage: (value) async => value,
+        normalizePickedBytes: (bytes, {platform}) async => bytes,
+      );
+
+      expect(result, isNull);
+      expect(cropCalls, 0);
+      PrismToast.dismiss();
+    },
+  );
+
+  testWidgets(
+    'returns null and skips cropper when normalizer yields null',
+    (tester) async {
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      var cropCalls = 0;
+      final result = await ProfileHeaderImagePicker.pickCroppedHeaderBytes(
+        capturedContext,
+        platform: TargetPlatform.iOS,
+        pickImage: (_) async =>
+            _BytesPickedImage(Uint8List.fromList([1, 2, 3])),
+        cropImage:
+            (
+              sourceBytes,
+              context, {
+              required title,
+              required doneButtonTitle,
+              required cancelButtonTitle,
+            }) async {
+              cropCalls += 1;
+              return Uint8List.fromList([9, 8, 7]);
+            },
+        normalizeImage: (value) async => value,
+        normalizePickedBytes: (bytes, {platform}) async => null,
+      );
+
+      expect(result, isNull);
+      expect(cropCalls, 0);
+      PrismToast.dismiss();
+    },
+  );
 }
 
 class _BytesPickedImage implements ProfileHeaderPickedImage {
