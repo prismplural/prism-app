@@ -188,6 +188,53 @@ final pkSyncModeProvider = NotifierProvider<PkSyncModeNotifier, PkSyncMode>(
   PkSyncModeNotifier.new,
 );
 
+/// Persisted sleep behavior for PluralKit push sync.
+class PkSleepSyncBehaviorNotifier extends Notifier<PkSleepSyncBehavior> {
+  int _writeGeneration = 0;
+
+  @override
+  PkSleepSyncBehavior build() {
+    _loadIfUnchanged(_writeGeneration);
+    return PkSleepSyncBehavior.clearFronters;
+  }
+
+  Future<void> load() async {
+    final syncDao = ref.read(pluralKitSyncDaoProvider);
+    final row = await syncDao.getSyncState();
+    state = parsePkSleepSyncBehavior(row.fieldSyncConfig);
+  }
+
+  Future<void> _loadIfUnchanged(int generation) async {
+    final syncDao = ref.read(pluralKitSyncDaoProvider);
+    final row = await syncDao.getSyncState();
+    if (_writeGeneration != generation) return;
+    state = parsePkSleepSyncBehavior(row.fieldSyncConfig);
+  }
+
+  Future<void> setBehavior(PkSleepSyncBehavior behavior) async {
+    _writeGeneration++;
+    state = behavior;
+    final syncDao = ref.read(pluralKitSyncDaoProvider);
+    final row = await syncDao.getSyncState();
+    await syncDao.upsertSyncState(
+      PluralKitSyncStateCompanion(
+        id: const drift.Value('pk_config'),
+        fieldSyncConfig: drift.Value(
+          serializeFieldSyncConfigWithSleepSyncBehavior(
+            row.fieldSyncConfig,
+            behavior,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+final pkSleepSyncBehaviorProvider =
+    NotifierProvider<PkSleepSyncBehaviorNotifier, PkSleepSyncBehavior>(
+      PkSleepSyncBehaviorNotifier.new,
+    );
+
 // ---------------------------------------------------------------------------
 // Last sync summary
 // ---------------------------------------------------------------------------

@@ -2147,6 +2147,7 @@ void main() {
       required List<domain.FrontingSession> sessions,
       PKSwitch? current,
       _RecordingPushClient? client,
+      String? fieldSyncConfig,
     }) async {
       final db = _makeDb();
       addTearDown(db.close);
@@ -2185,6 +2186,9 @@ void main() {
           id: const Value('pk_config'),
           linkedAt: Value(DateTime.utc(2026, 1, 15)),
           lastSyncDate: Value(DateTime.utc(2024, 1, 2)),
+          fieldSyncConfig: fieldSyncConfig == null
+              ? const Value.absent()
+              : Value(fieldSyncConfig),
         ),
       );
       await service.loadState();
@@ -2273,6 +2277,60 @@ void main() {
       expect(result.pushed, 1);
       expect(harness.client.createSwitchMemberIds.single, isEmpty);
     });
+
+    test('clears current fronters while sleeping by default', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA')],
+        sessions: [session('s-sleep', null, isSleep: true)],
+        current: pkSwitch('sw-old', const ['pkA']),
+      );
+
+      final result = await harness.service.pushPendingSwitches();
+
+      expect(result.pushed, 1);
+      expect(harness.client.createSwitchMemberIds.single, isEmpty);
+    });
+
+    test(
+      'leaves current fronters untouched while sleeping when configured',
+      () async {
+        final harness = await setupSnapshot(
+          members: [member('a', 'pkA')],
+          sessions: [session('s-sleep', null, isSleep: true)],
+          current: pkSwitch('sw-old', const ['pkA']),
+          fieldSyncConfig: serializeFieldSyncConfigWithSleepSyncBehavior(
+            null,
+            PkSleepSyncBehavior.leaveUnchanged,
+          ),
+        );
+
+        final result = await harness.service.pushPendingSwitches();
+
+        expect(result.pushed, 0);
+        expect(harness.client.getCurrentFrontersCallCount, 0);
+        expect(harness.client.createSwitchCallCount, 0);
+      },
+    );
+
+    test(
+      'still clears current fronters when no local session is active',
+      () async {
+        final harness = await setupSnapshot(
+          members: [member('a', 'pkA')],
+          sessions: const [],
+          current: pkSwitch('sw-old', const ['pkA']),
+          fieldSyncConfig: serializeFieldSyncConfigWithSleepSyncBehavior(
+            null,
+            PkSleepSyncBehavior.leaveUnchanged,
+          ),
+        );
+
+        final result = await harness.service.pushPendingSwitches();
+
+        expect(result.pushed, 1);
+        expect(harness.client.createSwitchMemberIds.single, isEmpty);
+      },
+    );
 
     test('pushes initial switch when nothing on PK', () async {
       final harness = await setupSnapshot(

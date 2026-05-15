@@ -10009,6 +10009,36 @@ abstract class AppLocalizations {
   /// **'Records new PluralKit front changes while Prism is open. Older history, profile, group, and system data are left untouched.'**
   String get pluralkitSyncModeLiveFrontsOnlyDescription;
 
+  /// Description text for the PluralKit sleep sync behavior picker
+  ///
+  /// In en, this message translates to:
+  /// **'When Prism records sleep, choose how PluralKit should represent it.'**
+  String get pluralkitSleepSyncBehaviorDescription;
+
+  /// PluralKit sleep sync behavior label for leaving PK unchanged
+  ///
+  /// In en, this message translates to:
+  /// **'Leave Unchanged'**
+  String get pluralkitSleepSyncLeaveUnchanged;
+
+  /// PluralKit sleep sync behavior label for clearing PK fronters
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Fronters'**
+  String get pluralkitSleepSyncClearFronters;
+
+  /// Explanatory text for leaving PK unchanged while sleeping
+  ///
+  /// In en, this message translates to:
+  /// **'Prism records sleep locally and leaves PluralKit\'s current fronters as-is.'**
+  String get pluralkitSleepSyncLeaveUnchangedDescription;
+
+  /// Explanatory text for clearing PK fronters while sleeping
+  ///
+  /// In en, this message translates to:
+  /// **'Prism records sleep locally and clears PluralKit\'s current fronters.'**
+  String get pluralkitSleepSyncClearFrontersDescription;
+
   /// PluralKit sync direction: pull only
   ///
   /// In en, this message translates to:

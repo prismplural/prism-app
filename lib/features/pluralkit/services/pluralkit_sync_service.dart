@@ -3855,6 +3855,9 @@ class PluralKitSyncService {
 
       final rawActive = await _frontingSessionRepository
           .getAllActiveSessionsUnfiltered();
+      final hasActiveSleep = rawActive.any(
+        (session) => session.isSleep && !session.isDeleted,
+      );
       final localActive = rawActive.where((session) {
         if (session.isSleep || session.isDeleted) return false;
         final memberId = session.memberId;
@@ -3863,6 +3866,16 @@ class PluralKitSyncService {
       }).toList()..sort((a, b) => a.startTime.compareTo(b.startTime));
 
       final localPkSet = _sortedUniquePkIds(localActive, localIdToPkId);
+      final activeSleepOnly = localActive.isEmpty && hasActiveSleep;
+      if (activeSleepOnly) {
+        final syncState = await _syncDao.getSyncState();
+        if (parsePkSleepSyncBehavior(syncState.fieldSyncConfig) ==
+            PkSleepSyncBehavior.leaveUnchanged) {
+          return const PkPushSwitchesResult();
+        }
+        // PK clears fronters through an empty switch, so fall through.
+      }
+
       final pkCurrent =
           knownCurrentFronters ?? await client.getCurrentFronters();
       final pkPkSet = _sortedUniqueStrings(pkCurrent?.members ?? const []);

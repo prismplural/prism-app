@@ -103,6 +103,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   Widget _buildDirectionStep(ThemeData theme) {
     final mode = ref.watch(pkSyncModeProvider);
     final direction = ref.watch(pkSyncDirectionProvider);
+    final sleepBehavior = ref.watch(pkSleepSyncBehaviorProvider);
     // Pre-mark touched if the user had previously persisted a non-default
     // direction (resumed from a prior session). The provider defaults to
     // `pullOnly` until `load()` resolves — once it does, any non-default
@@ -178,6 +179,8 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+          const SizedBox(height: 16),
+          _buildSleepSyncBehaviorPicker(theme, sleepBehavior),
           const SizedBox(height: 16),
           // Continue button advances the direction gate. Disabled until the
           // user has interacted with the picker (or a non-default preserved
@@ -862,6 +865,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   Widget _buildSyncDirectionSection(ThemeData theme) {
     final mode = ref.watch(pkSyncModeProvider);
     final direction = ref.watch(pkSyncDirectionProvider);
+    final sleepBehavior = ref.watch(pkSleepSyncBehaviorProvider);
     return PrismSectionCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -919,8 +923,56 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               },
             ),
           ),
+          const SizedBox(height: 16),
+          _buildSleepSyncBehaviorPicker(theme, sleepBehavior),
         ],
       ),
+    );
+  }
+
+  Widget _buildSleepSyncBehaviorPicker(
+    ThemeData theme,
+    PkSleepSyncBehavior sleepBehavior,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          context.l10n.pluralkitSleepSyncBehaviorDescription,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: PrismSegmentedControl<PkSleepSyncBehavior>(
+            segments: [
+              PrismSegment(
+                value: PkSleepSyncBehavior.clearFronters,
+                label: context.l10n.pluralkitSleepSyncClearFronters,
+              ),
+              PrismSegment(
+                value: PkSleepSyncBehavior.leaveUnchanged,
+                label: context.l10n.pluralkitSleepSyncLeaveUnchanged,
+              ),
+            ],
+            selected: sleepBehavior,
+            onChanged: (next) {
+              ref.read(pkSleepSyncBehaviorProvider.notifier).setBehavior(next);
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          sleepBehavior == PkSleepSyncBehavior.leaveUnchanged
+              ? context.l10n.pluralkitSleepSyncLeaveUnchangedDescription
+              : context.l10n.pluralkitSleepSyncClearFrontersDescription,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 

@@ -5997,6 +5997,24 @@ class AppLocalizationsEs extends AppLocalizations {
       'Registra nuevos cambios de frente de PluralKit mientras Prism está abierto. El historial anterior y los datos de perfil, grupos y sistema no se modifican.';
 
   @override
+  String get pluralkitSleepSyncBehaviorDescription =>
+      'Cuando Prism registra sueño, elige cómo representarlo en PluralKit.';
+
+  @override
+  String get pluralkitSleepSyncLeaveUnchanged => 'Dejar igual';
+
+  @override
+  String get pluralkitSleepSyncClearFronters => 'Limpiar fronters';
+
+  @override
+  String get pluralkitSleepSyncLeaveUnchangedDescription =>
+      'Prism registra el sueño localmente y deja igual quién está al frente en PluralKit.';
+
+  @override
+  String get pluralkitSleepSyncClearFrontersDescription =>
+      'Prism registra el sueño localmente y limpia quién está al frente en PluralKit.';
+
+  @override
   String get pluralkitPull => 'Descargar';
 
   @override

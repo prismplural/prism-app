@@ -71,6 +71,32 @@ void main() {
     });
   });
 
+  group('PkSleepSyncBehavior', () {
+    test('JSON round-trip preserves behavior', () {
+      expect(
+        PkSleepSyncBehavior.fromJson(
+          PkSleepSyncBehavior.leaveUnchanged.toJson(),
+        ),
+        PkSleepSyncBehavior.leaveUnchanged,
+      );
+    });
+
+    test('fromJson defaults safely to clearFronters for malformed values', () {
+      expect(
+        PkSleepSyncBehavior.fromJson(null),
+        PkSleepSyncBehavior.clearFronters,
+      );
+      expect(
+        PkSleepSyncBehavior.fromJson(123),
+        PkSleepSyncBehavior.clearFronters,
+      );
+      expect(
+        PkSleepSyncBehavior.fromJson('unknown'),
+        PkSleepSyncBehavior.clearFronters,
+      );
+    });
+  });
+
   // ── PkDeleteRiskPreview ─────────────────────────────────────────────────
 
   group('PkDeleteRiskPreview', () {
@@ -352,6 +378,33 @@ void main() {
         PkSyncDirection.pullOnly,
       );
     });
+
+    test('with sleep sync behavior preserves member config and metadata', () {
+      final withDirectionAndMode = serializeFieldSyncConfig(
+        {'member-1': const PkFieldSyncConfig(name: PkSyncDirection.pullOnly)},
+        globalDirection: PkSyncDirection.pushOnly,
+        mode: PkSyncMode.liveFrontsOnly,
+      );
+
+      final withSleepBehavior = serializeFieldSyncConfigWithSleepSyncBehavior(
+        withDirectionAndMode,
+        PkSleepSyncBehavior.leaveUnchanged,
+      );
+
+      expect(
+        parsePkSleepSyncBehavior(withSleepBehavior),
+        PkSleepSyncBehavior.leaveUnchanged,
+      );
+      expect(parsePkSyncMode(withSleepBehavior), PkSyncMode.liveFrontsOnly);
+      expect(
+        parseGlobalSyncDirection(withSleepBehavior),
+        PkSyncDirection.pushOnly,
+      );
+      expect(
+        parseFieldSyncConfig(withSleepBehavior)['member-1']!.name,
+        PkSyncDirection.pullOnly,
+      );
+    });
   });
 
   // ── metadata helpers ─────────────────────────────────────────────────────
@@ -375,6 +428,34 @@ void main() {
       expect(
         parsePkSyncMode(jsonEncode({'__mode__': 'liveFrontsOnly'})),
         PkSyncMode.liveFrontsOnly,
+      );
+    });
+
+    test('parsePkSleepSyncBehavior defaults to clearFronters', () {
+      expect(parsePkSleepSyncBehavior(null), PkSleepSyncBehavior.clearFronters);
+      expect(parsePkSleepSyncBehavior(''), PkSleepSyncBehavior.clearFronters);
+      expect(
+        parsePkSleepSyncBehavior('not json'),
+        PkSleepSyncBehavior.clearFronters,
+      );
+      expect(
+        parsePkSleepSyncBehavior(jsonEncode({'__sleep_sync_behavior__': 42})),
+        PkSleepSyncBehavior.clearFronters,
+      );
+      expect(
+        parsePkSleepSyncBehavior(
+          jsonEncode({'__sleep_sync_behavior__': 'unknown'}),
+        ),
+        PkSleepSyncBehavior.clearFronters,
+      );
+    });
+
+    test('parsePkSleepSyncBehavior reads leaveUnchanged', () {
+      expect(
+        parsePkSleepSyncBehavior(
+          jsonEncode({'__sleep_sync_behavior__': 'leaveUnchanged'}),
+        ),
+        PkSleepSyncBehavior.leaveUnchanged,
       );
     });
 

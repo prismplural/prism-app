@@ -61,6 +61,25 @@ enum PkSyncMode {
   }
 }
 
+/// PluralKit handling while Prism records a local sleep session.
+enum PkSleepSyncBehavior {
+  /// Do not change PluralKit's current fronters while Prism records sleep.
+  leaveUnchanged,
+
+  /// Clear PluralKit's current fronters when Prism records sleep.
+  clearFronters;
+
+  String toJson() => name;
+
+  static PkSleepSyncBehavior fromJson(Object? value) {
+    if (value is! String) return PkSleepSyncBehavior.clearFronters;
+    return PkSleepSyncBehavior.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => PkSleepSyncBehavior.clearFronters,
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Delete-risk preview
 // ---------------------------------------------------------------------------
@@ -374,6 +393,7 @@ int _nonNegativeInt(Object? value) {
 
 const String _globalSyncConfigKey = '__global__';
 const String _syncModeConfigKey = '__mode__';
+const String _sleepSyncBehaviorConfigKey = '__sleep_sync_behavior__';
 
 bool _isReservedFieldSyncConfigKey(String key) => key.startsWith('__');
 
@@ -414,6 +434,7 @@ String serializeFieldSyncConfig(
   String? existingJson,
   PkSyncDirection? globalDirection,
   PkSyncMode? mode,
+  PkSleepSyncBehavior? sleepSyncBehavior,
 }) {
   final json = _reservedFieldSyncConfigEntries(existingJson);
   json.addEntries(
@@ -437,6 +458,9 @@ String serializeFieldSyncConfig(
   if (mode != null) {
     json[_syncModeConfigKey] = mode.toJson();
   }
+  if (sleepSyncBehavior != null) {
+    json[_sleepSyncBehaviorConfigKey] = sleepSyncBehavior.toJson();
+  }
   return jsonEncode(json);
 }
 
@@ -459,6 +483,13 @@ PkSyncMode parsePkSyncMode(String? json) {
   return PkSyncMode.fromJson(_decodeFieldSyncConfig(json)[_syncModeConfigKey]);
 }
 
+/// Parse the persisted sleep sync behavior from `fieldSyncConfig`.
+PkSleepSyncBehavior parsePkSleepSyncBehavior(String? json) {
+  return PkSleepSyncBehavior.fromJson(
+    _decodeFieldSyncConfig(json)[_sleepSyncBehaviorConfigKey],
+  );
+}
+
 /// Serialize a global direction update while preserving member configs + mode.
 String serializeFieldSyncConfigWithGlobalDirection(
   String? existingJson,
@@ -477,5 +508,17 @@ String serializeFieldSyncConfigWithMode(String? existingJson, PkSyncMode mode) {
     parseFieldSyncConfig(existingJson),
     existingJson: existingJson,
     mode: mode,
+  );
+}
+
+/// Serialize a sleep sync behavior update while preserving other config.
+String serializeFieldSyncConfigWithSleepSyncBehavior(
+  String? existingJson,
+  PkSleepSyncBehavior behavior,
+) {
+  return serializeFieldSyncConfig(
+    parseFieldSyncConfig(existingJson),
+    existingJson: existingJson,
+    sleepSyncBehavior: behavior,
   );
 }

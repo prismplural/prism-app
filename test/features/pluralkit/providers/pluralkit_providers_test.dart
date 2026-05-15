@@ -201,6 +201,96 @@ void main() {
     });
   });
 
+  group('PkSleepSyncBehaviorNotifier', () {
+    Future<({ProviderContainer container, PluralKitSyncDao dao})>
+    sleepContainer({String? fieldSyncConfig}) async {
+      _installSecureStorageStub();
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final dao = PluralKitSyncDao(db);
+      await dao.getSyncState();
+      if (fieldSyncConfig != null) {
+        await dao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const drift.Value('pk_config'),
+            fieldSyncConfig: drift.Value(fieldSyncConfig),
+          ),
+        );
+      }
+      final container = ProviderContainer(
+        overrides: [pluralKitSyncDaoProvider.overrideWithValue(dao)],
+      );
+      addTearDown(container.dispose);
+      return (container: container, dao: dao);
+    }
+
+    Future<void> settle() async {
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    test('defaults to clearFronters with no persisted behavior', () async {
+      final ctx = await sleepContainer();
+
+      expect(
+        ctx.container.read(pkSleepSyncBehaviorProvider),
+        PkSleepSyncBehavior.clearFronters,
+      );
+      await settle();
+      expect(
+        ctx.container.read(pkSleepSyncBehaviorProvider),
+        PkSleepSyncBehavior.clearFronters,
+      );
+    });
+
+    test('loads and persists leaveUnchanged under reserved metadata', () async {
+      final ctx = await sleepContainer();
+
+      await ctx.container
+          .read(pkSleepSyncBehaviorProvider.notifier)
+          .setBehavior(PkSleepSyncBehavior.leaveUnchanged);
+
+      final row = await ctx.dao.getSyncState();
+      final decoded = jsonDecode(row.fieldSyncConfig!) as Map<String, dynamic>;
+      expect(decoded['__sleep_sync_behavior__'], 'leaveUnchanged');
+      expect(
+        parsePkSleepSyncBehavior(row.fieldSyncConfig),
+        PkSleepSyncBehavior.leaveUnchanged,
+      );
+      expect(
+        ctx.container.read(pkSleepSyncBehaviorProvider),
+        PkSleepSyncBehavior.leaveUnchanged,
+      );
+    });
+
+    test('setBehavior preserves direction and mode', () async {
+      final withDirection = serializeFieldSyncConfigWithGlobalDirection(
+        null,
+        PkSyncDirection.pushOnly,
+      );
+      final withMode = serializeFieldSyncConfigWithMode(
+        withDirection,
+        PkSyncMode.liveFrontsOnly,
+      );
+      final ctx = await sleepContainer(fieldSyncConfig: withMode);
+
+      await ctx.container
+          .read(pkSleepSyncBehaviorProvider.notifier)
+          .setBehavior(PkSleepSyncBehavior.leaveUnchanged);
+
+      final row = await ctx.dao.getSyncState();
+      expect(
+        parsePkSleepSyncBehavior(row.fieldSyncConfig),
+        PkSleepSyncBehavior.leaveUnchanged,
+      );
+      expect(parsePkSyncMode(row.fieldSyncConfig), PkSyncMode.liveFrontsOnly);
+      expect(
+        parseGlobalSyncDirection(row.fieldSyncConfig),
+        PkSyncDirection.pushOnly,
+      );
+    });
+  });
+
   // ──────────────────────────────────────────────────────────────────────────
   // WS1 step 4 + 5: PluralKitSyncNotifier consumes
   // `frontingMigrationWritesBlockedProvider`. While the per-member fronting
