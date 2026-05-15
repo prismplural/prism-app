@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 class _PickCall {
   _PickCall(this.source);
@@ -220,6 +221,70 @@ void main() {
       expect(pickedImage.readCount, 1);
     });
 
+    testWidgets(
+      'returns null and skips cropper when picker yields empty bytes',
+      (tester) async {
+        final pickedImage = _FakePickedImage(
+          path: '/tmp/avatar-source.jpg',
+          bytes: Uint8List(0),
+        );
+        var cropCalls = 0;
+
+        final result = await _pick(
+          tester,
+          pickImage: (_) async => pickedImage,
+          cropImage: (
+            sourceBytes,
+            context, {
+            required title,
+            required doneButtonTitle,
+            required cancelButtonTitle,
+          }) async {
+            cropCalls += 1;
+            return Uint8List.fromList([9, 8, 7]);
+          },
+          platform: TargetPlatform.iOS,
+        );
+
+        expect(result, isNull);
+        expect(cropCalls, 0);
+        expect(pickedImage.readCount, 1);
+        PrismToast.dismiss();
+      },
+    );
+
+    testWidgets(
+      'returns null and skips cropper when normalizer yields null',
+      (tester) async {
+        final pickedImage = _FakePickedImage(
+          path: '/tmp/avatar-source.jpg',
+          bytes: Uint8List.fromList([1, 2, 3]),
+        );
+        var cropCalls = 0;
+
+        final result = await _pick(
+          tester,
+          pickImage: (_) async => pickedImage,
+          cropImage: (
+            sourceBytes,
+            context, {
+            required title,
+            required doneButtonTitle,
+            required cancelButtonTitle,
+          }) async {
+            cropCalls += 1;
+            return Uint8List.fromList([9, 8, 7]);
+          },
+          normalizeBytes: (bytes, {platform}) async => null,
+          platform: TargetPlatform.iOS,
+        );
+
+        expect(result, isNull);
+        expect(cropCalls, 0);
+        PrismToast.dismiss();
+      },
+    );
+
     testWidgets('returns null if context unmounts after image picking', (
       tester,
     ) async {
@@ -273,6 +338,7 @@ Future<Uint8List?> _pick(
   required AvatarPickImageFn pickImage,
   required AvatarCropImageFn cropImage,
   required TargetPlatform platform,
+  AvatarNormalizeBytesFn? normalizeBytes,
   Locale locale = const Locale('en'),
 }) async {
   late BuildContext context;
@@ -294,6 +360,12 @@ Future<Uint8List?> _pick(
     context,
     pickImage: pickImage,
     cropImage: cropImage,
+    normalizeBytes: normalizeBytes ?? _passthroughNormalize,
     platform: platform,
   );
 }
+
+Future<Uint8List?> _passthroughNormalize(
+  Uint8List sourceBytes, {
+  TargetPlatform? platform,
+}) async => sourceBytes;

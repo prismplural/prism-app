@@ -55,6 +55,7 @@ dependencies:
   archive: ^4.0.9
   image: ^4.5.4
   image_picker: ^1.2.1
+  platform_image_converter: ^1.0.6
   file_picker: ^11.0.2
   flutter_local_notifications: ^21.0.0
   flutter_timezone: ^5.0.0

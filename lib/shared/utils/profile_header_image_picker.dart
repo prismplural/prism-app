@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/utils/picked_image_normalizer.dart';
 import 'package:prism_plurality/shared/utils/prism_cropped_bitmap_encoder.dart';
 import 'package:prism_plurality/shared/utils/profile_header_image_normalizer.dart';
 import 'package:prism_plurality/shared/widgets/prism_image_crop_screen.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 @visibleForTesting
 abstract interface class ProfileHeaderPickedImage {
@@ -30,6 +32,16 @@ typedef ProfileHeaderCropImageFn = Future<Uint8List?> Function(
 typedef ProfileHeaderNormalizeImageFn =
     Future<Uint8List> Function(Uint8List bytes);
 
+/// Injectable picker-bytes normalizer. Production runs picker output through
+/// `platform_image_converter` on iOS to dodge oversized JPEG / wide-gamut
+/// decode failures inside the cropper.
+@visibleForTesting
+typedef ProfileHeaderNormalizePickedBytesFn =
+    Future<Uint8List?> Function(
+      Uint8List sourceBytes, {
+      TargetPlatform? platform,
+    });
+
 class ProfileHeaderImagePicker {
   ProfileHeaderImagePicker._();
 
@@ -39,8 +51,11 @@ class ProfileHeaderImagePicker {
     @visibleForTesting ProfileHeaderPickImageFn? pickImage,
     @visibleForTesting ProfileHeaderCropImageFn? cropImage,
     @visibleForTesting ProfileHeaderNormalizeImageFn? normalizeImage,
+    @visibleForTesting
+    ProfileHeaderNormalizePickedBytesFn? normalizePickedBytes,
     @visibleForTesting TargetPlatform? platform,
   }) async {
+    final resolvedPlatform = platform ?? defaultTargetPlatform;
     final picked = await (pickImage ?? _defaultPickImage)(source);
     if (picked == null) return null;
     if (!context.mounted) return null;
@@ -49,14 +64,37 @@ class ProfileHeaderImagePicker {
     Future<Uint8List> normalize(Uint8List bytes) =>
         (normalizeImage ?? normalizeProfileHeaderImage)(bytes);
 
-    if (!_cropperIsSupported(platform ?? defaultTargetPlatform)) {
+    if (!_cropperIsSupported(resolvedPlatform)) {
       return normalize(await picked.readAsBytes());
     }
 
     final pickedBytes = await picked.readAsBytes();
     if (!context.mounted) return null;
+
+    if (pickedBytes.isEmpty) {
+      PrismToast.error(
+        context,
+        message: l10n.memberProfileHeaderProcessingError,
+      );
+      return null;
+    }
+
+    final normalizedBytes =
+        await (normalizePickedBytes ?? normalizePickedImageBytes)(
+          pickedBytes,
+          platform: resolvedPlatform,
+        );
+    if (!context.mounted) return null;
+    if (normalizedBytes == null || normalizedBytes.isEmpty) {
+      PrismToast.error(
+        context,
+        message: l10n.memberProfileHeaderProcessingError,
+      );
+      return null;
+    }
+
     final cropped = await (cropImage ?? _defaultCropImage)(
-      pickedBytes,
+      normalizedBytes,
       context,
       title: l10n.memberProfileHeaderCropTitle,
       doneButtonTitle: l10n.done,
