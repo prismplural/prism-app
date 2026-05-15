@@ -34,7 +34,6 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
@@ -72,8 +71,7 @@ String _memberPathFor(
   String memberId,
 ) {
   return switch (_branchOf(context)) {
-    _GroupBranch.groups =>
-      AppRoutePaths.groupMember(currentGroupId, memberId),
+    _GroupBranch.groups => AppRoutePaths.groupMember(currentGroupId, memberId),
     _GroupBranch.members => AppRoutePaths.member(memberId),
     _GroupBranch.settings => AppRoutePaths.settingsMember(memberId),
   };
@@ -192,41 +190,13 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
             tooltip: l10n.edit,
             onPressed: () => _openEditSheet(context),
           ),
-          _buildOptionsMenuAction(visiblePairs, visibleMembers, terms),
-          PrismPopupMenu<_GroupMenuAction>(
-            tooltip: l10n.moreOptions,
-            items: [
-              if (hasMembers) ...[
-                PrismMenuItem(
-                  value: _GroupMenuAction.frontGroup,
-                  label: l10n.memberGroupFrontGroup,
-                  icon: Icons.group_outlined,
-                ),
-                PrismMenuItem(
-                  value: _GroupMenuAction.startChat,
-                  label: l10n.memberGroupStartChat,
-                  icon: Icons.chat_bubble_outline,
-                ),
-              ],
-              if (canAddSubGroup)
-                PrismMenuItem(
-                  value: _GroupMenuAction.addSubGroup,
-                  label: l10n.memberGroupAddSubGroup,
-                  icon: AppIcons.add,
-                ),
-              PrismMenuItem(
-                value: _GroupMenuAction.delete,
-                label: l10n.delete,
-                icon: AppIcons.deleteOutline,
-                destructive: true,
-              ),
-            ],
-            onSelected: (action) => _handleMenuAction(
-              context,
-              ref,
-              action,
-              entries ?? const <MemberGroupEntry>[],
-            ),
+          _buildOptionsMenuAction(
+            visiblePairs: visiblePairs,
+            visibleMembers: visibleMembers,
+            terms: terms,
+            groupEntries: entries ?? const <MemberGroupEntry>[],
+            hasMembers: hasMembers,
+            canAddSubGroup: canAddSubGroup,
           ),
         ],
       ),
@@ -507,78 +477,71 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
 
   // ── Options menu ───────────────────────────────────────────────────────────
 
-  Widget _buildOptionsMenuAction(
-    List<(MemberGroupEntry, Member)> visiblePairs,
-    List<Member> visibleMembers,
-    Terminology terms,
-  ) {
+  Widget _buildOptionsMenuAction({
+    required List<(MemberGroupEntry, Member)> visiblePairs,
+    required List<Member> visibleMembers,
+    required Terminology terms,
+    required List<MemberGroupEntry> groupEntries,
+    required bool hasMembers,
+    required bool canAddSubGroup,
+  }) {
     final l10n = context.l10n;
     final canSearch = visibleMembers.isNotEmpty;
     final canSort = visibleMembers.length > 1;
     final currentMode = group.sortState.mode;
 
-    Widget sortItemRow({
+    Widget menuItemRow({
       required BuildContext ctx,
       required IconData icon,
       required String label,
-      required bool isActive,
       required VoidCallback onTap,
+      bool isActive = false,
+      bool destructive = false,
+      bool enabled = true,
     }) {
       final theme = Theme.of(ctx);
+      final iconColor = !enabled
+          ? theme.disabledColor
+          : destructive
+          ? theme.colorScheme.error
+          : theme.colorScheme.onSurface;
       return PrismListRow(
         dense: true,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        leading: Icon(icon, size: 20),
+        enabled: enabled,
+        destructive: destructive,
+        leading: Icon(icon, size: 20, color: iconColor),
         title: Text(label, style: theme.textTheme.bodyMedium),
         trailing: isActive
             ? Icon(AppIcons.check, size: 18, color: theme.colorScheme.primary)
             : null,
-        onTap: onTap,
+        onTap: enabled ? onTap : null,
       );
     }
 
     final entries = <Widget Function(BuildContext, VoidCallback)>[
-      (ctx, close) {
-        final theme = Theme.of(ctx);
-        final ctxL10n = ctx.l10n;
-        return PrismListRow(
-          dense: true,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          leading: Icon(AppIcons.search, size: 20),
-          title: Text(
-            ctxL10n.terminologySearchHint(terms.pluralLower),
-            style: theme.textTheme.bodyMedium,
-          ),
-          enabled: canSearch,
-          onTap: canSearch
-              ? () {
-                  close();
-                  _openSearch(visibleMembers);
-                }
-              : null,
-        );
-      },
+      (ctx, close) => menuItemRow(
+        ctx: ctx,
+        icon: AppIcons.search,
+        label: ctx.l10n.terminologySearchHint(terms.pluralLower),
+        enabled: canSearch,
+        onTap: () {
+          close();
+          _openSearch(visibleMembers);
+        },
+      ),
       (_, _) => const Divider(height: 1),
       (ctx, close) {
-        final theme = Theme.of(ctx);
-        final ctxL10n = ctx.l10n;
         final showInactive = ref.watch(showInactiveMembersProvider);
-        return PrismListRow(
-          dense: true,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          leading: Icon(
-            showInactive ? AppIcons.visibility : AppIcons.visibilityOutlined,
-            size: 20,
-          ),
-          title: Text(
-            showInactive
-                ? ctxL10n.memberHideInactive
-                : ctxL10n.memberShowInactive,
-            style: theme.textTheme.bodyMedium,
-          ),
-          trailing: showInactive
-              ? Icon(AppIcons.check, size: 18, color: theme.colorScheme.primary)
-              : null,
+        return menuItemRow(
+          ctx: ctx,
+          icon: showInactive
+              ? AppIcons.visibility
+              : AppIcons.visibilityOutlined,
+          label: showInactive
+              ? ctx.l10n.memberHideInactive
+              : ctx.l10n.memberShowInactive,
+          isActive: showInactive,
           onTap: () {
             close();
             ref.read(showInactiveMembersProvider.notifier).set(!showInactive);
@@ -592,7 +555,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
         (_, _) => const Divider(height: 1),
         // ── "Sort by" — locked modes ──────────────────────────────────────
         (ctx, _) => _sectionHeader(ctx, ctx.l10n.groupSortSectionSortBy),
-        (ctx, close) => sortItemRow(
+        (ctx, close) => menuItemRow(
           ctx: ctx,
           icon: AppIcons.arrowUpward,
           label: ctx.l10n.groupSortItemNameAsc,
@@ -602,7 +565,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
             unawaited(_setSortMode(GroupSortMode.nameAsc));
           },
         ),
-        (ctx, close) => sortItemRow(
+        (ctx, close) => menuItemRow(
           ctx: ctx,
           icon: AppIcons.arrowDownward,
           label: ctx.l10n.groupSortItemNameDesc,
@@ -612,7 +575,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
             unawaited(_setSortMode(GroupSortMode.nameDesc));
           },
         ),
-        (ctx, close) => sortItemRow(
+        (ctx, close) => menuItemRow(
           ctx: ctx,
           icon: AppIcons.history,
           label: ctx.l10n.groupSortItemRecentDesc,
@@ -622,7 +585,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
             unawaited(_setSortMode(GroupSortMode.recentDesc));
           },
         ),
-        (ctx, close) => sortItemRow(
+        (ctx, close) => menuItemRow(
           ctx: ctx,
           icon: AppIcons.dragHandle,
           label: ctx.l10n.groupSortItemManual,
@@ -635,21 +598,19 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
         (_, _) => const Divider(height: 1),
         // ── "Apply current order" — one-shot snapshots ────────────────────
         (ctx, _) => _sectionHeader(ctx, ctx.l10n.groupSortSectionApplyCurrent),
-        (ctx, close) => sortItemRow(
+        (ctx, close) => menuItemRow(
           ctx: ctx,
           icon: AppIcons.flashOn,
           label: ctx.l10n.groupSortItemFrontingMost,
-          isActive: false,
           onTap: () {
             close();
             unawaited(_applyFrontingOrder(visiblePairs, descending: true));
           },
         ),
-        (ctx, close) => sortItemRow(
+        (ctx, close) => menuItemRow(
           ctx: ctx,
           icon: AppIcons.frontHandOutlined,
           label: ctx.l10n.groupSortItemFrontingLeast,
-          isActive: false,
           onTap: () {
             close();
             unawaited(_applyFrontingOrder(visiblePairs, descending: false));
@@ -658,6 +619,78 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
       ]);
     }
 
+    entries.addAll([
+      (_, _) => const Divider(height: 1),
+      if (hasMembers) ...[
+        (ctx, close) => menuItemRow(
+          ctx: ctx,
+          icon: Icons.group_outlined,
+          label: ctx.l10n.memberGroupFrontGroup,
+          onTap: () {
+            close();
+            unawaited(
+              _handleMenuAction(
+                context,
+                ref,
+                _GroupMenuAction.frontGroup,
+                groupEntries,
+              ),
+            );
+          },
+        ),
+        (ctx, close) => menuItemRow(
+          ctx: ctx,
+          icon: Icons.chat_bubble_outline,
+          label: ctx.l10n.memberGroupStartChat,
+          onTap: () {
+            close();
+            unawaited(
+              _handleMenuAction(
+                context,
+                ref,
+                _GroupMenuAction.startChat,
+                groupEntries,
+              ),
+            );
+          },
+        ),
+      ],
+      if (canAddSubGroup)
+        (ctx, close) => menuItemRow(
+          ctx: ctx,
+          icon: AppIcons.add,
+          label: ctx.l10n.memberGroupAddSubGroup,
+          onTap: () {
+            close();
+            unawaited(
+              _handleMenuAction(
+                context,
+                ref,
+                _GroupMenuAction.addSubGroup,
+                groupEntries,
+              ),
+            );
+          },
+        ),
+      (ctx, close) => menuItemRow(
+        ctx: ctx,
+        icon: AppIcons.deleteOutline,
+        label: ctx.l10n.delete,
+        destructive: true,
+        onTap: () {
+          close();
+          unawaited(
+            _handleMenuAction(
+              context,
+              ref,
+              _GroupMenuAction.delete,
+              groupEntries,
+            ),
+          );
+        },
+      ),
+    ]);
+
     return BlurPopupAnchor(
       key: _optionsPopupKey,
       trigger: BlurPopupTrigger.manual,
@@ -665,11 +698,11 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
       width: 280,
       maxHeight: 480,
       itemCount: entries.length,
-      semanticLabel: l10n.options,
+      semanticLabel: l10n.moreOptions,
       itemBuilder: (ctx, index, close) => entries[index](ctx, close),
       child: PrismTopBarAction(
         icon: AppIcons.moreVert,
-        tooltip: l10n.options,
+        tooltip: l10n.moreOptions,
         onPressed: () => _optionsPopupKey.currentState?.show(),
       ),
     );
@@ -700,9 +733,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     if (!mounted) return;
     switch (result) {
       case MemberSearchResultSelected(:final memberId):
-        unawaited(
-          context.push(_memberPathFor(context, group.id, memberId)),
-        );
+        unawaited(context.push(_memberPathFor(context, group.id, memberId)));
       case MemberSearchResultDismissed():
       case MemberSearchResultCleared():
       case MemberSearchResultUnknown():

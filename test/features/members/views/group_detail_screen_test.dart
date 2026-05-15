@@ -120,8 +120,7 @@ class _FakeMemberGroupsRepository implements MemberGroupsRepository {
   Future<void> updateGroup(MemberGroup group) async {}
 
   @override
-  Stream<List<MemberGroupEntry>> watchAllGroupEntries() =>
-      const Stream.empty();
+  Stream<List<MemberGroupEntry>> watchAllGroupEntries() => const Stream.empty();
 
   @override
   Stream<List<MemberGroup>> watchAllGroups() => const Stream.empty();
@@ -145,12 +144,7 @@ Member _member({
   required String id,
   required String name,
   bool isActive = true,
-}) => Member(
-  id: id,
-  name: name,
-  isActive: isActive,
-  createdAt: DateTime(2024),
-);
+}) => Member(id: id, name: name, isActive: isActive, createdAt: DateTime(2024));
 
 MemberGroup _group({
   required String id,
@@ -241,9 +235,7 @@ List<Map<Object?, Object?>> _captureSemanticAnnouncements() {
     'flutter/accessibility',
     StandardMessageCodec(),
   );
-  TestDefaultBinaryMessengerBinding
-      .instance
-      .defaultBinaryMessenger
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMessageHandler(channel.name, (ByteData? message) async {
         if (message == null) return null;
         final decoded = const StandardMessageCodec().decodeMessage(message);
@@ -253,9 +245,7 @@ List<Map<Object?, Object?>> _captureSemanticAnnouncements() {
         return null;
       });
   addTearDown(() {
-    TestDefaultBinaryMessengerBinding
-        .instance
-        .defaultBinaryMessenger
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMessageHandler(channel.name, null);
   });
   return captured;
@@ -449,6 +439,46 @@ void main() {
     expect(find.text('Start chat'), findsOneWidget);
   });
 
+  testWidgets('uses one overflow menu for group actions and member sorting', (
+    tester,
+  ) async {
+    final group = _group(id: 'group-target', name: 'Target Group');
+    final alice = _member(id: 'alice', name: 'Alice');
+    final bob = _member(id: 'bob', name: 'Bob');
+    final notifier = _FakeGroupNotifier();
+
+    await tester.pumpWidget(
+      _buildSubject(
+        group: group,
+        allGroups: [group],
+        allEntries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'group-target',
+            memberId: 'alice',
+          ),
+          MemberGroupEntry(
+            id: 'entry-bob',
+            groupId: 'group-target',
+            memberId: 'bob',
+          ),
+        ],
+        activeMembers: [alice, bob],
+        notifier: notifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('More options'), findsOneWidget);
+    expect(find.byTooltip('Options'), findsNothing);
+
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Name A-Z'), findsOneWidget);
+    expect(find.text('Front as Group'), findsOneWidget);
+  });
+
   testWidgets('hides group member actions when the group is empty', (
     tester,
   ) async {
@@ -509,7 +539,7 @@ void main() {
       expect(find.text('Bob Inactive'), findsNothing);
 
       // Toggle on Show inactive via the options menu.
-      await tester.tap(find.byTooltip('Options'));
+      await tester.tap(find.byTooltip('More options'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Show inactive'));
       await tester.pumpAndSettle();
@@ -650,7 +680,7 @@ void main() {
 
   group('sort UI', () {
     Future<void> openOptionsMenu(WidgetTester tester) async {
-      await tester.tap(find.byTooltip('Options'));
+      await tester.tap(find.byTooltip('More options'));
       await tester.pumpAndSettle();
     }
 
@@ -687,10 +717,7 @@ void main() {
           _buildSubject(
             group: group,
             allGroups: [group],
-            allEntries: [
-              entry('e1', 'g', 'm1'),
-              entry('e2', 'g', 'm2'),
-            ],
+            allEntries: [entry('e1', 'g', 'm1'), entry('e2', 'g', 'm2')],
             activeMembers: [alice, bob],
             notifier: _FakeGroupNotifier(),
             repository: repo,
@@ -699,9 +726,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Drag the first drag handle below the second tile.
-        final handle = find
-            .byType(ReorderableDragStartListener)
-            .first;
+        final handle = find.byType(ReorderableDragStartListener).first;
         await tester.timedDrag(
           handle,
           const Offset(0, 120),
@@ -731,10 +756,7 @@ void main() {
           _buildSubject(
             group: group,
             allGroups: [group],
-            allEntries: [
-              entry('e1', 'g', 'm1'),
-              entry('e2', 'g', 'm2'),
-            ],
+            allEntries: [entry('e1', 'g', 'm1'), entry('e2', 'g', 'm2')],
             activeMembers: [alice, bob],
             notifier: _FakeGroupNotifier(),
             repository: repo,
@@ -745,9 +767,7 @@ void main() {
         // Chip visible while in locked mode.
         expect(find.text('Name (A-Z)'), findsOneWidget);
 
-        final handle = find
-            .byType(ReorderableDragStartListener)
-            .first;
+        final handle = find.byType(ReorderableDragStartListener).first;
         await tester.timedDrag(
           handle,
           const Offset(0, 120),
@@ -787,10 +807,7 @@ void main() {
           _buildSubject(
             group: group,
             allGroups: [group],
-            allEntries: [
-              entry('e1', 'g', 'm1'),
-              entry('e2', 'g', 'm2'),
-            ],
+            allEntries: [entry('e1', 'g', 'm1'), entry('e2', 'g', 'm2')],
             activeMembers: [
               _member(id: 'm1', name: 'Alice'),
               _member(id: 'm2', name: 'Bob'),
@@ -801,9 +818,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final handle = find
-            .byType(ReorderableDragStartListener)
-            .first;
+        final handle = find.byType(ReorderableDragStartListener).first;
         await tester.timedDrag(
           handle,
           const Offset(0, 120),
@@ -843,10 +858,7 @@ void main() {
           _buildSubject(
             group: group,
             allGroups: [group],
-            allEntries: [
-              entry('e1', 'g', 'm1'),
-              entry('e2', 'g', 'm2'),
-            ],
+            allEntries: [entry('e1', 'g', 'm1'), entry('e2', 'g', 'm2')],
             activeMembers: [
               _member(id: 'm1', name: 'Alice'),
               _member(id: 'm2', name: 'Bob'),
@@ -884,10 +896,7 @@ void main() {
           _buildSubject(
             group: group,
             allGroups: [group],
-            allEntries: [
-              entry('e1', 'g', 'm1'),
-              entry('e2', 'g', 'm2'),
-            ],
+            allEntries: [entry('e1', 'g', 'm1'), entry('e2', 'g', 'm2')],
             activeMembers: [
               _member(id: 'm1', name: 'Alice'),
               _member(id: 'm2', name: 'Bob'),
@@ -910,52 +919,46 @@ void main() {
       },
     );
 
-    testWidgets(
-      'picking "Apply most-fronting order" snapshots fronting order '
-      'and section header "Apply current order" is visible',
-      (tester) async {
-        final group = groupWith(
-          id: 'g',
-          name: 'G',
-          sortState: const GroupSortState(
-            mode: GroupSortMode.manual,
-            manualOrder: ['e1', 'e2'],
-          ),
-        );
-        final repo = _FakeMemberGroupsRepository();
-        await tester.pumpWidget(
-          _buildSubject(
-            group: group,
-            allGroups: [group],
-            allEntries: [
-              entry('e1', 'g', 'm1'),
-              entry('e2', 'g', 'm2'),
-            ],
-            activeMembers: [
-              _member(id: 'm1', name: 'Alice'),
-              _member(id: 'm2', name: 'Bob'),
-            ],
-            notifier: _FakeGroupNotifier(),
-            repository: repo,
-          ),
-        );
-        await tester.pumpAndSettle();
+    testWidgets('picking "Apply most-fronting order" snapshots fronting order '
+        'and section header "Apply current order" is visible', (tester) async {
+      final group = groupWith(
+        id: 'g',
+        name: 'G',
+        sortState: const GroupSortState(
+          mode: GroupSortMode.manual,
+          manualOrder: ['e1', 'e2'],
+        ),
+      );
+      final repo = _FakeMemberGroupsRepository();
+      await tester.pumpWidget(
+        _buildSubject(
+          group: group,
+          allGroups: [group],
+          allEntries: [entry('e1', 'g', 'm1'), entry('e2', 'g', 'm2')],
+          activeMembers: [
+            _member(id: 'm1', name: 'Alice'),
+            _member(id: 'm2', name: 'Bob'),
+          ],
+          notifier: _FakeGroupNotifier(),
+          repository: repo,
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        await openOptionsMenu(tester);
+      await openOptionsMenu(tester);
 
-        // Section header visible.
-        expect(find.text('Apply current order'), findsOneWidget);
+      // Section header visible.
+      expect(find.text('Apply current order'), findsOneWidget);
 
-        await tester.tap(find.text('Apply most-fronting order'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Apply most-fronting order'));
+      await tester.pumpAndSettle();
 
-        // The fake fronting stats fall back to zero in widget tests; we just
-        // verify the call landed with a list of the live entry ids.
-        expect(repo.snapshotCallCount, 1);
-        expect(repo.lastSnapshotOrder, isNotNull);
-        expect(repo.lastSnapshotOrder!.toSet(), {'e1', 'e2'});
-      },
-    );
+      // The fake fronting stats fall back to zero in widget tests; we just
+      // verify the call landed with a list of the live entry ids.
+      expect(repo.snapshotCallCount, 1);
+      expect(repo.lastSnapshotOrder, isNotNull);
+      expect(repo.lastSnapshotOrder!.toSet(), {'e1', 'e2'});
+    });
 
     testWidgets(
       'custom semantic action "Move up" is suppressed on the first row',
@@ -993,9 +996,8 @@ void main() {
           matching: find.byType(MemberCard),
         );
         final semantics = tester.getSemantics(aliceCard);
-        final actions = semantics
-            .getSemanticsData()
-            .customSemanticsActionIds ??
+        final actions =
+            semantics.getSemanticsData().customSemanticsActionIds ??
             const <int>[];
         final labels = actions
             .map((id) => CustomSemanticsAction.getAction(id)?.label)
@@ -1048,7 +1050,8 @@ void main() {
           matching: find.byType(MemberCard),
         );
         final node = tester.getSemantics(bobCard);
-        final actionIds = node.getSemanticsData().customSemanticsActionIds ?? const <int>[];
+        final actionIds =
+            node.getSemanticsData().customSemanticsActionIds ?? const <int>[];
         final moveUpId = actionIds.firstWhere(
           (id) => CustomSemanticsAction.getAction(id)?.label == 'Move up',
           orElse: () => -1,
@@ -1064,11 +1067,7 @@ void main() {
             // ignore: deprecated_member_use
             .pipelineOwner
             .semanticsOwner
-            ?.performAction(
-              node.id,
-              SemanticsAction.customAction,
-              moveUpId,
-            );
+            ?.performAction(node.id, SemanticsAction.customAction, moveUpId);
         await tester.pumpAndSettle();
 
         // The repository should have been called with Bob's entry at index 0.
@@ -1115,10 +1114,10 @@ void main() {
           matching: find.byType(MemberCard),
         );
         final node = tester.getSemantics(carolCard);
-        final actionIds = node.getSemanticsData().customSemanticsActionIds ?? const <int>[];
+        final actionIds =
+            node.getSemanticsData().customSemanticsActionIds ?? const <int>[];
         final moveToTopId = actionIds.firstWhere(
-          (id) =>
-              CustomSemanticsAction.getAction(id)?.label == 'Move to top',
+          (id) => CustomSemanticsAction.getAction(id)?.label == 'Move to top',
           orElse: () => -1,
         );
         expect(moveToTopId, isNot(-1));
@@ -1129,11 +1128,7 @@ void main() {
             // ignore: deprecated_member_use
             .pipelineOwner
             .semanticsOwner
-            ?.performAction(
-              node.id,
-              SemanticsAction.customAction,
-              moveToTopId,
-            );
+            ?.performAction(node.id, SemanticsAction.customAction, moveToTopId);
         await tester.pumpAndSettle();
 
         expect(repo.snapshotCallCount, greaterThanOrEqualTo(1));
@@ -1205,20 +1200,14 @@ void main() {
             // ignore: deprecated_member_use
             .pipelineOwner
             .semanticsOwner
-            ?.performAction(
-              node.id,
-              SemanticsAction.customAction,
-              moveUpId,
-            );
+            ?.performAction(node.id, SemanticsAction.customAction, moveUpId);
         await tester.pumpAndSettle();
 
         // The moved row's Focus widget must carry a non-null FocusNode —
         // proves the per-entry focus map is wired up in the production
         // build. We find by the explicit ValueKey to skip past Material's
         // implicit Focus wrappers around the inner MemberCard.
-        final movedFocusFinder = find.byKey(
-          const ValueKey('member_focus_e2'),
-        );
+        final movedFocusFinder = find.byKey(const ValueKey('member_focus_e2'));
         expect(movedFocusFinder, findsOneWidget);
         final movedFocus = tester.widget<Focus>(movedFocusFinder);
         expect(
@@ -1292,19 +1281,14 @@ void main() {
             // ignore: deprecated_member_use
             .pipelineOwner
             .semanticsOwner
-            ?.performAction(
-              node.id,
-              SemanticsAction.customAction,
-              moveUpId,
-            );
+            ?.performAction(node.id, SemanticsAction.customAction, moveUpId);
         await tester.pumpAndSettle();
 
         // Announcement event payloads have type 'announce' and a data.message
         // field carrying the l10n string.
         final announceMessages = announcements
             .where((event) => event['type'] == 'announce')
-            .map((event) =>
-                (event['data'] as Map)['message']?.toString() ?? '')
+            .map((event) => (event['data'] as Map)['message']?.toString() ?? '')
             .toList();
         expect(
           announceMessages,
@@ -1317,112 +1301,92 @@ void main() {
       semanticsEnabled: true,
     );
 
-    testWidgets(
-      'drag in sorted mode sends the "Group is now sorted manually" '
-      'announcement on the flutter/accessibility channel',
-      (tester) async {
-        final announcements = _captureSemanticAnnouncements();
-        final group = groupWith(
-          id: 'g',
-          name: 'G',
-          sortState: GroupSortState.locked(GroupSortMode.nameAsc),
-        );
-        final repo = _FakeMemberGroupsRepository();
-        await tester.pumpWidget(
-          _buildSubject(
-            group: group,
-            allGroups: [group],
-            allEntries: [
-              entry('e1', 'g', 'm1'),
-              entry('e2', 'g', 'm2'),
-            ],
-            activeMembers: [
-              _member(id: 'm1', name: 'Alice'),
-              _member(id: 'm2', name: 'Bob'),
-            ],
-            notifier: _FakeGroupNotifier(),
-            repository: repo,
-          ),
-        );
-        await tester.pumpAndSettle();
+    testWidgets('drag in sorted mode sends the "Group is now sorted manually" '
+        'announcement on the flutter/accessibility channel', (tester) async {
+      final announcements = _captureSemanticAnnouncements();
+      final group = groupWith(
+        id: 'g',
+        name: 'G',
+        sortState: GroupSortState.locked(GroupSortMode.nameAsc),
+      );
+      final repo = _FakeMemberGroupsRepository();
+      await tester.pumpWidget(
+        _buildSubject(
+          group: group,
+          allGroups: [group],
+          allEntries: [entry('e1', 'g', 'm1'), entry('e2', 'g', 'm2')],
+          activeMembers: [
+            _member(id: 'm1', name: 'Alice'),
+            _member(id: 'm2', name: 'Bob'),
+          ],
+          notifier: _FakeGroupNotifier(),
+          repository: repo,
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        final handle = find.byType(ReorderableDragStartListener).first;
-        await tester.timedDrag(
-          handle,
-          const Offset(0, 120),
-          const Duration(milliseconds: 500),
-        );
-        await tester.pumpAndSettle();
+      final handle = find.byType(ReorderableDragStartListener).first;
+      await tester.timedDrag(
+        handle,
+        const Offset(0, 120),
+        const Duration(milliseconds: 500),
+      );
+      await tester.pumpAndSettle();
 
-        final announceMessages = announcements
-            .where((event) => event['type'] == 'announce')
-            .map((event) =>
-                (event['data'] as Map)['message']?.toString() ?? '')
-            .toList();
-        expect(
-          announceMessages,
-          contains('Group is now sorted manually.'),
-          reason:
-              'implicit-unlock drag must announce the mode change via '
-              'SemanticsService.sendAnnouncement',
-        );
-        // Let the implicit-unlock toast auto-dismiss before the test ends.
-        await tester.pump(const Duration(seconds: 4));
-      },
-    );
+      final announceMessages = announcements
+          .where((event) => event['type'] == 'announce')
+          .map((event) => (event['data'] as Map)['message']?.toString() ?? '')
+          .toList();
+      expect(
+        announceMessages,
+        contains('Group is now sorted manually.'),
+        reason:
+            'implicit-unlock drag must announce the mode change via '
+            'SemanticsService.sendAnnouncement',
+      );
+      // Let the implicit-unlock toast auto-dismiss before the test ends.
+      await tester.pump(const Duration(seconds: 4));
+    });
   });
 
   // ── Task 5.2 sub-group reorder ───────────────────────────────────────────
 
   group('sub-group reorder', () {
-    testWidgets(
-      'drag handle hidden when there is one sub-group',
-      (tester) async {
-        final parent = _group(id: 'parent', name: 'Parent');
-        final child = _group(
-          id: 'child',
-          name: 'Child',
-          parentGroupId: 'parent',
-        );
-        await tester.pumpWidget(
-          _buildSubject(
-            group: parent,
-            allGroups: [parent, child],
-            allEntries: const [],
-            activeMembers: const [],
-            notifier: _FakeGroupNotifier(),
-          ),
-        );
-        await tester.pumpAndSettle();
+    testWidgets('drag handle hidden when there is one sub-group', (
+      tester,
+    ) async {
+      final parent = _group(id: 'parent', name: 'Parent');
+      final child = _group(id: 'child', name: 'Child', parentGroupId: 'parent');
+      await tester.pumpWidget(
+        _buildSubject(
+          group: parent,
+          allGroups: [parent, child],
+          allEntries: const [],
+          activeMembers: const [],
+          notifier: _FakeGroupNotifier(),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        // No drag handles inside the sub-groups section when count == 1.
-        // (The lone row uses a plain ListView.builder.)
-        expect(
-          find.descendant(
-            of: find.byType(ReorderableDragStartListener),
-            matching: find.text('Child'),
-          ),
-          findsNothing,
-        );
-        // No ReorderableListView in the sub-groups area.
-        expect(find.byType(ReorderableListView), findsNothing);
-      },
-    );
+      // No drag handles inside the sub-groups section when count == 1.
+      // (The lone row uses a plain ListView.builder.)
+      expect(
+        find.descendant(
+          of: find.byType(ReorderableDragStartListener),
+          matching: find.text('Child'),
+        ),
+        findsNothing,
+      );
+      // No ReorderableListView in the sub-groups area.
+      expect(find.byType(ReorderableListView), findsNothing);
+    });
 
     testWidgets(
       'drag handles visible at 2+ sub-groups; reorder triggers reorderGroups',
       (tester) async {
         final parent = _group(id: 'parent', name: 'Parent');
-        final child1 = _group(
-          id: 'c1',
-          name: 'Alpha',
-          parentGroupId: 'parent',
-        );
-        final child2 = _group(
-          id: 'c2',
-          name: 'Beta',
-          parentGroupId: 'parent',
-        );
+        final child1 = _group(id: 'c1', name: 'Alpha', parentGroupId: 'parent');
+        final child2 = _group(id: 'c2', name: 'Beta', parentGroupId: 'parent');
         final notifier = _ReorderingFakeGroupNotifier();
         await tester.pumpWidget(
           _buildSubject(
@@ -1444,9 +1408,7 @@ void main() {
         // a custom listener we drive it via `tester.timedDrag`. The default
         // `tester.drag` uses too-fast a velocity and the framework treats it
         // as a scroll instead of a reorder gesture.
-        final handle = find
-            .byType(ReorderableDragStartListener)
-            .first;
+        final handle = find.byType(ReorderableDragStartListener).first;
         await tester.timedDrag(
           handle,
           const Offset(0, 120),
@@ -1455,10 +1417,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(notifier.reorderedSequences.length, greaterThanOrEqualTo(1));
-        expect(
-          notifier.reorderedSequences.last.map((g) => g.id).toList(),
-          ['c2', 'c1'],
-        );
+        expect(notifier.reorderedSequences.last.map((g) => g.id).toList(), [
+          'c2',
+          'c1',
+        ]);
       },
     );
   });

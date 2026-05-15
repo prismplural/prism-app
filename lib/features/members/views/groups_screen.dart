@@ -13,8 +13,10 @@ import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart
 import 'package:prism_plurality/features/members/widgets/group_section_header.dart';
 import 'package:prism_plurality/features/members/widgets/member_group_row.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -36,6 +38,8 @@ class GroupsScreen extends ConsumerStatefulWidget {
 }
 
 class _GroupsScreenState extends ConsumerState<GroupsScreen> {
+  final GlobalKey<BlurPopupAnchorState> _optionsPopupKey = GlobalKey();
+
   /// Path of the current location, used to derive which navigation branch
   /// this screen is rendering in (settings, members, or groups tab).
   String _groupPathFor(String id) {
@@ -96,6 +100,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     final l10n = context.l10n;
     final counts = ref.watch(groupMemberCountsProvider);
     final flatItems = ref.watch(flatGroupListProvider);
+    final groups = [for (final item in flatItems) item.group];
+    final canSortGroups = _hasSortableSiblings(groups);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -107,6 +113,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
             tooltip: l10n.memberNewGroupTooltip,
             onPressed: _openCreateSheet,
           ),
+          if (canSortGroups) _buildOptionsMenuAction(groups),
         ],
       ),
       bodyPadding: EdgeInsets.zero,
@@ -182,5 +189,136 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
               },
             ),
     );
+  }
+
+  Widget _buildOptionsMenuAction(List<MemberGroup> groups) {
+    final l10n = context.l10n;
+    final entries = <Widget Function(BuildContext, VoidCallback)>[
+      (ctx, _) {
+        final theme = Theme.of(ctx);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text(
+            ctx.l10n.memberReorderBy,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        );
+      },
+      (ctx, close) => _buildSortMenuRow(
+        context: ctx,
+        icon: AppIcons.arrowUpward,
+        label: ctx.l10n.memberSortNameAZ,
+        onTap: () {
+          close();
+          unawaited(
+            _reorderSiblingGroupsBy(
+              groups,
+              (a, b) => _compareText(a.name, b.name, a.id, b.id),
+            ),
+          );
+        },
+      ),
+      (ctx, close) => _buildSortMenuRow(
+        context: ctx,
+        icon: AppIcons.arrowDownward,
+        label: ctx.l10n.memberSortNameZA,
+        onTap: () {
+          close();
+          unawaited(
+            _reorderSiblingGroupsBy(
+              groups,
+              (a, b) => _compareText(b.name, a.name, a.id, b.id),
+            ),
+          );
+        },
+      ),
+      (ctx, close) => _buildSortMenuRow(
+        context: ctx,
+        icon: AppIcons.history,
+        label: ctx.l10n.memberSortRecentlyCreated,
+        onTap: () {
+          close();
+          unawaited(
+            _reorderSiblingGroupsBy(groups, (a, b) {
+              final created = b.createdAt.compareTo(a.createdAt);
+              if (created != 0) return created;
+              return a.id.compareTo(b.id);
+            }),
+          );
+        },
+      ),
+    ];
+
+    return BlurPopupAnchor(
+      key: _optionsPopupKey,
+      trigger: BlurPopupTrigger.manual,
+      preferredDirection: BlurPopupDirection.down,
+      width: 260,
+      maxHeight: 320,
+      itemCount: entries.length,
+      semanticLabel: l10n.moreOptions,
+      itemBuilder: (ctx, index, close) => entries[index](ctx, close),
+      child: PrismTopBarAction(
+        icon: AppIcons.moreVert,
+        tooltip: l10n.moreOptions,
+        onPressed: () => _optionsPopupKey.currentState?.show(),
+      ),
+    );
+  }
+
+  Widget _buildSortMenuRow({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return PrismListRow(
+      dense: true,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      leading: Icon(icon, size: 20),
+      title: Text(label, style: theme.textTheme.bodyMedium),
+      onTap: onTap,
+    );
+  }
+
+  int _compareText(String left, String right, String leftId, String rightId) {
+    final text = left.toLowerCase().compareTo(right.toLowerCase());
+    if (text != 0) return text;
+    return leftId.compareTo(rightId);
+  }
+
+  bool _hasSortableSiblings(List<MemberGroup> groups) {
+    final counts = <String?, int>{};
+    for (final group in groups) {
+      final count = (counts[group.parentGroupId] ?? 0) + 1;
+      if (count > 1) return true;
+      counts[group.parentGroupId] = count;
+    }
+    return false;
+  }
+
+  Future<void> _reorderSiblingGroupsBy(
+    List<MemberGroup> groups,
+    int Function(MemberGroup a, MemberGroup b) compare,
+  ) async {
+    final byParent = <String?, List<MemberGroup>>{};
+    for (final group in groups) {
+      byParent.putIfAbsent(group.parentGroupId, () => []).add(group);
+    }
+
+    final notifier = ref.read(groupNotifierProvider.notifier);
+    for (final siblings in byParent.values) {
+      if (siblings.length < 2) continue;
+      final sorted = [...siblings]..sort(compare);
+      await notifier.reorderGroups(sorted);
+    }
+
+    Haptics.selection();
+    if (!mounted) return;
+    PrismToast.show(context, message: context.l10n.memberOrderUpdated);
   }
 }

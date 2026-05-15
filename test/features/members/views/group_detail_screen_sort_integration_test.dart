@@ -353,7 +353,7 @@ void main() {
     // Chip not visible in manual mode.
     expect(find.text('Name (A-Z)'), findsNothing);
 
-    await tester.tap(find.byTooltip('Options'));
+    await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Name A-Z'));
     await tester.pumpAndSettle();
@@ -465,10 +465,11 @@ void main() {
     });
 
     final state = await _readSortState(db, 'g');
-    expect(state.manualOrder, [
-      'e1',
-      'e2',
-    ], reason: 'B applied last → B overwrites the column atomically');
+    expect(
+      state.manualOrder,
+      ['e1', 'e2'],
+      reason: 'B applied last → B overwrites the column atomically',
+    );
   });
 
   test('scenario 5: cross-device sort-mode race — single-field LWW means '
