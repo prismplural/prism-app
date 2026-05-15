@@ -141,14 +141,29 @@ enum AppThemeMode {
 
 enum FontFamily {
   system,
-  openDyslexic;
+  openDyslexic,
+  atkinsonHyperlegible,
+  lexend;
 
   String get displayName {
     return switch (this) {
       FontFamily.system => 'System',
       FontFamily.openDyslexic => 'Open Dyslexic',
+      FontFamily.atkinsonHyperlegible => 'Atkinson Hyperlegible',
+      FontFamily.lexend => 'Lexend',
     };
   }
+
+  String? get assetFontFamily {
+    return switch (this) {
+      FontFamily.system => null,
+      FontFamily.openDyslexic => 'OpenDyslexic',
+      FontFamily.atkinsonHyperlegible => 'AtkinsonHyperlegible',
+      FontFamily.lexend => 'Lexend',
+    };
+  }
+
+  double get minimumScale => this == FontFamily.system ? 0.8 : 1.0;
 }
 
 enum GifConsentState { unknown, enabled, declined }

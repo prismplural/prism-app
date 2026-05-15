@@ -160,12 +160,10 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     final fontFamily = ref.watch(fontFamilySettingProvider);
     final useDisplayFont = ref.watch(displayFontInAppBarProvider);
     final rawFontScale = ref.watch(fontScaleSettingProvider);
-    // Enforce 1.0x minimum when Open Dyslexic is active.
-    final fontScale =
-        fontFamily == FontFamily.openDyslexic && rawFontScale < 1.0
-        ? 1.0
+    final appFontFamily = fontFamily.assetFontFamily;
+    final fontScale = rawFontScale < fontFamily.minimumScale
+        ? fontFamily.minimumScale
         : rawFontScale;
-    final useOpenDyslexic = fontFamily == FontFamily.openDyslexic;
 
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
@@ -216,14 +214,13 @@ class _PrismAppState extends ConsumerState<PrismApp> {
           darkTheme = AppTheme.withoutDisplayFont(darkTheme);
         }
 
-        // Apply Open Dyslexic font family to all text styles if selected.
-        // This runs after the display font strip so it overrides everything.
-        if (useOpenDyslexic) {
+        // Run after display font stripping so the selected family wins.
+        if (appFontFamily != null) {
           lightTheme = lightTheme.copyWith(
-            textTheme: lightTheme.textTheme.apply(fontFamily: 'OpenDyslexic'),
+            textTheme: lightTheme.textTheme.apply(fontFamily: appFontFamily),
           );
           darkTheme = darkTheme.copyWith(
-            textTheme: darkTheme.textTheme.apply(fontFamily: 'OpenDyslexic'),
+            textTheme: darkTheme.textTheme.apply(fontFamily: appFontFamily),
           );
         }
 

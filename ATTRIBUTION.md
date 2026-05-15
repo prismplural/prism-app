@@ -16,7 +16,19 @@ Prism bundles third-party assets under their respective open-source licenses.
 - Homepage: <https://opendyslexic.org/>
 - License: SIL Open Font License 1.1 (<https://openfontlicense.org/>)
 
-Both fonts are redistributed here under the SIL OFL. The SIL OFL permits
+### Atkinson Hyperlegible
+- Files: `assets/fonts/AtkinsonHyperlegible-Regular.ttf`, `assets/fonts/AtkinsonHyperlegible-Bold.ttf`, `assets/fonts/AtkinsonHyperlegible-Italic.ttf`, `assets/fonts/AtkinsonHyperlegible-BoldItalic.ttf`
+- Designer: Braille Institute, Applied Design Works, Elliott Scott, Megan Eiswerth, Linus Boman, Theodore Petrosky
+- Homepage: <https://github.com/googlefonts/atkinson-hyperlegible>
+- License: SIL Open Font License 1.1 (<https://openfontlicense.org/>)
+
+### Lexend
+- Files: `assets/fonts/Lexend[wght].ttf`
+- Designer: Bonnie Shaver-Troup, Thomas Jockin, Santiago Orozco, Hector Gomez, Superunion
+- Homepage: <https://www.lexend.com/>
+- License: SIL Open Font License 1.1 (<https://openfontlicense.org/>)
+
+All bundled fonts are redistributed here under the SIL OFL. The SIL OFL permits
 redistribution (including within bundled software) provided the font names are
 not reused for modified versions and the license accompanies the fonts. The
 full license text follows.
@@ -27,6 +39,8 @@ full license text follows.
 
 Copyright (c) Namesake, with Reserved Font Name "Unbounded".
 Copyright (c) Abbie Gonzalez (<https://abbiecod.es>), with Reserved Font Name "OpenDyslexic".
+Copyright 2020 Braille Institute of America, Inc.
+Copyright 2018 The Lexend Project Authors (https://github.com/googlefonts/lexend), with Reserved Font Name "RevReading Lexend".
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

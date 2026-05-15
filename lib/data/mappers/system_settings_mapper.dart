@@ -74,7 +74,11 @@ class SystemSettingsMapper {
       localeOverride: row.localeOverride,
       gifConsentState: domain.GifConsentState.values[row.gifConsentState],
       fontScale: row.fontScale,
-      fontFamily: domain.FontFamily.values[row.fontFamily],
+      fontFamily: enumByIndex(
+        row.fontFamily,
+        domain.FontFamily.values,
+        domain.FontFamily.system,
+      ),
       pinLockEnabled: row.pinLockEnabled,
       biometricLockEnabled: row.biometricLockEnabled,
       autoLockDelaySeconds: row.autoLockDelaySeconds,

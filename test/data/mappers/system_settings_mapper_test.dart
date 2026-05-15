@@ -21,6 +21,7 @@ void main() {
     bool membersShowPronouns = true,
     bool membersShowFrontButtons = false,
     int membersFrontButtonBehavior = 0,
+    int fontFamily = 0,
   }) {
     return SystemSettingsData(
       id: 'singleton',
@@ -66,7 +67,7 @@ void main() {
       remindersEnabled: true,
       gifConsentState: 0,
       fontScale: 1.0,
-      fontFamily: 0,
+      fontFamily: fontFamily,
       pinLockEnabled: false,
       biometricLockEnabled: false,
       autoLockDelaySeconds: 0,
@@ -99,6 +100,40 @@ void main() {
       bioMarkdownEnabled: true,
     );
   }
+
+  group('SystemSettingsMapper — fontFamily', () {
+    test('maps bundled accessible font indices', () {
+      expect(
+        SystemSettingsMapper.toDomain(
+          makeDbRow(fontFamily: FontFamily.openDyslexic.index),
+        ).fontFamily,
+        FontFamily.openDyslexic,
+      );
+      expect(
+        SystemSettingsMapper.toDomain(
+          makeDbRow(fontFamily: FontFamily.atkinsonHyperlegible.index),
+        ).fontFamily,
+        FontFamily.atkinsonHyperlegible,
+      );
+      expect(
+        SystemSettingsMapper.toDomain(
+          makeDbRow(fontFamily: FontFamily.lexend.index),
+        ).fontFamily,
+        FontFamily.lexend,
+      );
+    });
+
+    test('invalid stored index falls back to system', () {
+      expect(
+        SystemSettingsMapper.toDomain(makeDbRow(fontFamily: -1)).fontFamily,
+        FontFamily.system,
+      );
+      expect(
+        SystemSettingsMapper.toDomain(makeDbRow(fontFamily: 999)).fontFamily,
+        FontFamily.system,
+      );
+    });
+  });
 
   group('SystemSettingsMapper — frontingListViewMode', () {
     test('default SystemSettings has FrontingListViewMode.combinedPeriods', () {

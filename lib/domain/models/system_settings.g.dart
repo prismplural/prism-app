@@ -311,6 +311,8 @@ const _$GifConsentStateEnumMap = {
 const _$FontFamilyEnumMap = {
   FontFamily.system: 'system',
   FontFamily.openDyslexic: 'openDyslexic',
+  FontFamily.atkinsonHyperlegible: 'atkinsonHyperlegible',
+  FontFamily.lexend: 'lexend',
 };
 
 const _$SleepQualityEnumMap = {

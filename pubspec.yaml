@@ -166,3 +166,16 @@ flutter:
           weight: 700
         - asset: assets/fonts/OpenDyslexic-Italic.otf
           style: italic
+    - family: AtkinsonHyperlegible
+      fonts:
+        - asset: assets/fonts/AtkinsonHyperlegible-Regular.ttf
+        - asset: assets/fonts/AtkinsonHyperlegible-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/AtkinsonHyperlegible-Italic.ttf
+          style: italic
+        - asset: assets/fonts/AtkinsonHyperlegible-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: Lexend
+      fonts:
+        - asset: assets/fonts/Lexend[wght].ttf
