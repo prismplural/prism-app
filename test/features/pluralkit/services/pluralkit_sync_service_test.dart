@@ -1151,6 +1151,34 @@ void main() {
       expect(harness.client.getSwitchesCallCount, 0);
     });
 
+    test(
+      'adopts matching unlinked active row for live current switch',
+      () async {
+        final localStart = DateTime.utc(2026, 5, 1, 23, 54);
+        final pkCurrentTs = DateTime.utc(2026, 5, 2, 1, 7);
+        const switchId = '00000000-0000-0000-0000-000000000106';
+        final harness = await setupLive(
+          members: [member('local-a', 'pkA', 'uuid-a')],
+          sessions: [session('local-active', 'local-a', startTime: localStart)],
+          current: currentSwitch(switchId, pkCurrentTs, const ['pkA']),
+        );
+
+        final summary = await harness.service.syncLiveFrontersOnly(
+          direction: PkSyncDirection.pullOnly,
+        );
+
+        expect(summary!.switchesPulled, 1);
+        expect(harness.sessionRepo.sessions, hasLength(1));
+        expect(harness.sessionRepo.sessions.single.id, 'local-active');
+        expect(harness.sessionRepo.sessions.single.startTime, localStart);
+        expect(harness.sessionRepo.sessions.single.endTime, isNull);
+        expect(harness.sessionRepo.sessions.single.pluralkitUuid, switchId);
+        expect(harness.client.getSwitchesCallCount, 0);
+        expect(harness.client.getMembersCallCount, 0);
+        expect(harness.client.getGroupsCallCount, 0);
+      },
+    );
+
     test('deleted current tombstone no-ops', () async {
       final ts = DateTime.utc(2026, 5, 1, 12);
       const switchId = '00000000-0000-0000-0000-000000000104';

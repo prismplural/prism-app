@@ -2069,10 +2069,14 @@ class PluralKitSyncService {
     };
 
     final unmapped = <String>[];
+    final currentLocalIds = <String>{};
     for (final pkId in current.members) {
       final pkUuid = shortIdToUuid[pkId];
-      if (pkUuid == null || uuidToLocalId[pkUuid] == null) {
+      final localId = pkUuid == null ? null : uuidToLocalId[pkUuid];
+      if (localId == null) {
         unmapped.add(pkId);
+      } else {
+        currentLocalIds.add(localId);
       }
     }
     if (unmapped.isNotEmpty) {
@@ -2094,6 +2098,11 @@ class PluralKitSyncService {
       );
     }
 
+    await _adoptMatchingUnlinkedLiveRows(
+      currentSwitch: current,
+      currentLocalIds: currentLocalIds,
+    );
+
     await _runDiffSweep(
       switches: [current],
       shortIdToUuid: shortIdToUuid,
@@ -2107,6 +2116,41 @@ class PluralKitSyncService {
       observedDismissalKey: observedDismissalKey,
       skippedForUnmapped: false,
     );
+  }
+
+  Future<void> _adoptMatchingUnlinkedLiveRows({
+    required PKSwitch currentSwitch,
+    required Set<String> currentLocalIds,
+  }) async {
+    if (currentLocalIds.isEmpty) return;
+
+    final switchId = currentSwitch.id.trim();
+    if (switchId.isEmpty) return;
+
+    final activeSessions = await _frontingSessionRepository
+        .getAllActiveSessionsUnfiltered();
+    for (final session in activeSessions) {
+      if (session.isDeleted || session.isSleep) continue;
+      if (_hasText(session.pluralkitUuid)) continue;
+      final memberId = session.memberId;
+      if (memberId == null || !currentLocalIds.contains(memberId)) continue;
+      if (session.startTime.isAfter(currentSwitch.timestamp)) continue;
+
+      try {
+        await _frontingSessionRepository.updateSession(
+          session.copyWith(pluralkitUuid: switchId),
+        );
+      } catch (error) {
+        if (isUniqueConstraintViolation(error)) {
+          debugPrint(
+            '[PK_LIVE] adoption collision on ($switchId,$memberId); '
+            'leaving existing rows unchanged.',
+          );
+          continue;
+        }
+        rethrow;
+      }
+    }
   }
 
   PkUnmappedFrontersNotice _buildUnmappedFrontersNotice(
