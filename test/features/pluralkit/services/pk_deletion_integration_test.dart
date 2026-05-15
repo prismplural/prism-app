@@ -88,6 +88,7 @@ class _SecureStorageStub {
 
 class _FakeClient implements PluralKitClient {
   final String systemId;
+  final List<PKMember> members = [];
   final List<String> deletedMembers = [];
   final List<String> deletedSwitches = [];
 
@@ -124,7 +125,7 @@ class _FakeClient implements PluralKitClient {
 
   // -- unused-but-required stubs --------------------------------------------
   @override
-  Future<List<PKMember>> getMembers() async => const [];
+  Future<List<PKMember>> getMembers() async => members;
   @override
   Future<PKMember> getMember(String memberRef) => throw UnimplementedError();
   @override
@@ -438,6 +439,7 @@ domain.Member _member(
   String name = 'Alice',
   String? pluralkitId,
   String? pluralkitUuid,
+  String? proxyTagsJson,
   bool isDeleted = false,
   int? deleteIntentEpoch,
   int? deletePushStartedAt,
@@ -447,6 +449,7 @@ domain.Member _member(
   createdAt: DateTime(2026, 1, 1),
   pluralkitId: pluralkitId,
   pluralkitUuid: pluralkitUuid,
+  proxyTagsJson: proxyTagsJson,
   isDeleted: isDeleted,
   deleteIntentEpoch: deleteIntentEpoch,
   deletePushStartedAt: deletePushStartedAt,
@@ -484,6 +487,7 @@ Future<({PluralKitSyncService svc, int epoch})> _makeService({
   required _FakeSessionRepo sessionRepo,
   required String systemId,
   int initialEpoch = 0,
+  String? fieldSyncConfig,
 }) async {
   // Seed sync_state to mimic a prior link + completed mapping.
   await db.pluralKitSyncDao.upsertSyncState(
@@ -496,6 +500,9 @@ Future<({PluralKitSyncService svc, int epoch})> _makeService({
       linkedAt: Value(DateTime(2026, 1, 1)),
       lastSyncDate: Value(DateTime(2026, 1, 2)),
       linkEpoch: Value(initialEpoch),
+      fieldSyncConfig: fieldSyncConfig == null
+          ? const Value.absent()
+          : Value(fieldSyncConfig),
     ),
   );
 
@@ -730,6 +737,51 @@ void main() {
         expect(serviceCtx.svc.state.isSyncing, isFalse);
       },
     );
+
+    test('counts proxy tag removals that would be pushed to PK', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = _FakeMemberRepo()
+        ..seed([
+          _member(
+            'm-proxy',
+            pluralkitId: 'pk001',
+            pluralkitUuid: 'uuid-pk001',
+            proxyTagsJson: '[]',
+          ),
+        ]);
+      final sessionRepo = _FakeSessionRepo();
+      final client = _FakeClient()
+        ..members.add(
+          const PKMember(
+            id: 'pk001',
+            uuid: 'uuid-pk001',
+            name: 'Alice',
+            proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
+          ),
+        );
+      final serviceCtx = await _makeService(
+        client: client,
+        db: db,
+        memberRepo: memberRepo,
+        sessionRepo: sessionRepo,
+        systemId: 'sys-1',
+        fieldSyncConfig: serializeFieldSyncConfigWithGlobalDirection(
+          null,
+          PkSyncDirection.bidirectional,
+        ),
+      );
+
+      final preview = await serviceCtx.svc.previewPendingDestructivePush();
+
+      expect(preview.memberProxyTagsToRemove, 1);
+      expect(preview.totalToRemove, 1);
+      expect(preview.hasRemovals, isTrue);
+      expect(preview.isSignificant, isTrue);
+      expect(client.deletedMembers, isEmpty);
+      expect(memberRepo.members['m-proxy']!.proxyTagsJson, '[]');
+    });
   });
 
   group('scenario B — idempotent rerun', () {

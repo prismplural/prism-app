@@ -188,9 +188,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           // force the choice — see spec "direction-first" / bug I3.
           PrismButton(
             onPressed: () async {
-              await ref
-                  .read(pluralKitSyncProvider.notifier)
-                  .confirmDirection();
+              await ref.read(pluralKitSyncProvider.notifier).confirmDirection();
             },
             enabled: _directionTouched,
             label: context.l10n.pluralkitDirectionContinue,
@@ -242,8 +240,8 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     // fall back to the 5-char short ID so we never show a blank name.
     final names = pkSwitch.memberDetails.isNotEmpty
         ? pkSwitch.memberDetails
-            .map((m) => m.displayName ?? m.name ?? m.id)
-            .join(', ')
+              .map((m) => m.displayName ?? m.name ?? m.id)
+              .join(', ')
         : pkSwitch.members.join(', ');
 
     return PrismSurface(
@@ -303,9 +301,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
                     icon: const Icon(Icons.close),
                     color: theme.colorScheme.onTertiaryContainer,
                     onPressed: () {
-                      ref
-                          .read(pkFirstSyncDeferredProvider.notifier)
-                          .clear();
+                      ref.read(pkFirstSyncDeferredProvider.notifier).clear();
                     },
                   ),
                 ],
@@ -385,17 +381,25 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
         context.l10n.pluralkitDeleteRiskGroupMemberships(
           preview.groupMembershipsToRemove,
         ),
+      if (preview.memberProxyTagsToRemove > 0)
+        context.l10n.pluralkitDeleteRiskProxyTags(
+          preview.memberProxyTagsToRemove,
+        ),
     ];
 
     if (items.length <= 1) return items.isEmpty ? '' : items.first;
     if (items.length == 2) {
       return context.l10n.pluralkitDeleteRiskJoinTwo(items[0], items[1]);
     }
-    return context.l10n.pluralkitDeleteRiskJoinThree(
-      items[0],
-      items[1],
-      items[2],
-    );
+    if (items.length == 3) {
+      return context.l10n.pluralkitDeleteRiskJoinThree(
+        items[0],
+        items[1],
+        items[2],
+      );
+    }
+    final head = items.take(items.length - 1).join(', ');
+    return context.l10n.pluralkitDeleteRiskJoinTwo(head, items.last);
   }
 
   Future<void> _disconnect() async {

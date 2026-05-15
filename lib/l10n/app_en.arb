@@ -7733,6 +7733,13 @@
       "count": { "type": "int" }
     }
   },
+  "pluralkitDeleteRiskProxyTags": "{count, plural, =1{proxy tags for 1 member} other{proxy tags for {count} members}}",
+  "@pluralkitDeleteRiskProxyTags": {
+    "description": "Count label for PluralKit member proxy tags that may be removed",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "pluralkitDeleteRiskJoinTwo": "{first} and {second}",
   "@pluralkitDeleteRiskJoinTwo": {
     "description": "Joins two PluralKit delete-risk count labels",

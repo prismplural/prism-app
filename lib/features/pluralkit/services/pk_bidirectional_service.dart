@@ -92,7 +92,17 @@ class PkBidirectionalService {
         final hasLocalChanges = _hasLocalChanges(local, pk, config, direction);
         if (hasLocalChanges) {
           try {
-            await _pushService.pushMember(local, client, pkMember: pk);
+            await _pushService.pushMember(
+              local,
+              client,
+              pkMember: pk,
+              includeProxyTags: _hasProxyTagPushChange(
+                local,
+                pk,
+                config,
+                direction,
+              ),
+            );
             if (needsIdentityRepair) {
               await memberRepository.updateMember(local);
             }
@@ -212,13 +222,23 @@ class PkBidirectionalService {
       }
     }
     if (_pushField(config.proxyTags, direction)) {
-      final localTags = _normalizeProxyTags(local.proxyTagsJson);
-      final pkTags = _normalizeProxyTags(pk.proxyTagsJson);
-      // Null means "no local opinion" so first-link push paths don't clear
-      // existing PK tags. An explicit [] is a local clear and may be pushed.
-      if (localTags != null && localTags != pkTags) return true;
+      if (_hasProxyTagPushChange(local, pk, config, direction)) return true;
     }
     return false;
+  }
+
+  bool _hasProxyTagPushChange(
+    domain.Member local,
+    PKMember pk,
+    PkFieldSyncConfig config,
+    PkSyncDirection direction,
+  ) {
+    if (!_pushField(config.proxyTags, direction)) return false;
+    final localTags = _normalizeProxyTags(local.proxyTagsJson);
+    final pkTags = _normalizeProxyTags(pk.proxyTagsJson);
+    // Null means "no local opinion"; explicit [] is a pushable clear after
+    // manual sync's delete-risk preview has warned.
+    return localTags != null && localTags != pkTags;
   }
 
   /// True when pushing would amount to null-clearing PK: local is null/empty

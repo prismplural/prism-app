@@ -89,6 +89,7 @@ class PkDeleteRiskPreview {
   final int membersToDelete;
   final int switchesToDelete;
   final int groupMembershipsToRemove;
+  final int memberProxyTagsToRemove;
   final int membersSkipped;
   final int switchesSkipped;
   final int groupMembershipsSkipped;
@@ -97,13 +98,17 @@ class PkDeleteRiskPreview {
     this.membersToDelete = 0,
     this.switchesToDelete = 0,
     this.groupMembershipsToRemove = 0,
+    this.memberProxyTagsToRemove = 0,
     this.membersSkipped = 0,
     this.switchesSkipped = 0,
     this.groupMembershipsSkipped = 0,
   });
 
   int get totalToRemove =>
-      membersToDelete + switchesToDelete + groupMembershipsToRemove;
+      membersToDelete +
+      switchesToDelete +
+      groupMembershipsToRemove +
+      memberProxyTagsToRemove;
 
   int get totalSkipped =>
       membersSkipped + switchesSkipped + groupMembershipsSkipped;
@@ -112,6 +117,7 @@ class PkDeleteRiskPreview {
 
   bool get isSignificant {
     if (membersToDelete > 0) return true;
+    if (memberProxyTagsToRemove > 0) return true;
     if (switchesToDelete >= 10) return true;
     if (groupMembershipsToRemove >= 10) return true;
     return switchesToDelete + groupMembershipsToRemove >= 10;
@@ -143,12 +149,8 @@ class PkFieldSyncConfig {
   final PkSyncDirection birthday;
   final PkSyncDirection proxyTags;
 
-  /// `proxyTags` defaults to [PkSyncDirection.bidirectional] by intentional
-  /// product policy: proxy tags are now editable inside Prism, and bidirectional
-  /// is the right default for an editable field — local edits should propagate
-  /// to PK and PK-side edits should propagate back. Keep this default; do not
-  /// flip to pull-only or disabled without re-deciding the product behavior of
-  /// the editable proxy-tag UI in `member_profile_header_editor.dart`.
+  /// `proxyTags` defaults to [PkSyncDirection.bidirectional] like other
+  /// editable PK-backed fields; delete-risk preview guards destructive clears.
   const PkFieldSyncConfig({
     this.name = PkSyncDirection.bidirectional,
     this.displayName = PkSyncDirection.bidirectional,
@@ -450,8 +452,8 @@ String serializeFieldSyncConfig(
       description: globalDirection,
       color: globalDirection,
       birthday: globalDirection,
-      // Proxy tags follow the global direction by design — see the
-      // PkFieldSyncConfig constructor doc above for the product context.
+      // Proxy tags follow the global direction; delete-risk preview guards
+      // destructive clears.
       proxyTags: globalDirection,
     ).toJson();
   }

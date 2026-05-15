@@ -1885,6 +1885,7 @@
   "pluralkitDeleteRiskMembers": "{count, plural, =1{1 miembro} other{{count} miembros}}",
   "pluralkitDeleteRiskSwitches": "{count, plural, =1{1 cambio} other{{count} cambios}}",
   "pluralkitDeleteRiskGroupMemberships": "{count, plural, =1{1 membresía de grupo} other{{count} membresías de grupo}}",
+  "pluralkitDeleteRiskProxyTags": "{count, plural, =1{etiquetas proxy de 1 miembro} other{etiquetas proxy de {count} miembros}}",
   "pluralkitDeleteRiskJoinTwo": "{first} y {second}",
   "pluralkitDeleteRiskJoinThree": "{first}, {second} y {third}",
   "pluralkitTitle": "PluralKit",

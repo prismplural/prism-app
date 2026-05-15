@@ -268,6 +268,15 @@ void main() {
       final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
       expect(data['proxy_tags'], isEmpty);
     });
+
+    test('omits proxy tags when caller disables them', () async {
+      final member = _member(proxyTagsJson: '[]');
+
+      await pushService.pushMember(member, fakeClient, includeProxyTags: false);
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data.containsKey('proxy_tags'), isFalse);
+    });
   });
 
   group('pushSwitch', () {

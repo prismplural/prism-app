@@ -529,50 +529,48 @@ void main() {
       expect(written.proxyTagsJson, '[{"prefix":"A:","suffix":null}]');
     });
 
-    test('bidirectional: local proxyTagsJson pushes divergent value', () async {
-      final local = _localMember(
-        id: 'local-1',
-        pluralkitId: 'pk001',
-        proxyTagsJson: '[{"prefix":"LOCAL:","suffix":null}]',
-      );
-      final pk = _pkMember(
-        id: 'pk001',
-        proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
-      );
-
-      await service.syncMembers(
-        localMembers: [local],
-        pkMembers: [pk],
-        fieldConfigs: {},
-        direction: PkSyncDirection.bidirectional,
-        lastSyncDate: null,
-        memberRepository: fakeRepo,
-        client: fakeClient,
-      );
-
-      final updateCall = fakeClient.calls.firstWhere(
-        (c) => c.method == 'updateMember',
-      );
-      final payload = updateCall.args[1] as Map<String, dynamic>;
-      expect(payload['proxy_tags'], [
-        {'prefix': 'LOCAL:', 'suffix': null},
-      ]);
-    });
-
     test(
-      'push payload includes proxy_tags when pushing member changes',
+      'bidirectional default pushes explicit proxy tag clear when sync proceeds',
       () async {
-        // A local PluralKit Display Name change forces a push. The request sent to
-        // PK should carry the local proxy tags with the other pushed fields.
         final local = _localMember(
           id: 'local-1',
           pluralkitId: 'pk001',
-          pluralkitDisplayName: 'NewDisplay',
+          proxyTagsJson: '[]',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          proxyTagsJson: '[{"prefix":"FIXED:","suffix":null}]',
+        );
+
+        final summary = await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.bidirectional,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        expect(summary.membersPushed, 1);
+        final updateCall = fakeClient.calls.firstWhere(
+          (c) => c.method == 'updateMember',
+        );
+        final payload = updateCall.args[1] as Map<String, dynamic>;
+        expect(payload['proxy_tags'], isEmpty);
+      },
+    );
+
+    test(
+      'bidirectional default proxy tag config pushes divergent value',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          pluralkitId: 'pk001',
           proxyTagsJson: '[{"prefix":"LOCAL:","suffix":null}]',
         );
         final pk = _pkMember(
           id: 'pk001',
-          displayName: 'OldDisplay',
           proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
         );
 
@@ -593,6 +591,44 @@ void main() {
         expect(payload['proxy_tags'], [
           {'prefix': 'LOCAL:', 'suffix': null},
         ]);
+      },
+    );
+
+    test(
+      'pull-only proxy tag config omits proxy_tags when pushing other changes',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          pluralkitId: 'pk001',
+          pluralkitDisplayName: 'NewDisplay',
+          proxyTagsJson: '[{"prefix":"LOCAL:","suffix":null}]',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          displayName: 'OldDisplay',
+          proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
+        );
+
+        await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {
+            'local-1': const PkFieldSyncConfig(
+              proxyTags: PkSyncDirection.pullOnly,
+            ),
+          },
+          direction: PkSyncDirection.bidirectional,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        final updateCall = fakeClient.calls.firstWhere(
+          (c) => c.method == 'updateMember',
+        );
+        final payload = updateCall.args[1] as Map<String, dynamic>;
+        expect(payload['display_name'], 'NewDisplay');
+        expect(payload.containsKey('proxy_tags'), isFalse);
       },
     );
 
@@ -1129,30 +1165,37 @@ void main() {
       },
     );
 
-    test('genuinely different tag content triggers push', () async {
-      final local = _localMember(
-        id: 'local-1',
-        pluralkitId: 'pk001',
-        proxyTagsJson: '[{"prefix":"LOCAL:","suffix":null}]',
-      );
-      final pk = _pkMember(
-        id: 'pk001',
-        proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
-      );
+    test(
+      'explicit bidirectional config pushes genuinely different tags',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          pluralkitId: 'pk001',
+          proxyTagsJson: '[{"prefix":"LOCAL:","suffix":null}]',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
+        );
 
-      final summary = await service.syncMembers(
-        localMembers: [local],
-        pkMembers: [pk],
-        fieldConfigs: {},
-        direction: PkSyncDirection.bidirectional,
-        lastSyncDate: null,
-        memberRepository: fakeRepo,
-        client: fakeClient,
-      );
+        final summary = await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {
+            'local-1': const PkFieldSyncConfig(
+              proxyTags: PkSyncDirection.bidirectional,
+            ),
+          },
+          direction: PkSyncDirection.bidirectional,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
 
-      expect(summary.membersPushed, 1);
-      expect(fakeClient.calls.any((c) => c.method == 'updateMember'), isTrue);
-    });
+        expect(summary.membersPushed, 1);
+        expect(fakeClient.calls.any((c) => c.method == 'updateMember'), isTrue);
+      },
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -1160,84 +1203,79 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('pluralkitSyncIgnored on unlinked locals', () {
+    test('does not push an unlinked local member flagged Keep local, but still '
+        'pushes a non-ignored sibling', () async {
+      final ignored = _localMember(
+        id: 'local-ignored',
+        name: 'KeepLocal',
+        pluralkitSyncIgnored: true,
+      );
+      final pushable = _localMember(id: 'local-pushable', name: 'PushMe');
+
+      final summary = await service.syncMembers(
+        localMembers: [ignored, pushable],
+        pkMembers: const [],
+        fieldConfigs: {},
+        direction: PkSyncDirection.bidirectional,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      // Exactly one push (the non-ignored sibling).
+      expect(summary.membersPushed, 1);
+
+      final createCalls = fakeClient.calls
+          .where((c) => c.method == 'createMember')
+          .toList();
+      expect(createCalls, hasLength(1));
+      final payload = createCalls.single.args[0] as Map<String, dynamic>;
+      expect(
+        payload['name'],
+        'PushMe',
+        reason: 'Only the non-ignored member should be created in PK',
+      );
+
+      // No PK identifiers should have been written back for the ignored
+      // member.
+      for (final c in fakeRepo.calls.where((c) => c.method == 'updateMember')) {
+        final m = c.args[0] as domain.Member;
+        expect(
+          m.id,
+          isNot('local-ignored'),
+          reason:
+              'Ignored member must not be linked to a freshly-created PK '
+              'member',
+        );
+      }
+    });
+
     test(
-      'does not push an unlinked local member flagged Keep local, but still '
-      'pushes a non-ignored sibling',
+      'pushOnly also honors pluralkitSyncIgnored on unlinked locals',
       () async {
         final ignored = _localMember(
           id: 'local-ignored',
           name: 'KeepLocal',
           pluralkitSyncIgnored: true,
         );
-        final pushable = _localMember(
-          id: 'local-pushable',
-          name: 'PushMe',
-        );
 
         final summary = await service.syncMembers(
-          localMembers: [ignored, pushable],
+          localMembers: [ignored],
           pkMembers: const [],
           fieldConfigs: {},
-          direction: PkSyncDirection.bidirectional,
+          direction: PkSyncDirection.pushOnly,
           lastSyncDate: null,
           memberRepository: fakeRepo,
           client: fakeClient,
         );
 
-        // Exactly one push (the non-ignored sibling).
-        expect(summary.membersPushed, 1);
-
-        final createCalls = fakeClient.calls
-            .where((c) => c.method == 'createMember')
-            .toList();
-        expect(createCalls, hasLength(1));
-        final payload = createCalls.single.args[0] as Map<String, dynamic>;
+        expect(summary.membersPushed, 0);
         expect(
-          payload['name'],
-          'PushMe',
-          reason: 'Only the non-ignored member should be created in PK',
+          fakeClient.calls.any((c) => c.method == 'createMember'),
+          isFalse,
+          reason: 'Keep-local members must never be created on PK',
         );
-
-        // No PK identifiers should have been written back for the ignored
-        // member.
-        for (final c in fakeRepo.calls.where(
-          (c) => c.method == 'updateMember',
-        )) {
-          final m = c.args[0] as domain.Member;
-          expect(
-            m.id,
-            isNot('local-ignored'),
-            reason: 'Ignored member must not be linked to a freshly-created PK '
-                'member',
-          );
-        }
       },
     );
-
-    test('pushOnly also honors pluralkitSyncIgnored on unlinked locals',
-        () async {
-      final ignored = _localMember(
-        id: 'local-ignored',
-        name: 'KeepLocal',
-        pluralkitSyncIgnored: true,
-      );
-
-      final summary = await service.syncMembers(
-        localMembers: [ignored],
-        pkMembers: const [],
-        fieldConfigs: {},
-        direction: PkSyncDirection.pushOnly,
-        lastSyncDate: null,
-        memberRepository: fakeRepo,
-        client: fakeClient,
-      );
-
-      expect(summary.membersPushed, 0);
-      expect(
-        fakeClient.calls.any((c) => c.method == 'createMember'),
-        isFalse,
-        reason: 'Keep-local members must never be created on PK',
-      );
-    });
   });
 }

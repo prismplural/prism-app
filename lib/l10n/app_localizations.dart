@@ -9999,6 +9999,12 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 group membership} other{{count} group memberships}}'**
   String pluralkitDeleteRiskGroupMemberships(int count);
 
+  /// Count label for PluralKit member proxy tags that may be removed
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{proxy tags for 1 member} other{proxy tags for {count} members}}'**
+  String pluralkitDeleteRiskProxyTags(int count);
+
   /// Joins two PluralKit delete-risk count labels
   ///
   /// In en, this message translates to:

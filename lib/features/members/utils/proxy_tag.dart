@@ -3,9 +3,9 @@ import 'dart:convert';
 /// PluralKit-style proxy tag (prefix and/or suffix wrapping a message).
 ///
 /// Stored on [Member.proxyTagsJson] and used by chat's proxy-tag authoring.
-/// Tags can come from PluralKit sync or be edited locally in Prism. Prism does
-/// not push local tag edits back to PluralKit. Either side may be null, but at
-/// least one must be non-empty — see [isEmpty].
+/// Tags can come from PluralKit sync or local edits. They follow the user's
+/// PluralKit sync direction, with destructive pushes guarded by delete-risk
+/// preview. Either side may be null, but at least one must be non-empty.
 class ProxyTag {
   const ProxyTag({this.prefix, this.suffix});
 

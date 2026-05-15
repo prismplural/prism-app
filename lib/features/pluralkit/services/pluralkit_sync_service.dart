@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -196,12 +198,14 @@ class PluralKitSyncState {
   /// hasn't completed (or dismissed) the member mapping flow yet.
   /// In this state, auto-push and auto-sync are gated off to prevent
   /// duplicate members.
-  bool get needsMapping => isConnected && directionConfirmed && !mappingAcknowledged;
+  bool get needsMapping =>
+      isConnected && directionConfirmed && !mappingAcknowledged;
 
   /// True when the connection is fully usable — connected, direction
   /// confirmed, AND mapping complete. Callers gate auto-push / auto-sync on
   /// this.
-  bool get canAutoSync => isConnected && directionConfirmed && mappingAcknowledged;
+  bool get canAutoSync =>
+      isConnected && directionConfirmed && mappingAcknowledged;
 
   /// Whether a manual sync can be triggered (60-second cooldown).
   bool get canManualSync =>
@@ -3493,12 +3497,77 @@ class PluralKitSyncService {
     return memberIds;
   }
 
+  int _previewPendingMemberProxyTagRemovals({
+    required List<domain.Member> localMembers,
+    required List<PKMember> pkMembers,
+    required Map<String, PkFieldSyncConfig> fieldConfigs,
+    required PkSyncDirection direction,
+  }) {
+    final pkByUuid = <String, PKMember>{};
+    final pkById = <String, PKMember>{};
+    for (final pk in pkMembers) {
+      pkByUuid[pk.uuid] = pk;
+      pkById[pk.id] = pk;
+    }
+
+    var count = 0;
+    for (final local in localMembers) {
+      final pkUuid = local.pluralkitUuid?.trim();
+      final pkId = local.pluralkitId?.trim();
+      final pk =
+          (pkUuid != null && pkUuid.isNotEmpty ? pkByUuid[pkUuid] : null) ??
+          (pkId != null && pkId.isNotEmpty ? pkById[pkId] : null);
+      if (pk == null) continue;
+
+      final config = fieldConfigs[local.id] ?? const PkFieldSyncConfig();
+      if (!_pushFieldForPreview(config.proxyTags, direction)) continue;
+      if (_proxyTagPushRemovesPkData(local.proxyTagsJson, pk.proxyTagsJson)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  bool _pushFieldForPreview(PkSyncDirection field, PkSyncDirection overall) {
+    if (overall == PkSyncDirection.pullOnly) return false;
+    if (overall == PkSyncDirection.pushOnly) return true;
+    return field.pushEnabled;
+  }
+
+  bool _proxyTagPushRemovesPkData(String? localJson, String? pkJson) {
+    final localTags = _proxyTagSet(localJson);
+    final pkTags = _proxyTagSet(pkJson);
+    if (localTags == null || pkTags == null || pkTags.isEmpty) return false;
+    return !localTags.containsAll(pkTags);
+  }
+
+  Set<String>? _proxyTagSet(String? value) {
+    if (value == null) return null;
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is! List) return null;
+      return decoded.map(_canonicalProxyTagEntry).toSet();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _canonicalProxyTagEntry(Object? entry) {
+    if (entry is Map) {
+      final keys = entry.keys.map((key) => key.toString()).toList()..sort();
+      return jsonEncode({for (final key in keys) key: entry[key]});
+    }
+    return jsonEncode({'__raw__': entry});
+  }
+
   /// Read-only preview of pending destructive PluralKit push work.
   ///
   /// This mirrors the local candidate filters used by the real deletion push
-  /// path without constructing a PK client, claiming delete leases, clearing
-  /// links, mutating sync state, or emitting sync progress.
+  /// path without claiming leases, clearing links, mutating sync state, or
+  /// emitting sync progress. It fetches PK members only to detect proxy-tag
+  /// removals.
   Future<PkDeleteRiskPreview> previewPendingDestructivePush() async {
+    final syncRow = await _syncDao.getSyncState();
     final currentEpoch = await _syncDao.getLinkEpoch();
     final deletedSessions = await _frontingSessionRepository
         .getDeletedLinkedSessions();
@@ -3555,10 +3624,30 @@ class PluralKitSyncService {
       groupMembershipsSkipped = groupPreview.skipped;
     }
 
+    var memberProxyTagsToRemove = 0;
+    final direction = parseGlobalSyncDirection(syncRow.fieldSyncConfig);
+    if (direction.pushEnabled) {
+      final client = await _buildClient();
+      if (client == null) {
+        throw StateError('Not connected — cannot preview member push risk');
+      }
+      try {
+        memberProxyTagsToRemove = _previewPendingMemberProxyTagRemovals(
+          localMembers: await _memberRepository.getAllMembers(),
+          pkMembers: await client.getMembers(),
+          fieldConfigs: parseFieldSyncConfig(syncRow.fieldSyncConfig),
+          direction: direction,
+        );
+      } finally {
+        client.dispose();
+      }
+    }
+
     return PkDeleteRiskPreview(
       membersToDelete: membersToDelete,
       switchesToDelete: switchesToDelete,
       groupMembershipsToRemove: groupMembershipsToRemove,
+      memberProxyTagsToRemove: memberProxyTagsToRemove,
       membersSkipped: membersSkipped,
       switchesSkipped: switchesSkipped,
       groupMembershipsSkipped: groupMembershipsSkipped,
@@ -4089,6 +4178,8 @@ class PluralKitSyncService {
   /// Caller is responsible for gating on connection state and push-direction
   /// (see `PluralKitSyncNotifier.pushMemberUpdate`). A 404 from PK clears the
   /// local link so the user can re-link via the mapping screen.
+  /// Proxy tags are omitted here so destructive removals go through manual
+  /// sync's delete-risk preview.
   ///
   /// Returns true if a PATCH was actually sent, false when skipped (no link,
   /// not connected, etc.). Errors are swallowed with a debugPrint so a failed
@@ -4106,7 +4197,7 @@ class PluralKitSyncService {
 
     final push = pushService ?? const PkPushService();
     try {
-      await push.pushMember(member, client);
+      await push.pushMember(member, client, includeProxyTags: false);
       return true;
     } on PkStaleLinkException {
       try {

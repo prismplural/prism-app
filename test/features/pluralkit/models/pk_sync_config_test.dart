@@ -105,12 +105,13 @@ void main() {
         membersToDelete: 1,
         switchesToDelete: 2,
         groupMembershipsToRemove: 3,
+        memberProxyTagsToRemove: 4,
         membersSkipped: 4,
         switchesSkipped: 5,
         groupMembershipsSkipped: 6,
       );
 
-      expect(preview.totalToRemove, 6);
+      expect(preview.totalToRemove, 10);
       expect(preview.totalSkipped, 15);
       expect(preview.hasRemovals, isTrue);
     });
@@ -118,6 +119,13 @@ void main() {
     test('isSignificant treats any member delete as significant', () {
       expect(
         const PkDeleteRiskPreview(membersToDelete: 1).isSignificant,
+        isTrue,
+      );
+    });
+
+    test('isSignificant treats any proxy tag removal as significant', () {
+      expect(
+        const PkDeleteRiskPreview(memberProxyTagsToRemove: 1).isSignificant,
         isTrue,
       );
     });
@@ -190,18 +198,10 @@ void main() {
       expect(config.proxyTags, PkSyncDirection.bidirectional);
     });
 
-    test(
-      'proxyTags default is bidirectional by documented product policy (#36)',
-      () {
-        // Pinned: proxy tags are editable in Prism (see proxy_tags_section
-        // in features/members/widgets/) and the product decision is that
-        // local edits should propagate to PK and vice versa. Do not flip
-        // this default to pull-only or disabled without re-deciding the
-        // product behavior of the editable proxy-tag UI.
-        const config = PkFieldSyncConfig();
-        expect(config.proxyTags, PkSyncDirection.bidirectional);
-      },
-    );
+    test('proxyTags default follows bidirectional sync direction', () {
+      const config = PkFieldSyncConfig();
+      expect(config.proxyTags, PkSyncDirection.bidirectional);
+    });
 
     test('fromJson handles missing fields with defaults', () {
       final config = PkFieldSyncConfig.fromJson(<String, dynamic>{});

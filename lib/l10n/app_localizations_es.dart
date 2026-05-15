@@ -5983,6 +5983,17 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String pluralkitDeleteRiskProxyTags(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'etiquetas proxy de $count miembros',
+      one: 'etiquetas proxy de 1 miembro',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String pluralkitDeleteRiskJoinTwo(String first, String second) {
     return '$first y $second';
   }

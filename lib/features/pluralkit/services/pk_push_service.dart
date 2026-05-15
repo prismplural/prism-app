@@ -80,7 +80,13 @@ class PkPushService {
     domain.Member member,
     PluralKitClient client, {
     PKMember? pkMember,
-  }) async => (await pushMemberFull(member, client, pkMember: pkMember)).id;
+    bool includeProxyTags = true,
+  }) async => (await pushMemberFull(
+    member,
+    client,
+    pkMember: pkMember,
+    includeProxyTags: includeProxyTags,
+  )).id;
 
   /// Same as [pushMember], but returns PluralKit's full member payload so
   /// callers can persist both the short ID and UUID after creating a member.
@@ -88,11 +94,17 @@ class PkPushService {
     domain.Member member,
     PluralKitClient client, {
     PKMember? pkMember,
+    bool includeProxyTags = true,
   }) async {
     final pkId = member.pluralkitId?.trim();
     if (pkId != null && pkId.isNotEmpty) {
       // PATCH — include explicit nulls to clear fields on PK.
-      final data = _memberToPayload(member, pkMember: pkMember, isPatch: true);
+      final data = _memberToPayload(
+        member,
+        pkMember: pkMember,
+        isPatch: true,
+        includeProxyTags: includeProxyTags,
+      );
       try {
         final updated = await client.updateMember(pkId, data);
         return updated;
@@ -109,7 +121,11 @@ class PkPushService {
       }
     } else {
       // POST — create new PK member. Omit nulls (PK's POST treats omit = clear).
-      final data = _memberToPayload(member, isPatch: false);
+      final data = _memberToPayload(
+        member,
+        isPatch: false,
+        includeProxyTags: includeProxyTags,
+      );
       final created = await client.createMember(data);
       return created;
     }
@@ -160,6 +176,7 @@ class PkPushService {
     domain.Member member, {
     PKMember? pkMember,
     required bool isPatch,
+    required bool includeProxyTags,
   }) {
     final data = <String, dynamic>{};
 
@@ -199,9 +216,11 @@ class PkPushService {
       isPatch: isPatch,
     );
 
-    final proxyTags = _decodeProxyTags(member.proxyTagsJson);
-    if (proxyTags != null) {
-      data['proxy_tags'] = proxyTags;
+    if (includeProxyTags) {
+      final proxyTags = _decodeProxyTags(member.proxyTagsJson);
+      if (proxyTags != null) {
+        data['proxy_tags'] = proxyTags;
+      }
     }
 
     // Color — PK expects 6-char hex with no '#'. When local color is
