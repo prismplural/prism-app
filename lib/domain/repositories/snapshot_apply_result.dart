@@ -1,19 +1,7 @@
-/// Result returned by
-/// [MemberGroupsRepository.setGroupManualOrderSnapshot] indicating whether
-/// the requested order was applied verbatim or recovered against the live
-/// entry set.
-///
-/// Two outcomes:
-/// - [SnapshotApplied] — the supplied id list was a valid permutation of the
-///   group's current live entry ids; persisted exactly as supplied.
-/// - [SnapshotRecovered] — the input drifted from the live set (a concurrent
-///   add or remove landed between the UI's read and the snapshot write).
-///   The repository's "truncate-intersection-then-append-missing" recovery
-///   produced a coherent `manualOrder`. The UI is expected to surface a
-///   recovery toast.
-///
-/// See plan §"Read path invariants" + §"Batch 4 — Repository + providers" in
-/// `docs/plans/2026-05-14-group-member-ordering.md`.
+/// Outcome of [MemberGroupsRepository.setGroupManualOrderSnapshot]:
+/// [SnapshotApplied] when the supplied ids were an exact permutation of
+/// the live set; [SnapshotRecovered] when the input drifted (concurrent
+/// add/remove) and was reconciled — caller surfaces a recovery toast.
 sealed class SnapshotApplyResult {
   const SnapshotApplyResult();
 
@@ -35,12 +23,10 @@ final class SnapshotRecovered extends SnapshotApplyResult {
     required this.appendedIds,
   });
 
-  /// Entry ids that were present in the supplied order but no longer live in
-  /// the group (concurrently tombstoned). Dropped from the persisted order.
+  /// Ids in the input that aren't live (tombstoned or duplicate); dropped.
   final List<String> droppedIds;
 
-  /// Entry ids that are live in the group but were absent from the supplied
-  /// order (concurrently added by another device). Appended at the end of
-  /// the persisted order, sorted by id ascending for determinism.
+  /// Ids live in the group but missing from the input (concurrently added);
+  /// appended at the end, sorted by id.
   final List<String> appendedIds;
 }

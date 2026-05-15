@@ -170,22 +170,12 @@ final showInactiveMembersProvider =
       ShowInactiveMembersNotifier.new,
     );
 
-// ── Sorted group members ──────────────────────────────────────────────────────
-
-/// Ordered, filtered list of (entry, member) pairs for a single group's
-/// detail view. Order derives from `group.sortState` (see the switch below
-/// for per-mode behavior).
+/// Ordered (entry, member) pairs for a group's detail view.
 ///
-/// Filters: entries whose member is missing (unknown id) are dropped; when
-/// [showInactiveMembersProvider] is false, inactive members are also
-/// dropped. Soft-deleted entries are already excluded by the stream.
-///
-/// Read-path invariants:
-///   1. Live entry not in manualOrder → appended at end (unindexed bucket).
-///   2. Id in manualOrder with no live entry → filtered (we iterate live
-///      entries only, not manualOrder).
-///   3. Duplicate id in manualOrder → first occurrence wins in the position
-///      map; later occurrences are no-ops.
+/// Manual-mode read-path invariants:
+///   1. Live entry not in manualOrder → appended at end.
+///   2. Id in manualOrder without a live entry → filtered.
+///   3. Duplicate id in manualOrder → first occurrence wins.
 final sortedGroupMembersProvider =
     Provider.family<List<(MemberGroupEntry, Member)>, String>((ref, groupId) {
   final group = ref.watch(groupByIdProvider(groupId)).value;
@@ -197,8 +187,6 @@ final sortedGroupMembersProvider =
 
   final membersById = {for (final m in members) m.id: m};
 
-  // Pair live entries with their member. Filter: missing member or
-  // (when !showInactive) inactive member → dropped, no crash.
   final pairs = <(MemberGroupEntry, Member)>[];
   for (final entry in entries) {
     final member = membersById[entry.memberId];
@@ -210,7 +198,6 @@ final sortedGroupMembersProvider =
   final sortState = group.sortState;
   switch (sortState.mode) {
     case GroupSortMode.manual:
-      // Position map: first occurrence wins (invariant §3 dedupe).
       final position = <String, int>{};
       for (var i = 0; i < sortState.manualOrder.length; i++) {
         position.putIfAbsent(sortState.manualOrder[i], () => i);

@@ -97,12 +97,9 @@ class _GroupDetailBody extends ConsumerStatefulWidget {
 class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
   final GlobalKey<BlurPopupAnchorState> _optionsPopupKey = GlobalKey();
 
-  /// FocusNodes per entry id for best-effort focus retention across a11y
-  /// reorder. When a custom semantic action moves a row, we schedule a
-  /// post-frame `requestFocus` so the screen reader's caret tracks the
-  /// moved item. The polite `_announce` call is the reliable signal —
-  /// focus retention is BEST EFFORT (Flutter's focus system isn't a
-  /// guaranteed contract for non-input widgets).
+  /// Best-effort focus retention after a11y move actions. The polite
+  /// `_announce` is the reliable signal; Flutter focus delivery to
+  /// non-input rebuilt widgets is not contractual.
   final Map<String, FocusNode> _entryFocusNodes = {};
   String? _pendingFocusEntryId;
 
@@ -142,15 +139,9 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     final entries = entriesAsync.whenOrNull(data: (entries) => entries);
     final hasMembers = entries?.isNotEmpty ?? false;
 
-    // sortedGroupMembersProvider handles all the read-path invariants:
-    // filtering (showInactive, missing members), per-mode ordering, and
-    // dedupe of stale ids in sortState.manualOrder. See plan §"Read path
-    // invariants".
     final visiblePairs = ref.watch(sortedGroupMembersProvider(group.id));
-    // Prune stale FocusNodes only when the provider's value actually changes
-    // (membership add/remove/reorder), not on every build. For groups with
-    // hundreds-to-thousands of members this avoids O(n) set-construction
-    // during scroll, drag ticks (60/sec), and search-field keystrokes.
+    // Prune stale FocusNodes only on membership change, not every build —
+    // avoids O(n) set-construction on every scroll/drag tick/keystroke.
     ref.listen<List<(MemberGroupEntry, Member)>>(
       sortedGroupMembersProvider(group.id),
       (_, next) {

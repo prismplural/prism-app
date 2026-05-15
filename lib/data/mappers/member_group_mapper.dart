@@ -43,19 +43,12 @@ GroupSortState? tryDecodeSortState(String? raw) {
   }
 }
 
-/// Sanitize a stored `sort_state` string for outbound emission.
-///
-/// Apply-time validation in `drift_sync_adapter.dart` prevents *new* garbage
-/// from peers reaching the local column. But the column can hold pre-existing
-/// corruption from before that validation landed, a manual DB edit, or
-/// file-level corruption. Calling this helper before emitting protects peers
-/// from re-broadcasting that corruption.
-///
-/// Behavior:
-/// - Valid input: returns `raw` byte-for-byte unchanged (keeps merge metadata
-///   stable for other-device-vs-other-device rounds).
-/// - Invalid input: returns the JSON encoding of [GroupSortState.manualEmpty]
-///   AND logs a warning via [ErrorReportingService].
+/// Sanitize a stored `sort_state` string for outbound emission. Valid input
+/// passes through byte-for-byte (keeps peer merge metadata stable); invalid
+/// input is replaced with the JSON encoding of [GroupSortState.manualEmpty]
+/// and a warning logged. Defends against a locally-corrupt column (manual DB
+/// edit, file corruption, or row written before apply-time validation
+/// landed) re-broadcasting garbage to peers.
 String sanitizeSortStateForEmission(String raw, {String? contextId}) {
   if (tryDecodeSortState(raw) != null) return raw;
   ErrorReportingService.instance.report(
@@ -107,24 +100,17 @@ class MemberGroupMapper {
     );
   }
 
-  /// JSON-encode a [GroupSortState] for persistence in the
-  /// `member_groups.sort_state` column. Shape:
-  /// `{"mode": <int>, "order": ["<entryId>", ...]}`. Always valid for local
-  /// writes; remote payloads are validated separately by
-  /// [tryDecodeSortState] in the adapter apply path.
+  /// JSON-encode for the `sort_state` column: `{"mode": <int>, "order": [...]}`.
   static String encodeSortStateForColumn(GroupSortState state) =>
       jsonEncode({
         'mode': state.mode.asInt,
         'order': state.manualOrder,
       });
 
-  /// Read-path decode of the stored `sort_state` column.
-  ///
-  /// The mapper is the secondary belt-and-suspenders defense (the primary
-  /// defense is apply-time validation in `drift_sync_adapter.dart` —
-  /// see [tryDecodeSortState]). On any structural failure we fall back to
-  /// [GroupSortState.manualEmpty] for display only, log a warning, and do
-  /// NOT write back. A corrupt-decode therefore never propagates to peers.
+  /// Read-path fallback: on decode failure, returns [GroupSortState.manualEmpty]
+  /// for display + warn log; never writes back, so corrupt rows can't
+  /// propagate. Apply-time validation in the sync adapter is the primary
+  /// defense.
   static GroupSortState _decodeSortStateForRead(
     String raw, {
     required String contextId,

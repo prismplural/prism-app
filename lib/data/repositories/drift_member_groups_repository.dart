@@ -279,11 +279,10 @@ class DriftMemberGroupsRepository
       pendingPkOp: Value(pendingPkOp),
     );
 
-    // Atomic local write: the entry insert AND the parent sort_state
-    // manualOrder update happen in a single Drift transaction so an
-    // exception between them rolls both back. Sync emissions happen AFTER
-    // commit. Entry create and parent sort_state update are independent
-    // sync records; read path tolerates partial arrival on peers.
+    // Entry insert + parent sort_state update in one transaction so a mid-
+    // flight exception rolls both back. The two are independent sync
+    // records (read path tolerates partial peer arrival), emitted after
+    // commit.
     MemberGroupEntryRow? stored;
     bool parentOrderChanged = false;
     await _dao.transaction(() async {
@@ -338,9 +337,7 @@ class DriftMemberGroupsRepository
     );
     final isSuppressed = await _dao.isGroupSyncSuppressed(groupId);
 
-    // Atomic local write: tombstone the entry AND (if the group is in manual
-    // mode) prune the entry id from sort_state.manualOrder in one
-    // transaction. Sync emissions happen AFTER commit.
+    // Tombstone + manualOrder prune in one transaction; sync emits after.
     bool parentOrderChanged = false;
     await _dao.transaction(() async {
       await _dao.softDeleteEntryWithPendingOp(
@@ -456,10 +453,8 @@ class DriftMemberGroupsRepository
     final row = await _dao.getGroupById(groupId);
     if (row == null) return;
 
-    // Decode the current state; on corrupt JSON, fall back to manualEmpty so
-    // we don't blow up the caller. The fallback keeps manualOrder empty —
-    // acceptable here because corrupt sort_state means we lost prior order
-    // anyway, and the apply-time validator should prevent this in practice.
+    // Corrupt-JSON fallback drops prior manualOrder; apply-time validation
+    // should keep this from happening in practice.
     final current =
         tryDecodeSortState(row.sortState) ?? GroupSortState.manualEmpty;
     final newState = current.copyWith(mode: mode);
@@ -478,14 +473,9 @@ class DriftMemberGroupsRepository
     }
   }
 
-  /// Pure DB mutation: appends [entryId] to the group's
-  /// `sort_state.manualOrder` IFF the group is currently in
-  /// [GroupSortMode.manual]. No-op for sorted modes (read-time sort handles
-  /// new members). Returns `true` when the column changed (caller should
-  /// emit a parent sync update AFTER the surrounding transaction commits).
-  ///
-  /// Must be called from within a `_dao.transaction(...)` block — the caller
-  /// pairs this with the entry insert so an exception rolls back both.
+  /// No-op outside manual mode. Must run inside `_dao.transaction(...)` —
+  /// caller pairs this with the entry insert. Returns `true` if the column
+  /// changed (caller emits the parent sync update after commit).
   Future<bool> _appendEntryToManualOrder(
     MemberGroupRow group,
     String entryId,
@@ -502,17 +492,9 @@ class DriftMemberGroupsRepository
     return true;
   }
 
-  /// Pure DB mutation mirror of [_appendEntryToManualOrder]: prunes
-  /// [entryId] from the group's `sort_state.manualOrder` IFF the group is
-  /// currently in [GroupSortMode.manual] AND the id is present.
-  ///
-  /// The `isManual` guard mirrors [_appendEntryToManualOrder]:
+  /// Mirrors [_appendEntryToManualOrder]. The `isManual` guard matters:
   /// [setGroupSortMode] preserves `manualOrder` across sorted-mode flips,
-  /// so prune-on-remove in sorted mode would destroy that and emit a stray
-  /// parent update.
-  ///
-  /// Returns `true` when the column changed (caller should emit a parent
-  /// sync update AFTER the surrounding transaction commits).
+  /// so pruning in sorted mode would destroy that and emit a stray update.
   Future<bool> _removeEntryFromManualOrder(
     MemberGroupRow group,
     String entryId,

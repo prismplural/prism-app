@@ -608,19 +608,11 @@ class AppDatabase extends _$AppDatabase {
         current = 21;
       }
       if (current == 21 && to >= 22) {
-        // Per-group sort state lives on the parent `member_groups` row as a
-        // single TEXT column (JSON-encoded) so (mode, manualOrder) always
-        // converges to one device's snapshot under per-field LWW sync.
-        //
-        // Backfill orders entries by SQLite `rowid` as a stable-enough proxy
+        // Backfill orders entries by SQLite `rowid` as a best-effort proxy
         // for insertion order — no user has ever relied on a persistent
-        // within-group order before this migration.
-        //
-        // Why Dart loop, not a `ROW_NUMBER()` window function: SQLite docs
-        // note non-INTEGER-PK rowids "might change"
-        // (https://www.sqlite.org/rowidtable.html). The Dart loop makes the
-        // "best-effort" assumption explicit in code rather than burying it
-        // in SQL, and sidesteps the SQLite 3.25+ window-function dependency.
+        // within-group order before this migration. Dart loop instead of
+        // `ROW_NUMBER()` because non-INTEGER-PK rowids "might change"
+        // (https://www.sqlite.org/rowidtable.html).
         await transaction(() async {
           await migrator.addColumn(memberGroups, memberGroups.sortState);
 
