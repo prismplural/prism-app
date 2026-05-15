@@ -129,6 +129,19 @@ void main() {
       expect(model.pkBannerCachedUrl, isNull);
     });
 
+    test('new domain members default bio markdown to enabled', () {
+      final model = domain.Member(
+        id: 'member-default-markdown',
+        name: 'Default Markdown',
+        createdAt: now,
+      );
+
+      expect(model.markdownEnabled, isTrue);
+
+      final companion = MemberMapper.toCompanion(model);
+      expect(companion.markdownEnabled.value, isTrue);
+    });
+
     test('toCompanion preserves all fields and sets isDirty to true', () {
       final avatar = Uint8List.fromList([10, 20, 30]);
       final profileHeader = Uint8List.fromList([31, 32, 33]);

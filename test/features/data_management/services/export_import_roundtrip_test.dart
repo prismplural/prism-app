@@ -1105,6 +1105,21 @@ void main() {
         expect(h.birthday, isNull);
         expect(h.proxyTagsJson, isNull);
         expect(h.pluralkitSyncIgnored, false);
+        expect(h.markdownEnabled, false);
+
+        final oldHeadmateWithoutMarkdownJson = <String, dynamic>{
+          'id': 'm2',
+          'name': 'Older Legacy',
+          'isActive': true,
+          'createdAt': '2026-01-01T00:00:00.000Z',
+          'displayOrder': 1,
+          'isAdmin': false,
+          'customColorEnabled': false,
+        };
+        final missingMarkdown = V1Headmate.fromJson(
+          oldHeadmateWithoutMarkdownJson,
+        );
+        expect(missingMarkdown.markdownEnabled, true);
 
         final oldSessionJson = <String, dynamic>{
           'id': 's1',

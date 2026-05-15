@@ -41,7 +41,7 @@ abstract class Member with _$Member {
     String? pluralkitUuid,
     String? pluralkitId,
     String? pluralkitDisplayName,
-    @Default(false) bool markdownEnabled,
+    @Default(true) bool markdownEnabled,
     String? displayName,
     String? birthday,
     String? proxyTagsJson,

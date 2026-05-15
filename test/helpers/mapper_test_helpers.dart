@@ -28,7 +28,7 @@ db.Member makeDbMember({
   String? parentSystemId,
   String? pluralkitUuid,
   String? pluralkitId,
-  bool markdownEnabled = false,
+  bool markdownEnabled = true,
   int profileHeaderSource = 1,
   int profileHeaderLayout = 0,
   bool profileHeaderVisible = true,

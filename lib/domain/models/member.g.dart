@@ -24,7 +24,7 @@ _Member _$MemberFromJson(Map<String, dynamic> json) => _Member(
   pluralkitUuid: json['pluralkitUuid'] as String?,
   pluralkitId: json['pluralkitId'] as String?,
   pluralkitDisplayName: json['pluralkitDisplayName'] as String?,
-  markdownEnabled: json['markdownEnabled'] as bool? ?? false,
+  markdownEnabled: json['markdownEnabled'] as bool? ?? true,
   displayName: json['displayName'] as String?,
   birthday: json['birthday'] as String?,
   proxyTagsJson: json['proxyTagsJson'] as String?,

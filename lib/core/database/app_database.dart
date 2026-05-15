@@ -98,7 +98,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 24;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -665,6 +665,14 @@ class AppDatabase extends _$AppDatabase {
           'WHERE theme_style = 2',
         );
         current = 23;
+      }
+      if (current == 23 && to >= 24) {
+        // Repair rows created by app paths that still used the old domain
+        // default after the DB column default moved to true.
+        await customStatement(
+          'UPDATE members SET markdown_enabled = 1 WHERE markdown_enabled = 0',
+        );
+        current = 24;
       }
       if (current != to) {
         throw UnsupportedError(
