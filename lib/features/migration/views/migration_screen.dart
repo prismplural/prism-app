@@ -54,6 +54,10 @@ class MigrationScreen extends ConsumerWidget {
               ? _ConnectedView(username: migration.spUsername!, ref: ref)
               : _LoadingView(message: context.l10n.migrationVerifyingToken),
         ImportState.fetching => _FetchingView(state: migration),
+        ImportState.encryptedChatsDetected => _EncryptedChatWarningView(
+          data: migration.exportData!,
+          ref: ref,
+        ),
         ImportState.previewing => _PreviewView(
           data: migration.exportData!,
           ref: ref,
@@ -626,6 +630,104 @@ class _FetchingView extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Encrypted chat warning
+// ---------------------------------------------------------------------------
+
+class _EncryptedChatWarningView extends StatelessWidget {
+  const _EncryptedChatWarningView({required this.data, required this.ref});
+
+  final SpExportData data;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final count = data.encryptedChatMessageCount;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Icon(
+          AppIcons.warningAmberRounded,
+          size: 48,
+          color: theme.colorScheme.error,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          context.l10n.migrationEncryptedChatsTitle,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          context.l10n.migrationEncryptedChatsDescription(count),
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 24),
+        PrismSurface(
+          fillColor: theme.colorScheme.errorContainer.withValues(alpha: 0.35),
+          borderColor: theme.colorScheme.error.withValues(alpha: 0.2),
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                AppIcons.infoOutline,
+                size: 20,
+                color: theme.colorScheme.error,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.l10n.migrationEncryptedChatsNote,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        PrismButton(
+          onPressed: () {
+            ref.read(importerProvider.notifier).skipEncryptedChatsAndPreview();
+          },
+          icon: AppIcons.skipNext,
+          label: context.l10n.migrationEncryptedChatsSkip,
+          tone: PrismButtonTone.filled,
+          expanded: true,
+        ),
+        const SizedBox(height: 8),
+        PrismButton(
+          onPressed: () {
+            ref.read(importerProvider.notifier).chooseFreshFileImport();
+          },
+          icon: AppIcons.fileUploadOutlined,
+          label: context.l10n.migrationEncryptedChatsFresh,
+          tone: PrismButtonTone.outlined,
+          expanded: true,
+        ),
+        const SizedBox(height: 8),
+        PrismButton(
+          onPressed: () {
+            ref.read(importerProvider.notifier).reset();
+          },
+          label: context.l10n.cancel,
+          tone: PrismButtonTone.outlined,
+          expanded: true,
+        ),
+      ],
     );
   }
 }

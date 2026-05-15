@@ -128,6 +128,14 @@ class ImporterNotifier extends Notifier<MigrationState> {
         return;
       }
 
+      if (exportData.hasEncryptedChatMessages) {
+        state = state.copyWith(
+          step: ImportState.encryptedChatsDetected,
+          exportData: exportData,
+        );
+        return;
+      }
+
       state = state.copyWith(
         step: ImportState.previewing,
         exportData: exportData,
@@ -164,6 +172,21 @@ class ImporterNotifier extends Notifier<MigrationState> {
 
   void clearAvatarZipFile() {
     state = state.copyWith(avatarZipPath: null);
+  }
+
+  void skipEncryptedChatsAndPreview() {
+    final data = state.exportData;
+    if (data == null) return;
+
+    state = state.copyWith(
+      step: ImportState.previewing,
+      exportData: data.withoutChat(),
+    );
+  }
+
+  Future<void> chooseFreshFileImport() async {
+    reset();
+    await selectAndParseFile();
   }
 
   // ---------------------------------------------------------------------------

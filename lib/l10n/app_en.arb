@@ -7518,6 +7518,21 @@
   "@migrationImportInfoNote": { "description": "Info note on the import preview step" },
   "migrationRemindersApiNote": "Reminders are not available via the API. To import reminders, use a file export instead.",
   "@migrationRemindersApiNote": { "description": "Note shown when the API cannot provide reminders" },
+  "migrationEncryptedChatsTitle": "Encrypted Simply Plural chats",
+  "@migrationEncryptedChatsTitle": { "description": "Title for the warning shown when an old Simply Plural file export contains encrypted chat messages" },
+  "migrationEncryptedChatsDescription": "{count, plural, =1{This JSON export has 1 encrypted chat message from an older Simply Plural export. Prism cannot decrypt it.} other{This JSON export has {count} encrypted chat messages from an older Simply Plural export. Prism cannot decrypt them.}}",
+  "@migrationEncryptedChatsDescription": {
+    "description": "Body text for the warning shown when an old Simply Plural file export contains encrypted chat messages",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "migrationEncryptedChatsNote": "Simply Plural fixed exports on March 8, 2026. A fresh export should include readable chat messages.",
+  "@migrationEncryptedChatsNote": { "description": "Help note explaining that newer Simply Plural exports should contain decrypted chat messages" },
+  "migrationEncryptedChatsSkip": "Skip chat",
+  "@migrationEncryptedChatsSkip": { "description": "Button label to continue importing Simply Plural data without chat channels or messages" },
+  "migrationEncryptedChatsFresh": "I'll get a fresh import",
+  "@migrationEncryptedChatsFresh": { "description": "Button label to reset and choose a newer Simply Plural export file" },
   "migrationImportAllAddToExisting": "Import All (add to existing)",
   "@migrationImportAllAddToExisting": { "description": "Button label when a previous import exists" },
   "migrationStartFresh": "Start Fresh (replace all data)",

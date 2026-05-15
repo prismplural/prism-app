@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+final _spBase64Pattern = RegExp(r'^[A-Za-z0-9+/]+={0,2}$');
+
 Map<String, String> extractSpCustomFieldValueKeyMap(dynamic rawFields) {
   if (rawFields is! Map) return const {};
 
@@ -34,6 +36,55 @@ Map<String, dynamic> normalizeSpMemberJsonInfoKeys(
   }
 
   return {...memberJson, 'info': normalizedInfo};
+}
+
+List<int>? _decodeStrictSpBase64(String value) {
+  if (value.isEmpty ||
+      value.trim() != value ||
+      value.length % 4 != 0 ||
+      !_spBase64Pattern.hasMatch(value)) {
+    return null;
+  }
+
+  final firstPadding = value.indexOf('=');
+  if (firstPadding != -1 && firstPadding < value.length - 2) {
+    return null;
+  }
+
+  try {
+    return base64Decode(value);
+  } on FormatException {
+    return null;
+  }
+}
+
+bool _looksLikePlainTextBytes(List<int> bytes) {
+  try {
+    final decoded = utf8.decode(bytes, allowMalformed: false);
+    if (decoded.isEmpty) return false;
+    final runes = decoded.runes.toList();
+    final printable = runes.where((rune) {
+      return rune == 0x09 ||
+          rune == 0x0A ||
+          rune == 0x0D ||
+          (rune >= 0x20 && rune != 0x7F);
+    }).length;
+    return printable / runes.length >= 0.85;
+  } on FormatException {
+    return false;
+  }
+}
+
+bool _looksLikeEncryptedSpMessage(String content, dynamic rawIv) {
+  if (rawIv == null) return false;
+  final iv = rawIv.toString();
+  final ivBytes = _decodeStrictSpBase64(iv);
+  if (ivBytes == null || ivBytes.length != 16) return false;
+
+  final contentBytes = _decodeStrictSpBase64(content);
+  if (contentBytes == null || contentBytes.isEmpty) return false;
+
+  return !_looksLikePlainTextBytes(contentBytes);
 }
 
 /// Parsed Simply Plural export data.
@@ -97,6 +148,35 @@ class SpExportData {
       repeatedTimers.length;
 
   bool get isEmpty => totalEntities == 0;
+
+  int get encryptedChatMessageCount =>
+      messages.where((message) => message.looksEncrypted).length;
+
+  bool get hasEncryptedChatMessages => encryptedChatMessageCount > 0;
+
+  SpExportData withoutChat() {
+    return SpExportData(
+      members: members,
+      customFronts: customFronts,
+      frontHistory: frontHistory,
+      groups: groups,
+      channels: const [],
+      channelCategories: const [],
+      messages: const [],
+      polls: polls,
+      notes: notes,
+      comments: comments,
+      customFields: customFields,
+      boardMessages: boardMessages,
+      automatedTimers: automatedTimers,
+      repeatedTimers: repeatedTimers,
+      systemName: systemName,
+      systemColor: systemColor,
+      systemDescription: systemDescription,
+      systemId: systemId,
+      systemAvatarUrl: systemAvatarUrl,
+    );
+  }
 }
 
 /// SP member structure.
@@ -352,6 +432,9 @@ class SpMessage {
   /// Last-edit timestamp. Null if the message was never edited.
   final DateTime? updatedAt;
 
+  /// True when an SP file export appears to still contain encrypted ciphertext.
+  final bool looksEncrypted;
+
   const SpMessage({
     required this.id,
     required this.channelId,
@@ -360,6 +443,7 @@ class SpMessage {
     required this.timestamp,
     this.replyTo,
     this.updatedAt,
+    this.looksEncrypted = false,
   });
 
   factory SpMessage.fromJson(Map<String, dynamic> json, String channelId) {
@@ -389,6 +473,7 @@ class SpMessage {
     }
 
     final replyTo = json['replyTo'] as String?;
+    final content = (json['message'] ?? json['content'] ?? '').toString();
 
     return SpMessage(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
@@ -397,13 +482,14 @@ class SpMessage {
           json['sender']?.toString() ??
           json['writer']?.toString() ??
           json['member']?.toString(),
-      content: (json['message'] ?? json['content'] ?? '').toString(),
+      content: content,
       timestamp: parseTime(
         json['timestamp'] ?? json['writtenAt'] ?? json['createdAt'],
       ),
       // Only store replyTo if it's a non-empty string (SP uses "" to mean no reply).
       replyTo: (replyTo != null && replyTo.isNotEmpty) ? replyTo : null,
       updatedAt: parseOptionalTime(json['updatedAt'] ?? json['lastUpdated']),
+      looksEncrypted: _looksLikeEncryptedSpMessage(content, json['iv']),
     );
   }
 }

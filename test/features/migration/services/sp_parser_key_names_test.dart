@@ -58,6 +58,78 @@ void main() {
       expect(data.messages.first.senderId, 'mem1');
     });
 
+    test('detects old encrypted chat blobs and can drop chat data', () {
+      final json = jsonEncode({
+        'members': [
+          {'_id': 'mem1', 'name': 'Alice'},
+        ],
+        'frontHistory': [],
+        'channelCategories': [
+          {
+            '_id': 'cat1',
+            'name': 'General',
+            'channels': ['ch1'],
+          },
+        ],
+        'channels': [
+          {'_id': 'ch1', 'name': 'General'},
+        ],
+        'chatMessages': [
+          {
+            '_id': 'msg1',
+            'message': 'rR9y0tk=',
+            'iv': 'YWJjZGVmZ2hpamtsbW5vcA==',
+            'channel': 'ch1',
+            'writer': 'mem1',
+            'writtenAt': 1774242087364,
+          },
+        ],
+      });
+
+      final data = SpParser.parse(json);
+      expect(data.hasEncryptedChatMessages, isTrue);
+      expect(data.encryptedChatMessageCount, 1);
+      expect(data.messages.single.looksEncrypted, isTrue);
+
+      final withoutChat = data.withoutChat();
+      expect(withoutChat.members, hasLength(1));
+      expect(withoutChat.channels, isEmpty);
+      expect(withoutChat.channelCategories, isEmpty);
+      expect(withoutChat.messages, isEmpty);
+      expect(withoutChat.hasEncryptedChatMessages, isFalse);
+    });
+
+    test(
+      'does not flag current plaintext chat exports that still include iv',
+      () {
+        final json = jsonEncode({
+          'members': [],
+          'frontHistory': [],
+          'channels': [
+            {'_id': 'ch1', 'name': 'General'},
+          ],
+          'chatMessages': [
+            {
+              '_id': 'msg1',
+              'message': 'Readable Simply Plural export text',
+              'iv': 'YWJjZGVmZ2hpamtsbW5vcA==',
+              'channel': 'ch1',
+              'writer': 'mem1',
+              'writtenAt': 1774242087364,
+            },
+          ],
+        });
+
+        final data = SpParser.parse(json);
+        expect(data.hasEncryptedChatMessages, isFalse);
+        expect(data.messages.single.looksEncrypted, isFalse);
+        expect(
+          data.messages.single.content,
+          'Readable Simply Plural export text',
+        );
+      },
+    );
+
     test('parses chat messages from messages map (backward compat)', () {
       final json = jsonEncode({
         'members': [],

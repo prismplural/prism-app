@@ -694,6 +694,68 @@ void main() {
     );
 
     test(
+      'legacy encrypted SP chat rows are skipped while decrypted rows with iv import',
+      () async {
+        final repos = _makeFakeRepos();
+        final importer = SpImporter(httpClient: _FakeHttpClient());
+
+        final data = SpExportData(
+          members: const [SpMember(id: 'sp-a', name: 'Alice')],
+          customFronts: const [],
+          frontHistory: const [],
+          groups: const [],
+          channels: const [SpChannel(id: 'ch-1', name: 'General')],
+          messages: [
+            SpMessage.fromJson(const {
+              '_id': 'msg-plaintext',
+              'channel': 'ch-1',
+              'writer': 'sp-a',
+              'message': 'Plaintext from a current Simply Plural export',
+              'iv': 'YWJjZGVmZ2hpamtsbW5vcA==',
+              'writtenAt': 1735689600000,
+            }, 'ch-1'),
+            SpMessage.fromJson(const {
+              '_id': 'msg-encrypted',
+              'channel': 'ch-1',
+              'writer': 'sp-a',
+              'message': 'rR9y0tk=',
+              'iv': 'YWJjZGVmZ2hpamtsbW5vcA==',
+              'writtenAt': 1735689660000,
+            }, 'ch-1'),
+          ],
+          polls: const [],
+        );
+
+        expect(data.messages.first.looksEncrypted, isFalse);
+        expect(data.messages.last.looksEncrypted, isTrue);
+
+        final result = await importer.executeImport(
+          db: _makeDb(),
+          data: data,
+          memberRepo: repos.memberRepo,
+          sessionRepo: repos.sessionRepo,
+          conversationRepo: repos.conversationRepo,
+          messageRepo: repos.messageRepo,
+          pollRepo: repos.pollRepo,
+          downloadAvatars: false,
+        );
+
+        expect(result.messagesImported, 1);
+        expect(repos.messageRepo.messages, hasLength(1));
+        expect(
+          repos.messageRepo.messages.single.content,
+          'Plaintext from a current Simply Plural export',
+        );
+        expect(
+          result.warnings.any(
+            (w) => w.toLowerCase().contains('encrypted') && w.contains('1'),
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test(
       'SP member with matching PluralKit short ID reuses existing local member',
       () async {
         final db = _makeDb();
@@ -1984,5 +2046,4 @@ void main() {
       },
     );
   });
-
 }

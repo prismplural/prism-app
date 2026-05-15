@@ -39,6 +39,7 @@ enum ImportState {
   parsing,
   verifying,
   fetching,
+  encryptedChatsDetected,
   previewing,
   matchMembers,
   chooseDispositions,

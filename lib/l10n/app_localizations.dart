@@ -9558,6 +9558,36 @@ abstract class AppLocalizations {
   /// **'Reminders are not available via the API. To import reminders, use a file export instead.'**
   String get migrationRemindersApiNote;
 
+  /// Title for the warning shown when an old Simply Plural file export contains encrypted chat messages
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted Simply Plural chats'**
+  String get migrationEncryptedChatsTitle;
+
+  /// Body text for the warning shown when an old Simply Plural file export contains encrypted chat messages
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{This JSON export has 1 encrypted chat message from an older Simply Plural export. Prism cannot decrypt it.} other{This JSON export has {count} encrypted chat messages from an older Simply Plural export. Prism cannot decrypt them.}}'**
+  String migrationEncryptedChatsDescription(int count);
+
+  /// Help note explaining that newer Simply Plural exports should contain decrypted chat messages
+  ///
+  /// In en, this message translates to:
+  /// **'Simply Plural fixed exports on March 8, 2026. A fresh export should include readable chat messages.'**
+  String get migrationEncryptedChatsNote;
+
+  /// Button label to continue importing Simply Plural data without chat channels or messages
+  ///
+  /// In en, this message translates to:
+  /// **'Skip chat'**
+  String get migrationEncryptedChatsSkip;
+
+  /// Button label to reset and choose a newer Simply Plural export file
+  ///
+  /// In en, this message translates to:
+  /// **'I\'ll get a fresh import'**
+  String get migrationEncryptedChatsFresh;
+
   /// Button label when a previous import exists
   ///
   /// In en, this message translates to:

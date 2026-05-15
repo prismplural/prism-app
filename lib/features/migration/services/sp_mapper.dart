@@ -893,12 +893,18 @@ class SpMapper {
     final prismIdToMappedMessage = <String, domain.ChatMessage>{};
     final prismIdToSpReplyTo = <String, String?>{};
     final mapped = <domain.ChatMessage>[];
+    var encryptedMessageCount = 0;
 
     for (final msg in spMessages) {
       // Resolve conversation ID.
       final conversationId = _channelIdMap[msg.channelId];
       if (conversationId == null) {
         // Skip messages for unknown channels.
+        continue;
+      }
+
+      if (msg.looksEncrypted) {
+        encryptedMessageCount++;
         continue;
       }
 
@@ -952,6 +958,15 @@ class SpMapper {
         replyToContent: replyMessage.content,
       );
     }).toList();
+
+    if (encryptedMessageCount > 0) {
+      warnings.add(
+        'Skipped $encryptedMessageCount Simply Plural chat message(s) that '
+        'appear to still be encrypted in the export. Request a fresh Simply '
+        'Plural export or import through the API to include readable chat '
+        'content.',
+      );
+    }
 
     // Update conversation lastActivityAt based on latest message.
     // This is handled by the importer when inserting.

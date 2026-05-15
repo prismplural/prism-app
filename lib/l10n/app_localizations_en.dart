@@ -5602,6 +5602,32 @@ class AppLocalizationsEn extends AppLocalizations {
       'Reminders are not available via the API. To import reminders, use a file export instead.';
 
   @override
+  String get migrationEncryptedChatsTitle => 'Encrypted Simply Plural chats';
+
+  @override
+  String migrationEncryptedChatsDescription(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'This JSON export has $count encrypted chat messages from an older Simply Plural export. Prism cannot decrypt them.',
+      one:
+          'This JSON export has 1 encrypted chat message from an older Simply Plural export. Prism cannot decrypt it.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get migrationEncryptedChatsNote =>
+      'Simply Plural fixed exports on March 8, 2026. A fresh export should include readable chat messages.';
+
+  @override
+  String get migrationEncryptedChatsSkip => 'Skip chat';
+
+  @override
+  String get migrationEncryptedChatsFresh => 'I\'ll get a fresh import';
+
+  @override
   String get migrationImportAllAddToExisting => 'Import All (add to existing)';
 
   @override
