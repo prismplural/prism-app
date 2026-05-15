@@ -3939,9 +3939,43 @@
   "@groupSortSectionSortBy": {
     "description": "Section header in the group detail options dropdown for locked-sort modes"
   },
-  "groupSortSectionApplyCurrent": "Apply current order",
+  "groupSortScopeTitle": "Sort groups",
+  "@groupSortScopeTitle": {
+    "description": "Dialog title when choosing whether to sort only top-level groups or all group levels"
+  },
+  "groupSortScopeMessage": "Apply this order to top-level groups only, or to each sub-group level too?",
+  "@groupSortScopeMessage": {
+    "description": "Dialog message explaining the scope choice for one-shot group sorting"
+  },
+  "groupSortScopeTopLevel": "Top-level groups only",
+  "@groupSortScopeTopLevel": {
+    "description": "Dialog action that applies group sorting only to root-level groups"
+  },
+  "groupSortScopeAllLevels": "Groups and sub-groups",
+  "@groupSortScopeAllLevels": {
+    "description": "Dialog action that applies group sorting to every sortable group level"
+  },
+  "groupSortMembersAction": "Sort {termPlural}",
+  "@groupSortMembersAction": {
+    "description": "Menu item and dialog title for sorting members within a group",
+    "placeholders": {
+      "termPlural": {
+        "type": "String",
+        "example": "Headmates"
+      }
+    }
+  },
+  "groupSortSubGroupsAction": "Sort sub-groups",
+  "@groupSortSubGroupsAction": {
+    "description": "Menu item and dialog title for sorting immediate child groups"
+  },
+  "groupSortSectionKeepSorted": "Keep sorted by",
+  "@groupSortSectionKeepSorted": {
+    "description": "Section header for persistent group member sort modes"
+  },
+  "groupSortSectionApplyCurrent": "Arrange once",
   "@groupSortSectionApplyCurrent": {
-    "description": "Section header in the group detail options dropdown for one-shot order snapshot actions"
+    "description": "Section header for one-time group member ordering actions"
   },
   "groupSortItemNameAsc": "Name A-Z",
   "@groupSortItemNameAsc": {
@@ -3959,13 +3993,13 @@
   "@groupSortItemManual": {
     "description": "Dropdown item: switch the group back to manual drag-reorder mode"
   },
-  "groupSortItemFrontingMost": "Apply most-fronting order",
+  "groupSortItemFrontingMost": "Most-fronting first",
   "@groupSortItemFrontingMost": {
-    "description": "Dropdown item: take a one-shot snapshot ordered by total fronting time (most first)"
+    "description": "Dialog item: take a one-shot snapshot ordered by total fronting time, most first"
   },
-  "groupSortItemFrontingLeast": "Apply least-fronting order",
+  "groupSortItemFrontingLeast": "Least-fronting first",
   "@groupSortItemFrontingLeast": {
-    "description": "Dropdown item: take a one-shot snapshot ordered by total fronting time (least first)"
+    "description": "Dialog item: take a one-shot snapshot ordered by total fronting time, least first"
   },
   "groupSortSwitchedToManual": "Switched to manual sort.",
   "@groupSortSwitchedToManual": {

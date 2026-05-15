@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/group_section_header.dart';
@@ -27,6 +28,8 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
+enum _GroupSortScope { topLevelOnly, allLevels }
+
 /// Screen listing all member groups with reordering support.
 class GroupsScreen extends ConsumerStatefulWidget {
   const GroupsScreen({super.key, this.showBackButton = true});
@@ -39,6 +42,7 @@ class GroupsScreen extends ConsumerStatefulWidget {
 
 class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   final GlobalKey<BlurPopupAnchorState> _optionsPopupKey = GlobalKey();
+  List<MemberGroup>? _optimisticGroups;
 
   /// Path of the current location, used to derive which navigation branch
   /// this screen is rendering in (settings, members, or groups tab).
@@ -99,9 +103,21 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final counts = ref.watch(groupMemberCountsProvider);
-    final flatItems = ref.watch(flatGroupListProvider);
+    final providerFlatItems = ref.watch(flatGroupListProvider);
+    final providerGroups = [for (final item in providerFlatItems) item.group];
+    final optimisticGroups = _optimisticGroups;
+    final flatItems = optimisticGroups == null
+        ? providerFlatItems
+        : _flattenGroups(optimisticGroups);
+    if (optimisticGroups != null &&
+        _sameGroupDisplayOrders(providerGroups, optimisticGroups)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && identical(_optimisticGroups, optimisticGroups)) {
+          setState(() => _optimisticGroups = null);
+        }
+      });
+    }
     final groups = [for (final item in flatItems) item.group];
-    final canSortGroups = _hasSortableSiblings(groups);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -113,7 +129,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
             tooltip: l10n.memberNewGroupTooltip,
             onPressed: _openCreateSheet,
           ),
-          if (canSortGroups) _buildOptionsMenuAction(groups),
+          if (groups.isNotEmpty) _buildOptionsMenuAction(groups),
         ],
       ),
       bodyPadding: EdgeInsets.zero,
@@ -130,38 +146,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           : ReorderableListView.builder(
               padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
               itemCount: flatItems.length,
-              onReorder: (oldIndex, newIndex) {
-                if (newIndex > oldIndex) newIndex--;
-                final entry = flatItems[oldIndex];
-                final targetEntry = flatItems[newIndex];
-
-                // Only reorder within same parent (same-level siblings).
-                if (entry.group.parentGroupId !=
-                    targetEntry.group.parentGroupId) {
-                  return;
-                }
-
-                final parentGroupId = entry.group.parentGroupId;
-                final siblings = flatItems
-                    .where((e) => e.group.parentGroupId == parentGroupId)
-                    .map((e) => e.group)
-                    .toList();
-
-                final oldSiblingIndex = siblings.indexOf(entry.group);
-                // Compute newSiblingIndex relative to the siblings list.
-                final targetSiblingIndex = siblings.indexOf(targetEntry.group);
-                final newSiblingIndex = targetSiblingIndex;
-
-                if (oldSiblingIndex == newSiblingIndex) return;
-
-                final reordered = List<MemberGroup>.from(siblings);
-                final item = reordered.removeAt(oldSiblingIndex);
-                reordered.insert(newSiblingIndex, item);
-                ref
-                    .read(groupNotifierProvider.notifier)
-                    .reorderGroups(reordered);
-                Haptics.selection();
-              },
+              onReorder: (oldIndex, newIndex) =>
+                  _onReorder(flatItems, oldIndex, newIndex),
               proxyDecorator: (child, index, animation) {
                 return AnimatedBuilder(
                   animation: animation,
@@ -191,8 +177,144 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     );
   }
 
+  void _onReorder(
+    List<({MemberGroup group, int depth})> flatItems,
+    int oldIndex,
+    int newIndex,
+  ) {
+    final reordered = _reorderedSiblingsForDrop(flatItems, oldIndex, newIndex);
+    if (reordered == null) return;
+
+    final allGroups = [for (final item in flatItems) item.group];
+    setState(() {
+      _optimisticGroups = _groupsWithSiblingDisplayOrder(allGroups, reordered);
+    });
+    unawaited(
+      ref.read(groupNotifierProvider.notifier).reorderGroups(reordered),
+    );
+    Haptics.selection();
+  }
+
+  List<MemberGroup>? _reorderedSiblingsForDrop(
+    List<({MemberGroup group, int depth})> flatItems,
+    int oldIndex,
+    int rawNewIndex,
+  ) {
+    if (oldIndex < 0 || oldIndex >= flatItems.length) return null;
+
+    final dragged = flatItems[oldIndex].group;
+    final parentGroupId = dragged.parentGroupId;
+    final withoutDragged = List<({MemberGroup group, int depth})>.from(
+      flatItems,
+    )..removeAt(oldIndex);
+    final insertionSlot =
+        (rawNewIndex > oldIndex ? rawNewIndex - 1 : rawNewIndex)
+            .clamp(0, withoutDragged.length)
+            .toInt();
+
+    if (!_isDropSlotInsideParentScope(
+      withoutDragged,
+      parentGroupId,
+      insertionSlot,
+    )) {
+      return null;
+    }
+
+    final siblings = [
+      for (final item in flatItems)
+        if (item.group.parentGroupId == parentGroupId) item.group,
+    ];
+    final oldSiblingIndex = siblings.indexWhere((g) => g.id == dragged.id);
+    if (oldSiblingIndex == -1) return null;
+
+    final siblingsWithoutDragged = List<MemberGroup>.from(siblings)
+      ..removeAt(oldSiblingIndex);
+    final newSiblingIndex = withoutDragged
+        .take(insertionSlot)
+        .where((item) => item.group.parentGroupId == parentGroupId)
+        .length
+        .clamp(0, siblingsWithoutDragged.length)
+        .toInt();
+
+    final reordered = List<MemberGroup>.from(siblingsWithoutDragged)
+      ..insert(newSiblingIndex, dragged);
+    final before = siblings.map((g) => g.id).join('\u0000');
+    final after = reordered.map((g) => g.id).join('\u0000');
+    if (before == after) return null;
+    return reordered;
+  }
+
+  bool _isDropSlotInsideParentScope(
+    List<({MemberGroup group, int depth})> flatItems,
+    String? parentGroupId,
+    int insertionSlot,
+  ) {
+    if (parentGroupId == null) return true;
+
+    final parentIndex = flatItems.indexWhere(
+      (item) => item.group.id == parentGroupId,
+    );
+    if (parentIndex == -1) return false;
+
+    final parentDepth = flatItems[parentIndex].depth;
+    var subtreeEnd = parentIndex + 1;
+    while (subtreeEnd < flatItems.length &&
+        flatItems[subtreeEnd].depth > parentDepth) {
+      subtreeEnd++;
+    }
+
+    return insertionSlot > parentIndex && insertionSlot <= subtreeEnd;
+  }
+
+  List<MemberGroup> _groupsWithSiblingDisplayOrder(
+    List<MemberGroup> allGroups,
+    List<MemberGroup> reorderedSiblings,
+  ) {
+    final displayOrders = <String, int>{
+      for (var i = 0; i < reorderedSiblings.length; i++)
+        reorderedSiblings[i].id: i,
+    };
+    return [
+      for (final group in allGroups)
+        if (displayOrders.containsKey(group.id))
+          group.copyWith(displayOrder: displayOrders[group.id]!)
+        else
+          group,
+    ];
+  }
+
+  List<({MemberGroup group, int depth})> _flattenGroups(
+    List<MemberGroup> groups,
+  ) {
+    final ordered = List<MemberGroup>.from(groups)
+      ..sort((a, b) {
+        final order = a.displayOrder.compareTo(b.displayOrder);
+        if (order != 0) return order;
+        return a.id.compareTo(b.id);
+      });
+    return GroupTreeUtils.flattenTree(
+      GroupTreeUtils.buildGroupTree(GroupTreeUtils.resolveSyncCycles(ordered)),
+    );
+  }
+
+  bool _sameGroupDisplayOrders(
+    List<MemberGroup> providerGroups,
+    List<MemberGroup> optimisticGroups,
+  ) {
+    if (providerGroups.length != optimisticGroups.length) return false;
+    final providerById = {for (final group in providerGroups) group.id: group};
+    for (final optimistic in optimisticGroups) {
+      final provider = providerById[optimistic.id];
+      if (provider == null) return false;
+      if (provider.parentGroupId != optimistic.parentGroupId) return false;
+      if (provider.displayOrder != optimistic.displayOrder) return false;
+    }
+    return true;
+  }
+
   Widget _buildOptionsMenuAction(List<MemberGroup> groups) {
     final l10n = context.l10n;
+    final canApplySort = _hasSortableSiblings(groups);
     final entries = <Widget Function(BuildContext, VoidCallback)>[
       (ctx, _) {
         final theme = Theme.of(ctx);
@@ -211,6 +333,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         context: ctx,
         icon: AppIcons.arrowUpward,
         label: ctx.l10n.memberSortNameAZ,
+        enabled: canApplySort,
         onTap: () {
           close();
           unawaited(
@@ -225,6 +348,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         context: ctx,
         icon: AppIcons.arrowDownward,
         label: ctx.l10n.memberSortNameZA,
+        enabled: canApplySort,
         onTap: () {
           close();
           unawaited(
@@ -239,6 +363,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         context: ctx,
         icon: AppIcons.history,
         label: ctx.l10n.memberSortRecentlyCreated,
+        enabled: canApplySort,
         onTap: () {
           close();
           unawaited(
@@ -256,8 +381,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       key: _optionsPopupKey,
       trigger: BlurPopupTrigger.manual,
       preferredDirection: BlurPopupDirection.down,
-      width: 260,
-      maxHeight: 320,
+      width: 240,
+      maxHeight: MediaQuery.sizeOf(context).height - 24,
       itemCount: entries.length,
       semanticLabel: l10n.moreOptions,
       itemBuilder: (ctx, index, close) => entries[index](ctx, close),
@@ -274,14 +399,20 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    bool enabled = true,
   }) {
     final theme = Theme.of(context);
     return PrismListRow(
       dense: true,
+      enabled: enabled,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      leading: Icon(icon, size: 20),
+      leading: Icon(
+        icon,
+        size: 20,
+        color: enabled ? null : theme.disabledColor,
+      ),
       title: Text(label, style: theme.textTheme.bodyMedium),
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
     );
   }
 
@@ -305,13 +436,20 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     List<MemberGroup> groups,
     int Function(MemberGroup a, MemberGroup b) compare,
   ) async {
+    final scope = await _resolveGroupSortScope(groups);
+    if (scope == null) return;
+
     final byParent = <String?, List<MemberGroup>>{};
     for (final group in groups) {
       byParent.putIfAbsent(group.parentGroupId, () => []).add(group);
     }
 
     final notifier = ref.read(groupNotifierProvider.notifier);
-    for (final siblings in byParent.values) {
+    for (final entry in byParent.entries) {
+      if (scope == _GroupSortScope.topLevelOnly && entry.key != null) {
+        continue;
+      }
+      final siblings = entry.value;
       if (siblings.length < 2) continue;
       final sorted = [...siblings]..sort(compare);
       await notifier.reorderGroups(sorted);
@@ -320,5 +458,59 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     Haptics.selection();
     if (!mounted) return;
     PrismToast.show(context, message: context.l10n.memberOrderUpdated);
+  }
+
+  Future<_GroupSortScope?> _resolveGroupSortScope(
+    List<MemberGroup> groups,
+  ) async {
+    final hasSortableTopLevel =
+        groups.where((group) => group.parentGroupId == null).length > 1;
+    final hasSortableSubGroups = _hasSortableSubGroupSiblings(groups);
+    if (!hasSortableTopLevel && !hasSortableSubGroups) return null;
+    if (!hasSortableTopLevel || !hasSortableSubGroups) {
+      return _GroupSortScope.allLevels;
+    }
+
+    await Future<void>.delayed(const Duration(milliseconds: 160));
+    if (!mounted) return null;
+
+    return PrismDialog.show<_GroupSortScope>(
+      context: context,
+      title: context.l10n.groupSortScopeTitle,
+      message: context.l10n.groupSortScopeMessage,
+      builder: (dialogContext) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PrismListRow(
+              dense: true,
+              leading: Icon(AppIcons.folderOutlined, size: 20),
+              title: Text(dialogContext.l10n.groupSortScopeTopLevel),
+              onTap: () =>
+                  Navigator.of(dialogContext).pop(_GroupSortScope.topLevelOnly),
+            ),
+            PrismListRow(
+              dense: true,
+              leading: Icon(AppIcons.folderOutlined, size: 20),
+              title: Text(dialogContext.l10n.groupSortScopeAllLevels),
+              onTap: () =>
+                  Navigator.of(dialogContext).pop(_GroupSortScope.allLevels),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  bool _hasSortableSubGroupSiblings(List<MemberGroup> groups) {
+    final counts = <String, int>{};
+    for (final group in groups) {
+      final parentId = group.parentGroupId;
+      if (parentId == null) continue;
+      final count = (counts[parentId] ?? 0) + 1;
+      if (count > 1) return true;
+      counts[parentId] = count;
+    }
+    return false;
   }
 }

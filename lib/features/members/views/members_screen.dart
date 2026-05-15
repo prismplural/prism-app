@@ -112,21 +112,14 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               : null,
         );
       },
-      (_, _) => const Divider(height: 1),
       (ctx, close) {
         final theme = Theme.of(ctx);
-        final ctxL10n = ctx.l10n;
         return PrismListRow(
           dense: true,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          leading: Icon(
-            _showInactive ? AppIcons.visibility : AppIcons.visibilityOutlined,
-            size: 20,
-          ),
+          leading: Icon(AppIcons.visibilityOutlined, size: 20),
           title: Text(
-            _showInactive
-                ? ctxL10n.memberHideInactive
-                : ctxL10n.memberShowInactive,
+            ctx.l10n.memberShowInactive,
             style: theme.textTheme.bodyMedium,
           ),
           trailing: _showInactive
@@ -135,13 +128,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           onTap: () {
             close();
             setState(() => _showInactive = !_showInactive);
-            ref
-                .read(showInactiveMembersProvider.notifier)
-                .set(_showInactive);
+            ref.read(showInactiveMembersProvider.notifier).set(_showInactive);
           },
         );
       },
-      (_, _) => const Divider(height: 1),
       (ctx, close) {
         final theme = Theme.of(ctx);
         return PrismListRow(
@@ -162,7 +152,6 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
 
     if (availableMembers.length > 1) {
       entries.addAll([
-        (_, _) => const Divider(height: 1),
         (ctx, _) {
           final theme = Theme.of(ctx);
           return Padding(
@@ -237,7 +226,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       key: _optionsPopupKey,
       trigger: BlurPopupTrigger.manual,
       preferredDirection: BlurPopupDirection.down,
-      width: 260,
+      width: 240,
       maxHeight: 384,
       itemCount: entries.length,
       semanticLabel: l10n.options,
@@ -663,7 +652,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   onToggle: () => ref
                       .read(collapsedGroupsProvider.notifier)
                       .toggle(item.group.id),
-                  hasDeeperDescendants: item.depth >= kSectionsVisualDepthCap &&
+                  hasDeeperDescendants:
+                      item.depth >= kSectionsVisualDepthCap &&
                       (tree[item.group.id]?.isNotEmpty ?? false),
                   onOpenDetail: () =>
                       context.push(_groupPath(context, item.group.id)),
@@ -697,7 +687,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               }
               if (item is MemberRowItem) {
                 final isFronting = frontingIds.contains(item.member.id);
-                final indent = item.depth.clamp(0, kSectionsVisualDepthCap) * 8.0;
+                final indent =
+                    item.depth.clamp(0, kSectionsVisualDepthCap) * 8.0;
                 return Padding(
                   padding: EdgeInsets.only(left: indent),
                   child: _buildMemberTile(item.member, isFronting),

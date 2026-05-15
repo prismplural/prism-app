@@ -5056,10 +5056,52 @@ abstract class AppLocalizations {
   /// **'Sort by'**
   String get groupSortSectionSortBy;
 
-  /// Section header in the group detail options dropdown for one-shot order snapshot actions
+  /// Dialog title when choosing whether to sort only top-level groups or all group levels
   ///
   /// In en, this message translates to:
-  /// **'Apply current order'**
+  /// **'Sort groups'**
+  String get groupSortScopeTitle;
+
+  /// Dialog message explaining the scope choice for one-shot group sorting
+  ///
+  /// In en, this message translates to:
+  /// **'Apply this order to top-level groups only, or to each sub-group level too?'**
+  String get groupSortScopeMessage;
+
+  /// Dialog action that applies group sorting only to root-level groups
+  ///
+  /// In en, this message translates to:
+  /// **'Top-level groups only'**
+  String get groupSortScopeTopLevel;
+
+  /// Dialog action that applies group sorting to every sortable group level
+  ///
+  /// In en, this message translates to:
+  /// **'Groups and sub-groups'**
+  String get groupSortScopeAllLevels;
+
+  /// Menu item and dialog title for sorting members within a group
+  ///
+  /// In en, this message translates to:
+  /// **'Sort {termPlural}'**
+  String groupSortMembersAction(String termPlural);
+
+  /// Menu item and dialog title for sorting immediate child groups
+  ///
+  /// In en, this message translates to:
+  /// **'Sort sub-groups'**
+  String get groupSortSubGroupsAction;
+
+  /// Section header for persistent group member sort modes
+  ///
+  /// In en, this message translates to:
+  /// **'Keep sorted by'**
+  String get groupSortSectionKeepSorted;
+
+  /// Section header for one-time group member ordering actions
+  ///
+  /// In en, this message translates to:
+  /// **'Arrange once'**
   String get groupSortSectionApplyCurrent;
 
   /// Dropdown item: lock the group to sort members A-Z by name
@@ -5086,16 +5128,16 @@ abstract class AppLocalizations {
   /// **'Sort manually'**
   String get groupSortItemManual;
 
-  /// Dropdown item: take a one-shot snapshot ordered by total fronting time (most first)
+  /// Dialog item: take a one-shot snapshot ordered by total fronting time, most first
   ///
   /// In en, this message translates to:
-  /// **'Apply most-fronting order'**
+  /// **'Most-fronting first'**
   String get groupSortItemFrontingMost;
 
-  /// Dropdown item: take a one-shot snapshot ordered by total fronting time (least first)
+  /// Dialog item: take a one-shot snapshot ordered by total fronting time, least first
   ///
   /// In en, this message translates to:
-  /// **'Apply least-fronting order'**
+  /// **'Least-fronting first'**
   String get groupSortItemFrontingLeast;
 
   /// Toast shown when a drag implicitly unlocks the group from a sorted mode

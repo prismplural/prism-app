@@ -160,6 +160,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     final allGroups =
         allGroupsAsync.whenOrNull(data: (g) => g) ?? const <MemberGroup>[];
     final ancestors = _resolveAncestors(group, allGroups);
+    final subGroups = ref.watch(childGroupsProvider(group.id));
     final entries = entriesAsync.whenOrNull(data: (entries) => entries);
     final hasMembers = entries?.isNotEmpty ?? false;
 
@@ -195,6 +196,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
             visibleMembers: visibleMembers,
             terms: terms,
             groupEntries: entries ?? const <MemberGroupEntry>[],
+            subGroups: subGroups,
             hasMembers: hasMembers,
             canAddSubGroup: canAddSubGroup,
           ),
@@ -475,6 +477,164 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     await _applyManualOrder(newOrder, wasManual: group.sortState.isManual);
   }
 
+  Future<void> _sortSubGroupsBy(
+    List<MemberGroup> subGroups,
+    int Function(MemberGroup a, MemberGroup b) compare,
+  ) async {
+    final sorted = [...subGroups]..sort(compare);
+    await ref.read(groupNotifierProvider.notifier).reorderGroups(sorted);
+    Haptics.selection();
+    if (!mounted) return;
+    PrismToast.show(context, message: context.l10n.memberOrderUpdated);
+  }
+
+  Future<void> _openMemberSortDialog({
+    required List<(MemberGroupEntry, Member)> visiblePairs,
+    required Terminology terms,
+    required GroupSortMode currentMode,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 160));
+    if (!mounted) return;
+
+    await PrismDialog.show<void>(
+      context: context,
+      title: context.l10n.groupSortMembersAction(terms.plural),
+      builder: (dialogContext) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _sectionHeader(
+              dialogContext,
+              dialogContext.l10n.groupSortSectionKeepSorted,
+            ),
+            _sortDialogRow(
+              context: dialogContext,
+              icon: AppIcons.arrowUpward,
+              label: dialogContext.l10n.groupSortItemNameAsc,
+              isActive: currentMode == GroupSortMode.nameAsc,
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(_setSortMode(GroupSortMode.nameAsc));
+              },
+            ),
+            _sortDialogRow(
+              context: dialogContext,
+              icon: AppIcons.arrowDownward,
+              label: dialogContext.l10n.groupSortItemNameDesc,
+              isActive: currentMode == GroupSortMode.nameDesc,
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(_setSortMode(GroupSortMode.nameDesc));
+              },
+            ),
+            _sortDialogRow(
+              context: dialogContext,
+              icon: AppIcons.history,
+              label: dialogContext.l10n.groupSortItemRecentDesc,
+              isActive: currentMode == GroupSortMode.recentDesc,
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(_setSortMode(GroupSortMode.recentDesc));
+              },
+            ),
+            _sortDialogRow(
+              context: dialogContext,
+              icon: AppIcons.dragHandle,
+              label: dialogContext.l10n.groupSortItemManual,
+              isActive: currentMode == GroupSortMode.manual,
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(_sortManuallyFromCurrent(visiblePairs));
+              },
+            ),
+            _sectionHeader(
+              dialogContext,
+              dialogContext.l10n.groupSortSectionApplyCurrent,
+            ),
+            _sortDialogRow(
+              context: dialogContext,
+              icon: AppIcons.flashOn,
+              label: dialogContext.l10n.groupSortItemFrontingMost,
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(_applyFrontingOrder(visiblePairs, descending: true));
+              },
+            ),
+            _sortDialogRow(
+              context: dialogContext,
+              icon: AppIcons.frontHandOutlined,
+              label: dialogContext.l10n.groupSortItemFrontingLeast,
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(_applyFrontingOrder(visiblePairs, descending: false));
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _openSubGroupSortDialog(List<MemberGroup> subGroups) async {
+    await Future<void>.delayed(const Duration(milliseconds: 160));
+    if (!mounted) return;
+
+    await PrismDialog.show<void>(
+      context: context,
+      title: context.l10n.groupSortSubGroupsAction,
+      builder: (dialogContext) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _sortDialogRow(
+              context: dialogContext,
+              icon: AppIcons.arrowUpward,
+              label: dialogContext.l10n.memberSortNameAZ,
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(
+                  _sortSubGroupsBy(
+                    subGroups,
+                    (a, b) => _compareText(a.name, b.name, a.id, b.id),
+                  ),
+                );
+              },
+            ),
+            _sortDialogRow(
+              context: dialogContext,
+              icon: AppIcons.arrowDownward,
+              label: dialogContext.l10n.memberSortNameZA,
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(
+                  _sortSubGroupsBy(
+                    subGroups,
+                    (a, b) => _compareText(b.name, a.name, a.id, b.id),
+                  ),
+                );
+              },
+            ),
+            _sortDialogRow(
+              context: dialogContext,
+              icon: AppIcons.history,
+              label: dialogContext.l10n.memberSortRecentlyCreated,
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(
+                  _sortSubGroupsBy(subGroups, (a, b) {
+                    final created = b.createdAt.compareTo(a.createdAt);
+                    if (created != 0) return created;
+                    return a.id.compareTo(b.id);
+                  }),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // ── Options menu ───────────────────────────────────────────────────────────
 
   Widget _buildOptionsMenuAction({
@@ -482,6 +642,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     required List<Member> visibleMembers,
     required Terminology terms,
     required List<MemberGroupEntry> groupEntries,
+    required List<MemberGroup> subGroups,
     required bool hasMembers,
     required bool canAddSubGroup,
   }) {
@@ -530,17 +691,12 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
           _openSearch(visibleMembers);
         },
       ),
-      (_, _) => const Divider(height: 1),
       (ctx, close) {
         final showInactive = ref.watch(showInactiveMembersProvider);
         return menuItemRow(
           ctx: ctx,
-          icon: showInactive
-              ? AppIcons.visibility
-              : AppIcons.visibilityOutlined,
-          label: showInactive
-              ? ctx.l10n.memberHideInactive
-              : ctx.l10n.memberShowInactive,
+          icon: AppIcons.visibilityOutlined,
+          label: ctx.l10n.memberShowInactive,
           isActive: showInactive,
           onTap: () {
             close();
@@ -550,77 +706,43 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
       },
     ];
 
+    final canSortSubGroups = subGroups.length > 1;
+
     if (canSort) {
       entries.addAll([
-        (_, _) => const Divider(height: 1),
-        // ── "Sort by" — locked modes ──────────────────────────────────────
-        (ctx, _) => _sectionHeader(ctx, ctx.l10n.groupSortSectionSortBy),
         (ctx, close) => menuItemRow(
           ctx: ctx,
-          icon: AppIcons.arrowUpward,
-          label: ctx.l10n.groupSortItemNameAsc,
-          isActive: currentMode == GroupSortMode.nameAsc,
+          icon: AppIcons.sortList,
+          label: ctx.l10n.groupSortMembersAction(terms.plural),
           onTap: () {
             close();
-            unawaited(_setSortMode(GroupSortMode.nameAsc));
+            unawaited(
+              _openMemberSortDialog(
+                visiblePairs: visiblePairs,
+                terms: terms,
+                currentMode: currentMode,
+              ),
+            );
           },
         ),
+      ]);
+    }
+
+    if (canSortSubGroups) {
+      entries.addAll([
         (ctx, close) => menuItemRow(
           ctx: ctx,
-          icon: AppIcons.arrowDownward,
-          label: ctx.l10n.groupSortItemNameDesc,
-          isActive: currentMode == GroupSortMode.nameDesc,
+          icon: AppIcons.folderOutlined,
+          label: ctx.l10n.groupSortSubGroupsAction,
           onTap: () {
             close();
-            unawaited(_setSortMode(GroupSortMode.nameDesc));
-          },
-        ),
-        (ctx, close) => menuItemRow(
-          ctx: ctx,
-          icon: AppIcons.history,
-          label: ctx.l10n.groupSortItemRecentDesc,
-          isActive: currentMode == GroupSortMode.recentDesc,
-          onTap: () {
-            close();
-            unawaited(_setSortMode(GroupSortMode.recentDesc));
-          },
-        ),
-        (ctx, close) => menuItemRow(
-          ctx: ctx,
-          icon: AppIcons.dragHandle,
-          label: ctx.l10n.groupSortItemManual,
-          isActive: currentMode == GroupSortMode.manual,
-          onTap: () {
-            close();
-            unawaited(_sortManuallyFromCurrent(visiblePairs));
-          },
-        ),
-        (_, _) => const Divider(height: 1),
-        // ── "Apply current order" — one-shot snapshots ────────────────────
-        (ctx, _) => _sectionHeader(ctx, ctx.l10n.groupSortSectionApplyCurrent),
-        (ctx, close) => menuItemRow(
-          ctx: ctx,
-          icon: AppIcons.flashOn,
-          label: ctx.l10n.groupSortItemFrontingMost,
-          onTap: () {
-            close();
-            unawaited(_applyFrontingOrder(visiblePairs, descending: true));
-          },
-        ),
-        (ctx, close) => menuItemRow(
-          ctx: ctx,
-          icon: AppIcons.frontHandOutlined,
-          label: ctx.l10n.groupSortItemFrontingLeast,
-          onTap: () {
-            close();
-            unawaited(_applyFrontingOrder(visiblePairs, descending: false));
+            unawaited(_openSubGroupSortDialog(subGroups));
           },
         ),
       ]);
     }
 
     entries.addAll([
-      (_, _) => const Divider(height: 1),
       if (hasMembers) ...[
         (ctx, close) => menuItemRow(
           ctx: ctx,
@@ -695,8 +817,8 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
       key: _optionsPopupKey,
       trigger: BlurPopupTrigger.manual,
       preferredDirection: BlurPopupDirection.down,
-      width: 280,
-      maxHeight: 480,
+      width: 240,
+      maxHeight: MediaQuery.sizeOf(context).height - 24,
       itemCount: entries.length,
       semanticLabel: l10n.moreOptions,
       itemBuilder: (ctx, index, close) => entries[index](ctx, close),
@@ -706,6 +828,12 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
         onPressed: () => _optionsPopupKey.currentState?.show(),
       ),
     );
+  }
+
+  int _compareText(String left, String right, String leftId, String rightId) {
+    final text = left.toLowerCase().compareTo(right.toLowerCase());
+    if (text != 0) return text;
+    return leftId.compareTo(rightId);
   }
 
   Widget _sectionHeader(BuildContext context, String label) {
@@ -719,6 +847,26 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
           fontWeight: FontWeight.w700,
         ),
       ),
+    );
+  }
+
+  Widget _sortDialogRow({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool isActive = false,
+  }) {
+    final theme = Theme.of(context);
+    return PrismListRow(
+      dense: true,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      leading: Icon(icon, size: 20),
+      title: Text(label, style: theme.textTheme.bodyMedium),
+      trailing: isActive
+          ? Icon(AppIcons.check, size: 18, color: theme.colorScheme.primary)
+          : null,
+      onTap: onTap,
     );
   }
 

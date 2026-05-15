@@ -122,7 +122,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   int _contextMenuItemCount(bool isOwn) {
     final baseCount = _buildActions(isOwn).length;
     final canReact = widget.permissions?.canReact ?? true;
-    return canReact ? baseCount + 2 : baseCount;
+    return canReact ? baseCount + 1 : baseCount;
   }
 
   List<_ContextAction> _buildActions(bool isOwn) {
@@ -514,9 +514,8 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
           final canReact = widget.permissions?.canReact ?? true;
           if (canReact) {
             if (index == 0) return _buildQuickReactionRow(close);
-            if (index == 1) return const Divider(height: 1);
           }
-          final actionIndex = canReact ? index - 2 : index;
+          final actionIndex = canReact ? index - 1 : index;
           return _buildActionTile(actions[actionIndex], close, theme);
         },
         child: Semantics(

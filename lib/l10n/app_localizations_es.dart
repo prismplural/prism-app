@@ -2954,7 +2954,31 @@ class AppLocalizationsEs extends AppLocalizations {
   String get groupSortSectionSortBy => 'Ordenar por';
 
   @override
-  String get groupSortSectionApplyCurrent => 'Aplicar orden actual';
+  String get groupSortScopeTitle => 'Ordenar grupos';
+
+  @override
+  String get groupSortScopeMessage =>
+      '¿Aplicar este orden solo a los grupos de nivel superior o también a cada nivel de sub-grupos?';
+
+  @override
+  String get groupSortScopeTopLevel => 'Solo grupos de nivel superior';
+
+  @override
+  String get groupSortScopeAllLevels => 'Grupos y sub-grupos';
+
+  @override
+  String groupSortMembersAction(String termPlural) {
+    return 'Ordenar $termPlural';
+  }
+
+  @override
+  String get groupSortSubGroupsAction => 'Ordenar sub-grupos';
+
+  @override
+  String get groupSortSectionKeepSorted => 'Mantener ordenado por';
+
+  @override
+  String get groupSortSectionApplyCurrent => 'Ordenar una vez';
 
   @override
   String get groupSortItemNameAsc => 'Nombre A-Z';
@@ -2969,12 +2993,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get groupSortItemManual => 'Ordenar manualmente';
 
   @override
-  String get groupSortItemFrontingMost =>
-      'Aplicar orden por más tiempo al frente';
+  String get groupSortItemFrontingMost => 'Más tiempo al frente primero';
 
   @override
-  String get groupSortItemFrontingLeast =>
-      'Aplicar orden por menos tiempo al frente';
+  String get groupSortItemFrontingLeast => 'Menos tiempo al frente primero';
 
   @override
   String get groupSortSwitchedToManual => 'Cambiado a orden manual.';

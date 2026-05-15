@@ -475,8 +475,50 @@ void main() {
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Name A-Z'), findsOneWidget);
+    expect(find.text('Sort Headmates'), findsOneWidget);
+    expect(find.text('Name A-Z'), findsNothing);
     expect(find.text('Front as Group'), findsOneWidget);
+  });
+
+  testWidgets('opens a separate sub-group sort dialog from the group menu', (
+    tester,
+  ) async {
+    final parent = _group(id: 'parent', name: 'Parent');
+    final zed = _group(id: 'zed', name: 'Zed', parentGroupId: 'parent');
+    final able = _group(id: 'able', name: 'Able', parentGroupId: 'parent');
+    final notifier = _ReorderingFakeGroupNotifier();
+
+    await tester.pumpWidget(
+      _buildSubject(
+        group: parent,
+        allGroups: [parent, zed, able],
+        allEntries: const [],
+        activeMembers: const [],
+        notifier: notifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sub-groups'), findsOneWidget);
+    expect(find.text('Sort sub-groups'), findsOneWidget);
+    expect(find.text('Name A–Z'), findsNothing);
+
+    await tester.tap(find.text('Sort sub-groups'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Name A–Z'), findsOneWidget);
+    await tester.tap(find.text('Name A–Z'));
+    await tester.pumpAndSettle();
+
+    expect(notifier.reorderedSequences.length, 1);
+    expect(notifier.reorderedSequences.single.map((g) => g.id).toList(), [
+      'able',
+      'zed',
+    ]);
+    await tester.pump(const Duration(seconds: 4));
   });
 
   testWidgets('hides group member actions when the group is empty', (
@@ -547,6 +589,11 @@ void main() {
       // Both visible now.
       expect(find.text('Alice'), findsOneWidget);
       expect(find.text('Bob Inactive'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      expect(find.text('Show inactive'), findsOneWidget);
+      expect(find.text('Hide inactive'), findsNothing);
     },
   );
 
@@ -681,6 +728,12 @@ void main() {
   group('sort UI', () {
     Future<void> openOptionsMenu(WidgetTester tester) async {
       await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> openMemberSortDialog(WidgetTester tester) async {
+      await openOptionsMenu(tester);
+      await tester.tap(find.text('Sort Headmates'));
       await tester.pumpAndSettle();
     }
 
@@ -872,7 +925,7 @@ void main() {
         // Chip not visible in manual mode.
         expect(find.text('Name (A-Z)'), findsNothing);
 
-        await openOptionsMenu(tester);
+        await openMemberSortDialog(tester);
         await tester.tap(find.text('Name A-Z'));
         await tester.pumpAndSettle();
 
@@ -907,7 +960,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await openOptionsMenu(tester);
+        await openMemberSortDialog(tester);
         await tester.tap(find.text('Sort manually'));
         await tester.pumpAndSettle();
 
@@ -919,8 +972,8 @@ void main() {
       },
     );
 
-    testWidgets('picking "Apply most-fronting order" snapshots fronting order '
-        'and section header "Apply current order" is visible', (tester) async {
+    testWidgets('picking "Most-fronting first" snapshots fronting order '
+        'from the Arrange once section', (tester) async {
       final group = groupWith(
         id: 'g',
         name: 'G',
@@ -945,12 +998,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await openOptionsMenu(tester);
+      await openMemberSortDialog(tester);
 
       // Section header visible.
-      expect(find.text('Apply current order'), findsOneWidget);
+      expect(find.text('Arrange once'), findsOneWidget);
+      expect(find.text('Apply current order'), findsNothing);
 
-      await tester.tap(find.text('Apply most-fronting order'));
+      await tester.tap(find.text('Most-fronting first'));
       await tester.pumpAndSettle();
 
       // The fake fronting stats fall back to zero in widget tests; we just

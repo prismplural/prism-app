@@ -2897,7 +2897,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get groupSortSectionSortBy => 'Sort by';
 
   @override
-  String get groupSortSectionApplyCurrent => 'Apply current order';
+  String get groupSortScopeTitle => 'Sort groups';
+
+  @override
+  String get groupSortScopeMessage =>
+      'Apply this order to top-level groups only, or to each sub-group level too?';
+
+  @override
+  String get groupSortScopeTopLevel => 'Top-level groups only';
+
+  @override
+  String get groupSortScopeAllLevels => 'Groups and sub-groups';
+
+  @override
+  String groupSortMembersAction(String termPlural) {
+    return 'Sort $termPlural';
+  }
+
+  @override
+  String get groupSortSubGroupsAction => 'Sort sub-groups';
+
+  @override
+  String get groupSortSectionKeepSorted => 'Keep sorted by';
+
+  @override
+  String get groupSortSectionApplyCurrent => 'Arrange once';
 
   @override
   String get groupSortItemNameAsc => 'Name A-Z';
@@ -2912,10 +2936,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get groupSortItemManual => 'Sort manually';
 
   @override
-  String get groupSortItemFrontingMost => 'Apply most-fronting order';
+  String get groupSortItemFrontingMost => 'Most-fronting first';
 
   @override
-  String get groupSortItemFrontingLeast => 'Apply least-fronting order';
+  String get groupSortItemFrontingLeast => 'Least-fronting first';
 
   @override
   String get groupSortSwitchedToManual => 'Switched to manual sort.';

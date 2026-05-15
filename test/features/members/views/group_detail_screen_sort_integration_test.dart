@@ -355,6 +355,8 @@ void main() {
 
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Sort Headmates'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Name A-Z'));
     await tester.pumpAndSettle();
 
