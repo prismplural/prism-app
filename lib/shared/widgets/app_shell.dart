@@ -1632,8 +1632,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     final colors = theme.colorScheme;
     final baseColor = isDark
         ? (isOled ? colors.surfaceContainerLow : colors.surfaceContainer)
-              .withValues(alpha: 0.88)
-        : colors.surfaceContainer.withValues(alpha: 0.86);
+              .withValues(alpha: isOled ? 0.82 : 0.78)
+        : colors.surfaceContainer.withValues(alpha: 0.70);
 
     return BoxDecoration(
       color: Color.alphaBlend(

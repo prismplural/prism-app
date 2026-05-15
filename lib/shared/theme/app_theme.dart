@@ -293,6 +293,55 @@ class AppTheme {
     );
   }
 
+  static Color _tintPaletteSurface(Color base, Color accent, double alpha) {
+    return Color.alphaBlend(accent.withValues(alpha: alpha), base);
+  }
+
+  static ColorScheme _paletteSurfaceTintedScheme(
+    ColorScheme colorScheme,
+    Color accent, {
+    required bool isDark,
+  }) {
+    final lowestAlpha = isDark ? 0.06 : 0.035;
+    final lowAlpha = isDark ? 0.08 : 0.05;
+    final containerAlpha = isDark ? 0.10 : 0.065;
+    final highAlpha = isDark ? 0.12 : 0.08;
+    final highestAlpha = isDark ? 0.14 : 0.095;
+
+    return colorScheme.copyWith(
+      surface: _tintPaletteSurface(
+        colorScheme.surface,
+        accent,
+        isDark ? lowAlpha : lowestAlpha,
+      ),
+      surfaceContainerLowest: _tintPaletteSurface(
+        colorScheme.surfaceContainerLowest,
+        accent,
+        lowestAlpha,
+      ),
+      surfaceContainerLow: _tintPaletteSurface(
+        colorScheme.surfaceContainerLow,
+        accent,
+        lowAlpha,
+      ),
+      surfaceContainer: _tintPaletteSurface(
+        colorScheme.surfaceContainer,
+        accent,
+        containerAlpha,
+      ),
+      surfaceContainerHigh: _tintPaletteSurface(
+        colorScheme.surfaceContainerHigh,
+        accent,
+        highAlpha,
+      ),
+      surfaceContainerHighest: _tintPaletteSurface(
+        colorScheme.surfaceContainerHighest,
+        accent,
+        highestAlpha,
+      ),
+    );
+  }
+
   /// Minimal switch theme shared across all variants.
   static SwitchThemeData _switchTheme({
     required ColorScheme colorScheme,
@@ -684,16 +733,19 @@ class AppTheme {
       baseColorScheme.primary,
       baseColorScheme.surfaceContainerLowest,
     );
-    final colorScheme = baseColorScheme.copyWith(
-      primary: accent,
-      onPrimary: highContrastForeground(accent),
-      surface: baseColorScheme.surfaceContainerLowest,
+    final colorScheme = _paletteSurfaceTintedScheme(
+      baseColorScheme.copyWith(
+        primary: accent,
+        onPrimary: highContrastForeground(accent),
+      ),
+      accent,
+      isDark: false,
     );
 
     final colors = _ThemeColors(
       scaffold: colorScheme.surfaceContainerLowest,
       cardColor: colorScheme.surfaceContainerLow,
-      fillColor: colorScheme.onSurface.withValues(alpha: 0.04),
+      fillColor: colorScheme.primary.withValues(alpha: 0.05),
       borderColor: colorScheme.onSurface.withValues(alpha: 0.1),
       focusBorderColor: accent.withValues(alpha: 0.6),
       dividerColor: colorScheme.onSurface.withValues(alpha: 0.06),
@@ -739,10 +791,13 @@ class AppTheme {
       baseColorScheme.primary,
       baseColorScheme.surfaceContainerLow,
     );
-    final colorScheme = baseColorScheme.copyWith(
-      primary: accent,
-      onPrimary: highContrastForeground(accent),
-      surface: baseColorScheme.surfaceContainerLow,
+    final colorScheme = _paletteSurfaceTintedScheme(
+      baseColorScheme.copyWith(
+        primary: accent,
+        onPrimary: highContrastForeground(accent),
+      ),
+      accent,
+      isDark: true,
     );
 
     final colors = _ThemeColors(

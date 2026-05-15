@@ -6,6 +6,49 @@ import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 
 void main() {
   group('Material You theme controls', () {
+    test('light palette surfaces are tinted toward the accent color', () {
+      final theme = AppTheme.materialYouLight(
+        null,
+        paletteSource: PaletteSource.custom,
+        paletteSeedColorHex: '#16A34A',
+        paletteMood: PaletteMood.vibrant,
+      );
+      final untintedScheme = ColorScheme.fromSeed(
+        seedColor: const Color(0xFF16A34A),
+        brightness: Brightness.light,
+        dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+      );
+
+      expect(
+        theme.scaffoldBackgroundColor,
+        theme.colorScheme.surfaceContainerLowest,
+      );
+      expect(theme.cardColor, theme.colorScheme.surfaceContainerLow);
+      expect(
+        theme.scaffoldBackgroundColor,
+        isNot(untintedScheme.surfaceContainerLowest),
+      );
+      expect(theme.cardColor, isNot(untintedScheme.surfaceContainerLow));
+      expect(
+        _rgbDistance(theme.scaffoldBackgroundColor, theme.colorScheme.primary),
+        lessThan(
+          _rgbDistance(
+            untintedScheme.surfaceContainerLowest,
+            theme.colorScheme.primary,
+          ),
+        ),
+      );
+      expect(
+        _rgbDistance(theme.cardColor, theme.colorScheme.primary),
+        lessThan(
+          _rgbDistance(
+            untintedScheme.surfaceContainerLow,
+            theme.colorScheme.primary,
+          ),
+        ),
+      );
+    });
+
     test('light palette controls use palette-derived colors', () {
       final theme = AppTheme.materialYouLight(
         null,
@@ -48,24 +91,66 @@ void main() {
       );
     });
 
-    test('dark palette scaffold uses a lifted surface background', () {
-      final theme = AppTheme.materialYouDark(
-        null,
-        paletteSource: PaletteSource.custom,
-        paletteSeedColorHex: '#2563EB',
-        paletteMood: PaletteMood.expressive,
-      );
+    test(
+      'dark palette surfaces are lifted and tinted toward the accent color',
+      () {
+        final theme = AppTheme.materialYouDark(
+          null,
+          paletteSource: PaletteSource.custom,
+          paletteSeedColorHex: '#2563EB',
+          paletteMood: PaletteMood.expressive,
+        );
+        final untintedScheme = ColorScheme.fromSeed(
+          seedColor: const Color(0xFF2563EB),
+          brightness: Brightness.dark,
+          dynamicSchemeVariant: DynamicSchemeVariant.expressive,
+        );
 
-      expect(
-        theme.scaffoldBackgroundColor,
-        theme.colorScheme.surfaceContainerLow,
-      );
-      expect(
-        relativeLuminance(theme.scaffoldBackgroundColor),
-        greaterThan(
-          relativeLuminance(theme.colorScheme.surfaceContainerLowest),
-        ),
-      );
-    });
+        expect(
+          theme.scaffoldBackgroundColor,
+          theme.colorScheme.surfaceContainerLow,
+        );
+        expect(theme.cardColor, theme.colorScheme.surfaceContainer);
+        expect(
+          theme.scaffoldBackgroundColor,
+          isNot(untintedScheme.surfaceContainerLow),
+        );
+        expect(theme.cardColor, isNot(untintedScheme.surfaceContainer));
+        expect(
+          _rgbDistance(
+            theme.scaffoldBackgroundColor,
+            theme.colorScheme.primary,
+          ),
+          lessThan(
+            _rgbDistance(
+              untintedScheme.surfaceContainerLow,
+              theme.colorScheme.primary,
+            ),
+          ),
+        );
+        expect(
+          _rgbDistance(theme.cardColor, theme.colorScheme.primary),
+          lessThan(
+            _rgbDistance(
+              untintedScheme.surfaceContainer,
+              theme.colorScheme.primary,
+            ),
+          ),
+        );
+        expect(
+          relativeLuminance(theme.scaffoldBackgroundColor),
+          greaterThan(
+            relativeLuminance(theme.colorScheme.surfaceContainerLowest),
+          ),
+        );
+      },
+    );
   });
+}
+
+double _rgbDistance(Color a, Color b) {
+  final red = a.r - b.r;
+  final green = a.g - b.g;
+  final blue = a.b - b.b;
+  return (red * red) + (green * green) + (blue * blue);
 }

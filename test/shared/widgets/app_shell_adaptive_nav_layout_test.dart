@@ -21,6 +21,7 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_theme.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/floating_nav_bar_backdrop.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -526,12 +527,42 @@ void main() {
       );
 
       expect(navBarColor, isNot(legacyParchmentColor));
+      expect(navBarColor.a, lessThan(0.8));
+      expect(navBarColor.a, greaterThan(0.65));
+      expect(
+        find.descendant(
+          of: find.bySemanticsLabel('Navigation bar'),
+          matching: find.byType(BackdropFilter),
+        ),
+        findsOneWidget,
+      );
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
     } finally {
       semantics.dispose();
     }
+  });
+
+  testWidgets('mobile nav footer fade leaves content visible under glass', (
+    tester,
+  ) async {
+    const backdropColor = Color(0xFFBFD7C4);
+
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: FloatingNavBarBackdrop(height: 100, color: backdropColor),
+      ),
+    );
+
+    final decoratedBox = tester.widget<DecoratedBox>(find.byType(DecoratedBox));
+    final decoration = decoratedBox.decoration as BoxDecoration;
+    final gradient = decoration.gradient! as LinearGradient;
+
+    expect(gradient.colors[0], backdropColor.withValues(alpha: 0));
+    expect(gradient.colors[1], backdropColor.withValues(alpha: 0.36));
+    expect(gradient.colors[2], backdropColor.withValues(alpha: 0.62));
   });
 }
 

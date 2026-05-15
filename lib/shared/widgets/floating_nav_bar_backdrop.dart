@@ -27,8 +27,8 @@ class FloatingNavBarBackdrop extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 colors: [
                   color.withValues(alpha: 0),
-                  color.withValues(alpha: 0.8),
-                  color,
+                  color.withValues(alpha: 0.36),
+                  color.withValues(alpha: 0.62),
                 ],
                 stops: const [0.0, 0.45, 1.0],
               ),
