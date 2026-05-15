@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 
 /// Shows a sheet to select a new conversation owner.
@@ -12,9 +13,10 @@ Future<String?> showCreatorTransferPicker(
   BuildContext context, {
   required List<Member> remainingMembers,
   List<MemberSearchGroup> groups = const [],
+  bool selectImmediatelyWhenSingle = true,
 }) async {
   // Fast path: skip UI entirely when only one candidate exists.
-  if (remainingMembers.length == 1) {
+  if (selectImmediatelyWhenSingle && remainingMembers.length == 1) {
     return remainingMembers.first.id;
   }
 
@@ -22,6 +24,7 @@ Future<String?> showCreatorTransferPicker(
     context,
     members: remainingMembers,
     termPlural: 'members',
+    title: context.l10n.chatSelectNewOwner,
     groups: groups,
   );
 

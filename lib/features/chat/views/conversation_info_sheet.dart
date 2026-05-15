@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
@@ -253,6 +254,30 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     }
   }
 
+  Future<void> _changeOwner(Conversation conversation) async {
+    final currentOwnerId = effectiveConversationOwnerId(conversation);
+    final candidateIds = conversation.participantIds
+        .where((participantId) => participantId != currentOwnerId)
+        .toList();
+    final candidates =
+        (await ref.read(memberRepositoryProvider).getMembersByIds(candidateIds))
+            .where((member) => member.isActive && !member.isDeleted)
+            .toList();
+    if (!mounted || candidates.isEmpty) return;
+
+    final newOwnerId = await showCreatorTransferPicker(
+      context,
+      remainingMembers: candidates,
+      groups: readMemberSearchGroups(ref, candidates),
+      selectImmediatelyWhenSingle: false,
+    );
+    if (newOwnerId == null || !mounted) return;
+
+    await ref
+        .read(chatNotifierProvider.notifier)
+        .transferCreator(conversation.id, newOwnerId);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -293,6 +318,9 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
           speakingAsMember: speakingAsMember,
         );
         final isDirectMessage = permissions.isDirectMessage;
+        final currentFrontCanManage = ref.watch(
+          currentFrontCanManageConversationProvider(conversation),
+        );
 
         return ListenableBuilder(
           listenable: _titleController,
@@ -361,6 +389,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                               permissions,
                               speakingAsMemberId,
                               speakingAsMember,
+                              currentFrontCanManage,
                               theme,
                             )
                           else
@@ -548,9 +577,14 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     ConversationPermissions permissions,
     String? speakingAsMemberId,
     Member? speakingAsMember,
+    bool currentFrontCanManage,
     ThemeData theme,
   ) {
     final terms = readTerminology(context, ref);
+    final currentOwnerId = effectiveConversationOwnerId(conversation);
+    final hasTransferCandidate = conversation.participantIds.any(
+      (participantId) => participantId != currentOwnerId,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -575,6 +609,14 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
           ],
         ),
         const SizedBox(height: 4),
+
+        if (currentFrontCanManage && hasTransferCandidate) ...[
+          _OwnerTransferRow(
+            conversation: conversation,
+            onTap: () => _changeOwner(conversation),
+          ),
+          const SizedBox(height: 4),
+        ],
 
         // Participant tiles
         for (final participantId in conversation.participantIds)
@@ -742,6 +784,37 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
             onTap: () => _confirmDelete(conversation.id),
           ),
       ],
+    );
+  }
+}
+
+class _OwnerTransferRow extends ConsumerWidget {
+  const _OwnerTransferRow({required this.conversation, required this.onTap});
+
+  final Conversation conversation;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ownerId = effectiveConversationOwnerId(conversation);
+    final terms = watchTerminology(context, ref);
+    final owner = ownerId == null
+        ? null
+        : ref.watch(activeMemberByIdProvider(ownerId)).value;
+
+    return Semantics(
+      button: true,
+      label: context.l10n.chatSelectNewOwner,
+      child: PrismListRow(
+        key: const ValueKey('conversation-owner-row'),
+        leading: Icon(AppIcons.key),
+        title: Text(context.l10n.chatInfoOwner),
+        subtitle: Text(
+          owner?.name ?? context.l10n.chatInfoUnknownMember(terms.singular),
+        ),
+        trailing: Icon(AppIcons.chevronRightRounded),
+        onTap: onTap,
+      ),
     );
   }
 }

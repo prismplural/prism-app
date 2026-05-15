@@ -72,6 +72,49 @@ void main() {
       },
     );
 
+    testWidgets('single member explicit selection still shows sheet', (
+      tester,
+    ) async {
+      String? result;
+      final member = _member(id: 'alice', name: 'Alice');
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Scaffold(
+              body: Builder(
+                builder: (ctx) => ElevatedButton(
+                  onPressed: () async {
+                    final selected = await showCreatorTransferPicker(
+                      ctx,
+                      remainingMembers: [member],
+                      selectImmediatelyWhenSingle: false,
+                    );
+                    result = selected;
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(result, isNull);
+      expect(find.byType(MemberSearchSheet), findsOneWidget);
+
+      await tester.tap(find.text('Alice'));
+      await tester.pumpAndSettle();
+
+      expect(result, 'alice');
+    });
+
     testWidgets('multiple members — shows MemberSearchSheet', (tester) async {
       final members = [
         _member(id: 'alice', name: 'Alice'),

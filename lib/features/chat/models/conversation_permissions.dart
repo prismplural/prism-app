@@ -12,6 +12,12 @@ bool isDirectMessageConversation(Conversation conversation) {
       conversation.participantIds.length == 2;
 }
 
+String? effectiveConversationOwnerId(Conversation conversation) =>
+    conversation.creatorId ??
+    (conversation.participantIds.isNotEmpty
+        ? conversation.participantIds.first
+        : null);
+
 class ConversationPermissions {
   final Conversation conversation;
   final String? speakingAsMemberId;
@@ -23,11 +29,7 @@ class ConversationPermissions {
     required this.speakingAsMember,
   });
 
-  String? get _effectiveCreatorId =>
-      conversation.creatorId ??
-      (conversation.participantIds.isNotEmpty
-          ? conversation.participantIds.first
-          : null);
+  String? get _effectiveCreatorId => effectiveConversationOwnerId(conversation);
 
   bool get isParticipant =>
       speakingAsMemberId != null &&
