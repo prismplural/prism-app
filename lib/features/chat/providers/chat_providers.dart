@@ -868,6 +868,42 @@ final unreadMessageCountProvider = Provider.autoDispose.family<int, String>((
   return allCounts?[conversationId] ?? 0;
 });
 
+class ConversationsWithMentionsQuery {
+  ConversationsWithMentionsQuery({
+    required Map<String, DateTime> conversationSince,
+    required this.memberId,
+  }) : conversationSince = Map.unmodifiable(conversationSince),
+       _cacheKeyParts = _buildCacheKeyParts(conversationSince) {
+    _hashCode = Object.hash(memberId, Object.hashAll(_cacheKeyParts));
+  }
+
+  final Map<String, DateTime> conversationSince;
+  final String memberId;
+  final List<String> _cacheKeyParts;
+  late final int _hashCode;
+
+  static List<String> _buildCacheKeyParts(
+    Map<String, DateTime> conversationSince,
+  ) {
+    final entries = conversationSince.entries.toList(growable: false)
+      ..sort((a, b) => a.key.compareTo(b.key));
+    return [
+      for (final entry in entries)
+        '${entry.key}\u0000${entry.value.toUtc().microsecondsSinceEpoch}',
+    ];
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ConversationsWithMentionsQuery &&
+        other.memberId == memberId &&
+        listEquals(other._cacheKeyParts, _cacheKeyParts);
+  }
+
+  @override
+  int get hashCode => _hashCode;
+}
+
 /// Total number of conversations with unread messages (for the chat tab badge).
 ///
 /// Respects badge preference: if a member's preference is 'mentions_only',
@@ -929,10 +965,12 @@ int _unreadConversationCount(Ref ref, {bool? isDirectMessage}) {
 
   final mentionConvIds = ref
       .watch(
-        conversationsWithMentionsProvider((
-          conversationSince: conversationSince,
-          memberId: speakingAs,
-        )),
+        conversationsWithMentionsProvider(
+          ConversationsWithMentionsQuery(
+            conversationSince: conversationSince,
+            memberId: speakingAs,
+          ),
+        ),
       )
       .value;
 
@@ -965,10 +1003,12 @@ final mentionConversationIdsProvider = Provider.autoDispose<Set<String>>((ref) {
 
   return ref
           .watch(
-            conversationsWithMentionsProvider((
-              conversationSince: conversationSince,
-              memberId: speakingAs,
-            )),
+            conversationsWithMentionsProvider(
+              ConversationsWithMentionsQuery(
+                conversationSince: conversationSince,
+                memberId: speakingAs,
+              ),
+            ),
           )
           .value ??
       const <String>{};
@@ -976,10 +1016,7 @@ final mentionConversationIdsProvider = Provider.autoDispose<Set<String>>((ref) {
 
 /// Single batch stream that returns which conversations have mentions for a member.
 final conversationsWithMentionsProvider = StreamProvider.autoDispose
-    .family<
-      Set<String>,
-      ({Map<String, DateTime> conversationSince, String memberId})
-    >((ref, params) {
+    .family<Set<String>, ConversationsWithMentionsQuery>((ref, params) {
       final repo = ref.watch(chatMessageRepositoryProvider);
       return repo.watchConversationsWithMentions(
         params.conversationSince,

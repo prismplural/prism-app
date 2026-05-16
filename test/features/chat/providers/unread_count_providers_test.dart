@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/models/chat_message.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
+import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -13,6 +16,89 @@ class _FixedSpeakingAsNotifier extends SpeakingAsNotifier {
 
   @override
   String? build() => memberId;
+}
+
+class _CountingChatMessageRepository implements ChatMessageRepository {
+  int mentionWatchCalls = 0;
+
+  @override
+  Stream<Set<String>> watchConversationsWithMentions(
+    Map<String, DateTime> conversationSince,
+    String memberId,
+  ) {
+    mentionWatchCalls += 1;
+    return Stream.value(conversationSince.keys.toSet());
+  }
+
+  @override
+  Stream<Map<String, int>> watchAllUnreadCounts(
+    Map<String, DateTime> conversationSince,
+  ) => Stream.value({for (final id in conversationSince.keys) id: 1});
+
+  @override
+  Future<void> createMessage(ChatMessage message) async {}
+
+  @override
+  Future<void> deleteMessage(String id) async {}
+
+  @override
+  Future<List<ChatMessage>> getAllMessages() async => const [];
+
+  @override
+  Future<ChatMessage?> getLatestMessage(String conversationId) async => null;
+
+  @override
+  Future<ChatMessage?> getMessageById(String id) async => null;
+
+  @override
+  Future<List<ChatMessage>> getMessagesForConversation(
+    String conversationId, {
+    int? limit,
+    int? offset,
+  }) async => const [];
+
+  @override
+  Future<
+    List<
+      ({
+        String messageId,
+        String conversationId,
+        String snippet,
+        DateTime timestamp,
+        String? authorId,
+      })
+    >
+  >
+  searchMessages(String query, {int limit = 50}) async => const [];
+
+  @override
+  Future<void> updateMessage(ChatMessage message) async {}
+
+  @override
+  Stream<ChatMessage?> watchLatestMessage(String conversationId) =>
+      Stream.value(null);
+
+  @override
+  Stream<List<ChatMessage>> watchMessagesForConversation(
+    String conversationId,
+  ) => Stream.value(const []);
+
+  @override
+  Stream<List<ChatMessage>> watchRecentMessages(
+    String conversationId, {
+    required int limit,
+  }) => Stream.value(const []);
+
+  @override
+  Stream<int> watchUnreadCount(String conversationId, DateTime since) =>
+      Stream.value(0);
+
+  @override
+  Stream<int> watchUnreadMentionCount(
+    String conversationId,
+    DateTime since,
+    String memberId,
+  ) => Stream.value(0);
 }
 
 void main() {
@@ -70,7 +156,9 @@ void main() {
         speakingAsProvider.overrideWith(
           () => _FixedSpeakingAsNotifier(speakingAs),
         ),
-        conversationsProvider.overrideWith((ref) => Stream.value(conversations)),
+        conversationsProvider.overrideWith(
+          (ref) => Stream.value(conversations),
+        ),
         chatBadgePreferencesProvider.overrideWithValue(badgePrefs),
       ],
     );
@@ -202,5 +290,68 @@ void main() {
       expect(container.read(unreadDmCountProvider), 1);
       expect(container.read(unreadGroupCountProvider), 2);
     });
+
+    test('mentions-only provider uses a stable mention stream key', () async {
+      final messageRepo = _CountingChatMessageRepository();
+      final container = ProviderContainer(
+        overrides: [
+          speakingAsProvider.overrideWith(
+            () => _FixedSpeakingAsNotifier('alice'),
+          ),
+          conversationsProvider.overrideWith(
+            (ref) => Stream.value([
+              dm('dm-1', participants: ['alice', 'bob']),
+            ]),
+          ),
+          chatBadgePreferencesProvider.overrideWithValue({
+            'alice': 'mentions_only',
+          }),
+          chatMessageRepositoryProvider.overrideWithValue(messageRepo),
+        ],
+      );
+      addTearDown(container.dispose);
+      await settle(container);
+
+      container.listen(unreadDmCountProvider, (_, _) {});
+      expect(container.read(unreadDmCountProvider), 0);
+
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(container.read(unreadDmCountProvider), 1);
+      expect(messageRepo.mentionWatchCalls, 1);
+    });
+
+    test(
+      'mention conversation ids provider uses a stable stream key',
+      () async {
+        final messageRepo = _CountingChatMessageRepository();
+        final container = ProviderContainer(
+          overrides: [
+            speakingAsProvider.overrideWith(
+              () => _FixedSpeakingAsNotifier('alice'),
+            ),
+            conversationsProvider.overrideWith(
+              (ref) => Stream.value([
+                dm('dm-1', participants: ['alice', 'bob']),
+              ]),
+            ),
+            chatBadgePreferencesProvider.overrideWithValue({
+              'alice': 'mentions_only',
+            }),
+            chatMessageRepositoryProvider.overrideWithValue(messageRepo),
+          ],
+        );
+        addTearDown(container.dispose);
+        await settle(container);
+
+        container.listen(mentionConversationIdsProvider, (_, _) {});
+        expect(container.read(mentionConversationIdsProvider), isEmpty);
+
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+
+        expect(container.read(mentionConversationIdsProvider), {'dm-1'});
+        expect(messageRepo.mentionWatchCalls, 1);
+      },
+    );
   });
 }
