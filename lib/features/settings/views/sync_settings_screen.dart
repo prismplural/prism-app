@@ -50,14 +50,18 @@ bool isSyncSettingsConfigured({
   required String? syncId,
   required String? deviceId,
   required bool hasDeviceSecret,
+  bool identityLoadComplete = true,
 }) {
-  if (hasActiveHandle && syncHealth != SyncHealthState.unpaired) return true;
-  return hasCompletePersistentSyncIdentity(
+  if (hasCompletePersistentSyncIdentity(
     relayUrl: relayUrl,
     syncId: syncId,
     deviceId: deviceId,
     hasDeviceSecret: hasDeviceSecret,
-  );
+  )) {
+    return true;
+  }
+  if (identityLoadComplete) return false;
+  return hasActiveHandle && syncHealth != SyncHealthState.unpaired;
 }
 
 class SyncEntityCounts {
@@ -156,20 +160,18 @@ class SyncSettingsScreen extends ConsumerWidget {
     final syncId = syncIdAsync.value;
     final deviceId = deviceIdAsync.value;
     final hasDeviceSecret = deviceSecretAsync.value ?? false;
-    // Use the FFI handle as the primary "configured" signal. Its AsyncData
-    // is set synchronously inside `createHandle` and is not invalidated when
-    // the keychain-backed FutureProviders below are invalidated, so it does
-    // not have the stale-cache flicker that `(relayUrl, syncId)` does. Fall
-    // back to the keychain values so we still consider a device configured
-    // before the handle finishes building (e.g. during initial app start
-    // before `prismSyncHandleProvider.build` resolves).
-    //
-    // Phase 4A: chosen over widening the loading guard because handle-based
-    // gating eliminates the flicker entirely rather than masking it with a
-    // spinner during invalidate.
+    // A complete keychain identity is the durable "configured" signal.
+    // While those FutureProviders are resolving or revalidating, an active
+    // handle can temporarily bridge the state so the setup view does not
+    // flash during provider invalidation.
     final handleAsyncForGate = ref.watch(prismSyncHandleProvider);
     final hasActiveHandle = handleAsyncForGate.value != null;
     final syncHealth = ref.watch(syncHealthProvider);
+    final identityLoadComplete =
+        relayUrlAsync.hasValue &&
+        syncIdAsync.hasValue &&
+        deviceIdAsync.hasValue &&
+        deviceSecretAsync.hasValue;
     final isConfigured = isSyncSettingsConfigured(
       hasActiveHandle: hasActiveHandle,
       syncHealth: syncHealth,
@@ -177,6 +179,7 @@ class SyncSettingsScreen extends ConsumerWidget {
       syncId: syncId,
       deviceId: deviceId,
       hasDeviceSecret: hasDeviceSecret,
+      identityLoadComplete: identityLoadComplete,
     );
 
     if (syncHealth == SyncHealthState.disconnected) {

@@ -3,10 +3,9 @@
 // The full `SyncSettingsScreen` body pulls in Drift, the Rust FFI, the
 // keychain, and the localization stack. Exercising the configured branch
 // is heavyweight, so we instead build a minimal `Consumer` that runs the
-// same gating logic the screen uses and assert that toggling
-// `relayUrlProvider`/`syncIdProvider` between an active and a re-fetching
-// state does NOT cause `_SetupView` to appear when the FFI handle is
-// already non-null.
+// same gating logic the screen uses. The tests cover both sides of the gate:
+// a fresh onboarding handle without a sync identity still shows setup, while
+// a configured identity does not flash setup during provider revalidation.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,6 +49,11 @@ class _GatingHarness extends ConsumerWidget {
     final handleAsyncForGate = ref.watch(prismSyncHandleProvider);
     final hasActiveHandle = handleAsyncForGate.value != null;
     final syncHealth = ref.watch(syncHealthProvider);
+    final identityLoadComplete =
+        relayUrlAsync.hasValue &&
+        syncIdAsync.hasValue &&
+        deviceIdAsync.hasValue &&
+        deviceSecretAsync.hasValue;
     final isConfigured = isSyncSettingsConfigured(
       hasActiveHandle: hasActiveHandle,
       syncHealth: syncHealth,
@@ -57,6 +61,7 @@ class _GatingHarness extends ConsumerWidget {
       syncId: syncId,
       deviceId: deviceId,
       hasDeviceSecret: hasDeviceSecret,
+      identityLoadComplete: identityLoadComplete,
     );
 
     if (syncHealth == SyncHealthState.disconnected) {
@@ -78,6 +83,20 @@ class _GatingHarness extends ConsumerWidget {
 }
 
 void main() {
+  test('fresh onboarding handle without sync identity is not configured', () {
+    expect(
+      isSyncSettingsConfigured(
+        hasActiveHandle: true,
+        syncHealth: SyncHealthState.healthy,
+        relayUrl: null,
+        syncId: null,
+        deviceId: null,
+        hasDeviceSecret: false,
+      ),
+      isFalse,
+    );
+  });
+
   testWidgets('SetupView does not flash on invalidate when configured', (
     tester,
   ) async {
