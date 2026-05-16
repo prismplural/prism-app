@@ -6389,6 +6389,24 @@ abstract class AppLocalizations {
   /// **'Send message, disabled'**
   String get chatSendMessageDisabled;
 
+  /// Screen-reader label and subtitle for broadcast mention autocomplete rows such as @everyone and @all.
+  ///
+  /// In en, this message translates to:
+  /// **'Mention everyone in this chat'**
+  String get chatMentionEveryoneSemantics;
+
+  /// Title for the confirmation dialog shown before sending a broadcast chat mention.
+  ///
+  /// In en, this message translates to:
+  /// **'Mention everyone in this chat?'**
+  String get chatBroadcastMentionConfirmTitle;
+
+  /// Body text for the confirmation dialog shown before sending a broadcast chat mention.
+  ///
+  /// In en, this message translates to:
+  /// **'This will notify all {count} other participants in this chat.'**
+  String chatBroadcastMentionConfirmMessage(int count);
+
   /// Semantics label for the record voice note button
   ///
   /// In en, this message translates to:

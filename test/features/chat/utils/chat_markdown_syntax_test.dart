@@ -19,7 +19,9 @@ void main() {
           .toList();
       expect(mentions, hasLength(1));
       expect(
-          mentions.first.attributes['id'], '11111111-2222-3333-4444-555555555555');
+        mentions.first.attributes['id'],
+        '11111111-2222-3333-4444-555555555555',
+      );
     });
 
     test('does not emit mention for malformed uuid', () {
@@ -45,6 +47,40 @@ void main() {
           .whereType<md.Element>()
           .where((e) => e.tag == 'mention')
           .toList();
+      expect(mentions, isEmpty);
+    });
+  });
+
+  group('BroadcastMentionSyntax', () {
+    test('parses @everyone and @all as mention elements', () {
+      const input = '@everyone hello @all plus @Everyone and @ALL';
+      final nodes = md.Document(
+        inlineSyntaxes: [BroadcastMentionSyntax()],
+        encodeHtml: false,
+      ).parseInline(input);
+      final mentions = nodes
+          .whereType<md.Element>()
+          .where((e) => e.tag == 'mention')
+          .toList();
+
+      expect(mentions, hasLength(4));
+      expect(mentions[0].attributes['alias'], 'everyone');
+      expect(mentions[1].attributes['alias'], 'all');
+      expect(mentions[2].attributes['alias'], 'Everyone');
+      expect(mentions[3].attributes['alias'], 'ALL');
+    });
+
+    test('does not parse aliases inside other words', () {
+      const input = 'not@all @alliance @everyoneish é@all @allá @everyoneñ';
+      final nodes = md.Document(
+        inlineSyntaxes: [BroadcastMentionSyntax()],
+        encodeHtml: false,
+      ).parseInline(input);
+      final mentions = nodes
+          .whereType<md.Element>()
+          .where((e) => e.tag == 'mention')
+          .toList();
+
       expect(mentions, isEmpty);
     });
   });
@@ -148,93 +184,106 @@ void main() {
     const uuid = '11111111-2222-3333-4444-555555555555';
     const mentionData = '@[$uuid]';
 
-    testWidgets('renders member name with primary color when customColor disabled',
-        (tester) async {
-      final member = makeMember(id: uuid, name: 'Alice');
-      final authorMap = {uuid: member};
+    testWidgets(
+      'renders member name with primary color when customColor disabled',
+      (tester) async {
+        final member = makeMember(id: uuid, name: 'Alice');
+        final authorMap = {uuid: member};
 
-      late ThemeData capturedTheme;
+        late ThemeData capturedTheme;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(builder: (ctx) {
-              capturedTheme = Theme.of(ctx);
-              return MarkdownBody(
-                data: mentionData,
-                extensionSet: chatExtensionSet,
-                builders: {
-                  'mention': MentionBuilder(
-                    authorMap: authorMap,
-                    theme: capturedTheme,
-                  ),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (ctx) {
+                  capturedTheme = Theme.of(ctx);
+                  return MarkdownBody(
+                    data: mentionData,
+                    extensionSet: chatExtensionSet,
+                    builders: {
+                      'mention': MentionBuilder(
+                        authorMap: authorMap,
+                        theme: capturedTheme,
+                      ),
+                    },
+                  );
                 },
-              );
-            }),
+              ),
+            ),
           ),
-        ),
-      );
+        );
 
-      expect(find.text('@Alice'), findsOneWidget);
+        expect(find.text('@Alice'), findsOneWidget);
 
-      final richText = tester.widget<Text>(find.text('@Alice'));
-      expect(richText.textSpan?.style?.color, capturedTheme.colorScheme.primary);
-    });
+        final richText = tester.widget<Text>(find.text('@Alice'));
+        expect(
+          richText.textSpan?.style?.color,
+          capturedTheme.colorScheme.primary,
+        );
+      },
+    );
 
-    testWidgets('renders member name with custom color when customColor enabled',
-        (tester) async {
-      final member = makeMember(
-        id: uuid,
-        name: 'Alice',
-        customColorEnabled: true,
-        customColorHex: '#FF0000',
-      );
-      final authorMap = {uuid: member};
+    testWidgets(
+      'renders member name with custom color when customColor enabled',
+      (tester) async {
+        final member = makeMember(
+          id: uuid,
+          name: 'Alice',
+          customColorEnabled: true,
+          customColorHex: '#FF0000',
+        );
+        final authorMap = {uuid: member};
 
-      late ThemeData capturedTheme;
+        late ThemeData capturedTheme;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(builder: (ctx) {
-              capturedTheme = Theme.of(ctx);
-              return MarkdownBody(
-                data: mentionData,
-                extensionSet: chatExtensionSet,
-                builders: {
-                  'mention': MentionBuilder(
-                    authorMap: authorMap,
-                    theme: capturedTheme,
-                  ),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (ctx) {
+                  capturedTheme = Theme.of(ctx);
+                  return MarkdownBody(
+                    data: mentionData,
+                    extensionSet: chatExtensionSet,
+                    builders: {
+                      'mention': MentionBuilder(
+                        authorMap: authorMap,
+                        theme: capturedTheme,
+                      ),
+                    },
+                  );
                 },
-              );
-            }),
+              ),
+            ),
           ),
-        ),
-      );
+        );
 
-      expect(find.text('@Alice'), findsOneWidget);
-      final richText = tester.widget<Text>(find.text('@Alice'));
-      // #FF0000 → Color(0xFFFF0000)
-      expect(richText.textSpan?.style?.color, const Color(0xFFFF0000));
-    });
+        expect(find.text('@Alice'), findsOneWidget);
+        final richText = tester.widget<Text>(find.text('@Alice'));
+        // #FF0000 → Color(0xFFFF0000)
+        expect(richText.textSpan?.style?.color, const Color(0xFFFF0000));
+      },
+    );
 
     testWidgets('renders Unknown for member not in authorMap', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              return MarkdownBody(
-                data: mentionData,
-                extensionSet: chatExtensionSet,
-                builders: {
-                  'mention': MentionBuilder(
-                    authorMap: const {},
-                    theme: Theme.of(ctx),
-                  ),
-                },
-              );
-            }),
+            body: Builder(
+              builder: (ctx) {
+                return MarkdownBody(
+                  data: mentionData,
+                  extensionSet: chatExtensionSet,
+                  builders: {
+                    'mention': MentionBuilder(
+                      authorMap: const {},
+                      theme: Theme.of(ctx),
+                    ),
+                  },
+                );
+              },
+            ),
           ),
         ),
       );
@@ -242,47 +291,114 @@ void main() {
       expect(find.text('@Unknown'), findsOneWidget);
     });
 
-    testWidgets(
-        'bold mention preserves w600 weight and mention color (parentStyle merge)',
-        (tester) async {
-      final member = makeMember(id: uuid, name: 'Alice');
-      final authorMap = {uuid: member};
-
+    testWidgets('renders broadcast mention aliases literally', (tester) async {
       late ThemeData capturedTheme;
 
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              capturedTheme = Theme.of(ctx);
-              return MarkdownBody(
-                data: '**@[$uuid]**',
-                extensionSet: chatExtensionSet,
-                builders: {
-                  'mention': MentionBuilder(
-                    authorMap: authorMap,
-                    theme: capturedTheme,
-                  ),
-                },
-              );
-            }),
+            body: Builder(
+              builder: (ctx) {
+                capturedTheme = Theme.of(ctx);
+                return MarkdownBody(
+                  data: '@everyone and @all',
+                  extensionSet: chatExtensionSet,
+                  builders: {
+                    'mention': MentionBuilder(
+                      authorMap: const {},
+                      theme: capturedTheme,
+                    ),
+                  },
+                );
+              },
+            ),
           ),
         ),
       );
 
-      expect(find.text('@Alice'), findsOneWidget);
-      final richText = tester.widget<Text>(find.text('@Alice'));
-      final weight = richText.textSpan?.style?.fontWeight;
       expect(
-        weight,
-        anyOf(FontWeight.w600, FontWeight.bold, FontWeight.w700),
-        reason: 'Mention weight should be bold-ish (w600+)',
+        find.textContaining('@everyone', findRichText: true),
+        findsOneWidget,
       );
-      expect(
-        richText.textSpan?.style?.color,
-        capturedTheme.colorScheme.primary,
-      );
+      expect(find.textContaining('@all', findRichText: true), findsOneWidget);
     });
+
+    testWidgets('leaves broadcast false positives as plain text', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (ctx) {
+                return MarkdownBody(
+                  data: 'not@all @alliance @everyoneish é@all @allá',
+                  extensionSet: chatExtensionSet,
+                  builders: {
+                    'mention': MentionBuilder(
+                      authorMap: const {},
+                      theme: Theme.of(ctx),
+                    ),
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        find.textContaining('not@all', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.text('@all'), findsNothing);
+      expect(find.text('@everyone'), findsNothing);
+    });
+
+    testWidgets(
+      'bold mention preserves w600 weight and mention color (parentStyle merge)',
+      (tester) async {
+        final member = makeMember(id: uuid, name: 'Alice');
+        final authorMap = {uuid: member};
+
+        late ThemeData capturedTheme;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (ctx) {
+                  capturedTheme = Theme.of(ctx);
+                  return MarkdownBody(
+                    data: '**@[$uuid]**',
+                    extensionSet: chatExtensionSet,
+                    builders: {
+                      'mention': MentionBuilder(
+                        authorMap: authorMap,
+                        theme: capturedTheme,
+                      ),
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('@Alice'), findsOneWidget);
+        final richText = tester.widget<Text>(find.text('@Alice'));
+        final weight = richText.textSpan?.style?.fontWeight;
+        expect(
+          weight,
+          anyOf(FontWeight.w600, FontWeight.bold, FontWeight.w700),
+          reason: 'Mention weight should be bold-ish (w600+)',
+        );
+        expect(
+          richText.textSpan?.style?.color,
+          capturedTheme.colorScheme.primary,
+        );
+      },
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -296,19 +412,18 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              capturedTheme = Theme.of(ctx);
-              return MarkdownBody(
-                data: '[click](https://example.com)',
-                extensionSet: chatExtensionSet,
-                builders: {
-                  'a': SafeLinkBuilder(
-                    onTap: (_) {},
-                    theme: capturedTheme,
-                  ),
-                },
-              );
-            }),
+            body: Builder(
+              builder: (ctx) {
+                capturedTheme = Theme.of(ctx);
+                return MarkdownBody(
+                  data: '[click](https://example.com)',
+                  extensionSet: chatExtensionSet,
+                  builders: {
+                    'a': SafeLinkBuilder(onTap: (_) {}, theme: capturedTheme),
+                  },
+                );
+              },
+            ),
           ),
         ),
       );
@@ -324,19 +439,18 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              capturedTheme = Theme.of(ctx);
-              return MarkdownBody(
-                data: '[click](http://example.com)',
-                extensionSet: chatExtensionSet,
-                builders: {
-                  'a': SafeLinkBuilder(
-                    onTap: (_) {},
-                    theme: capturedTheme,
-                  ),
-                },
-              );
-            }),
+            body: Builder(
+              builder: (ctx) {
+                capturedTheme = Theme.of(ctx);
+                return MarkdownBody(
+                  data: '[click](http://example.com)',
+                  extensionSet: chatExtensionSet,
+                  builders: {
+                    'a': SafeLinkBuilder(onTap: (_) {}, theme: capturedTheme),
+                  },
+                );
+              },
+            ),
           ),
         ),
       );
@@ -346,26 +460,26 @@ void main() {
       expect(text.style?.decoration, TextDecoration.underline);
     });
 
-    testWidgets('javascript: link renders as plain text (no GestureDetector)',
-        (tester) async {
+    testWidgets('javascript: link renders as plain text (no GestureDetector)', (
+      tester,
+    ) async {
       late ThemeData capturedTheme;
 
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              capturedTheme = Theme.of(ctx);
-              return MarkdownBody(
-                data: '[click](javascript:alert(1))',
-                extensionSet: chatExtensionSet,
-                builders: {
-                  'a': SafeLinkBuilder(
-                    onTap: (_) {},
-                    theme: capturedTheme,
-                  ),
-                },
-              );
-            }),
+            body: Builder(
+              builder: (ctx) {
+                capturedTheme = Theme.of(ctx);
+                return MarkdownBody(
+                  data: '[click](javascript:alert(1))',
+                  extensionSet: chatExtensionSet,
+                  builders: {
+                    'a': SafeLinkBuilder(onTap: (_) {}, theme: capturedTheme),
+                  },
+                );
+              },
+            ),
           ),
         ),
       );
@@ -380,26 +494,26 @@ void main() {
       );
     });
 
-    testWidgets('mailto: link renders as plain text (no GestureDetector)',
-        (tester) async {
+    testWidgets('mailto: link renders as plain text (no GestureDetector)', (
+      tester,
+    ) async {
       late ThemeData capturedTheme;
 
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              capturedTheme = Theme.of(ctx);
-              return MarkdownBody(
-                data: '[click](mailto:x@y.com)',
-                extensionSet: chatExtensionSet,
-                builders: {
-                  'a': SafeLinkBuilder(
-                    onTap: (_) {},
-                    theme: capturedTheme,
-                  ),
-                },
-              );
-            }),
+            body: Builder(
+              builder: (ctx) {
+                capturedTheme = Theme.of(ctx);
+                return MarkdownBody(
+                  data: '[click](mailto:x@y.com)',
+                  extensionSet: chatExtensionSet,
+                  builders: {
+                    'a': SafeLinkBuilder(onTap: (_) {}, theme: capturedTheme),
+                  },
+                );
+              },
+            ),
           ),
         ),
       );
@@ -420,19 +534,18 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              capturedTheme = Theme.of(ctx);
-              return MarkdownBody(
-                data: '[link 3 tutorial](https://example.com/web-1)',
-                extensionSet: chatExtensionSet,
-                builders: {
-                  'a': SafeLinkBuilder(
-                    onTap: (_) {},
-                    theme: capturedTheme,
-                  ),
-                },
-              );
-            }),
+            body: Builder(
+              builder: (ctx) {
+                capturedTheme = Theme.of(ctx);
+                return MarkdownBody(
+                  data: '[link 3 tutorial](https://example.com/web-1)',
+                  extensionSet: chatExtensionSet,
+                  builders: {
+                    'a': SafeLinkBuilder(onTap: (_) {}, theme: capturedTheme),
+                  },
+                );
+              },
+            ),
           ),
         ),
       );
@@ -458,12 +571,14 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              const style = TextStyle(fontSize: 14);
-              first = chatStylesheet(ctx, style);
-              second = chatStylesheet(ctx, style);
-              return const SizedBox.shrink();
-            }),
+            body: Builder(
+              builder: (ctx) {
+                const style = TextStyle(fontSize: 14);
+                first = chatStylesheet(ctx, style);
+                second = chatStylesheet(ctx, style);
+                return const SizedBox.shrink();
+              },
+            ),
           ),
         ),
       );
@@ -471,8 +586,9 @@ void main() {
       expect(identical(first, second), isTrue);
     });
 
-    testWidgets('returns different instances for different theme brightness',
-        (tester) async {
+    testWidgets('returns different instances for different theme brightness', (
+      tester,
+    ) async {
       debugResetChatStylesheetCache();
       late MarkdownStyleSheet lightSheet;
       late MarkdownStyleSheet darkSheet;
@@ -481,10 +597,12 @@ void main() {
         MaterialApp(
           theme: ThemeData.light(),
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              lightSheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
-              return const SizedBox.shrink();
-            }),
+            body: Builder(
+              builder: (ctx) {
+                lightSheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
+                return const SizedBox.shrink();
+              },
+            ),
           ),
         ),
       );
@@ -495,10 +613,12 @@ void main() {
         MaterialApp(
           theme: ThemeData.dark(),
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              darkSheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
-              return const SizedBox.shrink();
-            }),
+            body: Builder(
+              builder: (ctx) {
+                darkSheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
+                return const SizedBox.shrink();
+              },
+            ),
           ),
         ),
       );
@@ -506,8 +626,9 @@ void main() {
       expect(identical(lightSheet, darkSheet), isFalse);
     });
 
-    testWidgets('code backgroundColor is onSurface with alpha 26',
-        (tester) async {
+    testWidgets('code backgroundColor is onSurface with alpha 26', (
+      tester,
+    ) async {
       debugResetChatStylesheetCache();
       late MarkdownStyleSheet sheet;
       late ThemeData capturedTheme;
@@ -515,11 +636,13 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              capturedTheme = Theme.of(ctx);
-              sheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
-              return const SizedBox.shrink();
-            }),
+            body: Builder(
+              builder: (ctx) {
+                capturedTheme = Theme.of(ctx);
+                sheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
+                return const SizedBox.shrink();
+              },
+            ),
           ),
         ),
       );
@@ -537,10 +660,12 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              sheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
-              return const SizedBox.shrink();
-            }),
+            body: Builder(
+              builder: (ctx) {
+                sheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
+                return const SizedBox.shrink();
+              },
+            ),
           ),
         ),
       );
@@ -560,10 +685,12 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              sheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
-              return const SizedBox.shrink();
-            }),
+            body: Builder(
+              builder: (ctx) {
+                sheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
+                return const SizedBox.shrink();
+              },
+            ),
           ),
         ),
       );
@@ -579,11 +706,13 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Builder(builder: (ctx) {
-              capturedTheme = Theme.of(ctx);
-              sheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
-              return const SizedBox.shrink();
-            }),
+            body: Builder(
+              builder: (ctx) {
+                capturedTheme = Theme.of(ctx);
+                sheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
+                return const SizedBox.shrink();
+              },
+            ),
           ),
         ),
       );
@@ -595,35 +724,35 @@ void main() {
     });
 
     testWidgets(
-        'blockquoteDecoration uses surfaceContainerHighest (not Colors.blue.shade100)',
-        (tester) async {
-      debugResetChatStylesheetCache();
-      late MarkdownStyleSheet sheet;
-      late ThemeData capturedTheme;
+      'blockquoteDecoration uses surfaceContainerHighest (not Colors.blue.shade100)',
+      (tester) async {
+        debugResetChatStylesheetCache();
+        late MarkdownStyleSheet sheet;
+        late ThemeData capturedTheme;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData.dark(),
-          home: Scaffold(
-            body: Builder(builder: (ctx) {
-              capturedTheme = Theme.of(ctx);
-              sheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
-              return const SizedBox.shrink();
-            }),
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData.dark(),
+            home: Scaffold(
+              body: Builder(
+                builder: (ctx) {
+                  capturedTheme = Theme.of(ctx);
+                  sheet = chatStylesheet(ctx, const TextStyle(fontSize: 14));
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
           ),
-        ),
-      );
+        );
 
-      final deco = sheet.blockquoteDecoration as BoxDecoration?;
-      expect(deco, isNotNull);
-      expect(
-        deco!.color,
-        capturedTheme.colorScheme.surfaceContainerHighest,
-      );
-      // Default flutter_markdown_plus blockquote bg is Colors.blue.shade100,
-      // which is the bug — assert we are not falling through to that.
-      expect(deco.color, isNot(Colors.blue.shade100));
-      expect(deco.border, isA<Border>());
-    });
+        final deco = sheet.blockquoteDecoration as BoxDecoration?;
+        expect(deco, isNotNull);
+        expect(deco!.color, capturedTheme.colorScheme.surfaceContainerHighest);
+        // Default flutter_markdown_plus blockquote bg is Colors.blue.shade100,
+        // which is the bug — assert we are not falling through to that.
+        expect(deco.color, isNot(Colors.blue.shade100));
+        expect(deco.border, isA<Border>());
+      },
+    );
   });
 }

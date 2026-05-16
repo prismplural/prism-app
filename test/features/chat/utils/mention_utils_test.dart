@@ -40,6 +40,64 @@ void main() {
     test('returns false for empty content', () {
       expect(containsMention('', id1), isFalse);
     });
+
+    test('returns true for broadcast aliases', () {
+      expect(containsMention('Heads up @everyone', id1), isTrue);
+      expect(containsMention('@all please read', id2), isTrue);
+      expect(containsMention('Heads up @All', id1), isTrue);
+      expect(containsMention('@EVERYONE please read', id2), isTrue);
+    });
+
+    test('does not match broadcast aliases inside other words', () {
+      expect(containsMention('not@all', id1), isFalse);
+      expect(containsMention('@alliance', id1), isFalse);
+      expect(containsMention('@everyoneish', id1), isFalse);
+    });
+  });
+
+  group('broadcast mentions', () {
+    test('detects both aliases with token boundaries', () {
+      expect(containsBroadcastMention('@everyone'), isTrue);
+      expect(containsBroadcastMention('(@all), please'), isTrue);
+      expect(containsBroadcastMention('@Everyone'), isTrue);
+      expect(containsBroadcastMention('[@ALL]'), isTrue);
+    });
+
+    test('ignores false positives', () {
+      expect(containsBroadcastMention('not@all'), isFalse);
+      expect(containsBroadcastMention('@alliance'), isFalse);
+      expect(containsBroadcastMention('@everyoneish'), isFalse);
+      expect(containsBroadcastMention('é@all'), isFalse);
+      expect(containsBroadcastMention('@allá'), isFalse);
+      expect(containsBroadcastMention('@everyoneñ'), isFalse);
+    });
+  });
+
+  group('chatMentionRegex', () {
+    test('keeps UUID mentions case-sensitive', () {
+      expect(chatMentionRegex.hasMatch('@[$id2]'), isTrue);
+      expect(
+        chatMentionRegex.hasMatch('@[ABCDEF12-3456-7890-ABCD-EF1234567890]'),
+        isFalse,
+      );
+    });
+
+    test('matches broadcast aliases case-insensitively', () {
+      final match = chatMentionRegex.firstMatch('Heads up @EVERYONE');
+
+      expect(match, isNotNull);
+      expect(mentionIdFromMatch(match!), isNull);
+      expect(broadcastAliasFromMatch(match), 'EVERYONE');
+    });
+
+    test(
+      'does not match broadcast aliases next to non-ASCII word characters',
+      () {
+        expect(chatMentionRegex.hasMatch('é@all'), isFalse);
+        expect(chatMentionRegex.hasMatch('@allá'), isFalse);
+        expect(chatMentionRegex.hasMatch('@everyoneñ'), isFalse);
+      },
+    );
   });
 
   group('collectReferencedMemberIds', () {
@@ -63,10 +121,7 @@ void main() {
         ),
       ];
 
-      expect(
-        collectReferencedMemberIds(messages),
-        {id1, id2},
-      );
+      expect(collectReferencedMemberIds(messages), {id1, id2});
     });
 
     test('ignores malformed mention tokens and null reply content', () {

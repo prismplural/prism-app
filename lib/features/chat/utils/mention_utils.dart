@@ -5,9 +5,61 @@ library;
 import 'package:flutter/services.dart';
 import 'package:prism_plurality/domain/models/chat_message.dart';
 
-final mentionRegex = RegExp(
-  r'@\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]',
+const broadcastMentionAliases = <String>['everyone', 'all'];
+
+const _uuidMentionPattern =
+    r'@\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]';
+const broadcastMentionPattern =
+    r'(?<![\p{L}\p{M}\p{N}_])@([eE][vV][eE][rR][yY][oO][nN][eE]|[aA][lL][lL])(?![\p{L}\p{M}\p{N}_])';
+
+final mentionRegex = RegExp(_uuidMentionPattern);
+final _broadcastMentionWordCharRegex = RegExp(
+  r'^[\p{L}\p{M}\p{N}_]$',
+  unicode: true,
 );
+
+/// Matches literal broadcast mention aliases such as `@everyone` and `@all`.
+///
+/// The aliases must be token-like: not embedded inside another word on either
+/// side. This keeps strings like `not@all`, `@alliance`, and `@everyoneish`
+/// as plain text.
+final broadcastMentionRegex = RegExp(broadcastMentionPattern, unicode: true);
+
+/// Matches either a stored UUID mention token or a literal broadcast mention.
+final chatMentionRegex = RegExp(
+  '$_uuidMentionPattern|$broadcastMentionPattern',
+  unicode: true,
+);
+
+String? mentionIdFromMatch(Match match) => match.group(1);
+
+String? broadcastAliasFromMatch(Match match) => match.group(2);
+
+bool isBroadcastMentionAlias(String text) {
+  return broadcastMentionAliases.contains(text.toLowerCase());
+}
+
+bool containsBroadcastMention(String content) {
+  return broadcastMentionRegex.hasMatch(content);
+}
+
+bool hasBroadcastMentionBoundaries(String content, int start, int end) {
+  if (start < 0 || start > end || end > content.length) return false;
+  return !_isBroadcastMentionWordBefore(content, start) &&
+      !_isBroadcastMentionWordAt(content, end);
+}
+
+bool _isBroadcastMentionWordBefore(String content, int index) {
+  if (index <= 0) return false;
+  final char = String.fromCharCode(content.substring(0, index).runes.last);
+  return _broadcastMentionWordCharRegex.hasMatch(char);
+}
+
+bool _isBroadcastMentionWordAt(String content, int index) {
+  if (index >= content.length) return false;
+  final char = String.fromCharCode(content.substring(index).runes.first);
+  return _broadcastMentionWordCharRegex.hasMatch(char);
+}
 
 /// Extract all member IDs mentioned in [content].
 List<String> extractMentionIds(String content) {
@@ -30,9 +82,11 @@ Set<String> collectReferencedMemberIds(Iterable<ChatMessage> messages) {
   };
 }
 
-/// Whether [content] contains a mention of [memberId].
+/// Whether [content] should notify [memberId].
+///
+/// A member is notified by their direct `@[uuid]` token or by a broadcast alias.
 bool containsMention(String content, String memberId) {
-  return content.contains('@[$memberId]');
+  return content.contains('@[$memberId]') || containsBroadcastMention(content);
 }
 
 /// Replace mention tokens with display names.

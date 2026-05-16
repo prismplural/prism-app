@@ -27,15 +27,10 @@ const _kDefaultColor = Colors.black;
 const _kMentionId = '11111111-2222-3333-4444-555555555555';
 
 Widget _wrap(Widget child) => MaterialApp(
-      home: Scaffold(
-        body: Builder(builder: (ctx) => child),
-      ),
-    );
+  home: Scaffold(body: Builder(builder: (ctx) => child)),
+);
 
-Widget _widget({
-  required String content,
-  Map<String, Member>? authorMap,
-}) {
+Widget _widget({required String content, Map<String, Member>? authorMap}) {
   return _wrap(
     ChatMessageText(
       content: content,
@@ -58,27 +53,57 @@ void main() {
       expect(find.byType(MarkdownBody), findsNothing);
     });
 
-    testWidgets('2. plain text uses fast path (no MarkdownBody)', (tester) async {
+    testWidgets('2. plain text uses fast path (no MarkdownBody)', (
+      tester,
+    ) async {
       await tester.pumpWidget(_widget(content: 'hello world'));
       expect(find.byType(MarkdownBody), findsNothing);
       expect(find.byType(Text), findsAtLeastNWidgets(1));
     });
 
     testWidgets(
-        '3. text with mention goes through slow path (@ triggers markdown char check) and shows @Alice',
-        (tester) async {
-      final map = {_kMentionId: _makeMember()};
-      await tester.pumpWidget(_widget(
-        content: 'hi @[$_kMentionId]',
-        authorMap: map,
-      ));
-      // '@' is in hasMarkdownChars, so content with mentions takes the slow path.
+      '3. text with mention goes through slow path (@ triggers markdown char check) and shows @Alice',
+      (tester) async {
+        final map = {_kMentionId: _makeMember()};
+        await tester.pumpWidget(
+          _widget(content: 'hi @[$_kMentionId]', authorMap: map),
+        );
+        // '@' is in hasMarkdownChars, so content with mentions takes the slow path.
+        expect(find.byType(MarkdownBody), findsOneWidget);
+        expect(find.textContaining('@Alice'), findsOneWidget);
+      },
+    );
+
+    testWidgets('3b. broadcast mentions render through markdown path', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_widget(content: 'hi @everyone and @all'));
       expect(find.byType(MarkdownBody), findsOneWidget);
-      expect(find.textContaining('@Alice'), findsOneWidget);
+      expect(
+        find.textContaining('@everyone', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.textContaining('@all', findRichText: true), findsOneWidget);
     });
 
-    testWidgets('4. bold text uses slow path (MarkdownBody present)',
-        (tester) async {
+    testWidgets('3c. broadcast false positives render as plain text', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _widget(content: 'not@all @alliance @everyoneish'),
+      );
+      expect(find.byType(MarkdownBody), findsOneWidget);
+      expect(
+        find.textContaining('not@all', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.text('@all'), findsNothing);
+      expect(find.text('@everyone'), findsNothing);
+    });
+
+    testWidgets('4. bold text uses slow path (MarkdownBody present)', (
+      tester,
+    ) async {
       await tester.pumpWidget(_widget(content: '**hello**'));
       expect(find.byType(MarkdownBody), findsOneWidget);
       expect(find.textContaining('hello'), findsOneWidget);
@@ -89,13 +114,13 @@ void main() {
       expect(find.byType(MarkdownBody), findsOneWidget);
     });
 
-    testWidgets('6. bold + mention uses slow path and shows @Alice',
-        (tester) async {
+    testWidgets('6. bold + mention uses slow path and shows @Alice', (
+      tester,
+    ) async {
       final map = {_kMentionId: _makeMember()};
-      await tester.pumpWidget(_widget(
-        content: '**@[$_kMentionId]**',
-        authorMap: map,
-      ));
+      await tester.pumpWidget(
+        _widget(content: '**@[$_kMentionId]**', authorMap: map),
+      );
       expect(find.byType(MarkdownBody), findsOneWidget);
       expect(find.textContaining('@Alice'), findsOneWidget);
     });
@@ -106,8 +131,9 @@ void main() {
       expect(find.textContaining('code'), findsOneWidget);
     });
 
-    testWidgets('8. content > 2000 chars with markdown uses fast path',
-        (tester) async {
+    testWidgets('8. content > 2000 chars with markdown uses fast path', (
+      tester,
+    ) async {
       // Build a 2500-char string that contains **bold** markdown.
       final long = 'a' * 2490 + '**bold**';
       expect(long.length, greaterThan(2000));
@@ -115,8 +141,9 @@ void main() {
       expect(find.byType(MarkdownBody), findsNothing);
     });
 
-    testWidgets('8b. fast path redacts spoilers so plaintext cannot leak',
-        (tester) async {
+    testWidgets('8b. fast path redacts spoilers so plaintext cannot leak', (
+      tester,
+    ) async {
       // A >2000 char message with an embedded spoiler takes the fast path.
       // Without redaction the plaintext would render visibly.
       final long = 'a' * 2490 + ' ||secret|| tail';
@@ -133,31 +160,34 @@ void main() {
     });
 
     testWidgets(
-        '9. leading # without markdown chars takes fast path and renders literally',
-        (tester) async {
-      // '#' is not in hasMarkdownChars. So '# hello' → fast path → rendered as
-      // plain Text, not MarkdownBody. (Chat does not support headings — they
-      // would otherwise be escaped by escapeLeadingHeadings on the slow path.)
-      await tester.pumpWidget(_widget(content: '# hello'));
-      expect(find.byType(MarkdownBody), findsNothing);
-      expect(find.textContaining('# hello'), findsOneWidget);
-    });
+      '9. leading # without markdown chars takes fast path and renders literally',
+      (tester) async {
+        // '#' is not in hasMarkdownChars. So '# hello' → fast path → rendered as
+        // plain Text, not MarkdownBody. (Chat does not support headings — they
+        // would otherwise be escaped by escapeLeadingHeadings on the slow path.)
+        await tester.pumpWidget(_widget(content: '# hello'));
+        expect(find.byType(MarkdownBody), findsNothing);
+        expect(find.textContaining('# hello'), findsOneWidget);
+      },
+    );
 
     testWidgets(
-        '9b. blockquote enters slow path and does not render literal `> ` prefix',
-        (tester) async {
-      // Regression: '>' was missing from hasMarkdownChars, so '> test' used to
-      // fast-path and render the literal '> test' string.
-      await tester.pumpWidget(_widget(content: '> hello'));
-      expect(find.byType(MarkdownBody), findsOneWidget);
-      // The rendered text should be just 'hello' — the '>' marker is consumed
-      // by the block parser, not echoed as a character.
-      expect(find.text('hello'), findsOneWidget);
-      expect(find.textContaining('> hello'), findsNothing);
-    });
+      '9b. blockquote enters slow path and does not render literal `> ` prefix',
+      (tester) async {
+        // Regression: '>' was missing from hasMarkdownChars, so '> test' used to
+        // fast-path and render the literal '> test' string.
+        await tester.pumpWidget(_widget(content: '> hello'));
+        expect(find.byType(MarkdownBody), findsOneWidget);
+        // The rendered text should be just 'hello' — the '>' marker is consumed
+        // by the block parser, not echoed as a character.
+        expect(find.text('hello'), findsOneWidget);
+        expect(find.textContaining('> hello'), findsNothing);
+      },
+    );
 
-    testWidgets(
-        '10. javascript link renders text without GestureDetector', (tester) async {
+    testWidgets('10. javascript link renders text without GestureDetector', (
+      tester,
+    ) async {
       await tester.pumpWidget(_widget(content: '[x](javascript:alert(1))'));
       expect(find.byType(MarkdownBody), findsOneWidget);
       expect(find.textContaining('x'), findsOneWidget);
@@ -171,10 +201,10 @@ void main() {
       );
     });
 
-    testWidgets('11. http link renders GestureDetector for "click"',
-        (tester) async {
-      await tester.pumpWidget(_widget(
-          content: '[click](https://example.com)'));
+    testWidgets('11. http link renders GestureDetector for "click"', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_widget(content: '[click](https://example.com)'));
       expect(find.byType(MarkdownBody), findsOneWidget);
       expect(
         find.ancestor(
@@ -186,26 +216,34 @@ void main() {
     });
 
     testWidgets(
-        '12. visible mention re-renders when authorMap loads after first paint',
-        (tester) async {
-      await tester.pumpWidget(_widget(
-        content: 'hi @[$_kMentionId]',
-        authorMap: const {},
-      ));
-      expect(
-        find.textContaining('@Unknown', findRichText: true),
-        findsOneWidget,
-      );
+      '12. visible mention re-renders when authorMap loads after first paint',
+      (tester) async {
+        await tester.pumpWidget(
+          _widget(content: 'hi @[$_kMentionId]', authorMap: const {}),
+        );
+        expect(
+          find.textContaining('@Unknown', findRichText: true),
+          findsOneWidget,
+        );
 
-      await tester.pumpWidget(_widget(
-        content: 'hi @[$_kMentionId]',
-        authorMap: {_kMentionId: _makeMember()},
-      ));
-      await tester.pump();
+        await tester.pumpWidget(
+          _widget(
+            content: 'hi @[$_kMentionId]',
+            authorMap: {_kMentionId: _makeMember()},
+          ),
+        );
+        await tester.pump();
 
-      expect(find.textContaining('@Unknown', findRichText: true), findsNothing);
-      expect(find.textContaining('@Alice', findRichText: true), findsOneWidget);
-    });
+        expect(
+          find.textContaining('@Unknown', findRichText: true),
+          findsNothing,
+        );
+        expect(
+          find.textContaining('@Alice', findRichText: true),
+          findsOneWidget,
+        );
+      },
+    );
   });
 
   group('buildMentionSpan unit tests', () {
@@ -278,6 +316,44 @@ void main() {
       expect(mentionSpan, isNotNull);
       expect(mentionSpan!.text, '@Unknown');
     });
+
+    test('broadcast aliases keep typed text and mention styling', () {
+      final theme = ThemeData.light();
+      final span = buildMentionSpan(
+        content: 'hi @everyone and @all',
+        authorMap: {},
+        theme: theme,
+        defaultColor: Colors.black,
+        baseStyle: _kBaseStyle,
+      );
+
+      final mentionTexts = <String>[];
+      span.visitChildren((child) {
+        if (child is TextSpan &&
+            child.text != null &&
+            child.text!.startsWith('@')) {
+          mentionTexts.add(child.text!);
+          expect(child.style?.fontWeight, FontWeight.w600);
+        }
+        return true;
+      });
+
+      expect(mentionTexts, ['@everyone', '@all']);
+    });
+
+    test('broadcast false positives are not split into mention spans', () {
+      final theme = ThemeData.light();
+      final span = buildMentionSpan(
+        content: 'not@all @alliance @everyoneish',
+        authorMap: {},
+        theme: theme,
+        defaultColor: Colors.black,
+        baseStyle: _kBaseStyle,
+      );
+
+      expect(span.children, isNull);
+      expect(span.text, 'not@all @alliance @everyoneish');
+    });
   });
 
   group('fuzz', () {
@@ -312,8 +388,9 @@ void main() {
   });
 
   group('RTL', () {
-    testWidgets('Arabic text with inline bold renders without error',
-        (tester) async {
+    testWidgets('Arabic text with inline bold renders without error', (
+      tester,
+    ) async {
       const arabic = 'مرحبا **world** اهلا';
       await tester.pumpWidget(
         const MaterialApp(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
@@ -31,6 +32,31 @@ class MentionSyntax extends md.InlineSyntax {
     parser.addNode(element);
     return true;
   }
+}
+
+/// Matches literal broadcast mention aliases such as `@everyone` and `@all`.
+class BroadcastMentionSyntax extends md.InlineSyntax {
+  BroadcastMentionSyntax()
+    : super(r'@(everyone|all)', caseSensitive: false, startCharacter: 64);
+
+  @override
+  bool tryMatch(md.InlineParser parser, [int? startMatchPos]) {
+    startMatchPos ??= parser.pos;
+    final match = pattern.matchAsPrefix(parser.source, startMatchPos);
+    if (match == null) return false;
+    if (!hasBroadcastMentionBoundaries(parser.source, match.start, match.end)) {
+      return false;
+    }
+    parser.writeText();
+    final element = md.Element.empty('mention');
+    element.attributes['alias'] = match.group(1)!;
+    parser.addNode(element);
+    parser.consume(match.end - match.start);
+    return true;
+  }
+
+  @override
+  bool onMatch(md.InlineParser parser, Match match) => false;
 }
 
 /// Matches `||spoiler text||` inline spans.
@@ -102,6 +128,18 @@ class MentionBuilder extends MarkdownElementBuilder {
     TextStyle? parentStyle,
   ) {
     final id = element.attributes['id'];
+    final alias = element.attributes['alias'];
+    if (alias != null && isBroadcastMentionAlias(alias)) {
+      final text = '@$alias';
+      final merged = (parentStyle ?? const TextStyle()).copyWith(
+        color: theme.colorScheme.primary,
+        fontWeight: FontWeight.w600,
+      );
+      return Text.rich(
+        TextSpan(text: text, style: merged, semanticsLabel: text),
+      );
+    }
+
     final member = id == null ? null : authorMap?[id];
     final name = member?.name ?? 'Unknown';
     final mentionColor =
@@ -420,11 +458,10 @@ void debugResetChatStylesheetCache() {
 
 /// CommonMark block syntaxes + [SpoilerSyntax] and [MentionSyntax] inline,
 /// for chat rendering.
-final md.ExtensionSet chatExtensionSet = md.ExtensionSet(
-  md.ExtensionSet.commonMark.blockSyntaxes,
-  [
-    SpoilerSyntax(),
-    MentionSyntax(),
-    ...md.ExtensionSet.commonMark.inlineSyntaxes,
-  ],
-);
+final md.ExtensionSet chatExtensionSet =
+    md.ExtensionSet(md.ExtensionSet.commonMark.blockSyntaxes, [
+      SpoilerSyntax(),
+      MentionSyntax(),
+      BroadcastMentionSyntax(),
+      ...md.ExtensionSet.commonMark.inlineSyntaxes,
+    ]);

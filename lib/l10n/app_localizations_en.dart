@@ -3697,6 +3697,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatSendMessageDisabled => 'Send message, disabled';
 
   @override
+  String get chatMentionEveryoneSemantics => 'Mention everyone in this chat';
+
+  @override
+  String get chatBroadcastMentionConfirmTitle =>
+      'Mention everyone in this chat?';
+
+  @override
+  String chatBroadcastMentionConfirmMessage(int count) {
+    return 'This will notify all $count other participants in this chat.';
+  }
+
+  @override
   String get chatRecordVoiceNote => 'Record voice note';
 
   @override

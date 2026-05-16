@@ -57,10 +57,9 @@ class _ChatMessageTextState extends State<ChatMessageText> {
     if (widget.content.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
-    final renderKey = ValueKey(_mentionRenderSignature(
-      widget.content,
-      widget.authorMap,
-    ));
+    final renderKey = ValueKey(
+      _mentionRenderSignature(widget.content, widget.authorMap),
+    );
 
     // Fast path: skips the markdown parser. `redactSpoilers` runs before
     // rendering so a >2000-char message with `||secret||` can't leak the
@@ -96,12 +95,11 @@ class _ChatMessageTextState extends State<ChatMessageText> {
           softLineBreak: true,
           imageBuilder: (uri, title, alt) => const SizedBox.shrink(),
           builders: {
-            'mention':
-                MentionBuilder(authorMap: widget.authorMap, theme: theme),
-            'a': SafeLinkBuilder(
+            'mention': MentionBuilder(
+              authorMap: widget.authorMap,
               theme: theme,
-              onTap: _openExternal,
             ),
+            'a': SafeLinkBuilder(theme: theme, onTap: _openExternal),
             'spoiler': SpoilerBuilder(theme: theme),
           },
         ),
@@ -115,7 +113,10 @@ class _ChatMessageTextState extends State<ChatMessageText> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  Object _mentionRenderSignature(String content, Map<String, Member>? authorMap) {
+  Object _mentionRenderSignature(
+    String content,
+    Map<String, Member>? authorMap,
+  ) {
     final values = <Object?>[content];
     for (final match in mentionRegex.allMatches(content)) {
       final memberId = match.group(1)!;
@@ -137,7 +138,7 @@ class _ChatMessageTextState extends State<ChatMessageText> {
 /// Task 6 can share the same logic without depending on `message_bubble`
 /// internals.
 ///
-/// - Walks [mentionRegex] matches across [content].
+/// - Walks [chatMentionRegex] matches across [content].
 /// - Emits a plain-text span for each segment before a mention, then a mention
 ///   span with the member's color (or [theme.colorScheme.primary] as fallback).
 /// - Uses [baseStyle] as the base, overriding `color` and `fontWeight` for
@@ -151,7 +152,7 @@ TextSpan buildMentionSpan({
   required TextStyle baseStyle,
 }) {
   final defaultStyle = baseStyle.copyWith(color: defaultColor);
-  final matches = mentionRegex.allMatches(content).toList();
+  final matches = chatMentionRegex.allMatches(content).toList();
 
   if (matches.isEmpty) {
     return TextSpan(text: content, style: defaultStyle);
@@ -171,19 +172,23 @@ TextSpan buildMentionSpan({
       );
     }
 
-    final memberId = match.group(1)!;
-    final member = authorMap?[memberId];
-    final name = member?.name ?? 'Unknown';
-    final mentionColor = _memberColor(member, theme);
+    final memberId = mentionIdFromMatch(match);
+    final alias = broadcastAliasFromMatch(match);
+    final member = memberId == null ? null : authorMap?[memberId];
+    final name = alias ?? member?.name ?? 'Unknown';
+    final mentionColor = alias == null
+        ? _memberColor(member, theme)
+        : theme.colorScheme.primary;
+    final display = '@$name';
 
     spans.add(
       TextSpan(
-        text: '@$name',
+        text: display,
         style: defaultStyle.copyWith(
           color: mentionColor,
           fontWeight: FontWeight.w600,
         ),
-        semanticsLabel: '@$name',
+        semanticsLabel: display,
       ),
     );
 

@@ -40,6 +40,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_selector_popup.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -104,6 +105,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   }
 
   bool get _canSend {
+    if (_isSending) return false;
     if (!_canWriteToConversation) return false;
     final hasText = _controller.text.trim().isNotEmpty;
     final hasImage = _stagedImageBytes != null;
@@ -247,16 +249,22 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   }
 
   void _onMemberSelected(Member member) {
+    _replaceMentionTriggerWith('@[${member.id}] ');
+  }
+
+  void _onBroadcastMentionSelected(String alias) {
+    _replaceMentionTriggerWith('$alias ');
+  }
+
+  void _replaceMentionTriggerWith(String replacement) {
     final text = _controller.text;
     final cursorPos = _controller.selection.baseOffset;
-    final before = text.substring(0, cursorPos);
-    final atIndex = before.lastIndexOf('@');
-    if (atIndex < 0) return;
+    final trigger = detectMentionTrigger(text, cursorPos);
+    if (trigger == null) return;
 
     final after = text.substring(cursorPos);
-    final replacement = '@[${member.id}] ';
-    final newText = text.substring(0, atIndex) + replacement + after;
-    final newCursorPos = atIndex + replacement.length;
+    final newText = text.substring(0, trigger.atIndex) + replacement + after;
+    final newCursorPos = trigger.atIndex + replacement.length;
 
     // Temporarily remove listener to avoid re-triggering overlay.
     _controller.removeListener(_onTextChanged);
@@ -272,6 +280,33 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     // fire _onTextChanged; sync _lastText manually so the next build's
     // proxy-tag match and _canSend see the inserted mention.
     setState(() => _lastText = _controller.text);
+  }
+
+  Future<bool> _confirmBroadcastMentionIfNeeded(
+    String content,
+    String authorId,
+  ) async {
+    if (!containsBroadcastMention(content)) return true;
+
+    final conversation = ref
+        .read(conversationByIdProvider(widget.conversationId))
+        .value;
+    final recipientCount =
+        conversation?.participantIds
+            .toSet()
+            .where((id) => id != authorId)
+            .length ??
+        0;
+    if (recipientCount < 5) return true;
+
+    return PrismDialog.confirm(
+      context: context,
+      title: context.l10n.chatBroadcastMentionConfirmTitle,
+      message: context.l10n.chatBroadcastMentionConfirmMessage(recipientCount),
+      confirmLabel: context.l10n.confirm,
+      cancelLabel: context.l10n.cancel,
+      icon: AppIcons.warningAmberRounded,
+    );
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -389,7 +424,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   }
 
   Future<void> _sendMessage() async {
-    if (!_canWriteToConversation) return;
+    if (_isSending || !_canWriteToConversation) return;
     final text = _controller.text.trim();
     final hasImage = _stagedImageBytes != null;
     if (text.isEmpty && !hasImage) return;
@@ -424,14 +459,21 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     content ??= text;
 
     if (authorId == null) return;
-
     setState(() => _isSending = true);
 
-    // Capture reply state and staged image before the async gap.
-    final replyingTo = ref.read(replyingToProvider(widget.conversationId));
-    final imageBytes = _stagedImageBytes;
-
     try {
+      final confirmed = await _confirmBroadcastMentionIfNeeded(
+        content,
+        authorId,
+      );
+      if (!confirmed || !mounted) return;
+
+      // Capture reply state and staged image after confirmation. The composer is
+      // read-only while _isSending is true, so the draft cannot drift underneath
+      // the confirmation dialog.
+      final replyingTo = ref.read(replyingToProvider(widget.conversationId));
+      final imageBytes = _stagedImageBytes;
+
       // Send the text message (or empty content placeholder if image-only).
       final messageId = await ref
           .read(chatNotifierProvider.notifier)
@@ -609,7 +651,10 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       conversation,
     );
     final showMentionOverlay =
-        _mentionMenuVisible && !_isRecording && mentionCandidates.isNotEmpty;
+        _mentionMenuVisible &&
+        !_isRecording &&
+        (mentionCandidates.isNotEmpty ||
+            MentionOverlay.hasBroadcastAliasMatches(_mentionFilter));
     _syncMentionOverlayPortal(showMentionOverlay);
     final memberSearchGroups = watchMemberSearchGroups(
       ref,
@@ -778,6 +823,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                                     availableWidth:
                                         _mentionOverlayAvailableWidth(context),
                                     onSelect: _onMemberSelected,
+                                    onBroadcastSelect:
+                                        _onBroadcastMentionSelected,
                                   ),
                                 ),
                               );
@@ -788,6 +835,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                               child: _GlassTextField(
                                 controller: _controller,
                                 focusNode: _focusNode,
+                                readOnly: _isSending,
                                 minHeight: inputHeight,
                                 onChanged: (_) => setState(() {}),
                                 onSend: _sendMessage,
@@ -951,6 +999,7 @@ class _GlassTextField extends StatelessWidget {
   const _GlassTextField({
     required this.controller,
     required this.focusNode,
+    required this.readOnly,
     required this.minHeight,
     required this.onChanged,
     required this.onSend,
@@ -961,6 +1010,7 @@ class _GlassTextField extends StatelessWidget {
 
   final TextEditingController controller;
   final FocusNode focusNode;
+  final bool readOnly;
   final double minHeight;
   final ValueChanged<String> onChanged;
   final VoidCallback onSend;
@@ -1117,6 +1167,7 @@ class _GlassTextField extends StatelessWidget {
       child: TextField(
         controller: controller,
         focusNode: focusNode,
+        readOnly: readOnly,
         textCapitalization: TextCapitalization.sentences,
         inputFormatters: const [AtomicMentionFormatter()],
         minLines: 1,

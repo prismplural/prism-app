@@ -4,10 +4,12 @@ import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/tables/chat_messages_table.dart';
 import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
+import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 
 part 'chat_messages_dao.g.dart';
 
 const _maxUnreadConversationBatchSize = 400;
+const _maxMentionConversationBatchSize = _maxUnreadConversationBatchSize ~/ 2;
 
 typedef ChatMessageSearchHit = ({
   String messageId,
@@ -133,17 +135,34 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
     String memberId,
   ) {
     return customSelect(
-      'SELECT COUNT(*) AS c FROM chat_messages '
+      'SELECT id, NULL AS content FROM chat_messages '
       'WHERE conversation_id = ? AND timestamp > ? '
       'AND is_deleted = 0 AND is_system_message = 0 '
-      "AND content LIKE '%@[' || ? || ']%'",
+      'AND ${_directMentionWhereSql()} '
+      'UNION ALL '
+      'SELECT id, content FROM chat_messages '
+      'WHERE conversation_id = ? AND timestamp > ? '
+      'AND is_deleted = 0 AND is_system_message = 0 '
+      'AND (${_broadcastMentionCandidateWhereSql()})',
       variables: [
         Variable.withString(conversationId),
         Variable.withDateTime(since),
-        Variable.withString(memberId),
+        _directMentionVariable(memberId),
+        Variable.withString(conversationId),
+        Variable.withDateTime(since),
+        ..._broadcastMentionCandidateVariables(),
       ],
       readsFrom: {chatMessages},
-    ).watch().map((rows) => rows.isEmpty ? 0 : rows.first.read<int>('c'));
+    ).watch().map((rows) {
+      final mentionedMessageIds = <String>{};
+      for (final row in rows) {
+        final content = row.read<String?>('content');
+        if (content == null || containsBroadcastMention(content)) {
+          mentionedMessageIds.add(row.read<String>('id'));
+        }
+      }
+      return mentionedMessageIds.length;
+    });
   }
 
   /// Watch unread message counts for multiple conversations in a single query.
@@ -223,12 +242,15 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
   ) {
     if (conversationSince.isEmpty) return Stream.value({});
     final entries = conversationSince.entries.toList(growable: false);
-    if (entries.length <= _maxUnreadConversationBatchSize) {
+    if (entries.length <= _maxMentionConversationBatchSize) {
       return _watchConversationsWithMentionsBatch(conversationSince, memberId);
     }
 
     return _combineBatchedStreams<Set<String>>(
-      _chunkConversationEntries(entries).map(
+      _chunkConversationEntries(
+        entries,
+        batchSize: _maxMentionConversationBatchSize,
+      ).map(
         (batch) => _watchConversationsWithMentionsBatch(
           Map<String, DateTime>.fromEntries(batch),
           memberId,
@@ -244,7 +266,7 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
     String memberId,
   ) {
     assert(
-      conversationSince.length <= _maxUnreadConversationBatchSize,
+      conversationSince.length <= _maxMentionConversationBatchSize,
       'watchConversationsWithMentions batch exceeded the safe UNION ALL limit.',
     );
 
@@ -252,38 +274,68 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
     final vars = <Variable>[];
     for (final entry in conversationSince.entries) {
       parts.add(
-        'SELECT ? AS conversation_id '
+        'SELECT ? AS conversation_id, NULL AS content '
         'WHERE EXISTS ('
         'SELECT 1 FROM chat_messages '
         'WHERE conversation_id = ? AND timestamp > ? '
         'AND is_deleted = 0 AND is_system_message = 0 '
-        "AND content LIKE '%@[' || ? || ']%'"
-        ')',
+        'AND ${_directMentionWhereSql()}'
+        ') '
+        'UNION ALL '
+        'SELECT ? AS conversation_id, content '
+        'FROM chat_messages '
+        'WHERE conversation_id = ? AND timestamp > ? '
+        'AND is_deleted = 0 AND is_system_message = 0 '
+        'AND (${_broadcastMentionCandidateWhereSql()})',
       );
       vars.add(Variable.withString(entry.key));
       vars.add(Variable.withString(entry.key));
       vars.add(Variable.withDateTime(entry.value));
-      vars.add(Variable.withString(memberId));
+      vars.add(_directMentionVariable(memberId));
+      vars.add(Variable.withString(entry.key));
+      vars.add(Variable.withString(entry.key));
+      vars.add(Variable.withDateTime(entry.value));
+      vars.addAll(_broadcastMentionCandidateVariables());
     }
 
     return customSelect(
       parts.join(' UNION ALL '),
       variables: vars,
       readsFrom: {chatMessages},
-    ).watch().map(
-      (rows) => rows.map((r) => r.read<String>('conversation_id')).toSet(),
-    );
+    ).watch().map((rows) {
+      final conversationIds = <String>{};
+      for (final row in rows) {
+        final content = row.read<String?>('content');
+        if (content == null || containsBroadcastMention(content)) {
+          conversationIds.add(row.read<String>('conversation_id'));
+        }
+      }
+      return conversationIds;
+    });
+  }
+
+  String _directMentionWhereSql() {
+    return 'instr(content, ?) > 0';
+  }
+
+  Variable _directMentionVariable(String memberId) {
+    return Variable.withString('@[$memberId]');
+  }
+
+  String _broadcastMentionCandidateWhereSql() {
+    return 'content LIKE ? OR content LIKE ?';
+  }
+
+  List<Variable> _broadcastMentionCandidateVariables() {
+    return [Variable.withString('%@all%'), Variable.withString('%@everyone%')];
   }
 
   Iterable<List<MapEntry<String, DateTime>>> _chunkConversationEntries(
-    List<MapEntry<String, DateTime>> entries,
-  ) sync* {
-    for (
-      var start = 0;
-      start < entries.length;
-      start += _maxUnreadConversationBatchSize
-    ) {
-      final end = start + _maxUnreadConversationBatchSize;
+    List<MapEntry<String, DateTime>> entries, {
+    int batchSize = _maxUnreadConversationBatchSize,
+  }) sync* {
+    for (var start = 0; start < entries.length; start += batchSize) {
+      final end = start + batchSize;
       yield entries.sublist(start, end > entries.length ? entries.length : end);
     }
   }

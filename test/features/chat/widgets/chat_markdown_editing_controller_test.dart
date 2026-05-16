@@ -99,6 +99,41 @@ void main() {
           expect(mention.style?.backgroundColor, isNotNull);
         },
       );
+
+      testWidgets('renders broadcast aliases with mention styling', (
+        tester,
+      ) async {
+        final controller = ChatMarkdownEditingController(
+          text: 'hi @everyone and @all',
+        );
+        final children = await getSpanChildren(tester, controller);
+
+        expect(children, isNotNull);
+        expect(children!.length, 4);
+        expect((children[0] as TextSpan).text, 'hi ');
+        final everyone = children[1] as TextSpan;
+        expect(everyone.text, '@everyone');
+        expect(everyone.style?.fontWeight, FontWeight.w600);
+        expect(everyone.style?.backgroundColor, isNotNull);
+        expect((children[2] as TextSpan).text, ' and ');
+        expect((children[3] as TextSpan).text, '@all');
+      });
+
+      testWidgets('does not style broadcast aliases inside other words', (
+        tester,
+      ) async {
+        final controller = ChatMarkdownEditingController(
+          text: 'not@all @alliance @everyoneish',
+        );
+        final children = await getSpanChildren(tester, controller);
+
+        expect(children, isNotNull);
+        expect(children!.length, 1);
+        expect(
+          (children[0] as TextSpan).text,
+          'not@all @alliance @everyoneish',
+        );
+      });
     });
 
     group('bold stars', () {

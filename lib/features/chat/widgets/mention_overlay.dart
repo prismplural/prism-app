@@ -5,10 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/chat/utils/mention_utils.dart'
+    as mention_utils;
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+
+final _broadcastMentionDisplayAliases = mention_utils.broadcastMentionAliases
+    .map((alias) => '@$alias')
+    .toList(growable: false);
 
 /// Glassmorphism autocomplete overlay for @mentions.
 ///
@@ -20,6 +28,7 @@ class MentionOverlay extends StatefulWidget {
     required this.members,
     required this.filter,
     required this.onSelect,
+    required this.onBroadcastSelect,
     required this.availableWidth,
   });
 
@@ -32,11 +41,37 @@ class MentionOverlay extends StatefulWidget {
   /// Called when a member is selected.
   final ValueChanged<Member> onSelect;
 
+  /// Called when a broadcast mention alias is selected.
+  final ValueChanged<String> onBroadcastSelect;
+
   /// Width available from the anchored composer field.
   final double availableWidth;
 
+  static bool hasBroadcastAliasMatches(String filter) {
+    return _broadcastAliasesForFilter(filter).isNotEmpty;
+  }
+
   @override
   State<MentionOverlay> createState() => MentionOverlayState();
+}
+
+class _MentionOverlayEntry {
+  const _MentionOverlayEntry.member(this.member) : alias = null;
+
+  const _MentionOverlayEntry.broadcast(this.alias) : member = null;
+
+  final Member? member;
+  final String? alias;
+
+  bool get isBroadcast => alias != null;
+}
+
+List<String> _broadcastAliasesForFilter(String filter) {
+  final lower = filter.toLowerCase();
+  if (lower.isEmpty) return _broadcastMentionDisplayAliases;
+  return _broadcastMentionDisplayAliases
+      .where((alias) => alias.substring(1).startsWith(lower))
+      .toList(growable: false);
 }
 
 class MentionOverlayState extends State<MentionOverlay>
@@ -46,12 +81,19 @@ class MentionOverlayState extends State<MentionOverlay>
   late Animation<double> _fadeAnimation;
   int _selectedIndex = 0;
 
-  List<Member> get _filtered {
-    if (widget.filter.isEmpty) return widget.members;
+  List<_MentionOverlayEntry> get _filtered {
+    final broadcastEntries = _broadcastAliasesForFilter(
+      widget.filter,
+    ).map(_MentionOverlayEntry.broadcast);
     final lower = widget.filter.toLowerCase();
-    return widget.members
-        .where((m) => m.name.toLowerCase().contains(lower))
-        .toList();
+    final memberEntries =
+        (widget.filter.isEmpty
+                ? widget.members
+                : widget.members.where(
+                    (m) => m.name.toLowerCase().contains(lower),
+                  ))
+            .map(_MentionOverlayEntry.member);
+    return [...memberEntries, ...broadcastEntries];
   }
 
   @override
@@ -108,7 +150,7 @@ class MentionOverlayState extends State<MentionOverlay>
     if (event.logicalKey == LogicalKeyboardKey.enter ||
         event.logicalKey == LogicalKeyboardKey.tab) {
       if (_selectedIndex < filtered.length) {
-        widget.onSelect(filtered[_selectedIndex]);
+        _select(filtered[_selectedIndex]);
       }
       return true;
     }
@@ -116,6 +158,14 @@ class MentionOverlayState extends State<MentionOverlay>
       return true; // Caller handles dismissal.
     }
     return false;
+  }
+
+  void _select(_MentionOverlayEntry entry) {
+    if (entry.isBroadcast) {
+      widget.onBroadcastSelect(entry.alias!);
+      return;
+    }
+    widget.onSelect(entry.member!);
   }
 
   @override
@@ -181,43 +231,63 @@ class MentionOverlayState extends State<MentionOverlay>
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       itemCount: filtered.length,
                       itemBuilder: (context, index) {
-                        final member = filtered[index];
+                        final entry = filtered[index];
                         final isHighlighted = index == _selectedIndex;
-                        return GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => widget.onSelect(member),
+                        if (entry.isBroadcast) {
+                          return _BroadcastMentionRow(
+                            alias: entry.alias!,
+                            isHighlighted: isHighlighted,
+                            onTap: () => _select(entry),
+                          );
+                        }
+                        final member = entry.member!;
+                        return Semantics(
+                          label: member.name,
+                          button: true,
                           child: Container(
-                            height: 48,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             color: isHighlighted
                                 ? theme.colorScheme.primary.withValues(
                                     alpha: 0.12,
                                   )
                                 : Colors.transparent,
-                            child: Row(
-                              children: [
-                                MemberAvatar(
-                                  avatarImageData: member.avatarImageData,
-                                  memberName: member.name,
-                                  emoji: member.emoji,
-                                  customColorEnabled: member.customColorEnabled,
-                                  customColorHex: member.customColorHex,
-                                  size: 32,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    member.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      fontWeight: isHighlighted
-                                          ? FontWeight.w600
-                                          : FontWeight.w400,
-                                    ),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _select(entry),
+                              child: SizedBox(
+                                height: 48,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      MemberAvatar(
+                                        avatarImageData: member.avatarImageData,
+                                        memberName: member.name,
+                                        emoji: member.emoji,
+                                        customColorEnabled:
+                                            member.customColorEnabled,
+                                        customColorHex: member.customColorHex,
+                                        size: 32,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          member.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                                fontWeight: isHighlighted
+                                                    ? FontWeight.w600
+                                                    : FontWeight.w400,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         );
@@ -225,6 +295,84 @@ class MentionOverlayState extends State<MentionOverlay>
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BroadcastMentionRow extends StatelessWidget {
+  const _BroadcastMentionRow({
+    required this.alias,
+    required this.isHighlighted,
+    required this.onTap,
+  });
+
+  final String alias;
+  final bool isHighlighted;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+
+    return Semantics(
+      label: '$alias, ${context.l10n.chatMentionEveryoneSemantics}',
+      button: true,
+      child: Container(
+        color: isHighlighted
+            ? primary.withValues(alpha: 0.12)
+            : Colors.transparent,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: SizedBox(
+            height: 52,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: primary.withValues(alpha: 0.14),
+                    ),
+                    child: Icon(AppIcons.group, size: 18, color: primary),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          alias,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: isHighlighted
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          context.l10n.chatMentionEveryoneSemantics,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

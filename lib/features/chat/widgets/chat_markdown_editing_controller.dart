@@ -94,7 +94,7 @@ class ChatMarkdownEditingController extends TextEditingController {
     TextStyle baseStyle,
     List<InlineSpan> spans,
   ) {
-    final mentions = mentionRegex.allMatches(line).toList();
+    final mentions = chatMentionRegex.allMatches(line).toList();
     if (mentions.isEmpty) {
       _parseInlineMarkdownWithoutMentions(line, baseStyle, spans);
       return;
@@ -109,7 +109,13 @@ class ChatMarkdownEditingController extends TextEditingController {
           spans,
         );
       }
-      spans.add(_buildMentionSpan(mention.group(1)!, baseStyle));
+      final memberId = mentionIdFromMatch(mention);
+      final alias = broadcastAliasFromMatch(mention);
+      if (memberId != null) {
+        spans.add(_buildMentionSpan(memberId, baseStyle));
+      } else if (alias != null) {
+        spans.add(_buildBroadcastMentionSpan(alias, baseStyle));
+      }
       cursor = mention.end;
     }
 
@@ -272,6 +278,19 @@ class ChatMarkdownEditingController extends TextEditingController {
         backgroundColor: mentionColor.withValues(alpha: 0.16),
       ),
       semanticsLabel: '@$name',
+    );
+  }
+
+  TextSpan _buildBroadcastMentionSpan(String alias, TextStyle baseStyle) {
+    final text = '@$alias';
+    return TextSpan(
+      text: text,
+      style: baseStyle.copyWith(
+        color: _mentionFallbackColor,
+        fontWeight: FontWeight.w600,
+        backgroundColor: _mentionFallbackColor.withValues(alpha: 0.16),
+      ),
+      semanticsLabel: text,
     );
   }
 

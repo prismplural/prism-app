@@ -5037,6 +5037,23 @@
   "@chatSendMessageDisabled": {
     "description": "Semantics label for the send message button when disabled"
   },
+  "chatMentionEveryoneSemantics": "Mention everyone in this chat",
+  "@chatMentionEveryoneSemantics": {
+    "description": "Screen-reader label and subtitle for broadcast mention autocomplete rows such as @everyone and @all."
+  },
+  "chatBroadcastMentionConfirmTitle": "Mention everyone in this chat?",
+  "@chatBroadcastMentionConfirmTitle": {
+    "description": "Title for the confirmation dialog shown before sending a broadcast chat mention."
+  },
+  "chatBroadcastMentionConfirmMessage": "This will notify all {count} other participants in this chat.",
+  "@chatBroadcastMentionConfirmMessage": {
+    "description": "Body text for the confirmation dialog shown before sending a broadcast chat mention.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "chatRecordVoiceNote": "Record voice note",
   "@chatRecordVoiceNote": {
     "description": "Semantics label for the record voice note button"
