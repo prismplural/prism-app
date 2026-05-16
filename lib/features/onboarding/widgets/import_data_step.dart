@@ -1829,6 +1829,11 @@ class _SimplyPluralImportFlowState
         // import step while the SP sub-flow is doing work.
         pendingAction = () async {};
         break;
+      case sp_importer.ImportState.encryptedChatsDetected:
+        // The encrypted-chats warning view has its own buttons (skip / fresh
+        // file / cancel); the outer onboarding Continue must not auto-advance.
+        pendingAction = () async {};
+        break;
       case sp_importer.ImportState.complete:
         pendingAction = () async {
           ref.read(onboardingPendingImportActionProvider.notifier).set(null);
