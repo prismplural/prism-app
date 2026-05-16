@@ -581,6 +581,13 @@ class PluralKitSyncService {
   Future<bool> hasRepairToken({String? token}) async =>
       (await _getRepairToken(token: token)) != null;
 
+  /// Whether this device currently has a local PluralKit token.
+  ///
+  /// This is separate from [PluralKitSyncState.isConnected]: the DB may still
+  /// remember a completed setup while platform secure storage has lost or
+  /// cleared the token.
+  Future<bool> hasStoredToken() async => (await _getToken()) != null;
+
   /// Read-only PK fetch for repair reference data.
   ///
   /// This intentionally does not call [setToken], write secure storage, update

@@ -307,6 +307,7 @@ void main() {
       () async {
         // Empty pre-setup state for the prism_sync namespace.
         keychain.values['unrelated'] = 'OUTSIDE';
+        keychain.values['prism_pluralkit_token'] = 'PK_TOKEN';
 
         final notifier = _FakePrismSyncHandleNotifier(
           const _FakePrismSyncHandle(),
@@ -329,6 +330,7 @@ void main() {
         expect(keychain.values['prism_sync.session_token'], isNull);
         // Out-of-namespace keys are never touched.
         expect(keychain.values['unrelated'], 'OUTSIDE');
+        expect(keychain.values['prism_pluralkit_token'], 'PK_TOKEN');
       },
     );
 

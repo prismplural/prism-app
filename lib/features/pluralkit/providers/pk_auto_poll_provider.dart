@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
 // ---------------------------------------------------------------------------
 // Preferences (per-device, not synced — polling cadence is a device concern)
@@ -168,33 +169,44 @@ class PkAutoPollNotifier extends Notifier<void> {
     final bus = ref.read(pkSyncEventBusProvider);
     try {
       if (!_foreground) {
-        bus.emit(const PkAutoPollTick(
-          outcome: 'skipped',
-          reason: 'not_foregrounded',
-        ));
+        bus.emit(
+          const PkAutoPollTick(outcome: 'skipped', reason: 'not_foregrounded'),
+        );
         return;
       }
       final suppressUntil = _suppressUntil;
       if (suppressUntil != null && DateTime.now().isBefore(suppressUntil)) {
-        bus.emit(const PkAutoPollTick(
-          outcome: 'skipped',
-          reason: 'recent_push',
-        ));
+        bus.emit(
+          const PkAutoPollTick(outcome: 'skipped', reason: 'recent_push'),
+        );
         return;
       }
       final pkState = ref.read(pluralKitSyncProvider);
+      final tokenPresent = await _hasStoredTokenForLog();
+      if (!ref.mounted) return;
+      final gate = _autoSyncGateSnapshot(pkState, tokenPresent: tokenPresent);
       if (!pkState.canAutoSync) {
-        bus.emit(const PkAutoPollTick(
-          outcome: 'skipped',
-          reason: 'cannot_auto_sync',
-        ));
+        bus.emit(
+          PkAutoPollTick(
+            outcome: 'skipped',
+            reason: 'cannot_auto_sync',
+            gate: gate,
+          ),
+        );
+        return;
+      }
+      if (tokenPresent == false) {
+        bus.emit(
+          PkAutoPollTick(
+            outcome: 'skipped',
+            reason: 'token_missing',
+            gate: gate,
+          ),
+        );
         return;
       }
       if (pkState.isSyncing) {
-        bus.emit(const PkAutoPollTick(
-          outcome: 'skipped',
-          reason: 'busy',
-        ));
+        bus.emit(const PkAutoPollTick(outcome: 'skipped', reason: 'busy'));
         return;
       }
 
@@ -206,10 +218,9 @@ class PkAutoPollNotifier extends Notifier<void> {
       if (mode == PkSyncMode.liveFrontsOnly) {
         final direction = ref.read(pkSyncDirectionProvider);
         if (!direction.pullEnabled) {
-          bus.emit(const PkAutoPollTick(
-            outcome: 'skipped',
-            reason: 'pull_disabled',
-          ));
+          bus.emit(
+            const PkAutoPollTick(outcome: 'skipped', reason: 'pull_disabled'),
+          );
           return;
         }
         await ref
@@ -238,6 +249,29 @@ class PkAutoPollNotifier extends Notifier<void> {
       // provider throws.
       if (ref.mounted) _reschedule();
     }
+  }
+
+  Future<bool?> _hasStoredTokenForLog() async {
+    try {
+      return await ref.read(pluralKitSyncServiceProvider).hasStoredToken();
+    } catch (e) {
+      debugPrint('[PK auto-poll] token-state read failed: $e');
+      return null;
+    }
+  }
+
+  Map<String, Object?> _autoSyncGateSnapshot(
+    PluralKitSyncState state, {
+    required bool? tokenPresent,
+  }) {
+    return {
+      'is_connected': state.isConnected,
+      'direction_confirmed': state.directionConfirmed,
+      'mapping_acknowledged': state.mappingAcknowledged,
+      'can_auto_sync': state.canAutoSync,
+      'is_syncing': state.isSyncing,
+      if (tokenPresent != null) 'token_present': tokenPresent,
+    };
   }
 }
 

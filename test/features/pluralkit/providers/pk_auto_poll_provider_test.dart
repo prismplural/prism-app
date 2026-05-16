@@ -19,6 +19,7 @@ class _FakePkSyncService implements PluralKitSyncService {
   bool? lastLiveIsManual;
   PkSyncDirection? lastLiveDirection;
   Object? pollThrows;
+  bool storedTokenPresent = true;
 
   @override
   Future<bool> pollFrontersOnly() async {
@@ -39,6 +40,9 @@ class _FakePkSyncService implements PluralKitSyncService {
     lastLiveDirection = direction;
     return null;
   }
+
+  @override
+  Future<bool> hasStoredToken() async => storedTokenPresent;
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -127,7 +131,11 @@ class _ProxyPkSync extends PluralKitSyncNotifier {
   }) {
     return ref
         .read(pluralKitSyncServiceProvider)
-        .syncLiveFrontersOnly(isManual: isManual, direction: direction, knownCurrentFronters: knownCurrentFronters);
+        .syncLiveFrontersOnly(
+          isManual: isManual,
+          direction: direction,
+          knownCurrentFronters: knownCurrentFronters,
+        );
   }
 }
 
@@ -190,11 +198,13 @@ void main() {
       // Connected + mapped → canAutoSync = true.
       c
           .read(_fakePkSyncProvider.notifier)
-          .set(const PluralKitSyncState(
-            isConnected: true,
-            directionConfirmed: true,
-            mappingAcknowledged: true,
-          ));
+          .set(
+            const PluralKitSyncState(
+              isConnected: true,
+              directionConfirmed: true,
+              mappingAcknowledged: true,
+            ),
+          );
       await c.read(pkAutoPollSettingsProvider.future);
       c.read(pkAutoPollProvider); // instantiate notifier
 
@@ -212,11 +222,13 @@ void main() {
 
         c
             .read(_fakePkSyncProvider.notifier)
-            .set(const PluralKitSyncState(
-            isConnected: true,
-            directionConfirmed: true,
-            mappingAcknowledged: true,
-          ));
+            .set(
+              const PluralKitSyncState(
+                isConnected: true,
+                directionConfirmed: true,
+                mappingAcknowledged: true,
+              ),
+            );
         await c.read(pkAutoPollSettingsProvider.future);
         c.read(pkAutoPollProvider.notifier).markForegrounded(true);
 
@@ -234,11 +246,13 @@ void main() {
 
         c
             .read(_fakePkSyncProvider.notifier)
-            .set(const PluralKitSyncState(
-            isConnected: true,
-            directionConfirmed: true,
-            mappingAcknowledged: true,
-          ));
+            .set(
+              const PluralKitSyncState(
+                isConnected: true,
+                directionConfirmed: true,
+                mappingAcknowledged: true,
+              ),
+            );
         await c.read(pkAutoPollSettingsProvider.future);
         c.read(pkAutoPollProvider.notifier).markForegrounded(true);
 
@@ -271,11 +285,13 @@ void main() {
 
       c
           .read(_fakePkSyncProvider.notifier)
-          .set(const PluralKitSyncState(
-            isConnected: true,
-            directionConfirmed: true,
-            mappingAcknowledged: true,
-          ));
+          .set(
+            const PluralKitSyncState(
+              isConnected: true,
+              directionConfirmed: true,
+              mappingAcknowledged: true,
+            ),
+          );
       await c.read(pkAutoPollSettingsProvider.future);
       final notifier = c.read(pkAutoPollProvider.notifier);
       notifier.noteLocalPush();
@@ -293,11 +309,13 @@ void main() {
 
         c
             .read(_fakePkSyncProvider.notifier)
-            .set(const PluralKitSyncState(
-            isConnected: true,
-            directionConfirmed: true,
-            mappingAcknowledged: true,
-          ));
+            .set(
+              const PluralKitSyncState(
+                isConnected: true,
+                directionConfirmed: true,
+                mappingAcknowledged: true,
+              ),
+            );
         c.read(pkAutoPollSettingsProvider);
         async.elapse(const Duration(milliseconds: 10)); // let prefs load
         c.read(pkAutoPollProvider.notifier).markForegrounded(true);
@@ -333,11 +351,13 @@ void main() {
 
       c
           .read(_fakePkSyncProvider.notifier)
-          .set(const PluralKitSyncState(
-            isConnected: true,
-            directionConfirmed: true,
-            mappingAcknowledged: true,
-          ));
+          .set(
+            const PluralKitSyncState(
+              isConnected: true,
+              directionConfirmed: true,
+              mappingAcknowledged: true,
+            ),
+          );
       await c.read(pkAutoPollSettingsProvider.future);
       c.read(pkAutoPollProvider.notifier).markForegrounded(true);
 
@@ -360,11 +380,13 @@ void main() {
 
         c
             .read(_fakePkSyncProvider.notifier)
-            .set(const PluralKitSyncState(
-            isConnected: true,
-            directionConfirmed: true,
-            mappingAcknowledged: true,
-          ));
+            .set(
+              const PluralKitSyncState(
+                isConnected: true,
+                directionConfirmed: true,
+                mappingAcknowledged: true,
+              ),
+            );
         await c.read(pkAutoPollSettingsProvider.future);
         c.read(pkAutoPollProvider.notifier).markForegrounded(true);
 
@@ -392,11 +414,13 @@ void main() {
 
         c
             .read(_fakePkSyncProvider.notifier)
-            .set(const PluralKitSyncState(
-            isConnected: true,
-            directionConfirmed: true,
-            mappingAcknowledged: true,
-          ));
+            .set(
+              const PluralKitSyncState(
+                isConnected: true,
+                directionConfirmed: true,
+                mappingAcknowledged: true,
+              ),
+            );
         await c.read(pkAutoPollSettingsProvider.future);
         c.read(pkAutoPollProvider.notifier).markForegrounded(true);
 
@@ -433,11 +457,13 @@ void main() {
 
         c
             .read(_fakePkSyncProvider.notifier)
-            .set(const PluralKitSyncState(
-            isConnected: true,
-            directionConfirmed: true,
-            mappingAcknowledged: true,
-          ));
+            .set(
+              const PluralKitSyncState(
+                isConnected: true,
+                directionConfirmed: true,
+                mappingAcknowledged: true,
+              ),
+            );
         await c.read(pkAutoPollSettingsProvider.future);
         final notifier = c.read(pkAutoPollProvider.notifier);
         notifier.noteLocalPush();
@@ -471,8 +497,52 @@ void main() {
 
         final ticks = autoPollTicks(capture).toList();
         expect(ticks, hasLength(1));
-        expect(ticks.single.outcome, 'skipped');
-        expect(ticks.single.reason, 'cannot_auto_sync');
+        final tick = ticks.single;
+        expect(tick.outcome, 'skipped');
+        expect(tick.reason, 'cannot_auto_sync');
+        expect(tick.gate, containsPair('is_connected', false));
+        expect(tick.gate, containsPair('direction_confirmed', false));
+        expect(tick.gate, containsPair('mapping_acknowledged', false));
+        expect(tick.gate, containsPair('can_auto_sync', false));
+        expect(tick.gate, containsPair('is_syncing', false));
+        expect(tick.gate, containsPair('token_present', true));
+        expect(tick.toJson()['gate'], tick.gate);
+        expect(fake.pollCount, 0);
+      },
+    );
+
+    test(
+      'missing token skip path stays separate from disconnected setup state',
+      () async {
+        final capture = PkSyncEventBusCapture();
+        final fake = _FakePkSyncService()..storedTokenPresent = false;
+        final c = _container(fake, bus: capture.bus);
+        addTearDown(c.dispose);
+
+        c
+            .read(_fakePkSyncProvider.notifier)
+            .set(
+              const PluralKitSyncState(
+                isConnected: true,
+                directionConfirmed: true,
+                mappingAcknowledged: true,
+              ),
+            );
+        await c.read(pkAutoPollSettingsProvider.future);
+        c.read(pkAutoPollProvider.notifier).markForegrounded(true);
+
+        await Future<void>.delayed(Duration.zero);
+
+        final ticks = autoPollTicks(capture).toList();
+        expect(ticks, hasLength(1));
+        final tick = ticks.single;
+        expect(tick.outcome, 'skipped');
+        expect(tick.reason, 'token_missing');
+        expect(tick.gate, containsPair('is_connected', true));
+        expect(tick.gate, containsPair('direction_confirmed', true));
+        expect(tick.gate, containsPair('mapping_acknowledged', true));
+        expect(tick.gate, containsPair('can_auto_sync', true));
+        expect(tick.gate, containsPair('token_present', false));
         expect(fake.pollCount, 0);
       },
     );
@@ -487,12 +557,14 @@ void main() {
 
         c
             .read(_fakePkSyncProvider.notifier)
-            .set(const PluralKitSyncState(
-              isConnected: true,
-              directionConfirmed: true,
-              mappingAcknowledged: true,
-              isSyncing: true,
-            ));
+            .set(
+              const PluralKitSyncState(
+                isConnected: true,
+                directionConfirmed: true,
+                mappingAcknowledged: true,
+                isSyncing: true,
+              ),
+            );
         await c.read(pkAutoPollSettingsProvider.future);
         c.read(pkAutoPollProvider.notifier).markForegrounded(true);
 
@@ -521,11 +593,13 @@ void main() {
 
         c
             .read(_fakePkSyncProvider.notifier)
-            .set(const PluralKitSyncState(
-            isConnected: true,
-            directionConfirmed: true,
-            mappingAcknowledged: true,
-          ));
+            .set(
+              const PluralKitSyncState(
+                isConnected: true,
+                directionConfirmed: true,
+                mappingAcknowledged: true,
+              ),
+            );
         await c.read(pkAutoPollSettingsProvider.future);
         c.read(pkAutoPollProvider.notifier).markForegrounded(true);
 

@@ -325,7 +325,12 @@ class PkRequestFailed extends PkSyncEvent {
 }
 
 class PkAutoPollTick extends PkSyncEvent {
-  const PkAutoPollTick({required this.outcome, this.reason, this.error});
+  const PkAutoPollTick({
+    required this.outcome,
+    this.reason,
+    this.error,
+    this.gate,
+  });
 
   /// One of `'ok'`, `'failed'`, or `'skipped'`.
   final String outcome;
@@ -335,6 +340,10 @@ class PkAutoPollTick extends PkSyncEvent {
 
   /// Set when [outcome] is `'failed'`. Already redacted by the emit site.
   final String? error;
+
+  /// Diagnostic gate state for skipped auto-poll attempts. Never includes the
+  /// token itself, only whether a usable local token was present.
+  final Map<String, Object?>? gate;
 
   @override
   String get summary {
@@ -354,6 +363,7 @@ class PkAutoPollTick extends PkSyncEvent {
         'outcome': outcome,
         if (reason != null) 'reason': reason,
         if (error != null) 'error': error,
+        if (gate != null) 'gate': gate,
       };
 
   @override
