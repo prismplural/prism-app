@@ -368,6 +368,10 @@ void main() {
           )
           ..seedSyncValue('prism_sync.registration_token', 'WIPE_REGISTRATION')
           ..seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'WIPE_WRAPPED')
+          ..seedSyncValue(
+            'prism_sync.runtime_dek_linux_wrap_key_v1',
+            'WIPE_LINUX_WRAP_KEY',
+          )
           ..seedSyncValue('prism_sync.database_key', 'KEEP_DATABASE');
         harness.secureStore.throwOnReadAll = true;
 
@@ -381,6 +385,12 @@ void main() {
         expect(
           harness.secureStore.readSyncValue(
             'prism_sync.runtime_dek_wrapped_v1',
+          ),
+          isNull,
+        );
+        expect(
+          harness.secureStore.readSyncValue(
+            'prism_sync.runtime_dek_linux_wrap_key_v1',
           ),
           isNull,
         );
@@ -419,6 +429,7 @@ void main() {
         ..seedSyncValue('prism_sync.registration_token', 'R1')
         ..seedSyncValue('prism_sync.runtime_dek', 'D1')
         ..seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'W1')
+        ..seedSyncValue('prism_sync.runtime_dek_linux_wrap_key_v1', 'L1')
         ..seedSyncValue('prism_sync.snapshot_apply_complete_v1', 'S1')
         ..seedSyncValue('prism_sync.database_key', 'KEEP1')
         ..seedSyncValue('prism_sync.database_key_staging', 'KEEP2')
@@ -480,6 +491,12 @@ void main() {
       );
       expect(
         harness.secureStore.readSyncValue(
+          'prism_sync.runtime_dek_linux_wrap_key_v1',
+        ),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue(
           'prism_sync.snapshot_apply_complete_v1',
         ),
         isNull,
@@ -507,7 +524,11 @@ void main() {
         )
         ..seedSyncValue('prism_sync.registration_token', 'WIPE_REGISTRATION')
         ..seedSyncValue('prism_sync.runtime_dek', 'WIPE_RUNTIME')
-        ..seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'WIPE_WRAPPED');
+        ..seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'WIPE_WRAPPED')
+        ..seedSyncValue(
+          'prism_sync.runtime_dek_linux_wrap_key_v1',
+          'WIPE_LINUX_WRAP_KEY',
+        );
 
       await harness.reset(ResetCategory.sync);
 
@@ -540,6 +561,12 @@ void main() {
       );
       expect(
         harness.secureStore.readSyncValue('prism_sync.runtime_dek_wrapped_v1'),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue(
+          'prism_sync.runtime_dek_linux_wrap_key_v1',
+        ),
         isNull,
       );
     });
@@ -1376,6 +1403,10 @@ class _ResetHarness {
       base64Encode(List<int>.generate(8, (index) => index)),
     );
     secureStore.seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'wrapped');
+    secureStore.seedSyncValue(
+      'prism_sync.runtime_dek_linux_wrap_key_v1',
+      'linux-wrap-key',
+    );
     secureStore.seedSyncValue('prism_pluralkit_token', 'pk-secret-token');
   }
 

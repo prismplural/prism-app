@@ -996,10 +996,12 @@ void main() {
 
     setUp(() {
       DevicePairingNotifier.drainRustStoreOverride = null;
+      DevicePairingNotifier.deleteRuntimeDekWrappingKeyOverride = null;
     });
 
     tearDown(() {
       DevicePairingNotifier.drainRustStoreOverride = null;
+      DevicePairingNotifier.deleteRuntimeDekWrappingKeyOverride = null;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(secureStorageChannel, null);
     });
@@ -1315,11 +1317,18 @@ void main() {
         'prism_sync.device_id': base64Encode(utf8.encode('device-xyz')),
         'prism_sync.session_token': base64Encode(utf8.encode('token-xyz')),
         'prism_sync.wrapped_dek': base64Encode(utf8.encode('dek-xyz')),
+        kRuntimeDekKey: 'runtime-dek',
+        kRuntimeDekWrappedKey: 'runtime-dek-wrapped',
+        'prism_sync.runtime_dek_linux_wrap_key_v1': 'linux-wrap-key',
         kSnapshotApplyCompleteKey: snapshotApplyCompleteMarkerValue(
           syncId: base64Encode(utf8.encode('sync-xyz')),
           deviceId: base64Encode(utf8.encode('device-xyz')),
         ),
       });
+      var deletedPlatformWrappingKey = false;
+      DevicePairingNotifier.deleteRuntimeDekWrappingKeyOverride = () async {
+        deletedPlatformWrappingKey = true;
+      };
 
       final container = makeContainer();
       addTearDown(container.dispose);
@@ -1362,7 +1371,16 @@ void main() {
       expect(keychain['prism_sync.device_id'], isNull);
       expect(keychain['prism_sync.session_token'], isNull);
       expect(keychain['prism_sync.wrapped_dek'], isNull);
+      expect(keychain[kRuntimeDekKey], isNull);
+      expect(keychain[kRuntimeDekWrappedKey], isNull);
+      expect(keychain['prism_sync.runtime_dek_linux_wrap_key_v1'], isNull);
       expect(keychain[kSnapshotApplyCompleteKey], isNull);
+      expect(
+        deletedPlatformWrappingKey,
+        isTrue,
+        reason:
+            'cancel cleanup must also delete app-owned platform wrapping keys.',
+      );
       expect(
         container.read(devicePairingProvider).step,
         PairingStep.enterUrl,

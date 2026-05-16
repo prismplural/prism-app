@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,6 +19,11 @@ const secureStorage = FlutterSecureStorage(
   ),
   aOptions: AndroidOptions(),
 );
+
+const _runtimeDekWrapChannel = MethodChannel(
+  'com.prism.prism_plurality/runtime_dek_wrap',
+);
+const _runtimeDekLinuxWrapKey = 'prism_sync.runtime_dek_linux_wrap_key_v1';
 
 /// One-time migration: rewrite relay URL from old domain to new one.
 /// Safe to remove once all devices have launched with this build.
@@ -37,7 +44,10 @@ Future<void> migrateRelayUrl() async {
   }
 
   if (decoded == oldUrl) {
-    await secureStorage.write(key: key, value: base64Encode(utf8.encode(newUrl)));
+    await secureStorage.write(
+      key: key,
+      value: base64Encode(utf8.encode(newUrl)),
+    );
   }
 }
 
@@ -56,6 +66,8 @@ Future<Map<String, String>> readPrefixed(String prefix) async {
 /// iOS Keychain persists across app uninstall/reinstall (unlike Android).
 /// Without this check, a reinstalled app could find orphaned sync credentials
 /// from a previous install, causing silent failures or security issues.
+/// Also clears app-owned runtime-DEK wrapping keys that live outside
+/// `flutter_secure_storage` on Apple desktop/mobile platforms.
 ///
 /// Uses SharedPreferences (which IS deleted on uninstall) to detect
 /// whether this is a fresh install.
@@ -64,11 +76,39 @@ Future<Map<String, String>> readPrefixed(String prefix) async {
 /// reinstalls (Xcode `flutter run`) are not the threat model and would
 /// otherwise wipe the developer's working sync credentials. See
 /// `docs/plans/skip-fresh-install-guard-in-non-release-builds.md`.
-Future<void> clearKeychainIfFreshInstall() async {
+Future<void> clearKeychainIfFreshInstall({
+  Future<void> Function()? deleteRuntimeDekWrappingKey,
+}) async {
   final prefs = await SharedPreferences.getInstance();
   const key = 'has_launched_before';
   if (prefs.getBool(key) != true) {
     await secureStorage.deleteAll();
+    await (deleteRuntimeDekWrappingKey ??
+        _deleteRuntimeDekWrappingKeyBestEffort)();
     await prefs.setBool(key, true);
+  }
+}
+
+Future<void> _deleteRuntimeDekWrappingKeyBestEffort() async {
+  try {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+        await _runtimeDekWrapChannel.invokeMethod<void>(
+          'deleteRuntimeDekWrappingKey',
+        );
+        return;
+      case TargetPlatform.linux:
+        await secureStorage.delete(key: _runtimeDekLinuxWrapKey);
+        return;
+      case TargetPlatform.android:
+      case TargetPlatform.fuchsia:
+        return;
+    }
+  } on MissingPluginException {
+    return;
+  } catch (_) {
+    return;
   }
 }

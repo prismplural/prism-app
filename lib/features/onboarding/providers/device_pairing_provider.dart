@@ -9,6 +9,7 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/security/secret_bytes.dart';
+import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/pairing_sas_display.dart';
@@ -165,6 +166,9 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   @visibleForTesting
   static Future<void> Function(ffi.PrismSyncHandle handle)?
   drainRustStoreOverride;
+
+  @visibleForTesting
+  static Future<void> Function()? deleteRuntimeDekWrappingKeyOverride;
 
   Future<void> _drainRustStore(ffi.PrismSyncHandle handle) {
     final override = drainRustStoreOverride;
@@ -1275,6 +1279,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       '${prefix}mnemonic',
       '${prefix}runtime_dek',
       '${prefix}runtime_dek_wrapped_v1',
+      '${prefix}runtime_dek_linux_wrap_key_v1',
       kSnapshotApplyCompleteKey,
     ];
     for (final key in keysToClean) {
@@ -1283,6 +1288,14 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       } catch (_) {
         // Best-effort cleanup — don't propagate errors
       }
+    }
+    try {
+      final deleteWrappingKey =
+          deleteRuntimeDekWrappingKeyOverride ??
+          const DeviceBoundRuntimeDekStore().deleteWrappingKey;
+      await deleteWrappingKey();
+    } catch (_) {
+      // Best-effort cleanup — don't propagate errors
     }
   }
 

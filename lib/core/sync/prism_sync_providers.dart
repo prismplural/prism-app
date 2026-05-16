@@ -607,21 +607,30 @@ Future<SyncHealthState> _autoConfigureIfReady(
         : await _readCachedRuntimeDekForRestore(aad: runtimeDekAad);
 
     if (dekBytes != null && deviceSecretB64 != null) {
+      Uint8List? deviceSecretBytes;
       try {
+        deviceSecretBytes = base64Decode(deviceSecretB64);
         await ffi.restoreRuntimeKeys(
           handle: handle,
           dek: dekBytes,
-          deviceSecret: base64Decode(deviceSecretB64),
+          deviceSecret: deviceSecretBytes,
         );
       } catch (e, st) {
+        final errorSummary = e is FormatException
+            ? 'FormatException'
+            : e.runtimeType.toString();
         ErrorReportingService.instance.report(
-          'restoreRuntimeKeys failed: $e',
+          'restoreRuntimeKeys failed: $errorSummary',
           severity: ErrorSeverity.error,
           stackTrace: st,
         );
         return SyncHealthState.disconnected;
       } finally {
         _zeroBytesBestEffort(dekBytes);
+        final secretBytes = deviceSecretBytes;
+        if (secretBytes != null) {
+          _zeroBytesBestEffort(secretBytes);
+        }
       }
     } else {
       // No cached DEK. Check if we can recover with a password.
@@ -1028,6 +1037,7 @@ const _legacyWipeOnlyKeys = [
   'mnemonic',
   'runtime_dek',
   'runtime_dek_wrapped_v1',
+  'runtime_dek_linux_wrap_key_v1',
   'snapshot_apply_complete_v1',
 ];
 
@@ -1158,7 +1168,8 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
   String? errorMessageOf(Object? e) {
     if (e == null) return null;
     if (e is PlatformException) return e.message;
-    return e.toString();
+    if (e is FormatException) return e.message;
+    return e.runtimeType.toString();
   }
 
   final wrapped = await readKey(kRuntimeDekWrappedKey);
@@ -1265,7 +1276,7 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
   } catch (e, st) {
     await deleteKey(kRuntimeDekKey);
     reportWarning?.call(
-      'Legacy runtime DEK cache was invalid; cache deleted: $e',
+      'Legacy runtime DEK cache was invalid; cache deleted.',
       e,
       st,
     );
@@ -1287,7 +1298,7 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
     _zeroBytesBestEffort(dekBytes);
     await deleteKey(kRuntimeDekKey);
     reportWarning?.call(
-      'Legacy runtime DEK migration failed; raw cache deleted: $e',
+      'Legacy runtime DEK migration failed; raw cache deleted.',
       e,
       st,
     );
@@ -1350,6 +1361,34 @@ Future<void> _deleteCachedRuntimeDek({bool deleteWrappingKey = false}) async {
   }
 }
 
+@visibleForTesting
+Future<void> writeRuntimeDekCacheCore({
+  required Uint8List dekBytes,
+  required String aad,
+  required Future<String> Function(Uint8List dekBytes, String aad) wrapDek,
+  required Future<void> Function(String key, String value) writeKey,
+  required Future<void> Function(String key) deleteKey,
+  void Function(String message, Object error, StackTrace stackTrace)?
+  reportWarning,
+}) async {
+  try {
+    final wrapped = await wrapDek(dekBytes, aad);
+    await writeKey(kRuntimeDekWrappedKey, wrapped);
+    await deleteKey(kRuntimeDekKey);
+  } catch (e, st) {
+    try {
+      await deleteKey(kRuntimeDekKey);
+    } catch (_) {
+      // Best effort — never let cleanup hide the original refresh failure.
+    }
+    reportWarning?.call(
+      'Runtime DEK cache refresh failed; previous wrapped cache preserved.',
+      e,
+      st,
+    );
+  }
+}
+
 /// Export the raw DEK from Rust and cache it as a device-bound wrapped blob.
 ///
 /// Call after `initialize()`, `unlock()`, or a completed pairing ceremony —
@@ -1382,15 +1421,19 @@ Future<void> cacheRuntimeKeys(
   } else {
     final dekBytes = Uint8List.fromList(await ffi.exportDek(handle: handle));
     try {
-      final wrapped = await _runtimeDekStore.wrap(dekBytes, aad: runtimeDekAad);
-      await _storage.write(key: kRuntimeDekWrappedKey, value: wrapped);
-      await _storage.delete(key: kRuntimeDekKey);
-    } catch (e, st) {
-      await _deleteCachedRuntimeDek();
-      ErrorReportingService.instance.report(
-        'Runtime DEK cache wrap failed; cache deleted: $e',
-        severity: ErrorSeverity.warning,
-        stackTrace: st,
+      await writeRuntimeDekCacheCore(
+        dekBytes: dekBytes,
+        aad: runtimeDekAad,
+        wrapDek: (dekBytes, aad) => _runtimeDekStore.wrap(dekBytes, aad: aad),
+        writeKey: (key, value) => _storage.write(key: key, value: value),
+        deleteKey: (key) => _storage.delete(key: key),
+        reportWarning: (message, error, stackTrace) {
+          ErrorReportingService.instance.report(
+            message,
+            severity: ErrorSeverity.warning,
+            stackTrace: stackTrace,
+          );
+        },
       );
     } finally {
       _zeroBytesBestEffort(dekBytes);

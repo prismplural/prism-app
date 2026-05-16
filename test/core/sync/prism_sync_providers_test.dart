@@ -199,6 +199,122 @@ void main() {
     });
   });
 
+  group('runtime DEK platform support', () {
+    test('supports mobile and desktop runtime cache wrappers', () {
+      expect(
+        isRuntimeDekWrappingPlatformSupported(
+          isAndroid: true,
+          isIOS: false,
+          isMacOS: false,
+          isWindows: false,
+          isLinux: false,
+        ),
+        isTrue,
+      );
+      expect(
+        isRuntimeDekWrappingPlatformSupported(
+          isAndroid: false,
+          isIOS: true,
+          isMacOS: false,
+          isWindows: false,
+          isLinux: false,
+        ),
+        isTrue,
+      );
+      expect(
+        isRuntimeDekWrappingPlatformSupported(
+          isAndroid: false,
+          isIOS: false,
+          isMacOS: true,
+          isWindows: false,
+          isLinux: false,
+        ),
+        isTrue,
+      );
+      expect(
+        isRuntimeDekWrappingPlatformSupported(
+          isAndroid: false,
+          isIOS: false,
+          isMacOS: false,
+          isWindows: true,
+          isLinux: false,
+        ),
+        isTrue,
+      );
+      expect(
+        isRuntimeDekWrappingPlatformSupported(
+          isAndroid: false,
+          isIOS: false,
+          isMacOS: false,
+          isWindows: false,
+          isLinux: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('does not claim unsupported platforms', () {
+      expect(
+        isRuntimeDekWrappingPlatformSupported(
+          isAndroid: false,
+          isIOS: false,
+          isMacOS: false,
+          isWindows: false,
+          isLinux: false,
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('Linux runtime DEK AES-GCM wrapper', () {
+    test('round-trips with matching AAD', () {
+      final plaintext = Uint8List.fromList(List<int>.generate(32, (i) => i));
+      final key = Uint8List.fromList(List<int>.generate(32, (i) => 255 - i));
+      final nonce = Uint8List.fromList(List<int>.generate(12, (i) => i + 1));
+      final aad = utf8.encode('sync-1|device-1|1');
+
+      final combined = aesGcmEncryptForRuntimeDek(
+        plaintext: plaintext,
+        key: key,
+        nonce: nonce,
+        aad: aad,
+      );
+      expect(combined, isNot(orderedEquals(plaintext)));
+      expect(combined.length, plaintext.length + 16);
+
+      final restored = aesGcmDecryptForRuntimeDek(
+        combined: combined,
+        key: key,
+        nonce: nonce,
+        aad: aad,
+      );
+      expect(restored, orderedEquals(plaintext));
+    });
+
+    test('rejects mismatched AAD', () {
+      final plaintext = Uint8List.fromList(List<int>.generate(32, (i) => i));
+      final key = Uint8List.fromList(List<int>.generate(32, (i) => 7 + i));
+      final nonce = Uint8List.fromList(List<int>.generate(12, (i) => 33 + i));
+      final combined = aesGcmEncryptForRuntimeDek(
+        plaintext: plaintext,
+        key: key,
+        nonce: nonce,
+        aad: utf8.encode('sync-1|device-1|1'),
+      );
+
+      expect(
+        () => aesGcmDecryptForRuntimeDek(
+          combined: combined,
+          key: key,
+          nonce: nonce,
+          aad: utf8.encode('sync-1|other-device|1'),
+        ),
+        throwsA(anything),
+      );
+    });
+  });
+
   group('hasCompletePersistentSyncIdentity', () {
     test('requires relay, sync id, device id, and device secret', () {
       expect(
@@ -516,6 +632,79 @@ void main() {
             'eviction of a viable blob',
       );
     });
+
+    test(
+      'non-platform unwrap failure diagnostics do not include wrapped blob text',
+      () async {
+        final store = <String, String>{
+          kRuntimeDekWrappedKey: 'WRAPPED-CIPHERTEXT-SHOULD-NOT-LEAK',
+        };
+        RuntimeDekUnwrapFailure? failure;
+
+        final restored = await readCachedRuntimeDekForRestoreCore(
+          aad: 'sync-1|device-1|1',
+          readKey: (key) async => store[key],
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          unwrapDek: (_, _) async {
+            throw const FormatException(
+              'wrapped runtime DEK JSON was invalid',
+              'WRAPPED-CIPHERTEXT-SHOULD-NOT-LEAK',
+            );
+          },
+          wrapDek: (_, _) => throw StateError('should not wrap'),
+          recordFailure: (value) => failure = value,
+        );
+
+        expect(restored, isNull);
+        expect(store[kRuntimeDekWrappedKey], isNotNull);
+        expect(failure?.errorMessage, 'wrapped runtime DEK JSON was invalid');
+        expect(
+          failure?.errorMessage,
+          isNot(contains('WRAPPED-CIPHERTEXT-SHOULD-NOT-LEAK')),
+        );
+      },
+    );
+
+    test(
+      'writeRuntimeDekCacheCore preserves existing wrapped cache on refresh failure',
+      () async {
+        final store = <String, String>{
+          kRuntimeDekKey: 'legacy-raw-cache',
+          kRuntimeDekWrappedKey: 'still-viable-wrapped-cache',
+        };
+        String? warning;
+
+        await writeRuntimeDekCacheCore(
+          dekBytes: Uint8List.fromList(List<int>.filled(32, 7)),
+          aad: 'sync-1|device-1|1',
+          wrapDek: (_, _) async {
+            throw PlatformException(
+              code: 'runtime_dek_wrap_transient',
+              message: 'Secret Service unavailable',
+            );
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          reportWarning: (message, _, _) => warning = message,
+        );
+
+        expect(store[kRuntimeDekWrappedKey], 'still-viable-wrapped-cache');
+        expect(store[kRuntimeDekKey], isNull);
+        expect(
+          warning,
+          'Runtime DEK cache refresh failed; previous wrapped cache preserved.',
+        );
+      },
+    );
 
     test(
       'classifyRuntimeDekUnwrapError: uppercase iOS codes also classify',
@@ -936,6 +1125,7 @@ void main() {
         expect(keys, contains('mnemonic'));
         expect(keys, contains('runtime_dek'));
         expect(keys, contains('runtime_dek_wrapped_v1'));
+        expect(keys, contains('runtime_dek_linux_wrap_key_v1'));
         expect(keys, contains('snapshot_apply_complete_v1'));
       },
     );

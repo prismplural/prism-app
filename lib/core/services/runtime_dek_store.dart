@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:pointycastle/export.dart';
+
+import 'package:prism_plurality/core/services/secure_storage.dart';
 
 /// One observed runtime-DEK unwrap failure. Captured by the cache-restore
 /// pipeline so the next boot snapshot can include the platform code +
@@ -37,13 +41,13 @@ class RuntimeDekUnwrapFailure {
   final DateTime timestamp;
 
   Map<String, dynamic> toJson() => {
-        'classification': classification.name,
-        if (errorCode != null) 'error_code': errorCode,
-        if (errorMessage != null) 'error_message': errorMessage,
-        'attempts': attempts,
-        'cache_preserved': cachePreserved,
-        'timestamp': timestamp.toIso8601String(),
-      };
+    'classification': classification.name,
+    if (errorCode != null) 'error_code': errorCode,
+    if (errorMessage != null) 'error_message': errorMessage,
+    'attempts': attempts,
+    'cache_preserved': cachePreserved,
+    'timestamp': timestamp.toIso8601String(),
+  };
 
   factory RuntimeDekUnwrapFailure.fromJson(Map<String, dynamic> json) {
     return RuntimeDekUnwrapFailure(
@@ -111,8 +115,10 @@ RuntimeDekUnwrapClassification classifyRuntimeDekUnwrapError(Object error) {
 ///
 /// The returned blob is safe to persist: it is AEAD ciphertext produced with a
 /// platform-bound wrapping key. The key is non-exportable on Android Keystore
-/// and a non-extractable iOS Keychain EC private key; both avoid per-launch
-/// user auth so background sync can restore after the first device unlock.
+/// and non-extractable Keychain EC private keys on iOS/macOS; Windows uses
+/// DPAPI CurrentUser protection. Linux uses AES-GCM with a wrapping key held
+/// in Secret Service through [secureStorage]. All avoid per-launch user auth
+/// so sync can restore after the first device unlock / login.
 class DeviceBoundRuntimeDekStore {
   const DeviceBoundRuntimeDekStore();
 
@@ -120,13 +126,30 @@ class DeviceBoundRuntimeDekStore {
     'com.prism.prism_plurality/runtime_dek_wrap',
   );
 
-  bool get isSupported => Platform.isAndroid || Platform.isIOS;
+  bool get isSupported => isRuntimeDekWrappingPlatformSupported(
+    isAndroid: Platform.isAndroid,
+    isIOS: Platform.isIOS,
+    isMacOS: Platform.isMacOS,
+    isWindows: Platform.isWindows,
+    isLinux: Platform.isLinux,
+  );
 
   Future<String> wrap(Uint8List dek, {required String aad}) async {
     if (!isSupported) {
       throw UnsupportedError(
-        'runtime DEK wrapping is only supported on Android/iOS',
+        'runtime DEK wrapping is only supported on '
+        'Android/iOS/macOS/Windows/Linux',
       );
+    }
+    if (dek.length != _runtimeDekLength) {
+      throw ArgumentError.value(
+        dek.length,
+        'dek.length',
+        'runtime DEK must be $_runtimeDekLength bytes',
+      );
+    }
+    if (Platform.isLinux) {
+      return _wrapLinux(dek, aad: aad);
     }
     final wrapped = await _channel.invokeMapMethod<String, dynamic>(
       'wrapRuntimeDek',
@@ -141,7 +164,8 @@ class DeviceBoundRuntimeDekStore {
   Future<Uint8List> unwrap(String blob, {required String aad}) async {
     if (!isSupported) {
       throw UnsupportedError(
-        'runtime DEK unwrap is only supported on Android/iOS',
+        'runtime DEK unwrap is only supported on '
+        'Android/iOS/macOS/Windows/Linux',
       );
     }
     final decoded = jsonDecode(blob);
@@ -150,12 +174,21 @@ class DeviceBoundRuntimeDekStore {
         'runtime DEK wrapper blob must be a JSON object',
       );
     }
+    if (Platform.isLinux) {
+      return _unwrapLinux(decoded, aad: aad);
+    }
     final dek = await _channel.invokeMethod<Uint8List>('unwrapRuntimeDek', {
       ...decoded,
       'aad': aad,
     });
     if (dek == null) {
       throw StateError('runtime DEK wrapper returned no plaintext');
+    }
+    if (dek.length != _runtimeDekLength) {
+      throw PlatformException(
+        code: 'runtime_dek_wrap_terminal',
+        message: 'runtime DEK wrapper returned invalid plaintext length',
+      );
     }
     // Platform channel byte buffers may be backed by an immutable native view.
     // Return a mutable Dart-owned copy so callers can zero the plaintext after
@@ -165,6 +198,10 @@ class DeviceBoundRuntimeDekStore {
 
   Future<void> deleteWrappingKey() async {
     if (!isSupported) return;
+    if (Platform.isLinux) {
+      await secureStorage.delete(key: _linuxWrappingKeyStorageKey);
+      return;
+    }
     await _channel.invokeMethod<void>('deleteRuntimeDekWrappingKey');
   }
 
@@ -181,6 +218,30 @@ class DeviceBoundRuntimeDekStore {
   ///   - `build`: map (manufacturer, model, OS version)
   Future<Map<String, dynamic>?> getDiagnostics() async {
     if (!isSupported) return null;
+    if (Platform.isLinux) {
+      var keyPresent = false;
+      var secretServiceAccessible = true;
+      try {
+        keyPresent = await secureStorage.containsKey(
+          key: _linuxWrappingKeyStorageKey,
+        );
+      } catch (_) {
+        secretServiceAccessible = false;
+      }
+      return {
+        'alias_present': keyPresent,
+        'key_security': {
+          'provider': 'Linux Secret Service via flutter_secure_storage',
+          'wrapping': 'AES-256-GCM',
+          'user_prompt_required': false,
+        },
+        'device_state': {
+          'secret_service_accessible': secretServiceAccessible,
+          'secret_service_key_present': keyPresent,
+        },
+        'build': {'platform': 'linux'},
+      };
+    }
     try {
       final raw = await _channel.invokeMapMethod<String, dynamic>(
         'getRuntimeDekDiagnostics',
@@ -191,5 +252,192 @@ class DeviceBoundRuntimeDekStore {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<String> _wrapLinux(Uint8List dek, {required String aad}) async {
+    final key = await _readOrCreateLinuxWrappingKey();
+    try {
+      final nonce = _randomBytes(_linuxNonceLength);
+      final combined = aesGcmEncryptForRuntimeDek(
+        plaintext: dek,
+        key: key,
+        nonce: nonce,
+        aad: utf8.encode(aad),
+      );
+      return jsonEncode({
+        'version': 1,
+        'platform': 'linux_secret_service_aes_gcm',
+        'nonce': base64Encode(nonce),
+        'combined': base64Encode(combined),
+      });
+    } finally {
+      _zeroBytes(key);
+    }
+  }
+
+  Future<Uint8List> _unwrapLinux(
+    Map<String, dynamic> blob, {
+    required String aad,
+  }) async {
+    if (blob['version'] != 1) {
+      throw _runtimeDekTerminal(
+        'unsupported Linux runtime DEK wrapper version',
+      );
+    }
+    if (blob['platform'] != 'linux_secret_service_aes_gcm') {
+      throw _runtimeDekTerminal('unexpected Linux runtime DEK platform');
+    }
+    final nonceB64 = blob['nonce'] as String?;
+    final combinedB64 = blob['combined'] as String?;
+    if (nonceB64 == null || combinedB64 == null) {
+      throw _runtimeDekTerminal('missing Linux runtime DEK fields');
+    }
+
+    final Uint8List nonce;
+    final Uint8List combined;
+    try {
+      nonce = base64Decode(nonceB64);
+      combined = base64Decode(combinedB64);
+    } catch (_) {
+      throw _runtimeDekTerminal('invalid Linux runtime DEK encoding');
+    }
+
+    final key = await _readLinuxWrappingKeyForUnwrap();
+    if (key == null) {
+      throw _runtimeDekTerminal('Linux runtime DEK wrapping key missing');
+    }
+    try {
+      final dek = aesGcmDecryptForRuntimeDek(
+        combined: combined,
+        key: key,
+        nonce: nonce,
+        aad: utf8.encode(aad),
+      );
+      if (dek.length != _runtimeDekLength) {
+        throw const FormatException('invalid runtime DEK length');
+      }
+      return dek;
+    } catch (_) {
+      throw _runtimeDekTerminal('Linux runtime DEK authentication failed');
+    } finally {
+      _zeroBytes(key);
+    }
+  }
+
+  Future<Uint8List?> _readLinuxWrappingKeyForUnwrap() async {
+    try {
+      return await _readLinuxWrappingKey();
+    } on PlatformException catch (e) {
+      throw PlatformException(
+        code: 'runtime_dek_wrap_transient',
+        message: 'Linux Secret Service unavailable: ${e.code}',
+      );
+    } catch (_) {
+      throw PlatformException(
+        code: 'runtime_dek_wrap_transient',
+        message: 'Linux Secret Service unavailable',
+      );
+    }
+  }
+
+  Future<Uint8List?> _readLinuxWrappingKey() async {
+    final encoded = await secureStorage.read(key: _linuxWrappingKeyStorageKey);
+    if (encoded == null || encoded.isEmpty) return null;
+    try {
+      final key = Uint8List.fromList(base64Decode(encoded));
+      if (key.length != _linuxWrappingKeyLength) return null;
+      return key;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Uint8List> _readOrCreateLinuxWrappingKey() async {
+    final existing = await _readLinuxWrappingKey();
+    if (existing != null) return existing;
+
+    final key = _randomBytes(_linuxWrappingKeyLength);
+    await secureStorage.write(
+      key: _linuxWrappingKeyStorageKey,
+      value: base64Encode(key),
+    );
+    return key;
+  }
+}
+
+@visibleForTesting
+bool isRuntimeDekWrappingPlatformSupported({
+  required bool isAndroid,
+  required bool isIOS,
+  required bool isMacOS,
+  required bool isWindows,
+  required bool isLinux,
+}) {
+  return isAndroid || isIOS || isMacOS || isWindows || isLinux;
+}
+
+const _linuxWrappingKeyStorageKey = 'prism_sync.runtime_dek_linux_wrap_key_v1';
+const _runtimeDekLength = 32;
+const _linuxWrappingKeyLength = 32;
+const _linuxNonceLength = 12;
+const _linuxGcmTagBits = 128;
+
+@visibleForTesting
+Uint8List aesGcmEncryptForRuntimeDek({
+  required List<int> plaintext,
+  required List<int> key,
+  required List<int> nonce,
+  required List<int> aad,
+}) {
+  final cipher = GCMBlockCipher(AESEngine())
+    ..init(
+      true,
+      AEADParameters(
+        KeyParameter(Uint8List.fromList(key)),
+        _linuxGcmTagBits,
+        Uint8List.fromList(nonce),
+        Uint8List.fromList(aad),
+      ),
+    );
+  return Uint8List.fromList(cipher.process(Uint8List.fromList(plaintext)));
+}
+
+@visibleForTesting
+Uint8List aesGcmDecryptForRuntimeDek({
+  required List<int> combined,
+  required List<int> key,
+  required List<int> nonce,
+  required List<int> aad,
+}) {
+  final cipher = GCMBlockCipher(AESEngine())
+    ..init(
+      false,
+      AEADParameters(
+        KeyParameter(Uint8List.fromList(key)),
+        _linuxGcmTagBits,
+        Uint8List.fromList(nonce),
+        Uint8List.fromList(aad),
+      ),
+    );
+  return Uint8List.fromList(cipher.process(Uint8List.fromList(combined)));
+}
+
+Uint8List _randomBytes(int length) {
+  final random = Random.secure();
+  return Uint8List.fromList(
+    List<int>.generate(length, (_) => random.nextInt(256)),
+  );
+}
+
+PlatformException _runtimeDekTerminal(String message) {
+  return PlatformException(code: 'runtime_dek_wrap_terminal', message: message);
+}
+
+void _zeroBytes(List<int>? bytes) {
+  if (bytes == null) return;
+  try {
+    bytes.fillRange(0, bytes.length, 0);
+  } on UnsupportedError {
+    // Best-effort cleanup only.
   }
 }

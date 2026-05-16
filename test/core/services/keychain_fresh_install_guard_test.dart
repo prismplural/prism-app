@@ -26,6 +26,44 @@ void main() {
         'app_lock.pin_hash': 'bbbb',
       });
 
+      var runtimeDekWrappingKeyDeleted = false;
+
+      await clearKeychainIfFreshInstall(
+        deleteRuntimeDekWrappingKey: () async {
+          runtimeDekWrappingKeyDeleted = true;
+        },
+      );
+
+      final all = await secureStorage.readAll();
+      expect(all, isEmpty);
+      expect(runtimeDekWrappingKeyDeleted, isTrue);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('has_launched_before'), isTrue);
+    });
+
+    test('preserves secure storage when has_launched_before is true', () async {
+      SharedPreferences.setMockInitialValues({'has_launched_before': true});
+      FlutterSecureStorage.setMockInitialValues({'prism_sync.sync_id': 'aaaa'});
+
+      var runtimeDekWrappingKeyDeleted = false;
+
+      await clearKeychainIfFreshInstall(
+        deleteRuntimeDekWrappingKey: () async {
+          runtimeDekWrappingKeyDeleted = true;
+        },
+      );
+
+      final all = await secureStorage.readAll();
+      expect(all, containsPair('prism_sync.sync_id', 'aaaa'));
+      expect(runtimeDekWrappingKeyDeleted, isFalse);
+    });
+
+    test('sets has_launched_before on a true fresh install '
+        '(empty keychain — wipe is a no-op but flag still flips)', () async {
+      SharedPreferences.setMockInitialValues({});
+      FlutterSecureStorage.setMockInitialValues({});
+
       await clearKeychainIfFreshInstall();
 
       final all = await secureStorage.readAll();
@@ -34,34 +72,5 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('has_launched_before'), isTrue);
     });
-
-    test('preserves secure storage when has_launched_before is true', () async {
-      SharedPreferences.setMockInitialValues({'has_launched_before': true});
-      FlutterSecureStorage.setMockInitialValues({
-        'prism_sync.sync_id': 'aaaa',
-      });
-
-      await clearKeychainIfFreshInstall();
-
-      final all = await secureStorage.readAll();
-      expect(all, containsPair('prism_sync.sync_id', 'aaaa'));
-    });
-
-    test(
-      'sets has_launched_before on a true fresh install '
-      '(empty keychain — wipe is a no-op but flag still flips)',
-      () async {
-        SharedPreferences.setMockInitialValues({});
-        FlutterSecureStorage.setMockInitialValues({});
-
-        await clearKeychainIfFreshInstall();
-
-        final all = await secureStorage.readAll();
-        expect(all, isEmpty);
-
-        final prefs = await SharedPreferences.getInstance();
-        expect(prefs.getBool('has_launched_before'), isTrue);
-      },
-    );
   });
 }
