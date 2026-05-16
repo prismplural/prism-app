@@ -2,11 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/features/onboarding/widgets/prism_shimmer_bar.dart';
 
-Widget _wrap(Widget child, {bool disableAnimations = false}) {
+Widget _wrap(Widget child, {bool disableAnimations = false, ThemeData? theme}) {
+  final resolvedTheme =
+      theme ??
+      ThemeData.from(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF006C60)),
+      );
+
   return MaterialApp(
+    theme: resolvedTheme,
     home: MediaQuery(
       data: MediaQueryData(disableAnimations: disableAnimations),
-      child: Scaffold(body: Center(child: SizedBox(width: 300, child: child))),
+      child: Scaffold(
+        body: Center(child: SizedBox(width: 300, child: child)),
+      ),
     ),
   );
 }
@@ -39,33 +48,67 @@ void main() {
     expect(tester.hasRunningAnimations, isTrue);
   });
 
-  testWidgets('disableAnimations renders static bar with no running animations',
-      (tester) async {
+  testWidgets(
+    'disableAnimations renders static bar with no running animations',
+    (tester) async {
+      await tester.pumpWidget(
+        _wrap(const PrismShimmerBar(), disableAnimations: true),
+      );
+      await tester.pump();
+
+      expect(tester.hasRunningAnimations, isFalse);
+    },
+  );
+
+  testWidgets('sweep gradient derives from light theme primary color', (
+    tester,
+  ) async {
+    const seed = Color(0xFF006C60);
+    final colorScheme = ColorScheme.fromSeed(seedColor: seed);
     await tester.pumpWidget(
-      _wrap(const PrismShimmerBar(), disableAnimations: true),
+      _wrap(
+        const PrismShimmerBar(),
+        theme: ThemeData.from(colorScheme: colorScheme),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final bar = tester.widgetList<Container>(find.byType(Container)).firstWhere(
+      (c) {
+        final d = c.decoration;
+        return d is BoxDecoration && d.gradient is LinearGradient;
+      },
+    );
+    final gradient =
+        (bar.decoration as BoxDecoration).gradient as LinearGradient;
+
+    expect(gradient.colors[0], colorScheme.primary.withValues(alpha: 0));
+    expect(gradient.colors[1], colorScheme.primary.withValues(alpha: 0.60));
+    expect(gradient.colors[2], colorScheme.primary.withValues(alpha: 0));
+  });
+
+  testWidgets('reduced-motion static fill derives from light theme primary', (
+    tester,
+  ) async {
+    const seed = Color(0xFF006C60);
+    final colorScheme = ColorScheme.fromSeed(seedColor: seed);
+    await tester.pumpWidget(
+      _wrap(
+        const PrismShimmerBar(),
+        disableAnimations: true,
+        theme: ThemeData.from(colorScheme: colorScheme),
+      ),
     );
     await tester.pump();
 
-    expect(tester.hasRunningAnimations, isFalse);
-  });
+    final bar = tester.widgetList<Container>(find.byType(Container)).firstWhere(
+      (c) {
+        final d = c.decoration;
+        return d is BoxDecoration && d.borderRadius != null;
+      },
+    );
+    final decoration = bar.decoration as BoxDecoration;
 
-  testWidgets('sweep gradient uses warmWhite alpha only (no color injection)',
-      (tester) async {
-    await tester.pumpWidget(_wrap(const PrismShimmerBar()));
-    await tester.pump(const Duration(milliseconds: 100));
-
-    final bar = tester
-        .widgetList<Container>(find.byType(Container))
-        .firstWhere((c) {
-          final d = c.decoration;
-          return d is BoxDecoration && d.gradient is LinearGradient;
-        });
-    final gradient = (bar.decoration as BoxDecoration).gradient as LinearGradient;
-
-    for (final color in gradient.colors) {
-      expect(color.r, equals(gradient.colors.first.r));
-      expect(color.g, equals(gradient.colors.first.g));
-      expect(color.b, equals(gradient.colors.first.b));
-    }
+    expect(decoration.color, colorScheme.primary.withValues(alpha: 0.28));
   });
 }

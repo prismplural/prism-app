@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -67,8 +67,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = colorScheme.primary;
     final onboarding = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
     final step = onboarding.currentStep;
@@ -84,7 +86,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         step == OnboardingStep.pinSetup ||
         step == OnboardingStep.recoveryPhrase;
 
-    // Check if user has existing data (re-running onboarding)
     final hasExistingData = ref.watch(hasCompletedOnboardingProvider);
 
     return PopScope(
@@ -104,9 +105,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       child: Scaffold(
         body: Stack(
           children: [
-            // Background color
-            Container(color: isDark ? AppColors.charcoal : AppColors.parchment),
-            // Ambient glow
+            Container(color: colorScheme.surface),
             Positioned(
               top: -100,
               left: 0,
@@ -118,14 +117,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     center: Alignment.topCenter,
                     radius: 1.2,
                     colors: [
-                      AppColors.prismPurple.withValues(alpha: 0.08),
+                      colorScheme.primary.withValues(alpha: 0.08),
                       Colors.transparent,
                     ],
                   ),
                 ),
               ),
             ),
-            // Noise texture overlay
             Positioned.fill(
               child: IgnorePointer(
                 child: Container(
@@ -141,11 +139,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                 ),
               ),
             ),
-            // Content
             SafeArea(
               child: Column(
                 children: [
-                  // Top bar with close button and progress
                   if (!isFullScreenStep && !isCompleteStep)
                     Padding(
                       padding: const EdgeInsets.symmetric(
@@ -161,9 +157,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                 context.go(AppRoutePaths.home);
                               },
                               icon: AppIcons.close,
-                              color: isDark
-                                  ? AppColors.warmWhite.withValues(alpha: 0.8)
-                                  : AppColors.warmBlack.withValues(alpha: 0.8),
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.8,
+                              ),
                               tooltip: context.l10n.onboardingCloseOnboarding,
                             )
                           else
@@ -181,7 +177,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                       ),
                     ),
 
-                  // Step header
                   if (!isCompleteStep && !isFullScreenStep) ...[
                     const SizedBox(height: 8),
                     if (step == OnboardingStep.welcome)
@@ -218,9 +213,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                         style: Theme.of(context).textTheme.headlineLarge
                             ?.copyWith(
                               fontSize: 28,
-                              color: isDark
-                                  ? AppColors.warmWhite
-                                  : AppColors.warmBlack,
+                              color: colorScheme.onSurface,
                             ),
                       ),
                     ),
@@ -232,11 +225,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                         child: Text(
                           subtitle,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: theme.textTheme.bodyMedium?.copyWith(
                             fontSize: 15,
-                            color: isDark
-                                ? AppColors.mutedTextDark
-                                : AppColors.mutedTextLight,
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
@@ -244,7 +235,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     const SizedBox(height: 20),
                   ],
 
-                  // Step content
                   Expanded(
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 300),
@@ -252,7 +242,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     ),
                   ),
 
-                  // Navigation buttons (hidden for full-screen and self-managed steps)
                   if (!isFullScreenStep && !isSelfManagedStep)
                     Padding(
                       padding: const EdgeInsets.symmetric(
@@ -265,7 +254,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             _CircleButton(
                               icon: AppIcons.arrowBack,
                               onPressed: notifier.back,
-                              isDark: isDark,
                             ),
                           const Spacer(),
                           _PillButton(
@@ -276,7 +264,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                 : context.l10n.onboardingContinue,
                             enabled: notifier.canProceed && !_isCompleting,
                             isLoading: _isCompleting,
-                            isDark: isDark,
                             primary: primary,
                             onPressed: () {
                               if (isCompleteStep) {
@@ -473,15 +460,10 @@ class _ProgressIndicator extends StatelessWidget {
 
 /// Circle back button with press feedback.
 class _CircleButton extends StatefulWidget {
-  const _CircleButton({
-    required this.icon,
-    required this.onPressed,
-    required this.isDark,
-  });
+  const _CircleButton({required this.icon, required this.onPressed});
 
   final IconData icon;
   final VoidCallback onPressed;
-  final bool isDark;
 
   @override
   State<_CircleButton> createState() => _CircleButtonState();
@@ -492,13 +474,16 @@ class _CircleButtonState extends State<_CircleButton> {
 
   @override
   Widget build(BuildContext context) {
-    final normalBg = widget.isDark
-        ? AppColors.warmWhite.withValues(alpha: 0.15)
-        : AppColors.warmBlack.withValues(alpha: 0.08);
-    final pressedBg = widget.isDark
-        ? AppColors.warmWhite.withValues(alpha: 0.3)
-        : AppColors.warmBlack.withValues(alpha: 0.23);
-    final iconColor = widget.isDark ? AppColors.warmWhite : AppColors.warmBlack;
+    final colorScheme = Theme.of(context).colorScheme;
+    final normalBg = Color.alphaBlend(
+      colorScheme.onSurface.withValues(alpha: 0.08),
+      colorScheme.surface,
+    );
+    final pressedBg = Color.alphaBlend(
+      colorScheme.onSurface.withValues(alpha: 0.18),
+      colorScheme.surface,
+    );
+    final iconColor = colorScheme.onSurface;
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -531,7 +516,6 @@ class _PillButton extends StatefulWidget {
     required this.label,
     required this.enabled,
     required this.onPressed,
-    required this.isDark,
     required this.primary,
     this.isLoading = false,
   });
@@ -539,7 +523,6 @@ class _PillButton extends StatefulWidget {
   final String label;
   final bool enabled;
   final bool isLoading;
-  final bool isDark;
   final Color primary;
   final VoidCallback onPressed;
 
@@ -553,6 +536,17 @@ class _PillButtonState extends State<_PillButton> {
   @override
   Widget build(BuildContext context) {
     final canPress = widget.enabled && !widget.isLoading;
+    final colorScheme = Theme.of(context).colorScheme;
+    final fillColor = _pressed
+        ? widget.primary.withValues(alpha: 0.8)
+        : canPress
+        ? widget.primary
+        : widget.primary.withValues(alpha: 0.3);
+    final renderedFillColor = Color.alphaBlend(fillColor, colorScheme.surface);
+    final foreground = highContrastForeground(renderedFillColor);
+    final contentColor = canPress
+        ? foreground
+        : foreground.withValues(alpha: 0.82);
 
     return GestureDetector(
       onTapDown: canPress ? (_) => setState(() => _pressed = true) : null,
@@ -573,23 +567,17 @@ class _PillButtonState extends State<_PillButton> {
             borderRadius: BorderRadius.circular(
               PrismShapes.of(context).radius(28),
             ),
-            color: _pressed
-                ? widget.primary.withValues(alpha: 0.8)
-                : canPress
-                ? widget.primary
-                : widget.primary.withValues(alpha: 0.3),
+            color: fillColor,
             border: Border.all(
               color: widget.primary.withValues(alpha: canPress ? 0.5 : 0.2),
             ),
           ),
           child: widget.isLoading
-              ? const PrismSpinner(color: AppColors.warmBlack, size: 20)
+              ? PrismSpinner(color: contentColor, size: 20)
               : Text(
                   widget.label,
                   style: TextStyle(
-                    color: canPress
-                        ? AppColors.warmBlack
-                        : AppColors.warmBlack.withValues(alpha: 0.4),
+                    color: contentColor,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),

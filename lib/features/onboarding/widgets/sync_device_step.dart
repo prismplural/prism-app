@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/onboarding/providers/device_pairing_pro
 import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_ready_view.dart';
 import 'package:prism_plurality/features/onboarding/widgets/sync_progress_view.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -131,39 +132,8 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
                 )
               : null,
           notice: pairingState.syncIncomplete
-              ? Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(
-                      PrismShapes.of(context).radius(10),
-                    ),
-                    border: Border.all(
-                      color: Colors.amber.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        AppIcons.sync,
-                        size: 18,
-                        color: Colors.amber.withValues(alpha: 0.9),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          context.l10n.onboardingSyncDataStillSyncing,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Colors.amber.withValues(alpha: 0.9),
-                              ),
-                        ),
-                      ),
-                    ],
-                  ),
+              ? _SyncIncompleteNotice(
+                  message: context.l10n.onboardingSyncDataStillSyncing,
                 )
               : null,
           actionLabel: context.l10n.onboardingGetStarted,
@@ -294,7 +264,9 @@ class _JoinPromptView extends StatelessWidget {
           Text(
             context.l10n.onboardingSyncJoinDescription,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
+              color: isDark
+                  ? AppColors.mutedTextDark
+                  : AppColors.mutedTextLight,
             ),
             textAlign: TextAlign.center,
           ),
@@ -344,9 +316,7 @@ class _JoinPromptView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(
                   PrismShapes.of(context).radius(18),
                 ),
-                border: Border.all(
-                  color: fg.withValues(alpha: 0.12),
-                ),
+                border: Border.all(color: fg.withValues(alpha: 0.12)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -381,15 +351,14 @@ class _JoinPromptView extends StatelessWidget {
           ],
           _ActionButton(
             label: context.l10n.onboardingSyncRequestToJoin,
-            color: Colors.purple,
             onPressed: onRequestToJoin,
           ),
           const SizedBox(height: 8),
           Text(
             context.l10n.onboardingSyncRequestToJoinHint,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: fg.withValues(alpha: 0.5),
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: fg.withValues(alpha: 0.5)),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -442,7 +411,9 @@ class _ShowingRequestView extends StatelessWidget {
           Text(
             context.l10n.onboardingSyncScanInstructions,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
+              color: isDark
+                  ? AppColors.mutedTextDark
+                  : AppColors.mutedTextLight,
             ),
             textAlign: TextAlign.center,
           ),
@@ -472,7 +443,9 @@ class _ShowingRequestView extends StatelessWidget {
               Text(
                 context.l10n.onboardingSyncWaitingForScan,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
+                  color: isDark
+                      ? AppColors.mutedTextDark
+                      : AppColors.mutedTextLight,
                 ),
               ),
             ],
@@ -567,7 +540,9 @@ class _SasVerificationView extends StatelessWidget {
           Text(
             context.l10n.onboardingSyncVerifyDescription,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
+              color: isDark
+                  ? AppColors.mutedTextDark
+                  : AppColors.mutedTextLight,
             ),
             textAlign: TextAlign.center,
           ),
@@ -579,9 +554,7 @@ class _SasVerificationView extends StatelessWidget {
               borderRadius: BorderRadius.circular(
                 PrismShapes.of(context).radius(16),
               ),
-              border: Border.all(
-                color: fg.withValues(alpha: 0.2),
-              ),
+              border: Border.all(color: fg.withValues(alpha: 0.2)),
             ),
             child: Column(
               children: [
@@ -609,14 +582,12 @@ class _SasVerificationView extends StatelessWidget {
           const SizedBox(height: 24),
           _ActionButton(
             label: context.l10n.onboardingSyncTheyMatch,
-            color: Colors.purple,
             onPressed: onConfirm,
           ),
           const SizedBox(height: 8),
           _ActionButton(
             label: context.l10n.onboardingSyncTheyDontMatch,
-            color: Colors.redAccent,
-            tone: PrismButtonTone.subtle,
+            tone: PrismButtonTone.destructive,
             onPressed: onReject,
           ),
           const SizedBox(height: 16),
@@ -721,7 +692,9 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
           Text(
             context.l10n.onboardingSyncEnterPasswordDescription,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
+              color: isDark
+                  ? AppColors.mutedTextDark
+                  : AppColors.mutedTextLight,
             ),
             textAlign: TextAlign.center,
           ),
@@ -844,7 +817,7 @@ class _ErrorView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 8),
-          Icon(AppIcons.errorOutline, color: Colors.redAccent, size: 56),
+          Icon(AppIcons.errorOutline, color: theme.colorScheme.error, size: 56),
           const SizedBox(height: 16),
           Text(
             l10n.onboardingPairingFailed,
@@ -865,7 +838,6 @@ class _ErrorView extends StatelessWidget {
           const SizedBox(height: 24),
           _ActionButton(
             label: l10n.tryAgain,
-            color: Colors.redAccent,
             tone: PrismButtonTone.destructive,
             onPressed: onTryAgain,
           ),
@@ -899,6 +871,7 @@ class _SnapshotFailureView extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final fg = isDark ? AppColors.warmWhite : AppColors.warmBlack;
+    final warningColor = _warningStatusColor(theme);
     final l10n = context.l10n;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -906,7 +879,7 @@ class _SnapshotFailureView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 8),
-          Icon(AppIcons.errorOutline, color: Colors.amber, size: 56),
+          Icon(AppIcons.errorOutline, color: warningColor, size: 56),
           const SizedBox(height: 16),
           Text(
             l10n.onboardingPairingIncomplete,
@@ -925,15 +898,10 @@ class _SnapshotFailureView extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          _ActionButton(
-            label: l10n.onboardingPairingRetry,
-            color: theme.colorScheme.primary,
-            onPressed: onRetry,
-          ),
+          _ActionButton(label: l10n.onboardingPairingRetry, onPressed: onRetry),
           const SizedBox(height: 12),
           _ActionButton(
             label: l10n.onboardingPairingCancelAndRemove,
-            color: Colors.redAccent,
             tone: PrismButtonTone.destructive,
             onPressed: onCancel,
           ),
@@ -947,13 +915,11 @@ class _SnapshotFailureView extends StatelessWidget {
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.label,
-    required this.color,
     required this.onPressed,
     this.tone = PrismButtonTone.filled,
   });
 
   final String label;
-  final Color color;
   final VoidCallback onPressed;
   final PrismButtonTone tone;
 
@@ -969,6 +935,49 @@ class _ActionButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SyncIncompleteNotice extends StatelessWidget {
+  const _SyncIncompleteNotice({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final warningColor = _warningStatusColor(theme);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: warningColor.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
+        border: Border.all(color: warningColor.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(AppIcons.sync, size: 18, color: warningColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.86),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Color _warningStatusColor(ThemeData theme) {
+  return contrastAdjustedAccent(
+    AppColors.warning,
+    theme.scaffoldBackgroundColor,
+    minRatio: prismMinimumAccentContrast,
+  );
 }
 
 class _BackLink extends StatelessWidget {

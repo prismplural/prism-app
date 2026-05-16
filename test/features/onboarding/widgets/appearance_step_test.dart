@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -41,7 +43,9 @@ void main() {
     expect(find.text('System'), findsOneWidget);
     expect(find.text('Light'), findsOneWidget);
     expect(find.text('Dark'), findsOneWidget);
+    expect(find.text('Prism'), findsOneWidget);
     expect(find.text('OLED'), findsOneWidget);
+    expect(find.text('Palette'), findsOneWidget);
     expect(find.text('Corner style'), findsOneWidget);
     expect(find.text('Accent Color'), findsOneWidget);
     expect(find.text('Terminology'), findsNothing);
@@ -100,7 +104,9 @@ void main() {
     expect(find.text('Corner style'), findsOneWidget);
   });
 
-  testWidgets('hides and normalizes Material You off Android', (tester) async {
+  testWidgets('shows Palette off Android without normalizing the style', (
+    tester,
+  ) async {
     final container = ProviderContainer(
       overrides: [
         systemSettingsRepositoryProvider.overrideWithValue(
@@ -117,11 +123,34 @@ void main() {
     await tester.pumpWidget(buildSubject(container));
     await tester.pumpAndSettle();
 
-    expect(find.text('Material You'), findsNothing);
-    expect(container.read(onboardingProvider).themeStyle, ThemeStyle.standard);
+    expect(find.text('Palette'), findsOneWidget);
+    expect(container.read(onboardingProvider).themeStyle, isNull);
   });
 
-  testWidgets('shows Material You on Android', (tester) async {
+  testWidgets('selects Palette off Android', (tester) async {
+    final container = ProviderContainer(
+      overrides: [
+        systemSettingsRepositoryProvider.overrideWithValue(
+          FakeSystemSettingsRepository(),
+        ),
+        targetPlatformProvider.overrideWithValue(TargetPlatform.iOS),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(buildSubject(container));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Palette'));
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(onboardingProvider).themeStyle,
+      ThemeStyle.materialYou,
+    );
+  });
+
+  testWidgets('shows Palette on Android', (tester) async {
     final container = ProviderContainer(
       overrides: [
         systemSettingsRepositoryProvider.overrideWithValue(
@@ -138,7 +167,18 @@ void main() {
     await tester.pumpWidget(buildSubject(container));
     await tester.pumpAndSettle();
 
-    expect(find.text('Material You'), findsOneWidget);
+    expect(find.text('Palette'), findsOneWidget);
     expect(container.read(onboardingProvider).themeStyle, isNull);
+  });
+
+  test('onboarding shell pill derives content color from the filled color', () {
+    final source = File(
+      'lib/features/onboarding/views/onboarding_screen.dart',
+    ).readAsStringSync();
+
+    expect(source, contains('highContrastForeground(renderedFillColor)'));
+    expect(source, contains('foreground.withValues(alpha: 0.82)'));
+    expect(source, isNot(contains('PrismSpinner(color: AppColors.warmBlack')));
+    expect(source, isNot(contains('color: AppColors.warmBlack')));
   });
 }

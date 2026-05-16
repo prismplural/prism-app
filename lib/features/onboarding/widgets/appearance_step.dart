@@ -7,7 +7,6 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/views/accent_color_picker.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart'
     hide CornerStyle;
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
@@ -23,11 +22,11 @@ class AppearanceStep extends ConsumerWidget {
     };
   }
 
-  String _styleLabel(ThemeStyle value) {
+  String _styleLabel(BuildContext context, ThemeStyle value) {
     return switch (value) {
-      ThemeStyle.standard => 'Default',
-      ThemeStyle.oled => 'OLED',
-      ThemeStyle.materialYou => 'Material You',
+      ThemeStyle.standard => context.l10n.appearanceStylePrism,
+      ThemeStyle.oled => context.l10n.appearanceStyleOled,
+      ThemeStyle.materialYou => context.l10n.appearanceStylePalette,
     };
   }
 
@@ -38,11 +37,9 @@ class AppearanceStep extends ConsumerWidget {
     final settings = ref
         .watch(systemSettingsProvider)
         .whenOrNull(data: (settings) => settings);
-    final platform = ref.watch(targetPlatformProvider);
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final colorScheme = theme.colorScheme;
     final primary = theme.colorScheme.primary;
-    final supportsMaterialYou = platform == TargetPlatform.android;
     final terms = resolveTerminology(
       context.l10n,
       onboarding.selectedTerminology,
@@ -54,28 +51,17 @@ class AppearanceStep extends ConsumerWidget {
         onboarding.themeBrightness ??
         settings?.themeBrightness ??
         ThemeBrightness.system;
-    final rawThemeStyle =
+    final themeStyle =
         onboarding.themeStyle ?? settings?.themeStyle ?? ThemeStyle.standard;
-    final themeStyle = effectiveThemeStyleForPlatform(rawThemeStyle, platform);
     final cornerStyle =
         onboarding.cornerStyle ?? settings?.cornerStyle ?? CornerStyle.rounded;
-
-    if (rawThemeStyle != themeStyle && onboarding.themeStyle != themeStyle) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!context.mounted) return;
-        notifier.setThemeStyle(themeStyle);
-      });
-    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel(
-            label: context.l10n.onboardingAppearanceTheme,
-            isDark: isDark,
-          ),
+          _SectionLabel(label: context.l10n.onboardingAppearanceTheme),
           const SizedBox(height: 10),
           PrismSegmentedControl<ThemeBrightness>(
             segments: ThemeBrightness.values
@@ -91,25 +77,19 @@ class AppearanceStep extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           PrismSegmentedControl<ThemeStyle>(
-            segments:
-                [
-                      ThemeStyle.standard,
-                      ThemeStyle.oled,
-                      if (supportsMaterialYou) ThemeStyle.materialYou,
-                    ]
-                    .map(
-                      (value) =>
-                          PrismSegment(value: value, label: _styleLabel(value)),
-                    )
-                    .toList(),
+            segments: ThemeStyle.values
+                .map(
+                  (value) => PrismSegment(
+                    value: value,
+                    label: _styleLabel(context, value),
+                  ),
+                )
+                .toList(),
             selected: themeStyle,
             onChanged: notifier.setThemeStyle,
           ),
           const SizedBox(height: 24),
-          _SectionLabel(
-            label: context.l10n.appearanceCornerStyleTitle,
-            isDark: isDark,
-          ),
+          _SectionLabel(label: context.l10n.appearanceCornerStyleTitle),
           const SizedBox(height: 10),
           PrismSegmentedControl<CornerStyle>(
             segments: [
@@ -126,10 +106,7 @@ class AppearanceStep extends ConsumerWidget {
             onChanged: notifier.setCornerStyle,
           ),
           const SizedBox(height: 24),
-          _SectionLabel(
-            label: context.l10n.onboardingPreferencesAccentColor,
-            isDark: isDark,
-          ),
+          _SectionLabel(label: context.l10n.onboardingPreferencesAccentColor),
           const SizedBox(height: 10),
           AccentColorPicker(
             currentHex: onboarding.accentColorHex,
@@ -139,9 +116,7 @@ class AppearanceStep extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.warmWhite.withValues(alpha: 0.1)
-                  : AppColors.parchmentElevated,
+              color: colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(
                 PrismShapes.of(context).radius(12),
               ),
@@ -159,9 +134,7 @@ class AppearanceStep extends ConsumerWidget {
                         ),
                         style: theme.textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? AppColors.warmWhite
-                              : AppColors.warmBlack,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       Text(
@@ -170,9 +143,7 @@ class AppearanceStep extends ConsumerWidget {
                               terms.singularLower,
                             ),
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: isDark
-                              ? AppColors.mutedTextDark
-                              : AppColors.mutedTextLight,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -193,20 +164,18 @@ class AppearanceStep extends ConsumerWidget {
 }
 
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label, required this.isDark});
+  const _SectionLabel({required this.label});
 
   final String label;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Text(
       label,
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
         fontWeight: FontWeight.w600,
-        color: isDark
-            ? AppColors.warmWhite.withValues(alpha: 0.8)
-            : AppColors.warmBlack.withValues(alpha: 0.8),
+        color: colorScheme.onSurface.withValues(alpha: 0.8),
       ),
     );
   }

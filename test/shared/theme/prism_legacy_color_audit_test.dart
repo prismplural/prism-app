@@ -9,7 +9,6 @@ const _legacyThemeFiles = {
 };
 
 const _allowedLegacyColorReferenceCounts = <String, int>{
-  'lib/features/boards/views/boards_screen.dart': 9,
   'lib/features/chat/widgets/attachment_preview.dart': 2,
   'lib/features/chat/widgets/chat_markdown_editing_controller.dart': 1,
   'lib/features/chat/widgets/media/gif_bubble.dart': 4,
@@ -20,19 +19,15 @@ const _allowedLegacyColorReferenceCounts = <String, int>{
   'lib/features/chat/widgets/voice_recorder.dart': 4,
   'lib/features/habits/widgets/habit_chip.dart': 1,
   'lib/features/habits/widgets/habit_row.dart': 1,
-  'lib/features/onboarding/views/onboarding_screen.dart': 15,
   'lib/features/onboarding/widgets/add_members_step.dart': 24,
-  'lib/features/onboarding/widgets/appearance_step.dart': 6,
   'lib/features/onboarding/widgets/biometric_setup_step.dart': 2,
   'lib/features/onboarding/widgets/chat_setup_step.dart': 36,
   'lib/features/onboarding/widgets/complete_step.dart': 2,
   'lib/features/onboarding/widgets/features_step.dart': 10,
   'lib/features/onboarding/widgets/fronting_defaults_step.dart': 6,
-  'lib/features/onboarding/widgets/import_data_step.dart': 94,
+  'lib/features/onboarding/widgets/import_data_step.dart': 92,
   'lib/features/onboarding/widgets/live_count_card.dart': 6,
   'lib/features/onboarding/widgets/onboarding_data_ready_view.dart': 6,
-  'lib/features/onboarding/widgets/phase_segments.dart': 2,
-  'lib/features/onboarding/widgets/prism_shimmer_bar.dart': 5,
   'lib/features/onboarding/widgets/sync_device_step.dart': 20,
   'lib/features/onboarding/widgets/system_name_step.dart': 6,
   'lib/features/onboarding/widgets/terminology_step.dart': 14,

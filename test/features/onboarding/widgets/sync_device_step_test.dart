@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
 import 'package:prism_plurality/features/onboarding/widgets/sync_device_step.dart';
@@ -184,6 +185,10 @@ void main() {
       expect(find.text(word), findsOneWidget);
     }
     expect(find.text('123456'), findsNothing);
+    final rejectButton = tester.widget<PrismButton>(
+      find.widgetWithText(PrismButton, "They Don't Match"),
+    );
+    expect(rejectButton.tone, PrismButtonTone.destructive);
 
     await tester.tap(find.text('They Match'));
     await tester.pump();

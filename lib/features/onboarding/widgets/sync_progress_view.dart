@@ -9,7 +9,6 @@ import 'package:prism_plurality/features/onboarding/widgets/live_count_card.dart
 import 'package:prism_plurality/features/onboarding/widgets/phase_segments.dart';
 import 'package:prism_plurality/features/onboarding/widgets/prism_shimmer_bar.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 /// Top-level Consumer widget that composes the sync-pairing progress UI.
@@ -39,8 +38,9 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
 
   void _startRebuildTimer({required bool slow}) {
     _rebuildTimer?.cancel();
-    final interval =
-        slow ? const Duration(seconds: 5) : const Duration(seconds: 1);
+    final interval = slow
+        ? const Duration(seconds: 5)
+        : const Duration(seconds: 1);
     _rebuildTimer = Timer.periodic(interval, (_) {
       if (mounted) setState(() {});
     });
@@ -106,11 +106,12 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
       }
     });
 
-    // Phase title and subtitle.
     final title = _phaseTitleFor(state.phase, l10n);
     final subtitle = _phaseSubtitleFor(state, l10n);
+    final mutedTextColor = theme.colorScheme.onSurface.withValues(
+      alpha: theme.brightness == Brightness.dark ? 0.70 : 0.74,
+    );
 
-    // Reassurance: show after 30 seconds in the current phase.
     final elapsed = DateTime.now().difference(state.phaseStartedAt);
     final showReassurance = elapsed > const Duration(seconds: 30);
 
@@ -126,21 +127,18 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            PhaseSegments(
-              currentIndex: phase.index,
-              totalPhases: 4,
-            ),
+            PhaseSegments(currentIndex: phase.index, totalPhases: 4),
             const SizedBox(height: 48),
             AnimatedSwitcher(
               duration: disableAnimations
                   ? Duration.zero
                   : const Duration(milliseconds: 300),
               child: showSpinner
-                  ? const PrismSpinner(
-                      key: ValueKey('spinner'),
-                      color: AppColors.prismPurple,
+                  ? PrismSpinner(
+                      key: const ValueKey('spinner'),
+                      color: theme.colorScheme.primary,
                       size: 48,
-                      duration: Duration(milliseconds: 2400),
+                      duration: const Duration(milliseconds: 2400),
                     )
                   : const PrismShimmerBar(key: ValueKey('shimmer')),
             ),
@@ -157,23 +155,21 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
             Text(
               subtitle,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.mutedTextDark,
+                color: mutedTextColor,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             Hero(
               tag: 'sync-progress-count-card',
-              child: LiveCountCard(
-                counts: state.liveCounts,
-              ),
+              child: LiveCountCard(counts: state.liveCounts),
             ),
             const SizedBox(height: 16),
             if (showReassurance)
               Text(
                 l10n.onboardingSyncReassurance,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.mutedTextDark,
+                  color: mutedTextColor,
                 ),
                 textAlign: TextAlign.center,
               )
@@ -200,19 +196,16 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
   ) {
     final phase = state.phase;
 
-    // Disconnected during active download/restore phases.
     if (!state.wsConnected &&
         (phase == PairingProgressPhase.downloading ||
             phase == PairingProgressPhase.restoring)) {
       return l10n.onboardingSyncReconnecting;
     }
 
-    // Timed-out during finishing phase.
     if (state.timedOut && phase == PairingProgressPhase.finishing) {
       return l10n.onboardingSyncStillPullingBackground;
     }
 
-    // Empty system during restoring (≥2s elapsed, all counts are zero).
     if (phase == PairingProgressPhase.restoring) {
       final phaseElapsed = DateTime.now().difference(state.phaseStartedAt);
       final allZero =
@@ -223,7 +216,6 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
       }
     }
 
-    // Default subtitle.
     return switch (phase) {
       PairingProgressPhase.connecting =>
         l10n.onboardingSyncPhaseConnectSubtitle,

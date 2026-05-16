@@ -27,6 +27,7 @@ import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 /// Import Data step — lets user choose between PluralKit, Simply Plural,
@@ -118,7 +119,6 @@ class _SourcePicker extends StatelessWidget {
           const SizedBox(height: 32),
           _SourceCard(
             icon: AppIcons.sync,
-            color: Colors.cyan,
             title: context.l10n.onboardingImportPluralKit,
             description: context.l10n.onboardingImportPluralKitDescription,
             onTap: () => onSelect(_ImportSource.pluralKit),
@@ -126,7 +126,6 @@ class _SourcePicker extends StatelessWidget {
           const SizedBox(height: 16),
           _SourceCard(
             icon: AppIcons.inventoryOutlined,
-            color: Colors.green,
             title: context.l10n.onboardingImportPrismExport,
             description: context.l10n.onboardingImportPrismExportDescription,
             onTap: () => onSelect(_ImportSource.prismExport),
@@ -134,7 +133,6 @@ class _SourcePicker extends StatelessWidget {
           const SizedBox(height: 16),
           _SourceCard(
             icon: AppIcons.fileUploadOutlined,
-            color: Colors.deepPurple,
             title: context.l10n.onboardingImportSimplyPlural,
             description: context.l10n.onboardingImportSimplyPluralDescription,
             onTap: () => onSelect(_ImportSource.simplyPlural),
@@ -158,14 +156,12 @@ class _SourcePicker extends StatelessWidget {
 class _SourceCard extends StatefulWidget {
   const _SourceCard({
     required this.icon,
-    required this.color,
     required this.title,
     required this.description,
     required this.onTap,
   });
 
   final IconData icon;
-  final Color color;
   final String title;
   final String description;
   final VoidCallback onTap;
@@ -420,7 +416,6 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         const SizedBox(height: 24),
         _SourceCard(
           icon: AppIcons.sync,
-          color: theme.colorScheme.primary,
           title: 'Import with a token',
           description:
               'Recommended. Paste a PluralKit token and Prism will import '
@@ -431,7 +426,6 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         const SizedBox(height: 12),
         _SourceCard(
           icon: AppIcons.fileUploadOutlined,
-          color: theme.colorScheme.primary,
           title: 'Import from pk;export file',
           description:
               'Use your export plus a token to recover fronting history. '
@@ -449,7 +443,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
   Widget _buildTokenBody(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
+    final successColor = _successStatusColor(theme);
     final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
 
     if (_isImporting) {
@@ -568,14 +562,14 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.2),
+              color: successColor.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(
                 PrismShapes.of(context).radius(12),
               ),
             ),
             child: Row(
               children: [
-                Icon(AppIcons.checkCircle, color: Colors.green),
+                Icon(AppIcons.checkCircle, color: successColor),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -594,7 +588,6 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         else
           _ActionButton(
             label: context.l10n.onboardingPluralKitImportButton,
-            color: primary,
             isLoading: _isImporting,
             onPressed: _handleImport,
           ),
@@ -648,7 +641,6 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
   Widget _buildFileIdle(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -698,7 +690,6 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         const SizedBox(height: 24),
         _ActionButton(
           label: 'Select file',
-          color: primary,
           onPressed: () {
             ref.read(pkFileImportProvider.notifier).selectAndParseFile();
           },
@@ -736,7 +727,6 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
   Widget _buildFilePreview(BuildContext context, PkFileExport export) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
     final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     final hasSwitches = export.switches.isNotEmpty;
     return Column(
@@ -855,7 +845,6 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           label: hasSwitches
               ? 'Match & import fronting history'
               : 'Import members/groups',
-          color: primary,
           isLoading: _isAttachingToken,
           onPressed: hasSwitches ? _runFileFrontingRecovery : _runFileImport,
         ),
@@ -904,6 +893,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
   ) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final successColor = _successStatusColor(theme);
     final recoveredFronting =
         mode == PkFileImportCompletionMode.fileAndToken &&
         frontingResult?.frontingImported == true;
@@ -930,14 +920,14 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.green.withValues(alpha: 0.2),
+            color: successColor.withValues(alpha: 0.16),
             borderRadius: BorderRadius.circular(
               PrismShapes.of(context).radius(12),
             ),
           ),
           child: Row(
             children: [
-              Icon(AppIcons.checkCircle, color: Colors.green),
+              Icon(AppIcons.checkCircle, color: successColor),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -1019,7 +1009,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
   Widget _buildFileError(BuildContext context, String message) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
+    final errorColor = _errorStatusColor(theme);
     final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1027,14 +1017,14 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.red.withValues(alpha: 0.2),
+            color: errorColor.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(
               PrismShapes.of(context).radius(12),
             ),
           ),
           child: Row(
             children: [
-              Icon(AppIcons.errorOutline, color: Colors.red),
+              Icon(AppIcons.errorOutline, color: errorColor),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(message, style: TextStyle(color: textColor)),
@@ -1045,7 +1035,6 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         const SizedBox(height: 12),
         _ActionButton(
           label: context.l10n.tryAgain,
-          color: primary,
           onPressed: () {
             ref.read(pkFileImportProvider.notifier).reset();
           },
@@ -1429,7 +1418,6 @@ class _PrismExportImportFlowState
   Widget _buildIdle() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1472,7 +1460,6 @@ class _PrismExportImportFlowState
         const SizedBox(height: 24),
         _ActionButton(
           label: context.l10n.onboardingPrismExportSelectFile,
-          color: primary,
           onPressed: _pickFile,
         ),
       ],
@@ -1482,7 +1469,6 @@ class _PrismExportImportFlowState
   Widget _buildPassword() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1568,7 +1554,6 @@ class _PrismExportImportFlowState
         const SizedBox(height: 24),
         _ActionButton(
           label: context.l10n.onboardingPrismExportUnlockButton,
-          color: primary,
           onPressed: _unlockFile,
         ),
       ],
@@ -1578,7 +1563,6 @@ class _PrismExportImportFlowState
   Widget _buildPreview() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
     final preview = _preview!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1679,12 +1663,7 @@ class _PrismExportImportFlowState
                   label: context.l10n.onboardingImportPreviewMediaAttachments,
                   count: preview.mediaAttachments,
                 ),
-              Divider(
-                color: isDark
-                    ? const Color(0x22FFFFFF)
-                    : const Color(0x22000000),
-                height: 24,
-              ),
+              Divider(color: theme.dividerColor, height: 24),
               _PreviewRow(
                 label: context.l10n.onboardingImportPreviewTotalRecords,
                 count: preview.totalRecords,
@@ -1695,7 +1674,6 @@ class _PrismExportImportFlowState
         const SizedBox(height: 16),
         _ActionButton(
           label: context.l10n.onboardingPrismExportImportButton,
-          color: primary,
           onPressed: _startImport,
         ),
       ],
@@ -1729,21 +1707,23 @@ class _PrismExportImportFlowState
   }
 
   Widget _buildError() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final errorColor = _errorStatusColor(theme);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.red.withValues(alpha: 0.2),
+            color: errorColor.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(
               PrismShapes.of(context).radius(12),
             ),
           ),
           child: Row(
             children: [
-              Icon(AppIcons.errorOutline, color: Colors.red),
+              Icon(AppIcons.errorOutline, color: errorColor),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -1759,7 +1739,7 @@ class _PrismExportImportFlowState
         const SizedBox(height: 12),
         _ActionButton(
           label: context.l10n.tryAgain,
-          color: Colors.redAccent,
+          tone: PrismButtonTone.destructive,
           onPressed: _reset,
         ),
       ],
@@ -1787,7 +1767,9 @@ class _SimplyPluralImportFlowState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
+    final successColor = _successStatusColor(theme);
+    final warningColor = _warningStatusColor(theme);
+    final errorColor = _errorStatusColor(theme);
     final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     final migration = ref.watch(importerProvider);
 
@@ -1935,7 +1917,6 @@ class _SimplyPluralImportFlowState
             const SizedBox(height: 24),
             _ActionButton(
               label: context.l10n.onboardingSimplyPluralSelectFile,
-              color: primary,
               onPressed: () {
                 ref.read(importerProvider.notifier).selectAndParseFile();
               },
@@ -2055,7 +2036,6 @@ class _SimplyPluralImportFlowState
               label: migration.avatarZipPath == null
                   ? context.l10n.onboardingSimplyPluralAddAvatarZip
                   : context.l10n.onboardingSimplyPluralChangeAvatarZip,
-              color: primary,
               onPressed: () {
                 ref.read(importerProvider.notifier).selectAvatarZipFile();
               },
@@ -2076,7 +2056,7 @@ class _SimplyPluralImportFlowState
               const SizedBox(height: 8),
               _ActionButton(
                 label: context.l10n.onboardingSimplyPluralRemoveAvatarZip,
-                color: theme.colorScheme.error,
+                tone: PrismButtonTone.destructive,
                 onPressed: () {
                   ref.read(importerProvider.notifier).clearAvatarZipFile();
                 },
@@ -2085,7 +2065,6 @@ class _SimplyPluralImportFlowState
             const SizedBox(height: 12),
             _ActionButton(
               label: context.l10n.onboardingSimplyPluralImportButton,
-              color: primary,
               onPressed: () {
                 ref.read(importerProvider.notifier).proceedFromPreview();
               },
@@ -2154,14 +2133,14 @@ class _SimplyPluralImportFlowState
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.2),
+                color: successColor.withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(
                   PrismShapes.of(context).radius(12),
                 ),
               ),
               child: Row(
                 children: [
-                  Icon(AppIcons.checkCircle, color: Colors.green),
+                  Icon(AppIcons.checkCircle, color: successColor),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -2180,7 +2159,7 @@ class _SimplyPluralImportFlowState
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.18),
+                  color: warningColor.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(
                     PrismShapes.of(context).radius(12),
                   ),
@@ -2220,14 +2199,14 @@ class _SimplyPluralImportFlowState
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.2),
+                color: errorColor.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(
                   PrismShapes.of(context).radius(12),
                 ),
               ),
               child: Row(
                 children: [
-                  Icon(AppIcons.errorOutline, color: Colors.red),
+                  Icon(AppIcons.errorOutline, color: errorColor),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -2241,7 +2220,6 @@ class _SimplyPluralImportFlowState
             const SizedBox(height: 12),
             _ActionButton(
               label: context.l10n.tryAgain,
-              color: primary,
               onPressed: () {
                 ref.read(importerProvider.notifier).reset();
               },
@@ -2256,6 +2234,18 @@ class _SimplyPluralImportFlowState
 // ---------------------------------------------------------------------------
 // Shared widgets
 // ---------------------------------------------------------------------------
+
+Color _successStatusColor(ThemeData theme) => theme.colorScheme.primary;
+
+Color _errorStatusColor(ThemeData theme) => theme.colorScheme.error;
+
+Color _warningStatusColor(ThemeData theme) {
+  return contrastAdjustedAccent(
+    AppColors.warning,
+    theme.scaffoldBackgroundColor,
+    minRatio: prismMinimumAccentContrast,
+  );
+}
 
 class _BackLink extends StatelessWidget {
   const _BackLink({required this.onTap});
@@ -2286,68 +2276,29 @@ class _BackLink extends StatelessWidget {
   }
 }
 
-class _ActionButton extends StatefulWidget {
+class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.label,
-    required this.color,
     this.isLoading = false,
     required this.onPressed,
+    this.tone = PrismButtonTone.filled,
   });
 
   final String label;
-  final Color color;
   final bool isLoading;
   final VoidCallback onPressed;
-
-  @override
-  State<_ActionButton> createState() => _ActionButtonState();
-}
-
-class _ActionButtonState extends State<_ActionButton> {
-  bool _pressed = false;
+  final PrismButtonTone tone;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final buttonTextColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
-    return GestureDetector(
-      onTapDown: widget.isLoading
-          ? null
-          : (_) => setState(() => _pressed = true),
-      onTapUp: widget.isLoading
-          ? null
-          : (_) {
-              setState(() => _pressed = false);
-              widget.onPressed();
-            },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: _pressed
-                ? widget.color.withValues(alpha: 0.7)
-                : widget.color.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(
-              PrismShapes.of(context).radius(12),
-            ),
-          ),
-          child: Center(
-            child: widget.isLoading
-                ? PrismSpinner(color: buttonTextColor, size: 20)
-                : Text(
-                    widget.label,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: buttonTextColor,
-                    ),
-                  ),
-          ),
-        ),
+    return SizedBox(
+      height: 52,
+      child: PrismButton(
+        label: label,
+        onPressed: onPressed,
+        isLoading: isLoading,
+        tone: tone,
+        expanded: true,
       ),
     );
   }
@@ -2429,17 +2380,18 @@ class _AccentLegibilityNotice extends StatelessWidget {
         context.l10n.accentLegibilityTooDesaturated,
       AccentLegibility.ok => '',
     };
+    final warningColor = _warningStatusColor(theme);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.18),
+        color: warningColor.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(AppIcons.warningRounded, color: Colors.amber.shade700),
+          Icon(AppIcons.warningRounded, color: warningColor),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

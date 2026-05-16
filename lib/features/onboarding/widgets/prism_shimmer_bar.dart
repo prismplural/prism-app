@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 
 class PrismShimmerBar extends StatefulWidget {
   const PrismShimmerBar({super.key});
@@ -42,30 +41,32 @@ class _PrismShimmerBarState extends State<PrismShimmerBar>
   @override
   Widget build(BuildContext context) {
     final disableAnimations = MediaQuery.of(context).disableAnimations;
+    final colors = _ShimmerBarColors.from(Theme.of(context).colorScheme);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(6)),
       child: disableAnimations
-          ? _buildStatic()
+          ? _buildStatic(colors)
           : AnimatedBuilder(
               animation: _controller,
-              builder: (context, _) => _buildAnimated(_controller.value),
+              builder: (context, _) =>
+                  _buildAnimated(_controller.value, colors),
             ),
     );
   }
 
-  Widget _buildStatic() {
+  Widget _buildStatic(_ShimmerBarColors colors) {
     return Container(
       constraints: const BoxConstraints(maxHeight: 12.0),
       height: 12.0,
       decoration: BoxDecoration(
-        color: AppColors.warmWhite.withValues(alpha: 0.25),
+        color: colors.staticFill,
         borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(6)),
       ),
     );
   }
 
-  Widget _buildAnimated(double t) {
+  Widget _buildAnimated(double t, _ShimmerBarColors colors) {
     final beginX = -2.0 + 4.0 * t;
     final endX = -1.0 + 4.0 * t;
 
@@ -74,18 +75,40 @@ class _PrismShimmerBarState extends State<PrismShimmerBar>
       height: 12.0,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(6)),
-        color: AppColors.warmWhite.withValues(alpha: 0.15),
+        color: colors.track,
         gradient: LinearGradient(
           begin: Alignment(beginX, 0),
           end: Alignment(endX, 0),
           colors: [
-            AppColors.warmWhite.withValues(alpha: 0.0),
-            AppColors.warmWhite.withValues(alpha: 0.65),
-            AppColors.warmWhite.withValues(alpha: 0.0),
+            colors.sweep.withValues(alpha: 0),
+            colors.sweep,
+            colors.sweep.withValues(alpha: 0),
           ],
           stops: const [0.0, 0.5, 1.0],
         ),
       ),
+    );
+  }
+}
+
+class _ShimmerBarColors {
+  const _ShimmerBarColors({
+    required this.track,
+    required this.sweep,
+    required this.staticFill,
+  });
+
+  final Color track;
+  final Color sweep;
+  final Color staticFill;
+
+  factory _ShimmerBarColors.from(ColorScheme colorScheme) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+
+    return _ShimmerBarColors(
+      track: colorScheme.onSurface.withValues(alpha: isDark ? 0.14 : 0.10),
+      sweep: colorScheme.primary.withValues(alpha: isDark ? 0.70 : 0.60),
+      staticFill: colorScheme.primary.withValues(alpha: isDark ? 0.34 : 0.28),
     );
   }
 }

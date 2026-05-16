@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -21,10 +20,6 @@ class _PhaseSegmentsState extends State<PhaseSegments>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _opacity;
-
-  static const _filledGradient = LinearGradient(
-    colors: [AppColors.prismPurple, AppColors.warmWhite],
-  );
 
   @override
   void initState() {
@@ -104,6 +99,7 @@ class _PhaseSegmentsState extends State<PhaseSegments>
     int index,
     bool disableAnimations,
   ) {
+    final colors = _PhaseSegmentColors.from(Theme.of(context).colorScheme);
     final radius = BorderRadius.all(
       Radius.circular(PrismShapes.of(context).radius(2)),
     );
@@ -112,7 +108,7 @@ class _PhaseSegmentsState extends State<PhaseSegments>
       return Container(
         height: 4,
         decoration: BoxDecoration(
-          gradient: _filledGradient,
+          gradient: colors.filledGradient,
           borderRadius: radius,
         ),
       );
@@ -125,20 +121,42 @@ class _PhaseSegmentsState extends State<PhaseSegments>
         child: Container(
           height: 4,
           decoration: BoxDecoration(
-            gradient: _filledGradient,
+            gradient: colors.filledGradient,
             borderRadius: radius,
           ),
         ),
       );
     }
 
-    // Pending
     return Container(
       height: 4,
-      decoration: BoxDecoration(
-        color: AppColors.warmWhite.withValues(alpha: 0.2),
-        borderRadius: radius,
+      decoration: BoxDecoration(color: colors.pending, borderRadius: radius),
+    );
+  }
+}
+
+class _PhaseSegmentColors {
+  const _PhaseSegmentColors({
+    required this.filledGradient,
+    required this.pending,
+  });
+
+  final LinearGradient filledGradient;
+  final Color pending;
+
+  factory _PhaseSegmentColors.from(ColorScheme colorScheme) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final gradientEnd = Color.lerp(
+      colorScheme.primary,
+      colorScheme.onSurface,
+      isDark ? 0.22 : 0.18,
+    )!;
+
+    return _PhaseSegmentColors(
+      filledGradient: LinearGradient(
+        colors: [colorScheme.primary, gradientEnd],
       ),
+      pending: colorScheme.onSurface.withValues(alpha: isDark ? 0.18 : 0.14),
     );
   }
 }
