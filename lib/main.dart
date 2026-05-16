@@ -120,6 +120,7 @@ void main() async {
       (cachedStyle == ThemeStyle.materialYou
           ? PaletteSource.device
           : PaletteSource.custom);
+  final cachedAccentColorHex = prefs.getString('prism.cache.accent_color_hex');
   final cachedPaletteSeedColorHex =
       prefs.getString('prism.cache.palette_seed_color_hex') ?? '#9070A0';
   final cachedPaletteMood =
@@ -150,15 +151,30 @@ void main() async {
   runApp(
     ProviderScope(
       overrides: [
-        cachedThemeBrightnessProvider.overrideWithValue(cachedBrightness),
-        cachedThemeStyleProvider.overrideWithValue(cachedStyle),
-        cachedPaletteSourceProvider.overrideWithValue(cachedPaletteSource),
-        cachedPaletteSeedColorHexProvider.overrideWithValue(
-          cachedPaletteSeedColorHex,
+        cachedThemeBrightnessProvider.overrideWith(
+          () => CachedThemeBrightnessNotifier(cachedBrightness),
         ),
-        cachedPaletteMoodProvider.overrideWithValue(cachedPaletteMood),
-        cachedPaletteContrastProvider.overrideWithValue(cachedPaletteContrast),
-        cachedCornerStyleProvider.overrideWithValue(cachedCornerStyle),
+        cachedThemeStyleProvider.overrideWith(
+          () => CachedThemeStyleNotifier(cachedStyle),
+        ),
+        cachedPaletteSourceProvider.overrideWith(
+          () => CachedPaletteSourceNotifier(cachedPaletteSource),
+        ),
+        cachedAccentColorHexProvider.overrideWith(
+          () => CachedAccentColorHexNotifier(cachedAccentColorHex),
+        ),
+        cachedPaletteSeedColorHexProvider.overrideWith(
+          () => CachedPaletteSeedColorHexNotifier(cachedPaletteSeedColorHex),
+        ),
+        cachedPaletteMoodProvider.overrideWith(
+          () => CachedPaletteMoodNotifier(cachedPaletteMood),
+        ),
+        cachedPaletteContrastProvider.overrideWith(
+          () => CachedPaletteContrastNotifier(cachedPaletteContrast),
+        ),
+        cachedCornerStyleProvider.overrideWith(
+          () => CachedCornerStyleNotifier(cachedCornerStyle),
+        ),
       ],
       // Explicit retry filter — prevent infinite retry on programmer bugs.
       retry: (retryCount, error) {

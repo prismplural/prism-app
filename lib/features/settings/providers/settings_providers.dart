@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 const _kThemeBrightnessCache = 'prism.cache.theme_brightness';
 const _kThemeStyleCache = 'prism.cache.theme_style';
 const _kThemeCornerStyleCache = 'prism.cache.theme_corner_style';
+const _kAccentColorHexCache = 'prism.cache.accent_color_hex';
 const _kPaletteSourceCache = 'prism.cache.palette_source';
 const _kPaletteSeedColorHexCache = 'prism.cache.palette_seed_color_hex';
 const _kPaletteMoodCache = 'prism.cache.palette_mood';
@@ -102,6 +103,9 @@ class SettingsNotifier extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
       await repo.updateAccentColorHex(hex);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kAccentColorHexCache, hex);
+      ref.read(cachedAccentColorHexProvider.notifier).set(hex);
     });
   }
 
@@ -163,6 +167,7 @@ class SettingsNotifier extends AsyncNotifier<void> {
       await repo.updateThemeBrightness(brightness);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kThemeBrightnessCache, brightness.name);
+      ref.read(cachedThemeBrightnessProvider.notifier).set(brightness);
     });
   }
 
@@ -172,6 +177,7 @@ class SettingsNotifier extends AsyncNotifier<void> {
       await repo.updateThemeStyle(style);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kThemeStyleCache, style.name);
+      ref.read(cachedThemeStyleProvider.notifier).set(style);
     });
   }
 
@@ -182,6 +188,7 @@ class SettingsNotifier extends AsyncNotifier<void> {
       await repo.updateCornerStyle(domain.CornerStyle.values[style.index]);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_kThemeCornerStyleCache, style.index);
+      ref.read(cachedCornerStyleProvider.notifier).set(style);
     });
   }
 
@@ -191,6 +198,7 @@ class SettingsNotifier extends AsyncNotifier<void> {
       await repo.updatePaletteSource(source);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kPaletteSourceCache, source.name);
+      ref.read(cachedPaletteSourceProvider.notifier).set(source);
     });
   }
 
@@ -200,6 +208,7 @@ class SettingsNotifier extends AsyncNotifier<void> {
       await repo.updatePaletteSeedColorHex(hex);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kPaletteSeedColorHexCache, hex);
+      ref.read(cachedPaletteSeedColorHexProvider.notifier).set(hex);
     });
   }
 
@@ -209,6 +218,7 @@ class SettingsNotifier extends AsyncNotifier<void> {
       await repo.updatePaletteMood(mood);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kPaletteMoodCache, mood.name);
+      ref.read(cachedPaletteMoodProvider.notifier).set(mood);
     });
   }
 
@@ -218,6 +228,7 @@ class SettingsNotifier extends AsyncNotifier<void> {
       await repo.updatePaletteContrast(contrast);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kPaletteContrastCache, contrast.name);
+      ref.read(cachedPaletteContrastProvider.notifier).set(contrast);
     });
   }
 
@@ -227,6 +238,7 @@ class SettingsNotifier extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
       final current = await repo.getSettings();
+      String? restoredAccentHex;
 
       if (style == ThemeStyle.materialYou &&
           current.themeStyle != ThemeStyle.materialYou) {
@@ -238,12 +250,18 @@ class SettingsNotifier extends AsyncNotifier<void> {
         final saved = current.previousAccentColorHex;
         if (saved.isNotEmpty) {
           await repo.updateAccentColorHex(saved);
+          restoredAccentHex = saved;
         }
       }
 
       await repo.updateThemeStyle(style);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kThemeStyleCache, style.name);
+      ref.read(cachedThemeStyleProvider.notifier).set(style);
+      if (restoredAccentHex != null) {
+        await prefs.setString(_kAccentColorHexCache, restoredAccentHex);
+        ref.read(cachedAccentColorHexProvider.notifier).set(restoredAccentHex);
+      }
     });
   }
 
@@ -581,27 +599,75 @@ final appThemeModeProvider = Provider<AppThemeMode>((ref) {
 /// Seeded from SharedPreferences in main() before runApp().
 /// Falls back to system/standard defaults if no cache exists.
 /// Override in ProviderScope to supply the cached value.
-final cachedThemeBrightnessProvider = Provider<ThemeBrightness>(
-  (_) => ThemeBrightness.system,
-);
+final cachedThemeBrightnessProvider =
+    NotifierProvider<CachedThemeBrightnessNotifier, ThemeBrightness>(
+      CachedThemeBrightnessNotifier.new,
+    );
 
-final cachedThemeStyleProvider = Provider<ThemeStyle>(
-  (_) => ThemeStyle.standard,
-);
+class CachedThemeBrightnessNotifier
+    extends _CachedAppearanceValueNotifier<ThemeBrightness> {
+  CachedThemeBrightnessNotifier([super.initial = ThemeBrightness.system]);
+}
 
-final cachedPaletteSourceProvider = Provider<PaletteSource>(
-  (_) => PaletteSource.custom,
-);
+final cachedThemeStyleProvider =
+    NotifierProvider<CachedThemeStyleNotifier, ThemeStyle>(
+      CachedThemeStyleNotifier.new,
+    );
 
-final cachedPaletteSeedColorHexProvider = Provider<String>((_) => '#9070A0');
+class CachedThemeStyleNotifier
+    extends _CachedAppearanceValueNotifier<ThemeStyle> {
+  CachedThemeStyleNotifier([super.initial = ThemeStyle.standard]);
+}
 
-final cachedPaletteMoodProvider = Provider<PaletteMood>(
-  (_) => PaletteMood.tonal,
-);
+final cachedPaletteSourceProvider =
+    NotifierProvider<CachedPaletteSourceNotifier, PaletteSource>(
+      CachedPaletteSourceNotifier.new,
+    );
 
-final cachedPaletteContrastProvider = Provider<PaletteContrast>(
-  (_) => PaletteContrast.standard,
-);
+class CachedPaletteSourceNotifier
+    extends _CachedAppearanceValueNotifier<PaletteSource> {
+  CachedPaletteSourceNotifier([super.initial = PaletteSource.custom]);
+}
+
+final cachedAccentColorHexProvider =
+    NotifierProvider<CachedAccentColorHexNotifier, String?>(
+      CachedAccentColorHexNotifier.new,
+    );
+
+class CachedAccentColorHexNotifier
+    extends _CachedAppearanceValueNotifier<String?> {
+  CachedAccentColorHexNotifier([super.initial]);
+}
+
+final cachedPaletteSeedColorHexProvider =
+    NotifierProvider<CachedPaletteSeedColorHexNotifier, String>(
+      CachedPaletteSeedColorHexNotifier.new,
+    );
+
+class CachedPaletteSeedColorHexNotifier
+    extends _CachedAppearanceValueNotifier<String> {
+  CachedPaletteSeedColorHexNotifier([super.initial = '#9070A0']);
+}
+
+final cachedPaletteMoodProvider =
+    NotifierProvider<CachedPaletteMoodNotifier, PaletteMood>(
+      CachedPaletteMoodNotifier.new,
+    );
+
+class CachedPaletteMoodNotifier
+    extends _CachedAppearanceValueNotifier<PaletteMood> {
+  CachedPaletteMoodNotifier([super.initial = PaletteMood.tonal]);
+}
+
+final cachedPaletteContrastProvider =
+    NotifierProvider<CachedPaletteContrastNotifier, PaletteContrast>(
+      CachedPaletteContrastNotifier.new,
+    );
+
+class CachedPaletteContrastNotifier
+    extends _CachedAppearanceValueNotifier<PaletteContrast> {
+  CachedPaletteContrastNotifier([super.initial = PaletteContrast.standard]);
+}
 
 final targetPlatformProvider = Provider<TargetPlatform>(
   (_) => defaultTargetPlatform,
@@ -610,9 +676,26 @@ final targetPlatformProvider = Provider<TargetPlatform>(
 /// Seeded from SharedPreferences in main() before runApp().
 /// Falls back to rounded if no cache exists.
 /// Override in ProviderScope to supply the cached value.
-final cachedCornerStyleProvider = Provider<CornerStyle>(
-  (_) => CornerStyle.rounded,
-);
+final cachedCornerStyleProvider =
+    NotifierProvider<CachedCornerStyleNotifier, CornerStyle>(
+      CachedCornerStyleNotifier.new,
+    );
+
+class CachedCornerStyleNotifier
+    extends _CachedAppearanceValueNotifier<CornerStyle> {
+  CachedCornerStyleNotifier([super.initial = CornerStyle.rounded]);
+}
+
+abstract class _CachedAppearanceValueNotifier<T> extends Notifier<T> {
+  _CachedAppearanceValueNotifier(T initial) : _initial = initial;
+
+  final T _initial;
+
+  @override
+  T build() => _initial;
+
+  void set(T value) => state = value;
+}
 
 /// Per-device local override: when true, the user prefers not to follow
 /// synced appearance settings (brightness, style, accent, corner style).
@@ -861,12 +944,12 @@ final navBarOverflowTabsProvider = Provider<List<AppShellTab>>((ref) {
 });
 
 /// Narrow provider for accent color — only rebuilds dependents when accent color changes.
-/// When ignoreSyncedAppearance is ON, returns null so accent defaults to the cached/local value.
+/// When ignoreSyncedAppearance is ON, reads the cached (local) value.
 final accentColorHexProvider = Provider<String?>((ref) {
   final ignoreSynced =
       ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ??
       false;
-  if (ignoreSynced) return null;
+  if (ignoreSynced) return ref.watch(cachedAccentColorHexProvider);
   return ref
       .watch(systemSettingsProvider)
       .whenOrNull(data: (s) => s.accentColorHex);

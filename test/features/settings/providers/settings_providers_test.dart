@@ -37,19 +37,29 @@ Future<ProviderContainer> makeContainerWithIgnore({
       ),
       systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
       if (cachedCornerStyle != null)
-        cachedCornerStyleProvider.overrideWithValue(cachedCornerStyle),
+        cachedCornerStyleProvider.overrideWith(
+          () => CachedCornerStyleNotifier(cachedCornerStyle),
+        ),
       if (cachedThemeStyle != null)
-        cachedThemeStyleProvider.overrideWithValue(cachedThemeStyle),
+        cachedThemeStyleProvider.overrideWith(
+          () => CachedThemeStyleNotifier(cachedThemeStyle),
+        ),
       if (cachedPaletteSource != null)
-        cachedPaletteSourceProvider.overrideWithValue(cachedPaletteSource),
+        cachedPaletteSourceProvider.overrideWith(
+          () => CachedPaletteSourceNotifier(cachedPaletteSource),
+        ),
       if (cachedPaletteSeedColorHex != null)
-        cachedPaletteSeedColorHexProvider.overrideWithValue(
-          cachedPaletteSeedColorHex,
+        cachedPaletteSeedColorHexProvider.overrideWith(
+          () => CachedPaletteSeedColorHexNotifier(cachedPaletteSeedColorHex),
         ),
       if (cachedPaletteMood != null)
-        cachedPaletteMoodProvider.overrideWithValue(cachedPaletteMood),
+        cachedPaletteMoodProvider.overrideWith(
+          () => CachedPaletteMoodNotifier(cachedPaletteMood),
+        ),
       if (cachedPaletteContrast != null)
-        cachedPaletteContrastProvider.overrideWithValue(cachedPaletteContrast),
+        cachedPaletteContrastProvider.overrideWith(
+          () => CachedPaletteContrastNotifier(cachedPaletteContrast),
+        ),
       if (targetPlatform != null)
         targetPlatformProvider.overrideWithValue(targetPlatform),
     ],
@@ -124,7 +134,9 @@ void main() {
         overrides: [
           systemSettingsProvider.overrideWithValue(const AsyncValue.loading()),
           systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
-          cachedCornerStyleProvider.overrideWithValue(CornerStyle.angular),
+          cachedCornerStyleProvider.overrideWith(
+            () => CachedCornerStyleNotifier(CornerStyle.angular),
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -223,6 +235,7 @@ void main() {
 
       // Write still reached the repo.
       expect(fakeRepo.settings.cornerStyle, domain.CornerStyle.angular);
+      expect(container.read(cornerStyleProvider), CornerStyle.angular);
     });
   });
 
@@ -292,10 +305,10 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // themeStyleProvider respects ignoreSyncedAppearance gate
+  // Appearance providers respect ignoreSyncedAppearance gate
   // ---------------------------------------------------------------------------
 
-  group('themeStyleProvider ignoreSyncedAppearance gate', () {
+  group('appearance providers ignoreSyncedAppearance gate', () {
     test('returns cached style when ignoreSyncedAppearance is true, '
         'ignoring DB value', () async {
       // DB says OLED, cached says standard; with ignore=true we get standard.
@@ -323,6 +336,115 @@ void main() {
 
       expect(container.read(themeStyleProvider), domain.ThemeStyle.oled);
     });
+
+    test(
+      'theme style writes update local appearance state while ignoring sync',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'prism.pref.ignore_synced_appearance': true,
+        });
+        final fakeRepo = FakeSystemSettingsRepository()
+          ..settings = const domain.SystemSettings(
+            themeStyle: domain.ThemeStyle.standard,
+          );
+        final container = ProviderContainer(
+          overrides: [
+            systemSettingsProvider.overrideWithValue(
+              AsyncValue.data(fakeRepo.settings),
+            ),
+            systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
+            cachedThemeStyleProvider.overrideWith(
+              () => CachedThemeStyleNotifier(domain.ThemeStyle.standard),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(ignoreSyncedAppearanceProvider.future);
+        expect(container.read(themeStyleProvider), domain.ThemeStyle.standard);
+
+        await container
+            .read(settingsNotifierProvider.notifier)
+            .updateThemeStyle(domain.ThemeStyle.oled);
+
+        expect(fakeRepo.settings.themeStyle, domain.ThemeStyle.oled);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('prism.cache.theme_style'), 'oled');
+        expect(container.read(themeStyleProvider), domain.ThemeStyle.oled);
+      },
+    );
+
+    test(
+      'theme brightness writes update local appearance state while ignoring sync',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'prism.pref.ignore_synced_appearance': true,
+        });
+        final fakeRepo = FakeSystemSettingsRepository()
+          ..settings = const domain.SystemSettings(
+            themeBrightness: domain.ThemeBrightness.system,
+          );
+        final container = ProviderContainer(
+          overrides: [
+            systemSettingsProvider.overrideWithValue(
+              AsyncValue.data(fakeRepo.settings),
+            ),
+            systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(ignoreSyncedAppearanceProvider.future);
+        expect(
+          container.read(themeBrightnessProvider),
+          domain.ThemeBrightness.system,
+        );
+
+        await container
+            .read(settingsNotifierProvider.notifier)
+            .updateThemeBrightness(domain.ThemeBrightness.dark);
+
+        expect(fakeRepo.settings.themeBrightness, domain.ThemeBrightness.dark);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('prism.cache.theme_brightness'), 'dark');
+        expect(
+          container.read(themeBrightnessProvider),
+          domain.ThemeBrightness.dark,
+        );
+      },
+    );
+
+    test(
+      'accent color writes update local appearance state while ignoring sync',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'prism.pref.ignore_synced_appearance': true,
+        });
+        final fakeRepo = FakeSystemSettingsRepository()
+          ..settings = const domain.SystemSettings(accentColorHex: '#9070A0');
+        final container = ProviderContainer(
+          overrides: [
+            systemSettingsProvider.overrideWithValue(
+              AsyncValue.data(fakeRepo.settings),
+            ),
+            systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(ignoreSyncedAppearanceProvider.future);
+        expect(container.read(accentColorHexProvider), isNull);
+
+        await container
+            .read(settingsNotifierProvider.notifier)
+            .updateAccentColor('#123456');
+
+        expect(fakeRepo.settings.accentColorHex, '#123456');
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('prism.cache.accent_color_hex'), '#123456');
+        expect(container.read(accentColorHexProvider), '#123456');
+      },
+    );
   });
 
   group('effectiveThemeStyleProvider', () {
