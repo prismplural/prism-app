@@ -75,6 +75,7 @@ Widget _harness({
   _FakeFrontingNotifier? notifier,
   FrontStartBehavior quickFrontDefaultBehavior = FrontStartBehavior.additive,
   double width = 400,
+  TextScaler textScaler = TextScaler.noScaling,
 }) {
   return ProviderScope(
     overrides: [
@@ -92,8 +93,13 @@ Widget _harness({
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
-      home: Scaffold(
-        body: SizedBox(width: width, child: const QuickFrontSection()),
+      home: Builder(
+        builder: (context) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+          child: Scaffold(
+            body: SizedBox(width: width, child: const QuickFrontSection()),
+          ),
+        ),
       ),
     ),
   );
@@ -217,6 +223,34 @@ void main() {
       58,
     );
   });
+
+  testWidgets(
+    'quick front two-line member names stay inside the row at larger text scale',
+    (tester) async {
+      const longName = 'Fana / Caetuna';
+      final members = [_m('a', longName), _m('b', 'Rem')];
+      final controller = StreamController<List<FrontingSession>>.broadcast();
+      addTearDown(controller.close);
+      controller.onListen = () => controller.add([_activeSession('a')]);
+
+      await tester.pumpWidget(
+        _harness(
+          members: members,
+          sessionsStream: controller.stream,
+          counts: {'a': 50, 'b': 30},
+          textScaler: const TextScaler.linear(1.8),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final sectionBottom = tester
+          .getBottomLeft(find.byType(QuickFrontSection))
+          .dy;
+      final labelBottom = tester.getBottomLeft(find.text(longName)).dy;
+
+      expect(labelBottom, lessThanOrEqualTo(sectionBottom));
+    },
+  );
 
   testWidgets(
     'regression: hold-to-front does not leave a phantom progress ring on the '

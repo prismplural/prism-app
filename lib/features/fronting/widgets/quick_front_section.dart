@@ -79,8 +79,13 @@ class _AnimatedQuickFrontRow extends StatelessWidget {
         final ringSize = slotWidth < quickFrontRingSize
             ? slotWidth
             : quickFrontRingSize;
+        final labelHeight = _measureQuickFrontLabelHeight(
+          context,
+          members: members,
+          maxWidth: slotWidth,
+        );
         return SizedBox(
-          height: quickFrontRingSize + _kQuickFrontLabelHeight,
+          height: ringSize + _kQuickFrontLabelGap + labelHeight,
           child: Stack(
             children: [
               for (int i = 0; i < members.length; i++)
@@ -110,9 +115,41 @@ class _AnimatedQuickFrontRow extends StatelessWidget {
 const _kAvatarSize = 62.0;
 const quickFrontRingSize = 76.0;
 const _kAvatarRingInset = quickFrontRingSize - _kAvatarSize;
-const _kQuickFrontLabelHeight = 44.0;
+const _kQuickFrontLabelGap = 6.0;
+const _kQuickFrontLabelMaxLines = 2;
 const _kRingWidth = 3.5;
 const _kHoldDuration = Duration(milliseconds: 800);
+
+double _measureQuickFrontLabelHeight(
+  BuildContext context, {
+  required List<Member> members,
+  required double maxWidth,
+}) {
+  if (members.isEmpty) return 0;
+
+  final theme = Theme.of(context);
+  final baseStyle =
+      theme.textTheme.bodyMedium ?? DefaultTextStyle.of(context).style;
+  final labelStyle = baseStyle.copyWith(fontWeight: FontWeight.bold);
+  final textDirection = Directionality.of(context);
+  final textScaler = MediaQuery.textScalerOf(context);
+  var height = 0.0;
+
+  for (final member in members) {
+    final painter = TextPainter(
+      text: TextSpan(text: member.name, style: labelStyle),
+      textAlign: TextAlign.center,
+      textDirection: textDirection,
+      textScaler: textScaler,
+      maxLines: _kQuickFrontLabelMaxLines,
+      ellipsis: '...',
+    )..layout(maxWidth: maxWidth);
+
+    if (painter.height > height) height = painter.height;
+  }
+
+  return height;
+}
 
 /// Quick-front tile for a single member.
 ///
@@ -303,7 +340,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
                   ],
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: _kQuickFrontLabelGap),
               Text(
                 member.name,
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -311,7 +348,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
                       ? FontWeight.bold
                       : FontWeight.normal,
                 ),
-                maxLines: 2,
+                maxLines: _kQuickFrontLabelMaxLines,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
               ),
