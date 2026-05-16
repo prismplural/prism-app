@@ -159,6 +159,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
             enableAlpha: false,
             hexInputBar: true,
             labelTypes: const [],
+            portraitOnly: true,
             pickerAreaHeightPercent: 0.7,
           ),
         );

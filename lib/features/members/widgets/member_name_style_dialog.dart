@@ -276,6 +276,7 @@ class _CustomColorPicker extends StatelessWidget {
           enableAlpha: false,
           hexInputBar: true,
           labelTypes: const [],
+          portraitOnly: true,
           pickerAreaHeightPercent: 0.65,
         ),
       ),
