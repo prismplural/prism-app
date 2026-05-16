@@ -29,7 +29,7 @@ import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
 class SetupDeviceSheet {
   static Future<void> show(BuildContext context, WidgetRef ref) async {
-    final handle = ref.read(prismSyncHandleProvider).value;
+    final handle = await _readOrRestoreHandle(ref);
     if (handle == null) {
       if (!context.mounted) return;
       PrismToast.error(context, message: context.l10n.syncEngineNotAvailable);
@@ -51,9 +51,7 @@ class SetupDeviceSheet {
     // keychain anomaly), nudge the health state into `needsRewrap` so
     // the recovery sheet surfaces, then show a toast and bail out of the
     // pairing entry. See pairing/service.rs:602.
-    final hasWrappedDek = await ref.read(
-      syncWrappedDekPresentProvider.future,
-    );
+    final hasWrappedDek = await ref.read(syncWrappedDekPresentProvider.future);
     if (!hasWrappedDek) {
       ref
           .read(syncHealthProvider.notifier)
@@ -61,8 +59,7 @@ class SetupDeviceSheet {
       if (!context.mounted) return;
       PrismToast.error(
         context,
-        message:
-            'Re-confirm your PIN before pairing another device.',
+        message: 'Re-confirm your PIN before pairing another device.',
       );
       return;
     }
@@ -82,6 +79,43 @@ class SetupDeviceSheet {
         ),
       ),
     );
+  }
+
+  static Future<ffi.PrismSyncHandle?> _readOrRestoreHandle(
+    WidgetRef ref,
+  ) async {
+    var handle = ref.read(prismSyncHandleProvider).value;
+    if (handle != null) return handle;
+
+    try {
+      handle = await ref.read(prismSyncHandleProvider.future);
+    } catch (_) {
+      handle = null;
+    }
+    if (handle != null) return handle;
+
+    final relayUrl = await ref.read(relayUrlProvider.future);
+    final syncId = await ref.read(syncIdProvider.future);
+    final deviceId = await ref.read(syncDeviceIdProvider.future);
+    final hasDeviceSecret = await ref.read(
+      syncDeviceSecretPresentProvider.future,
+    );
+    if (!hasCompletePersistentSyncIdentity(
+      relayUrl: relayUrl,
+      syncId: syncId,
+      deviceId: deviceId,
+      hasDeviceSecret: hasDeviceSecret,
+    )) {
+      return null;
+    }
+
+    try {
+      return await ref
+          .read(prismSyncHandleProvider.notifier)
+          .createHandle(relayUrl: relayUrl!);
+    } catch (_) {
+      return null;
+    }
   }
 }
 

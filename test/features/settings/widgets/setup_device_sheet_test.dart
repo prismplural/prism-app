@@ -20,6 +20,23 @@ class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _RecoveringHandleNotifier extends PrismSyncHandleNotifier {
+  _RecoveringHandleNotifier(this._recoveredHandle);
+
+  final ffi.PrismSyncHandle _recoveredHandle;
+  String? createdRelayUrl;
+
+  @override
+  Future<ffi.PrismSyncHandle?> build() async => null;
+
+  @override
+  Future<ffi.PrismSyncHandle> createHandle({required String relayUrl}) async {
+    createdRelayUrl = relayUrl;
+    state = AsyncValue.data(_recoveredHandle);
+    return _recoveredHandle;
+  }
+}
+
 class _FakePairingCeremonyApi extends PairingCeremonyApi {
   _FakePairingCeremonyApi({
     this.startInitiatorCeremonyHandler,
@@ -79,6 +96,63 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
 }
 
 void main() {
+  testWidgets(
+    'rebuilds handle from persisted identity when current handle is unavailable',
+    (tester) async {
+      const fakeHandle = _FakePrismSyncHandle();
+      final handleNotifier = _RecoveringHandleNotifier(fakeHandle);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            pairingCeremonyApiProvider.overrideWith(
+              (ref) => _FakePairingCeremonyApi(),
+            ),
+            prismSyncHandleProvider.overrideWith(() => handleNotifier),
+            relayUrlProvider.overrideWithValue(
+              const AsyncValue<String?>.data('https://relay.example.com'),
+            ),
+            syncIdProvider.overrideWithValue(
+              const AsyncValue<String?>.data('sync-123'),
+            ),
+            syncDeviceIdProvider.overrideWithValue(
+              const AsyncValue<String?>.data('device-123'),
+            ),
+            syncDeviceSecretPresentProvider.overrideWithValue(
+              const AsyncValue<bool>.data(true),
+            ),
+            syncWrappedDekPresentProvider.overrideWithValue(
+              const AsyncValue<bool>.data(true),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Consumer(
+                builder: (context, ref, _) => Scaffold(
+                  body: Center(
+                    child: ElevatedButton(
+                      onPressed: () => SetupDeviceSheet.show(context, ref),
+                      child: const Text('Open'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(handleNotifier.createdRelayUrl, 'https://relay.example.com');
+      expect(find.textContaining('recovery phrase'), findsWidgets);
+      expect(find.text('Sync engine not available.'), findsNothing);
+    },
+  );
+
   testWidgets('opens on the recovery phrase entry step', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -96,6 +170,9 @@ void main() {
             const AsyncValue<String?>.data('device-123'),
           ),
           syncDeviceSecretPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
+          syncWrappedDekPresentProvider.overrideWithValue(
             const AsyncValue<bool>.data(true),
           ),
         ],
@@ -164,6 +241,9 @@ void main() {
             const AsyncValue<String?>.data('device-123'),
           ),
           syncDeviceSecretPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
+          syncWrappedDekPresentProvider.overrideWithValue(
             const AsyncValue<bool>.data(true),
           ),
         ],
@@ -255,6 +335,9 @@ void main() {
             syncDeviceSecretPresentProvider.overrideWithValue(
               const AsyncValue<bool>.data(true),
             ),
+            syncWrappedDekPresentProvider.overrideWithValue(
+              const AsyncValue<bool>.data(true),
+            ),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -341,6 +424,9 @@ void main() {
             const AsyncValue<String?>.data('device-123'),
           ),
           syncDeviceSecretPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
+          syncWrappedDekPresentProvider.overrideWithValue(
             const AsyncValue<bool>.data(true),
           ),
         ],
