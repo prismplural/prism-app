@@ -121,7 +121,11 @@ jobs:
         run: flutter pub get
 
       - name: Build Windows release
-        run: flutter build windows --release
+        env:
+          # CMake forwards verbose output to MSBuild, which otherwise swallows
+          # cargokit/cargo stderr behind a bare MSB8066 "exited with code -1".
+          VERBOSE: '1'
+        run: flutter build windows --release --verbose
 
       - name: Package zip
         shell: pwsh
