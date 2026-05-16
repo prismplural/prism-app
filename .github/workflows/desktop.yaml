@@ -92,17 +92,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Enable Windows developer mode
-        # Lets Flutter create real symlinks in .plugin_symlinks/ during pub get.
-        # Without this, Flutter falls back to copying and cargokit's relative
-        # ../../../../crates/prism-sync-ffi path escapes the plugin dir into
-        # the local filesystem instead of resolving through the symlink to the
-        # pub-cache prism-sync checkout, so Cargo.toml is not found.
-        shell: pwsh
-        run: |
-          reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" `
-            /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"
-
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
@@ -119,6 +108,30 @@ jobs:
 
       - name: Fetch packages
         run: flutter pub get
+
+      - name: Stage prism-sync crates for cargokit
+        # The prism_sync plugin's windows/CMakeLists.txt points cargokit at
+        # ../../../../crates/prism-sync-ffi relative to the plugin dir, which
+        # on Unix walks through the .plugin_symlinks symlink into the pub-cache
+        # prism-sync checkout. On Windows, Dart resolves '..' lexically, so the
+        # path lands at windows\flutter\crates\ — which doesn't exist. Drop a
+        # junction there pointing at the real crates dir so cargokit's lookup
+        # of Cargo.toml succeeds.
+        shell: pwsh
+        run: |
+          $pubCache = if ($env:PUB_CACHE) { $env:PUB_CACHE } else { "$env:LOCALAPPDATA\Pub\Cache" }
+          $gitCache = Join-Path $pubCache 'git'
+          $sync = Get-ChildItem -Path $gitCache -Directory -Filter 'prism-sync-*' |
+                  Where-Object { Test-Path (Join-Path $_.FullName 'crates\prism-sync-ffi\Cargo.toml') } |
+                  Select-Object -First 1
+          if (-not $sync) {
+            Get-ChildItem $gitCache -Directory | Format-Table -AutoSize
+            throw "prism-sync checkout with crates/prism-sync-ffi not found under $gitCache"
+          }
+          $cratesSrc = Join-Path $sync.FullName 'crates'
+          $cratesDst = 'windows\flutter\crates'
+          New-Item -ItemType Directory -Force -Path 'windows\flutter' | Out-Null
+          cmd /c "mklink /J `"$cratesDst`" `"$cratesSrc`""
 
       - name: Build Windows release
         env:
