@@ -92,6 +92,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Exclude workspace from Windows Defender
+        # Defender real-time scanning on GHA runners can briefly lock freshly
+        # written files during heavy I/O (cargo's output), surfacing as
+        # paradoxical "cannot find ... File exists" errors from later steps.
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Pub\Cache" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$env:USERPROFILE\.cargo" -ErrorAction SilentlyContinue
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
@@ -139,6 +149,27 @@ jobs:
           # cargokit/cargo stderr behind a bare MSB8066 "exited with code -1".
           VERBOSE: '1'
         run: flutter build windows --release --verbose
+
+      - name: Diagnose prism_sync.dll on failure
+        if: failure()
+        shell: pwsh
+        run: |
+          $paths = @(
+            'build\windows\x64\plugins\prism_sync\Release',
+            'build\windows\x64\plugins\prism_sync\Release\prism_sync.dll',
+            'build\windows\x64\plugins\prism_sync'
+          )
+          foreach ($p in $paths) {
+            Write-Host "=== $p ==="
+            if (Test-Path -LiteralPath $p) {
+              Get-Item -LiteralPath $p -Force | Format-List Mode, Length, Attributes, LinkType, Target, FullName
+              if ((Get-Item -LiteralPath $p -Force).PSIsContainer) {
+                Get-ChildItem -LiteralPath $p -Force | Format-Table Mode, Length, Name -AutoSize
+              }
+            } else {
+              Write-Host "(not present)"
+            }
+          }
 
       - name: Package zip
         shell: pwsh
