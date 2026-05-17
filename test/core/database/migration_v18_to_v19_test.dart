@@ -74,6 +74,18 @@ Future<void> _seedV18Db(File dbFile) async {
     rawDb.execute('ALTER TABLE member_group_entries DROP COLUMN pending_pk_op');
     rawDb.execute('ALTER TABLE members DROP COLUMN pluralkit_display_name');
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
+    // Drop columns added by v21-v23 so their migrations can re-add them when
+    // stepping forward through v18 -> current.
+    rawDb.execute('ALTER TABLE member_groups DROP COLUMN sort_state');
+    rawDb.execute(
+      'ALTER TABLE plural_kit_sync_state DROP COLUMN direction_confirmed',
+    );
+    rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_source');
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN palette_seed_color_hex',
+    );
+    rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_mood');
+    rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_contrast');
     rawDb.execute('PRAGMA user_version = 18;');
   } finally {
     rawDb.close();
@@ -100,7 +112,7 @@ void main() {
       final version = await upgraded
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 20);
+      expect(version.read<int>('user_version'), 24);
 
       final entryCols = await upgraded
           .customSelect('PRAGMA table_info(member_group_entries)')

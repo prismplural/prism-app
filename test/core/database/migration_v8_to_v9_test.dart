@@ -81,6 +81,18 @@ Future<void> _seedV8Db(File dbFile) async {
     rawDb.execute('ALTER TABLE member_group_entries DROP COLUMN pending_pk_op');
 
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
+    // Drop columns added by v21-v23 so their migrations can re-add them when
+    // stepping forward through v8 -> current.
+    rawDb.execute('ALTER TABLE member_groups DROP COLUMN sort_state');
+    rawDb.execute(
+      'ALTER TABLE plural_kit_sync_state DROP COLUMN direction_confirmed',
+    );
+    rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_source');
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN palette_seed_color_hex',
+    );
+    rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_mood');
+    rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_contrast');
     rawDb.execute('PRAGMA user_version = 8;');
   } finally {
     rawDb.close();
@@ -154,7 +166,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .get();
-        expect(version.first.read<int>('user_version'), 20);
+        expect(version.first.read<int>('user_version'), 24);
       },
     );
   });

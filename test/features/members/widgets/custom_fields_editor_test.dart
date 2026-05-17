@@ -205,6 +205,9 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   Future<void> updateField(CustomField field) async {}
 
   @override
+  Future<void> reorderFields(List<CustomField> fields) async {}
+
+  @override
   Future<void> upsertValue(CustomFieldValue value) async {
     upsertedValues.add(value);
   }

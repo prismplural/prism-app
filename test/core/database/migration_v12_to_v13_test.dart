@@ -52,6 +52,18 @@ Future<void> _seedV12Db(File dbFile) async {
     // Flattened v18→v19: drop pending_pk_op so onUpgrade can re-add it.
     rawDb.execute('ALTER TABLE member_group_entries DROP COLUMN pending_pk_op');
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
+    // Drop columns added by v21-v23 so their migrations can re-add them when
+    // stepping forward through v12 -> current.
+    rawDb.execute('ALTER TABLE member_groups DROP COLUMN sort_state');
+    rawDb.execute(
+      'ALTER TABLE plural_kit_sync_state DROP COLUMN direction_confirmed',
+    );
+    rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_source');
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN palette_seed_color_hex',
+    );
+    rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_mood');
+    rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_contrast');
     rawDb.execute('PRAGMA user_version = 12;');
   } finally {
     rawDb.close();
@@ -95,7 +107,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(version.read<int>('user_version'), 20);
+        expect(version.read<int>('user_version'), 24);
       },
     );
   });
