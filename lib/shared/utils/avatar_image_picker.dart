@@ -93,6 +93,11 @@ class AvatarImagePicker {
       return null;
     }
 
+    // Cropper rasterizes to a single bitmap — skip it for GIFs.
+    if (AvatarNormalizer.isAnimatedGifInput(pickedBytes)) {
+      return AvatarNormalizer.normalize(pickedBytes);
+    }
+
     final normalizedBytes = await (normalizeBytes ?? normalizePickedImageBytes)(
       pickedBytes,
       platform: resolvedPlatform,

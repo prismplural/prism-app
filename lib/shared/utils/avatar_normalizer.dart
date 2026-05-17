@@ -12,10 +12,18 @@ class AvatarNormalizer {
   // byte budget for sync.
   static const maxDimension = 512;
   static const targetMaxBytes = 256 * 1024;
+  // Sized to stay within a single sync batch (~950KB target).
+  static const gifMaxBytes = 1024 * 1024;
   static const _jpegQualities = <int>[85, 82, 78, 74, 68, 62, 56, 50];
 
   static Uint8List? normalize(Uint8List? bytes) {
     if (bytes == null || bytes.isEmpty) return bytes;
+
+    // Oversized GIFs fall through to the JPEG path — animation lost but
+    // the image still appears.
+    if (_isGif(bytes) && bytes.length <= gifMaxBytes) {
+      return bytes;
+    }
 
     final decoded = img.decodeImage(bytes);
     if (decoded == null) {
@@ -55,6 +63,22 @@ class AvatarNormalizer {
         bytes[0] == 0xFF &&
         bytes[1] == 0xD8 &&
         bytes[2] == 0xFF;
+  }
+
+  static bool isAnimatedGifInput(Uint8List? bytes) {
+    if (bytes == null) return false;
+    return _isGif(bytes);
+  }
+
+  static bool _isGif(Uint8List bytes) {
+    // GIF87a or GIF89a header.
+    return bytes.length >= 6 &&
+        bytes[0] == 0x47 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x38 &&
+        (bytes[4] == 0x37 || bytes[4] == 0x39) &&
+        bytes[5] == 0x61;
   }
 
   static img.Image _resize(img.Image source) {

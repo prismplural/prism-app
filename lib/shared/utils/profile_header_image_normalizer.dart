@@ -31,6 +31,9 @@ class ProfileHeaderImageNormalizer {
   static const maxHeight = 600;
   static const targetMaxBytes = 384 * 1024;
   static const hardMaxBytes = 512 * 1024;
+  // Off-aspect GIFs are visually center-cropped by BoxFit.cover at display
+  // time. Oversized GIFs fall through to the single-frame WebP path.
+  static const gifMaxBytes = 2 * 1024 * 1024;
   static const _webpQualities = <int>[85, 82, 78, 74, 68, 62, 56, 50];
 
   final ProfileHeaderWebpEncoder _encoder;
@@ -38,6 +41,10 @@ class ProfileHeaderImageNormalizer {
   Future<Uint8List> normalize(Uint8List input) async {
     if (input.isEmpty) {
       throw ArgumentError('Profile header image input is empty');
+    }
+
+    if (_isGif(input) && input.length <= gifMaxBytes) {
+      return input;
     }
 
     final decoded = img.decodeImage(input);
@@ -112,6 +119,17 @@ class ProfileHeaderImageNormalizer {
       height: maxHeight,
       interpolation: img.Interpolation.average,
     );
+  }
+
+  static bool _isGif(Uint8List bytes) {
+    // GIF87a or GIF89a header.
+    return bytes.length >= 6 &&
+        bytes[0] == 0x47 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x38 &&
+        (bytes[4] == 0x37 || bytes[4] == 0x39) &&
+        bytes[5] == 0x61;
   }
 }
 
