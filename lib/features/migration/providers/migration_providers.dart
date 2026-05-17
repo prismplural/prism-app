@@ -335,21 +335,34 @@ class ImporterNotifier extends Notifier<MigrationState> {
     if (data == null) return;
 
     if (!resetFirst && data.members.isNotEmpty) {
-      unawaited(_enterMemberMapping(data, resetFirst: resetFirst));
+      unawaited(_prepareMemberMapping(data, resetFirst: resetFirst));
       return;
     }
 
+    ref.read(spMemberMappingControllerProvider).clear();
     _continueAfterMemberMapping(data, resetFirst: resetFirst);
   }
 
-  Future<void> _enterMemberMapping(
+  Future<void> _prepareMemberMapping(
     SpExportData data, {
     required bool resetFirst,
   }) async {
     try {
+      final isExistingSystem =
+          (await ref.read(systemSettingsRepositoryProvider).getSettings())
+              .hasCompletedOnboarding;
+      if (!isExistingSystem) {
+        ref.read(spMemberMappingControllerProvider).clear();
+        _continueAfterMemberMapping(data, resetFirst: resetFirst);
+        return;
+      }
+
       await ref.read(spMemberMappingControllerProvider).seedFromExport(data);
       final mappingState = ref.read(spMemberMappingProvider);
-      if (mappingState.localMembers.isEmpty) {
+      final hasUnresolvedMember = mappingState.suggestions.any(
+        (suggestion) => suggestion.suggestedLocal == null,
+      );
+      if (mappingState.localMembers.isEmpty || !hasUnresolvedMember) {
         _continueAfterMemberMapping(data, resetFirst: resetFirst);
         return;
       }

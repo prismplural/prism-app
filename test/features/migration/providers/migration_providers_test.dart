@@ -9,6 +9,8 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
+import 'package:prism_plurality/domain/models/system_settings.dart'
+    as settings_models;
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 
@@ -16,28 +18,7 @@ import '../../../helpers/fake_repositories.dart';
 
 void main() {
   group('ImporterNotifier member matching', () {
-    test('skips member matching when there are no local members', () async {
-      final db = AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
-      final container = _containerFor(
-        db: db,
-        memberRepository: FakeMemberRepository(),
-      );
-      addTearDown(container.dispose);
-
-      await container.read(importerProvider.notifier).selectAndParseFile();
-      expect(container.read(importerProvider).step, ImportState.previewing);
-
-      container.read(importerProvider.notifier).proceedFromPreview();
-      await pumpEventQueue();
-
-      expect(
-        container.read(importerProvider).step,
-        ImportState.chooseDispositions,
-      );
-    });
-
-    test('shows member matching when local members are available', () async {
+    test('skips member matching during onboarding', () async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
       final memberRepository = FakeMemberRepository()
@@ -60,19 +41,94 @@ void main() {
       container.read(importerProvider.notifier).proceedFromPreview();
       await pumpEventQueue();
 
-      expect(container.read(importerProvider).step, ImportState.matchMembers);
+      expect(
+        container.read(importerProvider).step,
+        ImportState.chooseDispositions,
+      );
     });
+
+    test(
+      'skips member matching when existing members are auto-mapped',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final memberRepository = FakeMemberRepository()
+          ..seed([
+            domain.Member(
+              id: 'local-a',
+              name: 'Alice',
+              createdAt: DateTime(2026),
+            ),
+          ]);
+        final container = _containerFor(
+          db: db,
+          memberRepository: memberRepository,
+          settings: const settings_models.SystemSettings(
+            hasCompletedOnboarding: true,
+          ),
+        );
+        addTearDown(container.dispose);
+
+        await container.read(importerProvider.notifier).selectAndParseFile();
+        expect(container.read(importerProvider).step, ImportState.previewing);
+
+        container.read(importerProvider.notifier).proceedFromPreview();
+        await pumpEventQueue();
+
+        expect(
+          container.read(importerProvider).step,
+          ImportState.chooseDispositions,
+        );
+      },
+    );
+
+    test(
+      'shows member matching for existing systems with unresolved members',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final memberRepository = FakeMemberRepository()
+          ..seed([
+            domain.Member(
+              id: 'local-a',
+              name: 'Different',
+              createdAt: DateTime(2026),
+            ),
+          ]);
+        final container = _containerFor(
+          db: db,
+          memberRepository: memberRepository,
+          settings: const settings_models.SystemSettings(
+            hasCompletedOnboarding: true,
+          ),
+        );
+        addTearDown(container.dispose);
+
+        await container.read(importerProvider.notifier).selectAndParseFile();
+        expect(container.read(importerProvider).step, ImportState.previewing);
+
+        container.read(importerProvider.notifier).proceedFromPreview();
+        await pumpEventQueue();
+
+        expect(container.read(importerProvider).step, ImportState.matchMembers);
+      },
+    );
   });
 }
 
 ProviderContainer _containerFor({
   required AppDatabase db,
   required FakeMemberRepository memberRepository,
+  settings_models.SystemSettings settings =
+      const settings_models.SystemSettings(),
 }) {
+  final settingsRepository = FakeSystemSettingsRepository()
+    ..settings = settings;
   return ProviderContainer(
     overrides: [
       databaseProvider.overrideWithValue(db),
       memberRepositoryProvider.overrideWithValue(memberRepository),
+      systemSettingsRepositoryProvider.overrideWithValue(settingsRepository),
       prismFileDialogServiceProvider.overrideWithValue(
         _FakePrismFileDialogService(_spExportBytes()),
       ),
