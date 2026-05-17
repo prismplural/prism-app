@@ -897,6 +897,7 @@ class SpMapper {
           // produce DMs.
           isDirectMessage: false,
           participantIds: participantIds,
+          includesAllMembers: participantIds.isEmpty,
           categoryId: catInfo?.categoryId,
           displayOrder: catInfo?.displayOrder ?? 0,
         ),

@@ -887,6 +887,7 @@ void main() {
       expect(result.conversations, hasLength(1));
       expect(result.conversations.first.isDirectMessage, isFalse);
       expect(result.conversations.first.participantIds, isEmpty);
+      expect(result.conversations.first.includesAllMembers, isTrue);
     });
 
     test('SP channel with two members is still not a DM', () {
@@ -905,6 +906,27 @@ void main() {
       expect(result.conversations, hasLength(1));
       expect(result.conversations.first.isDirectMessage, isFalse);
       expect(result.conversations.first.participantIds, hasLength(2));
+      expect(result.conversations.first.includesAllMembers, isFalse);
+    });
+
+    test('SP channel with no resolved members includes everyone', () {
+      final data = _makeExportData(
+        members: [_memberA],
+        channels: const [
+          SpChannel(
+            id: 'ch-orphaned',
+            name: 'Orphaned',
+            memberIds: ['missing-sp-member'],
+          ),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      expect(result.conversations, hasLength(1));
+      expect(result.conversations.first.participantIds, isEmpty);
+      expect(result.conversations.first.includesAllMembers, isTrue);
     });
   });
 }

@@ -348,6 +348,11 @@ class ImporterNotifier extends Notifier<MigrationState> {
   }) async {
     try {
       await ref.read(spMemberMappingControllerProvider).seedFromExport(data);
+      final mappingState = ref.read(spMemberMappingProvider);
+      if (mappingState.localMembers.isEmpty) {
+        _continueAfterMemberMapping(data, resetFirst: resetFirst);
+        return;
+      }
       state = state.copyWith(
         step: ImportState.matchMembers,
         pendingResetFirst: resetFirst,
