@@ -10243,6 +10243,10 @@
   "@boardsTileToEveryone": {
     "description": "Recipient chip text shown on a public post with no specific target member."
   },
+  "boardsTileEveryone": "everyone",
+  "@boardsTileEveryone": {
+    "description": "Recipient name shown after the to connector on public board posts with no specific target member."
+  },
   "boardsTileRemovedMember": "Removed member",
   "@boardsTileRemovedMember": {
     "description": "Fallback name shown when the author or target member of a board post no longer exists."

@@ -9712,6 +9712,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get boardsTileToEveryone => 'para todos';
 
   @override
+  String get boardsTileEveryone => 'todos';
+
+  @override
   String get boardsTileRemovedMember => 'Integrante eliminado';
 
   @override

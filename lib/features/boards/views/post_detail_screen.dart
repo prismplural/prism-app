@@ -280,7 +280,7 @@ class _DetailParticipantsRow extends StatelessWidget {
     final showTargetAvatar = post.targetMemberId != null;
     final receiverName = post.targetMemberId != null
         ? (target?.name ?? l10n.boardsTileRemovedMember)
-        : l10n.boardsTileToEveryone;
+        : l10n.boardsTileEveryone;
 
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,

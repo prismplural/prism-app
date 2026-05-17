@@ -9546,6 +9546,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get boardsTileToEveryone => 'to everyone';
 
   @override
+  String get boardsTileEveryone => 'everyone';
+
+  @override
   String get boardsTileRemovedMember => 'Removed member';
 
   @override

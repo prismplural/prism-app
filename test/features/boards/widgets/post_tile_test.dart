@@ -107,7 +107,7 @@ Widget _buildTile(
 
 void main() {
   group('PostTile — basic rendering', () {
-    testWidgets('public post with no recipient renders "to everyone"',
+    testWidgets('public post with no recipient renders "to everyone" once',
         (tester) async {
       await tester.pumpWidget(
         _buildTile(
@@ -117,7 +117,9 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.textContaining('to everyone'), findsOneWidget);
+      expect(find.text('to'), findsOneWidget);
+      expect(find.text('everyone'), findsOneWidget);
+      expect(find.textContaining('to everyone'), findsNothing);
     });
 
     testWidgets('public post with target member shows Bob', (tester) async {

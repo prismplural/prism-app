@@ -15309,6 +15309,12 @@ abstract class AppLocalizations {
   /// **'to everyone'**
   String get boardsTileToEveryone;
 
+  /// Recipient name shown after the to connector on public board posts with no specific target member.
+  ///
+  /// In en, this message translates to:
+  /// **'everyone'**
+  String get boardsTileEveryone;
+
   /// Fallback name shown when the author or target member of a board post no longer exists.
   ///
   /// In en, this message translates to:
