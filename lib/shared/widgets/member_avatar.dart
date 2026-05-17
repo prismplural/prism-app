@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 enum MemberAvatarShape { circle, square }
@@ -107,12 +108,15 @@ class MemberAvatar extends ConsumerWidget {
       final imageSize = size - imageInset * 2;
       final pixelSize = (imageSize * MediaQuery.devicePixelRatioOf(context))
           .ceil();
+      final isAnimatedGif = AvatarNormalizer.isAnimatedGifInput(
+        avatarImageData,
+      );
       final image = Image.memory(
         avatarImageData!,
         width: imageSize,
         height: imageSize,
-        cacheWidth: pixelSize,
-        cacheHeight: pixelSize,
+        cacheWidth: isAnimatedGif ? null : pixelSize,
+        cacheHeight: isAnimatedGif ? null : pixelSize,
         fit: BoxFit.cover,
         // MemoryImage uses Uint8List identity for ==. Drift re-emits a
         // Member row whenever it's written (e.g. PluralKit sync re-saves
