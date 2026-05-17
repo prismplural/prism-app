@@ -5,6 +5,7 @@ import android.app.Activity
 import android.app.KeyguardManager
 import android.content.ClipDescription
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.net.Uri
@@ -12,6 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.UserManager
+import android.provider.OpenableColumns
 import android.provider.MediaStore
 import android.security.keystore.KeyInfo
 import android.security.keystore.KeyGenParameterSpec
@@ -42,6 +44,8 @@ import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
+import java.io.FileInputStream
 
 class MainActivity : FlutterFragmentActivity() {
     companion object {
@@ -54,9 +58,20 @@ class MainActivity : FlutterFragmentActivity() {
             "com.prism.prism_plurality/runtime_dek_wrap"
         private const val APP_CLIPBOARD_CHANNEL =
             "com.prism.prism_plurality/app_clipboard"
+        private const val FILE_HANDOFFS_CHANNEL =
+            "com.prism.prism_plurality/file_handoffs"
+        private const val SAVE_EXISTING_FILE_REQUEST = 7301
         private const val ANDROID_ATTESTATION_CONTEXT = "PRISM_SYNC_ANDROID_ATTEST_V2\u0000"
         private const val RUNTIME_DEK_KEY_ALIAS = "prism_runtime_dek_wrap_v1"
     }
+
+    private data class PendingFileHandoff(
+        val sourcePath: String,
+        val expectedLength: Long?,
+        val result: MethodChannel.Result,
+    )
+
+    private var pendingFileHandoff: PendingFileHandoff? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -225,6 +240,139 @@ class MainActivity : FlutterFragmentActivity() {
                 Log.w(TAG, "Unable to read clipboard image", t)
                 result.success(null)
             }
+        }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            FILE_HANDOFFS_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "saveExistingFile" -> saveExistingFile(call.arguments, result)
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    @Deprecated("Deprecated in Android Activity API; Flutter still routes this callback here.")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode != SAVE_EXISTING_FILE_REQUEST) {
+            super.onActivityResult(requestCode, resultCode, data)
+            return
+        }
+
+        val pending = pendingFileHandoff ?: return
+        pendingFileHandoff = null
+
+        val uri = data?.data
+        if (resultCode != Activity.RESULT_OK || uri == null) {
+            pending.result.success(mapOf("status" to "cancelled"))
+            return
+        }
+
+        Thread {
+            val response = try {
+                val bytesCopied = copyFileToUri(pending.sourcePath, uri)
+                val expectedLength = pending.expectedLength
+                if (expectedLength != null && bytesCopied != expectedLength) {
+                    mapOf(
+                        "status" to "failed",
+                        "error" to "Copied $bytesCopied bytes, expected $expectedLength",
+                    )
+                } else {
+                    mapOf(
+                        "status" to "saved",
+                        "pathOrUri" to uri.toString(),
+                        "savedDisplayName" to queryDisplayName(uri),
+                        "bytesCopied" to bytesCopied,
+                    )
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "Unable to save existing file handoff", t)
+                mapOf(
+                    "status" to "failed",
+                    "error" to (t.message ?: t::class.java.simpleName),
+                )
+            }
+            runOnUiThread {
+                pending.result.success(response)
+            }
+        }.start()
+    }
+
+    private fun saveExistingFile(arguments: Any?, result: MethodChannel.Result) {
+        if (pendingFileHandoff != null) {
+            result.success(mapOf("status" to "alreadyActive"))
+            return
+        }
+
+        val args = arguments as? Map<*, *>
+        val sourcePath = args?.get("sourcePath") as? String
+        if (sourcePath.isNullOrEmpty()) {
+            result.success(mapOf("status" to "failed", "error" to "sourcePath is required"))
+            return
+        }
+
+        val sourceFile = File(sourcePath)
+        if (!sourceFile.isFile) {
+            result.success(mapOf("status" to "failed", "error" to "sourcePath does not exist"))
+            return
+        }
+
+        val suggestedName = (args?.get("suggestedName") as? String)
+            ?.takeIf { it.isNotBlank() }
+            ?: sourceFile.name
+        val mimeType = (args?.get("mimeType") as? String)
+            ?.takeIf { it.isNotBlank() }
+            ?: "application/octet-stream"
+        val expectedLength = (args?.get("expectedLength") as? Number)?.toLong()
+
+        pendingFileHandoff = PendingFileHandoff(sourcePath, expectedLength, result)
+        try {
+            val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = mimeType
+                putExtra(Intent.EXTRA_TITLE, suggestedName)
+            }
+            startActivityForResult(intent, SAVE_EXISTING_FILE_REQUEST)
+        } catch (t: Throwable) {
+            pendingFileHandoff = null
+            Log.w(TAG, "Unable to launch file handoff picker", t)
+            result.success(
+                mapOf(
+                    "status" to "failed",
+                    "error" to (t.message ?: t::class.java.simpleName),
+                )
+            )
+        }
+    }
+
+    private fun copyFileToUri(sourcePath: String, uri: Uri): Long {
+        var bytesCopied = 0L
+        FileInputStream(File(sourcePath)).use { input ->
+            contentResolver.openOutputStream(uri)?.use { output ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    output.write(buffer, 0, read)
+                    bytesCopied += read.toLong()
+                }
+                output.flush()
+            } ?: throw IllegalStateException("Could not open destination stream")
+        }
+        return bytesCopied
+    }
+
+    private fun queryDisplayName(uri: Uri): String? {
+        return contentResolver.query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) return@use null
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0) cursor.getString(index) else null
         }
     }
 

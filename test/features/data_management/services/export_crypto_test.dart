@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -44,15 +45,18 @@ void main() {
     test('encrypted output embeds scrypt parameters', () {
       final encrypted = ExportCrypto.encrypt(plaintext, const [], password);
       // N at offset 6, r at 10, p at 14 (big-endian uint32)
-      final n = (encrypted[6] << 24) |
+      final n =
+          (encrypted[6] << 24) |
           (encrypted[7] << 16) |
           (encrypted[8] << 8) |
           encrypted[9];
-      final r = (encrypted[10] << 24) |
+      final r =
+          (encrypted[10] << 24) |
           (encrypted[11] << 16) |
           (encrypted[12] << 8) |
           encrypted[13];
-      final p = (encrypted[14] << 24) |
+      final p =
+          (encrypted[14] << 24) |
           (encrypted[15] << 16) |
           (encrypted[16] << 8) |
           encrypted[17];
@@ -62,12 +66,13 @@ void main() {
     });
 
     test(
-        'two encryptions of same data produce different ciphertexts (random salt/nonce)',
-        () {
-      final a = ExportCrypto.encrypt(plaintext, const [], password);
-      final b = ExportCrypto.encrypt(plaintext, const [], password);
-      expect(a, isNot(equals(b)));
-    });
+      'two encryptions of same data produce different ciphertexts (random salt/nonce)',
+      () {
+        final a = ExportCrypto.encrypt(plaintext, const [], password);
+        final b = ExportCrypto.encrypt(plaintext, const [], password);
+        expect(a, isNot(equals(b)));
+      },
+    );
 
     test('wrong password throws InvalidCipherTextException', () {
       final encrypted = ExportCrypto.encrypt(plaintext, const [], password);
@@ -119,12 +124,220 @@ void main() {
       expect(result.json, equals(json));
       expect(result.mediaBlobs, isEmpty);
     });
+
+    test('streaming writer decrypts to compact deterministic JSON', () async {
+      final tempDir = Directory.systemTemp.createTempSync(
+        'prism-export-crypto-',
+      );
+      try {
+        final output = File('${tempDir.path}/streamed.prism');
+        final sink = output.openWrite();
+        const jsonValue = {
+          'formatVersion': '1.0',
+          'headmates': [
+            {'id': 'one', 'name': 'One'},
+          ],
+        };
+
+        final bytesWritten = await ExportCrypto.writeEncryptedFile(
+          jsonValue: jsonValue,
+          mediaBlobs: const [],
+          password: password,
+          sink: sink,
+        );
+        await sink.close();
+
+        final bytes = await output.readAsBytes();
+        expect(bytes.length, bytesWritten);
+        final result = ExportCrypto.decrypt(bytes, password);
+        expect(result.json, utf8.decode(JsonUtf8Encoder().convert(jsonValue)));
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    test(
+      'streaming writer matches legacy in-memory bytes with pinned randomness',
+      () async {
+        final tempDir = Directory.systemTemp.createTempSync(
+          'prism-export-crypto-',
+        );
+        try {
+          final mediaFile = File('${tempDir.path}/media.enc');
+          final mediaBytes = Uint8List.fromList([
+            0xde,
+            0xad,
+            0xbe,
+            0xef,
+            0x00,
+            0x01,
+          ]);
+          await mediaFile.writeAsBytes(mediaBytes);
+          final mediaStat = await mediaFile.stat();
+
+          const jsonValue = {
+            'formatVersion': '1.0',
+            'headmates': [
+              {
+                'id': 'one',
+                'name': 'One',
+                'pronouns': ['they/them'],
+              },
+            ],
+            'settings': {'theme': 'system', 'exports': true},
+          };
+          final compactJson = utf8.decode(JsonUtf8Encoder().convert(jsonValue));
+          final salt = Uint8List.fromList(
+            List<int>.generate(32, (index) => index),
+          );
+          final nonce = Uint8List.fromList(
+            List<int>.generate(12, (index) => 0xa0 + index),
+          );
+          final legacyBytes = ExportCrypto.encrypt(
+            compactJson,
+            [(mediaId: 'media-1', blob: mediaBytes)],
+            password,
+            saltForTesting: salt,
+            nonceForTesting: nonce,
+          );
+
+          final output = File('${tempDir.path}/streamed.prism');
+          final sink = output.openWrite();
+          await ExportCrypto.writeEncryptedFile(
+            jsonValue: jsonValue,
+            mediaBlobs: [
+              ExportMediaBlobDescriptor(
+                mediaId: 'media-1',
+                file: mediaFile,
+                lengthBytes: mediaStat.size,
+                modified: mediaStat.modified,
+              ),
+            ],
+            password: password,
+            sink: sink,
+            saltForTesting: salt,
+            nonceForTesting: nonce,
+          );
+          await sink.close();
+
+          expect(await output.readAsBytes(), legacyBytes);
+        } finally {
+          await tempDir.delete(recursive: true);
+        }
+      },
+    );
+
+    test(
+      'streaming writer preserves media blobs without eager byte input',
+      () async {
+        final tempDir = Directory.systemTemp.createTempSync(
+          'prism-export-crypto-',
+        );
+        try {
+          final mediaFile = File('${tempDir.path}/media.enc');
+          final mediaBytes = Uint8List.fromList([3, 1, 4, 1, 5, 9]);
+          await mediaFile.writeAsBytes(mediaBytes);
+          final mediaStat = await mediaFile.stat();
+          final output = File('${tempDir.path}/streamed.prism');
+          final sink = output.openWrite();
+
+          await ExportCrypto.writeEncryptedFile(
+            jsonValue: const {'formatVersion': '1.0'},
+            mediaBlobs: [
+              ExportMediaBlobDescriptor(
+                mediaId: 'media-1',
+                file: mediaFile,
+                lengthBytes: mediaStat.size,
+                modified: mediaStat.modified,
+              ),
+            ],
+            password: password,
+            sink: sink,
+          );
+          await sink.close();
+
+          final result = ExportCrypto.decrypt(
+            await output.readAsBytes(),
+            password,
+          );
+          expect(result.mediaBlobs, hasLength(1));
+          expect(result.mediaBlobs.single.mediaId, 'media-1');
+          expect(result.mediaBlobs.single.blob, mediaBytes);
+        } finally {
+          await tempDir.delete(recursive: true);
+        }
+      },
+    );
+
+    test(
+      'streaming writer rejects media files changed after descriptor scan',
+      () async {
+        final tempDir = Directory.systemTemp.createTempSync(
+          'prism-export-crypto-',
+        );
+        try {
+          final mediaFile = File('${tempDir.path}/media.enc');
+          await mediaFile.writeAsBytes(Uint8List.fromList([1, 2, 3]));
+          final mediaStat = await mediaFile.stat();
+          await Future<void>.delayed(const Duration(milliseconds: 1));
+          await mediaFile.writeAsBytes(Uint8List.fromList([1, 2, 3, 4]));
+
+          final output = File('${tempDir.path}/streamed.prism');
+          final sink = output.openWrite();
+          await expectLater(
+            ExportCrypto.writeEncryptedFile(
+              jsonValue: const {'formatVersion': '1.0'},
+              mediaBlobs: [
+                ExportMediaBlobDescriptor(
+                  mediaId: 'media-1',
+                  file: mediaFile,
+                  lengthBytes: mediaStat.size,
+                  modified: mediaStat.modified,
+                ),
+              ],
+              password: password,
+              sink: sink,
+            ),
+            throwsA(isA<ExportMediaBlobChangedException>()),
+          );
+          await sink.close();
+        } finally {
+          await tempDir.delete(recursive: true);
+        }
+      },
+    );
+
+    test('streaming writer enforces JSON soft cap before writing', () async {
+      final tempDir = Directory.systemTemp.createTempSync(
+        'prism-export-crypto-',
+      );
+      try {
+        final output = File('${tempDir.path}/streamed.prism');
+        final sink = output.openWrite();
+
+        await expectLater(
+          ExportCrypto.writeEncryptedFile(
+            jsonValue: const {'tooLarge': '0123456789'},
+            mediaBlobs: const [],
+            password: password,
+            sink: sink,
+            jsonPlaintextSoftLimitBytes: 4,
+          ),
+          throwsA(isA<ExportJsonTooLargeException>()),
+        );
+        await sink.close();
+        expect(await output.length(), 0);
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
   });
 
   group('ExportCrypto — unsupported and legacy formats', () {
     test('unknown magic header throws FormatException', () {
-      final garbage =
-          Uint8List.fromList(utf8.encode('PRISM9') + List.filled(60, 0));
+      final garbage = Uint8List.fromList(
+        utf8.encode('PRISM9') + List.filled(60, 0),
+      );
       expect(
         () => ExportCrypto.decrypt(garbage, 'any'),
         throwsA(isA<FormatException>()),
@@ -132,23 +345,28 @@ void main() {
     });
 
     test('PRISM2 (legacy scrypt) magic throws FormatException', () {
-      final legacyMagic =
-          Uint8List.fromList(utf8.encode('PRISM2') + List.filled(60, 0));
+      final legacyMagic = Uint8List.fromList(
+        utf8.encode('PRISM2') + List.filled(60, 0),
+      );
       expect(
         () => ExportCrypto.decrypt(legacyMagic, 'any'),
         throwsA(isA<FormatException>()),
       );
     });
 
-    test('PRISM3 (pre-beta) magic throws FormatException — use converter tool', () {
-      // PRISM3 files must be converted to PRISM1 via tools/prism3-to-prism1 before import.
-      final prism3Magic =
-          Uint8List.fromList(utf8.encode('PRISM3') + List.filled(60, 0));
-      expect(
-        () => ExportCrypto.decrypt(prism3Magic, 'any'),
-        throwsA(isA<FormatException>()),
-      );
-    });
+    test(
+      'PRISM3 (pre-beta) magic throws FormatException — use converter tool',
+      () {
+        // PRISM3 files must be converted to PRISM1 via tools/prism3-to-prism1 before import.
+        final prism3Magic = Uint8List.fromList(
+          utf8.encode('PRISM3') + List.filled(60, 0),
+        );
+        expect(
+          () => ExportCrypto.decrypt(prism3Magic, 'any'),
+          throwsA(isA<FormatException>()),
+        );
+      },
+    );
 
     test('empty input throws FormatException', () {
       expect(

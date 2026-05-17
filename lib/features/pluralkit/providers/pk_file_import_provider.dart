@@ -1,9 +1,9 @@
-import 'dart:io';
+import 'dart:convert';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 
@@ -64,19 +64,14 @@ class PkFileImportNotifier extends Notifier<PkFileImportState> {
 
   Future<void> selectAndParseFile() async {
     try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        withData: false,
-        withReadStream: false,
-      );
-      if (result == null || result.files.isEmpty) return;
-      final path = result.files.single.path;
-      if (path == null) return;
+      final handle = await ref
+          .read(prismFileDialogServiceProvider)
+          .pickFile(allowedExtensions: const ['json']);
+      if (handle == null) return;
 
       state = state.copyWith(step: PkFileImportStep.parsing);
 
-      final raw = await File(path).readAsString();
+      final raw = utf8.decode(await handle.readAsBytes());
       final export = await parsePkExportFile(raw);
 
       state = state.copyWith(step: PkFileImportStep.previewing, export: export);

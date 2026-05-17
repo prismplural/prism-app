@@ -367,12 +367,13 @@ class FrontingMigrationService {
     if (await target.exists()) {
       throw BackupFileCollisionException(target.path);
     }
-    return dataExportService.exportEncryptedData(
+    final export = await dataExportService.buildEncryptedExportFile(
       password: password,
       includeLegacyFields: true,
       targetDirectory: dir,
       fileName: fileName,
     );
+    return export.file;
   }
 
   /// Generates the unique backup filename. The day-stamp keeps human-

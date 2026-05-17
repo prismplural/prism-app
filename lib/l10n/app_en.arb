@@ -8189,9 +8189,9 @@
   "dataManagementExportComplete": "Export Complete",
   "@dataManagementExportComplete": { "description": "Headline when export succeeds" },
   "dataManagementExportReadyTitle": "Export Ready",
-  "@dataManagementExportReadyTitle": { "description": "Headline shown after the export is built but before the user has saved it from the share sheet" },
-  "dataManagementExportReadyDescription": "Tap Share to save your export. The file is only kept in temporary storage until you save it somewhere.",
-  "@dataManagementExportReadyDescription": { "description": "Body text explaining that the export still needs to be saved via the share sheet" },
+  "@dataManagementExportReadyTitle": { "description": "Headline shown after the export is built but before the user has saved it" },
+  "dataManagementExportReadyDescription": "Tap Save to choose where to keep your export. The file is only kept in temporary storage until you save it somewhere.",
+  "@dataManagementExportReadyDescription": { "description": "Body text explaining that the export still needs to be saved" },
   "dataManagementShareExport": "Share",
   "@dataManagementShareExport": { "description": "Button label to open the share sheet for the prepared export file" },
   "dataManagementExportWithoutEncryptionTitle": "Export without encryption?",
@@ -9936,7 +9936,7 @@
 
   "frontingUpgradeFailureHeadline": "Migration failed",
   "@frontingUpgradeFailureHeadline": { "description": "Failure screen headline" },
-  "frontingUpgradeFailureBackupNote": "Your backup file was saved. You can find it in your share sheet history if you need to recover.",
+  "frontingUpgradeFailureBackupNote": "Your backup file was saved or shared. Use the location you chose if you need to recover.",
   "@frontingUpgradeFailureBackupNote": { "description": "Reassurance shown on the failure screen when a backup exists" },
 
   "frontingUpgradeBannerTitle": "Fronting upgrade pending",

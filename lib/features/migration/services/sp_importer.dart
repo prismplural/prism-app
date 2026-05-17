@@ -213,6 +213,7 @@ class SpImporter {
     SpImportDao? spImportDao,
     bool downloadAvatars = true,
     String? avatarZipPath,
+    List<int>? avatarZipBytes,
     bool clearExistingData = false,
     Map<String, CfDisposition>? customFrontDispositions,
     Map<String, SpMemberMappingDecision> memberMappingDecisions = const {},
@@ -600,17 +601,28 @@ class SpImporter {
       }
     }
 
-    if (avatarZipPath != null && avatarZipPath.isNotEmpty) {
+    if ((avatarZipPath != null && avatarZipPath.isNotEmpty) ||
+        (avatarZipBytes != null && avatarZipBytes.isNotEmpty)) {
       onProgress?.call(totalItems, totalItems, 'Importing avatar ZIP...');
       try {
-        final zipResult = await SpAvatarZipImporter().importZipFile(
-          filePath: avatarZipPath,
-          memberRepo: memberRepo,
-          settingsRepo: settingsRepo,
-          spImportDao: spImportDao,
-          exportData: data,
-          skipMemberIds: linkedExistingMemberIds,
-        );
+        final zipImporter = SpAvatarZipImporter();
+        final zipResult = avatarZipBytes != null
+            ? await zipImporter.importZipFileBytes(
+                bytes: avatarZipBytes,
+                memberRepo: memberRepo,
+                settingsRepo: settingsRepo,
+                spImportDao: spImportDao,
+                exportData: data,
+                skipMemberIds: linkedExistingMemberIds,
+              )
+            : await zipImporter.importZipFile(
+                filePath: avatarZipPath!,
+                memberRepo: memberRepo,
+                settingsRepo: settingsRepo,
+                spImportDao: spImportDao,
+                exportData: data,
+                skipMemberIds: linkedExistingMemberIds,
+              );
         avatarsImportedFromZip = zipResult.memberAvatarsUpdated;
         systemAvatarImportedFromZip = zipResult.systemAvatarUpdated;
         warnings.addAll(zipResult.warnings);

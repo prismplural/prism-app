@@ -1,8 +1,47 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:pointycastle/export.dart';
+
+class ExportMediaBlobDescriptor {
+  const ExportMediaBlobDescriptor({
+    required this.mediaId,
+    required this.file,
+    required this.lengthBytes,
+    required this.modified,
+  });
+
+  final String mediaId;
+  final File file;
+  final int lengthBytes;
+  final DateTime modified;
+}
+
+class ExportJsonTooLargeException implements Exception {
+  const ExportJsonTooLargeException(this.lengthBytes, this.limitBytes);
+
+  final int lengthBytes;
+  final int limitBytes;
+
+  @override
+  String toString() =>
+      'ExportJsonTooLargeException: export JSON is $lengthBytes bytes, '
+      'above the $limitBytes byte safety limit';
+}
+
+class ExportMediaBlobChangedException implements Exception {
+  const ExportMediaBlobChangedException(this.mediaId, this.path);
+
+  final String mediaId;
+  final String path;
+
+  @override
+  String toString() =>
+      'ExportMediaBlobChangedException: media blob $mediaId changed while '
+      'exporting ($path)';
+}
 
 /// Password-based encryption for Prism data exports.
 ///
@@ -35,6 +74,9 @@ class ExportCrypto {
   static const _saltLength = 32;
   static const _nonceLength = 12; // GCM standard
   static const _keyLength = 32; // AES-256
+  static const _gcmTagLength = 16;
+  static const defaultJsonPlaintextSoftLimitBytes = 128 * 1024 * 1024;
+  static const defaultStreamChunkSize = 1024 * 1024;
 
   // Scrypt parameters — tuned for mobile (~32 MB RAM, ~200 ms)
   static const _scryptN = 32768; // cost factor (2^15)
@@ -50,10 +92,20 @@ class ExportCrypto {
   static Uint8List encrypt(
     String json,
     List<({String mediaId, Uint8List blob})> mediaBlobs,
-    String password,
-  ) {
-    final salt = _secureRandom(_saltLength);
-    final nonce = _secureRandom(_nonceLength);
+    String password, {
+    Uint8List? saltForTesting,
+    Uint8List? nonceForTesting,
+  }) {
+    final salt = _randomOrTestingBytes(
+      length: _saltLength,
+      testingBytes: saltForTesting,
+      fieldName: 'saltForTesting',
+    );
+    final nonce = _randomOrTestingBytes(
+      length: _nonceLength,
+      testingBytes: nonceForTesting,
+      fieldName: 'nonceForTesting',
+    );
     final key = _deriveKey(password, salt);
 
     final plaintext = utf8.encode(json);
@@ -104,6 +156,83 @@ class ExportCrypto {
     return output.toBytes();
   }
 
+  /// Writes an encrypted PRISM1 file without buffering media blobs.
+  ///
+  /// The caller owns closing [sink].
+  static Future<int> writeEncryptedFile({
+    required Object? jsonValue,
+    required List<ExportMediaBlobDescriptor> mediaBlobs,
+    required String password,
+    required IOSink sink,
+    int jsonPlaintextSoftLimitBytes = defaultJsonPlaintextSoftLimitBytes,
+    int mediaChunkSize = defaultStreamChunkSize,
+    Uint8List? saltForTesting,
+    Uint8List? nonceForTesting,
+  }) async {
+    final jsonPlaintextLength = _countJsonUtf8Bytes(
+      jsonValue,
+      limitBytes: jsonPlaintextSoftLimitBytes,
+    );
+    final jsonCiphertextLength = jsonPlaintextLength + _gcmTagLength;
+    _checkUint32(jsonCiphertextLength, 'json_len');
+    _checkUint32(mediaBlobs.length, 'media_count');
+
+    final salt = _randomOrTestingBytes(
+      length: _saltLength,
+      testingBytes: saltForTesting,
+      fieldName: 'saltForTesting',
+    );
+    final nonce = _randomOrTestingBytes(
+      length: _nonceLength,
+      testingBytes: nonceForTesting,
+      fieldName: 'nonceForTesting',
+    );
+    final key = _deriveKey(password, salt);
+
+    var bytesWritten = 0;
+    void writeBytes(List<int> bytes) {
+      sink.add(bytes);
+      bytesWritten += bytes.length;
+    }
+
+    writeBytes(utf8.encode(_magic));
+    writeBytes(_uint32BE(_scryptN));
+    writeBytes(_uint32BE(_scryptR));
+    writeBytes(_uint32BE(_scryptP));
+    writeBytes(salt);
+    writeBytes(nonce);
+    writeBytes(_uint32BE(jsonCiphertextLength));
+
+    final cipher = GCMBlockCipher(AESEngine())
+      ..init(true, AEADParameters(KeyParameter(key), 128, nonce, Uint8List(0)));
+    final encryptingSink = _GcmJsonEncryptingSink(
+      cipher: cipher,
+      sink: sink,
+      onCipherBytes: (count) => bytesWritten += count,
+    );
+    final jsonSink = JsonUtf8Encoder().startChunkedConversion(encryptingSink);
+    jsonSink.add(jsonValue);
+    jsonSink.close();
+    if (encryptingSink.ciphertextLength != jsonCiphertextLength) {
+      throw StateError(
+        'Streaming JSON ciphertext length mismatch: '
+        '${encryptingSink.ciphertextLength} != $jsonCiphertextLength',
+      );
+    }
+
+    writeBytes(_uint32BE(mediaBlobs.length));
+    for (final descriptor in mediaBlobs) {
+      bytesWritten += await _writeMediaBlob(
+        sink: sink,
+        descriptor: descriptor,
+        chunkSize: mediaChunkSize,
+      );
+    }
+
+    await sink.flush();
+    return bytesWritten;
+  }
+
   /// Decrypt bytes produced by [encrypt] using [password].
   ///
   /// Returns the decrypted JSON string and the list of media blobs (carried
@@ -125,7 +254,8 @@ class ExportCrypto {
 
     // Header: magic(6) + N(4) + r(4) + p(4) + salt(32) + nonce(12) +
     //         json_len(4) + json_ct(>=16) + media_count(4)
-    const minHeaderLength = 6 + 4 + 4 + 4 + _saltLength + _nonceLength + 4 + 16 + 4;
+    const minHeaderLength =
+        6 + 4 + 4 + 4 + _saltLength + _nonceLength + 4 + 16 + 4;
     if (data.length < minHeaderLength) {
       throw const FormatException('Encrypted export is too short');
     }
@@ -151,7 +281,9 @@ class ExportCrypto {
     final jsonLen = _readUint32BE(data, offset);
     offset += 4;
     if (data.length < offset + jsonLen) {
-      throw const FormatException('Encrypted export is truncated (JSON section)');
+      throw const FormatException(
+        'Encrypted export is truncated (JSON section)',
+      );
     }
     final jsonCt = data.sublist(offset, offset + jsonLen);
     offset += jsonLen;
@@ -182,7 +314,9 @@ class ExportCrypto {
 
     // Media section
     if (data.length < offset + 4) {
-      throw const FormatException('Encrypted export is truncated (media count)');
+      throw const FormatException(
+        'Encrypted export is truncated (media count)',
+      );
     }
     final mediaCount = _readUint32BE(data, offset);
     offset += 4;
@@ -190,23 +324,31 @@ class ExportCrypto {
     final mediaBlobs = <({String mediaId, Uint8List blob})>[];
     for (var i = 0; i < mediaCount; i++) {
       if (data.length < offset + 4) {
-        throw const FormatException('Encrypted export is truncated (media id_len)');
+        throw const FormatException(
+          'Encrypted export is truncated (media id_len)',
+        );
       }
       final idLen = _readUint32BE(data, offset);
       offset += 4;
       if (data.length < offset + idLen) {
-        throw const FormatException('Encrypted export is truncated (media id_bytes)');
+        throw const FormatException(
+          'Encrypted export is truncated (media id_bytes)',
+        );
       }
       final mediaId = utf8.decode(data.sublist(offset, offset + idLen));
       offset += idLen;
 
       if (data.length < offset + 4) {
-        throw const FormatException('Encrypted export is truncated (media blob_len)');
+        throw const FormatException(
+          'Encrypted export is truncated (media blob_len)',
+        );
       }
       final blobLen = _readUint32BE(data, offset);
       offset += 4;
       if (data.length < offset + blobLen) {
-        throw const FormatException('Encrypted export is truncated (media blob_bytes)');
+        throw const FormatException(
+          'Encrypted export is truncated (media blob_bytes)',
+        );
       }
       final blob = data.sublist(offset, offset + blobLen);
       offset += blobLen;
@@ -244,12 +386,12 @@ class ExportCrypto {
     int r = _scryptR,
     int p = _scryptP,
   }) {
-    final scrypt = Scrypt()
-      ..init(ScryptParameters(n, r, p, _keyLength, salt));
+    final scrypt = Scrypt()..init(ScryptParameters(n, r, p, _keyLength, salt));
     return scrypt.process(Uint8List.fromList(utf8.encode(password)));
   }
 
   static Uint8List _uint32BE(int value) {
+    _checkUint32(value, 'uint32');
     return Uint8List(4)
       ..[0] = (value >> 24) & 0xff
       ..[1] = (value >> 16) & 0xff
@@ -270,5 +412,176 @@ class ExportCrypto {
     return Uint8List.fromList(
       List<int>.generate(length, (_) => rng.nextInt(256)),
     );
+  }
+
+  static Uint8List _randomOrTestingBytes({
+    required int length,
+    required Uint8List? testingBytes,
+    required String fieldName,
+  }) {
+    if (testingBytes == null) {
+      return _secureRandom(length);
+    }
+    if (testingBytes.length != length) {
+      throw ArgumentError.value(
+        testingBytes.length,
+        fieldName,
+        'must be $length bytes',
+      );
+    }
+    return Uint8List.fromList(testingBytes);
+  }
+
+  static int _countJsonUtf8Bytes(Object? jsonValue, {required int limitBytes}) {
+    final sink = _CountingJsonSink(limitBytes);
+    final jsonSink = JsonUtf8Encoder().startChunkedConversion(sink);
+    jsonSink.add(jsonValue);
+    jsonSink.close();
+    return sink.length;
+  }
+
+  static Future<int> _writeMediaBlob({
+    required IOSink sink,
+    required ExportMediaBlobDescriptor descriptor,
+    required int chunkSize,
+  }) async {
+    if (descriptor.lengthBytes < 0) {
+      throw ExportMediaBlobChangedException(
+        descriptor.mediaId,
+        descriptor.file.path,
+      );
+    }
+    _checkUint32(descriptor.lengthBytes, 'blob_len');
+
+    final idBytes = utf8.encode(descriptor.mediaId);
+    _checkUint32(idBytes.length, 'id_len');
+
+    final before = await descriptor.file.stat();
+    if (!_statMatchesDescriptor(before, descriptor)) {
+      throw ExportMediaBlobChangedException(
+        descriptor.mediaId,
+        descriptor.file.path,
+      );
+    }
+
+    var bytesWritten = 0;
+    void writeBytes(List<int> bytes) {
+      sink.add(bytes);
+      bytesWritten += bytes.length;
+    }
+
+    writeBytes(_uint32BE(idBytes.length));
+    writeBytes(idBytes);
+    writeBytes(_uint32BE(descriptor.lengthBytes));
+
+    var bytesRead = 0;
+    await for (final chunk in descriptor.file.openRead()) {
+      bytesRead += chunk.length;
+      if (bytesRead > descriptor.lengthBytes) {
+        throw ExportMediaBlobChangedException(
+          descriptor.mediaId,
+          descriptor.file.path,
+        );
+      }
+      writeBytes(chunk);
+      if (chunkSize > 0 && bytesRead % chunkSize == 0) {
+        await sink.flush();
+      }
+    }
+
+    if (bytesRead != descriptor.lengthBytes) {
+      throw ExportMediaBlobChangedException(
+        descriptor.mediaId,
+        descriptor.file.path,
+      );
+    }
+
+    final after = await descriptor.file.stat();
+    if (!_statMatchesDescriptor(after, descriptor)) {
+      throw ExportMediaBlobChangedException(
+        descriptor.mediaId,
+        descriptor.file.path,
+      );
+    }
+
+    return bytesWritten;
+  }
+
+  static bool _statMatchesDescriptor(
+    FileStat stat,
+    ExportMediaBlobDescriptor descriptor,
+  ) {
+    return stat.type == FileSystemEntityType.file &&
+        stat.size == descriptor.lengthBytes &&
+        stat.modified.millisecondsSinceEpoch ==
+            descriptor.modified.millisecondsSinceEpoch;
+  }
+
+  static void _checkUint32(int value, String fieldName) {
+    if (value < 0 || value > 0xffffffff) {
+      throw FormatException('$fieldName does not fit in uint32: $value');
+    }
+  }
+}
+
+class _CountingJsonSink implements Sink<List<int>> {
+  _CountingJsonSink(this.limitBytes);
+
+  final int limitBytes;
+  var length = 0;
+
+  @override
+  void add(List<int> data) {
+    length += data.length;
+    if (length > limitBytes) {
+      throw ExportJsonTooLargeException(length, limitBytes);
+    }
+  }
+
+  @override
+  void close() {}
+}
+
+class _GcmJsonEncryptingSink implements Sink<List<int>> {
+  _GcmJsonEncryptingSink({
+    required this.cipher,
+    required this.sink,
+    required this.onCipherBytes,
+  });
+
+  final GCMBlockCipher cipher;
+  final IOSink sink;
+  final void Function(int count) onCipherBytes;
+  var ciphertextLength = 0;
+  var _closed = false;
+
+  @override
+  void add(List<int> data) {
+    if (_closed) {
+      throw StateError('Cannot add JSON bytes after sink is closed');
+    }
+    if (data.isEmpty) return;
+    final input = data is Uint8List ? data : Uint8List.fromList(data);
+    final output = Uint8List(input.length + ExportCrypto._gcmTagLength);
+    final len = cipher.processBytes(input, 0, input.length, output, 0);
+    _writeCipherBytes(output, len);
+  }
+
+  @override
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    final output = Uint8List(
+      ExportCrypto._gcmTagLength + GCMBlockCipher(AESEngine()).blockSize,
+    );
+    final len = cipher.doFinal(output, 0);
+    _writeCipherBytes(output, len);
+  }
+
+  void _writeCipherBytes(Uint8List output, int len) {
+    if (len == 0) return;
+    sink.add(Uint8List.sublistView(output, 0, len));
+    ciphertextLength += len;
+    onCipherBytes(len);
   }
 }

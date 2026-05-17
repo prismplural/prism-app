@@ -22,6 +22,7 @@ void main() {
       _buildTestApp(
         AttachmentMenuButton(
           gifEnabled: true,
+          showCamera: true,
           size: 48,
           onCamera: () {},
           onPhotoLibrary: () {},
@@ -46,6 +47,7 @@ void main() {
       _buildTestApp(
         AttachmentMenuButton(
           gifEnabled: false,
+          showCamera: true,
           size: 48,
           onCamera: () {},
           onPhotoLibrary: () {},
@@ -62,6 +64,27 @@ void main() {
     expect(find.text('GIFs'), findsNothing);
   });
 
+  testWidgets('omits camera action when hidden', (tester) async {
+    await tester.pumpWidget(
+      _buildTestApp(
+        AttachmentMenuButton(
+          gifEnabled: false,
+          showCamera: false,
+          size: 48,
+          onCamera: () {},
+          onPhotoLibrary: () {},
+          onGif: () {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(AttachmentMenuButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Camera'), findsNothing);
+    expect(find.text('Photo Library'), findsOneWidget);
+  });
+
   testWidgets('runs selected action and closes the popup', (tester) async {
     var tapped = false;
 
@@ -69,6 +92,7 @@ void main() {
       _buildTestApp(
         AttachmentMenuButton(
           gifEnabled: true,
+          showCamera: true,
           size: 48,
           onCamera: () => tapped = true,
           onPhotoLibrary: () {},

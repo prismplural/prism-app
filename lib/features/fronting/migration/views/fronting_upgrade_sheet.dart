@@ -24,11 +24,11 @@ library;
 import 'dart:async';
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
@@ -136,11 +136,7 @@ class FrontingUpgradeSheet extends ConsumerStatefulWidget {
   /// `false` if dismissed.
   final BackupHandoffCallback? shareBackup;
 
-  /// Optional override for the save-as handoff used by the
-  /// `backupReady` step. Production wiring uses
-  /// `FilePicker.platform.saveFile`. Returns `true` if the user picked
-  /// a destination (auto-ticks the acknowledgment checkbox); `false`
-  /// if cancelled.
+  /// Optional override for the `backupReady` save-as handoff.
   final BackupHandoffCallback? saveBackup;
 
   /// When true, a successful migration that cleared PK rows attempts a
@@ -390,23 +386,23 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     }
   }
 
-  /// Default save-as handoff. Uses `file_picker` to let the user pick
-  /// a destination outside the app's documents directory. Returns
-  /// `true` if the user confirmed a destination, `false` on cancel.
+  /// Copies the durable backup to a user-selected file.
   /// Tests override via [FrontingUpgradeSheet.saveBackup].
   Future<bool> _defaultSaveBackup(File file) async {
-    try {
-      final bytes = await file.readAsBytes();
-      final fileName = file.path.split('/').last;
-      final result = await FilePicker.saveFile(
-        dialogTitle: 'Save Prism backup',
-        fileName: fileName,
-        bytes: bytes,
-      );
-      return result != null;
-    } catch (_) {
-      return false;
-    }
+    final fileName = file.path.split('/').last;
+    final result = await ref
+        .read(prismFileDialogServiceProvider)
+        .saveExistingFile(
+          ExistingFileSaveRequest(
+            sourceFile: file,
+            suggestedName: fileName,
+            allowedExtensions: const ['prism'],
+            sourceIsDurable: true,
+            dialogTitle: context.l10n.frontingUpgradeBackupSaveAs,
+            mimeType: 'application/octet-stream',
+          ),
+        );
+    return result.status == SaveFileStatus.saved;
   }
 
   Future<void> _onShareTapped() async {

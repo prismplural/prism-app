@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/utils/profile_header_image_normalizer.dart';
 import 'package:prism_plurality/shared/utils/profile_header_image_picker.dart';
@@ -82,11 +83,65 @@ void main() {
     expect(calls.single.cancelButtonTitle, 'Cancel');
   });
 
-  testWidgets('normalizes real cropped bytes into decodable stored header bytes', (
+  testWidgets(
+    'normalizes real cropped bytes into decodable stored header bytes',
+    (tester) async {
+      late BuildContext capturedContext;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      final pickedSource = img.Image(width: 400, height: 400);
+      img.fill(pickedSource, color: img.ColorRgb8(30, 40, 50));
+      final croppedSource = img.Image(width: 2400, height: 800);
+      img.fill(croppedSource, color: img.ColorRgb8(220, 180, 40));
+
+      final bytes = await ProfileHeaderImagePicker.pickCroppedHeaderBytes(
+        capturedContext,
+        platform: TargetPlatform.android,
+        pickImage: (_) async =>
+            _BytesPickedImage(Uint8List.fromList(img.encodePng(pickedSource))),
+        cropImage:
+            (
+              sourceBytes,
+              context, {
+              required title,
+              required doneButtonTitle,
+              required cancelButtonTitle,
+            }) async => Uint8List.fromList(img.encodePng(croppedSource)),
+        normalizeImage: (value) => normalizeProfileHeaderImage(
+          value,
+          encoder: const _PngProfileHeaderEncoder(),
+        ),
+      );
+
+      expect(bytes, isNotNull);
+      expect(
+        bytes!.length,
+        lessThanOrEqualTo(ProfileHeaderImageNormalizer.hardMaxBytes),
+      );
+
+      final decoded = img.decodeImage(bytes);
+      expect(decoded, isNotNull);
+      expect(decoded!.width, ProfileHeaderImageNormalizer.maxWidth);
+      expect(decoded.height, ProfileHeaderImageNormalizer.maxHeight);
+    },
+  );
+
+  testWidgets('returns null and skips cropper when picker yields empty bytes', (
     tester,
   ) async {
     late BuildContext capturedContext;
-
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -100,17 +155,11 @@ void main() {
       ),
     );
 
-    final pickedSource = img.Image(width: 400, height: 400);
-    img.fill(pickedSource, color: img.ColorRgb8(30, 40, 50));
-    final croppedSource = img.Image(width: 2400, height: 800);
-    img.fill(croppedSource, color: img.ColorRgb8(220, 180, 40));
-
-    final bytes = await ProfileHeaderImagePicker.pickCroppedHeaderBytes(
+    var cropCalls = 0;
+    final result = await ProfileHeaderImagePicker.pickCroppedHeaderBytes(
       capturedContext,
-      platform: TargetPlatform.android,
-      pickImage: (_) async => _BytesPickedImage(
-        Uint8List.fromList(img.encodePng(pickedSource)),
-      ),
+      platform: TargetPlatform.iOS,
+      pickImage: (_) async => _BytesPickedImage(Uint8List(0)),
       cropImage:
           (
             sourceBytes,
@@ -118,111 +167,109 @@ void main() {
             required title,
             required doneButtonTitle,
             required cancelButtonTitle,
-          }) async => Uint8List.fromList(img.encodePng(croppedSource)),
-      normalizeImage: (value) => normalizeProfileHeaderImage(
-        value,
-        encoder: const _PngProfileHeaderEncoder(),
+          }) async {
+            cropCalls += 1;
+            return Uint8List.fromList([9, 8, 7]);
+          },
+      normalizeImage: (value) async => value,
+      normalizePickedBytes: (bytes, {platform}) async => bytes,
+    );
+
+    expect(result, isNull);
+    expect(cropCalls, 0);
+    PrismToast.dismiss();
+  });
+
+  testWidgets('returns null and skips cropper when normalizer yields null', (
+    tester,
+  ) async {
+    late BuildContext capturedContext;
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en')],
+        home: Builder(
+          builder: (context) {
+            capturedContext = context;
+            return const SizedBox.shrink();
+          },
+        ),
       ),
     );
 
-    expect(bytes, isNotNull);
-    expect(
-      bytes!.length,
-      lessThanOrEqualTo(ProfileHeaderImageNormalizer.hardMaxBytes),
+    var cropCalls = 0;
+    final result = await ProfileHeaderImagePicker.pickCroppedHeaderBytes(
+      capturedContext,
+      platform: TargetPlatform.iOS,
+      pickImage: (_) async => _BytesPickedImage(Uint8List.fromList([1, 2, 3])),
+      cropImage:
+          (
+            sourceBytes,
+            context, {
+            required title,
+            required doneButtonTitle,
+            required cancelButtonTitle,
+          }) async {
+            cropCalls += 1;
+            return Uint8List.fromList([9, 8, 7]);
+          },
+      normalizeImage: (value) async => value,
+      normalizePickedBytes: (bytes, {platform}) async => null,
     );
 
-    final decoded = img.decodeImage(bytes);
-    expect(decoded, isNotNull);
-    expect(decoded!.width, ProfileHeaderImageNormalizer.maxWidth);
-    expect(decoded.height, ProfileHeaderImageNormalizer.maxHeight);
+    expect(result, isNull);
+    expect(cropCalls, 0);
+    PrismToast.dismiss();
   });
 
-  testWidgets(
-    'returns null and skips cropper when picker yields empty bytes',
-    (tester) async {
-      late BuildContext capturedContext;
-      await tester.pumpWidget(
-        MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: const [Locale('en')],
-          home: Builder(
-            builder: (context) {
-              capturedContext = context;
-              return const SizedBox.shrink();
-            },
-          ),
+  testWidgets('uses file dialog service for desktop gallery picks', (
+    tester,
+  ) async {
+    late BuildContext capturedContext;
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en')],
+        home: Builder(
+          builder: (context) {
+            capturedContext = context;
+            return const SizedBox.shrink();
+          },
         ),
-      );
+      ),
+    );
 
-      var cropCalls = 0;
-      final result = await ProfileHeaderImagePicker.pickCroppedHeaderBytes(
-        capturedContext,
-        platform: TargetPlatform.iOS,
-        pickImage: (_) async => _BytesPickedImage(Uint8List(0)),
-        cropImage:
-            (
-              sourceBytes,
-              context, {
-              required title,
-              required doneButtonTitle,
-              required cancelButtonTitle,
-            }) async {
-              cropCalls += 1;
-              return Uint8List.fromList([9, 8, 7]);
-            },
-        normalizeImage: (value) async => value,
-        normalizePickedBytes: (bytes, {platform}) async => bytes,
-      );
+    final pickedBytes = Uint8List.fromList([7, 8, 9]);
+    final fileDialogService = _FakeFileDialogService(
+      pickedImage: PickedFileHandle(
+        name: 'header.png',
+        path: '/tmp/header.png',
+        size: pickedBytes.length,
+        readAsBytes: () async => pickedBytes,
+        openRead: () => Stream<List<int>>.value(pickedBytes),
+      ),
+    );
 
-      expect(result, isNull);
-      expect(cropCalls, 0);
-      PrismToast.dismiss();
-    },
-  );
+    final bytes = await ProfileHeaderImagePicker.pickCroppedHeaderBytes(
+      capturedContext,
+      platform: TargetPlatform.windows,
+      fileDialogService: fileDialogService,
+      cropImage:
+          (
+            sourceBytes,
+            context, {
+            required title,
+            required doneButtonTitle,
+            required cancelButtonTitle,
+          }) async {
+            fail('desktop gallery picks should skip the cropper');
+          },
+      normalizeImage: (value) async => value,
+    );
 
-  testWidgets(
-    'returns null and skips cropper when normalizer yields null',
-    (tester) async {
-      late BuildContext capturedContext;
-      await tester.pumpWidget(
-        MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: const [Locale('en')],
-          home: Builder(
-            builder: (context) {
-              capturedContext = context;
-              return const SizedBox.shrink();
-            },
-          ),
-        ),
-      );
-
-      var cropCalls = 0;
-      final result = await ProfileHeaderImagePicker.pickCroppedHeaderBytes(
-        capturedContext,
-        platform: TargetPlatform.iOS,
-        pickImage: (_) async =>
-            _BytesPickedImage(Uint8List.fromList([1, 2, 3])),
-        cropImage:
-            (
-              sourceBytes,
-              context, {
-              required title,
-              required doneButtonTitle,
-              required cancelButtonTitle,
-            }) async {
-              cropCalls += 1;
-              return Uint8List.fromList([9, 8, 7]);
-            },
-        normalizeImage: (value) async => value,
-        normalizePickedBytes: (bytes, {platform}) async => null,
-      );
-
-      expect(result, isNull);
-      expect(cropCalls, 0);
-      PrismToast.dismiss();
-    },
-  );
+    expect(bytes, pickedBytes);
+    expect(fileDialogService.pickImageFileCalls, 1);
+  });
 }
 
 class _BytesPickedImage implements ProfileHeaderPickedImage {
@@ -244,4 +291,37 @@ class _PngProfileHeaderEncoder implements ProfileHeaderWebpEncoder {
   Future<Uint8List> encode(img.Image image, {required int quality}) async {
     return Uint8List.fromList(img.encodePng(image));
   }
+}
+
+class _FakeFileDialogService implements PrismFileDialogService {
+  _FakeFileDialogService({this.pickedImage});
+
+  final PickedFileHandle? pickedImage;
+  int pickImageFileCalls = 0;
+
+  @override
+  Future<PickedFileHandle?> pickImageFile({String? dialogTitle}) async {
+    pickImageFileCalls += 1;
+    return pickedImage;
+  }
+
+  @override
+  Future<PickedFileHandle?> pickFile({
+    required List<String> allowedExtensions,
+    String? dialogTitle,
+  }) async => pickedImage;
+
+  @override
+  Future<SaveFileOutcome> saveBytes({
+    required Uint8List bytes,
+    required String suggestedName,
+    required List<String> allowedExtensions,
+    String? dialogTitle,
+    String? mimeType,
+  }) async => const SaveFileOutcome(status: SaveFileStatus.saved);
+
+  @override
+  Future<SaveFileOutcome> saveExistingFile(
+    ExistingFileSaveRequest request,
+  ) async => const SaveFileOutcome(status: SaveFileStatus.saved);
 }

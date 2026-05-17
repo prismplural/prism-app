@@ -353,18 +353,28 @@ final class PrivacyOverlay {
 }
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate,
+  UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate {
   private var screenshotEventSink: FlutterEventSink?
   private var firstDeviceAdmissionChannel: FlutterMethodChannel?
   private var secureDisplayChannel: FlutterMethodChannel?
   private var runtimeDekWrapChannel: FlutterMethodChannel?
   private var appClipboardChannel: FlutterMethodChannel?
+  private var fileHandoffsChannel: FlutterMethodChannel?
   private let privacyOverlay = PrivacyOverlay()
   private let appAttestKeychainService = "com.prism.prism_plurality.app_attest"
   private let appAttestKeychainAccount = "key_id"
   private let runtimeDekPrivateKeyTag = Data(
     "com.prism.prism_plurality.runtime_dek_wrap.private.v1".utf8
   )
+  private var pendingFileHandoff: PendingFileHandoff?
+
+  private struct PendingFileHandoff {
+    let result: FlutterResult
+    let exportedURL: URL
+    let stagingURL: URL?
+    let bytesCopied: Int64?
+  }
 
   override func application(
     _ application: UIApplication,
@@ -545,6 +555,23 @@ final class PrivacyOverlay {
         result(FlutterMethodNotImplemented)
       }
     }
+    fileHandoffsChannel = FlutterMethodChannel(
+      name: "com.prism.prism_plurality/file_handoffs",
+      binaryMessenger: registrar.messenger()
+    )
+    fileHandoffsChannel?.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "saveExistingFile" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      DispatchQueue.main.async {
+        guard let self else {
+          result(["status": "failed", "error": "AppDelegate unavailable"])
+          return
+        }
+        self.saveExistingFile(call.arguments, result: result)
+      }
+    }
     let fileUtilsChannel = FlutterMethodChannel(
       name: "com.prism.prism_plurality/file_utils",
       binaryMessenger: registrar.messenger()
@@ -587,6 +614,162 @@ final class PrivacyOverlay {
         result(FlutterError(code: "FAILED", message: error.localizedDescription, details: nil))
       }
     }
+  }
+
+  private func saveExistingFile(_ arguments: Any?, result: @escaping FlutterResult) {
+    guard pendingFileHandoff == nil else {
+      result(["status": "alreadyActive"])
+      return
+    }
+
+    let args = arguments as? [String: Any] ?? [:]
+    guard let sourcePath = args["sourcePath"] as? String, !sourcePath.isEmpty else {
+      result(["status": "failed", "error": "sourcePath is required"])
+      return
+    }
+
+    let sourceURL = URL(fileURLWithPath: sourcePath)
+    guard FileManager.default.fileExists(atPath: sourceURL.path) else {
+      result(["status": "failed", "error": "sourcePath does not exist"])
+      return
+    }
+
+    let suggestedName = sanitizedFileName(
+      args["suggestedName"] as? String,
+      fallback: sourceURL.lastPathComponent
+    )
+    let sourceIsDurable = args["sourceIsDurable"] as? Bool ?? true
+
+    do {
+      let bytesCopied = try fileSize(sourceURL)
+      let prepared = try preparedExportURL(
+        sourceURL: sourceURL,
+        suggestedName: suggestedName,
+        sourceIsDurable: sourceIsDurable
+      )
+      let picker: UIDocumentPickerViewController
+      if #available(iOS 14.0, *) {
+        picker = UIDocumentPickerViewController(forExporting: [prepared.exportURL], asCopy: true)
+      } else {
+        picker = UIDocumentPickerViewController(url: prepared.exportURL, in: .exportToService)
+      }
+      picker.delegate = self
+      picker.presentationController?.delegate = self
+      pendingFileHandoff = PendingFileHandoff(
+        result: result,
+        exportedURL: prepared.exportURL,
+        stagingURL: prepared.stagingURL,
+        bytesCopied: bytesCopied
+      )
+
+      guard let presenter = topViewController() else {
+        finishFileHandoff([
+          "status": "failed",
+          "error": "No view controller available to present document picker",
+        ])
+        return
+      }
+      presenter.present(picker, animated: true)
+    } catch {
+      result(["status": "failed", "error": error.localizedDescription])
+    }
+  }
+
+  private func sanitizedFileName(_ suggestedName: String?, fallback: String) -> String {
+    let rawName = suggestedName?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let chosenName = rawName?.isEmpty == false ? rawName! : fallback
+    let lastComponent = (chosenName as NSString).lastPathComponent
+    return lastComponent.isEmpty ? fallback : lastComponent
+  }
+
+  private func preparedExportURL(
+    sourceURL: URL,
+    suggestedName: String,
+    sourceIsDurable: Bool
+  ) throws -> (exportURL: URL, stagingURL: URL?) {
+    guard suggestedName != sourceURL.lastPathComponent else {
+      return (sourceURL, nil)
+    }
+
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("prism_file_handoffs", isDirectory: true)
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: directory,
+      withIntermediateDirectories: true
+    )
+    let stagedURL = directory.appendingPathComponent(suggestedName, isDirectory: false)
+
+    if sourceIsDurable {
+      do {
+        try FileManager.default.linkItem(at: sourceURL, to: stagedURL)
+      } catch {
+        try FileManager.default.copyItem(at: sourceURL, to: stagedURL)
+      }
+    } else {
+      do {
+        try FileManager.default.moveItem(at: sourceURL, to: stagedURL)
+      } catch {
+        try FileManager.default.copyItem(at: sourceURL, to: stagedURL)
+      }
+    }
+
+    return (stagedURL, directory)
+  }
+
+  private func fileSize(_ url: URL) throws -> Int64? {
+    let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+    return (attributes[.size] as? NSNumber)?.int64Value
+  }
+
+  private func topViewController() -> UIViewController? {
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    let root = scenes
+      .flatMap { $0.windows }
+      .first { $0.isKeyWindow }?
+      .rootViewController ?? window?.rootViewController
+
+    var top = root
+    while let presented = top?.presentedViewController {
+      top = presented
+    }
+    return top
+  }
+
+  private func finishFileHandoff(_ response: [String: Any]) {
+    guard let pending = pendingFileHandoff else { return }
+    pendingFileHandoff = nil
+    if let stagingURL = pending.stagingURL {
+      try? FileManager.default.removeItem(at: stagingURL)
+    }
+    pending.result(response)
+  }
+
+  func documentPicker(
+    _ controller: UIDocumentPickerViewController,
+    didPickDocumentsAt urls: [URL]
+  ) {
+    guard let pending = pendingFileHandoff else { return }
+    let savedURL = urls.first
+    var response: [String: Any] = [
+      "status": "saved",
+      "savedDisplayName": savedURL?.lastPathComponent ?? pending.exportedURL.lastPathComponent,
+    ]
+    if let savedURL {
+      response["pathOrUri"] = savedURL.absoluteString
+    }
+    if let bytesCopied = pending.bytesCopied {
+      response["bytesCopied"] = bytesCopied
+    }
+    finishFileHandoff(response)
+  }
+
+  func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+    finishFileHandoff(["status": "cancelled"])
+  }
+
+  func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+    finishFileHandoff(["status": "cancelled"])
   }
 
   private func readClipboardImageData() -> Data? {

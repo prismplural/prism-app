@@ -7096,7 +7096,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get dataManagementExportReadyDescription =>
-      'Toca Compartir para guardar tu exportación. El archivo solo se mantiene en almacenamiento temporal hasta que lo guardes en otro lugar.';
+      'Toca Guardar para elegir dónde conservar tu exportación. El archivo solo se mantiene en almacenamiento temporal hasta que lo guardes en otro lugar.';
 
   @override
   String get dataManagementShareExport => 'Compartir';
@@ -9425,7 +9425,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get frontingUpgradeFailureBackupNote =>
-      'Tu archivo de copia de seguridad se guardó. Puedes encontrarlo en el historial de tu menú de compartir si necesitas recuperar los datos.';
+      'Tu archivo de copia de seguridad se guardó o se compartió. Usa la ubicación que elegiste si necesitas recuperar los datos.';
 
   @override
   String get frontingUpgradeBannerTitle => 'Actualización del frente pendiente';

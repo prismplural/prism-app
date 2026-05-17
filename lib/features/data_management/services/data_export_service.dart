@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
-import 'dart:typed_data';
 
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart'
@@ -27,6 +26,18 @@ import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
 import 'package:prism_plurality/domain/repositories/friends_repository.dart';
 import 'package:prism_plurality/features/data_management/models/export_models.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
+
+class EncryptedExportFile {
+  const EncryptedExportFile({
+    required this.file,
+    required this.fileName,
+    required this.sizeBytes,
+  });
+
+  final File file;
+  final String fileName;
+  final int sizeBytes;
+}
 
 class DataExportService {
   DataExportService({
@@ -321,60 +332,108 @@ class DataExportService {
     );
   }
 
-  /// Export all data as an encrypted `.prism` file (PRISM3 format).
+  /// Builds an encrypted PRISM1 export file.
   ///
   /// Media blobs are read from the local encrypted cache and carried verbatim
   /// alongside the JSON. If a blob is not cached locally it is silently skipped.
   ///
   /// See [buildExport] for the meaning of [includeLegacyFields].
   ///
-  /// [targetDirectory] overrides the destination — when null, defaults to
-  /// `getApplicationCacheDirectory()` (purgeable cache, fine for the
-  /// regular user-initiated export-and-share flow). The fronting
-  /// migration's PRISM1 rescue file passes
-  /// `getApplicationDocumentsDirectory()` so the file survives across
-  /// app launches even if the user dismisses the upgrade modal before
-  /// confirming they saved it.
-  Future<File> exportEncryptedData({
+  /// [targetDirectory] overrides the cache destination.
+  Future<EncryptedExportFile> buildEncryptedExportFile({
     required String password,
     bool includeLegacyFields = false,
     Directory? targetDirectory,
     String? fileName,
   }) async {
     final export = await buildExport(includeLegacyFields: includeLegacyFields);
-    final jsonStr = const JsonEncoder.withIndent('  ').convert(export.toJson());
-
-    final mediaBlobs = await _collectMediaBlobs(export.mediaAttachments);
-
+    final mediaBlobs = await _collectMediaBlobDescriptors(
+      export.mediaAttachments,
+    );
     final outputDir = targetDirectory ?? await _cacheDirectoryProvider();
+    await outputDir.create(recursive: true);
     final resolvedName =
         fileName ??
         'Prism-Export-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.prism';
-    final file = File('${outputDir.path}/$resolvedName');
-    final encrypted = await Isolate.run(
-      () => ExportCrypto.encrypt(jsonStr, mediaBlobs, password),
+    final file = File(p.join(outputDir.path, resolvedName));
+    final sink = file.openWrite();
+
+    try {
+      final sizeBytes = await ExportCrypto.writeEncryptedFile(
+        jsonValue: export.toJson(),
+        mediaBlobs: mediaBlobs,
+        password: password,
+        sink: sink,
+      );
+      await sink.close();
+      final actualSize = await file.length();
+      if (actualSize != sizeBytes) {
+        throw StateError(
+          'Encrypted export size mismatch: $actualSize != $sizeBytes',
+        );
+      }
+      return EncryptedExportFile(
+        file: file,
+        fileName: resolvedName,
+        sizeBytes: actualSize,
+      );
+    } catch (_) {
+      try {
+        await sink.close();
+      } catch (_) {}
+      try {
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  /// Compatibility wrapper for call sites that only need the file.
+  Future<File> exportEncryptedData({
+    required String password,
+    bool includeLegacyFields = false,
+    Directory? targetDirectory,
+    String? fileName,
+  }) async {
+    final exportFile = await buildEncryptedExportFile(
+      password: password,
+      includeLegacyFields: includeLegacyFields,
+      targetDirectory: targetDirectory,
+      fileName: fileName,
     );
-    await file.writeAsBytes(encrypted);
-    return file;
+    return exportFile.file;
   }
 
   /// Reads encrypted blobs for [attachments] from the local media cache.
   ///
   /// Returns one entry per cached blob. Both main and thumbnail blobs are
   /// included (they share the same encryption key). Missing files are skipped.
-  Future<List<({String mediaId, Uint8List blob})>> _collectMediaBlobs(
+  Future<List<ExportMediaBlobDescriptor>> _collectMediaBlobDescriptors(
     List<V1MediaAttachment> attachments,
   ) async {
     final appSupport = await _appSupportDirectoryProvider();
-    final mediaDir = Directory('${appSupport.path}/prism_media');
-    final blobs = <({String mediaId, Uint8List blob})>[];
+    final mediaDir = Directory(p.join(appSupport.path, 'prism_media'));
+    final blobs = <ExportMediaBlobDescriptor>[];
 
     for (final attachment in attachments) {
       for (final mediaId in [attachment.mediaId, attachment.thumbnailMediaId]) {
         if (mediaId.isEmpty) continue;
-        final file = File('${mediaDir.path}/$mediaId.enc');
-        if (file.existsSync()) {
-          blobs.add((mediaId: mediaId, blob: file.readAsBytesSync()));
+        final file = File(p.join(mediaDir.path, '$mediaId.enc'));
+        try {
+          final stat = await file.stat();
+          if (stat.type != FileSystemEntityType.file) continue;
+          blobs.add(
+            ExportMediaBlobDescriptor(
+              mediaId: mediaId,
+              file: file,
+              lengthBytes: stat.size,
+              modified: stat.modified,
+            ),
+          );
+        } on FileSystemException {
+          // Missing cache entries are skipped.
         }
       }
     }

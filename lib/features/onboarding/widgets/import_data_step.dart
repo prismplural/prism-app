@@ -1,6 +1,3 @@
-import 'dart:io';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -9,6 +6,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
@@ -1202,18 +1200,12 @@ class _PrismExportImportFlowState
 
   Future<void> _pickFile() async {
     try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['json', 'prism'],
-        withData: false,
-        withReadStream: false,
-      );
-      if (result == null || result.files.isEmpty) return;
+      final handle = await ref
+          .read(prismFileDialogServiceProvider)
+          .pickFile(allowedExtensions: const ['json', 'prism']);
+      if (handle == null) return;
 
-      final path = result.files.single.path;
-      if (path == null) return;
-
-      final bytes = await File(path).readAsBytes();
+      final bytes = await handle.readAsBytes();
       if (!mounted) return;
 
       if (ExportCrypto.isEncrypted(bytes)) {
@@ -2033,18 +2025,20 @@ class _SimplyPluralImportFlowState
             ),
             const SizedBox(height: 16),
             _ActionButton(
-              label: migration.avatarZipPath == null
+              label: migration.avatarZipName == null
                   ? context.l10n.onboardingSimplyPluralAddAvatarZip
                   : context.l10n.onboardingSimplyPluralChangeAvatarZip,
               onPressed: () {
                 ref.read(importerProvider.notifier).selectAvatarZipFile();
               },
             ),
-            if (migration.avatarZipPath != null) ...[
+            if (migration.avatarZipName != null) ...[
               const SizedBox(height: 8),
               Text(
                 context.l10n.onboardingSimplyPluralAvatarZipSelected(
-                  p.basename(migration.avatarZipPath!),
+                  migration.avatarZipPath == null
+                      ? migration.avatarZipName!
+                      : p.basename(migration.avatarZipPath!),
                 ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: isDark

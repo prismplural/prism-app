@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/utils/picked_image_normalizer.dart';
 import 'package:prism_plurality/shared/utils/prism_cropped_bitmap_encoder.dart';
@@ -20,7 +21,8 @@ typedef ProfileHeaderPickImageFn =
     Future<ProfileHeaderPickedImage?> Function(ImageSource source);
 
 @visibleForTesting
-typedef ProfileHeaderCropImageFn = Future<Uint8List?> Function(
+typedef ProfileHeaderCropImageFn =
+    Future<Uint8List?> Function(
       Uint8List sourceBytes,
       BuildContext context, {
       required String title,
@@ -53,10 +55,17 @@ class ProfileHeaderImagePicker {
     @visibleForTesting ProfileHeaderNormalizeImageFn? normalizeImage,
     @visibleForTesting
     ProfileHeaderNormalizePickedBytesFn? normalizePickedBytes,
+    @visibleForTesting PrismFileDialogService? fileDialogService,
     @visibleForTesting TargetPlatform? platform,
   }) async {
     final resolvedPlatform = platform ?? defaultTargetPlatform;
-    final picked = await (pickImage ?? _defaultPickImage)(source);
+    final picked =
+        await (pickImage ??
+            (source) => _defaultPickImage(
+              source,
+              platform: resolvedPlatform,
+              fileDialogService: fileDialogService,
+            ))(source);
     if (picked == null) return null;
     if (!context.mounted) return null;
     final l10n = context.l10n;
@@ -112,7 +121,17 @@ class ProfileHeaderImagePicker {
   }
 }
 
-Future<ProfileHeaderPickedImage?> _defaultPickImage(ImageSource source) async {
+Future<ProfileHeaderPickedImage?> _defaultPickImage(
+  ImageSource source, {
+  required TargetPlatform platform,
+  PrismFileDialogService? fileDialogService,
+}) async {
+  if (source == ImageSource.gallery && _isDesktopPlatform(platform)) {
+    final picked = await (fileDialogService ?? PlatformPrismFileDialogService())
+        .pickImageFile();
+    return picked == null ? null : _FileDialogProfileHeaderPickedImage(picked);
+  }
+
   final picked = await ImagePicker().pickImage(source: source);
   return picked == null ? null : _XFileProfileHeaderPickedImage(picked);
 }
@@ -134,9 +153,7 @@ Future<Uint8List?> _defaultCropImage(
       aspectRatio: 3,
     ),
   );
-  return croppedBitmap == null
-      ? null
-      : encodeCroppedBitmapPng(croppedBitmap);
+  return croppedBitmap == null ? null : encodeCroppedBitmapPng(croppedBitmap);
 }
 
 class _XFileProfileHeaderPickedImage implements ProfileHeaderPickedImage {
@@ -149,4 +166,27 @@ class _XFileProfileHeaderPickedImage implements ProfileHeaderPickedImage {
 
   @override
   Future<Uint8List> readAsBytes() => _file.readAsBytes();
+}
+
+class _FileDialogProfileHeaderPickedImage implements ProfileHeaderPickedImage {
+  const _FileDialogProfileHeaderPickedImage(this._file);
+
+  final PickedFileHandle _file;
+
+  @override
+  String get path => _file.path ?? _file.name;
+
+  @override
+  Future<Uint8List> readAsBytes() => _file.readAsBytes();
+}
+
+bool _isDesktopPlatform(TargetPlatform platform) {
+  return switch (platform) {
+    TargetPlatform.linux ||
+    TargetPlatform.macOS ||
+    TargetPlatform.windows => true,
+    TargetPlatform.android ||
+    TargetPlatform.fuchsia ||
+    TargetPlatform.iOS => false,
+  };
 }

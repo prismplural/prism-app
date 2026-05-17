@@ -11347,16 +11347,16 @@ abstract class AppLocalizations {
   /// **'Export Complete'**
   String get dataManagementExportComplete;
 
-  /// Headline shown after the export is built but before the user has saved it from the share sheet
+  /// Headline shown after the export is built but before the user has saved it
   ///
   /// In en, this message translates to:
   /// **'Export Ready'**
   String get dataManagementExportReadyTitle;
 
-  /// Body text explaining that the export still needs to be saved via the share sheet
+  /// Body text explaining that the export still needs to be saved
   ///
   /// In en, this message translates to:
-  /// **'Tap Share to save your export. The file is only kept in temporary storage until you save it somewhere.'**
+  /// **'Tap Save to choose where to keep your export. The file is only kept in temporary storage until you save it somewhere.'**
   String get dataManagementExportReadyDescription;
 
   /// Button label to open the share sheet for the prepared export file
@@ -14880,7 +14880,7 @@ abstract class AppLocalizations {
   /// Reassurance shown on the failure screen when a backup exists
   ///
   /// In en, this message translates to:
-  /// **'Your backup file was saved. You can find it in your share sheet history if you need to recover.'**
+  /// **'Your backup file was saved or shared. Use the location you chose if you need to recover.'**
   String get frontingUpgradeFailureBackupNote;
 
   /// Home-screen banner title when migration cleanup needs to be resumed

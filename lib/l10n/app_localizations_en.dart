@@ -6987,7 +6987,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dataManagementExportReadyDescription =>
-      'Tap Share to save your export. The file is only kept in temporary storage until you save it somewhere.';
+      'Tap Save to choose where to keep your export. The file is only kept in temporary storage until you save it somewhere.';
 
   @override
   String get dataManagementShareExport => 'Share';
@@ -9269,7 +9269,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get frontingUpgradeFailureBackupNote =>
-      'Your backup file was saved. You can find it in your share sheet history if you need to recover.';
+      'Your backup file was saved or shared. Use the location you chose if you need to recover.';
 
   @override
   String get frontingUpgradeBannerTitle => 'Fronting upgrade pending';

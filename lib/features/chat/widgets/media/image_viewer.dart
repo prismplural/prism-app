@@ -1,10 +1,9 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
@@ -15,14 +14,10 @@ import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 /// - Dark/black background
 /// - Pinch to zoom via [InteractiveViewer]
 /// - Swipe down to dismiss
-/// - Share button in app bar
+/// - Save button in app bar
 /// - Smooth fade transition
-class ImageViewer extends StatefulWidget {
-  const ImageViewer({
-    super.key,
-    required this.imageBytes,
-    this.caption,
-  });
+class ImageViewer extends ConsumerStatefulWidget {
+  const ImageViewer({super.key, required this.imageBytes, this.caption});
 
   /// The decrypted image data to display.
   final Uint8List imageBytes;
@@ -39,10 +34,8 @@ class ImageViewer extends StatefulWidget {
     Navigator.of(context, rootNavigator: true).push(
       PageRouteBuilder(
         opaque: false,
-        pageBuilder: (context, animation, secondaryAnimation) => ImageViewer(
-          imageBytes: imageBytes,
-          caption: caption,
-        ),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            ImageViewer(imageBytes: imageBytes, caption: caption),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -51,30 +44,33 @@ class ImageViewer extends StatefulWidget {
   }
 
   @override
-  State<ImageViewer> createState() => _ImageViewerState();
+  ConsumerState<ImageViewer> createState() => _ImageViewerState();
 }
 
-class _ImageViewerState extends State<ImageViewer> {
+class _ImageViewerState extends ConsumerState<ImageViewer> {
   double _dragOffset = 0.0;
   bool _isDragging = false;
-  bool _isSharing = false;
+  bool _isSaving = false;
 
-  Future<void> _shareImage() async {
-    if (_isSharing) return;
-    setState(() => _isSharing = true);
+  Future<void> _saveImage() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
 
     try {
-      final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/shared_image.png');
-      await file.writeAsBytes(widget.imageBytes);
-      await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path)]),
-      );
+      final extension = _imageFileExtensionFor(widget.imageBytes);
+      await ref
+          .read(prismFileDialogServiceProvider)
+          .saveBytes(
+            bytes: widget.imageBytes,
+            suggestedName: 'prism-image.$extension',
+            allowedExtensions: [extension],
+            mimeType: 'image/$extension',
+          );
     } catch (_) {
-      // Sharing may fail on some platforms; silently ignore.
+      // Saving may fail on some platforms; silently ignore.
     } finally {
       if (mounted) {
-        setState(() => _isSharing = false);
+        setState(() => _isSaving = false);
       }
     }
   }
@@ -125,16 +121,13 @@ class _ImageViewerState extends State<ImageViewer> {
           ),
           actions: [
             Semantics(
-              label: context.l10n.chatImageViewerShare,
+              label: context.l10n.save,
               button: true,
               child: IconButton(
-                icon: _isSharing
-                    ? const PrismSpinner(
-                        color: Colors.white,
-                        size: 20,
-                      )
-                    : Icon(AppIcons.share, color: Colors.white),
-                onPressed: _isSharing ? null : _shareImage,
+                icon: _isSaving
+                    ? const PrismSpinner(color: Colors.white, size: 20)
+                    : Icon(AppIcons.download, color: Colors.white),
+                onPressed: _isSaving ? null : _saveImage,
               ),
             ),
           ],
@@ -150,11 +143,10 @@ class _ImageViewerState extends State<ImageViewer> {
                 duration: _isDragging
                     ? Duration.zero
                     : (disableAnimations
-                        ? Duration.zero
-                        : const Duration(milliseconds: 200)),
+                          ? Duration.zero
+                          : const Duration(milliseconds: 200)),
                 curve: Curves.easeOut,
-                transform:
-                    Matrix4.translationValues(0, _dragOffset, 0),
+                transform: Matrix4.translationValues(0, _dragOffset, 0),
                 child: InteractiveViewer(
                   minScale: 1.0,
                   maxScale: 5.0,
@@ -176,8 +168,7 @@ class _ImageViewerState extends State<ImageViewer> {
                   right: 0,
                   bottom: 0,
                   child: Container(
-                    padding: const EdgeInsets.fromLTRB(
-                        16, 12, 16, 32),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
@@ -205,4 +196,38 @@ class _ImageViewerState extends State<ImageViewer> {
       ),
     );
   }
+}
+
+String _imageFileExtensionFor(Uint8List bytes) {
+  if (bytes.length >= 8 &&
+      bytes[0] == 0x89 &&
+      bytes[1] == 0x50 &&
+      bytes[2] == 0x4E &&
+      bytes[3] == 0x47) {
+    return 'png';
+  }
+  if (bytes.length >= 3 &&
+      bytes[0] == 0xFF &&
+      bytes[1] == 0xD8 &&
+      bytes[2] == 0xFF) {
+    return 'jpeg';
+  }
+  if (bytes.length >= 6 &&
+      bytes[0] == 0x47 &&
+      bytes[1] == 0x49 &&
+      bytes[2] == 0x46) {
+    return 'gif';
+  }
+  if (bytes.length >= 12 &&
+      bytes[0] == 0x52 &&
+      bytes[1] == 0x49 &&
+      bytes[2] == 0x46 &&
+      bytes[3] == 0x46 &&
+      bytes[8] == 0x57 &&
+      bytes[9] == 0x45 &&
+      bytes[10] == 0x42 &&
+      bytes[11] == 0x50) {
+    return 'webp';
+  }
+  return 'png';
 }

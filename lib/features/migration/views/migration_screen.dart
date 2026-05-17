@@ -805,10 +805,11 @@ class _PreviewView extends StatelessWidget {
 
         _AvatarZipPickerCard(
           avatarZipPath: migration.avatarZipPath,
+          avatarZipName: migration.avatarZipName,
           onTap: () {
             ref.read(importerProvider.notifier).selectAvatarZipFile();
           },
-          onClear: migration.avatarZipPath == null
+          onClear: migration.avatarZipName == null
               ? null
               : () {
                   ref.read(importerProvider.notifier).clearAvatarZipFile();
@@ -1290,11 +1291,13 @@ class _DisclosureRow extends StatelessWidget {
 class _AvatarZipPickerCard extends StatelessWidget {
   const _AvatarZipPickerCard({
     required this.avatarZipPath,
+    required this.avatarZipName,
     required this.onTap,
     this.onClear,
   });
 
   final String? avatarZipPath;
+  final String? avatarZipName;
   final VoidCallback onTap;
   final VoidCallback? onClear;
 
@@ -1302,7 +1305,7 @@ class _AvatarZipPickerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final selectedFileName = avatarZipPath == null
-        ? null
+        ? avatarZipName
         : p.basename(avatarZipPath!);
 
     return PrismSurface(

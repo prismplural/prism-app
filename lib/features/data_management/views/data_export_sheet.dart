@@ -6,7 +6,9 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
+import 'package:prism_plurality/features/data_management/services/data_export_service.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -16,7 +18,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
-enum _ExportState { idle, password, exporting, error, readyToShare, complete }
+enum _ExportState { idle, password, exporting, error, readyToSave, complete }
 
 class DataExportSheet extends ConsumerStatefulWidget {
   const DataExportSheet({super.key, this.scrollController});
@@ -30,13 +32,16 @@ class DataExportSheet extends ConsumerStatefulWidget {
 class _DataExportSheetState extends ConsumerState<DataExportSheet> {
   _ExportState _state = _ExportState.idle;
   String? _errorMessage;
-  File? _exportedFile;
+  EncryptedExportFile? _exportedFile;
+  String? _savedDisplayName;
 
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   String? _passwordError;
+  bool _isSaving = false;
+  bool _isSharing = false;
 
   bool get _isDirty =>
       _state == _ExportState.password &&
@@ -45,7 +50,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
 
   @override
   void dispose() {
-    _deleteFile(_exportedFile);
+    _deleteFile(_exportedFile?.file);
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
@@ -82,10 +87,10 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
 
   Future<void> _startExport({required String password}) async {
     setState(() => _state = _ExportState.exporting);
-    final File file;
+    final EncryptedExportFile file;
     try {
       final service = ref.read(dataExportServiceProvider);
-      file = await service.exportEncryptedData(password: password);
+      file = await service.buildEncryptedExportFile(password: password);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -95,39 +100,87 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
       return;
     }
     if (!mounted) {
-      await _deleteFile(file);
+      await _deleteFile(file.file);
       return;
     }
     _passwordController.clear();
     _confirmController.clear();
     setState(() {
-      _state = _ExportState.readyToShare;
+      _state = _ExportState.readyToSave;
       _exportedFile = file;
+      _savedDisplayName = null;
     });
-    await _shareExportedFile();
+    await _saveExportedFile();
+  }
+
+  Future<void> _saveExportedFile() async {
+    final export = _exportedFile;
+    if (export == null || _isSaving) return;
+    setState(() => _isSaving = true);
+    final outcome = await ref
+        .read(prismFileDialogServiceProvider)
+        .saveExistingFile(
+          ExistingFileSaveRequest(
+            sourceFile: export.file,
+            suggestedName: export.fileName,
+            allowedExtensions: const ['prism'],
+            sourceIsDurable: false,
+            dialogTitle: 'Save Prism export',
+            mimeType: 'application/octet-stream',
+          ),
+        );
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+    switch (outcome.status) {
+      case SaveFileStatus.saved:
+        setState(() {
+          _state = _ExportState.complete;
+          _savedDisplayName = outcome.savedDisplayName ?? export.fileName;
+        });
+        await _deleteFile(export.file);
+        if (identical(_exportedFile, export)) {
+          _exportedFile = null;
+        }
+        break;
+      case SaveFileStatus.cancelled:
+      case SaveFileStatus.alreadyActive:
+        break;
+      case SaveFileStatus.failed:
+      case SaveFileStatus.unsupported:
+      case SaveFileStatus.sourceNotReady:
+        setState(() {
+          _state = _ExportState.error;
+          _errorMessage = outcome.error?.toString() ?? outcome.status.name;
+        });
+        break;
+    }
   }
 
   Future<void> _shareExportedFile() async {
-    final file = _exportedFile;
-    if (file == null) return;
+    final export = _exportedFile;
+    if (export == null || _isSharing) return;
+    setState(() => _isSharing = true);
     ShareResultStatus status = ShareResultStatus.dismissed;
     try {
       final result = await SharePlus.instance.share(
         ShareParams(
-          files: [XFile(file.path)],
+          files: [XFile(export.file.path)],
           subject: 'Prism Plurality Export',
         ),
       );
       status = result.status;
     } catch (_) {
-      // Share platform unavailable — fall through with dismissed status so the
-      // sheet stays on readyToShare and the user can try again.
+      status = ShareResultStatus.dismissed;
     }
     if (!mounted) return;
+    setState(() => _isSharing = false);
     if (status == ShareResultStatus.success) {
-      setState(() => _state = _ExportState.complete);
-      await _deleteFile(file);
-      if (identical(_exportedFile, file)) {
+      setState(() {
+        _state = _ExportState.complete;
+        _savedDisplayName = export.fileName;
+      });
+      await _deleteFile(export.file);
+      if (identical(_exportedFile, export)) {
         _exportedFile = null;
       }
     }
@@ -171,7 +224,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
                       _ExportState.password => _buildPassword(theme),
                       _ExportState.exporting => _buildExporting(theme),
                       _ExportState.error => _buildError(theme),
-                      _ExportState.readyToShare => _buildReadyToShare(theme),
+                      _ExportState.readyToSave => _buildReadyToSave(theme),
                       _ExportState.complete => _buildComplete(theme),
                     },
                   ],
@@ -378,7 +431,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
     );
   }
 
-  Widget _buildReadyToShare(ThemeData theme) {
+  Widget _buildReadyToSave(ThemeData theme) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -405,7 +458,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         if (_exportedFile != null) ...[
           const SizedBox(height: 8),
           Text(
-            _exportedFile!.path.split('/').last,
+            _exportedFile!.fileName,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -425,8 +478,19 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
             Expanded(
               child: PrismButton(
                 onPressed: _shareExportedFile,
-                icon: AppIcons.download,
+                enabled: !_isSharing,
+                icon: AppIcons.share,
                 label: context.l10n.dataManagementShareExport,
+                tone: PrismButtonTone.outlined,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: PrismButton(
+                onPressed: _saveExportedFile,
+                enabled: !_isSaving,
+                icon: AppIcons.download,
+                label: context.l10n.save,
                 tone: PrismButtonTone.filled,
               ),
             ),
@@ -449,9 +513,9 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
           ),
         ),
         const SizedBox(height: 8),
-        if (_exportedFile != null)
+        if (_savedDisplayName != null)
           Text(
-            _exportedFile!.path.split('/').last,
+            _savedDisplayName!,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

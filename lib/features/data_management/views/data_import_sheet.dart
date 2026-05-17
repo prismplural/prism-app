@@ -1,6 +1,3 @@
-import 'dart:io';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -8,6 +5,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
@@ -62,16 +60,12 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
 
   Future<void> _pickFile() async {
     try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['json', 'prism'],
-      );
-      if (result == null || result.files.isEmpty) return;
+      final handle = await ref
+          .read(prismFileDialogServiceProvider)
+          .pickFile(allowedExtensions: const ['json', 'prism']);
+      if (handle == null) return;
 
-      final path = result.files.single.path;
-      if (path == null) return;
-
-      final bytes = await File(path).readAsBytes();
+      final bytes = await handle.readAsBytes();
 
       if (ExportCrypto.isEncrypted(bytes)) {
         // Encrypted file — need password before we can preview

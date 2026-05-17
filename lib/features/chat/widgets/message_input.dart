@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart' as media;
 import 'package:prism_plurality/domain/models/models.dart';
@@ -310,12 +311,24 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: source, imageQuality: 90);
-    if (picked != null) {
-      final bytes = await picked.readAsBytes();
-      _stageImageBytes(bytes);
+    final bytes = await _pickImageBytes(source);
+    if (bytes != null) _stageImageBytes(bytes);
+  }
+
+  Future<Uint8List?> _pickImageBytes(ImageSource source) async {
+    if (_isDesktopPlatform(defaultTargetPlatform) &&
+        source == ImageSource.gallery) {
+      final picked = await ref
+          .read(prismFileDialogServiceProvider)
+          .pickImageFile();
+      return picked?.readAsBytes();
     }
+
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      imageQuality: 90,
+    );
+    return picked?.readAsBytes();
   }
 
   bool _stageImageBytes(Uint8List bytes) {
@@ -789,6 +802,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                 else
                   AttachmentMenuButton(
                     gifEnabled: ref.watch(gifAttachmentEnabledProvider),
+                    showCamera: !_isDesktopPlatform(defaultTargetPlatform),
                     size: inputHeight,
                     onCamera: () => _pickImage(ImageSource.camera),
                     onPhotoLibrary: () => _pickImage(ImageSource.gallery),
@@ -909,6 +923,7 @@ class AttachmentMenuButton extends StatelessWidget {
   const AttachmentMenuButton({
     super.key,
     required this.gifEnabled,
+    required this.showCamera,
     required this.size,
     required this.onCamera,
     required this.onPhotoLibrary,
@@ -916,6 +931,7 @@ class AttachmentMenuButton extends StatelessWidget {
   });
 
   final bool gifEnabled;
+  final bool showCamera;
   final double size;
   final VoidCallback onCamera;
   final VoidCallback onPhotoLibrary;
@@ -925,11 +941,12 @@ class AttachmentMenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final items = <_AttachmentMenuItem>[
-      _AttachmentMenuItem(
-        icon: AppIcons.cameraAlt,
-        label: context.l10n.chatCamera,
-        onSelected: onCamera,
-      ),
+      if (showCamera)
+        _AttachmentMenuItem(
+          icon: AppIcons.cameraAlt,
+          label: context.l10n.chatCamera,
+          onSelected: onCamera,
+        ),
       _AttachmentMenuItem(
         icon: AppIcons.photoLibrary,
         label: context.l10n.chatPhotoLibrary,
@@ -976,6 +993,17 @@ class AttachmentMenuButton extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _isDesktopPlatform(TargetPlatform platform) {
+  return switch (platform) {
+    TargetPlatform.linux ||
+    TargetPlatform.macOS ||
+    TargetPlatform.windows => true,
+    TargetPlatform.android ||
+    TargetPlatform.fuchsia ||
+    TargetPlatform.iOS => false,
+  };
 }
 
 class _AttachmentMenuItem {

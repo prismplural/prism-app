@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -55,23 +56,24 @@ void main() {
           pickCalls.add(_PickCall(source));
           return null;
         },
-        cropImage: (
-          sourceBytes,
-          context, {
-          required title,
-          required doneButtonTitle,
-          required cancelButtonTitle,
-        }) async {
-          cropCalls.add(
-            _CropCall(
-              sourceBytes: sourceBytes,
-              title: title,
-              doneButtonTitle: doneButtonTitle,
-              cancelButtonTitle: cancelButtonTitle,
-            ),
-          );
-          return null;
-        },
+        cropImage:
+            (
+              sourceBytes,
+              context, {
+              required title,
+              required doneButtonTitle,
+              required cancelButtonTitle,
+            }) async {
+              cropCalls.add(
+                _CropCall(
+                  sourceBytes: sourceBytes,
+                  title: title,
+                  doneButtonTitle: doneButtonTitle,
+                  cancelButtonTitle: cancelButtonTitle,
+                ),
+              );
+              return null;
+            },
         platform: TargetPlatform.android,
       );
 
@@ -94,23 +96,24 @@ void main() {
         final result = await _pick(
           tester,
           pickImage: (_) async => pickedImage,
-          cropImage: (
-            sourceBytes,
-            context, {
-            required title,
-            required doneButtonTitle,
-            required cancelButtonTitle,
-          }) async {
-            cropCalls.add(
-              _CropCall(
-                sourceBytes: sourceBytes,
-                title: title,
-                doneButtonTitle: doneButtonTitle,
-                cancelButtonTitle: cancelButtonTitle,
-              ),
-            );
-            return croppedBytes;
-          },
+          cropImage:
+              (
+                sourceBytes,
+                context, {
+                required title,
+                required doneButtonTitle,
+                required cancelButtonTitle,
+              }) async {
+                cropCalls.add(
+                  _CropCall(
+                    sourceBytes: sourceBytes,
+                    title: title,
+                    doneButtonTitle: doneButtonTitle,
+                    cancelButtonTitle: cancelButtonTitle,
+                  ),
+                );
+                return croppedBytes;
+              },
           platform: platform,
         );
 
@@ -134,23 +137,24 @@ void main() {
           path: '/tmp/avatar-source.png',
           bytes: Uint8List.fromList([1, 2, 3]),
         ),
-        cropImage: (
-          sourceBytes,
-          context, {
-          required title,
-          required doneButtonTitle,
-          required cancelButtonTitle,
-        }) async {
-          cropCalls.add(
-            _CropCall(
-              sourceBytes: sourceBytes,
-              title: title,
-              doneButtonTitle: doneButtonTitle,
-              cancelButtonTitle: cancelButtonTitle,
-            ),
-          );
-          return Uint8List.fromList([9, 8, 7]);
-        },
+        cropImage:
+            (
+              sourceBytes,
+              context, {
+              required title,
+              required doneButtonTitle,
+              required cancelButtonTitle,
+            }) async {
+              cropCalls.add(
+                _CropCall(
+                  sourceBytes: sourceBytes,
+                  title: title,
+                  doneButtonTitle: doneButtonTitle,
+                  cancelButtonTitle: cancelButtonTitle,
+                ),
+              );
+              return Uint8List.fromList([9, 8, 7]);
+            },
         platform: TargetPlatform.iOS,
         locale: const Locale('es'),
       );
@@ -160,9 +164,7 @@ void main() {
       expect(cropCalls.single.cancelButtonTitle, 'Cancelar');
     });
 
-    testWidgets('returns null when cropper is cancelled', (
-      tester,
-    ) async {
+    testWidgets('returns null when cropper is cancelled', (tester) async {
       final pickedImage = _FakePickedImage(
         path: '/tmp/avatar-source.png',
         bytes: Uint8List.fromList([1, 2, 3]),
@@ -172,16 +174,17 @@ void main() {
       final result = await _pick(
         tester,
         pickImage: (_) async => pickedImage,
-        cropImage: (
-          sourceBytes,
-          context, {
-          required title,
-          required doneButtonTitle,
-          required cancelButtonTitle,
-        }) async {
-          cropCalls += 1;
-          return null;
-        },
+        cropImage:
+            (
+              sourceBytes,
+              context, {
+              required title,
+              required doneButtonTitle,
+              required cancelButtonTitle,
+            }) async {
+              cropCalls += 1;
+              return null;
+            },
         platform: TargetPlatform.android,
       );
 
@@ -203,22 +206,58 @@ void main() {
       final result = await _pick(
         tester,
         pickImage: (_) async => pickedImage,
-        cropImage: (
-          sourceBytes,
-          context, {
-          required title,
-          required doneButtonTitle,
-          required cancelButtonTitle,
-        }) async {
-          cropCalls += 1;
-          return Uint8List.fromList([9, 8, 7]);
-        },
+        cropImage:
+            (
+              sourceBytes,
+              context, {
+              required title,
+              required doneButtonTitle,
+              required cancelButtonTitle,
+            }) async {
+              cropCalls += 1;
+              return Uint8List.fromList([9, 8, 7]);
+            },
         platform: TargetPlatform.macOS,
       );
 
       expect(result, pickedBytes);
       expect(cropCalls, 0);
       expect(pickedImage.readCount, 1);
+    });
+
+    testWidgets('uses file dialog service for desktop gallery picks', (
+      tester,
+    ) async {
+      final pickedBytes = Uint8List.fromList([7, 8, 9]);
+      final fileDialogService = _FakeFileDialogService(
+        pickedImage: PickedFileHandle(
+          name: 'avatar.png',
+          path: '/tmp/avatar.png',
+          size: pickedBytes.length,
+          readAsBytes: () async => pickedBytes,
+          openRead: () => Stream<List<int>>.value(pickedBytes),
+        ),
+      );
+
+      final result = await _pick(
+        tester,
+        pickImage: null,
+        cropImage:
+            (
+              sourceBytes,
+              context, {
+              required title,
+              required doneButtonTitle,
+              required cancelButtonTitle,
+            }) async {
+              fail('desktop gallery picks should skip the cropper');
+            },
+        fileDialogService: fileDialogService,
+        platform: TargetPlatform.macOS,
+      );
+
+      expect(result, pickedBytes);
+      expect(fileDialogService.pickImageFileCalls, 1);
     });
 
     testWidgets(
@@ -233,16 +272,17 @@ void main() {
         final result = await _pick(
           tester,
           pickImage: (_) async => pickedImage,
-          cropImage: (
-            sourceBytes,
-            context, {
-            required title,
-            required doneButtonTitle,
-            required cancelButtonTitle,
-          }) async {
-            cropCalls += 1;
-            return Uint8List.fromList([9, 8, 7]);
-          },
+          cropImage:
+              (
+                sourceBytes,
+                context, {
+                required title,
+                required doneButtonTitle,
+                required cancelButtonTitle,
+              }) async {
+                cropCalls += 1;
+                return Uint8List.fromList([9, 8, 7]);
+              },
           platform: TargetPlatform.iOS,
         );
 
@@ -253,37 +293,37 @@ void main() {
       },
     );
 
-    testWidgets(
-      'returns null and skips cropper when normalizer yields null',
-      (tester) async {
-        final pickedImage = _FakePickedImage(
-          path: '/tmp/avatar-source.jpg',
-          bytes: Uint8List.fromList([1, 2, 3]),
-        );
-        var cropCalls = 0;
+    testWidgets('returns null and skips cropper when normalizer yields null', (
+      tester,
+    ) async {
+      final pickedImage = _FakePickedImage(
+        path: '/tmp/avatar-source.jpg',
+        bytes: Uint8List.fromList([1, 2, 3]),
+      );
+      var cropCalls = 0;
 
-        final result = await _pick(
-          tester,
-          pickImage: (_) async => pickedImage,
-          cropImage: (
-            sourceBytes,
-            context, {
-            required title,
-            required doneButtonTitle,
-            required cancelButtonTitle,
-          }) async {
-            cropCalls += 1;
-            return Uint8List.fromList([9, 8, 7]);
-          },
-          normalizeBytes: (bytes, {platform}) async => null,
-          platform: TargetPlatform.iOS,
-        );
+      final result = await _pick(
+        tester,
+        pickImage: (_) async => pickedImage,
+        cropImage:
+            (
+              sourceBytes,
+              context, {
+              required title,
+              required doneButtonTitle,
+              required cancelButtonTitle,
+            }) async {
+              cropCalls += 1;
+              return Uint8List.fromList([9, 8, 7]);
+            },
+        normalizeBytes: (bytes, {platform}) async => null,
+        platform: TargetPlatform.iOS,
+      );
 
-        expect(result, isNull);
-        expect(cropCalls, 0);
-        PrismToast.dismiss();
-      },
-    );
+      expect(result, isNull);
+      expect(cropCalls, 0);
+      PrismToast.dismiss();
+    });
 
     testWidgets('returns null if context unmounts after image picking', (
       tester,
@@ -310,16 +350,17 @@ void main() {
       final resultFuture = AvatarImagePicker.pickCroppedAvatarBytes(
         context,
         pickImage: (_) => pickCompleter.future,
-        cropImage: (
-          sourceBytes,
-          context, {
-          required title,
-          required doneButtonTitle,
-          required cancelButtonTitle,
-        }) async {
-          cropCalls += 1;
-          return Uint8List.fromList([9, 8, 7]);
-        },
+        cropImage:
+            (
+              sourceBytes,
+              context, {
+              required title,
+              required doneButtonTitle,
+              required cancelButtonTitle,
+            }) async {
+              cropCalls += 1;
+              return Uint8List.fromList([9, 8, 7]);
+            },
         platform: TargetPlatform.android,
       );
 
@@ -335,10 +376,11 @@ void main() {
 
 Future<Uint8List?> _pick(
   WidgetTester tester, {
-  required AvatarPickImageFn pickImage,
+  required AvatarPickImageFn? pickImage,
   required AvatarCropImageFn cropImage,
   required TargetPlatform platform,
   AvatarNormalizeBytesFn? normalizeBytes,
+  PrismFileDialogService? fileDialogService,
   Locale locale = const Locale('en'),
 }) async {
   late BuildContext context;
@@ -361,6 +403,7 @@ Future<Uint8List?> _pick(
     pickImage: pickImage,
     cropImage: cropImage,
     normalizeBytes: normalizeBytes ?? _passthroughNormalize,
+    fileDialogService: fileDialogService,
     platform: platform,
   );
 }
@@ -369,3 +412,36 @@ Future<Uint8List?> _passthroughNormalize(
   Uint8List sourceBytes, {
   TargetPlatform? platform,
 }) async => sourceBytes;
+
+class _FakeFileDialogService implements PrismFileDialogService {
+  _FakeFileDialogService({this.pickedImage});
+
+  final PickedFileHandle? pickedImage;
+  int pickImageFileCalls = 0;
+
+  @override
+  Future<PickedFileHandle?> pickImageFile({String? dialogTitle}) async {
+    pickImageFileCalls += 1;
+    return pickedImage;
+  }
+
+  @override
+  Future<PickedFileHandle?> pickFile({
+    required List<String> allowedExtensions,
+    String? dialogTitle,
+  }) async => pickedImage;
+
+  @override
+  Future<SaveFileOutcome> saveBytes({
+    required Uint8List bytes,
+    required String suggestedName,
+    required List<String> allowedExtensions,
+    String? dialogTitle,
+    String? mimeType,
+  }) async => const SaveFileOutcome(status: SaveFileStatus.saved);
+
+  @override
+  Future<SaveFileOutcome> saveExistingFile(
+    ExistingFileSaveRequest request,
+  ) async => const SaveFileOutcome(status: SaveFileStatus.saved);
+}

@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/features/migration/services/sp_api_client.dart';
 import 'package:prism_plurality/features/migration/services/sp_custom_front_analysis.dart';
 import 'package:prism_plurality/features/migration/services/sp_custom_front_disposition.dart';
@@ -18,6 +19,8 @@ import 'package:prism_plurality/features/migration/providers/sp_member_mapping_p
 /// Key used to track whether a previous SP import has been completed.
 const _spImportCompletedKey = 'sp_import_completed';
 const _unsetAvatarZipPath = Object();
+const _unsetAvatarZipName = Object();
+const _unsetAvatarZipBytes = Object();
 
 /// Current import state exposed to the UI.
 class MigrationState {
@@ -27,6 +30,8 @@ class MigrationState {
   final ImportResult? result;
   final String? error;
   final String? avatarZipPath;
+  final String? avatarZipName;
+  final Uint8List? avatarZipBytes;
   final int current;
   final int total;
   final String progressLabel;
@@ -43,6 +48,8 @@ class MigrationState {
     this.result,
     this.error,
     this.avatarZipPath,
+    this.avatarZipName,
+    this.avatarZipBytes,
     this.current = 0,
     this.total = 0,
     this.progressLabel = '',
@@ -59,6 +66,8 @@ class MigrationState {
     ImportResult? result,
     String? error,
     Object? avatarZipPath = _unsetAvatarZipPath,
+    Object? avatarZipName = _unsetAvatarZipName,
+    Object? avatarZipBytes = _unsetAvatarZipBytes,
     int? current,
     int? total,
     String? progressLabel,
@@ -74,6 +83,12 @@ class MigrationState {
       avatarZipPath: identical(avatarZipPath, _unsetAvatarZipPath)
           ? this.avatarZipPath
           : avatarZipPath as String?,
+      avatarZipName: identical(avatarZipName, _unsetAvatarZipName)
+          ? this.avatarZipName
+          : avatarZipName as String?,
+      avatarZipBytes: identical(avatarZipBytes, _unsetAvatarZipBytes)
+          ? this.avatarZipBytes
+          : avatarZipBytes as Uint8List?,
       current: current ?? this.current,
       total: total ?? this.total,
       progressLabel: progressLabel ?? this.progressLabel,
@@ -98,24 +113,19 @@ class ImporterNotifier extends Notifier<MigrationState> {
   /// Let the user pick a file, then parse it.
   Future<void> selectAndParseFile() async {
     try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        withData: false,
-        withReadStream: false,
-      );
-
-      if (result == null || result.files.isEmpty) return;
-
-      final filePath = result.files.single.path;
-      if (filePath == null) return;
+      final handle = await ref
+          .read(prismFileDialogServiceProvider)
+          .pickFile(allowedExtensions: const ['json']);
+      if (handle == null) return;
 
       state = state.copyWith(
         step: ImportState.parsing,
         source: ImportSource.file,
       );
 
-      final exportData = _importer.parseFile(filePath);
+      final exportData = _importer.parseString(
+        utf8.decode(await handle.readAsBytes()),
+      );
 
       if (exportData.isEmpty) {
         state = state.copyWith(
@@ -155,23 +165,25 @@ class ImporterNotifier extends Notifier<MigrationState> {
 
   /// Let the user pick the optional Simply Plural avatar ZIP export.
   Future<void> selectAvatarZipFile() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['zip'],
-      withData: false,
-      withReadStream: false,
+    final handle = await ref
+        .read(prismFileDialogServiceProvider)
+        .pickFile(allowedExtensions: const ['zip']);
+
+    if (handle == null) return;
+
+    state = state.copyWith(
+      avatarZipPath: handle.path,
+      avatarZipName: handle.name,
+      avatarZipBytes: handle.path == null ? await handle.readAsBytes() : null,
     );
-
-    if (result == null || result.files.isEmpty) return;
-
-    final filePath = result.files.single.path;
-    if (filePath == null) return;
-
-    state = state.copyWith(avatarZipPath: filePath);
   }
 
   void clearAvatarZipFile() {
-    state = state.copyWith(avatarZipPath: null);
+    state = state.copyWith(
+      avatarZipPath: null,
+      avatarZipName: null,
+      avatarZipBytes: null,
+    );
   }
 
   void skipEncryptedChatsAndPreview() {
@@ -423,6 +435,7 @@ class ImporterNotifier extends Notifier<MigrationState> {
         spImportDao: ref.read(databaseProvider).spImportDao,
         downloadAvatars: downloadAvatars,
         avatarZipPath: state.avatarZipPath,
+        avatarZipBytes: state.avatarZipBytes,
         clearExistingData: resetFirst,
         customFrontDispositions: ref.read(cfDispositionProvider),
         memberMappingDecisions: resetFirst

@@ -1,9 +1,9 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/features/migration/services/sp_avatar_zip_importer.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -31,16 +31,10 @@ class _SpAvatarZipImportSheetState
   String? _error;
 
   Future<void> _pickAndImport() async {
-    final picked = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['zip'],
-      withData: false,
-      withReadStream: false,
-    );
-    if (picked == null || picked.files.isEmpty) return;
-
-    final path = picked.files.single.path;
-    if (path == null) return;
+    final handle = await ref
+        .read(prismFileDialogServiceProvider)
+        .pickFile(allowedExtensions: const ['zip']);
+    if (handle == null) return;
 
     setState(() {
       _state = _AvatarZipSheetState.importing;
@@ -48,12 +42,20 @@ class _SpAvatarZipImportSheetState
     });
 
     try {
-      final result = await SpAvatarZipImporter().importZipFile(
-        filePath: path,
-        memberRepo: ref.read(memberRepositoryProvider),
-        settingsRepo: ref.read(systemSettingsRepositoryProvider),
-        spImportDao: ref.read(databaseProvider).spImportDao,
-      );
+      final importer = SpAvatarZipImporter();
+      final result = handle.path == null
+          ? await importer.importZipFileBytes(
+              bytes: await handle.readAsBytes(),
+              memberRepo: ref.read(memberRepositoryProvider),
+              settingsRepo: ref.read(systemSettingsRepositoryProvider),
+              spImportDao: ref.read(databaseProvider).spImportDao,
+            )
+          : await importer.importZipFile(
+              filePath: handle.path!,
+              memberRepo: ref.read(memberRepositoryProvider),
+              settingsRepo: ref.read(systemSettingsRepositoryProvider),
+              spImportDao: ref.read(databaseProvider).spImportDao,
+            );
       if (!mounted) return;
       setState(() {
         _state = _AvatarZipSheetState.complete;

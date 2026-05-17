@@ -63,7 +63,46 @@ class SpAvatarZipImporter {
       throw FileSystemException('Avatar ZIP not found', filePath);
     }
 
-    final archive = _decodeZip(await file.readAsBytes());
+    return _importArchiveFiles(
+      archiveFiles: _decodeZip(await file.readAsBytes()).files,
+      memberRepo: memberRepo,
+      settingsRepo: settingsRepo,
+      spImportDao: spImportDao,
+      exportData: exportData,
+      skipMemberIds: skipMemberIds,
+      stopwatch: stopwatch,
+    );
+  }
+
+  Future<SpAvatarZipImportResult> importZipFileBytes({
+    required List<int> bytes,
+    required MemberRepository memberRepo,
+    SystemSettingsRepository? settingsRepo,
+    SpImportDao? spImportDao,
+    SpExportData? exportData,
+    Set<String> skipMemberIds = const {},
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    return _importArchiveFiles(
+      archiveFiles: _decodeZip(bytes).files,
+      memberRepo: memberRepo,
+      settingsRepo: settingsRepo,
+      spImportDao: spImportDao,
+      exportData: exportData,
+      skipMemberIds: skipMemberIds,
+      stopwatch: stopwatch,
+    );
+  }
+
+  Future<SpAvatarZipImportResult> _importArchiveFiles({
+    required List<ArchiveFile> archiveFiles,
+    required MemberRepository memberRepo,
+    SystemSettingsRepository? settingsRepo,
+    SpImportDao? spImportDao,
+    SpExportData? exportData,
+    Set<String> skipMemberIds = const {},
+    required Stopwatch stopwatch,
+  }) async {
     final memberMappings = await _loadMemberMappings(spImportDao);
     final systemId = exportData?.systemId?.trim();
     final warnings = <String>[];
@@ -74,7 +113,7 @@ class SpAvatarZipImporter {
     var systemAvatarUpdated = false;
     var unmatchedImages = 0;
 
-    for (final entry in archive.files) {
+    for (final entry in archiveFiles) {
       entriesScanned++;
       if (!entry.isFile) continue;
 

@@ -1541,7 +1541,7 @@
   "dataManagementExportButton": "Exportar datos",
   "dataManagementExportComplete": "Exportación completa",
   "dataManagementExportReadyTitle": "Exportación lista",
-  "dataManagementExportReadyDescription": "Toca Compartir para guardar tu exportación. El archivo solo se mantiene en almacenamiento temporal hasta que lo guardes en otro lugar.",
+  "dataManagementExportReadyDescription": "Toca Guardar para elegir dónde conservar tu exportación. El archivo solo se mantiene en almacenamiento temporal hasta que lo guardes en otro lugar.",
   "dataManagementShareExport": "Compartir",
   "dataManagementExportDescription": "Crea una copia de seguridad protegida por contraseña de todos tus datos, incluyendo {termPluralLower}, sesiones al frente, mensajes, encuestas y ajustes.",
   "dataManagementExportFailed": "Fallo en la exportación",
@@ -2673,7 +2673,7 @@
   "@frontingUpgradeFailureHeadline": {
     "description": "Failure screen headline"
   },
-  "frontingUpgradeFailureBackupNote": "Tu archivo de copia de seguridad se guardó. Puedes encontrarlo en el historial de tu menú de compartir si necesitas recuperar los datos.",
+  "frontingUpgradeFailureBackupNote": "Tu archivo de copia de seguridad se guardó o se compartió. Usa la ubicación que elegiste si necesitas recuperar los datos.",
   "@frontingUpgradeFailureBackupNote": {
     "description": "Reassurance shown on the failure screen when a backup exists"
   },
