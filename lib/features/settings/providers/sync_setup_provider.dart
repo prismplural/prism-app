@@ -242,17 +242,8 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     // the snapshot we cannot safely proceed (there is no way to roll
     // back partial writes), but the sheet must come out of "processing"
     // so the user can retry.
-    final Map<String, String> snapshot;
-    try {
-      snapshot = await _snapshotPrismSyncKeychain();
-    } catch (e) {
-      state = state.copyWith(
-        isProcessing: false,
-        currentProgress: null,
-        error: 'Could not read secure storage. Please retry.',
-      );
-      return false;
-    }
+    final snapshot = await _snapshotPrismSyncKeychainWithSetupGuard();
+    if (snapshot == null) return false;
 
     state = state.copyWith(
       isProcessing: true,
@@ -427,6 +418,22 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   Future<Map<String, String>> snapshotPrismSyncKeychainForTest() =>
       _snapshotPrismSyncKeychain();
 
+  /// Test seam for `_complete`'s guarded snapshot step. The full `_complete`
+  /// path is gated behind FFI, but the snapshot guard is load-bearing: if
+  /// keychain enumeration fails while setup is processing, the UI must stop
+  /// spinning and show a retryable error.
+  @visibleForTesting
+  Future<Map<String, String>?> snapshotPrismSyncKeychainWithSetupGuardForTest({
+    SyncSetupProgress? initialProgress,
+  }) {
+    state = state.copyWith(
+      isProcessing: true,
+      currentProgress: initialProgress,
+      error: null,
+    );
+    return _snapshotPrismSyncKeychainWithSetupGuard();
+  }
+
   /// Test-only entry point for the rollback path. The production code only
   /// reaches `_restoreKeychainSnapshot` from inside `_complete`'s catch
   /// block, which is hard to drive from pure-Dart tests because it sits
@@ -480,6 +487,19 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     return Map.fromEntries(
       all.entries.where((e) => !kProtectedFromReset.contains(e.key)),
     );
+  }
+
+  Future<Map<String, String>?> _snapshotPrismSyncKeychainWithSetupGuard() async {
+    try {
+      return await _snapshotPrismSyncKeychain();
+    } catch (_) {
+      state = state.copyWith(
+        isProcessing: false,
+        currentProgress: null,
+        error: 'Could not read secure storage. Please retry.',
+      );
+      return null;
+    }
   }
 
   /// Roll back the `prism_sync.*` namespace to a previously captured

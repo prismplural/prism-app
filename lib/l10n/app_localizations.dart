@@ -6251,6 +6251,12 @@ abstract class AppLocalizations {
   /// **'Pick a member from the speaker chip to see your chats.'**
   String get chatPickSpeakerBanner;
 
+  /// Banner shown in a group conversation when an admin can view and moderate but is not a participant
+  ///
+  /// In en, this message translates to:
+  /// **'Viewing as admin. Posting is disabled.'**
+  String get chatAdminReadOnlyBanner;
+
   /// Label for conversations without a category
   ///
   /// In en, this message translates to:

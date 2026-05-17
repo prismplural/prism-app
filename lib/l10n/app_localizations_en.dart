@@ -3624,6 +3624,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Pick a member from the speaker chip to see your chats.';
 
   @override
+  String get chatAdminReadOnlyBanner =>
+      'Viewing as admin. Posting is disabled.';
+
+  @override
   String get chatUncategorized => 'Uncategorized';
 
   @override

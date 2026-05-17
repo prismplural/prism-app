@@ -4930,6 +4930,10 @@
   "@chatPickSpeakerBanner": {
     "description": "Gentle banner shown in the chat list when nobody is fronting and no speaking-as member is picked"
   },
+  "chatAdminReadOnlyBanner": "Viewing as admin. Posting is disabled.",
+  "@chatAdminReadOnlyBanner": {
+    "description": "Banner shown in a group conversation when an admin can view and moderate but is not a participant"
+  },
   "chatUncategorized": "Uncategorized",
   "@chatUncategorized": {
     "description": "Label for conversations without a category"

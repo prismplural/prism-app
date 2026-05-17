@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/chat_message.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
@@ -205,9 +206,49 @@ void main() {
         expect(repo.conversations.single.creatorId, 'alice');
         expect(messages.messages, isEmpty);
         expect(container.read(chatNotifierProvider).hasError, isTrue);
+        expect(container.read(chatNotifierProvider).error, isA<StateError>());
+      },
+    );
+
+    test(
+      'blocks transfer to Unknown sentinel on an everyone-group conversation',
+      () async {
+        final everyoneGroup = Conversation(
+          id: 'conv-1',
+          createdAt: now,
+          lastActivityAt: now,
+          title: 'Everyone',
+          creatorId: 'alice',
+          participantIds: const [],
+          includesAllMembers: true,
+        );
+        final repo = FakeConversationRepository()
+          ..conversations.add(everyoneGroup);
+        final messages = _FakeChatMessageRepository();
+        final unknown = Member(
+          id: unknownSentinelMemberId,
+          name: 'Unknown',
+          createdAt: now,
+        );
+        final container = buildContainer(
+          conversation: everyoneGroup,
+          conversationRepo: repo,
+          messageRepo: messages,
+          members: [member('alice'), member('bob', isAdmin: true), unknown],
+          fronts: [front('bob')],
+        );
+        addTearDown(container.dispose);
+
+        await container
+            .read(chatNotifierProvider.notifier)
+            .transferCreator('conv-1', unknownSentinelMemberId);
+
+        expect(repo.conversations.single.creatorId, 'alice');
+        expect(messages.messages, isEmpty);
+        expect(container.read(chatNotifierProvider).hasError, isTrue);
         expect(
-          container.read(chatNotifierProvider).error,
-          isA<StateError>(),
+          container.read(chatNotifierProvider).error.toString(),
+          contains('real member'),
         );
       },
     );
@@ -292,6 +333,28 @@ void main() {
     );
 
     test(
+      'setIncludesAllMembers records permission failures in notifier state',
+      () async {
+        final repo = FakeConversationRepository()
+          ..conversations.add(groupConversation());
+        final container = buildContainer(
+          conversation: groupConversation(),
+          members: [member('alice'), member('bob'), member('carol')],
+          fronts: [front('carol')],
+          conversationRepo: repo,
+        );
+        addTearDown(container.dispose);
+
+        await container
+            .read(chatNotifierProvider.notifier)
+            .setIncludesAllMembers('conv-1', true);
+
+        expect(repo.conversations.single.includesAllMembers, isFalse);
+        expect(container.read(chatNotifierProvider).hasError, isTrue);
+      },
+    );
+
+    test(
       'removeParticipant throws when the actor cannot moderate the group',
       () async {
         // carol is a regular non-admin participant — canRemoveMembers is
@@ -328,9 +391,10 @@ void main() {
         );
         addTearDown(container.dispose);
 
-        await container
-            .read(chatNotifierProvider.notifier)
-            .addParticipants('conv-1', ['dave']);
+        await container.read(chatNotifierProvider.notifier).addParticipants(
+          'conv-1',
+          ['dave'],
+        );
 
         expect(repo.conversations.single.participantIds, hasLength(3));
         expect(container.read(chatNotifierProvider).hasError, isTrue);

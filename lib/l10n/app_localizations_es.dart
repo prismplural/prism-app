@@ -3689,6 +3689,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Elige un miembro en el selector para ver tus chats.';
 
   @override
+  String get chatAdminReadOnlyBanner =>
+      'Viendo como admin. No se puede publicar.';
+
+  @override
   String get chatUncategorized => 'Sin categoría';
 
   @override

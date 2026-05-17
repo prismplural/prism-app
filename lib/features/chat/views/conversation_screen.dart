@@ -18,6 +18,7 @@ import 'package:prism_plurality/features/chat/widgets/prism_message_group.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_app_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -350,6 +351,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 ),
 
                 // Message input
+                if (permissions.isAdminNonParticipantGroup)
+                  const _AdminReadOnlyBanner(),
                 MessageInput(conversationId: widget.conversationId),
               ],
             ),
@@ -369,6 +372,47 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           showBackButton: true,
         ),
         body: Center(child: Text(context.l10n.chatSearchError(error))),
+      ),
+    );
+  }
+}
+
+class _AdminReadOnlyBanner extends StatelessWidget {
+  const _AdminReadOnlyBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.52,
+          ),
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(10),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              AppIcons.infoOutline,
+              size: 16,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                context.l10n.chatAdminReadOnlyBanner,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

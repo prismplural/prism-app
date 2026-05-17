@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/chat_message.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
@@ -208,6 +209,179 @@ void main() {
       expect(messages.messages.single.content, contains('Carol'));
     },
   );
+
+  testWidgets(
+    'everyone-group owner transfer does not count Unknown as a candidate',
+    (tester) async {
+      final now = DateTime(2026, 5, 15);
+      final unknown = Member(
+        id: unknownSentinelMemberId,
+        name: 'Unknown',
+        createdAt: now,
+      );
+      final conversationRepo = FakeConversationRepository()
+        ..conversations.add(
+          Conversation(
+            id: 'everyone-1',
+            createdAt: now,
+            lastActivityAt: now,
+            title: 'Everyone',
+            creatorId: 'alice',
+            participantIds: const ['alice'],
+            includesAllMembers: true,
+          ),
+        );
+      final memberRepo = FakeMemberRepository()
+        ..seed([Member(id: 'alice', name: 'Alice', createdAt: now), unknown]);
+      final activeMembers = await memberRepo.getAllMembers();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            conversationRepositoryProvider.overrideWithValue(conversationRepo),
+            chatMessageRepositoryProvider.overrideWithValue(
+              _FakeChatMessageRepository(),
+            ),
+            memberRepositoryProvider.overrideWithValue(memberRepo),
+            speakingAsProvider.overrideWith(_FixedSpeakingAsNotifier.new),
+            activeMembersProvider.overrideWithValue(
+              AsyncValue.data(activeMembers),
+            ),
+            activeSessionsProvider.overrideWithValue(
+              AsyncValue.data([
+                FrontingSession(
+                  id: 'front-alice',
+                  startTime: now,
+                  memberId: 'alice',
+                ),
+              ]),
+            ),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
+            ),
+            conversationCategoriesProvider.overrideWith(
+              (ref) => Stream.value(const <ConversationCategory>[]),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Scaffold(
+              body: ConversationInfoSheet(
+                conversationId: 'everyone-1',
+                scrollController: ScrollController(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('conversation-owner-row')),
+        findsNothing,
+        reason: 'Unknown must not make the owner-transfer affordance appear.',
+      );
+    },
+  );
+
+  testWidgets('everyone-group owner transfer picker hides Unknown', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 5, 15);
+    final unknown = Member(
+      id: unknownSentinelMemberId,
+      name: 'Unknown',
+      createdAt: now,
+    );
+    final conversationRepo = FakeConversationRepository()
+      ..conversations.add(
+        Conversation(
+          id: 'everyone-1',
+          createdAt: now,
+          lastActivityAt: now,
+          title: 'Everyone',
+          creatorId: 'alice',
+          participantIds: const ['alice'],
+          includesAllMembers: true,
+        ),
+      );
+    final memberRepo = FakeMemberRepository()
+      ..seed([
+        Member(id: 'alice', name: 'Alice', createdAt: now),
+        Member(id: 'bob', name: 'Bob', createdAt: now),
+        unknown,
+      ]);
+    final activeMembers = await memberRepo.getAllMembers();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          conversationRepositoryProvider.overrideWithValue(conversationRepo),
+          chatMessageRepositoryProvider.overrideWithValue(
+            _FakeChatMessageRepository(),
+          ),
+          memberRepositoryProvider.overrideWithValue(memberRepo),
+          speakingAsProvider.overrideWith(_FixedSpeakingAsNotifier.new),
+          activeMembersProvider.overrideWithValue(
+            AsyncValue.data(activeMembers),
+          ),
+          activeSessionsProvider.overrideWithValue(
+            AsyncValue.data([
+              FrontingSession(
+                id: 'front-alice',
+                startTime: now,
+                memberId: 'alice',
+              ),
+            ]),
+          ),
+          allGroupsProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroup>[]),
+          ),
+          allGroupEntriesProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroupEntry>[]),
+          ),
+          conversationCategoriesProvider.overrideWith(
+            (ref) => Stream.value(const <ConversationCategory>[]),
+          ),
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(
+            body: ConversationInfoSheet(
+              conversationId: 'everyone-1',
+              scrollController: ScrollController(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('conversation-owner-row')));
+    await tester.pumpAndSettle();
+
+    final picker = find.byType(MemberSearchSheet);
+    expect(picker, findsOneWidget);
+    expect(
+      find.descendant(of: picker, matching: find.text('Bob')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: picker, matching: find.text('Unknown')),
+      findsNothing,
+    );
+  });
 }
 
 class _FakeChatMessageRepository implements ChatMessageRepository {

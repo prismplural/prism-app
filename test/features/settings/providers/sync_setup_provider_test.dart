@@ -402,6 +402,31 @@ void main() {
         );
       },
     );
+
+    test(
+      'guarded snapshot failure resets setup state and records retryable error',
+      () async {
+        keychain.throwOnReadAll = true;
+        addTearDown(() => keychain.throwOnReadAll = false);
+
+        final notifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(handleNotifier: notifier);
+        final setup = container.read(syncSetupProvider.notifier);
+
+        final snapshot = await setup
+            .snapshotPrismSyncKeychainWithSetupGuardForTest(
+              initialProgress: SyncSetupProgress.cachingKeys,
+            );
+
+        expect(snapshot, isNull);
+        final state = container.read(syncSetupProvider);
+        expect(state.isProcessing, isFalse);
+        expect(state.currentProgress, isNull);
+        expect(state.error, 'Could not read secure storage. Please retry.');
+      },
+    );
   });
 
   // ── Phase 4D — handle re-read on submitPhrase ───────────────────────────

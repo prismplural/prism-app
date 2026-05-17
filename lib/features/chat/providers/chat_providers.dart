@@ -9,6 +9,7 @@ import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
+import 'package:prism_plurality/features/chat/utils/chat_author_options.dart';
 import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -404,12 +405,11 @@ class ChatNotifier extends AsyncNotifier<void> {
   }
 
   Future<void> setIncludesAllMembers(String conversationId, bool value) async {
-    await _requireConversationAction(
-      conversationId,
-      (p) => p.canManage,
-    );
-    final repo = ref.read(conversationRepositoryProvider);
-    await repo.setIncludesAllMembers(conversationId, value);
+    state = await AsyncValue.guard(() async {
+      await _requireConversationAction(conversationId, (p) => p.canManage);
+      final repo = ref.read(conversationRepositoryProvider);
+      await repo.setIncludesAllMembers(conversationId, value);
+    });
   }
 
   Future<String> sendMessage({
@@ -532,6 +532,9 @@ class ChatNotifier extends AsyncNotifier<void> {
       await _requireCurrentFrontCanTransferOwnership(conversationId, conv);
       if (!isImplicitParticipantOf(conv, newCreatorId)) {
         throw StateError('Conversation owner must be a participant.');
+      }
+      if (isUnknownChatAuthor(newCreatorId)) {
+        throw StateError('Conversation owner must be a real member.');
       }
       // Defense-in-depth: `isImplicitParticipantOf` short-circuits true for any
       // id on an everyone-group, so independently verify the candidate is a

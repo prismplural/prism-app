@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -280,17 +281,23 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     if (conversation.includesAllMembers) {
       final all = await ref.read(activeMembersProvider.future);
       candidates = all
-          .where((m) => m.id != currentOwnerId && !m.isDeleted)
+          .where(
+            (m) =>
+                m.id != currentOwnerId &&
+                m.id != unknownSentinelMemberId &&
+                !m.isDeleted,
+          )
           .toList();
     } else {
       final candidateIds = conversation.participantIds
           .where((participantId) => participantId != currentOwnerId)
           .toList();
-      candidates = (await ref
-              .read(memberRepositoryProvider)
-              .getMembersByIds(candidateIds))
-          .where((member) => member.isActive && !member.isDeleted)
-          .toList();
+      candidates =
+          (await ref
+                  .read(memberRepositoryProvider)
+                  .getMembersByIds(candidateIds))
+              .where((member) => member.isActive && !member.isDeleted)
+              .toList();
     }
     if (!mounted || candidates.isEmpty) return;
 
@@ -612,8 +619,14 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     final terms = readTerminology(context, ref);
     final currentOwnerId = effectiveConversationOwnerId(conversation);
     final canToggleEveryone = permissions.canManage;
-    final activeMemberCount =
-        ref.watch(activeMembersProvider).value?.length ?? 0;
+    final activeRealMembers =
+        ref
+            .watch(activeMembersProvider)
+            .value
+            ?.where((m) => !m.isDeleted && m.id != unknownSentinelMemberId)
+            .toList(growable: false) ??
+        const <Member>[];
+    final activeMemberCount = activeRealMembers.length;
     final headerCount = conversation.includesAllMembers
         ? activeMemberCount
         : conversation.participantIds.length;
@@ -667,9 +680,9 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
           ),
           onTap: canToggleEveryone
               ? () => _setIncludesAllMembers(
-                    conversation,
-                    !conversation.includesAllMembers,
-                  )
+                  conversation,
+                  !conversation.includesAllMembers,
+                )
               : null,
         ),
         const SizedBox(height: 8),
@@ -684,43 +697,43 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
 
         // The explicit list isn't authoritative for everyone-groups.
         if (!conversation.includesAllMembers)
-        for (final participantId in conversation.participantIds)
-          _ParticipantTile(
-            participantId: participantId,
-            conversation: conversation,
-            permissions: permissions,
-            speakingAsMemberId: speakingAsMemberId,
-            speakingAsMember: speakingAsMember,
-            onRemove: (memberId) async {
-              // If removing creator, transfer first
-              if (memberId == conversation.creatorId) {
-                final remaining = <Member>[];
-                for (final pid in conversation.participantIds) {
-                  if (pid == memberId) continue;
-                  final m = ref.read(activeMemberByIdProvider(pid)).value;
-                  if (m != null) remaining.add(m);
+          for (final participantId in conversation.participantIds)
+            _ParticipantTile(
+              participantId: participantId,
+              conversation: conversation,
+              permissions: permissions,
+              speakingAsMemberId: speakingAsMemberId,
+              speakingAsMember: speakingAsMember,
+              onRemove: (memberId) async {
+                // If removing creator, transfer first
+                if (memberId == conversation.creatorId) {
+                  final remaining = <Member>[];
+                  for (final pid in conversation.participantIds) {
+                    if (pid == memberId) continue;
+                    final m = ref.read(activeMemberByIdProvider(pid)).value;
+                    if (m != null) remaining.add(m);
+                  }
+                  final newCreator = await showCreatorTransferPicker(
+                    context,
+                    remainingMembers: remaining,
+                    groups: readMemberSearchGroups(ref, remaining),
+                  );
+                  if (newCreator == null) return;
+                  await ref
+                      .read(chatNotifierProvider.notifier)
+                      .transferCreator(conversation.id, newCreator);
                 }
-                final newCreator = await showCreatorTransferPicker(
-                  context,
-                  remainingMembers: remaining,
-                  groups: readMemberSearchGroups(ref, remaining),
-                );
-                if (newCreator == null) return;
+
+                final fronterName = speakingAsMember?.name ?? 'Unknown';
                 await ref
                     .read(chatNotifierProvider.notifier)
-                    .transferCreator(conversation.id, newCreator);
-              }
-
-              final fronterName = speakingAsMember?.name ?? 'Unknown';
-              await ref
-                  .read(chatNotifierProvider.notifier)
-                  .removeParticipant(
-                    conversation.id,
-                    memberId,
-                    removedByName: fronterName,
-                  );
-            },
-          ),
+                    .removeParticipant(
+                      conversation.id,
+                      memberId,
+                      removedByName: fronterName,
+                    );
+              },
+            ),
       ],
     );
   }

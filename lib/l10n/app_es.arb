@@ -1020,6 +1020,7 @@
   "chatErrorLoadingConversations": "Error al cargar conversaciones",
   "chatAdminNonParticipantSection": "Admin · No es miembro",
   "chatPickSpeakerBanner": "Elige un miembro en el selector para ver tus chats.",
+  "chatAdminReadOnlyBanner": "Viendo como admin. No se puede publicar.",
   "chatUncategorized": "Sin categoría",
   "chatMarkAsRead": "Marcar como leído",
   "chatMarkAllAsRead": "Marcar todo como leído",
