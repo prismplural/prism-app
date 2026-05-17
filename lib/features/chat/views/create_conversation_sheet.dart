@@ -22,7 +22,6 @@ import 'package:prism_plurality/shared/widgets/prism_picker_text_field_row.dart'
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
-import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
@@ -496,67 +495,35 @@ class _CreateConversationSheetState
       ],
 
       if (!(_isGroupChat && _includesAllMembers))
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Text(
-                _isGroupChat
-                    ? context.l10n.chatCreateSelectParticipants
-                    : context.l10n.chatCreateMessageAs(
-                        _currentFronterName(membersAsync),
-                      ),
-                style: theme.textTheme.titleSmall,
-              ),
-              const Spacer(),
-              if (_isGroupChat)
-                membersAsync.whenOrNull(
-                      data: (members) {
-                        if (members.isEmpty) return null;
-                        final allSelected = members.every(
-                          (m) => _selectedMemberIds.contains(m.id),
-                        );
-                        return PrismButton(
-                          label: allSelected
-                              ? context.l10n.chatCreateDeselectAll
-                              : context.l10n.chatCreateSelectAll,
-                          tone: PrismButtonTone.subtle,
-                          onPressed: () {
-                            setState(() {
-                              if (allSelected) {
-                                _selectedMemberIds.clear();
-                              } else {
-                                _selectedMemberIds.addAll(
-                                  members.map((m) => m.id),
-                                );
-                              }
-                            });
-                          },
-                        );
-                      },
-                    ) ??
-                    const SizedBox.shrink(),
-            ],
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              _isGroupChat
+                  ? context.l10n.chatCreateSelectParticipants
+                  : context.l10n.chatCreateMessageAs(
+                      _currentFronterName(membersAsync),
+                    ),
+              style: theme.textTheme.titleSmall,
+            ),
           ),
         ),
-      ),
       if (!(_isGroupChat && _includesAllMembers))
         const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
       if (!(_isGroupChat && _includesAllMembers))
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _buildMemberPicker(
-            context,
-            membersAsync,
-            displayMembers,
-            searchGroups,
-            terms.pluralLower,
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _buildMemberPicker(
+              context,
+              membersAsync,
+              displayMembers,
+              searchGroups,
+              terms.pluralLower,
+            ),
           ),
         ),
-      ),
 
       // ── Spacer below member picker ───────────────────────────
       const SliverToBoxAdapter(child: SizedBox(height: 12)),

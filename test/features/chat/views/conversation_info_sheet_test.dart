@@ -180,6 +180,11 @@ void main() {
       await tester.pumpAndSettle();
 
       final ownerRow = find.byKey(const ValueKey('conversation-owner-row'));
+      expect(ownerRow, findsNothing);
+
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+
       expect(ownerRow, findsOneWidget);
 
       await tester.tap(ownerRow);
@@ -209,6 +214,83 @@ void main() {
       expect(messages.messages.single.content, contains('Carol'));
     },
   );
+
+  testWidgets('include-everyone toggle is only shown in edit mode', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 5, 15);
+    final conversationRepo = FakeConversationRepository()
+      ..conversations.add(
+        Conversation(
+          id: 'conv-1',
+          createdAt: now,
+          lastActivityAt: now,
+          title: 'General',
+          creatorId: 'alice',
+          participantIds: const ['alice', 'bob'],
+        ),
+      );
+    final memberRepo = FakeMemberRepository()
+      ..seed([
+        Member(id: 'alice', name: 'Alice', createdAt: now),
+        Member(id: 'bob', name: 'Bob', createdAt: now),
+      ]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          conversationRepositoryProvider.overrideWithValue(conversationRepo),
+          chatMessageRepositoryProvider.overrideWithValue(
+            _FakeChatMessageRepository(),
+          ),
+          memberRepositoryProvider.overrideWithValue(memberRepo),
+          speakingAsProvider.overrideWith(_FixedSpeakingAsNotifier.new),
+          activeMembersProvider.overrideWithValue(
+            AsyncValue.data(await memberRepo.getAllMembers()),
+          ),
+          activeSessionsProvider.overrideWithValue(
+            AsyncValue.data([
+              FrontingSession(
+                id: 'front-alice',
+                startTime: now,
+                memberId: 'alice',
+              ),
+            ]),
+          ),
+          allGroupsProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroup>[]),
+          ),
+          allGroupEntriesProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroupEntry>[]),
+          ),
+          conversationCategoriesProvider.overrideWith(
+            (ref) => Stream.value(const <ConversationCategory>[]),
+          ),
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(
+            body: ConversationInfoSheet(
+              conversationId: 'conv-1',
+              scrollController: ScrollController(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Include everyone'), findsNothing);
+
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Include everyone'), findsOneWidget);
+  });
 
   testWidgets(
     'everyone-group owner transfer does not count Unknown as a candidate',
@@ -281,6 +363,9 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
 
       expect(
@@ -366,6 +451,9 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('conversation-owner-row')));

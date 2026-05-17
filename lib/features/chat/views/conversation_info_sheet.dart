@@ -618,7 +618,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
   ) {
     final terms = readTerminology(context, ref);
     final currentOwnerId = effectiveConversationOwnerId(conversation);
-    final canToggleEveryone = permissions.canManage;
+    final canToggleEveryone = _isEditing && permissions.canManage;
     final activeRealMembers =
         ref
             .watch(activeMembersProvider)
@@ -658,36 +658,36 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         ),
         const SizedBox(height: 4),
 
-        // Disabled for non-managers so they can still see the chat's
-        // include-everyone state without being able to flip it.
-        PrismListRow(
-          title: Text(context.l10n.chatInfoIncludeEveryone),
-          subtitle: Text(
-            conversation.includesAllMembers
-                ? context.l10n.chatInfoIncludeEveryoneOnSubtitle(
-                    activeMemberCount,
-                    terms.pluralLower,
+        if (_isEditing) ...[
+          PrismListRow(
+            title: Text(context.l10n.chatInfoIncludeEveryone),
+            subtitle: Text(
+              conversation.includesAllMembers
+                  ? context.l10n.chatInfoIncludeEveryoneOnSubtitle(
+                      activeMemberCount,
+                      terms.pluralLower,
+                    )
+                  : context.l10n.chatInfoIncludeEveryoneOffSubtitle(
+                      terms.pluralLower,
+                    ),
+            ),
+            trailing: Switch.adaptive(
+              value: conversation.includesAllMembers,
+              onChanged: canToggleEveryone
+                  ? (value) => _setIncludesAllMembers(conversation, value)
+                  : null,
+            ),
+            onTap: canToggleEveryone
+                ? () => _setIncludesAllMembers(
+                    conversation,
+                    !conversation.includesAllMembers,
                   )
-                : context.l10n.chatInfoIncludeEveryoneOffSubtitle(
-                    terms.pluralLower,
-                  ),
-          ),
-          trailing: Switch.adaptive(
-            value: conversation.includesAllMembers,
-            onChanged: canToggleEveryone
-                ? (value) => _setIncludesAllMembers(conversation, value)
                 : null,
           ),
-          onTap: canToggleEveryone
-              ? () => _setIncludesAllMembers(
-                  conversation,
-                  !conversation.includesAllMembers,
-                )
-              : null,
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
+        ],
 
-        if (currentFrontCanManage && hasTransferCandidate) ...[
+        if (_isEditing && currentFrontCanManage && hasTransferCandidate) ...[
           _OwnerTransferRow(
             conversation: conversation,
             onTap: () => _changeOwner(conversation),

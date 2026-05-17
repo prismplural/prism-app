@@ -181,6 +181,16 @@ void main() {
       },
     );
 
+    testWidgets('does not show a Select all participant action', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildSheet(members: [alice, bob, carol]));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Select All'), findsNothing);
+      expect(find.text('Deselect All'), findsNothing);
+    });
+
     testWidgets('starts empty instead of preselecting the current fronter', (
       tester,
     ) async {
@@ -554,8 +564,9 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('include-everyone toggle', () {
-    testWidgets('shows the toggle in group mode and hides it in DM mode',
-        (tester) async {
+    testWidgets('shows the toggle in group mode and hides it in DM mode', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildSheet(members: [alice, bob]));
       await tester.pumpAndSettle();
 
@@ -668,35 +679,40 @@ void main() {
         await tester.tap(find.byTooltip('Create conversation'));
         await tester.pumpAndSettle();
 
-        expect(notifier.createdIncludesAllMembers, isNull,
-            reason: 'create button must be disabled for Unknown speakingAs');
-      },
-    );
-
-    testWidgets(
-      'DM creation is blocked when speakingAs is Unknown',
-      (tester) async {
-        // Unknown landing in DM participantIds would let anyone else
-        // selecting Unknown match as a real participant and read the DM.
-        final notifier = _FakeChatNotifier();
-        await tester.pumpWidget(
-          _buildSheet(
-            members: [alice, bob],
-            speakingAs: unknownSentinelMemberId,
-            initialIsGroupChat: false,
-            initialMemberIds: ['bob'],
-            chatNotifier: notifier,
-          ),
+        expect(
+          notifier.createdIncludesAllMembers,
+          isNull,
+          reason: 'create button must be disabled for Unknown speakingAs',
         );
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.byTooltip('Create conversation'));
-        await tester.pumpAndSettle();
-
-        expect(notifier.createdIsDirectMessage, isNull,
-            reason: 'create button must be disabled for Unknown DM');
       },
     );
+
+    testWidgets('DM creation is blocked when speakingAs is Unknown', (
+      tester,
+    ) async {
+      // Unknown landing in DM participantIds would let anyone else
+      // selecting Unknown match as a real participant and read the DM.
+      final notifier = _FakeChatNotifier();
+      await tester.pumpWidget(
+        _buildSheet(
+          members: [alice, bob],
+          speakingAs: unknownSentinelMemberId,
+          initialIsGroupChat: false,
+          initialMemberIds: ['bob'],
+          chatNotifier: notifier,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Create conversation'));
+      await tester.pumpAndSettle();
+
+      expect(
+        notifier.createdIsDirectMessage,
+        isNull,
+        reason: 'create button must be disabled for Unknown DM',
+      );
+    });
 
     testWidgets(
       'normal group with Unknown speakingAs falls back to first picked member as creator',
@@ -720,8 +736,11 @@ void main() {
         await tester.tap(find.byTooltip('Create conversation'));
         await tester.pumpAndSettle();
 
-        expect(notifier.createdCreatorId, 'alice',
-            reason: 'creator should fall back to first picked real member');
+        expect(
+          notifier.createdCreatorId,
+          'alice',
+          reason: 'creator should fall back to first picked real member',
+        );
         expect(notifier.createdParticipantIds, ['alice', 'bob']);
       },
     );
@@ -750,8 +769,11 @@ void main() {
         await tester.tap(find.byTooltip('Create conversation'));
         await tester.pumpAndSettle();
 
-        expect(notifier.createdIncludesAllMembers, isNull,
-            reason: 'create button should be disabled, notifier never called');
+        expect(
+          notifier.createdIncludesAllMembers,
+          isNull,
+          reason: 'create button should be disabled, notifier never called',
+        );
         expect(notifier.createdTitle, isNull);
       },
     );
