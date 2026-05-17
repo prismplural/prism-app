@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -120,8 +121,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // updateGroup should have been called exactly once — no depth error fired.
-      expect(fakeNotifier.updateCalls, 1,
-          reason: 'expected updateGroup to be called; no depth limit should fire');
+      expect(
+        fakeNotifier.updateCalls,
+        1,
+        reason: 'expected updateGroup to be called; no depth limit should fire',
+      );
       expect(fakeNotifier.createCalls, 0);
     },
   );
@@ -154,8 +158,11 @@ void main() {
       await tester.pump(); // let the synchronous save path run
 
       // updateGroup must NOT have been called — the cycle check fired first.
-      expect(fakeNotifier.updateCalls, 0,
-          reason: 'cycle check must block the save before reaching the notifier');
+      expect(
+        fakeNotifier.updateCalls,
+        0,
+        reason: 'cycle check must block the save before reaching the notifier',
+      );
       expect(fakeNotifier.createCalls, 0);
 
       // Dismiss the error toast so its auto-dismiss timer doesn't outlive
@@ -190,8 +197,31 @@ void main() {
       await tester.tap(saveButton);
       await tester.pumpAndSettle();
 
-      expect(fakeNotifier.createCalls, 1,
-          reason: 'createGroup should be called for a new group');
+      expect(
+        fakeNotifier.createCalls,
+        1,
+        reason: 'createGroup should be called for a new group',
+      );
     },
   );
+
+  testWidgets('edit mode exposes the group color picker when no color is set', (
+    tester,
+  ) async {
+    final group = _group(id: 'g0');
+    final fakeNotifier = _FakeGroupNotifier();
+
+    await tester.pumpWidget(
+      _buildSheet(groups: [group], fakeNotifier: fakeNotifier, group: group),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Color'), findsOneWidget);
+    expect(find.text('No color'), findsOneWidget);
+
+    await tester.tap(find.text('Color'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BlockPicker), findsOneWidget);
+  });
 }

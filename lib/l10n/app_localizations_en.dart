@@ -359,17 +359,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String appearancePerMemberColors(String term) {
-    return 'Per-$term Colors';
+    return '$term accent colors';
   }
 
   @override
-  String appearancePerMemberColorsSwitchTitle(String term) {
-    return 'Per-$term accent colors';
-  }
+  String get appearancePerMemberColorsSwitchTitle =>
+      'Automatically assign accent colors';
 
   @override
   String appearancePerMemberColorsSwitchSubtitle(String term) {
-    return 'Allow each $term to have their own color';
+    return 'Assigns each $term an accent color if they don\'t have one';
   }
 
   @override
@@ -4942,14 +4941,14 @@ class AppLocalizationsEn extends AppLocalizations {
     String termSingular,
     Object termSingularLower,
   ) {
-    return 'Per-$termSingular Colors';
+    return '$termSingular accent colors';
   }
 
   @override
   String onboardingPreferencesPerMemberColorsSubtitle(
     String termSingularLower,
   ) {
-    return 'Let each $termSingularLower have their own accent color';
+    return 'Automatically assigns each $termSingularLower an accent color if they don\'t have one';
   }
 
   @override
@@ -7767,15 +7766,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get accentLegibilityTooDark =>
-      'This color is very dark — it may be hard to see on dark backgrounds.';
+      'Your accent color is very dark — it may be hard to see on dark backgrounds.';
 
   @override
   String get accentLegibilityTooLight =>
-      'This color is very light — it may be hard to see on light backgrounds.';
+      'Your accent color is very light — it may be hard to see on light backgrounds.';
 
   @override
   String get accentLegibilityTooDesaturated =>
-      'This color is very gray — it may blend into the background.';
+      'Your accent color is very gray — it may blend into the background.';
 
   @override
   String get settingsChangePinTitle => 'Change PIN';

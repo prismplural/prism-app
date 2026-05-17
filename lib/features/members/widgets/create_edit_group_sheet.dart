@@ -436,11 +436,26 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
-                                    _selectedColor != null
-                                        ? l10n.memberGroupColorLabel
-                                        : l10n.memberGroupColorNone,
-                                    style: theme.textTheme.bodyLarge,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l10n.memberGroupColorLabel,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                      ),
+                                      Text(
+                                        _selectedColor != null
+                                            ? '#${_selectedColor!.toARGB32().toRadixString(16).substring(2).toUpperCase()}'
+                                            : l10n.memberGroupColorNone,
+                                        style: theme.textTheme.bodyLarge,
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 if (_selectedColor != null)
@@ -450,6 +465,12 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                                     density: PrismControlDensity.compact,
                                     onPressed: () =>
                                         setState(() => _selectedColor = null),
+                                  ),
+                                if (_selectedColor == null)
+                                  Icon(
+                                    AppIcons.chevronRight,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    size: 18,
                                   ),
                               ],
                             ),

@@ -37,6 +37,7 @@ Future<void> _pumpStep(
   required List<Member> members,
   List<FrontingSession> activeSessions = const [],
   Locale locale = const Locale('en'),
+  ThemeData? theme,
 }) async {
   final repo = FakeMemberRepository()..seed(members);
   final frontingRepo = FakeFrontingSessionRepository()
@@ -58,6 +59,7 @@ Future<void> _pumpStep(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: const [Locale('en'), Locale('es')],
         locale: locale,
+        theme: theme,
         home: const Scaffold(body: WhosFrontingStep()),
       ),
     ),
@@ -108,6 +110,35 @@ void main() {
       tester.element(find.byType(WhosFrontingStep)),
     );
     expect(container.read(onboardingProvider).selectedFronterId, 'bea');
+  });
+
+  testWidgets('small system member cards use the active theme surface color', (
+    tester,
+  ) async {
+    const cardColor = Color(0xFFE2F4EF);
+    final theme = ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.teal,
+      ).copyWith(surfaceContainer: cardColor),
+    );
+
+    await _pumpStep(
+      tester,
+      theme: theme,
+      members: [
+        _member(id: 'alex', name: 'Alex'),
+        _member(id: 'bea', name: 'Bea'),
+      ],
+    );
+
+    final cardFinder = find.ancestor(
+      of: find.text('Alex'),
+      matching: find.byType(AnimatedContainer),
+    );
+    final card = tester.widget<AnimatedContainer>(cardFinder.first);
+    final decoration = card.decoration as BoxDecoration;
+
+    expect(decoration.color, cardColor);
   });
 
   testWidgets('large systems use shared search and update selection', (

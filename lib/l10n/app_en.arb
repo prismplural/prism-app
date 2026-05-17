@@ -485,7 +485,7 @@
   "@appearanceAccentColor": {
     "description": "Appearance settings section: Accent Color"
   },
-  "appearancePerMemberColors": "Per-{term} Colors",
+  "appearancePerMemberColors": "{term} accent colors",
   "@appearancePerMemberColors": {
     "description": "Appearance settings section: Per-Member Colors",
     "placeholders": {
@@ -494,16 +494,11 @@
       }
     }
   },
-  "appearancePerMemberColorsSwitchTitle": "Per-{term} accent colors",
+  "appearancePerMemberColorsSwitchTitle": "Automatically assign accent colors",
   "@appearancePerMemberColorsSwitchTitle": {
-    "description": "Toggle row title: enable per-member accent colors",
-    "placeholders": {
-      "term": {
-        "type": "String"
-      }
-    }
+    "description": "Toggle row title: enable per-member accent colors"
   },
-  "appearancePerMemberColorsSwitchSubtitle": "Allow each {term} to have their own color",
+  "appearancePerMemberColorsSwitchSubtitle": "Assigns each {term} an accent color if they don't have one",
   "@appearancePerMemberColorsSwitchSubtitle": {
     "description": "Toggle row subtitle: explain per-member accent colors",
     "placeholders": {
@@ -6709,14 +6704,14 @@
   "@onboardingPreferencesAccentColor": {
     "description": "Section header for accent color in preferences step"
   },
-  "onboardingPreferencesPerMemberColors": "Per-{termSingular} Colors",
+  "onboardingPreferencesPerMemberColors": "{termSingular} accent colors",
   "@onboardingPreferencesPerMemberColors": {
     "description": "Toggle title for per-member colors in preferences step",
     "placeholders": {
       "termSingular": { "type": "String" }
     }
   },
-  "onboardingPreferencesPerMemberColorsSubtitle": "Let each {termSingularLower} have their own accent color",
+  "onboardingPreferencesPerMemberColorsSubtitle": "Automatically assigns each {termSingularLower} an accent color if they don't have one",
   "@onboardingPreferencesPerMemberColorsSubtitle": {
     "description": "Toggle subtitle for per-member colors in preferences step",
     "placeholders": {
@@ -8806,11 +8801,11 @@
   "@settingsAccentColorSelect": { "description": "Confirm button label in the color picker dialog" },
   "settingsAccentColorSystemPaletteNote": "Using your system color palette",
   "@settingsAccentColorSystemPaletteNote": { "description": "Note shown below color swatches when Material You is active" },
-  "accentLegibilityTooDark": "This color is very dark — it may be hard to see on dark backgrounds.",
+  "accentLegibilityTooDark": "Your accent color is very dark — it may be hard to see on dark backgrounds.",
   "@accentLegibilityTooDark": { "description": "Warning when accent color has very low luminance" },
-  "accentLegibilityTooLight": "This color is very light — it may be hard to see on light backgrounds.",
+  "accentLegibilityTooLight": "Your accent color is very light — it may be hard to see on light backgrounds.",
   "@accentLegibilityTooLight": { "description": "Warning when accent color has very high luminance" },
-  "accentLegibilityTooDesaturated": "This color is very gray — it may blend into the background.",
+  "accentLegibilityTooDesaturated": "Your accent color is very gray — it may blend into the background.",
   "@accentLegibilityTooDesaturated": { "description": "Warning when accent color has very low saturation" },
   "settingsChangePinTitle": "Change PIN",
   "@settingsChangePinTitle": { "description": "Title of the change PIN sheet" },

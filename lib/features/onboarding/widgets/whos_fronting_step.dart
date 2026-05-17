@@ -53,8 +53,9 @@ class WhosFrontingStep extends ConsumerWidget {
         ),
       ),
       data: (members) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        final primary = Theme.of(context).colorScheme.primary;
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        final primary = theme.colorScheme.primary;
         final importedActiveIds = onboarding.selectedFronterId == null
             ? activeSessions
                   .where(
@@ -170,9 +171,7 @@ class WhosFrontingStep extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? primary.withValues(alpha: 0.2)
-                              : isDark
-                              ? AppColors.warmWhite.withValues(alpha: 0.1)
-                              : AppColors.parchmentElevated,
+                              : theme.colorScheme.surfaceContainer,
                           borderRadius: BorderRadius.circular(
                             PrismShapes.of(context).radius(16),
                           ),
@@ -186,13 +185,9 @@ class WhosFrontingStep extends ConsumerWidget {
                               height: 52,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: isDark
-                                    ? AppColors.warmWhite.withValues(
-                                        alpha: 0.15,
-                                      )
-                                    : AppColors.warmBlack.withValues(
-                                        alpha: 0.08,
-                                      ),
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: isDark ? 0.15 : 0.08,
+                                ),
                               ),
                               child: member.avatarImageData != null
                                   ? ClipOval(
@@ -223,9 +218,7 @@ class WhosFrontingStep extends ConsumerWidget {
                                 style: TextStyle(
                                   color: isSelected
                                       ? primary
-                                      : isDark
-                                      ? AppColors.warmWhite
-                                      : AppColors.warmBlack,
+                                      : theme.colorScheme.onSurface,
                                   fontWeight: isSelected
                                       ? FontWeight.w600
                                       : FontWeight.w500,

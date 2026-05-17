@@ -142,9 +142,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                 ),
                 child: PrismSectionCard(
                   child: PrismSwitchRow(
-                    title: context.l10n.appearancePerMemberColorsSwitchTitle(
-                      watchTerminology(context, ref).singularLower,
-                    ),
+                    title: context.l10n.appearancePerMemberColorsSwitchTitle,
                     subtitle: context.l10n
                         .appearancePerMemberColorsSwitchSubtitle(
                           watchTerminology(context, ref).singularLower,

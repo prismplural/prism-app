@@ -361,17 +361,16 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String appearancePerMemberColors(String term) {
-    return 'Colores por $term';
+    return 'Colores de acento de $term';
   }
 
   @override
-  String appearancePerMemberColorsSwitchTitle(String term) {
-    return 'Colores de acento por $term';
-  }
+  String get appearancePerMemberColorsSwitchTitle =>
+      'Asignar colores de acento automáticamente';
 
   @override
   String appearancePerMemberColorsSwitchSubtitle(String term) {
-    return 'Permite que cada $term tenga su propio color';
+    return 'Asigna a cada $term un color de acento si no tiene uno';
   }
 
   @override
@@ -5025,14 +5024,14 @@ class AppLocalizationsEs extends AppLocalizations {
     String termSingular,
     Object termSingularLower,
   ) {
-    return 'Colores por $termSingularLower';
+    return 'Colores de acento de $termSingularLower';
   }
 
   @override
   String onboardingPreferencesPerMemberColorsSubtitle(
     String termSingularLower,
   ) {
-    return 'Permite que cada $termSingularLower tenga su propio color de acento';
+    return 'Asigna automáticamente a cada $termSingularLower un color de acento si no tiene uno';
   }
 
   @override
@@ -7885,15 +7884,15 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get accentLegibilityTooDark =>
-      'Este color es muy oscuro — puede ser difícil de ver en fondos oscuros.';
+      'Tu color de acento es muy oscuro — puede ser difícil de ver en fondos oscuros.';
 
   @override
   String get accentLegibilityTooLight =>
-      'Este color es muy claro — puede ser difícil de ver en fondos claros.';
+      'Tu color de acento es muy claro — puede ser difícil de ver en fondos claros.';
 
   @override
   String get accentLegibilityTooDesaturated =>
-      'Este color es muy gris — puede mezclarse con el fondo.';
+      'Tu color de acento es muy gris — puede mezclarse con el fondo.';
 
   @override
   String get settingsChangePinTitle => 'Cambiar PIN';

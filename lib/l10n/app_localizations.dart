@@ -743,19 +743,19 @@ abstract class AppLocalizations {
   /// Appearance settings section: Per-Member Colors
   ///
   /// In en, this message translates to:
-  /// **'Per-{term} Colors'**
+  /// **'{term} accent colors'**
   String appearancePerMemberColors(String term);
 
   /// Toggle row title: enable per-member accent colors
   ///
   /// In en, this message translates to:
-  /// **'Per-{term} accent colors'**
-  String appearancePerMemberColorsSwitchTitle(String term);
+  /// **'Automatically assign accent colors'**
+  String get appearancePerMemberColorsSwitchTitle;
 
   /// Toggle row subtitle: explain per-member accent colors
   ///
   /// In en, this message translates to:
-  /// **'Allow each {term} to have their own color'**
+  /// **'Assigns each {term} an accent color if they don\'t have one'**
   String appearancePerMemberColorsSwitchSubtitle(String term);
 
   /// Appearance settings section: Sync
@@ -8448,7 +8448,7 @@ abstract class AppLocalizations {
   /// Toggle title for per-member colors in preferences step
   ///
   /// In en, this message translates to:
-  /// **'Per-{termSingular} Colors'**
+  /// **'{termSingular} accent colors'**
   String onboardingPreferencesPerMemberColors(
     String termSingular,
     Object termSingularLower,
@@ -8457,7 +8457,7 @@ abstract class AppLocalizations {
   /// Toggle subtitle for per-member colors in preferences step
   ///
   /// In en, this message translates to:
-  /// **'Let each {termSingularLower} have their own accent color'**
+  /// **'Automatically assigns each {termSingularLower} an accent color if they don\'t have one'**
   String onboardingPreferencesPerMemberColorsSubtitle(String termSingularLower);
 
   /// Title on the join sync group prompt view
@@ -12688,19 +12688,19 @@ abstract class AppLocalizations {
   /// Warning when accent color has very low luminance
   ///
   /// In en, this message translates to:
-  /// **'This color is very dark — it may be hard to see on dark backgrounds.'**
+  /// **'Your accent color is very dark — it may be hard to see on dark backgrounds.'**
   String get accentLegibilityTooDark;
 
   /// Warning when accent color has very high luminance
   ///
   /// In en, this message translates to:
-  /// **'This color is very light — it may be hard to see on light backgrounds.'**
+  /// **'Your accent color is very light — it may be hard to see on light backgrounds.'**
   String get accentLegibilityTooLight;
 
   /// Warning when accent color has very low saturation
   ///
   /// In en, this message translates to:
-  /// **'This color is very gray — it may blend into the background.'**
+  /// **'Your accent color is very gray — it may blend into the background.'**
   String get accentLegibilityTooDesaturated;
 
   /// Title of the change PIN sheet
