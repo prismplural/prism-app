@@ -38,7 +38,10 @@ void main() {
       expect(find.text('Session list view'), findsOneWidget);
       expect(find.text('When adding a new front'), findsOneWidget);
       expect(find.text('When using quick front'), findsOneWidget);
-      expect(find.text('Auto-promote long sessions'), findsOneWidget);
+      expect(
+        find.text('Show long-running fronts in header'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('subtitles reflect the saved enum values', (tester) async {

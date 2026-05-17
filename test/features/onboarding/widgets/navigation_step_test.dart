@@ -70,6 +70,7 @@ void main() {
     expect(state.navBarItems, ['home', 'habits', 'settings']);
     expect(state.navBarOverflowItems, [
       'members',
+      'groups',
       'notes',
       'reminders',
       'statistics',
@@ -135,6 +136,7 @@ void main() {
     expect(state.navBarItems, ['home', 'chat', 'habits', 'polls', 'settings']);
     expect(state.navBarOverflowItems, [
       'members',
+      'groups',
       'notes',
       'reminders',
       'statistics',
@@ -351,6 +353,7 @@ void main() {
     expect(state.navBarItems, ['home', 'chat', 'habits', 'polls', 'settings']);
     expect(state.navBarOverflowItems, [
       'members',
+      'groups',
       'notes',
       'reminders',
       'statistics',

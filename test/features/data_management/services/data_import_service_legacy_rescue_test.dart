@@ -2338,6 +2338,7 @@ void main() {
         clientFactory: (_) => fakeClient,
       );
       await pkService.setToken('t');
+      await pkService.confirmDirection();
       await pkService.acknowledgeMapping();
       await pkService.performFullImport();
 
