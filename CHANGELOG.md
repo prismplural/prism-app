@@ -2,6 +2,61 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.9.0] - 2026-05-18
+
+This release adds Linux and Windows desktop builds alongside macOS, a new palette appearance system with accessible font choices, manual group member ordering with a Groups navigation tab, safer group chat privacy controls, custom field detail pages, multi-member wake-up, native file import/export handoffs, faster Simply Plural imports, and stronger reset/sync recovery.
+
+### Added
+- Linux and Windows desktop builds. The macOS desktop build now has Linux x64 and Windows x64 companions, built and uploaded as release artifacts. Linux ARM64 is in progress.
+- Desktop PIN entry now accepts physical keyboard input on all six PIN screens, sizes the numpad sensibly on wide windows, and the mnemonic recovery field accepts suggestion-chip clicks while focused.
+- Palette appearance controls in Settings -> Appearance: pick a source color, choose how Material 3 generates the surrounding scheme, and persist the choice across devices. Surface tint and dynamic palette controls round it out.
+- Two accessible font choices in Settings -> Appearance: Atkinson Hyperlegible and Lexend.
+- Group member ordering. Each group has a Sort by menu with Manual, Name, Display order, and Date added options. Dragging a member switches the group to Manual automatically, and the ordering persists and converges across devices.
+- Groups as an optional top-level navigation tab. Enable it in Navigation settings to promote Groups into your primary nav alongside Members.
+- Owner transfer for group chats. Conversation info now has a Transfer ownership action that opens a member picker, and the action is gated to the current front so only a member who is fronting can hand the conversation off.
+- Everyone group chats and admin moderation. Group chats can include all active members implicitly, and admins can view and moderate group chats without becoming participants.
+- Broadcast mentions in chat. The mention picker now offers a broadcast option that mentions every participant in the conversation.
+- Multi-member wake-up. Waking the body now lets you start multiple co-fronters in one action instead of having to wake one and then add the rest.
+- Custom field detail pages. Settings now lets you open a custom field, see who has filled it in, edit the field, and delete it from one screen.
+- A PluralKit Sleep sync behavior setting controls whether Prism's Sleep transitions are mirrored to PluralKit, kept local, or only push when starting sleep.
+- Native import and export handoffs. Picking a file and saving exports now go through the platform document picker and Save to Files / Files app on iOS and Android.
+- Member birthday and custom date pickers cover the full 0001-9999 range so historical and fictional members are not blocked by an arbitrary 1900 floor.
+
+### Changed
+- The members list scrolls to the top after a re-sort so the new first row is not hidden.
+- Group sort menus are consolidated into a single overflow menu with consistent labels and ordering.
+- Photo picker on iOS routes images through ImageIO before the cropper, so modern iPhone HEICs no longer break the crop screen.
+- Wake-up fronter choices respect recent sleep history and do not suggest members who were already awake during the sleep window.
+- Simply Plural member matching now appears only when it is useful for an existing Prism system. Onboarding imports skip that detour and go straight through.
+- Sync setup gates the settings entry behind a fully persisted device identity, so a half-saved identity cannot lead to a confusing in-progress state.
+- The Sync settings handle restores before device setup so the post-setup screen has the right context.
+- Chat defaults the speaking member to the most recent fronter when that context is available.
+- Desktop builds use Prism's app name, window title, and icon more consistently across Linux, Windows, and macOS.
+- Accent-color warnings and group color rows are clearer about which color they are showing.
+
+### Fixed
+- Desktop runtime data encryption key is now wrapped at rest using the OS keychain, matching mobile behavior.
+- PluralKit live current rows are adopted into existing sessions instead of creating duplicate ones.
+- PluralKit proxy tag pushes no longer clear remote tags during unrelated edits; destructive tag changes route through the destructive-sync confirmation.
+- PluralKit auto-poll gate state is logged to the sync activity log so unexpected pauses are visible.
+- Sync setup recovers from keychain snapshot failures during pairing instead of leaving a partial setup state.
+- Full app reset clears app files, secure storage, native keys, media cache, and stale restart state more reliably. If a reset or fresh-install cleanup needs recovery, Prism now opens a small recovery flow instead of booting into a half-cleared app.
+- Chat mentions-only unread badges settle on the correct count instead of flickering during rebuilds.
+- Chat link labels with three or more words no longer render duplicated trailing text.
+- Chat ownership, actor, and Unknown-member checks are stricter across direct messages, group mutations, and transfer flows.
+- Edit-only group chat controls stay hidden until you enter edit mode.
+- Existing Simply Plural group chats imported before the new group privacy model stay visible after upgrade without turning DMs into public group chats.
+- Habit completion edits no longer schedule or cancel notifications based on past-date logs.
+- New notes default to a current fronter as the author when one is set, instead of an arbitrary first member.
+- Fronting session detail banner no longer shows a stray surface border under the image, and the Quick Front label no longer clips on long member names.
+- The export ready-to-save row drops a redundant close button.
+- The Onboarding sync device step is readable in light mode.
+- Settings color picker no longer overflows narrow widths, and Appearance updates the ignored-appearance preview live.
+- Onboarding theme-aware colors apply consistently across light, dark, and system modes.
+- Member bio markdown defaults are repaired.
+- Encrypted Simply Plural chat exports surface a warning before import instead of failing silently.
+- Member groups perform better at scale: group detail prunes per-entry focus nodes on membership changes instead of on every build, so very large groups no longer drop frames while scrolling or dragging.
+
 ## [0.8.4] - 2026-05-13
 
 This release focuses on sync recovery, PluralKit setup and visibility, deeper group nesting, and privacy hardening for the next beta build.

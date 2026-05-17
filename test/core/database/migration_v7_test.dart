@@ -71,7 +71,7 @@ Future<void> _seedV6Db(
     rawDb.execute('DROP TABLE IF EXISTS member_board_posts');
 
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
-    // Drop columns added by v21-v23 so their migrations can re-add them when
+    // Drop columns added by v21-v25 so their migrations can re-add them when
     // stepping forward through v6 -> current.
     rawDb.execute('ALTER TABLE member_groups DROP COLUMN sort_state');
     rawDb.execute(

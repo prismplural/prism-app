@@ -68,7 +68,7 @@ Future<void> _seedV11Db(File dbFile) async {
     rawDb.execute('ALTER TABLE member_group_entries DROP COLUMN pending_pk_op');
 
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
-    // Drop columns added by v21-v23 so their migrations can re-add them when
+    // Drop columns added by v21-v25 so their migrations can re-add them when
     // stepping forward through v11 -> current.
     rawDb.execute('ALTER TABLE member_groups DROP COLUMN sort_state');
     rawDb.execute(

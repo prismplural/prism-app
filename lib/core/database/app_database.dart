@@ -607,13 +607,16 @@ class AppDatabase extends _$AppDatabase {
         );
         current = 21;
       }
-      if (current == 21 && to >= 22) {
-        // Backfill orders entries by SQLite `rowid` as a best-effort proxy
-        // for insertion order — no user has ever relied on a persistent
-        // within-group order before this migration. Dart loop instead of
-        // `ROW_NUMBER()` because non-INTEGER-PK rowids "might change"
-        // (https://www.sqlite.org/rowidtable.html).
+      if (current == 21 && to >= 25) {
+        // 0.9.0 production flatten: all schema additions since 0.8.4 ship as
+        // one v21→v25 migration because no public build used the intermediate
+        // dev-only versions.
         await transaction(() async {
+          // Group sort state. Backfill orders entries by SQLite `rowid` as a
+          // best-effort proxy for insertion order — no user has ever relied on
+          // a persistent within-group order before this migration. Dart loop
+          // instead of `ROW_NUMBER()` because non-INTEGER-PK rowids "might
+          // change" (https://www.sqlite.org/rowidtable.html).
           await migrator.addColumn(memberGroups, memberGroups.sortState);
 
           final groupRows = await customSelect(
@@ -639,46 +642,93 @@ class AppDatabase extends _$AppDatabase {
               [sortStateJson, groupId],
             );
           }
+
+          // Palette theme controls.
+          await migrator.addColumn(
+            systemSettingsTable,
+            systemSettingsTable.paletteSource,
+          );
+          await migrator.addColumn(
+            systemSettingsTable,
+            systemSettingsTable.paletteSeedColorHex,
+          );
+          await migrator.addColumn(
+            systemSettingsTable,
+            systemSettingsTable.paletteMood,
+          );
+          await migrator.addColumn(
+            systemSettingsTable,
+            systemSettingsTable.paletteContrast,
+          );
+          await customStatement(
+            'UPDATE system_settings SET palette_source = 0 '
+            'WHERE theme_style = 2',
+          );
+
+          // Repair rows created by app paths that still used the old domain
+          // default after the DB column default moved to true.
+          await customStatement(
+            'UPDATE members SET markdown_enabled = 1 '
+            'WHERE markdown_enabled = 0',
+          );
+
+          // Everyone-group conversations.
+          await migrator.addColumn(
+            conversations,
+            conversations.includesAllMembers,
+          );
+          await customStatement(
+            'UPDATE conversations SET includes_all_members = 1 '
+            'WHERE is_direct_message = 0 '
+            'AND is_deleted = 0 '
+            'AND NOT ('
+            '  json_array_length(participant_ids) = 2 '
+            '  AND (title IS NULL OR TRIM(title) = \'\') '
+            '  AND emoji IS NULL '
+            '  AND category_id IS NULL'
+            ')',
+          );
+          await customStatement(
+            'UPDATE conversations '
+            'SET participant_ids = json_array(creator_id) '
+            'WHERE is_direct_message = 0 '
+            'AND is_deleted = 0 '
+            'AND includes_all_members = 1 '
+            'AND json_array_length(participant_ids) = 0 '
+            'AND creator_id IN ('
+            '  SELECT id FROM members '
+            '  WHERE is_deleted = 0 '
+            '  AND is_active = 1 '
+            '  AND id != ?'
+            ')',
+            [unknownSentinelMemberId],
+          );
+          // If an empty everyone-group has no active creator, assign the first
+          // active admin/member as owner so someone can manage the conversation.
+          await customStatement(
+            '''
+            WITH fallback_owner AS (
+              SELECT id
+              FROM members
+              WHERE is_deleted = 0
+                AND is_active = 1
+                AND id != ?
+              ORDER BY is_admin DESC, display_order ASC, created_at ASC, id ASC
+              LIMIT 1
+            )
+            UPDATE conversations
+            SET
+              creator_id = (SELECT id FROM fallback_owner),
+              participant_ids = json_array((SELECT id FROM fallback_owner))
+            WHERE is_direct_message = 0
+              AND is_deleted = 0
+              AND includes_all_members = 1
+              AND json_array_length(participant_ids) = 0
+              AND (SELECT id FROM fallback_owner) IS NOT NULL
+            ''',
+            [unknownSentinelMemberId],
+          );
         });
-        current = 22;
-      }
-      if (current == 22 && to >= 23) {
-        // Palette theme controls.
-        await migrator.addColumn(
-          systemSettingsTable,
-          systemSettingsTable.paletteSource,
-        );
-        await migrator.addColumn(
-          systemSettingsTable,
-          systemSettingsTable.paletteSeedColorHex,
-        );
-        await migrator.addColumn(
-          systemSettingsTable,
-          systemSettingsTable.paletteMood,
-        );
-        await migrator.addColumn(
-          systemSettingsTable,
-          systemSettingsTable.paletteContrast,
-        );
-        await customStatement(
-          'UPDATE system_settings SET palette_source = 0 '
-          'WHERE theme_style = 2',
-        );
-        current = 23;
-      }
-      if (current == 23 && to >= 24) {
-        // Repair rows created by app paths that still used the old domain
-        // default after the DB column default moved to true.
-        await customStatement(
-          'UPDATE members SET markdown_enabled = 1 WHERE markdown_enabled = 0',
-        );
-        current = 24;
-      }
-      if (current == 24 && to >= 25) {
-        await migrator.addColumn(
-          conversations,
-          conversations.includesAllMembers,
-        );
         current = 25;
       }
       if (current != to) {

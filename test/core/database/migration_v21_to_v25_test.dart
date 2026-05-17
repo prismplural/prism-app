@@ -83,13 +83,56 @@ void _insertEntry(
   );
 }
 
+void _insertMember(
+  raw.Database db,
+  String id, {
+  bool isAdmin = false,
+  int displayOrder = 0,
+}) {
+  final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  db.execute(
+    'INSERT INTO members '
+    '(id, name, created_at, is_admin, display_order, is_active, is_deleted) '
+    'VALUES (?, ?, ?, ?, ?, 1, 0)',
+    [id, 'Member $id', nowSec, isAdmin ? 1 : 0, displayOrder],
+  );
+}
+
+void _insertConversation(
+  raw.Database db,
+  String id, {
+  String? title,
+  String? creatorId,
+  List<String> participantIds = const [],
+  bool isDirectMessage = false,
+  bool isDeleted = false,
+}) {
+  final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  db.execute(
+    'INSERT INTO conversations '
+    '(id, created_at, last_activity_at, title, creator_id, '
+    'participant_ids, is_direct_message, is_deleted) '
+    'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [
+      id,
+      nowSec,
+      nowSec,
+      title,
+      creatorId,
+      jsonEncode(participantIds),
+      isDirectMessage ? 1 : 0,
+      isDeleted ? 1 : 0,
+    ],
+  );
+}
+
 void main() {
-  group('schema v21 → v22: sort_state column + Dart-loop backfill', () {
+  group('schema v21 → v25: 0.9.0 flattened migration', () {
     test(
       'empty database: migration succeeds with no rows to backfill',
       () async {
         final tempDir = Directory.systemTemp.createTempSync(
-          'prism_migration_v21_to_v22_empty_',
+          'prism_migration_v21_to_v25_empty_',
         );
         addTearDown(() {
           if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
@@ -116,7 +159,7 @@ void main() {
 
     test('group with 0 entries → sort_state == default empty manual', () async {
       final tempDir = Directory.systemTemp.createTempSync(
-        'prism_migration_v21_to_v22_empty_group_',
+        'prism_migration_v21_to_v25_empty_group_',
       );
       addTearDown(() {
         if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
@@ -147,7 +190,7 @@ void main() {
 
     test('group with 1 entry → sort_state.order has that id', () async {
       final tempDir = Directory.systemTemp.createTempSync(
-        'prism_migration_v21_to_v22_one_entry_',
+        'prism_migration_v21_to_v25_one_entry_',
       );
       addTearDown(() {
         if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
@@ -189,7 +232,7 @@ void main() {
 
     test('group with 5 entries → JSON order length 5 in rowid order', () async {
       final tempDir = Directory.systemTemp.createTempSync(
-        'prism_migration_v21_to_v22_five_entries_',
+        'prism_migration_v21_to_v25_five_entries_',
       );
       addTearDown(() {
         if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
@@ -233,7 +276,7 @@ void main() {
       'group with a soft-deleted entry → that id excluded from order',
       () async {
         final tempDir = Directory.systemTemp.createTempSync(
-          'prism_migration_v21_to_v22_soft_deleted_',
+          'prism_migration_v21_to_v25_soft_deleted_',
         );
         addTearDown(() {
           if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
@@ -272,7 +315,7 @@ void main() {
 
     test('mixed: 3 groups (0/1/5 entries) → no cross-contamination', () async {
       final tempDir = Directory.systemTemp.createTempSync(
-        'prism_migration_v21_to_v22_mixed_',
+        'prism_migration_v21_to_v25_mixed_',
       );
       addTearDown(() {
         if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
@@ -330,7 +373,7 @@ void main() {
     test('large-group stress: 1000 entries → JSON parses, order length 1000, '
         'no duplicates', () async {
       final tempDir = Directory.systemTemp.createTempSync(
-        'prism_migration_v21_to_v22_stress_',
+        'prism_migration_v21_to_v25_stress_',
       );
       addTearDown(() {
         if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
@@ -378,11 +421,10 @@ void main() {
     });
 
     test(
-      'schema assertions: sort_state on member_groups with expected default; '
-      'member_group_entries unchanged',
+      'schema assertions: flattened columns use expected defaults',
       () async {
         final tempDir = Directory.systemTemp.createTempSync(
-          'prism_migration_v21_to_v22_schema_',
+          'prism_migration_v21_to_v25_schema_',
         );
         addTearDown(() {
           if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
@@ -410,6 +452,27 @@ void main() {
           "'{\"mode\":0,\"order\":[]}'",
         );
 
+        final settingsCols = await upgraded
+            .customSelect('PRAGMA table_info(system_settings)')
+            .get();
+        final settingsDefaults = {
+          for (final row in settingsCols)
+            row.read<String>('name'): row.read<String?>('dflt_value'),
+        };
+        expect(settingsDefaults['palette_source'], '1');
+        expect(settingsDefaults['palette_seed_color_hex'], "'#9070A0'");
+        expect(settingsDefaults['palette_mood'], '0');
+        expect(settingsDefaults['palette_contrast'], '1');
+
+        final conversationCols = await upgraded
+            .customSelect('PRAGMA table_info(conversations)')
+            .get();
+        final conversationDefaults = {
+          for (final row in conversationCols)
+            row.read<String>('name'): row.read<String?>('dflt_value'),
+        };
+        expect(conversationDefaults['includes_all_members'], '0');
+
         // member_group_entries schema must be unchanged: enumerate the column
         // names and assert no `sort_state` appears.
         final entryCols = await upgraded
@@ -424,6 +487,189 @@ void main() {
           entryColNames,
           containsAll(<String>{'id', 'group_id', 'member_id'}),
         );
+      },
+    );
+
+    test(
+      'existing group chats backfill to everyone-groups without touching DMs',
+      () async {
+        final tempDir = Directory.systemTemp.createTempSync(
+          'prism_migration_v21_to_v25_group_visibility_',
+        );
+        addTearDown(() {
+          if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+        });
+
+        final dbFile = File('${tempDir.path}/group_visibility.db');
+        await _seedV21Db(dbFile);
+
+        final rawDb = raw.sqlite3.open(dbFile.path);
+        try {
+          _insertMember(rawDb, 'admin', isAdmin: true);
+          _insertMember(rawDb, 'alice', displayOrder: 1);
+          _insertMember(rawDb, 'bob', displayOrder: 2);
+          _insertConversation(
+            rawDb,
+            'group-explicit',
+            title: 'Existing group',
+            participantIds: const ['alice', 'bob'],
+          );
+          _insertConversation(rawDb, 'group-empty', title: 'Imported channel');
+          _insertConversation(
+            rawDb,
+            'group-valid-creator',
+            title: 'Creator-owned channel',
+            creatorId: 'alice',
+          );
+          _insertConversation(
+            rawDb,
+            'group-stale-creator',
+            title: 'Stale creator channel',
+            creatorId: 'ghost',
+          );
+          _insertConversation(
+            rawDb,
+            'dm',
+            participantIds: const ['alice', 'bob'],
+            isDirectMessage: true,
+          );
+          _insertConversation(
+            rawDb,
+            'legacy-dm-shape',
+            title: '',
+            participantIds: const ['alice', 'bob'],
+          );
+        } finally {
+          rawDb.close();
+        }
+
+        final upgraded = AppDatabase(NativeDatabase(dbFile));
+        addTearDown(upgraded.close);
+        await upgraded.customSelect('SELECT 1').get();
+
+        Future<Map<String, Object?>> row(String id) async {
+          final result = await upgraded
+              .customSelect(
+                'SELECT includes_all_members, participant_ids, creator_id '
+                'FROM conversations WHERE id = ?',
+                variables: [Variable.withString(id)],
+              )
+              .getSingle();
+          return {
+            'includesAllMembers': result.read<int>('includes_all_members'),
+            'participantIds': result.read<String>('participant_ids'),
+            'creatorId': result.read<String?>('creator_id'),
+          };
+        }
+
+        expect(
+          row('group-explicit'),
+          completion({
+            'includesAllMembers': 1,
+            'participantIds': '["alice","bob"]',
+            'creatorId': null,
+          }),
+        );
+        expect(
+          row('group-empty'),
+          completion({
+            'includesAllMembers': 1,
+            'participantIds': '["admin"]',
+            'creatorId': 'admin',
+          }),
+        );
+        expect(
+          row('group-valid-creator'),
+          completion({
+            'includesAllMembers': 1,
+            'participantIds': '["alice"]',
+            'creatorId': 'alice',
+          }),
+        );
+        expect(
+          row('group-stale-creator'),
+          completion({
+            'includesAllMembers': 1,
+            'participantIds': '["admin"]',
+            'creatorId': 'admin',
+          }),
+        );
+        expect(
+          row('dm'),
+          completion({
+            'includesAllMembers': 0,
+            'participantIds': '["alice","bob"]',
+            'creatorId': null,
+          }),
+        );
+        expect(
+          row('legacy-dm-shape'),
+          completion({
+            'includesAllMembers': 0,
+            'participantIds': '["alice","bob"]',
+            'creatorId': null,
+          }),
+        );
+      },
+    );
+
+    test(
+      'palette and markdown data repairs run in the flattened step',
+      () async {
+        final tempDir = Directory.systemTemp.createTempSync(
+          'prism_migration_v21_to_v25_repairs_',
+        );
+        addTearDown(() {
+          if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+        });
+
+        final dbFile = File('${tempDir.path}/repairs.db');
+        await _seedV21Db(dbFile);
+
+        final rawDb = raw.sqlite3.open(dbFile.path);
+        try {
+          final now =
+              DateTime.utc(2026, 5, 15, 12).millisecondsSinceEpoch ~/ 1000;
+          rawDb.execute(
+            '''
+          INSERT INTO members (id, name, created_at, bio, markdown_enabled)
+          VALUES (?, ?, ?, ?, ?)
+          ''',
+            ['stale-default', 'Stale Default', now, '**bold bio**', 0],
+          );
+          rawDb.execute('''
+          INSERT INTO system_settings (id, theme_style)
+          VALUES ('singleton', 2)
+          ON CONFLICT(id) DO UPDATE SET theme_style = 2
+          ''');
+        } finally {
+          rawDb.close();
+        }
+
+        final upgraded = AppDatabase(NativeDatabase(dbFile));
+        addTearDown(upgraded.close);
+        await upgraded.customSelect('SELECT 1').get();
+
+        final version = await upgraded
+            .customSelect('PRAGMA user_version')
+            .getSingle();
+        expect(version.read<int>('user_version'), 25);
+
+        final member = await upgraded
+            .customSelect(
+              'SELECT markdown_enabled FROM members WHERE id = ?',
+              variables: [Variable.withString('stale-default')],
+            )
+            .getSingle();
+        expect(member.read<int>('markdown_enabled'), 1);
+
+        final settings = await upgraded
+            .customSelect(
+              'SELECT palette_source FROM system_settings WHERE id = ?',
+              variables: [Variable.withString('singleton')],
+            )
+            .getSingle();
+        expect(settings.read<int>('palette_source'), 0);
       },
     );
   });
