@@ -16,6 +16,7 @@ import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/widgets/numpad_keyboard_listener.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -727,15 +728,31 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
             ),
           ),
           const SizedBox(height: 32),
-          // Numpad
-          for (var row = 0; row < 4; row++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: _buildRow(row),
+          // Numpad — capped width so it doesn't spread across wide desktop
+          // windows, and wrapped in a keyboard listener so desktop users can
+          // type digits directly.
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 296),
+              child: NumpadKeyboardListener(
+                onDigit: _onDigit,
+                onBackspace: _onBackspace,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var row = 0; row < 4; row++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: _buildRow(row),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
+          ),
           const SizedBox(height: 16),
         ],
       ),

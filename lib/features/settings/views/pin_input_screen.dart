@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/numpad_keyboard_listener.dart';
 import 'package:prism_plurality/shared/widgets/pin_numpad_button.dart';
 
 /// The mode of the PIN input screen.
@@ -367,20 +368,29 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
       ),
     );
 
-    final numpad = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var row = 0; row < 4; row++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: _buildRow(row, showBiometric, theme, clampedSize),
-              ),
-            ),
-        ],
+    // Cap the numpad width so the buttons stay grouped on wide desktop
+    // windows instead of spreading edge-to-edge under spaceEvenly. Tracks
+    // the clamped button size with a comfortable gap.
+    final numpadMaxWidth = (clampedSize * 3) + 80;
+    final numpad = Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: numpadMaxWidth),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var row = 0; row < 4; row++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: _buildRow(row, showBiometric, theme, clampedSize),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
 
@@ -411,11 +421,18 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
       );
     }
 
-    if (widget.embedded) return content;
+    final keyboardScope = NumpadKeyboardListener(
+      onDigit: _onDigit,
+      onBackspace: _onBackspace,
+      enabled: !_isCompleting && !_isLockedOut,
+      child: content,
+    );
+
+    if (widget.embedded) return keyboardScope;
 
     return Material(
       color: theme.scaffoldBackgroundColor,
-      child: SafeArea(child: content),
+      child: SafeArea(child: keyboardScope),
     );
   }
 

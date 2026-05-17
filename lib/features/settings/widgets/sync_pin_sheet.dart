@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
+import 'package:prism_plurality/shared/widgets/numpad_keyboard_listener.dart';
 import 'package:prism_plurality/shared/widgets/pin_numpad_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -476,16 +477,33 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
           ),
         ),
         const SizedBox(height: 24),
-        // Numpad
+        // Numpad — capped width so it doesn't spread across wide desktop
+        // sheets, and wrapped in a keyboard listener so desktop users can
+        // type digits directly.
         if (!_isLoading)
-          for (var row = 0; row < 4; row++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: _buildRow(row),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 280),
+              child: NumpadKeyboardListener(
+                onDigit: _onDigit,
+                onBackspace: _onBackspace,
+                enabled: !_isLoading && !_isLockedOut,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var row = 0; row < 4; row++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: _buildRow(row),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            )
+            ),
+          )
         else
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),

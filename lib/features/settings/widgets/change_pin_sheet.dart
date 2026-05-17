@@ -12,6 +12,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/widgets/numpad_keyboard_listener.dart';
 import 'package:prism_plurality/shared/widgets/pin_numpad_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
@@ -729,17 +730,28 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
       );
     }
 
-    return Column(
-      children: [
-        for (var row = 0; row < 4; row++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: _buildPinPadRow(row, onDigit, onBackspace),
-            ),
+    // Capped width so the numpad stays grouped on wide desktop sheets, and
+    // keyboard listener so desktop users can type digits directly.
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 280),
+        child: NumpadKeyboardListener(
+          onDigit: onDigit,
+          onBackspace: onBackspace,
+          child: Column(
+            children: [
+              for (var row = 0; row < 4; row++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: _buildPinPadRow(row, onDigit, onBackspace),
+                  ),
+                ),
+            ],
           ),
-      ],
+        ),
+      ),
     );
   }
 

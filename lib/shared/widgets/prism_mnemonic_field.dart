@@ -962,22 +962,45 @@ class _SuggestionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return InkWell(
+    // Desktop focus race: a plain InkWell.onTap takes primary focus on
+    // mouse-down, which blurs the active slot's TextField. _syncOverlay()
+    // hides the suggestion list synchronously on blur, so the InkWell would
+    // be removed from the overlay before its onTap fires — and the
+    // suggestion is lost. Listener.onPointerDown fires before the gesture
+    // arena resolves, so the insertion happens even if focus subsequently
+    // shifts. Focus(canRequestFocus: false, descendantsAreFocusable: false)
+    // prevents anything inside from stealing focus in the first place, so
+    // the TextField stays focused and the overlay stays visible. Semantics
+    // restores screen-reader activation (onTap is wired via the semantics
+    // tree only, so it can't fire alongside the pointer listener).
+    final borderRadius = BorderRadius.circular(
+      PrismShapes.of(context).radius(PrismTokens.radiusPill),
+    );
+    return Semantics(
+      button: true,
+      label: word,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(
-        PrismShapes.of(context).radius(PrismTokens.radiusPill),
-      ),
-      child: GlassSurface(
-        tint: theme.colorScheme.primary,
-        borderRadius: BorderRadius.circular(
-          PrismShapes.of(context).radius(PrismTokens.radiusPill),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        child: Text(
-          word,
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: theme.colorScheme.onSurface,
-            fontWeight: FontWeight.w600,
+      excludeSemantics: true,
+      child: Focus(
+        canRequestFocus: false,
+        descendantsAreFocusable: false,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerDown: (_) => onTap(),
+            child: GlassSurface(
+              tint: theme.colorScheme.primary,
+              borderRadius: borderRadius,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Text(
+                word,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ),
         ),
       ),
