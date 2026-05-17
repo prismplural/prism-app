@@ -508,6 +508,11 @@ class ChatNotifier extends AsyncNotifier<void> {
     String? removedByName,
   }) async {
     state = await AsyncValue.guard(() async {
+      await _requireConversationAction(
+        conversationId,
+        (permissions) => permissions.canRemoveMembers,
+        speakingAsMemberId: ref.read(speakingAsProvider),
+      );
       await _removeParticipantCore(
         conversationId,
         memberId,
@@ -595,6 +600,14 @@ class ChatNotifier extends AsyncNotifier<void> {
 
   Future<void> leaveConversation(String conversationId, String memberId) async {
     state = await AsyncValue.guard(() async {
+      // The leaving member is the actor; gate on their permission so an
+      // implicit everyone-group member can't trigger a no-op removal plus
+      // bogus "left" system message.
+      await _requireConversationAction(
+        conversationId,
+        (permissions) => permissions.canLeave,
+        speakingAsMemberId: memberId,
+      );
       final memberRepo = ref.read(memberRepositoryProvider);
       final member = await memberRepo.getMemberById(memberId);
       await _removeParticipantCore(conversationId, memberId);
@@ -707,6 +720,11 @@ class ChatNotifier extends AsyncNotifier<void> {
     String? addedByName,
   }) async {
     state = await AsyncValue.guard(() async {
+      await _requireConversationAction(
+        conversationId,
+        (permissions) => permissions.canAddMembers,
+        speakingAsMemberId: ref.read(speakingAsProvider),
+      );
       final repo = ref.read(conversationRepositoryProvider);
       final conv = await repo.getConversationById(conversationId);
       if (conv != null) {

@@ -110,7 +110,13 @@ class _CreateConversationSheetState
   bool get _canCreate {
     if (_isGroupChat) {
       if (_titleController.text.trim().isEmpty) return false;
-      if (_includesAllMembers) return true;
+      if (_includesAllMembers) {
+        // The creator is captured explicitly so transfer-ownership keeps
+        // working if the flag is toggled off later. Without a fronter and
+        // with the picker hidden, there would be no creator at all — the
+        // chat would land unmanageable.
+        return ref.read(speakingAsProvider) != null;
+      }
       return _selectedMemberIds.length >= 2;
     } else {
       // DM: current fronter + one selected other member

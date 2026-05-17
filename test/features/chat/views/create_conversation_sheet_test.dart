@@ -641,5 +641,35 @@ void main() {
         expect(notifier.createdParticipantIds, ['alice', 'bob']);
       },
     );
+
+    testWidgets(
+      'with no speakingAs picked, create is disabled to avoid orphan ownership',
+      (tester) async {
+        // Without a fronter, an everyone-group create would persist an empty
+        // creatorId — leaving the chat unmanageable by anyone except admins.
+        final notifier = _FakeChatNotifier();
+        await tester.pumpWidget(
+          _buildSheet(
+            members: [alice, bob],
+            speakingAs: null,
+            chatNotifier: notifier,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField).first, 'Everyone Chat');
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byType(Switch));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Create conversation'));
+        await tester.pumpAndSettle();
+
+        expect(notifier.createdIncludesAllMembers, isNull,
+            reason: 'create button should be disabled, notifier never called');
+        expect(notifier.createdTitle, isNull);
+      },
+    );
   });
 }

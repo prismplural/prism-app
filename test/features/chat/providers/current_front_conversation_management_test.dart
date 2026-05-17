@@ -249,6 +249,94 @@ void main() {
       expect(container.read(chatNotifierProvider).hasError, isTrue);
     });
   });
+
+  group('mutation permission gates', () {
+    // The UI disables these actions for non-managers/non-members, but the
+    // notifier methods themselves must defend against direct/future callers
+    // — matching the pattern set by setIncludesAllMembers + transferCreator.
+
+    Conversation everyoneGroup() => Conversation(
+      id: 'everyone-1',
+      createdAt: now,
+      lastActivityAt: now,
+      title: 'Everyone',
+      creatorId: 'alice',
+      participantIds: const ['alice'],
+      includesAllMembers: true,
+    );
+
+    test(
+      'leaveConversation throws for implicit-only everyone-group member',
+      () async {
+        // bob is an implicit member via includesAllMembers but is NOT in
+        // participantIds — canLeave is false, so the mutation must reject.
+        final repo = FakeConversationRepository()
+          ..conversations.add(everyoneGroup());
+        final container = buildContainer(
+          conversation: everyoneGroup(),
+          members: [member('alice'), member('bob')],
+          fronts: [front('bob')],
+          conversationRepo: repo,
+        );
+        addTearDown(container.dispose);
+
+        await container
+            .read(chatNotifierProvider.notifier)
+            .leaveConversation('everyone-1', 'bob');
+
+        // The conversation participantIds list is unchanged and the notifier
+        // surfaces the error so callers don't silently succeed.
+        expect(repo.conversations.single.participantIds, ['alice']);
+        expect(container.read(chatNotifierProvider).hasError, isTrue);
+      },
+    );
+
+    test(
+      'removeParticipant throws when the actor cannot moderate the group',
+      () async {
+        // carol is a regular non-admin participant — canRemoveMembers is
+        // false for her so the notifier must reject.
+        final repo = FakeConversationRepository()
+          ..conversations.add(groupConversation());
+        final container = buildContainer(
+          conversation: groupConversation(),
+          members: [member('alice'), member('bob'), member('carol')],
+          fronts: [front('carol')],
+          conversationRepo: repo,
+        );
+        addTearDown(container.dispose);
+
+        await container
+            .read(chatNotifierProvider.notifier)
+            .removeParticipant('conv-1', 'bob');
+
+        expect(repo.conversations.single.participantIds, hasLength(3));
+        expect(container.read(chatNotifierProvider).hasError, isTrue);
+      },
+    );
+
+    test(
+      'addParticipants throws when the actor cannot moderate the group',
+      () async {
+        final repo = FakeConversationRepository()
+          ..conversations.add(groupConversation());
+        final container = buildContainer(
+          conversation: groupConversation(),
+          members: [member('alice'), member('bob'), member('carol')],
+          fronts: [front('carol')],
+          conversationRepo: repo,
+        );
+        addTearDown(container.dispose);
+
+        await container
+            .read(chatNotifierProvider.notifier)
+            .addParticipants('conv-1', ['dave']);
+
+        expect(repo.conversations.single.participantIds, hasLength(3));
+        expect(container.read(chatNotifierProvider).hasError, isTrue);
+      },
+    );
+  });
 }
 
 class _FakeChatMessageRepository implements ChatMessageRepository {

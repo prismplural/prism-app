@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
@@ -415,6 +416,42 @@ void main() {
         conversation: conv,
         speakingAsMemberId: 'outsider',
         speakingAsMember: makeMember(id: 'outsider'),
+      );
+      expect(perms.canView, isFalse);
+      expect(perms.canWrite, isFalse);
+    });
+
+    test('Unknown sentinel cannot view or write — falls through to picker',
+        () {
+      // The Unknown chat-author option is a valid speakingAs for messaging
+      // ("anonymous narrator"), but it's not a real member and must not
+      // open legacy DM content.
+      final perms = ConversationPermissions(
+        conversation: makeUnscopedDm(),
+        speakingAsMemberId: unknownSentinelMemberId,
+        speakingAsMember: null,
+      );
+      expect(perms.canView, isFalse);
+      expect(perms.canWrite, isFalse);
+    });
+
+    test('inactive speakingAsMember cannot view or write', () {
+      final inactive = makeMember(id: 'paused').copyWith(isActive: false);
+      final perms = ConversationPermissions(
+        conversation: makeUnscopedDm(),
+        speakingAsMemberId: 'paused',
+        speakingAsMember: inactive,
+      );
+      expect(perms.canView, isFalse);
+      expect(perms.canWrite, isFalse);
+    });
+
+    test('deleted speakingAsMember cannot view or write', () {
+      final deleted = makeMember(id: 'ghost').copyWith(isDeleted: true);
+      final perms = ConversationPermissions(
+        conversation: makeUnscopedDm(),
+        speakingAsMemberId: 'ghost',
+        speakingAsMember: deleted,
       );
       expect(perms.canView, isFalse);
       expect(perms.canWrite, isFalse);

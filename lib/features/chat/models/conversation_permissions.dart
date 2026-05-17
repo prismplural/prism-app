@@ -1,3 +1,4 @@
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 
@@ -52,12 +53,21 @@ class ConversationPermissions {
   // A DM with no participants has nothing to gate on — gating visibility/write
   // on a participant list that doesn't exist locks everyone out forever. SP
   // imports produced this shape for channels that had no `members` field.
-  // Still requires a picked speakingAs: with no member selected, fall through
-  // to the "pick a member" banner instead of leaking legacy DM content.
-  bool get _isUnscopedDirectMessage =>
-      speakingAsMemberId != null &&
-      isDirectMessage &&
-      conversation.participantIds.isEmpty;
+  // Still requires a real, active, non-deleted speakingAsMember: the Unknown
+  // sentinel and the null case both fall through to the "pick a member"
+  // banner instead of leaking legacy DM content.
+  bool get _isUnscopedDirectMessage {
+    if (!isDirectMessage || conversation.participantIds.isNotEmpty) {
+      return false;
+    }
+    final id = speakingAsMemberId;
+    final member = speakingAsMember;
+    return id != null &&
+        id != unknownSentinelMemberId &&
+        member != null &&
+        member.isActive &&
+        !member.isDeleted;
+  }
   bool get _isOrphanedDirectMessage =>
       isDirectMessage && conversation.participantIds.length == 1;
   /// Admin viewing a group they aren't a member of. Admins get read +
