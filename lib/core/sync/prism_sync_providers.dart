@@ -1062,26 +1062,91 @@ Set<String> _staticSyncCredentialWipeFallbackKeys() {
   }..removeAll(kProtectedFromReset);
 }
 
-Future<void> _deleteSyncCredentialKeychainEntries({
+Future<int> _deleteSyncCredentialKeychainEntries({
   required Future<Map<String, String>> Function() readAll,
   required Future<void> Function(String key) deleteKey,
+  void Function(String message)? log,
 }) async {
   Set<String> keysToDelete;
   try {
     keysToDelete = computeKeysToClearOnReset(await readAll()).toSet();
-  } catch (_) {
+  } catch (e) {
     // Best-effort fallback for platform keychains where readAll() fails or is
     // unavailable: delete every known static sync credential/cache slot.
+    log?.call(
+      'Keychain readAll failed during sync wipe; using fallback list: $e',
+    );
     keysToDelete = _staticSyncCredentialWipeFallbackKeys();
   }
 
+  var deleted = 0;
   for (final fullKey in keysToDelete) {
     try {
       await deleteKey(fullKey);
-    } catch (_) {
+      deleted++;
+    } catch (e) {
       // Best effort — continue clearing remaining keys.
+      log?.call('Keychain delete failed for $fullKey (non-fatal): $e');
     }
   }
+  return deleted;
+}
+
+/// Wipe every `prism_sync.*` keychain entry except [kProtectedFromReset].
+///
+/// This is the single shared entry point used by both the sync-reset path
+/// (`_resetSyncSystem`) and the pairing-failure cleanup path
+/// (`_cleanupKeychainOnFailure`). Inclusion-by-prefix via `readAll()` catches
+/// dynamic key families (`epoch_key_*`, `runtime_keys_*`, transient
+/// `pending_*`, `setup_rollback_marker`, `bootstrap_joiner_bundle`, etc.)
+/// that the older static allow-lists silently drifted away from.
+///
+/// On `readAll()` failure the helper falls back to the static wipe list
+/// returned by [frontingMigrationWipeStaticKeys] (with [kProtectedFromReset]
+/// removed) so reset/pair cleanup still makes forward progress on platforms
+/// where prefix scans fail.
+///
+/// When [includeRuntimeDekWrappingKey] is true the AndroidKeystore-backed
+/// wrapping key handled by [DeviceBoundRuntimeDekStore] is also deleted.
+/// Reset-style callers pass `true`; the pairing-failure cleanup path passes
+/// `false` because the wrapping key is a per-device construct that must
+/// survive a failed pairing attempt (the user's existing wrapped runtime DEK
+/// is unwrapped with it on every launch).
+///
+/// All read/delete failures are logged via [log] (when supplied) and
+/// swallowed — best-effort cleanup must not throw out of either caller.
+///
+/// Returns the number of entries that were successfully deleted (useful for
+/// diagnostics; safe to ignore).
+///
+/// [readAll] / [deleteKey] are pluggable so the reset path can route through
+/// its `ResetSecureStore` abstraction while the pairing path can route
+/// through the top-level `secureStorage`. [deleteWrappingKey] is exposed as
+/// a test seam; production callers should leave it null.
+Future<int> wipeSyncKeychainNamespace({
+  required Future<Map<String, String>> Function() readAll,
+  required Future<void> Function(String key) deleteKey,
+  bool includeRuntimeDekWrappingKey = false,
+  Future<void> Function()? deleteWrappingKey,
+  void Function(String message)? log,
+}) async {
+  final deleted = await _deleteSyncCredentialKeychainEntries(
+    readAll: readAll,
+    deleteKey: deleteKey,
+    log: log,
+  );
+
+  if (includeRuntimeDekWrappingKey) {
+    final wrappingKeyDeleter =
+        deleteWrappingKey ?? _runtimeDekStore.deleteWrappingKey;
+    try {
+      await wrappingKeyDeleter();
+    } catch (e) {
+      log?.call('Runtime DEK wrapping-key delete failed (non-fatal): $e');
+    }
+  }
+
+  return deleted;
 }
 
 Future<void> _clearBiometricSyncDekBestEffort([Ref? ref]) async {
@@ -1629,6 +1694,280 @@ Future<void> drainRustStore(
     writeKey: (full, value) => _storage.write(key: full, value: value),
     shouldAbort: shouldAbort,
   );
+}
+
+/// Phase identifier for [DrainPartialWriteException]. Lets callers and tests
+/// distinguish a Phase-1 keychain delete failure from a Phase-2 write
+/// failure without string-matching the message.
+enum DrainPartialWritePhase { delete, write }
+
+/// Thrown by [drainRustStoreWithSnapshotRollback] (and the lower-level
+/// [applyDrainedEntriesWithSnapshotRollback] used in tests) when the
+/// keychain mirror failed mid-flight AND the caller-owned snapshot
+/// rollback ran. The original storage error is preserved as [cause];
+/// [failedKey] / [phase] tell the caller which mutation tripped the
+/// rollback so logs / setup-failure UX can be specific.
+class DrainPartialWriteException implements Exception {
+  final String failedKey;
+  final DrainPartialWritePhase phase;
+  final Object cause;
+  final StackTrace? causeStackTrace;
+
+  DrainPartialWriteException({
+    required this.failedKey,
+    required this.phase,
+    required this.cause,
+    this.causeStackTrace,
+  });
+
+  @override
+  String toString() =>
+      'DrainPartialWriteException(phase=${phase.name}, key=$failedKey, '
+      'cause=$cause)';
+}
+
+/// Snapshot-aware variant of [applyDrainedEntries] used by the setup
+/// drain path. Behaves identically to [applyDrainedEntries] on the happy
+/// path; on a delete or write throw it:
+///
+/// 1. Best-effort restores the keychain to [rollbackSnapshot]:
+///    - Deletes any current `prism_sync.*` key NOT in the snapshot AND
+///      NOT in [kProtectedFromReset].
+///    - Writes every snapshot entry back.
+///    - Never touches [kProtectedFromReset] — those slots hold the local
+///      DB-encryption key and must survive any sync-side rollback.
+/// 2. Re-throws a [DrainPartialWriteException] tagged with the failed
+///    key and the phase that failed.
+///
+/// Restore-time failures are swallowed (logged via [debugPrint]) so the
+/// original storage error survives as [DrainPartialWriteException.cause]
+/// and the caller's catch path still runs.
+///
+/// The [shouldAbort] hook still works exactly as in [applyDrainedEntries]
+/// — a clean abort is NOT a rollback trigger; only a thrown delete/write
+/// is.
+@visibleForTesting
+Future<int> applyDrainedEntriesWithSnapshotRollback({
+  required Map<String, String> entries,
+  required Map<String, String> rollbackSnapshot,
+  required Future<void> Function(String fullKey) deleteKey,
+  required Future<void> Function(String fullKey, String value) writeKey,
+  required Future<Map<String, String>> Function() readCurrentNamespace,
+  bool Function()? shouldAbort,
+}) async {
+  // Pre-loop barrier — same contract as applyDrainedEntries. A pre-loop
+  // abort is a clean no-op; rollback only fires on a thrown mutation.
+  if (shouldAbort?.call() ?? false) {
+    return 0;
+  }
+
+  // Track the full keys we ATTEMPTED to mutate (whether or not the
+  // mutation succeeded before the throw). Used by the rollback's
+  // namespace-scan-failure fallback to compute a "best-known" set of
+  // keys to delete when we cannot read the live keychain to discover
+  // post-drain leftovers exactly.
+  final attemptedFullKeys = <String>{};
+
+  Future<void> runRollback({
+    required String failedKey,
+    required DrainPartialWritePhase phase,
+    required Object cause,
+    required StackTrace stackTrace,
+  }) async {
+    // Phase A: drop everything currently in the namespace that the
+    // snapshot does NOT vouch for, except the protected DB slots. If
+    // the namespace scan itself fails (a realistic Android keystore
+    // failure), fall back to deleting the union of:
+    //   - keys we attempted to mutate during this drain that aren't in
+    //     the snapshot (covers Phase 2 writes + Phase 1 deletes that
+    //     succeeded mid-loop), and
+    //   - keys in `_secureStoreKeys` (the static fallback list) that
+    //     aren't in the snapshot (covers leftover stale identity slots
+    //     a previous successful drain may have written).
+    // This is "best-effort exact" — we lose the dynamic-key view
+    // (`epoch_key_*`, `runtime_keys_*`) but at least clear the static
+    // identity slots that gate sync.
+    try {
+      final current = await readCurrentNamespace();
+      for (final key in current.keys) {
+        if (kProtectedFromReset.contains(key)) continue;
+        if (rollbackSnapshot.containsKey(key)) continue;
+        try {
+          await deleteKey(key);
+        } catch (e) {
+          // Best-effort — never mask the original failure.
+          debugPrint(
+            '[SYNC] drain rollback delete failed for $key: $e',
+          );
+        }
+      }
+    } catch (e, st) {
+      // Rollback exactness is now best-effort. Surface as a warning
+      // (not just debugPrint) so diagnostics can flag the degraded
+      // restore path instead of silently swallowing it.
+      ErrorReportingService.instance.report(
+        '[SYNC] drain rollback namespace scan failed; falling back to '
+        'attempted-keys + static-allowlist delete: $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+      final fallbackDeletes = <String>{
+        ...attemptedFullKeys,
+        for (final key in _secureStoreKeys) '$_secureStorePrefix$key',
+      };
+      for (final fullKey in fallbackDeletes) {
+        if (kProtectedFromReset.contains(fullKey)) continue;
+        if (rollbackSnapshot.containsKey(fullKey)) continue;
+        try {
+          await deleteKey(fullKey);
+        } catch (e2) {
+          debugPrint(
+            '[SYNC] drain rollback fallback delete failed for $fullKey: $e2',
+          );
+        }
+      }
+    }
+    // Phase B: write every snapshot entry back.
+    for (final entry in rollbackSnapshot.entries) {
+      if (kProtectedFromReset.contains(entry.key)) continue;
+      try {
+        await writeKey(entry.key, entry.value);
+      } catch (e) {
+        debugPrint(
+          '[SYNC] drain rollback restore failed for ${entry.key}: $e',
+        );
+      }
+    }
+    Error.throwWithStackTrace(
+      DrainPartialWriteException(
+        failedKey: failedKey,
+        phase: phase,
+        cause: cause,
+        causeStackTrace: stackTrace,
+      ),
+      stackTrace,
+    );
+  }
+
+  int committedWrites = 0;
+  // Phase 1: delete stale static keys (matches applyDrainedEntries).
+  for (final key in _secureStoreKeys) {
+    if (!entries.containsKey(key)) {
+      if (shouldAbort?.call() ?? false) return committedWrites;
+      final fullKey = '$_secureStorePrefix$key';
+      attemptedFullKeys.add(fullKey);
+      try {
+        await deleteKey(fullKey);
+      } catch (e, st) {
+        await runRollback(
+          failedKey: fullKey,
+          phase: DrainPartialWritePhase.delete,
+          cause: e,
+          stackTrace: st,
+        );
+      }
+    }
+  }
+  // Phase 2: write every entry Rust returned, in priority order.
+  final orderedEntries = entries.entries.toList()
+    ..sort(
+      (a, b) =>
+          _drainWritePriority(a.key).compareTo(_drainWritePriority(b.key)),
+    );
+  for (final entry in orderedEntries) {
+    if (shouldAbort?.call() ?? false) return committedWrites;
+    final fullKey = '$_secureStorePrefix${entry.key}';
+    attemptedFullKeys.add(fullKey);
+    try {
+      await writeKey(fullKey, entry.value);
+    } catch (e, st) {
+      await runRollback(
+        failedKey: fullKey,
+        phase: DrainPartialWritePhase.write,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+    committedWrites++;
+  }
+  return committedWrites;
+}
+
+/// Setup-only variant of [drainRustStore] that restores the
+/// caller-owned [rollbackSnapshot] if a delete/write inside the
+/// keychain mirror throws.
+///
+/// Call this ONLY from setup paths that captured a clean pre-write
+/// snapshot of the `prism_sync.*` namespace (excluding
+/// [kProtectedFromReset]). The two paths today are:
+///   * Initiator setup (`sync_setup_provider._complete`).
+///   * Joiner ceremony post-drain (`device_pairing_provider.completeJoinerWithPassword`).
+///
+/// Post-config / background drains MUST keep using [drainRustStore]
+/// unchanged. Those callers do not have an authoritative pre-state to
+/// restore to; using snapshot rollback there would clobber valid
+/// pre-existing credentials. They keep the existing "log the failed
+/// key, leave the keychain as-is" behavior so Block 6c's `needsRecovery`
+/// classifier can surface partial state at next boot.
+///
+/// On rollback this re-throws a [DrainPartialWriteException] so callers
+/// can keep their existing catch-and-restore-snapshot logic running as
+/// defense in depth (the second restore is a no-op when the drain's
+/// internal restore already succeeded).
+Future<void> drainRustStoreWithSnapshotRollback(
+  ffi.PrismSyncHandle handle, {
+  required Map<String, String> rollbackSnapshot,
+  bool Function()? shouldAbort,
+}) async {
+  final drained = await ffi.drainSecureStore(handle: handle);
+
+  if (shouldAbort?.call() ?? false) {
+    debugPrint(
+      '[SYNC] drainRustStoreWithSnapshotRollback aborted: revoked pre-write',
+    );
+    return;
+  }
+
+  final entries = encodeDrainedEntries(drained);
+  await applyDrainedEntriesWithSnapshotRollback(
+    entries: entries,
+    rollbackSnapshot: rollbackSnapshot,
+    deleteKey: (full) => _storage.delete(key: full),
+    writeKey: (full, value) => _storage.write(key: full, value: value),
+    readCurrentNamespace: () => readPrefixed(_secureStorePrefix),
+    shouldAbort: shouldAbort,
+  );
+}
+
+/// Capture an authoritative pre-write snapshot of the `prism_sync.*`
+/// namespace, excluding [kProtectedFromReset] (DB-encryption slots).
+///
+/// Returns `null` if the keychain scan throws — callers MUST treat
+/// that as "I don't know what's in the keychain" and either abort the
+/// operation or fall back to the non-rollback drain path. Returning
+/// `{}` would treat the failure as "the keychain is authoritatively
+/// empty," and a subsequent rollback could then delete real
+/// pre-existing entries thinking they were never there.
+///
+/// Shared between `sync_setup_provider._complete`,
+/// `device_pairing_provider.completeJoinerWithPassword`, and the
+/// onboarding PIN-setup drain so all three paths agree on which keys
+/// are sacred and how snapshot-capture failure surfaces.
+Future<Map<String, String>?> snapshotPrismSyncKeychain() async {
+  try {
+    final all = await readPrefixed(_secureStorePrefix);
+    return Map.fromEntries(
+      all.entries.where((e) => !kProtectedFromReset.contains(e.key)),
+    );
+  } catch (e, st) {
+    ErrorReportingService.instance.report(
+      '[SYNC] snapshotPrismSyncKeychain failed; caller must fall back to '
+      'the non-rollback drain path: $e',
+      severity: ErrorSeverity.warning,
+      stackTrace: st,
+    );
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------

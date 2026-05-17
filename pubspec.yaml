@@ -81,17 +81,17 @@ dependencies:
     git:
       url: https://github.com/prismplural/prism-sync.git
       path: dart/packages/prism_sync
-      ref: e9793d6c15e4c9563940e3ca0c3ba849f76db23f
+      ref: 1b6ffd58a7e7461f93a694f920bee153438f89fd
   prism_sync_drift:
     git:
       url: https://github.com/prismplural/prism-sync.git
       path: dart/packages/prism_sync_drift
-      ref: e9793d6c15e4c9563940e3ca0c3ba849f76db23f
+      ref: 1b6ffd58a7e7461f93a694f920bee153438f89fd
   prism_sync_flutter:
     git:
       url: https://github.com/prismplural/prism-sync.git
       path: dart/packages/prism_sync_flutter
-      ref: e9793d6c15e4c9563940e3ca0c3ba849f76db23f
+      ref: 1b6ffd58a7e7461f93a694f920bee153438f89fd
   flutter_rust_bridge: 2.12.0
   pointycastle: ^4.0.0
   crypto: ^3.0.6

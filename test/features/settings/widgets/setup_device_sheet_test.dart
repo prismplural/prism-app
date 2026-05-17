@@ -11,6 +11,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/features/settings/widgets/setup_device_sheet.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
@@ -95,6 +96,48 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
   }) => Future.value('ok');
 }
 
+/// Pumps a small harness that wires `SetupDeviceSheet.show` to a button so
+/// each guard can be exercised by tap. The harness wraps with
+/// `PrismToastHost` so the toast text (rendered via the global toast host
+/// in production) is reachable from the widget tree under test.
+///
+/// `overrides` is dynamically typed because `Override` is not re-exported
+/// from `flutter_riverpod`'s default surface and adding the underlying
+/// `riverpod` package as a direct dev dependency just for this typing
+/// would muddy `pubspec.yaml`. The list is forwarded straight to
+/// `ProviderScope`, which is correctly typed there.
+Future<void> _pumpGuardHarness(
+  WidgetTester tester, {
+  required List<dynamic> overrides,
+}) async {
+  PrismToast.resetForTest();
+  addTearDown(PrismToast.resetForTest);
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: overrides.cast(),
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) =>
+            PrismToastHost(child: child ?? const SizedBox.shrink()),
+        home: Builder(
+          builder: (context) => Consumer(
+            builder: (context, ref, _) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => SetupDeviceSheet.show(context, ref),
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 void main() {
   testWidgets(
     'rebuilds handle from persisted identity when current handle is unavailable',
@@ -149,7 +192,159 @@ void main() {
 
       expect(handleNotifier.createdRelayUrl, 'https://relay.example.com');
       expect(find.textContaining('recovery phrase'), findsWidgets);
-      expect(find.text('Sync engine not available.'), findsNothing);
+      expect(
+        find.text("Sync isn't ready yet. Wait a moment and try again."),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('guard: handle null shows engine-not-available toast', (
+    tester,
+  ) async {
+    await _pumpGuardHarness(
+      tester,
+      overrides: [
+        pairingCeremonyApiProvider.overrideWith(
+          (ref) => _FakePairingCeremonyApi(),
+        ),
+        // Resolves to AsyncData(null) — handle missing is the case under
+        // test for this guard.
+        prismSyncHandleProvider.overrideWithBuild((ref, notifier) => null),
+        relayUrlProvider.overrideWithValue(
+          const AsyncValue<String?>.data('https://relay.example.com'),
+        ),
+        syncIdProvider.overrideWithValue(const AsyncValue<String?>.data(null)),
+        syncDeviceIdProvider.overrideWithValue(
+          const AsyncValue<String?>.data('device-123'),
+        ),
+        syncDeviceSecretPresentProvider.overrideWithValue(
+          const AsyncValue<bool>.data(true),
+        ),
+        syncWrappedDekPresentProvider.overrideWithValue(
+          const AsyncValue<bool>.data(true),
+        ),
+      ],
+    );
+
+    await tester.tap(find.text('Open'));
+    // Don't pumpAndSettle: the toast auto-dismiss timer would never
+    // resolve, leaving us stuck. Pump enough frames for the toast to
+    // appear in the overlay.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(
+      find.text("Sync isn't ready yet. Wait a moment and try again."),
+      findsOneWidget,
+    );
+    expect(find.textContaining("Sync setup didn't finish"), findsNothing);
+    expect(find.textContaining('restore your pairing key'), findsNothing);
+    // Sheet must NOT have opened.
+    expect(find.text('Continue'), findsNothing);
+
+    PrismToast.dismiss();
+  });
+
+  testWidgets(
+    'guard: partial identity shows partial-identity toast (not engine-unavailable)',
+    (tester) async {
+      await _pumpGuardHarness(
+        tester,
+        overrides: [
+          pairingCeremonyApiProvider.overrideWith(
+            (ref) => _FakePairingCeremonyApi(),
+          ),
+          prismSyncHandleProvider.overrideWithBuild(
+            (ref, notifier) => const _FakePrismSyncHandle(),
+          ),
+          relayUrlProvider.overrideWithValue(
+            const AsyncValue<String?>.data('https://relay.example.com'),
+          ),
+          // device_id present but device_secret absent — partial keychain
+          // state.
+          syncDeviceIdProvider.overrideWithValue(
+            const AsyncValue<String?>.data('device-123'),
+          ),
+          syncDeviceSecretPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(false),
+          ),
+          syncWrappedDekPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
+        ],
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(
+        find.textContaining("Sync setup didn't finish on this device"),
+        findsOneWidget,
+      );
+      // The previous bug shared the engine-not-available copy for this
+      // distinct state — assert that's no longer the case.
+      expect(
+        find.text("Sync isn't ready yet. Wait a moment and try again."),
+        findsNothing,
+      );
+      expect(find.textContaining('restore your pairing key'), findsNothing);
+      expect(find.text('Continue'), findsNothing);
+
+      PrismToast.dismiss();
+    },
+  );
+
+  testWidgets(
+    'guard: missing wrapped DEK shows pin-reconfirm toast (now localized)',
+    (tester) async {
+      await _pumpGuardHarness(
+        tester,
+        overrides: [
+          pairingCeremonyApiProvider.overrideWith(
+            (ref) => _FakePairingCeremonyApi(),
+          ),
+          prismSyncHandleProvider.overrideWithBuild(
+            (ref, notifier) => const _FakePrismSyncHandle(),
+          ),
+          relayUrlProvider.overrideWithValue(
+            const AsyncValue<String?>.data('https://relay.example.com'),
+          ),
+          syncIdProvider.overrideWithValue(
+            const AsyncValue<String?>.data(null),
+          ),
+          syncDeviceIdProvider.overrideWithValue(
+            const AsyncValue<String?>.data('device-123'),
+          ),
+          syncDeviceSecretPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
+          // wrapped_dek missing — must trip the third guard.
+          syncWrappedDekPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(false),
+          ),
+        ],
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(
+        find.text(
+          'Re-enter your PIN to restore your pairing key, then try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text("Sync isn't ready yet. Wait a moment and try again."),
+        findsNothing,
+      );
+      expect(find.textContaining("Sync setup didn't finish"), findsNothing);
+      expect(find.text('Continue'), findsNothing);
+
+      PrismToast.dismiss();
     },
   );
 

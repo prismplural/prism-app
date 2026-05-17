@@ -64,6 +64,37 @@ bool isSyncSettingsConfigured({
   return hasActiveHandle && syncHealth != SyncHealthState.unpaired;
 }
 
+/// Whether the "Set up another device" row should appear in sync settings.
+///
+/// All three conditions must hold; otherwise the row is hidden so users
+/// don't tap into a sheet that fires error toasts when the keychain is in
+/// a partial state:
+///   1. FFI handle is alive.
+///   2. Persistent sync identity is complete (relay URL, sync ID, device
+///      ID, device secret).
+///   3. `wrapped_dek` is present, because the inviter ceremony needs it
+///      to derive the joiner bundle.
+@visibleForTesting
+bool canSetUpAnotherDeviceRow({
+  required bool hasActiveHandle,
+  required String? relayUrl,
+  required String? syncId,
+  required String? deviceId,
+  required bool hasDeviceSecret,
+  required bool hasWrappedDek,
+}) {
+  if (!hasActiveHandle) return false;
+  if (!hasCompletePersistentSyncIdentity(
+    relayUrl: relayUrl,
+    syncId: syncId,
+    deviceId: deviceId,
+    hasDeviceSecret: hasDeviceSecret,
+  )) {
+    return false;
+  }
+  return hasWrappedDek;
+}
+
 class SyncEntityCounts {
   const SyncEntityCounts({required this.total, required this.last24h});
   final int total;
@@ -381,6 +412,27 @@ class _ConfiguredView extends ConsumerWidget {
     final nodeId = ref.watch(nodeIdProvider).value;
     final wsConnected = ref.watch(websocketConnectedProvider);
 
+    // Pairing entry-point gating: hide "Set up another device" unless this
+    // device has a complete persistent sync identity AND a wrapped DEK on
+    // hand. Without all three the inviter ceremony would either fail to
+    // derive the joiner bundle (missing wrapped_dek) or trip a partial-
+    // identity guard inside `SetupDeviceSheet.show`. Use `.value ?? false`
+    // so the row stays hidden during async loads rather than briefly
+    // visible on a stale truthy state.
+    final pairingDeviceIdAsync = ref.watch(syncDeviceIdProvider);
+    final pairingDeviceSecretAsync = ref.watch(
+      syncDeviceSecretPresentProvider,
+    );
+    final pairingWrappedDekAsync = ref.watch(syncWrappedDekPresentProvider);
+    final canSetUpAnotherDevice = canSetUpAnotherDeviceRow(
+      hasActiveHandle: handle != null,
+      relayUrl: relayUrl,
+      syncId: syncId,
+      deviceId: pairingDeviceIdAsync.value,
+      hasDeviceSecret: pairingDeviceSecretAsync.value ?? false,
+      hasWrappedDek: pairingWrappedDekAsync.value ?? false,
+    );
+
     final quarantinedAsync = ref.watch(quarantinedItemsProvider);
 
     final isSyncActive = syncStatus.isSyncing;
@@ -432,7 +484,9 @@ class _ConfiguredView extends ConsumerWidget {
                 ),
                 if (handle != null) ...[
                   const Divider(height: 1, indent: 60, endIndent: 12),
-                  if (nodeId != null && nodeId.isNotEmpty) ...[
+                  if (canSetUpAnotherDevice &&
+                      nodeId != null &&
+                      nodeId.isNotEmpty) ...[
                     PrismSettingsRow(
                       icon: AppIcons.devices,
                       title: context.l10n.syncSetUpAnotherDevice,

@@ -7,10 +7,12 @@ import 'package:prism_plurality/core/crypto/bip39_english_wordlist.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/security/secret_bytes.dart';
 import 'package:prism_plurality/core/services/build_info.dart';
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter_bootstrap.dart';
 import 'package:prism_plurality/core/sync/first_device_admission_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sync/relay_cleanup.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
@@ -70,6 +72,14 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   /// outlive the underlying Rust handle if the provider was invalidated
   /// mid-setup (Bug B7); reading on demand surfaces a clean error instead.
   ffi.PrismSyncHandle? get _handle => ref.read(prismSyncHandleProvider).value;
+
+  /// Indirection so tests can drive the catch path without binding the
+  /// real FFI rollback. Production code uses the default null and falls
+  /// through to `ffi.rollbackFirstDeviceRegistration` inside
+  /// `rollbackFirstDeviceRegistration`.
+  @visibleForTesting
+  Future<String> Function({required ffi.PrismSyncHandle handle})?
+  rollbackFirstDeviceRegistrationFnForTest;
 
   @override
   SyncSetupState build() {
@@ -283,9 +293,18 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
         maxRetries: 3,
       );
 
-      // Drain Rust SecureStore back to platform keychain
+      // Drain Rust SecureStore back to platform keychain. Use the
+      // snapshot-aware variant: a thrown delete/write mid-mirror would
+      // otherwise leave the keychain straddling pre- and post-setup
+      // state. The drain-internal rollback restores `snapshot` exactly
+      // even if the post-drain catch logic crashes for an unrelated
+      // reason; the catch's own `_restoreKeychainSnapshot` below remains
+      // as defense in depth.
       state = state.copyWith(currentProgress: SyncSetupProgress.cachingKeys);
-      await drainRustStore(handle);
+      await drainRustStoreWithSnapshotRollback(
+        handle,
+        rollbackSnapshot: snapshot,
+      );
       // `drainRustStore` is a delete-then-write mirror of Rust's secure store.
       // Keep the user-facing identity slots authoritative even if an older or
       // partially upgraded Rust layer omits them from the drained snapshot.
@@ -306,13 +325,78 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       return true;
     } catch (e) {
       final structuredError = PrismSyncStructuredError.tryParse(e);
+      // Restore the platform keychain snapshot BEFORE the relay rollback.
+      // If the process dies between the relay-rollback success and the
+      // keychain restore, the platform keychain would otherwise still
+      // hold the post-`drainRustStore` credentials for a relay
+      // registration that was just deleted — next launch would see ghost
+      // credentials and fail to sync. The rollback FFI reads its inputs
+      // from the Rust `MemorySecureStore` (see
+      // `rollback_first_device_registration` in `crates/prism-sync-ffi/src/api.rs`),
+      // not the platform keychain, so swapping the order does not break
+      // its ability to find the credentials it needs.
       await _restoreKeychainSnapshot(snapshot);
+      // Best-effort: tell the relay to forget the registration
+      // `create_sync_group` just made. The new FFI bypasses the local
+      // registry seeding step that the existing `deregisterDevice`
+      // requires (and which has not run yet at this failure window). The
+      // rollback never throws — failures are reported via the result
+      // envelope and logged as a warning, not surfaced to the user.
+      await _runRelayRollbackForFailedSetup(e);
       state = state.copyWith(
         isProcessing: false,
         currentProgress: null,
         error: 'Setup failed: ${_friendlySetupError(structuredError, e)}',
       );
       return false;
+    }
+  }
+
+  /// Invoke the FFI rollback that deregisters the just-created relay-side
+  /// device record. Wraps every exception so the original setup error
+  /// remains the user-facing failure mode. See `relay_cleanup.dart` and the
+  /// Rust FFI doc on `rollback_first_device_registration` for the
+  /// outcome shape.
+  Future<void> _runRelayRollbackForFailedSetup(Object originalSetupError) async {
+    final handle = _handle;
+    if (handle == null) {
+      // Without a live handle there is nothing to call. The Rust
+      // `MemorySecureStore` is gone with the handle, so the relay-side row
+      // cannot be deregistered locally. Block 5 covers the joiner-side
+      // analog of this residual.
+      return;
+    }
+    try {
+      final result = await rollbackFirstDeviceRegistration(
+        handle: handle,
+        rollbackFn: rollbackFirstDeviceRegistrationFnForTest,
+      );
+      if (result == null) {
+        ErrorReportingService.instance.report(
+          'Setup-failure relay rollback: FFI threw or returned non-JSON',
+          severity: ErrorSeverity.warning,
+        );
+        return;
+      }
+      // Report the warning for any outcome other than the silent no-op so
+      // diagnostics show whether the relay-side registration was cleaned
+      // up, deleted as a sole-device group, or left behind.
+      if (!result.isNoOp) {
+        ErrorReportingService.instance.report(
+          'Setup failure (${originalSetupError.runtimeType}); '
+          '${result.toLogLine()}',
+          severity: ErrorSeverity.warning,
+        );
+      }
+    } catch (e, st) {
+      // Defensive: parsing is guarded inside `rollbackFirstDeviceRegistration`,
+      // but anything thrown out here would otherwise replace the original
+      // setup error in the catch block.
+      ErrorReportingService.instance.report(
+        'Setup-failure relay rollback threw: $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
     }
   }
 
@@ -343,6 +427,18 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     required String syncId,
   }) => _persistSyncIdentity(relayUrl: relayUrl, syncId: syncId);
 
+  /// Test seam for the catch-path rollback. Production code only reaches
+  /// `_runRelayRollbackForFailedSetup` from inside `_complete`'s catch
+  /// block, behind a chain of FFI calls (`createSyncGroup`,
+  /// `configureEngine`, `drainRustStore`, `cacheRuntimeKeys`) that can't
+  /// run in pure-Dart tests. Tests inject a fake `rollbackFn` via
+  /// [rollbackFirstDeviceRegistrationFnForTest] and call this seam to
+  /// assert the contract directly.
+  @visibleForTesting
+  Future<void> runRelayRollbackForFailedSetupForTest(
+    Object originalSetupError,
+  ) => _runRelayRollbackForFailedSetup(originalSetupError);
+
   Future<void> _persistSyncIdentity({
     required String relayUrl,
     required String syncId,
@@ -358,6 +454,9 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     );
     ref.invalidate(relayUrlProvider);
     ref.invalidate(syncIdProvider);
+    ref.invalidate(syncDeviceIdProvider);
+    ref.invalidate(syncDeviceSecretPresentProvider);
+    ref.invalidate(syncWrappedDekPresentProvider);
   }
 
   Future<Map<String, String>> _snapshotPrismSyncKeychain() async {

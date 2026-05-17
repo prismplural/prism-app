@@ -43,7 +43,10 @@ class SetupDeviceSheet {
     );
     if (deviceId == null || deviceId.isEmpty || !hasDeviceSecret) {
       if (!context.mounted) return;
-      PrismToast.error(context, message: context.l10n.syncEngineNotAvailable);
+      PrismToast.error(
+        context,
+        message: context.l10n.syncEnginePartialIdentity,
+      );
       return;
     }
 
@@ -60,7 +63,7 @@ class SetupDeviceSheet {
       if (!context.mounted) return;
       PrismToast.error(
         context,
-        message: 'Re-confirm your PIN before pairing another device.',
+        message: context.l10n.syncEngineNeedsPinReconfirm,
       );
       return;
     }

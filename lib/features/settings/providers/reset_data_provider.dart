@@ -16,9 +16,9 @@ import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
-import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sync/relay_cleanup.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
@@ -457,7 +457,10 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     // 1. Try to deregister from relay (best-effort — may fail if offline).
     //    If this is the last active device the relay rejects deregister with a
     //    403 and tells us to delete the sync group instead — fall through to
-    //    deleteSyncGroup in that case so the relay drops all encrypted data.
+    //    `deleteSyncGroup` via the shared helper so the relay drops all
+    //    encrypted data. The same helper is called from the setup-failure
+    //    rollback in `sync_setup_provider.dart` after the new FFI rollback
+    //    runs, so both paths agree on last-device fallback semantics.
     if (handle != null) {
       try {
         final syncId = await _readDecodedSecureValue('${prefix}sync_id');
@@ -466,36 +469,23 @@ class ResetDataNotifier extends AsyncNotifier<void> {
           '${prefix}session_token',
         );
         if (syncId != null && deviceId != null && sessionToken != null) {
-          bool deregistered = false;
-          try {
-            await syncFfi.deregisterDevice(
-              handle: handle,
-              syncId: syncId,
-              deviceId: deviceId,
-              sessionToken: sessionToken,
-            );
-            deregistered = true;
-          } catch (e) {
-            final msg = e.toString();
-            if (msg.contains('last active device') || msg.contains('403')) {
-              // Sole device — the relay requires deleting the full group.
-              _log('Last device; attempting sync group deletion: $e');
-            } else {
-              _log('Relay deregister failed (non-fatal): $e');
-            }
-          }
-          if (!deregistered) {
-            try {
-              await syncFfi.deleteSyncGroup(
-                handle: handle,
-                syncId: syncId,
-                deviceId: deviceId,
-                sessionToken: sessionToken,
-              );
-            } catch (e) {
-              _log('Relay sync group delete failed (non-fatal): $e');
-            }
-          }
+          await cleanupRelayRegistration(
+            handle: handle,
+            syncId: syncId,
+            deviceId: deviceId,
+            sessionToken: sessionToken,
+            deregister: syncFfi.deregisterDevice,
+            deleteSyncGroup: syncFfi.deleteSyncGroup,
+            log: _log,
+            // Reset path: the user is wiping the device, so any
+            // deregister failure (network 5xx, auth, last-active) must
+            // still attempt the destructive `deleteSyncGroup` so the
+            // relay-side group does not linger. The setup-failure
+            // rollback in `sync_setup_provider.dart` keeps the default
+            // (false) — a transient blip during setup must not nuke
+            // the whole group.
+            fallbackOnAnyDeregisterFailure: true,
+          );
         }
       } catch (e) {
         _log('Relay cleanup failed (non-fatal): $e');
@@ -551,39 +541,24 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       _log('DB file delete failed (non-fatal): $e');
     }
 
-    // 5. Wipe the prism_sync.* keychain namespace by prefix, excluding the
-    //    DB-encryption slots in `kProtectedFromReset`. Inclusion-by-prefix
-    //    catches transient pairing keys (`bootstrap_joiner_bundle`,
-    //    `pending_sync_id`, `registration_token`, etc.) that the old
-    //    static allow-list missed. See `kProtectedFromReset` doc for why
-    //    the `database_key*` slots survive a sync-only reset.
+    // 5. Wipe the prism_sync.* keychain namespace via the shared helper.
+    //    `wipeSyncKeychainNamespace` runs the same prefix-scan-with-fallback
+    //    cleanup used by pairing-failure recovery, plus the AndroidKeystore-
+    //    backed runtime DEK wrapping key (reset only). Centralising this
+    //    keeps reset and `_cleanupKeychainOnFailure` in lockstep so a new
+    //    transient `prism_sync.*` key gets wiped by both paths automatically.
+    //    See `kProtectedFromReset` for why the `database_key*` slots survive
+    //    a sync-only reset.
     final storage = ref.read(resetSecureStoreProvider);
     try {
-      Set<String> keysToDelete;
-      try {
-        keysToDelete = computeKeysToClearOnReset(
-          await storage.readAll(),
-        ).toSet();
-      } catch (e) {
-        _log('Keychain readAll failed during reset; using fallback list: $e');
-        keysToDelete = {
-          for (final key in frontingMigrationWipeStaticKeys()) '$prefix$key',
-        }..removeAll(kProtectedFromReset);
-      }
-      for (final fullKey in keysToDelete) {
-        try {
-          await storage.delete(fullKey);
-        } catch (e) {
-          _log('Keychain delete failed for $fullKey (non-fatal): $e');
-        }
-      }
+      await wipeSyncKeychainNamespace(
+        readAll: storage.readAll,
+        deleteKey: storage.delete,
+        includeRuntimeDekWrappingKey: true,
+        log: _log,
+      );
     } catch (e) {
       _log('Keychain wipe-by-prefix failed (non-fatal): $e');
-    }
-    try {
-      await const DeviceBoundRuntimeDekStore().deleteWrappingKey();
-    } catch (e) {
-      _log('Runtime DEK wrapping-key delete failed (non-fatal): $e');
     }
 
     // 6. Clear the biometric-gated DEK copy. This is stored under a separate
@@ -608,6 +583,9 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     ref.invalidate(prismSyncHandleProvider);
     ref.invalidate(relayUrlProvider);
     ref.invalidate(syncIdProvider);
+    ref.invalidate(syncDeviceIdProvider);
+    ref.invalidate(syncDeviceSecretPresentProvider);
+    ref.invalidate(syncWrappedDekPresentProvider);
     ref.invalidate(syncEventStreamProvider);
     ref.invalidate(websocketConnectedProvider);
     ref.read(syncHealthProvider.notifier).setState(SyncHealthState.unpaired);

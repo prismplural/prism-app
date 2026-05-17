@@ -500,7 +500,28 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       //    The mnemonic is NOT written — it's an offline backup credential
       //    that the user will save themselves in step 7 and re-type when
       //    they change their PIN or pair another device.
-      await drainRustStore(handle);
+      //
+      //    Capture an authoritative pre-write snapshot first and use the
+      //    snapshot-rollback drain so a partial keychain mirror failure
+      //    restores the pre-onboarding keychain exactly. Onboarding is
+      //    expected to run with a clean `prism_sync.*` namespace, but
+      //    defensive snapshot-then-restore is still correct (e.g. a
+      //    half-failed previous attempt may have left orphans). If the
+      //    snapshot scan itself throws, fall back to the plain
+      //    `drainRustStore` (post-config "log and continue" semantics) —
+      //    aborting the in-flight onboarding for a transient keystore
+      //    read failure is more disruptive than the loss of exact
+      //    rollback. The capture failure is reported via
+      //    `ErrorReportingService` inside `snapshotPrismSyncKeychain`.
+      final preDrainKeychainSnapshot = await snapshotPrismSyncKeychain();
+      if (preDrainKeychainSnapshot != null) {
+        await drainRustStoreWithSnapshotRollback(
+          handle,
+          rollbackSnapshot: preDrainKeychainSnapshot,
+        );
+      } else {
+        await drainRustStore(handle);
+      }
 
       // 6. Rotate local database keys. If a sync identity already exists, also
       //    cache a device-bound wrapped DEK for Signal-style fast unlock.

@@ -715,7 +715,16 @@ class AppLocalizationsEs extends AppLocalizations {
       'Clave secreta no encontrada en el llavero.';
 
   @override
-  String get syncEngineNotAvailable => 'Motor de sincronización no disponible.';
+  String get syncEngineNotAvailable =>
+      'La sincronización aún no está lista. Espera un momento e inténtalo de nuevo.';
+
+  @override
+  String get syncEnginePartialIdentity =>
+      'La configuración de la sincronización no terminó en este dispositivo. Configura la sincronización de nuevo para agregar más dispositivos.';
+
+  @override
+  String get syncEngineNeedsPinReconfirm =>
+      'Vuelve a ingresar tu PIN para restaurar la clave de emparejamiento, luego inténtalo de nuevo.';
 
   @override
   String get syncIncorrectPassword => 'PIN incorrecto. Inténtalo de nuevo.';

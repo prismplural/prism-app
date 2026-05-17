@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
@@ -996,12 +997,10 @@ void main() {
 
     setUp(() {
       DevicePairingNotifier.drainRustStoreOverride = null;
-      DevicePairingNotifier.deleteRuntimeDekWrappingKeyOverride = null;
     });
 
     tearDown(() {
       DevicePairingNotifier.drainRustStoreOverride = null;
-      DevicePairingNotifier.deleteRuntimeDekWrappingKeyOverride = null;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(secureStorageChannel, null);
     });
@@ -1009,9 +1008,13 @@ void main() {
     /// Install an in-memory mock for the flutter_secure_storage method
     /// channel. Returns the backing map so tests can pre-seed values
     /// (cancelAndRemoveDevice test) or assert post-write contents.
+    ///
+    /// `failReadAll: true` makes every `readAll` call throw — used by the
+    /// snapshot-capture-failure test to drive the joiner fallback path.
     Map<String, String> installSecureStorageMock([
       Map<String, String>? initial,
       Set<String> failWrites = const {},
+      bool failReadAll = false,
     ]) {
       final store = <String, String>{...?initial};
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -1023,6 +1026,12 @@ void main() {
                 final key = (call.arguments as Map)['key'] as String;
                 return store[key];
               case 'readAll':
+                if (failReadAll) {
+                  throw PlatformException(
+                    code: 'readAll_failed',
+                    message: 'simulated readAll failure',
+                  );
+                }
                 return Map<String, String>.from(store);
               case 'write':
                 final args = call.arguments as Map;
@@ -1325,11 +1334,6 @@ void main() {
           deviceId: base64Encode(utf8.encode('device-xyz')),
         ),
       });
-      var deletedPlatformWrappingKey = false;
-      DevicePairingNotifier.deleteRuntimeDekWrappingKeyOverride = () async {
-        deletedPlatformWrappingKey = true;
-      };
-
       final container = makeContainer();
       addTearDown(container.dispose);
 
@@ -1376,16 +1380,252 @@ void main() {
       expect(keychain['prism_sync.runtime_dek_linux_wrap_key_v1'], isNull);
       expect(keychain[kSnapshotApplyCompleteKey], isNull);
       expect(
-        deletedPlatformWrappingKey,
-        isTrue,
-        reason:
-            'cancel cleanup must also delete app-owned platform wrapping keys.',
-      );
-      expect(
         container.read(devicePairingProvider).step,
         PairingStep.enterUrl,
         reason: 'cancel must return the notifier to the initial step.',
       );
     });
+
+    test(
+      'cancel cleanup wipes unknown prism_sync.* keys via the shared helper '
+      '(no static list drift)',
+      () async {
+        // Regression for Block 9 of the Android sync remediation. Before the
+        // refactor, `_cleanupKeychainOnFailure` carried its own hard-coded
+        // list of keys to delete; any new transient `prism_sync.*` key added
+        // later would silently leak after a failed pairing attempt. The
+        // shared `wipeSyncKeychainNamespace` helper does a prefix scan, so
+        // unknown keys must be removed without anyone updating a list here.
+        //
+        // Arrangement: seed the same baseline keys the prior test uses PLUS
+        // a fictional `prism_sync.someNewTransientKey` and a dynamic
+        // `prism_sync.epoch_key_42`. Both are outside the old static list
+        // and outside `kProtectedFromReset`. We also seed a protected DB
+        // slot to verify the helper's exclusion still applies.
+        final keychain = installSecureStorageMock({
+          'prism_sync.sync_id': base64Encode(utf8.encode('sync-xyz')),
+          'prism_sync.device_id': base64Encode(utf8.encode('device-xyz')),
+          'prism_sync.session_token': base64Encode(utf8.encode('token-xyz')),
+          'prism_sync.someNewTransientKey': 'NEW',
+          'prism_sync.epoch_key_42': 'EPOCH42',
+          'prism_sync.database_key': 'KEEP',
+        });
+
+        final container = makeContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(devicePairingProvider.notifier);
+        await notifier.handlePostCeremonyFailureForTest(
+          ceremonyCompleted: true,
+          error: StateError('simulated bootstrap failure'),
+        );
+        expect(
+          container.read(devicePairingProvider).step,
+          PairingStep.snapshotFailure,
+        );
+
+        await notifier.cancelAndRemoveDevice();
+        await pumpEventQueue();
+
+        // The fictional transient key must have been wiped even though no
+        // one ever added it to a static cleanup list.
+        expect(
+          keychain['prism_sync.someNewTransientKey'],
+          isNull,
+          reason:
+              'cleanup must use a prefix scan, not a static list. Adding a '
+              'new transient prism_sync.* key without touching the cleanup '
+              'code must still result in deletion on pairing failure.',
+        );
+        expect(
+          keychain['prism_sync.epoch_key_42'],
+          isNull,
+          reason:
+              'dynamic epoch_key_* entries must be deleted by the shared '
+              'cleanup helper.',
+        );
+        // Protected DB-encryption slot still survives.
+        expect(
+          keychain['prism_sync.database_key'],
+          'KEEP',
+          reason:
+              'kProtectedFromReset must be preserved by the pairing-failure '
+              'cleanup helper too.',
+        );
+      },
+    );
+
+    // ----------------------------------------------------------------
+    // Block 6a follow-up fixes — joiner-side rollback interaction.
+    //
+    // Fix 2: when the post-ceremony drain throws a
+    //   `DrainPartialWriteException`, the snapshot rollback inside the
+    //   drain has already restored the pre-pairing keychain. The catch
+    //   path MUST skip `_cleanupKeychainOnFailure`, otherwise the
+    //   restored snapshot entries get wiped immediately.
+    //
+    // Fix 3: when `_snapshotPrismSyncKeychain` itself throws (e.g. an
+    //   Android keystore `readAll` failure), the joiner falls back to
+    //   the plain `drainRustStore` path instead of aborting.
+    // ----------------------------------------------------------------
+
+    test(
+      'joiner cleanup is skipped after DrainPartialWriteException — '
+      'snapshot rollback survives',
+      () async {
+        // Seed the keychain with the pre-pairing snapshot. The
+        // rollback inside the (overridden) drain restores this same
+        // map, so the post-error keychain should still contain it.
+        final preCeremony = <String, String>{
+          'prism_sync.relay_url': base64Encode(
+            utf8.encode('https://relay.example.com'),
+          ),
+          // A non-protected pre-existing slot to prove the cleanup
+          // would have wiped it had it run.
+          'prism_sync.someExistingTransientKey': 'PRE-EXISTING',
+        };
+        final keychain = installSecureStorageMock({...preCeremony});
+
+        final container = makeContainer();
+        addTearDown(container.dispose);
+
+        // Override the snapshot-rollback drain to (1) capture the
+        // snapshot, (2) re-write its entries (the real rollback's
+        // restoration), and (3) throw the diagnostic exception.
+        Map<String, String>? capturedSnapshot;
+        DevicePairingNotifier.drainRustStoreWithSnapshotRollbackOverride =
+            (handle, {required rollbackSnapshot}) async {
+              capturedSnapshot = Map<String, String>.from(rollbackSnapshot);
+              // Simulate the real rollback's restore phase running
+              // before the drain re-throws DrainPartialWriteException.
+              for (final entry in rollbackSnapshot.entries) {
+                keychain[entry.key] = entry.value;
+              }
+              throw DrainPartialWriteException(
+                failedKey: 'prism_sync.device_secret',
+                phase: DrainPartialWritePhase.write,
+                cause: StateError('simulated keychain write failure'),
+              );
+            };
+        addTearDown(() {
+          DevicePairingNotifier.drainRustStoreWithSnapshotRollbackOverride =
+              null;
+        });
+
+        // Resolve the handle future so prismSyncHandleProvider.value is
+        // populated when the joiner pulls the active ceremony handle.
+        await container.read(prismSyncHandleProvider.future);
+
+        final notifier = container.read(devicePairingProvider.notifier);
+        await notifier.completeJoinerWithPassword('123456');
+        await pumpEventQueue();
+
+        // Sanity: snapshot was captured and restored by the override.
+        expect(capturedSnapshot, isNotNull);
+        expect(
+          capturedSnapshot,
+          equals(preCeremony),
+          reason:
+              'the joiner must hand the snapshot-rollback drain the '
+              'pre-ceremony pre-state verbatim',
+        );
+
+        // The drain failure routes to PairingStep.error (pre-persistence).
+        final state = container.read(devicePairingProvider);
+        expect(state.step, PairingStep.error);
+
+        // Critical assertion: the rollback's restored entries are STILL
+        // in the keychain. If `_cleanupKeychainOnFailure` had run, it
+        // would have wiped them via the prefix scan.
+        for (final entry in preCeremony.entries) {
+          expect(
+            keychain[entry.key],
+            entry.value,
+            reason:
+                'cleanup must NOT run after a DrainPartialWriteException — '
+                'the snapshot rollback already restored ${entry.key}',
+          );
+        }
+      },
+    );
+
+    test(
+      'joiner snapshot-capture failure falls back to plain drainRustStore',
+      () async {
+        // `readAll` throws — `snapshotPrismSyncKeychain` returns null,
+        // and the joiner must fall back to the non-rollback drain
+        // instead of aborting the in-flight pairing.
+        ErrorReportingService.instance.clear();
+        installSecureStorageMock(
+          // Pre-populate something so we can prove the plain drain ran
+          // without the snapshot-rollback variant clobbering it (the
+          // plain drain is invoked because we have no authoritative
+          // pre-state).
+          const <String, String>{},
+          const <String>{},
+          // failReadAll
+          true,
+        );
+
+        final container = makeContainer();
+        addTearDown(container.dispose);
+
+        var snapshotDrainCalls = 0;
+        var legacyDrainCalls = 0;
+        DevicePairingNotifier.drainRustStoreWithSnapshotRollbackOverride =
+            (handle, {required rollbackSnapshot}) async {
+              snapshotDrainCalls++;
+            };
+        DevicePairingNotifier.drainRustStoreOverride = (handle) async {
+          legacyDrainCalls++;
+        };
+        addTearDown(() {
+          DevicePairingNotifier.drainRustStoreWithSnapshotRollbackOverride =
+              null;
+          DevicePairingNotifier.drainRustStoreOverride = null;
+        });
+
+        await container.read(prismSyncHandleProvider.future);
+
+        final notifier = container.read(devicePairingProvider.notifier);
+        await notifier.completeJoinerWithPassword('123456');
+        await pumpEventQueue();
+
+        // The fallback path used the legacy plain drain; the snapshot
+        // variant must NOT have been called (no authoritative snapshot
+        // to hand it).
+        expect(
+          snapshotDrainCalls,
+          0,
+          reason:
+              'snapshot capture failed — the snapshot-rollback drain '
+              'must NOT run, since there is no authoritative pre-state',
+        );
+        expect(
+          legacyDrainCalls,
+          1,
+          reason:
+              'snapshot capture failed — the joiner must fall back to '
+              'the plain drainRustStore path so pairing completes',
+        );
+
+        // The capture failure was reported as a warning so diagnostics
+        // can flag the degraded path.
+        final captureWarnings = ErrorReportingService.instance.errors
+            .where(
+              (e) =>
+                  e.severity == ErrorSeverity.warning &&
+                  e.message.contains('snapshotPrismSyncKeychain failed'),
+            )
+            .toList();
+        expect(
+          captureWarnings,
+          isNotEmpty,
+          reason:
+              'snapshot-capture failure must surface as a warning so '
+              'we can correlate it with subsequent partial-state issues',
+        );
+      },
+    );
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/sync_setup_provider.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -408,6 +409,180 @@ void main() {
           contains('Setup handle no longer available'),
           reason: 'Expected the Phase 4D error message; got "${state.error}"',
         );
+      },
+    );
+  });
+
+  // ── Block 4 — setup-failure relay rollback ──────────────────────────────
+  // These exercise the `_runRelayRollbackForFailedSetup` seam directly.
+  // The full `_complete` catch path can't run in pure-Dart tests because
+  // `createSyncGroup` etc. live behind the FFI; the `runRelayRollbackForFailedSetupForTest`
+  // hook lets us pin the contract anyway.
+
+  group('SyncSetupNotifier setup-failure relay rollback (Block 4)', () {
+    setUp(ErrorReportingService.instance.clear);
+
+    test(
+      'invokes the FFI rollback exactly once during the failure path',
+      () async {
+        var rollbackCalls = 0;
+        final notifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(handleNotifier: notifier);
+        // Resolve the handle future before reading via .value below.
+        await container.read(prismSyncHandleProvider.future);
+        final setup = container.read(syncSetupProvider.notifier);
+        setup.rollbackFirstDeviceRegistrationFnForTest =
+            ({required ffi.PrismSyncHandle handle}) async {
+              rollbackCalls++;
+              return '{"outcome":"deregistered"}';
+            };
+
+        await setup.runRelayRollbackForFailedSetupForTest(
+          Exception('configureEngine failed'),
+        );
+
+        expect(rollbackCalls, 1, reason: 'rollback FFI must run exactly once');
+      },
+    );
+
+    test(
+      'rollback returning Deregistered logs a warning but does not throw',
+      () async {
+        final notifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(handleNotifier: notifier);
+        await container.read(prismSyncHandleProvider.future);
+        final setup = container.read(syncSetupProvider.notifier);
+        setup.rollbackFirstDeviceRegistrationFnForTest =
+            ({required ffi.PrismSyncHandle handle}) async =>
+                '{"outcome":"deregistered"}';
+
+        await setup.runRelayRollbackForFailedSetupForTest(
+          Exception('configureEngine failed'),
+        );
+
+        final reports = ErrorReportingService.instance.errors;
+        expect(reports, hasLength(1));
+        expect(reports.single.severity, ErrorSeverity.warning);
+        expect(reports.single.message, contains('deregistered'));
+      },
+    );
+
+    test(
+      'rollback returning GroupDeleted logs that distinct outcome (sole-device case)',
+      () async {
+        final notifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(handleNotifier: notifier);
+        await container.read(prismSyncHandleProvider.future);
+        final setup = container.read(syncSetupProvider.notifier);
+        setup.rollbackFirstDeviceRegistrationFnForTest =
+            ({required ffi.PrismSyncHandle handle}) async =>
+                '{"outcome":"group_deleted","fallback_from":"last_active_device"}';
+
+        await setup.runRelayRollbackForFailedSetupForTest(
+          Exception('drainRustStore failed'),
+        );
+
+        final reports = ErrorReportingService.instance.errors;
+        expect(reports, hasLength(1));
+        expect(reports.single.message, contains('group_deleted'));
+        expect(reports.single.message, contains('last_active_device'));
+      },
+    );
+
+    test(
+      'rollback returning NoOp suppresses the warning entirely',
+      () async {
+        // No-op means the Rust secure store had nothing usable to clean up
+        // (e.g. setup failed before `create_sync_group` returned), so there
+        // is no follow-up signal to surface — the original setup error is
+        // already enough.
+        final notifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(handleNotifier: notifier);
+        await container.read(prismSyncHandleProvider.future);
+        final setup = container.read(syncSetupProvider.notifier);
+        setup.rollbackFirstDeviceRegistrationFnForTest =
+            ({required ffi.PrismSyncHandle handle}) async =>
+                '{"outcome":"no_op","reason":"sync_id missing"}';
+
+        await setup.runRelayRollbackForFailedSetupForTest(
+          Exception('configureEngine failed'),
+        );
+
+        expect(
+          ErrorReportingService.instance.errors,
+          isEmpty,
+          reason: 'no_op rollback must not emit a warning',
+        );
+      },
+    );
+
+    test(
+      'rollback FFI throwing is caught and reported as warning',
+      () async {
+        final notifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(handleNotifier: notifier);
+        await container.read(prismSyncHandleProvider.future);
+        final setup = container.read(syncSetupProvider.notifier);
+        setup.rollbackFirstDeviceRegistrationFnForTest =
+            ({required ffi.PrismSyncHandle handle}) async {
+              throw Exception('relay 502');
+            };
+
+        // Must NOT throw — the original setup error is what propagates.
+        await setup.runRelayRollbackForFailedSetupForTest(
+          Exception('drainRustStore failed'),
+        );
+
+        final reports = ErrorReportingService.instance.errors;
+        expect(reports, hasLength(1));
+        expect(reports.single.severity, ErrorSeverity.warning);
+        // Inner FFI throw bubbles into the wrapper as null → warning.
+        expect(reports.single.message, contains('FFI threw'));
+      },
+    );
+
+    test(
+      'no-op when handle is null (process death / provider invalidation)',
+      () async {
+        var rollbackCalls = 0;
+        final handleNotifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(handleNotifier: handleNotifier);
+        // Resolve the build() future so `clearHandle` can mutate state.
+        await container.read(prismSyncHandleProvider.future);
+        final setup = container.read(syncSetupProvider.notifier);
+        setup.rollbackFirstDeviceRegistrationFnForTest =
+            ({required ffi.PrismSyncHandle handle}) async {
+              rollbackCalls++;
+              return '{"outcome":"deregistered"}';
+            };
+
+        // Drop the handle BEFORE the catch path runs (mirrors a provider
+        // invalidation between createSyncGroup returning and configureEngine
+        // throwing).
+        handleNotifier.clearHandle();
+
+        await setup.runRelayRollbackForFailedSetupForTest(
+          Exception('configureEngine failed'),
+        );
+
+        expect(
+          rollbackCalls,
+          0,
+          reason: 'must not invoke FFI when handle is gone',
+        );
+        expect(ErrorReportingService.instance.errors, isEmpty);
       },
     );
   });

@@ -9,7 +9,6 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/security/secret_bytes.dart';
-import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/pairing_sas_display.dart';
@@ -167,13 +166,54 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   static Future<void> Function(ffi.PrismSyncHandle handle)?
   drainRustStoreOverride;
 
+  /// Test-only override for [drainRustStoreWithSnapshotRollback]. Mirrors
+  /// [drainRustStoreOverride] but captures the caller-owned snapshot so
+  /// joiner-ceremony tests can assert what was passed in. Falls back to
+  /// [drainRustStoreOverride] if only the legacy override is wired.
   @visibleForTesting
-  static Future<void> Function()? deleteRuntimeDekWrappingKeyOverride;
+  static Future<void> Function(
+    ffi.PrismSyncHandle handle, {
+    required Map<String, String> rollbackSnapshot,
+  })?
+  drainRustStoreWithSnapshotRollbackOverride;
 
   Future<void> _drainRustStore(ffi.PrismSyncHandle handle) {
     final override = drainRustStoreOverride;
     if (override != null) return override(handle);
     return drainRustStore(handle);
+  }
+
+  Future<void> _drainRustStoreWithSnapshot(
+    ffi.PrismSyncHandle handle, {
+    required Map<String, String> rollbackSnapshot,
+  }) {
+    final snapshotOverride = drainRustStoreWithSnapshotRollbackOverride;
+    if (snapshotOverride != null) {
+      return snapshotOverride(handle, rollbackSnapshot: rollbackSnapshot);
+    }
+    // Fall back to the legacy override if a test only wired the no-snapshot
+    // seam — it's still useful for ordering tests that don't care about
+    // rollback semantics.
+    final legacyOverride = drainRustStoreOverride;
+    if (legacyOverride != null) return legacyOverride(handle);
+    return drainRustStoreWithSnapshotRollback(
+      handle,
+      rollbackSnapshot: rollbackSnapshot,
+    );
+  }
+
+  /// Snapshot the `prism_sync.*` namespace minus the protected DB-key
+  /// slots. Used by the joiner-ceremony drain to capture an authoritative
+  /// pre-state so a partial keychain mirror after `completeJoinerCeremony`
+  /// can be rolled back exactly.
+  ///
+  /// Returns `null` if the underlying keychain scan throws — callers MUST
+  /// treat that as "I don't know what's in the keychain" and fall back to
+  /// the non-rollback drain path. Returning `{}` here would let a
+  /// subsequent rollback delete real pre-existing entries thinking they
+  /// were never there.
+  Future<Map<String, String>?> _snapshotPrismSyncKeychain() {
+    return snapshotPrismSyncKeychain();
   }
 
   @override
@@ -424,6 +464,29 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
       if (_generation != myGeneration) return;
 
+      // Snapshot the `prism_sync.*` namespace BEFORE the ceremony. The
+      // ceremony only mutates Rust's in-memory secure store, so any
+      // entries we read here are an authoritative pre-pairing pre-state.
+      // The post-ceremony drain is the first moment platform-keychain
+      // writes happen on this device, and those writes have no atomicity
+      // guarantee — a thrown write mid-mirror would otherwise leave the
+      // keychain straddling pre-pairing and post-pairing state. Passing
+      // this snapshot into the snapshot-rollback drain lets the mirror
+      // restore the pre-state exactly on partial-write failure.
+      // Protected DB-key slots are excluded so a rollback can never
+      // overwrite the local-storage DEK.
+      //
+      // `null` here means the keychain scan itself threw — see
+      // `_snapshotPrismSyncKeychain`. We still proceed with the
+      // ceremony (aborting an in-flight pairing for a transient
+      // keystore read failure is more disruptive than the loss of
+      // exact rollback), but we use the plain `drainRustStore` path
+      // below: without an authoritative pre-state we cannot safely
+      // restore on a partial drain failure, so we fall back to the
+      // post-config "log and continue" semantics. The capture failure
+      // is reported via ErrorReportingService inside the helper.
+      final preCeremonyKeychainSnapshot = await _snapshotPrismSyncKeychain();
+
       // PHASE 1 — Ceremony (45 s hard timeout). Credentials are not yet
       // established, so a timeout here is safe to clean up the keychain.
       Uint8List? passwordBytes;
@@ -461,13 +524,32 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       //     to call `deregisterDevice`, orphaning the relay registration
       // Doing the drain here closes that window.
       try {
-        await _drainRustStore(handle);
+        if (preCeremonyKeychainSnapshot != null) {
+          await _drainRustStoreWithSnapshot(
+            handle,
+            rollbackSnapshot: preCeremonyKeychainSnapshot,
+          );
+        } else {
+          // Snapshot capture failed — see the comment above. Without an
+          // authoritative pre-state we cannot safely run the rollback
+          // variant, so fall back to the plain drain and accept the
+          // post-config "log and continue" partial-write semantics.
+          await _drainRustStore(handle);
+        }
       } catch (e, st) {
         // Drain itself failed — we are still pre-persistence, so treat
         // as a ceremony-phase failure. The relay device is registered
         // but unACKed; its TTL-based cleanup will reap it.
         _pendingPin = null;
-        await _cleanupKeychainOnFailure();
+        // Skip the keychain wipe when the drain rolled itself back to
+        // the snapshot: `_cleanupKeychainOnFailure` would otherwise
+        // delete the snapshot's pre-existing entries that the rollback
+        // just restored. The plain-drain fallback path (no rollback)
+        // still wipes, since there is no authoritative pre-state to
+        // preserve there.
+        if (e is! DrainPartialWriteException) {
+          await _cleanupKeychainOnFailure();
+        }
         ErrorReportingService.instance.report(
           'Pairing drain after ceremony failed (pre-persistence) — '
           'relay device will be reaped by TTL cleanup: $e',
@@ -926,6 +1008,9 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
     ref.invalidate(relayUrlProvider);
     ref.invalidate(syncIdProvider);
+    ref.invalidate(syncDeviceIdProvider);
+    ref.invalidate(syncDeviceSecretPresentProvider);
+    ref.invalidate(syncWrappedDekPresentProvider);
 
     // From here on, the snapshot has been imported and applied locally. These
     // finishing steps improve startup/sync continuity, but they must not turn
@@ -1245,6 +1330,9 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     _pairingRelayUrl = null;
     ref.invalidate(relayUrlProvider);
     ref.invalidate(syncIdProvider);
+    ref.invalidate(syncDeviceIdProvider);
+    ref.invalidate(syncDeviceSecretPresentProvider);
+    ref.invalidate(syncWrappedDekPresentProvider);
     ref.read(syncSetupProgressProvider.notifier).reset();
     state = const PairingState();
   }
@@ -1262,41 +1350,38 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// Remove any keychain keys that may have been written during a failed
   /// pairing attempt (via drainRustStore / cacheRuntimeKeys) so that
   /// partial credentials don't linger and confuse future startup logic.
+  ///
+  /// Delegates to the shared [wipeSyncKeychainNamespace] helper so that
+  /// every transient `prism_sync.*` key (including dynamic families like
+  /// `epoch_key_*` / `runtime_keys_*` / `pending_*` / `setup_rollback_marker`
+  /// that older static lists silently drifted past) gets wiped. The
+  /// `kProtectedFromReset` DB-encryption slots are preserved by the helper —
+  /// they are local-storage Signal-model keys that must survive a failed
+  /// pairing attempt or the encrypted local DB becomes unreadable.
+  ///
+  /// Pass `includeRuntimeDekWrappingKey: false`: the AndroidKeystore-backed
+  /// wrapping key is a per-device construct that must survive a failed
+  /// pairing attempt so the user's existing wrapped runtime DEK can still
+  /// be unwrapped on the next launch.
+  ///
+  /// **Callers MUST skip this when `drainRustStoreWithSnapshotRollback`
+  /// has already rolled back to a caller-owned snapshot** — the drain's
+  /// rollback restored the pre-pairing keychain state, and a follow-up
+  /// wipe here would then delete the snapshot's pre-existing entries.
+  /// The joiner failure path detects this by checking `is
+  /// DrainPartialWriteException` on the caught error.
   Future<void> _cleanupKeychainOnFailure() async {
-    const prefix = 'prism_sync.';
-    // NOTE: database_key is intentionally NOT cleaned up here. It is a
-    // local encryption key (Signal model) that must survive failed pairing
-    // attempts — deleting it would make the encrypted local DB unreadable.
-    const keysToClean = [
-      '${prefix}wrapped_dek',
-      '${prefix}dek_salt',
-      '${prefix}device_secret',
-      '${prefix}device_id',
-      '${prefix}sync_id',
-      '${prefix}session_token',
-      '${prefix}epoch',
-      '${prefix}relay_url',
-      '${prefix}mnemonic',
-      '${prefix}runtime_dek',
-      '${prefix}runtime_dek_wrapped_v1',
-      '${prefix}runtime_dek_linux_wrap_key_v1',
-      kSnapshotApplyCompleteKey,
-    ];
-    for (final key in keysToClean) {
-      try {
-        await secureStorage.delete(key: key);
-      } catch (_) {
-        // Best-effort cleanup — don't propagate errors
-      }
-    }
-    try {
-      final deleteWrappingKey =
-          deleteRuntimeDekWrappingKeyOverride ??
-          const DeviceBoundRuntimeDekStore().deleteWrappingKey;
-      await deleteWrappingKey();
-    } catch (_) {
-      // Best-effort cleanup — don't propagate errors
-    }
+    await wipeSyncKeychainNamespace(
+      readAll: secureStorage.readAll,
+      deleteKey: (key) => secureStorage.delete(key: key),
+      includeRuntimeDekWrappingKey: false,
+      log: (message) {
+        // Best-effort cleanup — surface as a debug log, don't propagate.
+        if (kDebugMode) {
+          debugPrint('[PAIRING] $message');
+        }
+      },
+    );
   }
 
   /// Mark onboarding as complete after sync pairing.

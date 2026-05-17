@@ -1343,8 +1343,20 @@ abstract class AppLocalizations {
   /// Error when sync engine handle is null
   ///
   /// In en, this message translates to:
-  /// **'Sync engine not available.'**
+  /// **'Sync isn\'t ready yet. Wait a moment and try again.'**
   String get syncEngineNotAvailable;
+
+  /// Error when persistent sync identity is incomplete (device id or device secret missing) and the user tries to pair another device
+  ///
+  /// In en, this message translates to:
+  /// **'Sync setup didn\'t finish on this device. Set up sync again to add more devices.'**
+  String get syncEnginePartialIdentity;
+
+  /// Error when wrapped DEK is missing and the user must re-confirm their PIN before pairing another device
+  ///
+  /// In en, this message translates to:
+  /// **'Re-enter your PIN to restore your pairing key, then try again.'**
+  String get syncEngineNeedsPinReconfirm;
 
   /// Error when PIN verification fails
   ///

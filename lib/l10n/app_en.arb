@@ -926,9 +926,17 @@
   "@syncSecretKeyNotFound": {
     "description": "Error when secret key is missing from keychain"
   },
-  "syncEngineNotAvailable": "Sync engine not available.",
+  "syncEngineNotAvailable": "Sync isn't ready yet. Wait a moment and try again.",
   "@syncEngineNotAvailable": {
     "description": "Error when sync engine handle is null"
+  },
+  "syncEnginePartialIdentity": "Sync setup didn't finish on this device. Set up sync again to add more devices.",
+  "@syncEnginePartialIdentity": {
+    "description": "Error when persistent sync identity is incomplete (device id or device secret missing) and the user tries to pair another device"
+  },
+  "syncEngineNeedsPinReconfirm": "Re-enter your PIN to restore your pairing key, then try again.",
+  "@syncEngineNeedsPinReconfirm": {
+    "description": "Error when wrapped DEK is missing and the user must re-confirm their PIN before pairing another device"
   },
   "syncIncorrectPassword": "Incorrect PIN. Please try again.",
   "@syncIncorrectPassword": {

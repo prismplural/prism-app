@@ -692,7 +692,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncSecretKeyNotFound => 'Secret Key not found in keychain.';
 
   @override
-  String get syncEngineNotAvailable => 'Sync engine not available.';
+  String get syncEngineNotAvailable =>
+      'Sync isn\'t ready yet. Wait a moment and try again.';
+
+  @override
+  String get syncEnginePartialIdentity =>
+      'Sync setup didn\'t finish on this device. Set up sync again to add more devices.';
+
+  @override
+  String get syncEngineNeedsPinReconfirm =>
+      'Re-enter your PIN to restore your pairing key, then try again.';
 
   @override
   String get syncIncorrectPassword => 'Incorrect PIN. Please try again.';

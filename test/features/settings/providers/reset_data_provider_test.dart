@@ -316,6 +316,130 @@ void main() {
       expect(harness.container.read(sync.websocketConnectedProvider), isFalse);
     });
 
+    test('sync reset invalidates cached device identity providers', () async {
+      // Stateful platform-channel mock so the providers'
+      // top-level `_storage` reads change between phases.
+      final secureStorageState = <String, String?>{};
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+            (MethodCall call) async {
+              switch (call.method) {
+                case 'read':
+                  return secureStorageState[call.arguments['key'] as String];
+                case 'write':
+                  secureStorageState[call.arguments['key'] as String] =
+                      call.arguments['value'] as String?;
+                  return null;
+                case 'delete':
+                  secureStorageState.remove(call.arguments['key'] as String);
+                  return null;
+                case 'containsKey':
+                  return secureStorageState.containsKey(
+                    call.arguments['key'] as String,
+                  );
+                case 'readAll':
+                  return Map<String, String>.from(
+                    secureStorageState.map(
+                      (k, v) => MapEntry(k, v ?? ''),
+                    ),
+                  );
+                case 'deleteAll':
+                  secureStorageState.clear();
+                  return null;
+                default:
+                  return null;
+              }
+            },
+          );
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              const MethodChannel(
+                'plugins.it_nomads.com/flutter_secure_storage',
+              ),
+              null,
+            );
+      });
+
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      // Seed both the harness's reset-side store (so _resetSyncSystem has
+      // something to wipe) and the platform channel (so the providers
+      // themselves see "present" on first read).
+      const seededDeviceId = 'device-cached';
+      final encodedDeviceId = base64Encode(utf8.encode(seededDeviceId));
+      harness.secureStore
+        ..seedSyncValue('prism_sync.device_id', encodedDeviceId)
+        ..seedSyncValue(
+          'prism_sync.device_secret',
+          base64Encode(utf8.encode('secret-cached')),
+        )
+        ..seedSyncValue('prism_sync.wrapped_dek', 'wrapped-cached');
+      secureStorageState['prism_sync.device_id'] = encodedDeviceId;
+      secureStorageState['prism_sync.device_secret'] = base64Encode(
+        utf8.encode('secret-cached'),
+      );
+      secureStorageState['prism_sync.wrapped_dek'] = 'wrapped-cached';
+
+      // Prime the FutureProviders so their cached values are "present".
+      expect(
+        await harness.container.read(sync.syncDeviceIdProvider.future),
+        seededDeviceId,
+      );
+      expect(
+        await harness.container.read(
+          sync.syncDeviceSecretPresentProvider.future,
+        ),
+        isTrue,
+      );
+      expect(
+        await harness.container.read(
+          sync.syncWrappedDekPresentProvider.future,
+        ),
+        isTrue,
+      );
+
+      // Simulate keychain wipe at the platform layer (what reset would
+      // produce if it actually ran against the platform plugin). The
+      // harness's reset path operates on its own _FakeResetSecureStore,
+      // so we mirror the wipe here to model the production effect.
+      secureStorageState.remove('prism_sync.device_id');
+      secureStorageState.remove('prism_sync.device_secret');
+      secureStorageState.remove('prism_sync.wrapped_dek');
+
+      // Run the reset. Without Block 1's invalidation, the providers
+      // would still return their cached "present" values.
+      await harness.reset(ResetCategory.sync);
+
+      expect(
+        await harness.container.read(sync.syncDeviceIdProvider.future),
+        isNull,
+        reason:
+            'syncDeviceIdProvider must be invalidated by _resetSyncSystem '
+            'so post-reset reads reflect the wiped keychain',
+      );
+      expect(
+        await harness.container.read(
+          sync.syncDeviceSecretPresentProvider.future,
+        ),
+        isFalse,
+        reason:
+            'syncDeviceSecretPresentProvider must be invalidated by '
+            '_resetSyncSystem',
+      );
+      expect(
+        await harness.container.read(
+          sync.syncWrappedDekPresentProvider.future,
+        ),
+        isFalse,
+        reason:
+            'syncWrappedDekPresentProvider must be invalidated by '
+            '_resetSyncSystem',
+      );
+    });
+
     test(
       'sync reset deletes dynamic epoch_key_* and runtime_keys_* entries',
       () async {
@@ -618,6 +742,61 @@ void main() {
         lessThan(recordingFfi.calls.indexOf('deregisterDevice')),
       );
     });
+
+    test(
+      'reset_calls_deleteSyncGroup_after_any_deregister_failure',
+      () async {
+        // Reset path passes `fallbackOnAnyDeregisterFailure: true` to
+        // `cleanupRelayRegistration`, so even a transient/non-403
+        // deregister failure must still attempt `deleteSyncGroup`. The
+        // user is wiping the device — leaving the relay-side group
+        // behind is the worse outcome here.
+        final fakeHandle = _FakeSyncHandle();
+        final recordingFfi = _RecordingResetSyncFfi()
+          // Generic non-403 failure — pre-fix this would have skipped
+          // the deleteSyncGroup fallback entirely.
+          ..throwOnDeregister = Exception('Network unreachable');
+
+        final harness = await _ResetHarness.create(
+          handleOverride: fakeHandle,
+          ffiOverride: recordingFfi,
+        );
+        addTearDown(harness.dispose);
+
+        harness.secureStore
+          ..seedSyncValue(
+            'prism_sync.sync_id',
+            base64Encode(utf8.encode('sync-abc')),
+          )
+          ..seedSyncValue(
+            'prism_sync.device_id',
+            base64Encode(utf8.encode('device-abc')),
+          )
+          ..seedSyncValue(
+            'prism_sync.session_token',
+            base64Encode(utf8.encode('session-abc')),
+          );
+
+        await harness.reset(ResetCategory.sync);
+
+        expect(
+          recordingFfi.calls,
+          contains('deregisterDevice'),
+          reason: 'reset must always attempt deregister first',
+        );
+        expect(
+          recordingFfi.calls,
+          contains('deleteSyncGroup'),
+          reason:
+              'reset must fall back to deleteSyncGroup after a generic '
+              'deregister failure (fallbackOnAnyDeregisterFailure: true)',
+        );
+        expect(
+          recordingFfi.calls.indexOf('deregisterDevice'),
+          lessThan(recordingFfi.calls.indexOf('deleteSyncGroup')),
+        );
+      },
+    );
 
     test('reset_disposes_handle_before_deleting_db', () async {
       final fakeHandle = _FakeSyncHandle();
@@ -1523,6 +1702,7 @@ class _RecordingResetSyncFfi implements ResetSyncFfi {
   void Function()? onDispose;
   void Function(String syncId)? onClearSyncState;
   bool throwOnClearSyncState = false;
+  Object? throwOnDeregister;
 
   @override
   Future<void> setAutoSync({
@@ -1543,6 +1723,9 @@ class _RecordingResetSyncFfi implements ResetSyncFfi {
     required String sessionToken,
   }) async {
     calls.add('deregisterDevice');
+    if (throwOnDeregister != null) {
+      throw throwOnDeregister!;
+    }
   }
 
   @override

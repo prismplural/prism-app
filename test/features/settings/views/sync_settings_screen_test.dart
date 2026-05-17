@@ -220,6 +220,91 @@ void main() {
     expect(find.text('configured'), findsNothing);
   });
 
+  group('canSetUpAnotherDeviceRow', () {
+    // Block 2 — the "Set up another device" row must require all three:
+    //   1. handle alive
+    //   2. complete persistent sync identity
+    //   3. wrapped_dek present
+    // Otherwise the user lands in `SetupDeviceSheet.show` which fires error
+    // toasts for these partial states.
+
+    test('hidden when handle is null', () {
+      expect(
+        canSetUpAnotherDeviceRow(
+          hasActiveHandle: false,
+          relayUrl: 'https://relay.example.com',
+          syncId: 'sync-123',
+          deviceId: 'device-123',
+          hasDeviceSecret: true,
+          hasWrappedDek: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test(
+      'hidden when identity is partial (deviceId present but device_secret absent)',
+      () {
+        expect(
+          canSetUpAnotherDeviceRow(
+            hasActiveHandle: true,
+            relayUrl: 'https://relay.example.com',
+            syncId: 'sync-123',
+            deviceId: 'device-123',
+            hasDeviceSecret: false,
+            hasWrappedDek: true,
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'hidden when identity is partial (relayUrl/syncId present but deviceId null)',
+      () {
+        expect(
+          canSetUpAnotherDeviceRow(
+            hasActiveHandle: true,
+            relayUrl: 'https://relay.example.com',
+            syncId: 'sync-123',
+            deviceId: null,
+            hasDeviceSecret: false,
+            hasWrappedDek: true,
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test('hidden when wrapped_dek is missing', () {
+      expect(
+        canSetUpAnotherDeviceRow(
+          hasActiveHandle: true,
+          relayUrl: 'https://relay.example.com',
+          syncId: 'sync-123',
+          deviceId: 'device-123',
+          hasDeviceSecret: true,
+          hasWrappedDek: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('visible only when all three conditions hold', () {
+      expect(
+        canSetUpAnotherDeviceRow(
+          hasActiveHandle: true,
+          relayUrl: 'https://relay.example.com',
+          syncId: 'sync-123',
+          deviceId: 'device-123',
+          hasDeviceSecret: true,
+          hasWrappedDek: true,
+        ),
+        isTrue,
+      );
+    });
+  });
+
   group('canTriggerManualSync', () {
     test(
       'enables reconnect when stored relay settings exist but handle is null',

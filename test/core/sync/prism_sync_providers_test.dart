@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 
@@ -1084,6 +1085,513 @@ void main() {
   });
 
   // --------------------------------------------------------------------
+  // applyDrainedEntriesWithSnapshotRollback — Block 6a of the Android
+  // sync remediation. The setup-only drain mirror restores a
+  // caller-owned snapshot if a delete or write throws mid-loop.
+  //
+  // Critical invariants:
+  //   1. Diagnostic re-throw names the failed key + phase.
+  //   2. Keychain is restored EXACTLY to the pre-write snapshot.
+  //   3. `kProtectedFromReset` is never deleted or overwritten.
+  //
+  // Tests use injectable callbacks (a small in-memory map) instead of
+  // FlutterSecureStorage so the failure-injection seams are local.
+  // --------------------------------------------------------------------
+  group('applyDrainedEntriesWithSnapshotRollback (Block 6a)', () {
+    // Helper: build the four canonical callbacks from a backing map +
+    // an optional throw-injector keyed off the call number.
+    ({
+      Future<void> Function(String) deleteKey,
+      Future<void> Function(String, String) writeKey,
+      Future<Map<String, String>> Function() readCurrentNamespace,
+    })
+    storageOps(
+      Map<String, String> storage, {
+      int? throwOnDeleteCall,
+      int? throwOnWriteCall,
+    }) {
+      var deleteCalls = 0;
+      var writeCalls = 0;
+      return (
+        deleteKey: (key) async {
+          deleteCalls++;
+          if (deleteCalls == throwOnDeleteCall) {
+            throw StateError('injected delete failure on call $deleteCalls');
+          }
+          storage.remove(key);
+        },
+        writeKey: (key, value) async {
+          writeCalls++;
+          if (writeCalls == throwOnWriteCall) {
+            throw StateError('injected write failure on call $writeCalls');
+          }
+          storage[key] = value;
+        },
+        readCurrentNamespace: () async => Map<String, String>.from(storage),
+      );
+    }
+
+    test(
+      'setup drain — write failure mid-loop restores keychain to snapshot',
+      () async {
+        // Pre-setup snapshot — different keys than what the drain will write.
+        // Includes one protected DB-key slot to prove rollback never touches it.
+        final snapshot = <String, String>{
+          'prism_sync.relay_url': 'snapshot-relay-url',
+          'prism_sync.session_token': 'snapshot-session-token',
+        };
+
+        // Live keychain: starts as snapshot + protected slots.
+        final storage = <String, String>{
+          ...snapshot,
+          'prism_sync.database_key': 'PROTECTED-db-key',
+          'prism_sync.database_key_staging': 'PROTECTED-db-key-staging',
+          'prism_sync.sync_database_key': 'PROTECTED-sync-db-key',
+          'prism_sync.sync_database_key_staging':
+              'PROTECTED-sync-db-key-staging',
+        };
+
+        // Drained entries — what the new identity would look like.
+        // Five entries; sort key (`device_id`, `device_secret`, `wrapped_dek`,
+        // `dek_salt` are priority 0; `sync_id`, `relay_url` priority 2),
+        // so the 4th write lands on a priority-0 key (one of the four).
+        final entries = <String, String>{
+          'device_id': 'new-device-id',
+          'device_secret': 'new-device-secret',
+          'wrapped_dek': 'new-wrapped-dek',
+          'dek_salt': 'new-dek-salt',
+          'sync_id': 'new-sync-id',
+          'relay_url': 'new-relay-url',
+        };
+
+        final ops = storageOps(storage, throwOnWriteCall: 4);
+
+        Object? caught;
+        StackTrace? caughtStack;
+        try {
+          await applyDrainedEntriesWithSnapshotRollback(
+            entries: entries,
+            rollbackSnapshot: snapshot,
+            deleteKey: ops.deleteKey,
+            writeKey: ops.writeKey,
+            readCurrentNamespace: ops.readCurrentNamespace,
+          );
+        } catch (e, st) {
+          caught = e;
+          caughtStack = st;
+        }
+
+        expect(caught, isA<DrainPartialWriteException>());
+        final err = caught as DrainPartialWriteException;
+        expect(err.phase, DrainPartialWritePhase.write);
+        expect(err.failedKey, startsWith('prism_sync.'));
+        expect(err.cause, isA<StateError>());
+        expect(caughtStack, isNotNull);
+
+        // Keychain restored EXACTLY to snapshot + untouched protected slots.
+        expect(storage, {
+          'prism_sync.relay_url': 'snapshot-relay-url',
+          'prism_sync.session_token': 'snapshot-session-token',
+          'prism_sync.database_key': 'PROTECTED-db-key',
+          'prism_sync.database_key_staging': 'PROTECTED-db-key-staging',
+          'prism_sync.sync_database_key': 'PROTECTED-sync-db-key',
+          'prism_sync.sync_database_key_staging':
+              'PROTECTED-sync-db-key-staging',
+        });
+      },
+    );
+
+    test(
+      'setup drain — delete-phase failure restores keychain to snapshot',
+      () async {
+        // Snapshot has some pre-existing identity; drained entries are empty
+        // for the keys that Phase 1 would delete, so Phase 1 actually runs.
+        final snapshot = <String, String>{
+          'prism_sync.relay_url': 'snapshot-relay',
+          'prism_sync.sync_id': 'snapshot-sync-id',
+        };
+        final storage = <String, String>{
+          ...snapshot,
+          // A stale static key Phase 1 will try to delete.
+          'prism_sync.wrapped_dek': 'stale-wrapped',
+          'prism_sync.dek_salt': 'stale-salt',
+          // Protected slots — must survive rollback.
+          'prism_sync.database_key': 'PROTECTED-db-key',
+          'prism_sync.sync_database_key': 'PROTECTED-sync-db-key',
+        };
+
+        // Empty drained entries — Phase 1 will iterate over every static
+        // key and try to delete it.
+        final entries = <String, String>{};
+
+        final ops = storageOps(storage, throwOnDeleteCall: 2);
+
+        Object? caught;
+        try {
+          await applyDrainedEntriesWithSnapshotRollback(
+            entries: entries,
+            rollbackSnapshot: snapshot,
+            deleteKey: ops.deleteKey,
+            writeKey: ops.writeKey,
+            readCurrentNamespace: ops.readCurrentNamespace,
+          );
+        } catch (e) {
+          caught = e;
+        }
+
+        expect(caught, isA<DrainPartialWriteException>());
+        final err = caught as DrainPartialWriteException;
+        expect(err.phase, DrainPartialWritePhase.delete);
+        expect(err.failedKey, startsWith('prism_sync.'));
+
+        // Snapshot is restored, protected keys untouched, and stale
+        // entries that Phase 1 had already deleted before the throw are
+        // re-removed by the rollback's namespace scan.
+        expect(storage['prism_sync.relay_url'], 'snapshot-relay');
+        expect(storage['prism_sync.sync_id'], 'snapshot-sync-id');
+        expect(storage['prism_sync.database_key'], 'PROTECTED-db-key');
+        expect(storage['prism_sync.sync_database_key'], 'PROTECTED-sync-db-key');
+        // No stale non-snapshot non-protected keys left over.
+        for (final key in storage.keys) {
+          final isProtected = kProtectedFromReset.contains(key);
+          final isSnapshot = snapshot.containsKey(key);
+          expect(
+            isProtected || isSnapshot,
+            isTrue,
+            reason: 'unexpected leftover key after rollback: $key',
+          );
+        }
+      },
+    );
+
+    test(
+      'post-config drain (no snapshot) preserves committed writes on failure',
+      () async {
+        // The non-rollback API: a thrown write must propagate, but already
+        // committed writes stay (no destructive cleanup) and the Phase 1
+        // deletes that already ran are not re-resurrected.
+        final storage = <String, String>{
+          // Pre-existing keys — represents valid credentials from a
+          // prior successful drain. Some are in the static allow-list,
+          // some are dynamic (e.g. epoch_key_*) and Phase 1 won't touch
+          // them.
+          'prism_sync.epoch_key_3': 'prior-epoch-key',
+        };
+
+        final entries = <String, String>{
+          'device_id': 'commit-device-id',
+          'device_secret': 'commit-device-secret',
+          'wrapped_dek': 'commit-wrapped-dek',
+          'dek_salt': 'commit-dek-salt',
+          'sync_id': 'commit-sync-id',
+        };
+
+        var writeCalls = 0;
+        final deleted = <String>[];
+
+        Object? caught;
+        try {
+          await applyDrainedEntries(
+            entries: entries,
+            deleteKey: (key) async {
+              deleted.add(key);
+              storage.remove(key);
+            },
+            writeKey: (key, value) async {
+              writeCalls++;
+              if (writeCalls == 3) {
+                throw StateError('injected write failure');
+              }
+              storage[key] = value;
+            },
+          );
+        } catch (e) {
+          caught = e;
+        }
+
+        // Existing behavior preserved: applyDrainedEntries propagates the
+        // raw storage error (NOT a DrainPartialWriteException).
+        expect(caught, isA<StateError>());
+        expect(caught, isNot(isA<DrainPartialWriteException>()));
+
+        // The first two writes committed and remain.
+        expect(writeCalls, 3);
+        // The two committed entries are still in storage.
+        final committedEntries = storage.entries
+            .where((e) => e.value.startsWith('commit-'))
+            .toList();
+        expect(committedEntries, hasLength(2));
+        // The pre-existing dynamic key was untouched (not in
+        // _secureStoreKeys, so Phase 1 didn't see it).
+        expect(storage['prism_sync.epoch_key_3'], 'prior-epoch-key');
+      },
+    );
+
+    test(
+      'rollback never deletes or overwrites kProtectedFromReset slots',
+      () async {
+        // All four protected slots in the snapshot AND in storage with
+        // distinct values to prove "never touched" includes "never
+        // restored from snapshot."
+        const protectedValues = <String, String>{
+          'prism_sync.database_key': 'live-db-key',
+          'prism_sync.database_key_staging': 'live-db-key-staging',
+          'prism_sync.sync_database_key': 'live-sync-db-key',
+          'prism_sync.sync_database_key_staging': 'live-sync-db-key-staging',
+        };
+        // Snapshot deliberately holds DIFFERENT values for the same
+        // protected keys. If rollback honored them, the storage values
+        // would change. They must not.
+        final snapshot = <String, String>{
+          'prism_sync.database_key': 'SNAPSHOT-db-key',
+          'prism_sync.database_key_staging': 'SNAPSHOT-db-key-staging',
+          'prism_sync.sync_database_key': 'SNAPSHOT-sync-db-key',
+          'prism_sync.sync_database_key_staging': 'SNAPSHOT-sync-db-key-staging',
+          // A non-protected snapshot entry to prove rollback DOES restore
+          // those.
+          'prism_sync.relay_url': 'snapshot-relay',
+        };
+        final storage = <String, String>{
+          ...protectedValues,
+          // Pre-existing non-protected non-snapshot key — rollback should
+          // delete this.
+          'prism_sync.session_token': 'stale-session-token',
+        };
+
+        final entries = <String, String>{
+          'device_id': 'new-device-id',
+          'device_secret': 'new-device-secret',
+        };
+
+        final ops = storageOps(storage, throwOnWriteCall: 1);
+
+        Object? caught;
+        try {
+          await applyDrainedEntriesWithSnapshotRollback(
+            entries: entries,
+            rollbackSnapshot: snapshot,
+            deleteKey: ops.deleteKey,
+            writeKey: ops.writeKey,
+            readCurrentNamespace: ops.readCurrentNamespace,
+          );
+        } catch (e) {
+          caught = e;
+        }
+
+        expect(caught, isA<DrainPartialWriteException>());
+
+        // Every protected slot still holds its LIVE value, not the
+        // snapshot's bogus value.
+        for (final entry in protectedValues.entries) {
+          expect(
+            storage[entry.key],
+            entry.value,
+            reason: 'protected slot ${entry.key} was modified by rollback',
+          );
+        }
+        // Non-protected snapshot entries WERE restored.
+        expect(storage['prism_sync.relay_url'], 'snapshot-relay');
+        // Stale non-snapshot non-protected keys were cleared.
+        expect(storage.containsKey('prism_sync.session_token'), isFalse);
+      },
+    );
+
+    test(
+      'rollback namespace scan failure falls back to attempted-keys + '
+      'static allowlist delete and reports a warning',
+      () async {
+        // Reproduces a realistic Android keystore failure: Phase 2 throws
+        // mid-write AND `readCurrentNamespace()` (the post-failure scan
+        // used by the rollback to discover leftover keys to delete) also
+        // throws. Without the fallback, the rollback would only restore
+        // snapshot entries — leaving the post-Phase-1 + post-partial-Phase-2
+        // leftover keys in the keychain.
+        ErrorReportingService.instance.clear();
+
+        // Snapshot is non-empty — proves the rollback still restores
+        // those entries even when the namespace scan fails.
+        final snapshot = <String, String>{
+          'prism_sync.relay_url': 'snapshot-relay-url',
+        };
+
+        // Storage contains the snapshot, the protected DB slot, plus a
+        // stale identity key that Phase 1 should re-delete on rollback.
+        final storage = <String, String>{
+          ...snapshot,
+          'prism_sync.session_token': 'leftover-token',
+          'prism_sync.database_key': 'PROTECTED-db-key',
+        };
+
+        // Drained entries — the post-Phase-2 leftover will be the first
+        // priority-0 write that succeeded before the throw.
+        final entries = <String, String>{
+          'device_id': 'new-device-id',
+          'device_secret': 'new-device-secret',
+          'wrapped_dek': 'new-wrapped-dek',
+        };
+
+        var deleteCalls = 0;
+        var writeCalls = 0;
+
+        Object? caught;
+        try {
+          await applyDrainedEntriesWithSnapshotRollback(
+            entries: entries,
+            rollbackSnapshot: snapshot,
+            deleteKey: (key) async {
+              deleteCalls++;
+              storage.remove(key);
+            },
+            writeKey: (key, value) async {
+              writeCalls++;
+              if (writeCalls == 2) {
+                throw StateError('injected write failure');
+              }
+              storage[key] = value;
+            },
+            // Inject the Android keystore failure on the rollback's
+            // namespace scan.
+            readCurrentNamespace: () async {
+              throw StateError('injected readAll failure during rollback');
+            },
+          );
+        } catch (e) {
+          caught = e;
+        }
+
+        expect(caught, isA<DrainPartialWriteException>());
+
+        // The fallback path attempted to delete:
+        //   - keys we tried to mutate during this drain (the Phase-2
+        //     writes, including the one that committed before the throw)
+        //     that aren't in the snapshot
+        //   - keys in the static `_secureStoreKeys` allow-list that
+        //     aren't in the snapshot
+        // None of those are in the snapshot, so the storage should end
+        // up snapshot-only (plus untouched protected slots).
+        for (final key in entries.keys) {
+          expect(
+            storage.containsKey('prism_sync.$key'),
+            isFalse,
+            reason:
+                'attempted-write key $key should be deleted by the '
+                'fallback rollback even when readCurrentNamespace throws',
+          );
+        }
+        // The pre-existing stale `session_token` is in `_secureStoreKeys`,
+        // so the static-allowlist fallback delete catches it too.
+        expect(storage.containsKey('prism_sync.session_token'), isFalse);
+
+        // Snapshot was restored verbatim.
+        expect(storage['prism_sync.relay_url'], 'snapshot-relay-url');
+        // Protected slot untouched.
+        expect(storage['prism_sync.database_key'], 'PROTECTED-db-key');
+
+        // Deletes ran: Phase 1 delete sweep + the fallback deletes.
+        expect(deleteCalls, greaterThan(0));
+
+        // ErrorReportingService captured the namespace-scan failure as
+        // a warning so diagnostics can flag the degraded restore.
+        final scanWarnings = ErrorReportingService.instance.errors
+            .where(
+              (e) =>
+                  e.severity == ErrorSeverity.warning &&
+                  e.message.contains('rollback namespace scan failed'),
+            )
+            .toList();
+        expect(
+          scanWarnings,
+          isNotEmpty,
+          reason:
+              'rollback must surface a warning when the namespace scan '
+              'fails so the degraded exactness guarantee is observable',
+        );
+      },
+    );
+
+    test(
+      'snapshot values containing non-ASCII bytes round-trip byte-identical',
+      () async {
+        // The snapshot stores already-base64 strings (whatever
+        // `readPrefixed`/`readAll` returned). The drain emits bytes,
+        // base64-encodes via `encodeDrainedEntries`, and writes the
+        // base64 string. The rollback restore path MUST write the
+        // snapshot's already-base64 strings VERBATIM — no re-encoding,
+        // no transcoding. This pins the contract for callers like the
+        // initiator setup that store raw 32-byte secrets.
+        ErrorReportingService.instance.clear();
+
+        // Construct a base64 string of a value with non-ASCII bytes
+        // (e.g. a raw 32-byte device_secret).
+        final secretBytes = Uint8List.fromList(
+          List<int>.generate(32, (i) => (i * 7 + 0xC0) & 0xFF),
+        );
+        final snapshotBase64 = base64Encode(secretBytes);
+        // Sanity: contains bytes outside printable ASCII once decoded.
+        expect(secretBytes.any((b) => b >= 0x80), isTrue);
+
+        final snapshot = <String, String>{
+          'prism_sync.device_secret': snapshotBase64,
+        };
+
+        // Storage starts empty (or with something else); we want the
+        // rollback path to restore the snapshot's exact bytes.
+        final storage = <String, String>{};
+
+        // Force the rollback path: a write throws on the first attempt.
+        final entries = <String, String>{
+          'device_id': base64Encode(utf8.encode('new-device-id')),
+          'device_secret': base64Encode(utf8.encode('new-device-secret')),
+        };
+
+        var writeCalls = 0;
+
+        Object? caught;
+        try {
+          await applyDrainedEntriesWithSnapshotRollback(
+            entries: entries,
+            rollbackSnapshot: snapshot,
+            deleteKey: (key) async => storage.remove(key),
+            writeKey: (key, value) async {
+              writeCalls++;
+              // Throw on the FIRST drained write so the rollback
+              // restore path fires. The restore writes use the same
+              // writeKey callback, so the counter trips only once.
+              if (writeCalls == 1) {
+                throw StateError('injected write failure (force rollback)');
+              }
+              storage[key] = value;
+            },
+            readCurrentNamespace: () async =>
+                Map<String, String>.from(storage),
+          );
+        } catch (e) {
+          caught = e;
+        }
+
+        expect(caught, isA<DrainPartialWriteException>());
+
+        // The restored value is byte-identical to the snapshot value.
+        expect(
+          storage['prism_sync.device_secret'],
+          snapshotBase64,
+          reason:
+              'rollback restore must write snapshot values verbatim — '
+              'any double-encoding or transcoding would change the '
+              'base64 string, which decodes back to a different byte '
+              'sequence.',
+        );
+        // Decode and compare bytes for an extra layer of confidence
+        // that no transcoding happened end-to-end.
+        expect(
+          base64Decode(storage['prism_sync.device_secret']!),
+          orderedEquals(secretBytes),
+        );
+      },
+    );
+  });
+
+  // --------------------------------------------------------------------
   // wipeFrontingMigrationSyncKeychain — Workstream 2 step 4
   // (remediation-plan-2026-04-30): the migration's wipe pass must
   // consume `_secureStoreKeys` and `_dynamicSecureStorePrefixes` instead
@@ -1144,5 +1652,209 @@ void main() {
         containsAll(const <String>['epoch_key_', 'runtime_keys_']),
       );
     });
+  });
+
+  // --------------------------------------------------------------------
+  // wipeSyncKeychainNamespace — Block 9 of the Android sync remediation.
+  //
+  // Both `_resetSyncSystem` (settings reset) and `_cleanupKeychainOnFailure`
+  // (failed pairing) now go through this helper. Static cleanup lists were
+  // drifting away from the keychain's real `prism_sync.*` contents — these
+  // tests pin the union semantics and the runtime-DEK split between the two
+  // call sites.
+  // --------------------------------------------------------------------
+  group('wipeSyncKeychainNamespace', () {
+    Map<String, String> seed() => {
+      'prism_sync.epoch_key_7': 'EPOCH7',
+      'prism_sync.pending_sync_id': 'PENDING',
+      'prism_sync.wrapped_dek': 'WRAPPED',
+      // DB-encryption slots that must survive every wipe.
+      'prism_sync.database_key': 'KEEP1',
+      'prism_sync.database_key_staging': 'KEEP2',
+      'prism_sync.sync_database_key': 'KEEP3',
+      'prism_sync.sync_database_key_staging': 'KEEP4',
+      // Foreign-prefixed key — never touched.
+      'other_app.something': 'FOREIGN',
+    };
+
+    test('deletes unknown dynamic keys via the prefix scan', () async {
+      final store = seed();
+      final deleted = await wipeSyncKeychainNamespace(
+        readAll: () async => Map<String, String>.from(store),
+        deleteKey: (key) async {
+          store.remove(key);
+        },
+      );
+
+      expect(store.containsKey('prism_sync.epoch_key_7'), isFalse);
+      expect(store.containsKey('prism_sync.pending_sync_id'), isFalse);
+      expect(store.containsKey('prism_sync.wrapped_dek'), isFalse);
+      expect(deleted, greaterThanOrEqualTo(3));
+    });
+
+    test('preserves every kProtectedFromReset key', () async {
+      final store = {
+        'prism_sync.database_key': 'KEEP1',
+        'prism_sync.database_key_staging': 'KEEP2',
+        'prism_sync.sync_database_key': 'KEEP3',
+        'prism_sync.sync_database_key_staging': 'KEEP4',
+        'prism_sync.wrapped_dek': 'WIPE',
+      };
+
+      await wipeSyncKeychainNamespace(
+        readAll: () async => Map<String, String>.from(store),
+        deleteKey: (key) async {
+          store.remove(key);
+        },
+      );
+
+      for (final protectedKey in kProtectedFromReset) {
+        expect(
+          store[protectedKey],
+          isNotNull,
+          reason:
+              '$protectedKey is in kProtectedFromReset and must survive '
+              'every wipeSyncKeychainNamespace call',
+        );
+      }
+      expect(store.containsKey('prism_sync.wrapped_dek'), isFalse);
+    });
+
+    test('does not touch entries outside the prism_sync.* namespace', () async {
+      final store = seed();
+      await wipeSyncKeychainNamespace(
+        readAll: () async => Map<String, String>.from(store),
+        deleteKey: (key) async {
+          store.remove(key);
+        },
+      );
+
+      expect(store['other_app.something'], 'FOREIGN');
+    });
+
+    test('falls back to the static wipe list when readAll() throws', () async {
+      // Seed every static-fallback key so we can verify each is targeted by
+      // the fallback path, plus a protected key that must still survive.
+      final store = <String, String>{
+        for (final key in frontingMigrationWipeStaticKeys())
+          'prism_sync.$key': 'WIPE-$key',
+        'prism_sync.database_key': 'KEEP',
+      };
+
+      final deleted = await wipeSyncKeychainNamespace(
+        readAll: () async => throw StateError('readAll unavailable'),
+        deleteKey: (key) async {
+          store.remove(key);
+        },
+      );
+
+      // Every non-protected static key must be deleted by the fallback path.
+      for (final bareKey in frontingMigrationWipeStaticKeys()) {
+        final fullKey = 'prism_sync.$bareKey';
+        if (kProtectedFromReset.contains(fullKey)) continue;
+        expect(
+          store.containsKey(fullKey),
+          isFalse,
+          reason:
+              '$fullKey is in the static fallback list and must be deleted '
+              'when readAll() fails',
+        );
+      }
+      // Protected slot survives even via the fallback list.
+      expect(store['prism_sync.database_key'], 'KEEP');
+      expect(deleted, greaterThan(0));
+    });
+
+    test(
+      'includeRuntimeDekWrappingKey: true triggers the wrapping-key delete',
+      () async {
+        final store = <String, String>{};
+        var wrappingKeyDeleteCount = 0;
+
+        await wipeSyncKeychainNamespace(
+          readAll: () async => store,
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          includeRuntimeDekWrappingKey: true,
+          deleteWrappingKey: () async {
+            wrappingKeyDeleteCount++;
+          },
+        );
+
+        expect(wrappingKeyDeleteCount, 1);
+      },
+    );
+
+    test(
+      'includeRuntimeDekWrappingKey: false leaves the wrapping key alone',
+      () async {
+        final store = <String, String>{};
+        var wrappingKeyDeleteCount = 0;
+
+        await wipeSyncKeychainNamespace(
+          readAll: () async => store,
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          includeRuntimeDekWrappingKey: false,
+          deleteWrappingKey: () async {
+            wrappingKeyDeleteCount++;
+          },
+        );
+
+        expect(wrappingKeyDeleteCount, 0);
+      },
+    );
+
+    test('swallows individual deleteKey failures and continues', () async {
+      final store = <String, String>{
+        'prism_sync.wrapped_dek': 'a',
+        'prism_sync.epoch_key_1': 'b',
+        'prism_sync.pending_sync_id': 'c',
+      };
+      final logs = <String>[];
+
+      await wipeSyncKeychainNamespace(
+        readAll: () async => Map<String, String>.from(store),
+        deleteKey: (key) async {
+          if (key == 'prism_sync.epoch_key_1') {
+            throw StateError('simulated delete failure');
+          }
+          store.remove(key);
+        },
+        log: logs.add,
+      );
+
+      // Other keys still got deleted; the failing key remains and was logged.
+      expect(store.containsKey('prism_sync.wrapped_dek'), isFalse);
+      expect(store.containsKey('prism_sync.pending_sync_id'), isFalse);
+      expect(store.containsKey('prism_sync.epoch_key_1'), isTrue);
+      expect(logs.any((m) => m.contains('prism_sync.epoch_key_1')), isTrue);
+    });
+
+    test(
+      'swallows wrapping-key delete failure when '
+      'includeRuntimeDekWrappingKey: true',
+      () async {
+        final store = <String, String>{};
+        final logs = <String>[];
+
+        // Must complete without throwing even though deleteWrappingKey threw.
+        await wipeSyncKeychainNamespace(
+          readAll: () async => store,
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          includeRuntimeDekWrappingKey: true,
+          deleteWrappingKey: () async {
+            throw StateError('keystore unavailable');
+          },
+          log: logs.add,
+        );
+
+        expect(logs.any((m) => m.contains('Runtime DEK wrapping-key')), isTrue);
+      },
+    );
   });
 }
