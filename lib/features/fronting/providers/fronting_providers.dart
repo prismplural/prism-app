@@ -202,6 +202,34 @@ class FrontingNotifier extends AsyncNotifier<void> {
     _invalidateDerivedHistory();
   }
 
+  /// Atomically ends a sleep session and optionally starts one active fronting
+  /// row per selected member.
+  Future<void> wakeUp(
+    String sleepSessionId, {
+    SleepQuality? quality,
+    List<String> frontingMemberIds = const [],
+  }) async {
+    final result = await _unwrap(
+      ref
+          .read(frontingMutationServiceProvider)
+          .wakeUp(
+            sleepSessionId,
+            quality: quality,
+            frontingMemberIds: frontingMemberIds,
+          ),
+    );
+
+    if (result != null) {
+      for (final session in result.sessions) {
+        _invalidateMemberStats(session.memberId);
+      }
+      for (final id in result.previousMemberIds) {
+        _invalidateMemberStats(id);
+      }
+    }
+    _invalidateDerivedHistory();
+  }
+
   /// Ends active fronting sessions for each member in [memberIds].
   Future<void> endFronting(List<String> memberIds) async {
     await _unwrap(

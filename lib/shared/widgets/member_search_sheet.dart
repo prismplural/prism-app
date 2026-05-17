@@ -111,6 +111,7 @@ class MemberSearchSheet extends StatefulWidget {
     this.specialRows = const [],
     this.multiSelect = false,
     this.initialSelected = const {},
+    this.allowEmptySelection = false,
     this.title,
     this.trailingBuilder,
     this.scrollController,
@@ -132,6 +133,11 @@ class MemberSearchSheet extends StatefulWidget {
 
   /// Pre-selected IDs for multi-select mode.
   final Set<String> initialSelected;
+
+  /// When true, multi-select mode allows confirming an empty selected set.
+  ///
+  /// Most callers require at least one member, so this defaults to false.
+  final bool allowEmptySelection;
 
   /// Optional sheet title override.
   ///
@@ -181,6 +187,7 @@ class MemberSearchSheet extends StatefulWidget {
     required List<Member> members,
     required String termPlural,
     Set<String> initialSelected = const {},
+    bool allowEmptySelection = false,
     List<MemberSearchGroup> groups = const [],
     List<MemberSearchSpecialRow> specialRows = const [],
     Widget? Function(Member member)? trailingBuilder,
@@ -194,6 +201,7 @@ class MemberSearchSheet extends StatefulWidget {
         specialRows: specialRows,
         multiSelect: true,
         initialSelected: initialSelected,
+        allowEmptySelection: allowEmptySelection,
         trailingBuilder: trailingBuilder,
         scrollController: scrollController,
       ),
@@ -359,7 +367,9 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
               tooltip: l10n.memberSearchConfirmSelectionTooltip(
                 widget.termPlural.toLowerCase(),
               ),
-              onPressed: _selectedIds.isEmpty ? null : _confirmMulti,
+              onPressed: _selectedIds.isEmpty && !widget.allowEmptySelection
+                  ? null
+                  : _confirmMulti,
             )
           : null,
     );

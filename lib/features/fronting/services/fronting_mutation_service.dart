@@ -391,18 +391,20 @@ class FrontingMutationService {
   }
 
   /// Atomically ends a sleep session, optionally records quality, and
-  /// optionally starts a fronting session for a member.
+  /// optionally starts fronting sessions for selected members.
   ///
   /// All writes run in a single transaction to prevent partial state
   /// (e.g. sleep ended but fronting failed to start).
   Future<MutationResult<FrontingMutationResult?>> wakeUp(
     String sleepSessionId, {
     SleepQuality? quality,
-    String? frontingMemberId,
+    List<String> frontingMemberIds = const [],
   }) {
     return _mutationRunner.run<FrontingMutationResult?>(
       actionLabel: 'Wake up',
       action: () async {
+        final selectedMemberIds = <String>{...frontingMemberIds}.toList();
+
         // 1. Validate and end sleep session (single write to avoid double sync op)
         final session = await _requireSession(sleepSessionId);
         if (!session.isSleep) {
@@ -416,43 +418,53 @@ class FrontingMutationService {
         );
         await _repository.updateSession(ended);
 
-        // 2. Start fronting if member selected
-        if (frontingMemberId != null) {
-          // Auto-create the Unknown sentinel member if waking up directly
-          // into Unknown — otherwise the new session would dangle.
-          await _ensureSentinelIfNeeded([frontingMemberId]);
-          // Safety: end any other active sessions that may remain (e.g. a
-          // second sleep session from sync or migration).
-          final remaining = await _repository.getAllActiveSessionsUnfiltered();
-          FrontingSession? preservedFrontingSession;
-          for (final s in remaining) {
-            if (!s.isSleep &&
-                await _isActiveExplicitAlwaysFrontingMember(s.memberId)) {
-              if (s.memberId == frontingMemberId) {
-                preservedFrontingSession = s;
-              }
-              continue;
+        // 2. Start fronting if members were selected.
+        if (selectedMemberIds.isEmpty) return null;
+
+        // Auto-create the Unknown sentinel member if waking up into Unknown
+        // alongside any other selected members.
+        await _ensureSentinelIfNeeded(selectedMemberIds);
+
+        // Safety: end any other active sessions that may remain (e.g. a
+        // second sleep session from sync or migration). Explicit
+        // always-fronting sessions are preserved; if one is selected, reuse
+        // its existing row instead of creating a duplicate.
+        final remaining = await _repository.getAllActiveSessionsUnfiltered();
+        final preservedFrontingSessions = <String, FrontingSession>{};
+        final previousMemberIds = <String?>[null]; // was sleeping (no member)
+        for (final s in remaining) {
+          if (!s.isSleep &&
+              await _isActiveExplicitAlwaysFrontingMember(s.memberId)) {
+            final memberId = s.memberId;
+            if (memberId != null && selectedMemberIds.contains(memberId)) {
+              preservedFrontingSessions.putIfAbsent(memberId, () => s);
             }
-            await _repository.endSession(s.id, now);
+            continue;
           }
+          await _repository.endSession(s.id, now);
+          if (!s.isSleep) previousMemberIds.add(s.memberId);
+        }
+
+        final frontingSessions = <FrontingSession>[];
+        for (final memberId in selectedMemberIds) {
+          final preservedFrontingSession = preservedFrontingSessions[memberId];
           if (preservedFrontingSession != null) {
-            return FrontingMutationResult(
-              sessions: [preservedFrontingSession],
-              previousMemberIds: [null], // was sleeping (no member)
-            );
+            frontingSessions.add(preservedFrontingSession);
+            continue;
           }
           final created = FrontingSession(
             id: _uuid.v4(),
             startTime: now,
-            memberId: frontingMemberId,
+            memberId: memberId,
           );
           await _repository.createSession(created);
-          return FrontingMutationResult(
-            sessions: [created],
-            previousMemberIds: [null], // was sleeping (no member)
-          );
+          frontingSessions.add(created);
         }
-        return null;
+
+        return FrontingMutationResult(
+          sessions: frontingSessions,
+          previousMemberIds: previousMemberIds,
+        );
       },
     );
   }

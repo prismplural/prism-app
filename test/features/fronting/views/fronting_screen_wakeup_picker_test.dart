@@ -8,13 +8,13 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/quick_front_hint_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
-import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/fronting/views/fronting_screen.dart';
 import 'package:prism_plurality/features/fronting/widgets/quick_front_section.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
@@ -26,7 +26,9 @@ import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -42,6 +44,10 @@ class _FakeSleepNotifier extends SleepNotifier {
 
 class _FakeFrontingNotifier extends FrontingNotifier {
   final List<List<String>> startedIds = [];
+  final wakeUps =
+      <
+        ({String sleepSessionId, SleepQuality? quality, List<String> memberIds})
+      >[];
 
   @override
   Future<void> build() async {}
@@ -54,6 +60,19 @@ class _FakeFrontingNotifier extends FrontingNotifier {
     DateTime? startTime,
   }) async {
     startedIds.add(List<String>.from(memberIds));
+  }
+
+  @override
+  Future<void> wakeUp(
+    String sleepSessionId, {
+    SleepQuality? quality,
+    List<String> frontingMemberIds = const [],
+  }) async {
+    wakeUps.add((
+      sleepSessionId: sleepSessionId,
+      quality: quality,
+      memberIds: List<String>.from(frontingMemberIds),
+    ));
   }
 }
 
@@ -217,6 +236,10 @@ Widget _buildSubject({
 }
 
 Finder _addButton() => find.byTooltip('Add fronting entry');
+
+Finder _confirmSelectionButton() => find.byWidgetPredicate(
+  (widget) => widget is PrismGlassIconButton && widget.icon == AppIcons.check,
+);
 
 void main() {
   setUp(() {
@@ -451,7 +474,9 @@ void main() {
       await tester.pump();
     });
 
-    testWidgets('Wake Up As uses the real screen flow', (tester) async {
+    testWidgets('Wake Up As can start fronting as multiple members', (
+      tester,
+    ) async {
       final sleep = _FakeSleepNotifier();
       final fronting = _FakeFrontingNotifier();
 
@@ -474,11 +499,16 @@ void main() {
 
       await tester.tap(find.text('Alice').last);
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Bob').last);
+      await tester.pumpAndSettle();
+      await tester.tap(_confirmSelectionButton());
+      await tester.pumpAndSettle();
 
-      expect(sleep.endedIds, ['sleep-1']);
-      expect(fronting.startedIds, [
-        ['m1'],
-      ]);
+      expect(sleep.endedIds, isEmpty);
+      expect(fronting.startedIds, isEmpty);
+      expect(fronting.wakeUps, hasLength(1));
+      expect(fronting.wakeUps.single.sleepSessionId, 'sleep-1');
+      expect(fronting.wakeUps.single.memberIds, ['m1', 'm2']);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -509,6 +539,7 @@ void main() {
 
       expect(sleep.endedIds, isEmpty);
       expect(fronting.startedIds, isEmpty);
+      expect(fronting.wakeUps, isEmpty);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -535,11 +566,14 @@ void main() {
 
       await tester.tap(find.text('Unknown'));
       await tester.pumpAndSettle();
+      await tester.tap(_confirmSelectionButton());
+      await tester.pumpAndSettle();
 
-      expect(sleep.endedIds, ['sleep-1']);
-      expect(fronting.startedIds, [
-        [unknownSentinelMemberId],
-      ]);
+      expect(sleep.endedIds, isEmpty);
+      expect(fronting.startedIds, isEmpty);
+      expect(fronting.wakeUps, hasLength(1));
+      expect(fronting.wakeUps.single.sleepSessionId, 'sleep-1');
+      expect(fronting.wakeUps.single.memberIds, [unknownSentinelMemberId]);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();

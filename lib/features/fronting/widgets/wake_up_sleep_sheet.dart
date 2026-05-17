@@ -45,8 +45,49 @@ class WakeUpSleepSheet extends ConsumerStatefulWidget {
 
 class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
   SleepQuality _quality = SleepQuality.unknown;
-  String? _selectedMemberId;
+  final Set<String> _selectedMemberIds = {};
   bool _saving = false;
+
+  void _toggleSelectedMember(String memberId) {
+    setState(() {
+      if (_selectedMemberIds.contains(memberId)) {
+        _selectedMemberIds.remove(memberId);
+      } else {
+        _selectedMemberIds.add(memberId);
+      }
+    });
+  }
+
+  List<Member> _memberSearchCandidatesWithUnknown(
+    List<Member> candidates,
+    String unknownLabel,
+  ) {
+    final unknown = Member(
+      id: unknownSentinelMemberId,
+      name: unknownLabel,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+    );
+    return [
+      unknown,
+      ...candidates.where((member) => member.id != unknownSentinelMemberId),
+    ];
+  }
+
+  String? _selectedOutsideTopLabel(
+    BuildContext context,
+    List<String> selectedOutsideTopIds,
+    List<Member> members,
+  ) {
+    if (selectedOutsideTopIds.isEmpty) return null;
+    if (selectedOutsideTopIds.length > 1) {
+      return context.l10n.memberSelectedCount(selectedOutsideTopIds.length);
+    }
+
+    final selectedId = selectedOutsideTopIds.single;
+    if (selectedId == unknownSentinelMemberId) return context.l10n.unknown;
+
+    return members.where((member) => member.id == selectedId).firstOrNull?.name;
+  }
 
   String _greeting(BuildContext context) {
     final hour = DateTime.now().hour;
@@ -59,15 +100,13 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
   Future<void> _handleDone() async {
     setState(() => _saving = true);
     try {
-      final service = ref.read(frontingMutationServiceProvider);
-      final result = await service.wakeUp(
-        widget.session.id,
-        quality: _quality != SleepQuality.unknown ? _quality : null,
-        frontingMemberId: _selectedMemberId,
-      );
-      result.when(success: (_) {}, failure: (failure) => throw failure);
-      // Drift table-watch + frontingTableTickerProvider rebuild
-      // dependent providers on the fronting_sessions write.
+      await ref
+          .read(frontingNotifierProvider.notifier)
+          .wakeUp(
+            widget.session.id,
+            quality: _quality != SleepQuality.unknown ? _quality : null,
+            frontingMemberIds: _selectedMemberIds.toList(growable: false),
+          );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) PrismToast.error(context, message: e.toString());
@@ -104,31 +143,24 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
   ) async {
     final termPlural = readTerminology(context, ref).plural;
 
-    final result = await MemberSearchSheet.showSingle(
+    final result = await MemberSearchSheet.showMulti(
       context,
-      members: candidates,
+      members: _memberSearchCandidatesWithUnknown(
+        candidates,
+        context.l10n.unknown,
+      ),
       termPlural: termPlural,
       groups: groups,
-      specialRows: [
-        MemberSearchSpecialRow(
-          rowKey: '__unknown__',
-          title: context.l10n.unknown,
-          leading: const Text('\u2753', style: TextStyle(fontSize: 18)),
-          result: const MemberSearchResultUnknown(),
-        ),
-      ],
+      initialSelected: Set.from(_selectedMemberIds),
+      allowEmptySelection: true,
     );
 
-    if (!mounted) return;
-    switch (result) {
-      case MemberSearchResultSelected(:final memberId):
-        setState(() => _selectedMemberId = memberId);
-      case MemberSearchResultUnknown():
-        setState(() => _selectedMemberId = unknownSentinelMemberId);
-      case MemberSearchResultCleared():
-      case MemberSearchResultDismissed():
-        break;
-    }
+    if (!mounted || result == null) return;
+    setState(() {
+      _selectedMemberIds
+        ..clear()
+        ..addAll(result);
+    });
   }
 
   @override
@@ -170,7 +202,6 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
             ),
             const SizedBox(height: 24),
 
-            // Quality section
             Text(
               context.l10n.sleepWakeUpQualityQuestion,
               style: theme.textTheme.labelMedium?.copyWith(
@@ -224,7 +255,6 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
             ),
             const SizedBox(height: 24),
 
-            // Member picker section
             Text(
               context.l10n.sleepWakeUpWhosFronting,
               style: theme.textTheme.labelMedium?.copyWith(
@@ -243,17 +273,15 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                 );
                 final searchGroups = watchMemberSearchGroups(ref, members);
                 final hasOthers = members.length > 4;
-                final selectedOutsideTop =
-                    _selectedMemberId != null &&
-                    !topMembers.any((m) => m.id == _selectedMemberId);
-                final selectedOutsideTopName = selectedOutsideTop
-                    ? _selectedMemberId == unknownSentinelMemberId
-                          ? context.l10n.unknown
-                          : members
-                                .where((m) => m.id == _selectedMemberId)
-                                .firstOrNull
-                                ?.name
-                    : null;
+                final topMemberIds = topMembers.map((m) => m.id).toSet();
+                final selectedOutsideTopIds = _selectedMemberIds
+                    .where((id) => !topMemberIds.contains(id))
+                    .toList(growable: false);
+                final selectedOutsideTopName = _selectedOutsideTopLabel(
+                  context,
+                  selectedOutsideTopIds,
+                  members,
+                );
 
                 return Column(
                   mainAxisSize: MainAxisSize.min,
@@ -261,7 +289,9 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: topMembers.map((member) {
-                        final isSelected = _selectedMemberId == member.id;
+                        final isSelected = _selectedMemberIds.contains(
+                          member.id,
+                        );
                         final accentColor =
                             member.customColorEnabled &&
                                 member.customColorHex != null
@@ -275,12 +305,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                             button: true,
                             selected: isSelected,
                             child: GestureDetector(
-                              onTap: () => setState(
-                                () => _selectedMemberId =
-                                    _selectedMemberId == member.id
-                                    ? null
-                                    : member.id,
-                              ),
+                              onTap: () => _toggleSelectedMember(member.id),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -374,7 +399,6 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
             ),
             const SizedBox(height: 24),
 
-            // Action buttons
             Row(
               children: [
                 Expanded(

@@ -713,36 +713,24 @@ class _AddButtonState extends ConsumerState<_AddButton> {
     final session = sleepSession;
     if (session == null) return;
 
-    final result = await MemberSearchSheet.showSingle(
+    final result = await MemberSearchSheet.showMulti(
       context,
-      members: members,
+      members: _withUnknownMember(context, members),
       termPlural: termPlural,
+      allowEmptySelection: true,
       groups: groups,
-      specialRows: [
-        MemberSearchSpecialRow(
-          rowKey: '__unknown__',
-          title: context.l10n.unknown,
-          leading: const Text('\u2753', style: TextStyle(fontSize: 18)),
-          result: const MemberSearchResultUnknown(),
-        ),
-      ],
     );
 
     if (!mounted || !context.mounted) return;
-    final memberId = switch (result) {
-      MemberSearchResultSelected(:final memberId) => memberId,
-      MemberSearchResultUnknown() => unknownSentinelMemberId,
-      MemberSearchResultCleared() || MemberSearchResultDismissed() => null,
-    };
-    if (memberId == null) return;
+    final memberIds = result?.toList(growable: false) ?? const <String>[];
+    if (memberIds.isEmpty) return;
     final activeSession = ref.read(activeSleepSessionProvider).value;
     if (activeSession?.id != session.id) return;
 
     try {
-      await ref.read(sleepNotifierProvider.notifier).endSleep(session.id);
-      await ref.read(frontingNotifierProvider.notifier).startFronting([
-        memberId,
-      ]); // single-member start post-sleep
+      await ref
+          .read(frontingNotifierProvider.notifier)
+          .wakeUp(session.id, frontingMemberIds: memberIds);
     } catch (e) {
       if (context.mounted) {
         PrismToast.error(
@@ -751,6 +739,20 @@ class _AddButtonState extends ConsumerState<_AddButton> {
         );
       }
     }
+  }
+
+  List<Member> _withUnknownMember(BuildContext context, List<Member> members) {
+    if (members.any((member) => member.id == unknownSentinelMemberId)) {
+      return members;
+    }
+    return [
+      Member(
+        id: unknownSentinelMemberId,
+        name: context.l10n.unknown,
+        createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      ),
+      ...members,
+    ];
   }
 }
 

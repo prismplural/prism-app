@@ -1,27 +1,24 @@
-// Tests for WakeUpSleepSheet's member-picker section.
-//
-// Covers the four required scenarios:
-//   1. Top suggested members remain available as quick-tap avatars.
-//   2. Tapping the "Others…" path opens the shared single-select sheet.
-//   3. Selecting from the shared sheet updates the chosen member label.
-//   4. Dismissing the shared sheet leaves the selection unchanged.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/wake_up_sleep_sheet.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -48,7 +45,30 @@ List<Member> _fiveMembers() => [
   _member('eve', 'Eve'),
 ];
 
-Widget _buildSubject({List<Member>? members}) {
+class _FakeFrontingNotifier extends FrontingNotifier {
+  final wakeUps =
+      <
+        ({String sleepSessionId, SleepQuality? quality, List<String> memberIds})
+      >[];
+
+  @override
+  Future<void> build() async {}
+
+  @override
+  Future<void> wakeUp(
+    String sleepSessionId, {
+    SleepQuality? quality,
+    List<String> frontingMemberIds = const [],
+  }) async {
+    wakeUps.add((
+      sleepSessionId: sleepSessionId,
+      quality: quality,
+      memberIds: List<String>.from(frontingMemberIds),
+    ));
+  }
+}
+
+Widget _buildSubject({List<Member>? members, _FakeFrontingNotifier? notifier}) {
   return ProviderScope(
     overrides: [
       activeMembersProvider.overrideWith(
@@ -64,6 +84,8 @@ Widget _buildSubject({List<Member>? members}) {
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
+      if (notifier != null)
+        frontingNotifierProvider.overrideWith(() => notifier),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -73,15 +95,52 @@ Widget _buildSubject({List<Member>? members}) {
   );
 }
 
+Finder _quickAvatar(String name) => find.byWidgetPredicate(
+  (widget) => widget is Semantics && widget.properties.label == name,
+);
+
+bool _isQuickAvatarSelected(WidgetTester tester, String name) {
+  return tester.widget<Semantics>(_quickAvatar(name)).properties.selected ??
+      false;
+}
+
+Finder _confirmButton() => find.byWidgetPredicate(
+  (widget) => widget is PrismGlassIconButton && widget.icon == AppIcons.check,
+);
+
+bool _isSearchRowSelected(WidgetTester tester, String id) {
+  return tester.widget<PrismListRow>(find.byKey(ValueKey(id))).selected ??
+      false;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
 void main() {
   group('WakeUpSleepSheet – member picker', () {
-    // ── 1. Top quick choices ────────────────────────────────────────────────
-
     group('top member quick choices', () {
+      testWidgets('Done submits selected members through wake-up notifier', (
+        tester,
+      ) async {
+        final notifier = _FakeFrontingNotifier();
+
+        await tester.pumpWidget(_buildSubject(notifier: notifier));
+        await tester.pumpAndSettle();
+
+        await tester.tap(_quickAvatar('Alice'));
+        await tester.pumpAndSettle();
+        await tester.tap(_quickAvatar('Bob'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Done'));
+        await tester.pumpAndSettle();
+
+        expect(notifier.wakeUps, hasLength(1));
+        expect(notifier.wakeUps.single.sleepSessionId, 'sleep-1');
+        expect(notifier.wakeUps.single.quality, isNull);
+        expect(notifier.wakeUps.single.memberIds.toSet(), {'alice', 'bob'});
+      });
+
       testWidgets('top 4 members are rendered as named avatar tiles', (
         tester,
       ) async {
@@ -103,9 +162,28 @@ void main() {
         // Eve is behind "Others…" – she must not appear as a named tile.
         expect(find.text('Eve'), findsNothing);
       });
-    });
 
-    // ── 2. Others path opens the shared sheet ───────────────────────────────
+      testWidgets('multiple suggested avatars can be selected independently', (
+        tester,
+      ) async {
+        await tester.pumpWidget(_buildSubject());
+        await tester.pumpAndSettle();
+
+        await tester.tap(_quickAvatar('Alice'));
+        await tester.pumpAndSettle();
+        await tester.tap(_quickAvatar('Bob'));
+        await tester.pumpAndSettle();
+
+        expect(_isQuickAvatarSelected(tester, 'Alice'), isTrue);
+        expect(_isQuickAvatarSelected(tester, 'Bob'), isTrue);
+
+        await tester.tap(_quickAvatar('Alice'));
+        await tester.pumpAndSettle();
+
+        expect(_isQuickAvatarSelected(tester, 'Alice'), isFalse);
+        expect(_isQuickAvatarSelected(tester, 'Bob'), isTrue);
+      });
+    });
 
     group('others picker opens shared sheet', () {
       testWidgets('tapping Others opens MemberSearchSheet', (tester) async {
@@ -132,71 +210,99 @@ void main() {
         expect(find.byType(MemberSearchSheet), findsOneWidget);
       });
 
-      testWidgets('empty member sets can still choose Unknown', (tester) async {
+      testWidgets('empty member sets still expose Unknown', (tester) async {
         await tester.pumpWidget(_buildSubject(members: const []));
         await tester.pumpAndSettle();
 
         await tester.tap(find.byKey(const Key('wakeUpMemberSearchButton')));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Unknown'));
-        await tester.pumpAndSettle();
-
-        expect(find.byType(MemberSearchSheet), findsNothing);
         expect(find.text('Unknown'), findsOneWidget);
       });
     });
 
-    // ── 3. Selecting from the shared sheet updates the chosen member ────────
-
     group('selection from shared sheet', () {
-      testWidgets('selecting a member dismisses the sheet and updates label', (
-        tester,
-      ) async {
+      testWidgets('full sheet can select multiple members', (tester) async {
         await tester.pumpWidget(_buildSubject());
         await tester.pumpAndSettle();
 
         await tester.tap(find.text('Others...'));
         await tester.pumpAndSettle();
 
-        // Eve is the only member shown in the search sheet.
-        await tester.tap(find.text('Eve'));
+        await tester.tap(find.byKey(const ValueKey('bob')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('eve')));
+        await tester.pumpAndSettle();
+        await tester.tap(_confirmButton());
         await tester.pumpAndSettle();
 
-        // MemberSearchSheet is dismissed.
         expect(find.byType(MemberSearchSheet), findsNothing);
-
-        // The "Others…" button now reflects Eve's name.
+        expect(_isQuickAvatarSelected(tester, 'Bob'), isTrue);
         expect(find.text('Eve'), findsOneWidget);
         expect(find.text('Others...'), findsNothing);
       });
 
-      testWidgets('selecting Unknown dismisses the sheet and updates label', (
+      testWidgets('Unknown can be combined with a real member', (tester) async {
+        await tester.pumpWidget(_buildSubject());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Others...'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(ValueKey(unknownSentinelMemberId)));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('eve')));
+        await tester.pumpAndSettle();
+        await tester.tap(_confirmButton());
+        await tester.pumpAndSettle();
+
+        expect(find.byType(MemberSearchSheet), findsNothing);
+        expect(find.text('2 selected'), findsOneWidget);
+        expect(find.text('Others...'), findsNothing);
+
+        await tester.tap(find.byKey(const Key('wakeUpMemberSearchButton')));
+        await tester.pumpAndSettle();
+
+        expect(_isSearchRowSelected(tester, unknownSentinelMemberId), isTrue);
+        expect(_isSearchRowSelected(tester, 'eve'), isTrue);
+      });
+
+      testWidgets('confirming an empty selection clears previous selection', (
         tester,
       ) async {
         await tester.pumpWidget(_buildSubject());
         await tester.pumpAndSettle();
 
+        await tester.tap(_quickAvatar('Alice'));
+        await tester.pumpAndSettle();
+        expect(_isQuickAvatarSelected(tester, 'Alice'), isTrue);
+
         await tester.tap(find.text('Others...'));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Unknown'));
+        await tester.tap(find.byKey(const ValueKey('alice')));
+        await tester.pumpAndSettle();
+        await tester.tap(_confirmButton());
         await tester.pumpAndSettle();
 
         expect(find.byType(MemberSearchSheet), findsNothing);
-        expect(find.text('Unknown'), findsOneWidget);
-        expect(find.text('Others...'), findsNothing);
+        expect(_isQuickAvatarSelected(tester, 'Alice'), isFalse);
+        expect(find.text('Others...'), findsOneWidget);
       });
     });
 
-    // ── 4. Dismissing leaves the selection unchanged ─────────────────────────
-
     group('dismissing the shared sheet', () {
-      testWidgets('cancel leaves the selection unchanged', (tester) async {
+      testWidgets('cancel preserves previous selection', (tester) async {
         await tester.pumpWidget(_buildSubject());
         await tester.pumpAndSettle();
 
+        await tester.tap(_quickAvatar('Alice'));
+        await tester.pumpAndSettle();
+
         await tester.tap(find.text('Others...'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const ValueKey('eve')));
         await tester.pumpAndSettle();
 
         // Close via the X button in MemberSearchSheet's top bar.
@@ -204,8 +310,32 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(MemberSearchSheet), findsNothing);
-        // Label reverts to the default.
+        expect(_isQuickAvatarSelected(tester, 'Alice'), isTrue);
         expect(find.text('Others...'), findsOneWidget);
+      });
+    });
+
+    group('submission', () {
+      testWidgets('Done calls wakeUp with selected members and quality', (
+        tester,
+      ) async {
+        final notifier = _FakeFrontingNotifier();
+        await tester.pumpWidget(_buildSubject(notifier: notifier));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.bySemanticsLabel('Rate sleep as Good'));
+        await tester.pumpAndSettle();
+        await tester.tap(_quickAvatar('Alice'));
+        await tester.pumpAndSettle();
+        await tester.tap(_quickAvatar('Bob'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Done'));
+        await tester.pumpAndSettle();
+
+        expect(notifier.wakeUps, hasLength(1));
+        expect(notifier.wakeUps.single.sleepSessionId, 'sleep-1');
+        expect(notifier.wakeUps.single.quality, SleepQuality.good);
+        expect(notifier.wakeUps.single.memberIds, ['alice', 'bob']);
       });
     });
   });
