@@ -67,6 +67,10 @@ class ConversationsDao extends DatabaseAccessor<AppDatabase>
         ConversationsCompanion(participantIds: Value(participantIdsJson)),
       );
 
+  Future<void> updateIncludesAllMembers(String id, bool value) =>
+      (update(conversations)..where((c) => c.id.equals(id)))
+          .write(ConversationsCompanion(includesAllMembers: Value(value)));
+
   Future<void> updateArchivedByMemberIds(String id, String archivedByJson) =>
       (update(conversations)..where((c) => c.id.equals(id))).write(
         ConversationsCompanion(archivedByMemberIds: Value(archivedByJson)),

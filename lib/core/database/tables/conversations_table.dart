@@ -21,6 +21,10 @@ class Conversations extends Table {
   TextColumn get categoryId => text().nullable()();
   IntColumn get displayOrder => integer().withDefault(const Constant(0))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  // When true, every active member is implicitly a participant — no need
+  // to list each in participantIds.
+  BoolColumn get includesAllMembers =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};

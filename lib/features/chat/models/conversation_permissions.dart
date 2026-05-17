@@ -31,9 +31,20 @@ class ConversationPermissions {
 
   String? get _effectiveCreatorId => effectiveConversationOwnerId(conversation);
 
-  bool get isParticipant =>
-      speakingAsMemberId != null &&
-      conversation.participantIds.contains(speakingAsMemberId);
+  bool get isParticipant {
+    if (speakingAsMemberId == null) return false;
+    if (conversation.participantIds.contains(speakingAsMemberId)) return true;
+    // "Everyone" groups: any active, non-deleted member is implicitly a
+    // participant. The flag short-circuits the explicit participantIds list
+    // so adding/removing members doesn't fan out into thousands of sync ops.
+    if (conversation.includesAllMembers && !isDirectMessage) {
+      final member = speakingAsMember;
+      if (member != null && member.isActive && !member.isDeleted) {
+        return true;
+      }
+    }
+    return false;
+  }
   bool get isDirectMessage => isDirectMessageConversation(conversation);
   bool get isCreator =>
       speakingAsMemberId != null && speakingAsMemberId == _effectiveCreatorId;
@@ -45,35 +56,56 @@ class ConversationPermissions {
       isDirectMessage && conversation.participantIds.isEmpty;
   bool get _isOrphanedDirectMessage =>
       isDirectMessage && conversation.participantIds.length == 1;
-  // Anonymous viewer (no speaking-as picked) can browse the group conversation
-  // list metadata so the chat list isn't empty when no member is fronting.
-  // Once a member is picked, the participant gate engages for groups too.
-  // Scoped DMs stay hidden from anonymous viewers regardless.
+  // Anonymous viewer (no speaking-as picked) can browse group metadata so
+  // the chat list isn't empty when nobody is fronting. Scoped DMs stay
+  // hidden regardless.
   bool get _isAnonymousBrowsingGroup =>
       !isDirectMessage && speakingAsMemberId == null;
+  /// Admin viewing a group they aren't a member of. Admins get read +
+  /// moderate access on these (delete messages/conversation, rename, add
+  /// or remove members, transfer ownership) but cannot post or react —
+  /// "see and moderate, don't speak". The override never applies to DMs:
+  /// admins can only see DMs they're a participant of.
+  bool get isAdminNonParticipantGroup =>
+      !isDirectMessage && isAdmin && !isParticipant;
   bool get canView =>
-      _isUnscopedDirectMessage || isParticipant || _isAnonymousBrowsingGroup;
+      _isUnscopedDirectMessage ||
+      isParticipant ||
+      _isAnonymousBrowsingGroup ||
+      isAdminNonParticipantGroup;
   bool get canWrite =>
       _isUnscopedDirectMessage ||
       (isParticipant && !_isOrphanedDirectMessage);
-  bool get canManage => canWrite && (isCreator || isAdmin);
+  bool get canManage {
+    // DMs never get admin override — moderating in someone else's DM is a
+    // privacy hole even with moderation framing.
+    if (isDirectMessage) {
+      return canWrite && (isCreator || isAdmin);
+    }
+    return (isParticipant && (isCreator || isAdmin)) ||
+        isAdminNonParticipantGroup;
+  }
 
   bool get canEditTitleEmoji => isDirectMessage ? canWrite : canManage;
-  bool get canAddMembers => !isDirectMessage && canManage;
-  bool get canRemoveMembers => !isDirectMessage && canManage;
+  // add/remove are no-ops on everyone-groups — toggle the flag off first.
+  bool get canAddMembers =>
+      !isDirectMessage && canManage && !conversation.includesAllMembers;
+  bool get canRemoveMembers =>
+      !isDirectMessage && canManage && !conversation.includesAllMembers;
   bool get canTransferOwnership => !isDirectMessage && canManage;
   bool get canDeleteConversation => isDirectMessage ? canView : canManage;
   bool get canLeave => !isDirectMessage && isParticipant;
-  bool get canArchive => isDirectMessage ? canView : canWrite;
-  bool get canMute => isDirectMessage ? canView : canWrite;
-  bool get canMarkRead => isDirectMessage ? canView : canWrite;
+  // Personal list-state — if you can see it, you can mute/archive/read it.
+  bool get canArchive => canView;
+  bool get canMute => canView;
+  bool get canMarkRead => canView;
   bool get canSendMessages => canWrite;
   bool get canReact => canWrite;
 
   bool canEditMessage(String? authorId) =>
       canWrite && authorId == speakingAsMemberId;
   bool canDeleteMessage(String? authorId) =>
-      canWrite && (authorId == speakingAsMemberId || canManage);
+      (canWrite && authorId == speakingAsMemberId) || canManage;
 
   bool isMemberDeparted(String? memberId) =>
       memberId != null && !conversation.participantIds.contains(memberId);

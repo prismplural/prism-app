@@ -20,6 +20,7 @@ _Conversation _$ConversationFromJson(Map<String, dynamic> json) =>
               ?.map((e) => e as String)
               .toList() ??
           const [],
+      includesAllMembers: json['includesAllMembers'] as bool? ?? false,
       archivedByMemberIds:
           (json['archivedByMemberIds'] as List<dynamic>?)
               ?.map((e) => e as String)
@@ -50,6 +51,7 @@ Map<String, dynamic> _$ConversationToJson(_Conversation instance) =>
       'isDirectMessage': instance.isDirectMessage,
       'creatorId': instance.creatorId,
       'participantIds': instance.participantIds,
+      'includesAllMembers': instance.includesAllMembers,
       'archivedByMemberIds': instance.archivedByMemberIds,
       'mutedByMemberIds': instance.mutedByMemberIds,
       'lastReadTimestamps': instance.lastReadTimestamps.map(

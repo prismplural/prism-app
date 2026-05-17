@@ -83,6 +83,7 @@ Future<void> _seedV6Db(
     );
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_mood');
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_contrast');
+    rawDb.execute('ALTER TABLE conversations DROP COLUMN includes_all_members');
     rawDb.execute('PRAGMA user_version = 6;');
     // Drop post-v6 columns that the fresh-create added so onUpgrade can
     // re-add them cleanly.

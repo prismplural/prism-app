@@ -346,6 +346,9 @@ class _FakeConversationRepository implements ConversationRepository {
   ) async {}
 
   @override
+  Future<void> setIncludesAllMembers(String conversationId, bool value) async {}
+
+  @override
   Future<void> setArchivedByMemberIds(
     String conversationId,
     List<String> memberIds,

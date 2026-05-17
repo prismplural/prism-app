@@ -512,6 +512,15 @@ class FakeConversationRepository implements ConversationRepository {
   }
 
   @override
+  Future<void> setIncludesAllMembers(String conversationId, bool value) async {
+    final index = conversations.indexWhere((c) => c.id == conversationId);
+    if (index < 0) return;
+    conversations[index] = conversations[index].copyWith(
+      includesAllMembers: value,
+    );
+  }
+
+  @override
   Future<void> setArchivedByMemberIds(
     String conversationId,
     List<String> memberIds,

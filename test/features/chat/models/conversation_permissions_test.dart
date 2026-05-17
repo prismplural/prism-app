@@ -103,74 +103,84 @@ void main() {
     test('isCreator is false', () => expect(perms.isCreator, isFalse));
     test('isParticipant is false', () => expect(perms.isParticipant, isFalse));
     test('isAdmin is true', () => expect(perms.isAdmin, isTrue));
-    // Admins have no override for group chats they aren't in — same rule as
-    // DMs (see lines below at `admin non-participant canView is false` for
-    // the DM case). The "speaking-as" picker decides what an admin can see,
-    // not the admin flag itself.
     test(
-      'canView is false when not a participant',
-      () => expect(perms.canView, isFalse),
+      'isAdminNonParticipantGroup is true',
+      () => expect(perms.isAdminNonParticipantGroup, isTrue),
     );
+
+    // View + moderate, no posting/reacting — the admin oversees the group
+    // without participating in it. The DM rules below pin the opposite
+    // behavior for DMs (admins never see DMs they aren't in).
+    test('canView is true (admin override)',
+        () => expect(perms.canView, isTrue));
     test(
-      'canWrite is false when not a participant',
+      'canWrite is false (no posting)',
       () => expect(perms.canWrite, isFalse),
     );
     test(
-      'canManage is false when not a participant',
-      () => expect(perms.canManage, isFalse),
+      'canReact is false (no reacting)',
+      () => expect(perms.canReact, isFalse),
     );
     test(
-      'canTransferOwnership is false when not a participant',
-      () => expect(perms.canTransferOwnership, isFalse),
+      'canSendMessages is false (no posting)',
+      () => expect(perms.canSendMessages, isFalse),
     );
     test(
-      'canEditTitleEmoji is false when not a participant',
-      () => expect(perms.canEditTitleEmoji, isFalse),
+      'canManage is true (admin override)',
+      () => expect(perms.canManage, isTrue),
     );
     test(
-      'canAddMembers is false when not a participant',
-      () => expect(perms.canAddMembers, isFalse),
+      'canTransferOwnership is true (admin moderation)',
+      () => expect(perms.canTransferOwnership, isTrue),
     );
     test(
-      'canRemoveMembers is false when not a participant',
-      () => expect(perms.canRemoveMembers, isFalse),
+      'canEditTitleEmoji is true (admin moderation)',
+      () => expect(perms.canEditTitleEmoji, isTrue),
     );
     test(
-      'canDeleteConversation is false when not a participant',
-      () => expect(perms.canDeleteConversation, isFalse),
+      'canAddMembers is true (admin moderation)',
+      () => expect(perms.canAddMembers, isTrue),
     );
     test(
-      'canLeave is false when not a participant',
+      'canRemoveMembers is true (admin moderation)',
+      () => expect(perms.canRemoveMembers, isTrue),
+    );
+    test(
+      'canDeleteConversation is true (admin moderation)',
+      () => expect(perms.canDeleteConversation, isTrue),
+    );
+    test(
+      'canLeave is false (not a participant)',
       () => expect(perms.canLeave, isFalse),
     );
     test(
-      'canArchive is false when not a participant',
-      () => expect(perms.canArchive, isFalse),
+      'canArchive is true (personal-state)',
+      () => expect(perms.canArchive, isTrue),
     );
     test(
-      'canMarkRead is false when not a participant',
-      () => expect(perms.canMarkRead, isFalse),
+      'canMute is true (personal-state)',
+      () => expect(perms.canMute, isTrue),
     );
     test(
-      'canReact is false when not a participant',
-      () => expect(perms.canReact, isFalse),
+      'canMarkRead is true (personal-state)',
+      () => expect(perms.canMarkRead, isTrue),
     );
 
     test(
-      'canEditMessage own is false (cannot write at all)',
+      'canEditMessage own is false (cannot write, never authored anything)',
       () => expect(perms.canEditMessage('admin1'), isFalse),
     );
     test(
-      'canEditMessage others is false',
+      'canEditMessage others is false (admins never put words in others\' mouths)',
       () => expect(perms.canEditMessage('member1'), isFalse),
     );
     test(
-      'canDeleteMessage own is false (cannot write at all)',
-      () => expect(perms.canDeleteMessage('admin1'), isFalse),
+      'canDeleteMessage others is true (admin moderation removes content)',
+      () => expect(perms.canDeleteMessage('member1'), isTrue),
     );
     test(
-      'canDeleteMessage others is false',
-      () => expect(perms.canDeleteMessage('member1'), isFalse),
+      'canDeleteMessage with null authorId is true (moderation)',
+      () => expect(perms.canDeleteMessage(null), isTrue),
     );
   });
 
@@ -188,6 +198,10 @@ void main() {
     });
 
     test('isParticipant is false', () => expect(perms.isParticipant, isFalse));
+    test(
+      'isAdminNonParticipantGroup is false (not an admin)',
+      () => expect(perms.isAdminNonParticipantGroup, isFalse),
+    );
     test('canView is false', () => expect(perms.canView, isFalse));
     test('canWrite is false', () => expect(perms.canWrite, isFalse));
     test('canManage is false', () => expect(perms.canManage, isFalse));
@@ -197,7 +211,7 @@ void main() {
     );
     test('canArchive is false', () => expect(perms.canArchive, isFalse));
     test(
-      'canDeleteMessage own is false (cannot write at all)',
+      'canDeleteMessage own is false (no write, no manage)',
       () => expect(perms.canDeleteMessage('outsider'), isFalse),
     );
   });
@@ -547,6 +561,117 @@ void main() {
       );
       expect(perms.canView, isFalse);
       expect(perms.canWrite, isFalse);
+    });
+  });
+
+  group('ConversationPermissions — includesAllMembers (everyone groups)', () {
+    Conversation makeEveryoneGroup({
+      String? creatorId = 'creator',
+      List<String> participantIds = const ['creator'],
+    }) => Conversation(
+      id: 'everyone-1',
+      createdAt: now,
+      lastActivityAt: now,
+      isDirectMessage: false,
+      creatorId: creatorId,
+      participantIds: participantIds,
+      includesAllMembers: true,
+    );
+
+    test(
+      'active non-listed member counts as participant (full access)',
+      () {
+        final perms = ConversationPermissions(
+          conversation: makeEveryoneGroup(),
+          speakingAsMemberId: 'outsider',
+          speakingAsMember: makeMember(id: 'outsider'),
+        );
+        expect(perms.isParticipant, isTrue);
+        expect(perms.canView, isTrue);
+        expect(perms.canWrite, isTrue);
+        expect(perms.canSendMessages, isTrue);
+        expect(perms.canReact, isTrue);
+        expect(perms.canLeave, isTrue);
+      },
+    );
+
+    test('explicit creator is still a participant and remains creator', () {
+      final perms = ConversationPermissions(
+        conversation: makeEveryoneGroup(),
+        speakingAsMemberId: 'creator',
+        speakingAsMember: makeMember(id: 'creator'),
+      );
+      expect(perms.isParticipant, isTrue);
+      expect(perms.isCreator, isTrue);
+      expect(perms.canManage, isTrue);
+      expect(perms.canTransferOwnership, isTrue);
+    });
+
+    test('add/remove members is hidden on everyone groups (no-op action)', () {
+      final perms = ConversationPermissions(
+        conversation: makeEveryoneGroup(),
+        speakingAsMemberId: 'creator',
+        speakingAsMember: makeMember(id: 'creator'),
+      );
+      expect(perms.canAddMembers, isFalse,
+          reason: 'cannot add to "everyone"');
+      expect(perms.canRemoveMembers, isFalse,
+          reason: 'cannot remove from "everyone"');
+    });
+
+    test('deleted member does NOT count as everyone-participant', () {
+      // Member.isDeleted defaults false; explicitly construct a deleted one
+      // via copyWith to verify the gate excludes them.
+      final base = makeMember(id: 'ghost');
+      final deleted = base.copyWith(isDeleted: true);
+      final perms = ConversationPermissions(
+        conversation: makeEveryoneGroup(),
+        speakingAsMemberId: 'ghost',
+        speakingAsMember: deleted,
+      );
+      expect(perms.isParticipant, isFalse);
+      expect(perms.canView, isFalse);
+    });
+
+    test('inactive member does NOT count as everyone-participant', () {
+      final base = makeMember(id: 'paused');
+      final inactive = base.copyWith(isActive: false);
+      final perms = ConversationPermissions(
+        conversation: makeEveryoneGroup(),
+        speakingAsMemberId: 'paused',
+        speakingAsMember: inactive,
+      );
+      expect(perms.isParticipant, isFalse);
+      expect(perms.canView, isFalse);
+    });
+
+    test('null speakingAsMember does NOT count as everyone-participant', () {
+      final perms = ConversationPermissions(
+        conversation: makeEveryoneGroup(),
+        speakingAsMemberId: 'unknown',
+        speakingAsMember: null,
+      );
+      expect(perms.isParticipant, isFalse);
+    });
+
+    test('flag does NOT extend to DMs (isParticipant still gates DMs)', () {
+      // A DM with includesAllMembers=true is nonsensical but defensively
+      // tested: the participant gate stays strict for DMs.
+      final dm = Conversation(
+        id: 'odd-dm',
+        createdAt: now,
+        lastActivityAt: now,
+        isDirectMessage: true,
+        participantIds: const ['alice', 'bob'],
+        includesAllMembers: true,
+      );
+      final perms = ConversationPermissions(
+        conversation: dm,
+        speakingAsMemberId: 'outsider',
+        speakingAsMember: makeMember(id: 'outsider'),
+      );
+      expect(perms.isParticipant, isFalse);
+      expect(perms.canView, isFalse);
     });
   });
 

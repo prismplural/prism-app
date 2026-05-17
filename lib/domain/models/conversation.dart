@@ -14,6 +14,9 @@ abstract class Conversation with _$Conversation {
     @Default(false) bool isDirectMessage,
     String? creatorId,
     @Default([]) List<String> participantIds,
+    // When true, every active member is implicitly a participant — avoids
+    // a sync op per member on toggle and on every membership change after.
+    @Default(false) bool includesAllMembers,
     @Default([]) List<String> archivedByMemberIds,
     @Default([]) List<String> mutedByMemberIds,
     @Default({}) Map<String, DateTime> lastReadTimestamps,

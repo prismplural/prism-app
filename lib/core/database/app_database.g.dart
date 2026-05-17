@@ -3416,6 +3416,20 @@ class $ConversationsTable extends Conversations
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _includesAllMembersMeta =
+      const VerificationMeta('includesAllMembers');
+  @override
+  late final GeneratedColumn<bool> includesAllMembers = GeneratedColumn<bool>(
+    'includes_all_members',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("includes_all_members" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3433,6 +3447,7 @@ class $ConversationsTable extends Conversations
     categoryId,
     displayOrder,
     isDeleted,
+    includesAllMembers,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3563,6 +3578,15 @@ class $ConversationsTable extends Conversations
         isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
       );
     }
+    if (data.containsKey('includes_all_members')) {
+      context.handle(
+        _includesAllMembersMeta,
+        includesAllMembers.isAcceptableOrUnknown(
+          data['includes_all_members']!,
+          _includesAllMembersMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3632,6 +3656,10 @@ class $ConversationsTable extends Conversations
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
       )!,
+      includesAllMembers: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}includes_all_members'],
+      )!,
     );
   }
 
@@ -3657,6 +3685,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
   final String? categoryId;
   final int displayOrder;
   final bool isDeleted;
+  final bool includesAllMembers;
   const Conversation({
     required this.id,
     required this.createdAt,
@@ -3673,6 +3702,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
     this.categoryId,
     required this.displayOrder,
     required this.isDeleted,
+    required this.includesAllMembers,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3702,6 +3732,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
     }
     map['display_order'] = Variable<int>(displayOrder);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    map['includes_all_members'] = Variable<bool>(includesAllMembers);
     return map;
   }
 
@@ -3732,6 +3763,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
           : Value(categoryId),
       displayOrder: Value(displayOrder),
       isDeleted: Value(isDeleted),
+      includesAllMembers: Value(includesAllMembers),
     );
   }
 
@@ -3760,6 +3792,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
       categoryId: serializer.fromJson<String?>(json['categoryId']),
       displayOrder: serializer.fromJson<int>(json['displayOrder']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      includesAllMembers: serializer.fromJson<bool>(json['includesAllMembers']),
     );
   }
   @override
@@ -3781,6 +3814,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
       'categoryId': serializer.toJson<String?>(categoryId),
       'displayOrder': serializer.toJson<int>(displayOrder),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'includesAllMembers': serializer.toJson<bool>(includesAllMembers),
     };
   }
 
@@ -3800,6 +3834,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
     Value<String?> categoryId = const Value.absent(),
     int? displayOrder,
     bool? isDeleted,
+    bool? includesAllMembers,
   }) => Conversation(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -3816,6 +3851,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
     displayOrder: displayOrder ?? this.displayOrder,
     isDeleted: isDeleted ?? this.isDeleted,
+    includesAllMembers: includesAllMembers ?? this.includesAllMembers,
   );
   Conversation copyWithCompanion(ConversationsCompanion data) {
     return Conversation(
@@ -3852,6 +3888,9 @@ class Conversation extends DataClass implements Insertable<Conversation> {
           ? data.displayOrder.value
           : this.displayOrder,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      includesAllMembers: data.includesAllMembers.present
+          ? data.includesAllMembers.value
+          : this.includesAllMembers,
     );
   }
 
@@ -3872,7 +3911,8 @@ class Conversation extends DataClass implements Insertable<Conversation> {
           ..write('description: $description, ')
           ..write('categoryId: $categoryId, ')
           ..write('displayOrder: $displayOrder, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('includesAllMembers: $includesAllMembers')
           ..write(')'))
         .toString();
   }
@@ -3894,6 +3934,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
     categoryId,
     displayOrder,
     isDeleted,
+    includesAllMembers,
   );
   @override
   bool operator ==(Object other) =>
@@ -3913,7 +3954,8 @@ class Conversation extends DataClass implements Insertable<Conversation> {
           other.description == this.description &&
           other.categoryId == this.categoryId &&
           other.displayOrder == this.displayOrder &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.includesAllMembers == this.includesAllMembers);
 }
 
 class ConversationsCompanion extends UpdateCompanion<Conversation> {
@@ -3932,6 +3974,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
   final Value<String?> categoryId;
   final Value<int> displayOrder;
   final Value<bool> isDeleted;
+  final Value<bool> includesAllMembers;
   final Value<int> rowid;
   const ConversationsCompanion({
     this.id = const Value.absent(),
@@ -3949,6 +3992,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
     this.categoryId = const Value.absent(),
     this.displayOrder = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.includesAllMembers = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ConversationsCompanion.insert({
@@ -3967,6 +4011,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
     this.categoryId = const Value.absent(),
     this.displayOrder = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.includesAllMembers = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -3987,6 +4032,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
     Expression<String>? categoryId,
     Expression<int>? displayOrder,
     Expression<bool>? isDeleted,
+    Expression<bool>? includesAllMembers,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4007,6 +4053,8 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
       if (categoryId != null) 'category_id': categoryId,
       if (displayOrder != null) 'display_order': displayOrder,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (includesAllMembers != null)
+        'includes_all_members': includesAllMembers,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4027,6 +4075,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
     Value<String?>? categoryId,
     Value<int>? displayOrder,
     Value<bool>? isDeleted,
+    Value<bool>? includesAllMembers,
     Value<int>? rowid,
   }) {
     return ConversationsCompanion(
@@ -4045,6 +4094,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
       categoryId: categoryId ?? this.categoryId,
       displayOrder: displayOrder ?? this.displayOrder,
       isDeleted: isDeleted ?? this.isDeleted,
+      includesAllMembers: includesAllMembers ?? this.includesAllMembers,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4099,6 +4149,9 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (includesAllMembers.present) {
+      map['includes_all_members'] = Variable<bool>(includesAllMembers.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4123,6 +4176,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
           ..write('categoryId: $categoryId, ')
           ..write('displayOrder: $displayOrder, ')
           ..write('isDeleted: $isDeleted, ')
+          ..write('includesAllMembers: $includesAllMembers, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -25992,6 +26046,7 @@ typedef $$ConversationsTableCreateCompanionBuilder =
       Value<String?> categoryId,
       Value<int> displayOrder,
       Value<bool> isDeleted,
+      Value<bool> includesAllMembers,
       Value<int> rowid,
     });
 typedef $$ConversationsTableUpdateCompanionBuilder =
@@ -26011,6 +26066,7 @@ typedef $$ConversationsTableUpdateCompanionBuilder =
       Value<String?> categoryId,
       Value<int> displayOrder,
       Value<bool> isDeleted,
+      Value<bool> includesAllMembers,
       Value<int> rowid,
     });
 
@@ -26095,6 +26151,11 @@ class $$ConversationsTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get includesAllMembers => $composableBuilder(
+    column: $table.includesAllMembers,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -26182,6 +26243,11 @@ class $$ConversationsTableOrderingComposer
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get includesAllMembers => $composableBuilder(
+    column: $table.includesAllMembers,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ConversationsTableAnnotationComposer
@@ -26255,6 +26321,11 @@ class $$ConversationsTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<bool> get includesAllMembers => $composableBuilder(
+    column: $table.includesAllMembers,
+    builder: (column) => column,
+  );
 }
 
 class $$ConversationsTableTableManager
@@ -26303,6 +26374,7 @@ class $$ConversationsTableTableManager
                 Value<String?> categoryId = const Value.absent(),
                 Value<int> displayOrder = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<bool> includesAllMembers = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ConversationsCompanion(
                 id: id,
@@ -26320,6 +26392,7 @@ class $$ConversationsTableTableManager
                 categoryId: categoryId,
                 displayOrder: displayOrder,
                 isDeleted: isDeleted,
+                includesAllMembers: includesAllMembers,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -26339,6 +26412,7 @@ class $$ConversationsTableTableManager
                 Value<String?> categoryId = const Value.absent(),
                 Value<int> displayOrder = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<bool> includesAllMembers = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ConversationsCompanion.insert(
                 id: id,
@@ -26356,6 +26430,7 @@ class $$ConversationsTableTableManager
                 categoryId: categoryId,
                 displayOrder: displayOrder,
                 isDeleted: isDeleted,
+                includesAllMembers: includesAllMembers,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

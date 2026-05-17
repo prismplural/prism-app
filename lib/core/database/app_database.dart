@@ -98,7 +98,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 24;
+  int get schemaVersion => 25;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -673,6 +673,13 @@ class AppDatabase extends _$AppDatabase {
           'UPDATE members SET markdown_enabled = 1 WHERE markdown_enabled = 0',
         );
         current = 24;
+      }
+      if (current == 24 && to >= 25) {
+        await migrator.addColumn(
+          conversations,
+          conversations.includesAllMembers,
+        );
+        current = 25;
       }
       if (current != to) {
         throw UnsupportedError(

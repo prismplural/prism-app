@@ -72,6 +72,7 @@ Future<void> _seedV7Db(File dbFile) async {
     );
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_mood');
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_contrast');
+    rawDb.execute('ALTER TABLE conversations DROP COLUMN includes_all_members');
     rawDb.execute('PRAGMA user_version = 7;');
     rawDb.execute('ALTER TABLE fronting_sessions DROP COLUMN pk_import_source');
     rawDb.execute(

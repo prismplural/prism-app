@@ -74,7 +74,7 @@ Future<void> _seedV18Db(File dbFile) async {
     rawDb.execute('ALTER TABLE member_group_entries DROP COLUMN pending_pk_op');
     rawDb.execute('ALTER TABLE members DROP COLUMN pluralkit_display_name');
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
-    // Drop columns added by v21-v23 so their migrations can re-add them when
+    // Drop columns added by v21-v25 so their migrations can re-add them when
     // stepping forward through v18 -> current.
     rawDb.execute('ALTER TABLE member_groups DROP COLUMN sort_state');
     rawDb.execute(
@@ -86,6 +86,9 @@ Future<void> _seedV18Db(File dbFile) async {
     );
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_mood');
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN palette_contrast');
+    rawDb.execute(
+      'ALTER TABLE conversations DROP COLUMN includes_all_members',
+    );
     rawDb.execute('PRAGMA user_version = 18;');
   } finally {
     rawDb.close();

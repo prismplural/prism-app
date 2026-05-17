@@ -135,6 +135,14 @@ class DriftConversationRepository
   }
 
   @override
+  Future<void> setIncludesAllMembers(String conversationId, bool value) async {
+    await _dao.updateIncludesAllMembers(conversationId, value);
+    await syncRecordUpdate(_table, conversationId, {
+      'includes_all_members': value,
+    });
+  }
+
+  @override
   Future<void> setArchivedByMemberIds(
     String conversationId,
     List<String> memberIds,
@@ -233,6 +241,7 @@ class DriftConversationRepository
       'category_id': c.categoryId,
       'display_order': c.displayOrder,
       'is_deleted': false,
+      'includes_all_members': c.includesAllMembers,
     };
   }
 }

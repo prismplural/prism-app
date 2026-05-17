@@ -94,7 +94,7 @@ void main() {
   );
 
   test(
-    'admin non-participant sees neither DMs nor group chats they are not in',
+    'admin non-participant sees all group chats but no other-people DMs',
     () async {
       final container = buildContainer('admin');
       addTearDown(container.dispose);
@@ -104,9 +104,10 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       final conversations = sub.read().value!;
 
-      // Admins have no automatic override — the "speaking-as" picker is what
-      // grants access, not the admin flag.
-      expect(conversations, isEmpty);
+      // Admin moderation override applies to group chats only — DMs stay
+      // private to participants. legacy-dm-1 is also a DM-shape (untitled
+      // two-person), so it stays hidden too.
+      expect(conversations.map((c) => c.id), ['group-1']);
     },
   );
 
@@ -177,7 +178,8 @@ void main() {
     expect(conversation, isNull);
   });
 
-  test('admin non-participant cannot open group chat by id', () async {
+  test('admin non-participant CAN open group chat by id (moderation view)',
+      () async {
     final container = buildContainer('admin');
     addTearDown(container.dispose);
     final sub = container.listen(
@@ -189,7 +191,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     final conversation = sub.read().value;
 
-    expect(conversation, isNull);
+    expect(conversation?.id, 'group-1');
   });
 
   test('non-participant cannot open legacy DM by id', () async {

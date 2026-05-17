@@ -73,7 +73,7 @@ void _dropPostV3Schema(raw.Database db) {
     ['front_session_comments', 'author_member_id'],
     ['plural_kit_sync_state', 'switch_cursor_timestamp'],
     ['plural_kit_sync_state', 'switch_cursor_id'],
-    // Columns added by v21-v23 — must be absent so stepping forward from
+    // Columns added by v21-v25 — must be absent so stepping forward from
     // v1-v3 through current can re-add them.
     ['plural_kit_sync_state', 'direction_confirmed'],
     ['member_groups', 'sort_state'],
@@ -81,6 +81,7 @@ void _dropPostV3Schema(raw.Database db) {
     ['system_settings', 'palette_seed_color_hex'],
     ['system_settings', 'palette_mood'],
     ['system_settings', 'palette_contrast'],
+    ['conversations', 'includes_all_members'],
   ];
 
   for (final drop in drops) {

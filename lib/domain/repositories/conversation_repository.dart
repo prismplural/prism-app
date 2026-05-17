@@ -13,6 +13,7 @@ abstract class ConversationRepository {
   Future<void> addParticipantId(String conversationId, String memberId);
   Future<void> addParticipantIds(String conversationId, List<String> memberIds);
   Future<void> removeParticipantId(String conversationId, String memberId);
+  Future<void> setIncludesAllMembers(String conversationId, bool value);
   Future<void> setArchivedByMemberIds(String conversationId, List<String> memberIds);
   Future<void> setMutedByMemberIds(String conversationId, List<String> memberIds);
   Future<void> setLastReadTimestamps(String conversationId, Map<String, DateTime> timestamps);

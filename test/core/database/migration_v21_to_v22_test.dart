@@ -24,7 +24,7 @@ Future<void> _seedV21Db(File dbFile) async {
 
   final rawDb = raw.sqlite3.open(dbFile.path);
   try {
-    // Defensive: drop the column added by v22 if present, so re-running this
+    // Defensive: drop columns added after v21 if present, so re-running this
     // helper on a half-migrated file still produces a v21 baseline.
     final cols = rawDb.select('PRAGMA table_info(member_groups)');
     final hasSortState = cols.any((row) => row['name'] == 'sort_state');
@@ -38,6 +38,13 @@ Future<void> _seedV21Db(File dbFile) async {
       'palette_contrast',
     ]) {
       rawDb.execute('ALTER TABLE system_settings DROP COLUMN $column');
+    }
+    // v25
+    final convCols = rawDb.select('PRAGMA table_info(conversations)');
+    if (convCols.any((row) => row['name'] == 'includes_all_members')) {
+      rawDb.execute(
+        'ALTER TABLE conversations DROP COLUMN includes_all_members',
+      );
     }
 
     rawDb.execute('PRAGMA user_version = 21;');
@@ -98,7 +105,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(version.read<int>('user_version'), 24);
+        expect(version.read<int>('user_version'), 25);
 
         final groups = await upgraded
             .customSelect('SELECT COUNT(*) AS c FROM member_groups')
