@@ -12,6 +12,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 /// from `core/services/secure_storage.dart` go through its real code path.
 class _InMemoryKeychain {
   final Map<String, String> values = <String, String>{};
+  bool throwOnReadAll = false;
 
   void install() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -41,6 +42,12 @@ class _InMemoryKeychain {
         values.remove(args['key'] as String);
         return null;
       case 'readAll':
+        if (throwOnReadAll) {
+          throw PlatformException(
+            code: 'KeychainError',
+            message: 'simulated keychain failure',
+          );
+        }
         return Map<String, String>.from(values);
       case 'deleteAll':
         values.clear();
@@ -364,6 +371,35 @@ void main() {
           );
         }
         expect(snapshot.containsKey('unrelated'), isFalse);
+      },
+    );
+  });
+
+  // ── Keychain snapshot failure handling ─────────────────────────────────
+
+  group('SyncSetupNotifier snapshot error path', () {
+    test(
+      'snapshot helper propagates keychain readAll failures',
+      () async {
+        // Documents the failure mode that `_complete` now guards against:
+        // a keychain readAll throw would escape past `isProcessing: true`
+        // and leave the setup sheet spinning. The fix wraps the snapshot
+        // in a try/catch that surfaces a user-facing error and resets
+        // state; this test pins that the underlying helper still throws
+        // when storage fails, so the guard remains load-bearing.
+        keychain.throwOnReadAll = true;
+        addTearDown(() => keychain.throwOnReadAll = false);
+
+        final notifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(handleNotifier: notifier);
+        final setup = container.read(syncSetupProvider.notifier);
+
+        await expectLater(
+          setup.snapshotPrismSyncKeychainForTest(),
+          throwsA(isA<PlatformException>()),
+        );
       },
     );
   });

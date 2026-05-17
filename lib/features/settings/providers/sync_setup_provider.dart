@@ -236,7 +236,23 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     // orphan the file on disk. Reuses the same set as
     // `_resetSyncSystem` (Phase 1B) — both paths agree on which slots
     // are sacred.
-    final snapshot = await _snapshotPrismSyncKeychain();
+    //
+    // A keychain read failure here must surface a recoverable error
+    // instead of escaping past the setup screen's error handler — without
+    // the snapshot we cannot safely proceed (there is no way to roll
+    // back partial writes), but the sheet must come out of "processing"
+    // so the user can retry.
+    final Map<String, String> snapshot;
+    try {
+      snapshot = await _snapshotPrismSyncKeychain();
+    } catch (e) {
+      state = state.copyWith(
+        isProcessing: false,
+        currentProgress: null,
+        error: 'Could not read secure storage. Please retry.',
+      );
+      return false;
+    }
 
     state = state.copyWith(
       isProcessing: true,
