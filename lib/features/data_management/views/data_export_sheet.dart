@@ -469,14 +469,6 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
           children: [
             Expanded(
               child: PrismButton(
-                onPressed: () => Navigator.pop(context),
-                label: context.l10n.close,
-                tone: PrismButtonTone.outlined,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: PrismButton(
                 onPressed: _shareExportedFile,
                 enabled: !_isSharing,
                 icon: AppIcons.share,
