@@ -129,7 +129,8 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
   }
 
   @override
-  Future<Map<String, List<domain.PollOption>>> getAllOptionsGroupedByPoll() async {
+  Future<Map<String, List<domain.PollOption>>>
+  getAllOptionsGroupedByPoll() async {
     final rows = await _optionsDao.getAllOptions();
     final grouped = <String, List<domain.PollOption>>{};
     for (final row in rows) {
@@ -155,7 +156,11 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
   Future<void> createOption(domain.PollOption option, String pollId) async {
     final companion = PollOptionMapper.toCompanion(option, pollId);
     await _optionsDao.insertOption(companion);
-    await syncRecordCreate(_pollOptionTable, option.id, _pollOptionFields(option, pollId));
+    await syncRecordCreate(
+      _pollOptionTable,
+      option.id,
+      _pollOptionFields(option, pollId),
+    );
   }
 
   @override
@@ -173,7 +178,8 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
   }
 
   @override
-  Future<Map<String, List<domain.PollVote>>> getAllVotesGroupedByOption() async {
+  Future<Map<String, List<domain.PollVote>>>
+  getAllVotesGroupedByOption() async {
     final rows = await _votesDao.getAllVotes();
     final grouped = <String, List<domain.PollVote>>{};
     for (final row in rows) {
@@ -199,7 +205,11 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
   Future<void> castVote(domain.PollVote vote, String optionId) async {
     final companion = PollVoteMapper.toCompanion(vote, optionId);
     await _votesDao.insertVote(companion);
-    await syncRecordCreate(_pollVoteTable, vote.id, _pollVoteFields(vote, optionId));
+    await syncRecordCreate(
+      _pollVoteTable,
+      vote.id,
+      _pollVoteFields(vote, optionId),
+    );
   }
 
   @override
@@ -208,7 +218,15 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
     await syncRecordDelete(_pollVoteTable, id);
   }
 
-  Map<String, dynamic> _pollFields(domain.Poll p) {
+  Map<String, dynamic> _pollFields(domain.Poll p) => pollFields(p);
+
+  /// Field-map builder for poll sync emissions.
+  ///
+  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// `createPoll()` for the bulk insert. See
+  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  static Map<String, dynamic> pollFields(domain.Poll p) {
     return {
       'question': p.question,
       'description': p.description,
@@ -221,7 +239,18 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
     };
   }
 
-  Map<String, dynamic> _pollOptionFields(domain.PollOption o, String pollId) {
+  Map<String, dynamic> _pollOptionFields(domain.PollOption o, String pollId) =>
+      pollOptionFields(o, pollId);
+
+  /// Field-map builder for poll-option sync emissions.
+  ///
+  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// the per-option emission inside `createPoll()` for the bulk insert.
+  static Map<String, dynamic> pollOptionFields(
+    domain.PollOption o,
+    String pollId,
+  ) {
     return {
       'poll_id': pollId,
       'option_text': o.text,
@@ -232,7 +261,21 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
     };
   }
 
-  Map<String, dynamic> _pollVoteFields(domain.PollVote v, String optionId) {
+  Map<String, dynamic> _pollVoteFields(domain.PollVote v, String optionId) =>
+      pollVoteFields(v, optionId);
+
+  /// Field-map builder for poll-vote sync emissions.
+  ///
+  /// Public so the Phase 5 capture-replay path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// `castVote()` for the bulk batch insert. Keeping a single implementation
+  /// in this file prevents the v1 op-type drift bug from re-entering via a
+  /// divergent inline copy. See `docs/plans/sp-import-perf-quick-wins.md`
+  /// (Phase 5 "Field-map reuse").
+  static Map<String, dynamic> pollVoteFields(
+    domain.PollVote v,
+    String optionId,
+  ) {
     return {
       'poll_option_id': optionId,
       'member_id': v.memberId,

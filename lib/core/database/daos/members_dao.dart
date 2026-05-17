@@ -43,6 +43,41 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   Future<int> insertMember(MembersCompanion member) =>
       into(members).insert(member);
 
+  /// Batch-insert members in a single Drift `batch()` round-trip.
+  ///
+  /// Used by the SP importer's Phase 6 capture-replay path
+  /// (`docs/plans/sp-import-perf-quick-wins.md`) to collapse N per-member
+  /// inserts into one DAO call. Bypasses [DriftMemberRepository.createMember],
+  /// so the caller is responsible for pushing a captured op tuple per row
+  /// using [DriftMemberRepository.memberFields]. The SP importer pre-filters
+  /// rows whose ID already exists, so plain `insertAll` (no conflict policy)
+  /// is correct here — re-using the per-row `insertMember` policy.
+  Future<void> batchInsertMembers(List<MembersCompanion> rows) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAll(members, rows));
+  }
+
+  /// Bulk-update `boardLastReadAt` per (memberId, readAt) pair in a single
+  /// Drift batch. The caller is responsible for preserving LWW semantics by
+  /// passing only rows whose current `boardLastReadAt` is null or older than
+  /// the supplied value.
+  ///
+  /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
+  Future<void> batchUpdateBoardLastReadAt(
+    Map<String, DateTime> readAtByMemberId,
+  ) async {
+    if (readAtByMemberId.isEmpty) return;
+    await batch((b) {
+      for (final entry in readAtByMemberId.entries) {
+        b.update(
+          members,
+          MembersCompanion(boardLastReadAt: Value(entry.value)),
+          where: (m) => m.id.equals(entry.key),
+        );
+      }
+    });
+  }
+
   Future<void> updateMember(MembersCompanion member) {
     assert(member.id.present, 'Member id is required for update');
     return (update(
@@ -86,6 +121,26 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
 
   Future<void> upsertMember(MembersCompanion member) =>
       into(members).insertOnConflictUpdate(member);
+
+  /// Bulk-update `avatarImageData` for many members in a single Drift batch.
+  ///
+  /// Replaces N round-tripped `update(...)` calls with one batched statement.
+  /// Used by the SP importer's parallel avatar phase
+  /// (`sp_importer.dart:_downloadAvatars`); callers are expected to emit the
+  /// matching `syncRecordUpdate` per member after the batch returns so the
+  /// emission shape on the wire is unchanged.
+  Future<void> batchUpdateAvatars(Map<String, Uint8List> bytesById) async {
+    if (bytesById.isEmpty) return;
+    await batch((b) {
+      for (final entry in bytesById.entries) {
+        b.update(
+          members,
+          MembersCompanion(avatarImageData: Value(entry.value)),
+          where: (m) => m.id.equals(entry.key),
+        );
+      }
+    });
+  }
 
   Future<void> softDeleteMember(String id) =>
       (update(members)..where((m) => m.id.equals(id))).write(

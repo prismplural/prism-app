@@ -75,6 +75,19 @@ class PollVotesDao extends DatabaseAccessor<AppDatabase>
   Future<int> insertVote(PollVotesCompanion vote) =>
       into(pollVotes).insert(vote);
 
+  /// Batch-insert poll votes in a single Drift `batch()` round-trip.
+  ///
+  /// Used by the SP importer's Phase 5 capture-replay path
+  /// (`docs/plans/sp-import-perf-quick-wins.md`) to collapse N per-vote
+  /// inserts into one DAO call. Bypasses [DriftPollRepository.castVote], so
+  /// the caller is responsible for pushing a captured op tuple per row
+  /// using [DriftPollRepository.pollVoteFields] to keep the emission
+  /// payload byte-equal to the live-edit path.
+  Future<void> batchInsertVotes(List<PollVotesCompanion> rows) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAll(pollVotes, rows));
+  }
+
   Future<void> updateVote(PollVotesCompanion vote) {
     assert(vote.id.present, 'Vote id is required for update');
     return (update(

@@ -15,11 +15,9 @@ class RemindersDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(r) => OrderingTerm.desc(r.createdAt)]))
           .watch();
 
-  Stream<List<ReminderRow>> watchActive() =>
-      (select(reminders)
-            ..where(
-                (r) => r.isActive.equals(true) & r.isDeleted.equals(false)))
-          .watch();
+  Stream<List<ReminderRow>> watchActive() => (select(
+    reminders,
+  )..where((r) => r.isActive.equals(true) & r.isDeleted.equals(false))).watch();
 
   Future<List<ReminderRow>> getAll() =>
       (select(reminders)
@@ -35,10 +33,18 @@ class RemindersDao extends DatabaseAccessor<AppDatabase>
   Future<int> create(RemindersCompanion companion) =>
       into(reminders).insert(companion);
 
+  /// Batch-insert reminders in a single Drift `batch()` round-trip.
+  /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
+  Future<void> batchInsertReminders(List<RemindersCompanion> rows) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAll(reminders, rows));
+  }
+
   Future<void> updateReminder(String id, RemindersCompanion companion) =>
       (update(reminders)..where((r) => r.id.equals(id))).write(companion);
 
   Future<void> softDelete(String id) =>
-      (update(reminders)..where((r) => r.id.equals(id)))
-          .write(const RemindersCompanion(isDeleted: Value(true)));
+      (update(reminders)..where((r) => r.id.equals(id))).write(
+        const RemindersCompanion(isDeleted: Value(true)),
+      );
 }

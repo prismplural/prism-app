@@ -25,40 +25,47 @@ import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 
 void main() {
   group('SyncRecordMixin.suppress', () {
-    test('short-circuits syncRecordCreate / Update / Delete inside body',
-        () async {
-      final repo = _ProbeRepository();
+    test(
+      'short-circuits syncRecordCreate / Update / Delete inside body',
+      () async {
+        final repo = _ProbeRepository();
 
-      // Sanity: outside `suppress`, the calls flow through the
-      // _runWithConfiguredRetry wrapper. We can't actually hit the FFI
-      // in tests (no Rust handle), but we can prove the suppression
-      // gate by asserting that the per-call entry point ran or didn't.
-      // Pre-suppression: a call with a null handle returns silently
-      // but never sets `_probeMarker` because we never reach inside
-      // the function body. Replace the marker assertion with a counter
-      // tracked via the wrapper — see _ProbeRepository.
+        // Sanity: outside `suppress`, the calls flow through the
+        // _runWithConfiguredRetry wrapper. We can't actually hit the FFI
+        // in tests (no Rust handle), but we can prove the suppression
+        // gate by asserting that the per-call entry point ran or didn't.
+        // Pre-suppression: a call with a null handle returns silently
+        // but never sets `_probeMarker` because we never reach inside
+        // the function body. Replace the marker assertion with a counter
+        // tracked via the wrapper — see _ProbeRepository.
 
-      expect(SyncRecordMixin.isSuppressed, isFalse, reason: 'pre-suppress');
+        expect(SyncRecordMixin.isSuppressed, isFalse, reason: 'pre-suppress');
 
-      await SyncRecordMixin.suppress(() async {
-        expect(SyncRecordMixin.isSuppressed, isTrue, reason: 'inside suppress');
-        await repo.syncRecordCreate('members', 'm1', {'name': 'A'});
-        await repo.syncRecordUpdate('members', 'm1', {'name': 'B'});
-        await repo.syncRecordDelete('members', 'm1');
-      });
+        await SyncRecordMixin.suppress(() async {
+          expect(
+            SyncRecordMixin.isSuppressed,
+            isTrue,
+            reason: 'inside suppress',
+          );
+          await repo.syncRecordCreate('members', 'm1', {'name': 'A'});
+          await repo.syncRecordUpdate('members', 'm1', {'name': 'B'});
+          await repo.syncRecordDelete('members', 'm1');
+        });
 
-      expect(SyncRecordMixin.isSuppressed, isFalse, reason: 'post-suppress');
+        expect(SyncRecordMixin.isSuppressed, isFalse, reason: 'post-suppress');
 
-      // Probe repo had a non-null handle stub but the mixin's early
-      // return prevented it from being read. The probe asserts via
-      // `handleAccessCount` how many times the wrapper got past the
-      // suppression gate.
-      expect(
-        repo.handleAccessCount,
-        0,
-        reason: 'no syncRecord* call should reach the FFI gate while suppressed',
-      );
-    });
+        // Probe repo had a non-null handle stub but the mixin's early
+        // return prevented it from being read. The probe asserts via
+        // `handleAccessCount` how many times the wrapper got past the
+        // suppression gate.
+        expect(
+          repo.handleAccessCount,
+          0,
+          reason:
+              'no syncRecord* call should reach the FFI gate while suppressed',
+        );
+      },
+    );
 
     test('flag clears after body throws', () async {
       expect(SyncRecordMixin.isSuppressed, isFalse);
@@ -97,23 +104,26 @@ void main() {
       expect(SyncRecordMixin.isSuppressed, isFalse);
     });
 
-    test('passes calls through when not suppressed (handle = null branch)',
-        () async {
-      final repo = _ProbeRepository();
-      // Outside suppress: the wrapper calls the syncHandle getter
-      // exactly once per record method. With a null handle the wrapper
-      // returns early — that's the historical "skip quietly" behavior
-      // we keep alongside the new suppression gate.
-      await repo.syncRecordCreate('members', 'm1', {'name': 'A'});
-      await repo.syncRecordUpdate('members', 'm1', {'name': 'B'});
-      await repo.syncRecordDelete('members', 'm1');
-      expect(
-        repo.handleAccessCount,
-        3,
-        reason: 'unsuppressed calls reach the FFI gate (and exit early '
-            'on null handle)',
-      );
-    });
+    test(
+      'passes calls through when not suppressed (handle = null branch)',
+      () async {
+        final repo = _ProbeRepository();
+        // Outside suppress: the wrapper calls the syncHandle getter
+        // exactly once per record method. With a null handle the wrapper
+        // returns early — that's the historical "skip quietly" behavior
+        // we keep alongside the new suppression gate.
+        await repo.syncRecordCreate('members', 'm1', {'name': 'A'});
+        await repo.syncRecordUpdate('members', 'm1', {'name': 'B'});
+        await repo.syncRecordDelete('members', 'm1');
+        expect(
+          repo.handleAccessCount,
+          3,
+          reason:
+              'unsuppressed calls reach the FFI gate (and exit early '
+              'on null handle)',
+        );
+      },
+    );
   });
 
   group('SyncRecordMixin best-effort failure contract', () {
@@ -166,7 +176,165 @@ void main() {
         hasLength(1),
       );
     });
+  });
 
+  group('SyncRecordMixin.suppressAndCapture', () {
+    // Phase 5 codex-review fix-up: `suppress` keeps its historical
+    // drop-emissions semantic. `suppressAndCapture` is the new API for the
+    // SP-import post-commit replay path. Nesting `suppress` inside
+    // `suppressAndCapture` must drop inner emissions (not bubble to the
+    // outer sink), and nested `suppressAndCapture` calls route inner
+    // emissions only to the innermost sink.
+
+    test('plain suppress drops emissions', () async {
+      final repo = _ProbeRepository();
+      await SyncRecordMixin.suppress(() async {
+        await repo.syncRecordCreate('members', 'm1', {'name': 'A'});
+        await repo.syncRecordUpdate('members', 'm1', {'name': 'B'});
+        await repo.syncRecordDelete('members', 'm1');
+      });
+      // No FFI hops (handleAccessCount == 0) AND no captured tuples to
+      // verify — the only sink that could observe them is the
+      // _suppressCapture which was cleared by `suppress`.
+      expect(repo.handleAccessCount, 0);
+    });
+
+    test('suppressAndCapture routes emissions to its sink', () async {
+      final repo = _ProbeRepository();
+      final captured = <CapturedSyncOp>[];
+      await SyncRecordMixin.suppressAndCapture(() async {
+        await repo.syncRecordCreate('members', 'm1', {'name': 'A'});
+        await repo.syncRecordUpdate('members', 'm1', {'name': 'B'});
+        await repo.syncRecordDelete('members', 'm1');
+      }, captured.add);
+      expect(captured, hasLength(3));
+      expect(captured[0].opType, SyncRecordOpType.create);
+      expect(captured[0].table, 'members');
+      expect(captured[0].entityId, 'm1');
+      expect(captured[0].fields, {'name': 'A'});
+      expect(captured[1].opType, SyncRecordOpType.update);
+      expect(captured[1].fields, {'name': 'B'});
+      expect(captured[2].opType, SyncRecordOpType.delete);
+      expect(captured[2].fields, isEmpty);
+      // Suppression gate fired — no FFI access.
+      expect(repo.handleAccessCount, 0);
+    });
+
+    test(
+      'nested suppress inside suppressAndCapture drops inner emissions',
+      () async {
+        final repo = _ProbeRepository();
+        final outer = <CapturedSyncOp>[];
+
+        await SyncRecordMixin.suppressAndCapture(() async {
+          // Outer-level emission goes to outer sink.
+          await repo.syncRecordCreate('members', 'outer', {'k': 'v'});
+          // Inner explicit-drop block; emissions here must NOT bubble.
+          await SyncRecordMixin.suppress(() async {
+            await repo.syncRecordCreate('members', 'inner', {'k': 'v'});
+            await repo.syncRecordUpdate('members', 'inner', {'k': 'v2'});
+          });
+          // Back at outer level after suppress exits — outer sink active.
+          await repo.syncRecordDelete('members', 'outer-2');
+        }, outer.add);
+
+        expect(
+          outer.map((o) => o.entityId),
+          ['outer', 'outer-2'],
+          reason: 'inner suppress emissions must be dropped, not captured',
+        );
+        expect(outer[0].opType, SyncRecordOpType.create);
+        expect(outer[1].opType, SyncRecordOpType.delete);
+      },
+    );
+
+    test(
+      'nested suppressAndCapture routes emissions to the innermost sink',
+      () async {
+        final repo = _ProbeRepository();
+        final outer = <CapturedSyncOp>[];
+        final inner = <CapturedSyncOp>[];
+
+        await SyncRecordMixin.suppressAndCapture(() async {
+          await repo.syncRecordCreate('members', 'outer', {'k': 'v'});
+          await SyncRecordMixin.suppressAndCapture(() async {
+            await repo.syncRecordCreate('members', 'inner', {'k': 'v'});
+          }, inner.add);
+          await repo.syncRecordDelete('members', 'outer-2');
+        }, outer.add);
+
+        expect(
+          inner.map((o) => o.entityId),
+          ['inner'],
+          reason: 'inner sink receives only the inner block emission',
+        );
+        expect(
+          outer.map((o) => o.entityId),
+          ['outer', 'outer-2'],
+          reason: 'outer sink receives only its own-level emissions',
+        );
+      },
+    );
+
+    test('suppressAndCapture clears the sink on body throw', () async {
+      final repo = _ProbeRepository();
+      final captured = <CapturedSyncOp>[];
+
+      Object? caught;
+      try {
+        await SyncRecordMixin.suppressAndCapture<void>(() async {
+          await repo.syncRecordCreate('members', 'm1', {'k': 'v'});
+          throw StateError('boom');
+        }, captured.add);
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught, isA<StateError>());
+      // The one emission before the throw was captured…
+      expect(captured, hasLength(1));
+      // …but the suppression + capture sink are reset.
+      expect(SyncRecordMixin.isSuppressed, isFalse);
+
+      // A subsequent un-suppressed call must reach the FFI gate.
+      await repo.syncRecordCreate('members', 'm2', {'k': 'v'});
+      expect(repo.handleAccessCount, 1);
+    });
+  });
+
+  group('SyncRecordMixin capture sink install/remove guard', () {
+    // Phase 0 codex-review fix-up: installCaptureSinkForTesting must throw
+    // StateError when a sink is already installed. Flutter's default test
+    // concurrency is >1 in the same isolate, so a silent overwrite would
+    // let two parity tests steal each other's emissions.
+
+    tearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+    test('install throws StateError when a sink is already installed', () {
+      void sinkA(CapturedSyncOp op) {}
+      void sinkB(CapturedSyncOp op) {}
+
+      SyncRecordMixin.installCaptureSinkForTesting(sinkA);
+      expect(SyncRecordMixin.hasCaptureSink, isTrue);
+
+      expect(
+        () => SyncRecordMixin.installCaptureSinkForTesting(sinkB),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('Capture sink already installed'),
+          ),
+        ),
+      );
+
+      SyncRecordMixin.removeCaptureSinkForTesting();
+      expect(SyncRecordMixin.hasCaptureSink, isFalse);
+
+      // After remove, install is permitted again.
+      SyncRecordMixin.installCaptureSinkForTesting(sinkB);
+      expect(SyncRecordMixin.hasCaptureSink, isTrue);
+      SyncRecordMixin.removeCaptureSinkForTesting();
+    });
   });
 }
 

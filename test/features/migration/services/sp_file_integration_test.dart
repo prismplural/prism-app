@@ -60,7 +60,7 @@ void main() {
         final importer = SpImporter();
 
         // -- 1. Parse the real export file ----------------------------------------
-        final exportData = importer.parseFile(_exportPath);
+        final exportData = await importer.parseFile(_exportPath);
 
         expect(
           exportData.isEmpty,
@@ -269,7 +269,7 @@ void main() {
         }
 
         final importer = SpImporter();
-        final exportData = importer.parseFile(_exportPath);
+        final exportData = await importer.parseFile(_exportPath);
 
         Future<ImportResult> runImport({bool clear = false}) async {
           final r = await importer.executeImport(
@@ -364,7 +364,7 @@ void main() {
         }
 
         final importer = SpImporter();
-        final exportData = importer.parseFile(_exportPath);
+        final exportData = await importer.parseFile(_exportPath);
 
         final result = await importer.executeImport(
           db: db,

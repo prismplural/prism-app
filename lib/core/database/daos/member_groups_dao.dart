@@ -102,6 +102,18 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   Future<int> createGroup(MemberGroupsCompanion companion) =>
       into(memberGroups).insert(companion);
 
+  /// Batch-insert member groups in a single Drift `batch()` round-trip.
+  ///
+  /// Used by the SP importer's Phase 6 capture-replay path
+  /// (`docs/plans/sp-import-perf-quick-wins.md`). Bypasses
+  /// [DriftMemberGroupsRepository.createGroup], so the caller is responsible
+  /// for pushing a captured op tuple per row using
+  /// [DriftMemberGroupsRepository.groupFields].
+  Future<void> batchInsertGroups(List<MemberGroupsCompanion> rows) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAll(memberGroups, rows));
+  }
+
   Future<void> updateGroup(String id, MemberGroupsCompanion companion) =>
       (update(memberGroups)..where((g) => g.id.equals(id))).write(companion);
 
@@ -128,6 +140,28 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> createEntry(MemberGroupEntriesCompanion companion) =>
       into(memberGroupEntries).insert(companion);
+
+  /// Batch-insert member-group entries in a single Drift `batch()` round-trip.
+  ///
+  /// Uses `insertAllOnConflictUpdate` so a re-import that hits a deterministic
+  /// sha256 entry id whose prior row is soft-deleted revives it — matching
+  /// the live-edit `addMemberToGroup` path which calls `upsertEntry` for
+  /// PK-linked rows. Non-PK rows use random v4 ids and don't collide on
+  /// re-import, so the upsert is a no-op for them.
+  ///
+  /// Used by the SP importer's Phase 6 capture-replay path
+  /// (`docs/plans/sp-import-perf-quick-wins.md`). Bypasses
+  /// [DriftMemberGroupsRepository.addMemberToGroup], so the caller is
+  /// responsible for pushing a captured op tuple per row using
+  /// [DriftMemberGroupsRepository.memberGroupEntryFields]. Suppressed groups
+  /// and entries that can't be emitted (per `_canEmitPkBackedEntry` rules)
+  /// must be excluded from the captured-tuple list by the caller.
+  Future<void> batchInsertEntries(
+    List<MemberGroupEntriesCompanion> rows,
+  ) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAllOnConflictUpdate(memberGroupEntries, rows));
+  }
 
   Future<void> deleteEntry(String id) =>
       (update(memberGroupEntries)..where((e) => e.id.equals(id))).write(

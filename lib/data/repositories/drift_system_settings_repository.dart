@@ -658,4 +658,14 @@ class DriftSystemSettingsRepository
   @visibleForTesting
   Map<String, dynamic> debugSettingsFields(domain.SystemSettings s) =>
       _settingsFields(s);
+
+  /// Phase 5 capture-replay alias for [debugSettingsFields].
+  ///
+  /// Plan §"Field-map reuse" mandates a single field-map implementation per
+  /// entity, callable from the SP importer's batch-insert path so captured
+  /// emission tuples are byte-identical to the repository's. Both names
+  /// resolve to `_settingsFields` so the contract holds. See
+  /// `docs/plans/sp-import-perf-quick-wins.md`.
+  Map<String, dynamic> settingsFields(domain.SystemSettings s) =>
+      _settingsFields(s);
 }

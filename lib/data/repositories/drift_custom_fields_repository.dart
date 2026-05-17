@@ -148,7 +148,15 @@ class DriftCustomFieldsRepository
 
   // ── Sync field maps ────────────────────────────────────────────────
 
-  Map<String, dynamic> _fieldFields(domain.CustomField f) {
+  Map<String, dynamic> _fieldFields(domain.CustomField f) => fieldFields(f);
+
+  /// Field-map builder for custom-field sync emissions.
+  ///
+  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// `createField()` for the bulk insert. See
+  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  static Map<String, dynamic> fieldFields(domain.CustomField f) {
     return {
       'name': f.name,
       'field_type': f.fieldType.index,
@@ -159,7 +167,15 @@ class DriftCustomFieldsRepository
     };
   }
 
-  Map<String, dynamic> _valueFields(domain.CustomFieldValue v) {
+  Map<String, dynamic> _valueFields(domain.CustomFieldValue v) =>
+      valueFields(v);
+
+  /// Field-map builder for custom-field-value sync emissions.
+  ///
+  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// `upsertValue()` for the bulk insert.
+  static Map<String, dynamic> valueFields(domain.CustomFieldValue v) {
     return {
       'custom_field_id': v.customFieldId,
       'member_id': v.memberId,

@@ -293,7 +293,16 @@ class DriftFrontingSessionRepository
     await syncRecordCreate(_table, id, _sessionFields(session));
   }
 
-  Map<String, dynamic> _sessionFields(domain.FrontingSession s) {
+  Map<String, dynamic> _sessionFields(domain.FrontingSession s) =>
+      sessionFields(s);
+
+  /// Field-map builder for fronting-session sync emissions.
+  ///
+  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// `createSession()` for the bulk insert. See
+  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  static Map<String, dynamic> sessionFields(domain.FrontingSession s) {
     return {
       'start_time': toSyncUtc(s.startTime),
       'end_time': toSyncUtcOrNull(s.endTime),

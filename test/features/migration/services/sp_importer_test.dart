@@ -378,6 +378,76 @@ class _FakeConversationRepository implements ConversationRepository {
       Stream.value(null);
 }
 
+/// Wraps a real [MemberRepository] and throws on the first existing-members
+/// read. Used by the rollback tests below to force a transaction failure.
+///
+/// Phase 6's batch path bypasses every per-row `messageRepo.createMessage`
+/// call, so the pre-Phase-6 fault injection via `_FakeChatMessageRepository
+/// .throwOnCreate` no longer fires. The SP importer still calls
+/// `memberRepo.getAllMembersIncludingDeleted()` once at the top of its
+/// members loop (pre-resolve existing-member/tombstone detection), so that's
+/// the durable failure-injection point that survives later batching changes.
+class _ThrowingMemberRepository implements MemberRepository {
+  _ThrowingMemberRepository(this._inner);
+  final MemberRepository _inner;
+  bool _thrown = false;
+
+  @override
+  Future<List<domain.Member>> getAllMembers() =>
+      _throwOnceOr(() => _inner.getAllMembers());
+
+  @override
+  Future<List<domain.Member>> getAllMembersIncludingDeleted() =>
+      _throwOnceOr(() => _inner.getAllMembersIncludingDeleted());
+
+  Future<List<domain.Member>> _throwOnceOr(
+    Future<List<domain.Member>> Function() read,
+  ) async {
+    if (!_thrown) {
+      _thrown = true;
+      throw Exception('simulated members read failure');
+    }
+    return read();
+  }
+
+  @override
+  Future<void> clearPluralKitLink(String id) => _inner.clearPluralKitLink(id);
+  @override
+  Future<void> createMember(domain.Member member) =>
+      _inner.createMember(member);
+  @override
+  Future<void> deleteMember(String id) => _inner.deleteMember(id);
+  Future<int> getCount() => _inner.getCount();
+  @override
+  Future<List<domain.Member>> getDeletedLinkedMembers() =>
+      _inner.getDeletedLinkedMembers();
+  @override
+  Future<domain.Member?> getMemberById(String id) => _inner.getMemberById(id);
+  @override
+  Future<List<domain.Member>> getMembersByIds(List<String> ids) =>
+      _inner.getMembersByIds(ids);
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>
+      _inner.stampDeletePushStartedAt(id, timestampMs);
+  @override
+  Future<void> updateMember(domain.Member member) =>
+      _inner.updateMember(member);
+  @override
+  Stream<List<domain.Member>> watchActiveMembers() =>
+      _inner.watchActiveMembers();
+  @override
+  Stream<List<domain.Member>> watchAllMembers() => _inner.watchAllMembers();
+  @override
+  Stream<domain.Member?> watchMemberById(String id) =>
+      _inner.watchMemberById(id);
+  @override
+  Stream<List<domain.Member>> watchMembersByIds(List<String> ids) =>
+      _inner.watchMembersByIds(ids);
+  @override
+  Future<({domain.Member member, bool wasCreated})>
+  ensureUnknownSentinelMember() => _inner.ensureUnknownSentinelMember();
+}
+
 class _FakeChatMessageRepository implements ChatMessageRepository {
   final List<domain.ChatMessage> messages = [];
   bool throwOnCreate = false;
@@ -694,6 +764,30 @@ void main() {
     );
 
     test(
+      'non-sync member repository surfaces skipped replay warning',
+      () async {
+        final repos = _makeFakeRepos();
+        final importer = SpImporter(httpClient: _FakeHttpClient());
+
+        final result = await importer.executeImport(
+          db: _makeDb(),
+          data: _makeFullExportData(),
+          memberRepo: repos.memberRepo,
+          sessionRepo: repos.sessionRepo,
+          conversationRepo: repos.conversationRepo,
+          messageRepo: repos.messageRepo,
+          pollRepo: repos.pollRepo,
+          downloadAvatars: false,
+        );
+
+        expect(
+          result.warnings,
+          contains(contains('sync emissions could not be replayed')),
+        );
+      },
+    );
+
+    test(
       'legacy encrypted SP chat rows are skipped while decrypted rows with iv import',
       () async {
         final repos = _makeFakeRepos();
@@ -729,8 +823,10 @@ void main() {
         expect(data.messages.first.looksEncrypted, isFalse);
         expect(data.messages.last.looksEncrypted, isTrue);
 
+        final db = _makeDb();
+        addTearDown(db.close);
         final result = await importer.executeImport(
-          db: _makeDb(),
+          db: db,
           data: data,
           memberRepo: repos.memberRepo,
           sessionRepo: repos.sessionRepo,
@@ -740,10 +836,11 @@ void main() {
           downloadAvatars: false,
         );
 
+        final messages = await db.chatMessagesDao.getAllMessages();
         expect(result.messagesImported, 1);
-        expect(repos.messageRepo.messages, hasLength(1));
+        expect(messages, hasLength(1));
         expect(
-          repos.messageRepo.messages.single.content,
+          messages.single.content,
           'Plaintext from a current Simply Plural export',
         );
         expect(
@@ -823,6 +920,78 @@ void main() {
                 row.prismId == 'pk-local-alice',
           ),
           isTrue,
+        );
+      },
+    );
+
+    test(
+      'persisted mapping to soft-deleted PK member imports as new without PK collision',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          domain.Member(
+            id: 'pk-local-alice',
+            name: 'Deleted Alice from PK',
+            createdAt: DateTime(2025, 1, 1),
+            pluralkitId: 'abcde',
+          ),
+        );
+        await memberRepo.deleteMember('pk-local-alice');
+        await db.spImportDao.upsertMappings([
+          const SpIdMapTableCompanion(
+            spId: Value('sp-alice'),
+            entityType: Value('member'),
+            prismId: Value('pk-local-alice'),
+          ),
+        ]);
+
+        final result = await SpImporter(httpClient: _FakeHttpClient())
+            .executeImport(
+              db: db,
+              data: const SpExportData(
+                members: [
+                  SpMember(id: 'sp-alice', name: 'Alice', pkId: 'abcde'),
+                ],
+                customFronts: [],
+                frontHistory: [],
+                groups: [],
+                channels: [],
+                messages: [],
+                polls: [],
+              ),
+              memberRepo: memberRepo,
+              sessionRepo: _FakeSessionRepository(),
+              conversationRepo: _FakeConversationRepository(),
+              messageRepo: _FakeChatMessageRepository(),
+              pollRepo: _FakePollRepository(),
+              spImportDao: db.spImportDao,
+              downloadAvatars: false,
+            );
+
+        final activeMembers = await memberRepo.getAllMembers();
+        final allMembers = await memberRepo.getAllMembersIncludingDeleted();
+        final mappings = await db.spImportDao.getAllMappings();
+
+        expect(result.membersImported, 1);
+        expect(result.membersLinked, 0);
+        expect(activeMembers, hasLength(1));
+        expect(activeMembers.single.id, isNot('pk-local-alice'));
+        expect(activeMembers.single.pluralkitId, isNull);
+        expect(allMembers, hasLength(2));
+        expect(
+          allMembers.singleWhere((m) => m.id == 'pk-local-alice').isDeleted,
+          isTrue,
+        );
+        expect(
+          mappings
+              .singleWhere(
+                (row) => row.entityType == 'member' && row.spId == 'sp-alice',
+              )
+              .prismId,
+          activeMembers.single.id,
         );
       },
     );
@@ -1251,7 +1420,12 @@ void main() {
       'avatar ZIP overwrites remote avatar bytes when both are present',
       () async {
         const avatarUrl = 'https://example.com/avatar.png';
-        final remoteBytes = Uint8List.fromList([1, 2, 3, 4, 5]);
+        // Phase 6 switched these tests to the real `DriftMemberRepository`
+        // (see comment below). Drift's avatar normalize step decodes the
+        // input bytes, so the fake byte buffer used pre-Phase-6 no longer
+        // round-trips. Use a real JPEG so normalize is a no-op and the
+        // bytes survive the round trip.
+        final remoteBytes = _jpegBytes(10, 20, 30);
         final zipBytes = _jpegBytes(220, 20, 20);
         final zipPath = await _writeAvatarZip({'sp-a.jpg': zipBytes});
 
@@ -1275,10 +1449,14 @@ void main() {
           polls: [],
         );
 
-        final memberRepo = _FakeMemberRepository();
-        final importer = SpImporter(httpClient: client);
         final db = _makeDb();
         addTearDown(db.close);
+        // Phase 6 batches member inserts through `db.membersDao` directly,
+        // so the fake-repo `_members` list is no longer populated by the
+        // importer. Use the real Drift-backed repo so `getAllMembers()`
+        // reads from the same DB the batch wrote to.
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        final importer = SpImporter(httpClient: client);
 
         final result = await importer.executeImport(
           db: db,
@@ -1492,9 +1670,11 @@ void main() {
         messages: [],
         polls: [],
       );
-      final memberRepo = _FakeMemberRepository();
       final db = _makeDb();
       addTearDown(db.close);
+      // Phase 6 batches member inserts through `db.membersDao` directly;
+      // use the real Drift repo so `getAllMembers()` reads the same DB.
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
 
       final result = await SpImporter(httpClient: _FakeHttpClient())
           .executeImport(
@@ -1639,7 +1819,10 @@ void main() {
       'retryAvatarDownloads uses SP id map and preserves member edits',
       () async {
         const avatarUrl = 'https://example.com/flaky.png';
-        final fakeBytes = Uint8List.fromList([9, 8, 7, 6]);
+        // Phase 6 routes member writes through the real DriftMemberRepository
+        // (avatar normalize decodes the bytes). Use a real JPEG so the round
+        // trip preserves the buffer.
+        final fakeBytes = _jpegBytes(9, 8, 7);
 
         final db = _makeDb();
         addTearDown(db.close);
@@ -1656,7 +1839,10 @@ void main() {
           polls: [],
         );
 
-        final memberRepo = _FakeMemberRepository();
+        // Phase 6 batches member inserts through `db.membersDao` directly;
+        // use the real Drift repo so the retry path observes the inserted
+        // member via the shared DB.
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
         final importer = SpImporter(httpClient: client);
 
         final initial = await importer.executeImport(
@@ -1704,8 +1890,10 @@ void main() {
       () async {
         const avatarUrlA = 'https://example.com/a.png';
         const avatarUrlB = 'https://example.com/b.png';
-        final bytesA = Uint8List.fromList([1, 1, 1]);
-        final bytesB = Uint8List.fromList([2, 2, 2]);
+        // Phase 6 — see comment in earlier avatar test. Use real JPEGs so
+        // normalize doesn't truncate the round-trip.
+        final bytesA = _jpegBytes(1, 1, 1);
+        final bytesB = _jpegBytes(2, 2, 2);
 
         final db = _makeDb();
         addTearDown(db.close);
@@ -1733,7 +1921,9 @@ void main() {
           polls: [],
         );
 
-        final memberRepo = _FakeMemberRepository();
+        // Phase 6 batches member inserts through `db.membersDao` directly;
+        // use the real Drift repo so the retry path observes inserted members.
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
         final importer = SpImporter(httpClient: client);
 
         final initial = await importer.executeImport(
@@ -1838,7 +2028,13 @@ void main() {
       final db = _makeDb();
       addTearDown(db.close);
 
-      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      // Phase 6 batches every per-row write away from the repositories, so
+      // the old `_FakeChatMessageRepository.throwOnCreate` fault never
+      // fires. Inject the failure on `memberRepo.getAllMembers()` instead —
+      // it's the first transactional call the importer makes (pre-resolve
+      // existing-member detection) and survives every later batching pass.
+      final memberRepoBase = DriftMemberRepository(db.membersDao, null);
+      final memberRepo = _ThrowingMemberRepository(memberRepoBase);
       final sessionRepo = DriftFrontingSessionRepository(
         db.frontingSessionsDao,
         null,
@@ -1854,9 +2050,7 @@ void main() {
         null,
       );
 
-      // The message repo will throw, which should roll back members too.
-      final throwingMessageRepo = _FakeChatMessageRepository()
-        ..throwOnCreate = true;
+      final messageRepo = _FakeChatMessageRepository();
 
       final data = SpExportData(
         members: const [SpMember(id: 'sp-a', name: 'Alice')],
@@ -1875,8 +2069,6 @@ void main() {
         polls: const [],
       );
 
-      // The real DB transaction should roll back; the fake messageRepo throws
-      // inside the transaction body.
       Object? caught;
       try {
         await SpImporter(httpClient: _FakeHttpClient()).executeImport(
@@ -1885,7 +2077,7 @@ void main() {
           memberRepo: memberRepo,
           sessionRepo: sessionRepo,
           conversationRepo: conversationRepo,
-          messageRepo: throwingMessageRepo,
+          messageRepo: messageRepo,
           pollRepo: pollRepo,
           downloadAvatars: false,
         );
@@ -1910,7 +2102,7 @@ void main() {
         final db = _makeDb();
         addTearDown(db.close);
 
-        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        final memberRepoBase = DriftMemberRepository(db.membersDao, null);
         final sessionRepo = DriftFrontingSessionRepository(
           db.frontingSessionsDao,
           null,
@@ -1927,7 +2119,7 @@ void main() {
         );
 
         // Seed one existing member via the real repo.
-        await memberRepo.createMember(
+        await memberRepoBase.createMember(
           domain.Member(
             id: 'existing-1',
             name: 'Existing',
@@ -1939,9 +2131,11 @@ void main() {
         final beforeImport = await db.membersDao.getAllMembers();
         expect(beforeImport.length, 1);
 
-        // Message repo throws mid-import to trigger rollback.
-        final throwingMessageRepo = _FakeChatMessageRepository()
-          ..throwOnCreate = true;
+        // Wrap the member repo so its first `getAllMembers()` call inside
+        // the import transaction throws — Phase 6 makes this the durable
+        // failure-injection point. See the comment on the test above.
+        final memberRepo = _ThrowingMemberRepository(memberRepoBase);
+        final messageRepo = _FakeChatMessageRepository();
 
         final data = SpExportData(
           members: const [SpMember(id: 'sp-new', name: 'New Member')],
@@ -1968,7 +2162,7 @@ void main() {
             memberRepo: memberRepo,
             sessionRepo: sessionRepo,
             conversationRepo: conversationRepo,
-            messageRepo: throwingMessageRepo,
+            messageRepo: messageRepo,
             pollRepo: pollRepo,
             clearExistingData: true,
             downloadAvatars: false,

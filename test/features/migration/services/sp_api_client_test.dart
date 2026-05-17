@@ -746,7 +746,7 @@ void main() {
         expect(data.messages[1].replyTo, 'msg1');
         expect(
           data.messages[1].updatedAt,
-          DateTime.fromMillisecondsSinceEpoch(1768435320000),
+          DateTime.fromMillisecondsSinceEpoch(1768435320000, isUtc: true),
         );
         expect(data.boardMessages, hasLength(1));
         expect(data.boardMessages.single.read, isTrue);

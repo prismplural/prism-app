@@ -1,0 +1,277 @@
+{
+  "settings": {
+    "systemName": "Small System"
+  },
+  "users": [
+    {
+      "username": "small-user",
+      "color": "#112233",
+      "desc": "Small system description.",
+      "uid": "uid-small"
+    }
+  ],
+  "members": [
+    {
+      "_id": "sp-mem-00",
+      "name": "Member 00",
+      "pronouns": "they/them",
+      "color": "#00aabb"
+    },
+    {
+      "_id": "sp-mem-01",
+      "name": "Member 01",
+      "pronouns": "she/her",
+      "color": "#01aabb"
+    },
+    {
+      "_id": "sp-mem-02",
+      "name": "Member 02",
+      "pronouns": "they/them",
+      "color": "#02aabb"
+    },
+    {
+      "_id": "sp-mem-03",
+      "name": "Member 03",
+      "pronouns": "she/her",
+      "color": "#03aabb"
+    },
+    {
+      "_id": "sp-mem-04",
+      "name": "Member 04",
+      "pronouns": "they/them",
+      "color": "#04aabb"
+    }
+  ],
+  "frontStatuses": [],
+  "frontHistory": [
+    {
+      "_id": "sp-front-00",
+      "member": "sp-mem-00",
+      "startTime": 1700000000000,
+      "endTime": 1700003599999
+    },
+    {
+      "_id": "sp-front-01",
+      "member": "sp-mem-01",
+      "startTime": 1700003600000,
+      "endTime": 1700007199999
+    },
+    {
+      "_id": "sp-front-02",
+      "member": "sp-mem-02",
+      "startTime": 1700007200000,
+      "endTime": 1700010799999
+    },
+    {
+      "_id": "sp-front-03",
+      "member": "sp-mem-03",
+      "startTime": 1700010800000,
+      "endTime": 1700014399999
+    },
+    {
+      "_id": "sp-front-04",
+      "member": "sp-mem-04",
+      "startTime": 1700014400000,
+      "endTime": 1700017999999
+    },
+    {
+      "_id": "sp-front-05",
+      "member": "sp-mem-00",
+      "startTime": 1700018000000,
+      "endTime": 1700021599999
+    },
+    {
+      "_id": "sp-front-06",
+      "member": "sp-mem-01",
+      "startTime": 1700021600000,
+      "endTime": 1700025199999
+    },
+    {
+      "_id": "sp-front-07",
+      "member": "sp-mem-02",
+      "startTime": 1700025200000,
+      "endTime": 1700028799999
+    },
+    {
+      "_id": "sp-front-08",
+      "member": "sp-mem-03",
+      "startTime": 1700028800000,
+      "endTime": 1700032399999
+    },
+    {
+      "_id": "sp-front-09",
+      "member": "sp-mem-04",
+      "startTime": 1700032400000,
+      "endTime": 1700035999999
+    }
+  ],
+  "groups": [
+    {
+      "_id": "sp-grp-00",
+      "name": "Group 00",
+      "members": [
+        "sp-mem-00",
+        "sp-mem-01",
+        "sp-mem-02"
+      ]
+    }
+  ],
+  "channels": [
+    {
+      "_id": "sp-chan-00",
+      "name": "general",
+      "members": [
+        "sp-mem-00",
+        "sp-mem-01"
+      ],
+      "createdAt": "2023-11-14T16:13:20.000"
+    }
+  ],
+  "chatMessages": [
+    {
+      "_id": "sp-msg-00",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-00",
+      "message": "Hello 0",
+      "timestamp": 1700000000000
+    },
+    {
+      "_id": "sp-msg-01",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-01",
+      "message": "Hello 1",
+      "timestamp": 1700000060000
+    },
+    {
+      "_id": "sp-msg-02",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-02",
+      "message": "Hello 2",
+      "timestamp": 1700000120000
+    },
+    {
+      "_id": "sp-msg-03",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-03",
+      "message": "Hello 3",
+      "timestamp": 1700000180000
+    },
+    {
+      "_id": "sp-msg-04",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-04",
+      "message": "Hello 4",
+      "timestamp": 1700000240000
+    },
+    {
+      "_id": "sp-msg-05",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-00",
+      "message": "Hello 5",
+      "timestamp": 1700000300000
+    },
+    {
+      "_id": "sp-msg-06",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-01",
+      "message": "Hello 6",
+      "timestamp": 1700000360000
+    },
+    {
+      "_id": "sp-msg-07",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-02",
+      "message": "Hello 7",
+      "timestamp": 1700000420000
+    },
+    {
+      "_id": "sp-msg-08",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-03",
+      "message": "Hello 8",
+      "timestamp": 1700000480000
+    },
+    {
+      "_id": "sp-msg-09",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-04",
+      "message": "Hello 9",
+      "timestamp": 1700000540000
+    },
+    {
+      "_id": "sp-msg-10",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-00",
+      "message": "Hello 10",
+      "timestamp": 1700000600000
+    },
+    {
+      "_id": "sp-msg-11",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-01",
+      "message": "Hello 11",
+      "timestamp": 1700000660000
+    },
+    {
+      "_id": "sp-msg-12",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-02",
+      "message": "Hello 12",
+      "timestamp": 1700000720000
+    },
+    {
+      "_id": "sp-msg-13",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-03",
+      "message": "Hello 13",
+      "timestamp": 1700000780000
+    },
+    {
+      "_id": "sp-msg-14",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-04",
+      "message": "Hello 14",
+      "timestamp": 1700000840000
+    },
+    {
+      "_id": "sp-msg-15",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-00",
+      "message": "Hello 15",
+      "timestamp": 1700000900000
+    },
+    {
+      "_id": "sp-msg-16",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-01",
+      "message": "Hello 16",
+      "timestamp": 1700000960000
+    },
+    {
+      "_id": "sp-msg-17",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-02",
+      "message": "Hello 17",
+      "timestamp": 1700001020000
+    },
+    {
+      "_id": "sp-msg-18",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-03",
+      "message": "Hello 18",
+      "timestamp": 1700001080000
+    },
+    {
+      "_id": "sp-msg-19",
+      "channel": "sp-chan-00",
+      "sender": "sp-mem-04",
+      "message": "Hello 19",
+      "timestamp": 1700001140000
+    }
+  ],
+  "polls": [],
+  "notes": [],
+  "comments": [],
+  "customFields": [],
+  "boardMessages": []
+}

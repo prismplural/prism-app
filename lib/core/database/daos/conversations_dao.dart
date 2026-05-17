@@ -22,60 +22,75 @@ class ConversationsDao extends DatabaseAccessor<AppDatabase>
           .watch();
 
   Future<Conversation?> getConversationById(String id) =>
-      (select(conversations)..where((c) => c.id.equals(id)))
-          .getSingleOrNull();
+      (select(conversations)..where((c) => c.id.equals(id))).getSingleOrNull();
 
   Future<List<Conversation>> getConversationsByIds(List<String> ids) {
     if (ids.isEmpty) return Future.value(const <Conversation>[]);
     return (select(conversations)..where((c) => c.id.isIn(ids))).get();
   }
 
-  Stream<Conversation?> watchConversationById(String id) =>
-      (select(conversations)..where((c) => c.id.equals(id)))
-          .watchSingleOrNull();
+  Stream<Conversation?> watchConversationById(String id) => (select(
+    conversations,
+  )..where((c) => c.id.equals(id))).watchSingleOrNull();
 
-  Future<List<Conversation>> getConversationsForMember(
-          String memberId) =>
+  Future<List<Conversation>> getConversationsForMember(String memberId) =>
       (select(conversations)
-            ..where((c) =>
-                c.participantIds.like('%"$memberId"%') &
-                c.isDeleted.equals(false))
+            ..where(
+              (c) =>
+                  c.participantIds.like('%"$memberId"%') &
+                  c.isDeleted.equals(false),
+            )
             ..orderBy([(c) => OrderingTerm.desc(c.lastActivityAt)]))
           .get();
 
   Future<int> insertConversation(ConversationsCompanion conversation) =>
       into(conversations).insert(conversation);
 
+  /// Batch-insert conversations in a single Drift `batch()` round-trip.
+  /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
+  Future<void> batchInsertConversations(
+    List<ConversationsCompanion> rows,
+  ) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAll(conversations, rows));
+  }
+
   Future<void> updateConversation(ConversationsCompanion conversation) {
     assert(conversation.id.present, 'Conversation id is required for update');
-    return (update(conversations)
-          ..where((c) => c.id.equals(conversation.id.value)))
-        .write(conversation);
+    return (update(
+      conversations,
+    )..where((c) => c.id.equals(conversation.id.value))).write(conversation);
   }
 
   Future<void> updateParticipantIds(String id, String participantIdsJson) =>
-      (update(conversations)..where((c) => c.id.equals(id)))
-          .write(ConversationsCompanion(participantIds: Value(participantIdsJson)));
+      (update(conversations)..where((c) => c.id.equals(id))).write(
+        ConversationsCompanion(participantIds: Value(participantIdsJson)),
+      );
 
   Future<void> updateArchivedByMemberIds(String id, String archivedByJson) =>
-      (update(conversations)..where((c) => c.id.equals(id)))
-          .write(ConversationsCompanion(archivedByMemberIds: Value(archivedByJson)));
+      (update(conversations)..where((c) => c.id.equals(id))).write(
+        ConversationsCompanion(archivedByMemberIds: Value(archivedByJson)),
+      );
 
   Future<void> updateMutedByMemberIds(String id, String mutedByJson) =>
-      (update(conversations)..where((c) => c.id.equals(id)))
-          .write(ConversationsCompanion(mutedByMemberIds: Value(mutedByJson)));
+      (update(conversations)..where((c) => c.id.equals(id))).write(
+        ConversationsCompanion(mutedByMemberIds: Value(mutedByJson)),
+      );
 
   Future<void> updateLastReadTimestamps(String id, String timestampsJson) =>
-      (update(conversations)..where((c) => c.id.equals(id)))
-          .write(ConversationsCompanion(lastReadTimestamps: Value(timestampsJson)));
+      (update(conversations)..where((c) => c.id.equals(id))).write(
+        ConversationsCompanion(lastReadTimestamps: Value(timestampsJson)),
+      );
 
   Future<void> softDeleteConversation(String id) =>
       (update(conversations)..where((c) => c.id.equals(id))).write(
-          const ConversationsCompanion(isDeleted: Value(true)));
+        const ConversationsCompanion(isDeleted: Value(true)),
+      );
 
   Future<void> updateLastActivity(String id) =>
       (update(conversations)..where((c) => c.id.equals(id))).write(
-          ConversationsCompanion(lastActivityAt: Value(DateTime.now())));
+        ConversationsCompanion(lastActivityAt: Value(DateTime.now())),
+      );
 
   Future<int> getCount() async {
     final count = countAll();

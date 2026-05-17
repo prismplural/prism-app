@@ -724,7 +724,7 @@ void main() {
       );
 
       final importer = SpImporter();
-      final exportData = importer.parseFile(fixture.path);
+      final exportData = await importer.parseFile(fixture.path);
       expect(exportData.frontHistory, isNotEmpty);
 
       final importResult = await importer.executeImport(

@@ -161,10 +161,7 @@ class DriftMemberBoardPostsRepository
     await _membersDao.transaction(() async {
       for (final memberId in memberIds) {
         await _membersDao.updateMember(
-          MembersCompanion(
-            id: Value(memberId),
-            boardLastReadAt: Value(now),
-          ),
+          MembersCompanion(id: Value(memberId), boardLastReadAt: Value(now)),
         );
       }
     });
@@ -193,7 +190,15 @@ class DriftMemberBoardPostsRepository
   // Private helpers
   // ---------------------------------------------------------------------------
 
-  Map<String, dynamic> _postFields(MemberBoardPost p) {
+  Map<String, dynamic> _postFields(MemberBoardPost p) => postFields(p);
+
+  /// Field-map builder for member-board-post sync emissions.
+  ///
+  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// `createPost()` for the bulk insert. See
+  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  static Map<String, dynamic> postFields(MemberBoardPost p) {
     return {
       'target_member_id': p.targetMemberId,
       'author_id': p.authorId,

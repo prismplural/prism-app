@@ -2,6 +2,27 @@ import 'dart:convert';
 
 final _spBase64Pattern = RegExp(r'^[A-Za-z0-9+/]+={0,2}$');
 
+/// Parse an SP timestamp string to a UTC [DateTime].
+///
+/// SP exports emit ISO-8601 strings without a timezone offset (e.g.
+/// `"2023-11-14T16:13:20.000"`). `DateTime.tryParse` interprets offset-less
+/// strings in the runner's *local* timezone, which makes byte-stable goldens
+/// impossible across machines in different zones. We instead assume UTC for
+/// offset-less strings (SP server emits UTC by convention) and force any
+/// already-offset string back to UTC so every parsed instant is in the same
+/// frame.
+DateTime? _parseUtc(String s) {
+  if (s.isEmpty) return null;
+  // Treat offset-less ISO-8601 strings as UTC. Detect any explicit zone
+  // marker (`Z` or `±HH:MM` / `±HHMM`) so we don't double-suffix.
+  final hasZone =
+      s.endsWith('Z') ||
+      s.endsWith('z') ||
+      RegExp(r'[+-]\d{2}:?\d{2}$').hasMatch(s);
+  final normalized = hasZone ? s : '${s}Z';
+  return DateTime.tryParse(normalized)?.toUtc();
+}
+
 Map<String, String> extractSpCustomFieldValueKeyMap(dynamic rawFields) {
   if (rawFields is! Map) return const {};
 
@@ -297,23 +318,27 @@ class SpFrontHistory {
     this.isCustomFront = false,
   });
 
-  factory SpFrontHistory.fromJson(Map<String, dynamic> json) {
+  factory SpFrontHistory.fromJson(
+    Map<String, dynamic> json, {
+    DateTime Function()? now,
+  }) {
+    final clock = now ?? DateTime.now;
     // SP stores times as epoch milliseconds.
     final startMs = json['startTime'];
     final endMs = json['endTime'];
 
     DateTime parseTime(dynamic value) {
       if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value);
+        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
       }
       if (value is String) {
         final parsed = int.tryParse(value);
         if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed);
+          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
         }
-        return DateTime.tryParse(value) ?? DateTime.now();
+        return _parseUtc(value) ?? clock().toUtc();
       }
-      return DateTime.now();
+      return clock().toUtc();
     }
 
     // SP `live` flag: true means the session is currently active. When live,
@@ -412,7 +437,7 @@ class SpChannel {
       desc: json['desc'] as String?,
       memberIds: memberList,
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'].toString())
+          ? _parseUtc(json['createdAt'].toString())
           : null,
     );
   }
@@ -446,28 +471,37 @@ class SpMessage {
     this.looksEncrypted = false,
   });
 
-  factory SpMessage.fromJson(Map<String, dynamic> json, String channelId) {
+  factory SpMessage.fromJson(
+    Map<String, dynamic> json,
+    String channelId, {
+    DateTime Function()? now,
+  }) {
+    final clock = now ?? DateTime.now;
     DateTime parseTime(dynamic value) {
       if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value);
+        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
       }
       if (value is String) {
         final parsed = int.tryParse(value);
         if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed);
+          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
         }
-        return DateTime.tryParse(value) ?? DateTime.now();
+        return _parseUtc(value) ?? clock().toUtc();
       }
-      return DateTime.now();
+      return clock().toUtc();
     }
 
     DateTime? parseOptionalTime(dynamic value) {
       if (value == null) return null;
-      if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+      if (value is int) {
+        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
+      }
       if (value is String) {
         final parsed = int.tryParse(value);
-        if (parsed != null) return DateTime.fromMillisecondsSinceEpoch(parsed);
-        return DateTime.tryParse(value);
+        if (parsed != null) {
+          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
+        }
+        return _parseUtc(value);
       }
       return null;
     }
@@ -541,22 +575,26 @@ class SpPoll {
     this.endDate,
   });
 
-  factory SpPoll.fromJson(Map<String, dynamic> json) {
+  factory SpPoll.fromJson(
+    Map<String, dynamic> json, {
+    DateTime Function()? now,
+  }) {
+    final clock = now ?? DateTime.now;
     DateTime parseTime(dynamic value) {
       if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value);
+        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
       }
       if (value is num) {
-        return DateTime.fromMillisecondsSinceEpoch(value.toInt());
+        return DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: true);
       }
       if (value is String) {
         final parsed = int.tryParse(value);
         if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed);
+          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
         }
-        return DateTime.tryParse(value) ?? DateTime.now();
+        return _parseUtc(value) ?? clock().toUtc();
       }
-      return DateTime.now();
+      return clock().toUtc();
     }
 
     final optionList = <SpPollOption>[];
@@ -632,19 +670,23 @@ class SpNote {
     required this.date,
   });
 
-  factory SpNote.fromJson(Map<String, dynamic> json) {
+  factory SpNote.fromJson(
+    Map<String, dynamic> json, {
+    DateTime Function()? now,
+  }) {
+    final clock = now ?? DateTime.now;
     DateTime parseTime(dynamic value) {
       if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value);
+        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
       }
       if (value is String) {
         final parsed = int.tryParse(value);
         if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed);
+          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
         }
-        return DateTime.tryParse(value) ?? DateTime.now();
+        return _parseUtc(value) ?? clock().toUtc();
       }
-      return DateTime.now();
+      return clock().toUtc();
     }
 
     return SpNote(
@@ -674,19 +716,23 @@ class SpComment {
     required this.time,
   });
 
-  factory SpComment.fromJson(Map<String, dynamic> json) {
+  factory SpComment.fromJson(
+    Map<String, dynamic> json, {
+    DateTime Function()? now,
+  }) {
+    final clock = now ?? DateTime.now;
     DateTime parseTime(dynamic value) {
       if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value);
+        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
       }
       if (value is String) {
         final parsed = int.tryParse(value);
         if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed);
+          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
         }
-        return DateTime.tryParse(value) ?? DateTime.now();
+        return _parseUtc(value) ?? clock().toUtc();
       }
-      return DateTime.now();
+      return clock().toUtc();
     }
 
     return SpComment(
@@ -754,19 +800,23 @@ class SpBoardMessage {
     this.read = false,
   });
 
-  factory SpBoardMessage.fromJson(Map<String, dynamic> json) {
+  factory SpBoardMessage.fromJson(
+    Map<String, dynamic> json, {
+    DateTime Function()? now,
+  }) {
+    final clock = now ?? DateTime.now;
     DateTime parseTime(dynamic value) {
       if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value);
+        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
       }
       if (value is String) {
         final parsed = int.tryParse(value);
         if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed);
+          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
         }
-        return DateTime.tryParse(value) ?? DateTime.now();
+        return _parseUtc(value) ?? clock().toUtc();
       }
-      return DateTime.now();
+      return clock().toUtc();
     }
 
     return SpBoardMessage(
@@ -919,7 +969,14 @@ class SpParser {
   ///
   /// Handles both array and map formats since SP has changed formats
   /// across different versions.
-  static SpExportData parse(String jsonString) {
+  ///
+  /// [now] is a determinism seam: factories that fall back to "current time"
+  /// when a timestamp is unparseable route through this closure. Production
+  /// callers leave it `null` (defaults to [DateTime.now]); the Phase 0 parity
+  /// harness injects the same `FixedClock` it gives to `SpMapper` so goldens
+  /// are byte-stable.
+  static SpExportData parse(String jsonString, {DateTime Function()? now}) {
+    final clock = now ?? DateTime.now;
     final dynamic decoded = jsonDecode(jsonString);
 
     if (decoded is! Map<String, dynamic>) {
@@ -980,19 +1037,32 @@ class SpParser {
         json['frontStatuses'] ?? json['customFronts'],
         SpCustomFront.fromJson,
       ),
-      frontHistory: _parseList(json['frontHistory'], SpFrontHistory.fromJson),
+      frontHistory: _parseList(
+        json['frontHistory'],
+        (m) => SpFrontHistory.fromJson(m, now: clock),
+      ),
       groups: _parseList(json['groups'], SpGroup.fromJson),
       channels: _parseList(json['channels'], SpChannel.fromJson),
       channelCategories: _parseList(
         json['channelCategories'],
         SpChannelCategory.fromJson,
       ),
-      messages: _parseMessages(json['messages'], json['chatMessages']),
-      polls: _parseList(json['polls'], SpPoll.fromJson),
-      notes: _parseList(json['notes'], SpNote.fromJson),
-      comments: _parseList(json['comments'], SpComment.fromJson),
+      messages: _parseMessages(
+        json['messages'],
+        json['chatMessages'],
+        now: clock,
+      ),
+      polls: _parseList(json['polls'], (m) => SpPoll.fromJson(m, now: clock)),
+      notes: _parseList(json['notes'], (m) => SpNote.fromJson(m, now: clock)),
+      comments: _parseList(
+        json['comments'],
+        (m) => SpComment.fromJson(m, now: clock),
+      ),
       customFields: _parseList(json['customFields'], SpCustomFieldDef.fromJson),
-      boardMessages: _parseList(json['boardMessages'], SpBoardMessage.fromJson),
+      boardMessages: _parseList(
+        json['boardMessages'],
+        (m) => SpBoardMessage.fromJson(m, now: clock),
+      ),
       automatedTimers: _parseList(
         json['automatedReminders'] ?? json['automatedTimers'],
         SpAutomatedTimer.fromJson,
@@ -1067,8 +1137,9 @@ class SpParser {
   /// Parse chat messages from both channel-message export formats.
   static List<SpMessage> _parseMessages(
     dynamic channelMessages,
-    dynamic flatChatMessages,
-  ) {
+    dynamic flatChatMessages, {
+    DateTime Function()? now,
+  }) {
     final messages = <SpMessage>[];
 
     // Channel messages: map of channel_id -> array of messages
@@ -1079,7 +1150,7 @@ class SpParser {
         if (rawMsgs is List) {
           for (final msg in rawMsgs) {
             if (msg is Map<String, dynamic>) {
-              messages.add(SpMessage.fromJson(msg, channelId));
+              messages.add(SpMessage.fromJson(msg, channelId, now: now));
             }
           }
         }
@@ -1091,7 +1162,7 @@ class SpParser {
       for (final msg in flatChatMessages) {
         if (msg is Map<String, dynamic>) {
           final channelId = (msg['channel'] ?? '').toString();
-          messages.add(SpMessage.fromJson(msg, channelId));
+          messages.add(SpMessage.fromJson(msg, channelId, now: now));
         }
       }
     }

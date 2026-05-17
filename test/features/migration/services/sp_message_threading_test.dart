@@ -77,7 +77,12 @@ void main() {
         'updatedAt': edit,
       }, 'ch1');
 
-      expect(msg.updatedAt, DateTime.fromMillisecondsSinceEpoch(edit));
+      // Parser normalizes to UTC so goldens are byte-stable across CI
+      // timezones (see _parseUtc in sp_parser.dart).
+      expect(
+        msg.updatedAt,
+        DateTime.fromMillisecondsSinceEpoch(edit, isUtc: true),
+      );
     });
 
     test('absent updatedAt is null', () {
@@ -104,7 +109,10 @@ void main() {
         'lastUpdated': edit,
       }, 'ch1');
 
-      expect(msg.updatedAt, DateTime.fromMillisecondsSinceEpoch(edit));
+      expect(
+        msg.updatedAt,
+        DateTime.fromMillisecondsSinceEpoch(edit, isUtc: true),
+      );
     });
   });
 

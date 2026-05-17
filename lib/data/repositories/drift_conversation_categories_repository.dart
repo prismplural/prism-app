@@ -61,7 +61,16 @@ class DriftConversationCategoriesRepository
   Map<String, dynamic> debugCategoryFields(domain.ConversationCategory c) =>
       _fields(c);
 
-  Map<String, dynamic> _fields(domain.ConversationCategory c) {
+  Map<String, dynamic> _fields(domain.ConversationCategory c) =>
+      categoryFields(c);
+
+  /// Field-map builder for conversation-category sync emissions.
+  ///
+  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// `create()` for the bulk insert. See
+  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  static Map<String, dynamic> categoryFields(domain.ConversationCategory c) {
     return {
       'name': c.name,
       'display_order': c.displayOrder,

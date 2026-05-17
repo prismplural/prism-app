@@ -26,7 +26,7 @@ void main() {
     'SP fixture import preserves reply quote snapshots through database write',
     () async {
       final importer = SpImporter();
-      final data = importer.parseFile(_fixturePath);
+      final data = await importer.parseFile(_fixturePath);
 
       expect(data.messages, hasLength(3));
       expect(data.messages.where((m) => m.replyTo != null), hasLength(2));

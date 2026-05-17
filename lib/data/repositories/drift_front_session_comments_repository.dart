@@ -155,7 +155,16 @@ class DriftFrontSessionCommentsRepository
     }
   }
 
-  Map<String, dynamic> _commentFields(domain.FrontSessionComment c) {
+  Map<String, dynamic> _commentFields(domain.FrontSessionComment c) =>
+      commentFields(c);
+
+  /// Field-map builder for front-session-comment sync emissions.
+  ///
+  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// `createComment()` for the bulk insert. See
+  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  static Map<String, dynamic> commentFields(domain.FrontSessionComment c) {
     return {
       'session_id': c.sessionId,
       'body': c.body,

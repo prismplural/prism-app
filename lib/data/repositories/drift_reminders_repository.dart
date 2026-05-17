@@ -67,7 +67,15 @@ class DriftRemindersRepository
   @visibleForTesting
   Map<String, dynamic> debugReminderFields(domain.Reminder r) => _fields(r);
 
-  Map<String, dynamic> _fields(domain.Reminder r) {
+  Map<String, dynamic> _fields(domain.Reminder r) => reminderFields(r);
+
+  /// Field-map builder for reminder sync emissions.
+  ///
+  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// `create()` for the bulk insert. See
+  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  static Map<String, dynamic> reminderFields(domain.Reminder r) {
     return {
       'name': r.name,
       'message': r.message,

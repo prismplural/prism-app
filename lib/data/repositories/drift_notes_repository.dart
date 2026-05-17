@@ -81,7 +81,15 @@ class DriftNotesRepository with SyncRecordMixin implements NotesRepository {
   @visibleForTesting
   Map<String, dynamic> debugNoteFields(domain.Note n) => _noteFields(n);
 
-  Map<String, dynamic> _noteFields(domain.Note n) {
+  Map<String, dynamic> _noteFields(domain.Note n) => noteFields(n);
+
+  /// Field-map builder for note sync emissions.
+  ///
+  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// `createNote()` for the bulk insert. See
+  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  static Map<String, dynamic> noteFields(domain.Note n) {
     return {
       'title': n.title,
       'body': n.body,

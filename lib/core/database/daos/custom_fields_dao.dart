@@ -31,6 +31,13 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
   Future<int> createField(CustomFieldsCompanion companion) =>
       into(customFields).insert(companion);
 
+  /// Batch-insert custom fields in a single Drift `batch()` round-trip.
+  /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
+  Future<void> batchInsertFields(List<CustomFieldsCompanion> rows) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAll(customFields, rows));
+  }
+
   Future<void> updateField(String id, CustomFieldsCompanion companion) =>
       (update(customFields)..where((f) => f.id.equals(id))).write(companion);
 
@@ -69,57 +76,66 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> deleteField(String id) async {
     // Soft-delete all values for this field
-    await (update(customFieldValues)
-          ..where((v) => v.customFieldId.equals(id)))
+    await (update(customFieldValues)..where((v) => v.customFieldId.equals(id)))
         .write(const CustomFieldValuesCompanion(isDeleted: Value(true)));
     // Soft-delete the field itself
-    await (update(customFields)..where((f) => f.id.equals(id)))
-        .write(const CustomFieldsCompanion(isDeleted: Value(true)));
+    await (update(customFields)..where((f) => f.id.equals(id))).write(
+      const CustomFieldsCompanion(isDeleted: Value(true)),
+    );
   }
 
   // ── Values ─────────────────────────────────────────────────────────
 
-  Future<List<CustomFieldValueRow>> getAllValues() =>
-      (select(customFieldValues)..where((v) => v.isDeleted.equals(false)))
-          .get();
+  Future<List<CustomFieldValueRow>> getAllValues() => (select(
+    customFieldValues,
+  )..where((v) => v.isDeleted.equals(false))).get();
 
   Stream<List<CustomFieldValueRow>> watchValuesForMember(String memberId) =>
-      (select(customFieldValues)
-            ..where((v) =>
-                v.memberId.equals(memberId) & v.isDeleted.equals(false)))
+      (select(customFieldValues)..where(
+            (v) => v.memberId.equals(memberId) & v.isDeleted.equals(false),
+          ))
           .watch();
 
   Stream<List<CustomFieldValueRow>> watchValuesForField(String fieldId) =>
-      (select(customFieldValues)
-            ..where((v) =>
-                v.customFieldId.equals(fieldId) & v.isDeleted.equals(false)))
+      (select(customFieldValues)..where(
+            (v) => v.customFieldId.equals(fieldId) & v.isDeleted.equals(false),
+          ))
           .watch();
 
   Future<CustomFieldValueRow?> getValueForField(
     String fieldId,
     String memberId,
   ) =>
-      (select(customFieldValues)
-            ..where((v) =>
+      (select(customFieldValues)..where(
+            (v) =>
                 v.customFieldId.equals(fieldId) &
                 v.memberId.equals(memberId) &
-                v.isDeleted.equals(false)))
+                v.isDeleted.equals(false),
+          ))
           .getSingleOrNull();
 
   Future<int> upsertValue(CustomFieldValuesCompanion companion) =>
       into(customFieldValues).insertOnConflictUpdate(companion);
 
+  /// Batch-upsert custom-field values in a single Drift `batch()` round-trip.
+  /// Mirrors the single-row [upsertValue]'s `insertOnConflictUpdate` policy so
+  /// re-imports overwrite stale values per the live-edit semantics. Phase 6
+  /// SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
+  Future<void> batchUpsertValues(List<CustomFieldValuesCompanion> rows) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAllOnConflictUpdate(customFieldValues, rows));
+  }
+
   Future<void> deleteValue(String id) =>
-      (update(customFieldValues)..where((v) => v.id.equals(id)))
-          .write(const CustomFieldValuesCompanion(isDeleted: Value(true)));
+      (update(customFieldValues)..where((v) => v.id.equals(id))).write(
+        const CustomFieldValuesCompanion(isDeleted: Value(true)),
+      );
 
   Future<void> deleteValuesForField(String fieldId) =>
-      (update(customFieldValues)
-            ..where((v) => v.customFieldId.equals(fieldId)))
+      (update(customFieldValues)..where((v) => v.customFieldId.equals(fieldId)))
           .write(const CustomFieldValuesCompanion(isDeleted: Value(true)));
 
   Future<void> deleteValuesForMember(String memberId) =>
-      (update(customFieldValues)
-            ..where((v) => v.memberId.equals(memberId)))
+      (update(customFieldValues)..where((v) => v.memberId.equals(memberId)))
           .write(const CustomFieldValuesCompanion(isDeleted: Value(true)));
 }

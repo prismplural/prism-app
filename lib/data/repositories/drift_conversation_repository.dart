@@ -205,7 +205,16 @@ class DriftConversationRepository
   Map<String, dynamic> debugConversationFields(domain.Conversation c) =>
       _conversationFields(c);
 
-  Map<String, dynamic> _conversationFields(domain.Conversation c) {
+  Map<String, dynamic> _conversationFields(domain.Conversation c) =>
+      conversationFields(c);
+
+  /// Field-map builder for conversation sync emissions.
+  ///
+  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// `createConversation()` for the bulk insert. See
+  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  static Map<String, dynamic> conversationFields(domain.Conversation c) {
     final lastReadTimestampsJson = jsonEncode(
       c.lastReadTimestamps.map((k, v) => MapEntry(k, toSyncUtc(v))),
     );

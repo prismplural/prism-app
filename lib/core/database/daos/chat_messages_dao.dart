@@ -80,6 +80,18 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
   Future<int> insertMessage(ChatMessagesCompanion message) =>
       into(chatMessages).insert(message);
 
+  /// Batch-insert chat messages in a single Drift `batch()` round-trip.
+  ///
+  /// Used by the SP importer's Phase 6 capture-replay path
+  /// (`docs/plans/sp-import-perf-quick-wins.md`) to collapse N per-message
+  /// inserts into one DAO call. Bypasses [DriftChatMessageRepository.createMessage],
+  /// so the caller is responsible for pushing a captured op tuple per row
+  /// using [DriftChatMessageRepository.messageFields].
+  Future<void> batchInsertMessages(List<ChatMessagesCompanion> rows) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAll(chatMessages, rows));
+  }
+
   Future<void> updateMessage(ChatMessagesCompanion message) {
     assert(message.id.present, 'Message id is required for update');
     return (update(

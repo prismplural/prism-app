@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
@@ -104,6 +104,40 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       normalizedMember.id,
       _memberFields(normalizedMember),
     );
+  }
+
+  /// Apply freshly-fetched avatar bytes to many members in one Drift batch
+  /// and emit one `syncRecordUpdate` per member.
+  ///
+  /// Replaces the per-member `updateMember(...)` loop the SP importer used
+  /// during the avatar phase. The DAO write fuses into a single batch
+  /// statement; per-member emission is preserved so the wire-level event
+  /// shape (one `record_update` per successful avatar) is unchanged.
+  ///
+  /// Normalization is applied per member (same as `updateMember`) so a
+  /// caller passing raw HTTP bytes gets identical on-disk + on-wire bytes
+  /// to today.
+  ///
+  /// Members whose `avatarImageData` is null after normalization are
+  /// silently skipped — they have nothing to write.
+  Future<void> batchUpdateAvatars(List<domain.Member> membersWithBytes) async {
+    if (membersWithBytes.isEmpty) return;
+
+    final normalized = <domain.Member>[];
+    final bytesById = <String, Uint8List>{};
+    for (final member in membersWithBytes) {
+      final n = _normalizeMember(member);
+      final bytes = n.avatarImageData;
+      if (bytes == null) continue;
+      normalized.add(n);
+      bytesById[n.id] = bytes;
+    }
+    if (bytesById.isEmpty) return;
+
+    await _dao.batchUpdateAvatars(bytesById);
+    for (final n in normalized) {
+      await syncRecordUpdate(_table, n.id, _memberFields(n));
+    }
   }
 
   /// Reorder members with one database write, then emit the corresponding
@@ -350,7 +384,16 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     return member.copyWith(avatarImageData: normalizedAvatar);
   }
 
-  Map<String, dynamic> _memberFields(domain.Member m) {
+  Map<String, dynamic> _memberFields(domain.Member m) => memberFields(m);
+
+  /// Field-map builder for member sync emissions.
+  ///
+  /// Public so the Phase 6 batch-member capture path in `sp_importer.dart`
+  /// can construct byte-identical `fields` payloads when it bypasses
+  /// `createMember()` for the bulk insert. Single source of truth per
+  /// entity is mandatory (codex v2 finding). See
+  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  static Map<String, dynamic> memberFields(domain.Member m) {
     final Uint8List? avatar = m.avatarImageData;
     return {
       'name': m.name,

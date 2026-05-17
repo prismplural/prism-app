@@ -261,7 +261,8 @@ class DriftMemberGroupsRepository
     // PK-linked add (both group AND member have PK UUIDs) sets push_add so
     // the orchestrator pushes it to PluralKit on the next sync. For
     // non-PK-linked entries, pending_pk_op stays 'none' (nothing to push).
-    final isPkLinked = (group.pluralkitUuid ?? '').isNotEmpty &&
+    final isPkLinked =
+        (group.pluralkitUuid ?? '').isNotEmpty &&
         (member?.pluralkitUuid ?? '').isNotEmpty;
     final pendingPkOp = isPkLinked ? 'push_add' : 'none';
     final resolvedEntryId = _entryEntityId(
@@ -299,8 +300,7 @@ class DriftMemberGroupsRepository
       }
       stored = await _dao.findEntry(groupId, memberId);
       if (stored != null) {
-        parentOrderChanged =
-            await _appendEntryToManualOrder(group, stored!.id);
+        parentOrderChanged = await _appendEntryToManualOrder(group, stored!.id);
       }
     });
 
@@ -328,7 +328,8 @@ class DriftMemberGroupsRepository
     // soft-delete-with-push_remove queues a compensating remove that converges
     // PK to the user's current intent regardless of when the in-flight add
     // returned.
-    final isPkLinked = (group.pluralkitUuid ?? '').isNotEmpty &&
+    final isPkLinked =
+        (group.pluralkitUuid ?? '').isNotEmpty &&
         (member?.pluralkitUuid ?? '').isNotEmpty;
     final entryEntityId = _entryEntityIdForDelete(
       group: group,
@@ -399,8 +400,8 @@ class DriftMemberGroupsRepository
     final droppedIds = orderedEntryIds
         .where((id) => !liveIds.contains(id))
         .toList();
-    final appendedIds = liveIds.where((id) => !suppliedIds.contains(id)).toList()
-      ..sort();
+    final appendedIds =
+        liveIds.where((id) => !suppliedIds.contains(id)).toList()..sort();
 
     // Stable dedupe of the supplied permutation (first occurrence wins).
     // Duplicates in the input must NOT round-trip through the stored column
@@ -686,7 +687,15 @@ class DriftMemberGroupsRepository
   Map<String, dynamic> debugGroupFields(MemberGroupRow row) =>
       _groupFields(row);
 
-  Map<String, dynamic> _groupFields(MemberGroupRow row) {
+  Map<String, dynamic> _groupFields(MemberGroupRow row) => groupFields(row);
+
+  /// Field-map builder for member-group sync emissions.
+  ///
+  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// `createGroup()` for the bulk insert. See
+  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  static Map<String, dynamic> groupFields(MemberGroupRow row) {
     return {
       'name': row.name,
       'description': row.description,
@@ -709,6 +718,20 @@ class DriftMemberGroupsRepository
   }
 
   Map<String, dynamic> _entryFields(
+    MemberGroupEntryRow entry, {
+    required MemberGroupRow group,
+    required member_domain.Member? member,
+  }) => memberGroupEntryFields(entry, group: group, member: member);
+
+  /// Field-map builder for member-group-entry sync emissions.
+  ///
+  /// Public so the Phase 6 batch-membership capture path in
+  /// `sp_importer.dart` can construct byte-identical `fields` payloads when
+  /// it bypasses `addMemberToGroup()` for the bulk insert. See
+  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse",
+  /// and the Phase 6 `addMemberToGroup` parity-test scenarios that gate the
+  /// bulk path).
+  static Map<String, dynamic> memberGroupEntryFields(
     MemberGroupEntryRow entry, {
     required MemberGroupRow group,
     required member_domain.Member? member,

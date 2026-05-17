@@ -11,15 +11,19 @@ class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
   Stream<List<NoteRow>> watchNotesForMember(String memberId) =>
       (select(notes)
             ..where(
-                (n) => n.memberId.equals(memberId) & n.isDeleted.equals(false))
+              (n) => n.memberId.equals(memberId) & n.isDeleted.equals(false),
+            )
             ..orderBy([(n) => OrderingTerm.desc(n.date)]))
           .watch();
 
-  Stream<List<NoteRow>> watchRecentNotesForMember(String memberId,
-          {int limit = 5}) =>
+  Stream<List<NoteRow>> watchRecentNotesForMember(
+    String memberId, {
+    int limit = 5,
+  }) =>
       (select(notes)
             ..where(
-                (n) => n.memberId.equals(memberId) & n.isDeleted.equals(false))
+              (n) => n.memberId.equals(memberId) & n.isDeleted.equals(false),
+            )
             ..orderBy([(n) => OrderingTerm.desc(n.date)])
             ..limit(limit))
           .watch();
@@ -39,10 +43,18 @@ class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
   Future<int> createNote(NotesCompanion companion) =>
       into(notes).insert(companion);
 
+  /// Batch-insert notes in a single Drift `batch()` round-trip.
+  /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
+  Future<void> batchInsertNotes(List<NotesCompanion> rows) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAll(notes, rows));
+  }
+
   Future<void> updateNote(String id, NotesCompanion companion) =>
       (update(notes)..where((n) => n.id.equals(id))).write(companion);
 
   Future<void> deleteNote(String id) =>
-      (update(notes)..where((n) => n.id.equals(id)))
-          .write(const NotesCompanion(isDeleted: Value(true)));
+      (update(notes)..where((n) => n.id.equals(id))).write(
+        const NotesCompanion(isDeleted: Value(true)),
+      );
 }

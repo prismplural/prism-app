@@ -17,33 +17,38 @@ class PollOptionsDao extends DatabaseAccessor<AppDatabase>
 
   Future<List<PollOption>> getOptionsForPoll(String pollId) =>
       (select(pollOptions)
-            ..where((o) =>
-                o.pollId.equals(pollId) & o.isDeleted.equals(false))
+            ..where((o) => o.pollId.equals(pollId) & o.isDeleted.equals(false))
             ..orderBy([(o) => OrderingTerm.asc(o.sortOrder)]))
           .get();
 
   Stream<List<PollOption>> watchOptionsForPoll(String pollId) =>
       (select(pollOptions)
-            ..where((o) =>
-                o.pollId.equals(pollId) & o.isDeleted.equals(false))
+            ..where((o) => o.pollId.equals(pollId) & o.isDeleted.equals(false))
             ..orderBy([(o) => OrderingTerm.asc(o.sortOrder)]))
           .watch();
 
   Future<PollOption?> getOptionById(String id) =>
-      (select(pollOptions)..where((o) => o.id.equals(id)))
-          .getSingleOrNull();
+      (select(pollOptions)..where((o) => o.id.equals(id))).getSingleOrNull();
 
   Future<int> insertOption(PollOptionsCompanion option) =>
       into(pollOptions).insert(option);
 
+  /// Batch-insert poll options in a single Drift `batch()` round-trip.
+  /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
+  Future<void> batchInsertOptions(List<PollOptionsCompanion> rows) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAll(pollOptions, rows));
+  }
+
   Future<void> updateOption(PollOptionsCompanion option) {
     assert(option.id.present, 'Option id is required for update');
-    return (update(pollOptions)
-          ..where((o) => o.id.equals(option.id.value)))
-        .write(option);
+    return (update(
+      pollOptions,
+    )..where((o) => o.id.equals(option.id.value))).write(option);
   }
 
   Future<void> softDeleteOption(String id) =>
       (update(pollOptions)..where((o) => o.id.equals(id))).write(
-          const PollOptionsCompanion(isDeleted: Value(true)));
+        const PollOptionsCompanion(isDeleted: Value(true)),
+      );
 }

@@ -102,7 +102,25 @@ class MappedData {
 
 /// Maps Simply Plural entities to Prism domain models.
 class SpMapper {
-  static const _uuid = Uuid();
+  static const _defaultUuid = Uuid();
+
+  /// Default v4 UUID generator used when no seam is injected.
+  static String _defaultNewId() => _defaultUuid.v4();
+
+  /// Default clock used when no seam is injected.
+  static DateTime _defaultNow() => DateTime.now();
+
+  /// Injected v4 UUID generator (seam for deterministic tests).
+  ///
+  /// Production wiring leaves the default, which is `Uuid().v4()`. The Phase 0
+  /// parity harness injects a seeded generator so golden files are stable
+  /// across runs. Phase 1's `compute(parse + map)` retains the seam via the
+  /// `_ParseAndMapArgs` carrier.
+  final String Function() _newId;
+
+  /// Injected clock (seam for deterministic tests). Production wiring leaves
+  /// the default, which is `DateTime.now`.
+  final DateTime Function() _now;
 
   /// Map of SP member ID to Prism UUID.
   final Map<String, String> _memberIdMap;
@@ -160,10 +178,17 @@ class SpMapper {
   int _cfSleepOverlaps = 0;
 
   /// Pre-seed maps from prior imports so IDs are stable across runs.
+  ///
+  /// [newId] and [now] are determinism seams (see `SpMapperRandomness` in the
+  /// SP-import perf plan, Phase 0). Production callers leave them as the
+  /// defaults (`Uuid().v4()` and `DateTime.now`). The Phase 0 parity harness
+  /// injects seeded versions so golden files are byte-stable across runs.
   SpMapper({
     Map<String, Map<String, String>>? existingMappings,
     Map<String, CfDisposition>? customFrontDispositions,
     Set<String> importAsNewSpMemberIds = const {},
+    String Function()? newId,
+    DateTime Function()? now,
   }) : _memberIdMap = Map.of(existingMappings?['member'] ?? {}),
        _channelIdMap = Map.of(existingMappings?['channel'] ?? {}),
        _sessionIdMap = Map.of(existingMappings?['session'] ?? {}),
@@ -171,7 +196,9 @@ class SpMapper {
        _fieldIdMap = Map.of(existingMappings?['field'] ?? {}),
        _categoryIdMap = Map.of(existingMappings?['category'] ?? {}),
        _customFrontDispositions = Map.of(customFrontDispositions ?? {}),
-       _importAsNewSpMemberIds = Set.of(importAsNewSpMemberIds);
+       _importAsNewSpMemberIds = Set.of(importAsNewSpMemberIds),
+       _newId = newId ?? _defaultNewId,
+       _now = now ?? _defaultNow;
 
   // Expose ID maps as unmodifiable views so the importer can persist them.
   Map<String, String> get memberIdMap => Map.unmodifiable(_memberIdMap);
@@ -226,7 +253,7 @@ class SpMapper {
           name: 'Unknown',
           emoji: '❔', // ❔
           isActive: true,
-          createdAt: DateTime.now(),
+          createdAt: _now(),
           displayOrder: members.length,
         ),
       );
@@ -310,7 +337,7 @@ class SpMapper {
 
     for (var i = 0; i < spMembers.length; i++) {
       final sp = spMembers[i];
-      final prismId = _memberIdMap[sp.id] ?? _uuid.v4();
+      final prismId = _memberIdMap[sp.id] ?? _newId();
       _memberIdMap[sp.id] = prismId;
 
       // Track avatar URL for later download.
@@ -341,7 +368,7 @@ class SpMapper {
           emoji: '\u2754', // SP doesn't use emoji identifiers
           bio: sp.desc,
           isActive: !sp.archived,
-          createdAt: DateTime.now(),
+          createdAt: _now(),
           displayOrder: i,
           customColorEnabled: colorHex != null,
           customColorHex: colorHex,
@@ -358,7 +385,7 @@ class SpMapper {
       final disposition =
           _cfDispositionById[cf.id] ?? CfDisposition.importAsMember;
       if (disposition != CfDisposition.importAsMember) continue;
-      final prismId = _memberIdMap[cf.id] ?? _uuid.v4();
+      final prismId = _memberIdMap[cf.id] ?? _newId();
       _memberIdMap[cf.id] = prismId;
 
       if (cf.avatarUrl != null && cf.avatarUrl!.isNotEmpty) {
@@ -378,7 +405,7 @@ class SpMapper {
           emoji: '\u{1F3F7}\uFE0F', // tag emoji to indicate custom front
           bio: cf.desc,
           isActive: true,
-          createdAt: DateTime.now(),
+          createdAt: _now(),
           displayOrder: spMembers.length + i,
           customColorEnabled: colorHex != null,
           customColorHex: colorHex,
@@ -809,11 +836,11 @@ class SpMapper {
     List<SpChannelCategory> spCategories,
   ) {
     final categories = <domain.ConversationCategory>[];
-    final now = DateTime.now();
+    final now = _now();
 
     for (var i = 0; i < spCategories.length; i++) {
       final sp = spCategories[i];
-      final prismId = _categoryIdMap[sp.id] ?? _uuid.v4();
+      final prismId = _categoryIdMap[sp.id] ?? _newId();
       _categoryIdMap[sp.id] = prismId;
 
       categories.add(
@@ -843,7 +870,7 @@ class SpMapper {
     final conversations = <domain.Conversation>[];
 
     for (final ch in channels) {
-      final prismId = _channelIdMap[ch.id] ?? _uuid.v4();
+      final prismId = _channelIdMap[ch.id] ?? _newId();
       _channelIdMap[ch.id] = prismId;
 
       // Resolve participant IDs.
@@ -861,8 +888,8 @@ class SpMapper {
       conversations.add(
         domain.Conversation(
           id: prismId,
-          createdAt: ch.createdAt ?? DateTime.now(),
-          lastActivityAt: ch.createdAt ?? DateTime.now(),
+          createdAt: ch.createdAt ?? _now(),
+          lastActivityAt: ch.createdAt ?? _now(),
           title: ch.name,
           description: ch.desc,
           // SP `channels` are group chats by SP's data model regardless of how
@@ -926,7 +953,7 @@ class SpMapper {
         editedAt = msg.updatedAt;
       }
 
-      final prismId = _uuid.v4();
+      final prismId = _newId();
       spIdToPrismId[msg.id] = prismId;
       prismIdToSpReplyTo[prismId] = msg.replyTo;
 
@@ -999,7 +1026,7 @@ class SpMapper {
 
       notes.add(
         domain.Note(
-          id: _uuid.v4(),
+          id: _newId(),
           title: sp.title.isEmpty ? 'Untitled' : sp.title,
           body: sp.body,
           colorHex: colorHex,
@@ -1060,7 +1087,7 @@ class SpMapper {
     final fields = <domain.CustomField>[];
     for (var i = 0; i < spFields.length; i++) {
       final sp = spFields[i];
-      final prismId = _fieldIdMap[sp.id] ?? _uuid.v4();
+      final prismId = _fieldIdMap[sp.id] ?? _newId();
       _fieldIdMap[sp.id] = prismId;
 
       // Map SP integer type to Prism type.
@@ -1089,7 +1116,7 @@ class SpMapper {
           fieldType: fieldType,
           datePrecision: datePrecision,
           displayOrder: i,
-          createdAt: DateTime.now(),
+          createdAt: _now(),
         ),
       );
     }
@@ -1119,7 +1146,7 @@ class SpMapper {
 
         values.add(
           domain.CustomFieldValue(
-            id: _uuid.v4(),
+            id: _newId(),
             customFieldId: fieldId,
             memberId: prismMemberId,
             value: value,
@@ -1137,7 +1164,7 @@ class SpMapper {
     // First pass: create all groups and build the ID map.
     for (var i = 0; i < spGroups.length; i++) {
       final sp = spGroups[i];
-      final prismId = _groupIdMap[sp.id] ?? _uuid.v4();
+      final prismId = _groupIdMap[sp.id] ?? _newId();
       _groupIdMap[sp.id] = prismId;
 
       String? colorHex = sp.color;
@@ -1161,7 +1188,7 @@ class SpMapper {
           emoji: sp.emoji,
           displayOrder: i,
           parentGroupId: parentGroupId,
-          createdAt: DateTime.now(),
+          createdAt: _now(),
         ),
       );
     }
@@ -1283,7 +1310,7 @@ class SpMapper {
       // for any SP timestamp with a non-zero millisecond component.
       final bodyHex = sha256.convert(utf8.encode(body)).toString();
       final writtenAtMs = (bm.writtenAt.millisecondsSinceEpoch ~/ 1000) * 1000;
-      final deterministicId = _uuid.v5(
+      final deterministicId = _defaultUuid.v5(
         boardsBackfillNamespace,
         '$forId|${byId ?? ''}|$writtenAtMs|$bodyHex',
       );
@@ -1328,7 +1355,7 @@ class SpMapper {
     List<String> warnings,
   ) {
     final reminders = <domain.Reminder>[];
-    final now = DateTime.now();
+    final now = _now();
 
     // Automated timers → onFrontChange reminders.
     //
@@ -1393,7 +1420,7 @@ class SpMapper {
 
       reminders.add(
         domain.Reminder(
-          id: _uuid.v4(),
+          id: _newId(),
           name: name,
           message: message,
           trigger: domain.ReminderTrigger.onFrontChange,
@@ -1432,7 +1459,7 @@ class SpMapper {
 
       reminders.add(
         domain.Reminder(
-          id: _uuid.v4(),
+          id: _newId(),
           name: name,
           message: message,
           trigger: domain.ReminderTrigger.scheduled,
@@ -1500,7 +1527,7 @@ class SpMapper {
 
         options.add(
           domain.PollOption(
-            id: _uuid.v4(),
+            id: _newId(),
             text: spOption.name,
             sortOrder: i,
             colorHex: colorHex,
@@ -1528,9 +1555,9 @@ class SpMapper {
             .putIfAbsent(matchedOption.id, () => [])
             .add(
               domain.PollVote(
-                id: _uuid.v4(),
+                id: _newId(),
                 memberId: prismMemberId,
-                votedAt: DateTime.now(),
+                votedAt: _now(),
                 responseText: vote.comment,
               ),
             );
@@ -1544,13 +1571,13 @@ class SpMapper {
 
       polls.add(
         domain.Poll(
-          id: _uuid.v4(),
+          id: _newId(),
           question: sp.question,
           description: sp.description,
           allowsMultipleVotes: sp.allowMultiple,
-          isClosed: sp.endDate != null && sp.endDate!.isBefore(DateTime.now()),
+          isClosed: sp.endDate != null && sp.endDate!.isBefore(_now()),
           expiresAt: sp.endDate,
-          createdAt: DateTime.now(),
+          createdAt: _now(),
           options: optionsWithVotes,
         ),
       );

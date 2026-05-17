@@ -18,19 +18,18 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
     String? afterId,
     int limit = 30,
   }) {
-    final q =
-        select(memberBoardPosts)
-          ..where(
-            (p) =>
-                p.audience.equals('public') &
-                p.isDeleted.equals(false) &
-                _keysetWhere(p, afterWrittenAt, afterId),
-          )
-          ..orderBy([
-            (p) => OrderingTerm.desc(p.writtenAt),
-            (p) => OrderingTerm.desc(p.id),
-          ])
-          ..limit(limit);
+    final q = select(memberBoardPosts)
+      ..where(
+        (p) =>
+            p.audience.equals('public') &
+            p.isDeleted.equals(false) &
+            _keysetWhere(p, afterWrittenAt, afterId),
+      )
+      ..orderBy([
+        (p) => OrderingTerm.desc(p.writtenAt),
+        (p) => OrderingTerm.desc(p.id),
+      ])
+      ..limit(limit);
     return q.watch();
   }
 
@@ -47,20 +46,19 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
     if (targetMemberIds.isEmpty) {
       return const Stream.empty();
     }
-    final q =
-        select(memberBoardPosts)
-          ..where(
-            (p) =>
-                p.audience.equals('private') &
-                p.targetMemberId.isIn(targetMemberIds) &
-                p.isDeleted.equals(false) &
-                _keysetWhere(p, afterWrittenAt, afterId),
-          )
-          ..orderBy([
-            (p) => OrderingTerm.desc(p.writtenAt),
-            (p) => OrderingTerm.desc(p.id),
-          ])
-          ..limit(limit);
+    final q = select(memberBoardPosts)
+      ..where(
+        (p) =>
+            p.audience.equals('private') &
+            p.targetMemberId.isIn(targetMemberIds) &
+            p.isDeleted.equals(false) &
+            _keysetWhere(p, afterWrittenAt, afterId),
+      )
+      ..orderBy([
+        (p) => OrderingTerm.desc(p.writtenAt),
+        (p) => OrderingTerm.desc(p.id),
+      ])
+      ..limit(limit);
     return q.watch();
   }
 
@@ -77,20 +75,19 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
     String? afterId,
     int limit = 30,
   }) {
-    final q =
-        select(memberBoardPosts)
-          ..where(
-            (p) =>
-                (p.targetMemberId.equals(memberId) | p.authorId.equals(memberId)) &
-                p.audience.equals('public') &
-                p.isDeleted.equals(false) &
-                _keysetWhere(p, afterWrittenAt, afterId),
-          )
-          ..orderBy([
-            (p) => OrderingTerm.desc(p.writtenAt),
-            (p) => OrderingTerm.desc(p.id),
-          ])
-          ..limit(limit);
+    final q = select(memberBoardPosts)
+      ..where(
+        (p) =>
+            (p.targetMemberId.equals(memberId) | p.authorId.equals(memberId)) &
+            p.audience.equals('public') &
+            p.isDeleted.equals(false) &
+            _keysetWhere(p, afterWrittenAt, afterId),
+      )
+      ..orderBy([
+        (p) => OrderingTerm.desc(p.writtenAt),
+        (p) => OrderingTerm.desc(p.id),
+      ])
+      ..limit(limit);
     return q.watch();
   }
 
@@ -104,19 +101,18 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
     String memberId, {
     int limit = 3,
   }) {
-    final q =
-        select(memberBoardPosts)
-          ..where(
-            (p) =>
-                (p.targetMemberId.equals(memberId) | p.authorId.equals(memberId)) &
-                p.audience.equals('public') &
-                p.isDeleted.equals(false),
-          )
-          ..orderBy([
-            (p) => OrderingTerm.desc(p.writtenAt),
-            (p) => OrderingTerm.desc(p.id),
-          ])
-          ..limit(limit);
+    final q = select(memberBoardPosts)
+      ..where(
+        (p) =>
+            (p.targetMemberId.equals(memberId) | p.authorId.equals(memberId)) &
+            p.audience.equals('public') &
+            p.isDeleted.equals(false),
+      )
+      ..orderBy([
+        (p) => OrderingTerm.desc(p.writtenAt),
+        (p) => OrderingTerm.desc(p.id),
+      ])
+      ..limit(limit);
     return q.watch();
   }
 
@@ -124,13 +120,13 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
   // Single-post watch / fetch
   // ---------------------------------------------------------------------------
 
-  Stream<MemberBoardPostRow?> watchPostById(String id) =>
-      (select(memberBoardPosts)..where((p) => p.id.equals(id)))
-          .watchSingleOrNull();
+  Stream<MemberBoardPostRow?> watchPostById(String id) => (select(
+    memberBoardPosts,
+  )..where((p) => p.id.equals(id))).watchSingleOrNull();
 
-  Future<MemberBoardPostRow?> getPostById(String id) =>
-      (select(memberBoardPosts)..where((p) => p.id.equals(id)))
-          .getSingleOrNull();
+  Future<MemberBoardPostRow?> getPostById(String id) => (select(
+    memberBoardPosts,
+  )..where((p) => p.id.equals(id))).getSingleOrNull();
 
   // ---------------------------------------------------------------------------
   // Badge / unread counts
@@ -151,17 +147,16 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
     for (final memberId in memberIds) {
       final lastRead = lastReadByMember[memberId];
       final countExpr = memberBoardPosts.id.count();
-      final query =
-          selectOnly(memberBoardPosts)
-            ..addColumns([countExpr])
-            ..where(
-              memberBoardPosts.audience.equals('private') &
-                  memberBoardPosts.targetMemberId.equals(memberId) &
-                  memberBoardPosts.isDeleted.equals(false) &
-                  (lastRead == null
-                      ? const Constant<bool>(true)
-                      : memberBoardPosts.writtenAt.isBiggerThanValue(lastRead)),
-            );
+      final query = selectOnly(memberBoardPosts)
+        ..addColumns([countExpr])
+        ..where(
+          memberBoardPosts.audience.equals('private') &
+              memberBoardPosts.targetMemberId.equals(memberId) &
+              memberBoardPosts.isDeleted.equals(false) &
+              (lastRead == null
+                  ? const Constant<bool>(true)
+                  : memberBoardPosts.writtenAt.isBiggerThanValue(lastRead)),
+        );
       final row = await query.getSingle();
       total += row.read(countExpr) ?? 0;
     }
@@ -174,18 +169,15 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
   /// Returns all public posts when [lastViewedAt] is null (first open).
   Future<int> countNewPublicSince(DateTime? lastViewedAt) async {
     final countExpr = memberBoardPosts.id.count();
-    final query =
-        selectOnly(memberBoardPosts)
-          ..addColumns([countExpr])
-          ..where(
-            memberBoardPosts.audience.equals('public') &
-                memberBoardPosts.isDeleted.equals(false) &
-                (lastViewedAt == null
-                    ? const Constant<bool>(true)
-                    : memberBoardPosts.writtenAt.isBiggerThanValue(
-                      lastViewedAt,
-                    )),
-          );
+    final query = selectOnly(memberBoardPosts)
+      ..addColumns([countExpr])
+      ..where(
+        memberBoardPosts.audience.equals('public') &
+            memberBoardPosts.isDeleted.equals(false) &
+            (lastViewedAt == null
+                ? const Constant<bool>(true)
+                : memberBoardPosts.writtenAt.isBiggerThanValue(lastViewedAt)),
+      );
     final row = await query.getSingle();
     return row.read(countExpr) ?? 0;
   }
@@ -196,6 +188,13 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> createPost(MemberBoardPostsCompanion c) =>
       into(memberBoardPosts).insert(c);
+
+  /// Batch-insert member board posts in a single Drift `batch()` round-trip.
+  /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
+  Future<void> batchInsertPosts(List<MemberBoardPostsCompanion> rows) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAll(memberBoardPosts, rows));
+  }
 
   Future<void> updatePost(String id, MemberBoardPostsCompanion c) =>
       (update(memberBoardPosts)..where((p) => p.id.equals(id))).write(c);
@@ -223,17 +222,16 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
     required String? authorId,
     required DateTime writtenAt,
   }) {
-    final q =
-        select(memberBoardPosts)
-          ..where(
-            (p) =>
-                p.targetMemberId.equals(targetMemberId) &
-                (authorId == null
-                    ? p.authorId.isNull()
-                    : p.authorId.equals(authorId)) &
-                p.writtenAt.equals(writtenAt),
-          )
-          ..limit(1);
+    final q = select(memberBoardPosts)
+      ..where(
+        (p) =>
+            p.targetMemberId.equals(targetMemberId) &
+            (authorId == null
+                ? p.authorId.isNull()
+                : p.authorId.equals(authorId)) &
+            p.writtenAt.equals(writtenAt),
+      )
+      ..limit(1);
     return q.getSingleOrNull();
   }
 

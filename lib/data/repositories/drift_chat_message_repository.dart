@@ -93,13 +93,24 @@ class DriftChatMessageRepository
 
   @override
   Stream<domain.ChatMessage?> watchLatestMessage(String conversationId) {
-    return _dao.watchLatestMessage(conversationId).map(
-      (row) => row != null ? ChatMessageMapper.toDomain(row) : null,
-    );
+    return _dao
+        .watchLatestMessage(conversationId)
+        .map((row) => row != null ? ChatMessageMapper.toDomain(row) : null);
   }
 
   @override
-  Future<List<({String messageId, String conversationId, String snippet, DateTime timestamp, String? authorId})>> searchMessages(String query, {int limit = 50}) async {
+  Future<
+    List<
+      ({
+        String messageId,
+        String conversationId,
+        String snippet,
+        DateTime timestamp,
+        String? authorId,
+      })
+    >
+  >
+  searchMessages(String query, {int limit = 50}) async {
     return _dao.searchMessages(query, limit: limit);
   }
 
@@ -132,7 +143,15 @@ class DriftChatMessageRepository
     return _dao.watchConversationsWithMentions(conversationSince, memberId);
   }
 
-  Map<String, dynamic> _messageFields(domain.ChatMessage m) {
+  Map<String, dynamic> _messageFields(domain.ChatMessage m) => messageFields(m);
+
+  /// Field-map builder for chat-message sync emissions.
+  ///
+  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
+  /// construct byte-identical `fields` payloads when it bypasses
+  /// `createMessage()` for the bulk insert. See
+  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  static Map<String, dynamic> messageFields(domain.ChatMessage m) {
     final reactionsJson = jsonEncode(
       m.reactions.map((r) => r.toJson()).toList(),
     );

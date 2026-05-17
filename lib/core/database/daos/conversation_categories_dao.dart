@@ -29,12 +29,24 @@ class ConversationCategoriesDao extends DatabaseAccessor<AppDatabase>
   Future<int> create(ConversationCategoriesCompanion companion) =>
       into(conversationCategories).insert(companion);
 
+  /// Batch-insert conversation categories in a single Drift `batch()` round-trip.
+  /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
+  Future<void> batchInsertCategories(
+    List<ConversationCategoriesCompanion> rows,
+  ) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAll(conversationCategories, rows));
+  }
+
   Future<void> updateCategory(
-          String id, ConversationCategoriesCompanion companion) =>
-      (update(conversationCategories)..where((c) => c.id.equals(id)))
-          .write(companion);
+    String id,
+    ConversationCategoriesCompanion companion,
+  ) => (update(
+    conversationCategories,
+  )..where((c) => c.id.equals(id))).write(companion);
 
   Future<void> softDelete(String id) =>
-      (update(conversationCategories)..where((c) => c.id.equals(id)))
-          .write(const ConversationCategoriesCompanion(isDeleted: Value(true)));
+      (update(conversationCategories)..where((c) => c.id.equals(id))).write(
+        const ConversationCategoriesCompanion(isDeleted: Value(true)),
+      );
 }

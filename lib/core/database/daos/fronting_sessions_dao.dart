@@ -204,6 +204,13 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
   Future<int> insertSession(FrontingSessionsCompanion session) =>
       into(frontingSessions).insert(session);
 
+  /// Batch-insert fronting sessions in a single Drift `batch()` round-trip.
+  /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
+  Future<void> batchInsertSessions(List<FrontingSessionsCompanion> rows) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAll(frontingSessions, rows));
+  }
+
   Future<void> updateSession(FrontingSessionsCompanion session) {
     assert(session.id.present, 'Session id is required for update');
     return (update(

@@ -111,28 +111,34 @@ class FrontSessionCommentsDao extends DatabaseAccessor<AppDatabase>
     final companion = FrontSessionCommentsCompanion(
       sessionId: Value(toSessionId),
     );
-    return (update(frontSessionComments)
-          ..where(
-            (c) =>
-                c.sessionId.equals(fromSessionId) &
-                c.isDeleted.equals(false) &
-                (atOrAfter == null
-                    ? const Constant(true)
-                    : c.timestamp.isBiggerOrEqualValue(atOrAfter)),
-          ))
+    return (update(frontSessionComments)..where(
+          (c) =>
+              c.sessionId.equals(fromSessionId) &
+              c.isDeleted.equals(false) &
+              (atOrAfter == null
+                  ? const Constant(true)
+                  : c.timestamp.isBiggerOrEqualValue(atOrAfter)),
+        ))
         .write(companion);
   }
 
   Future<void> softDeleteCommentsForSession(String sessionId) =>
-      (update(frontSessionComments)
-            ..where(
-              (c) =>
-                  c.sessionId.equals(sessionId) & c.isDeleted.equals(false),
-            ))
+      (update(frontSessionComments)..where(
+            (c) => c.sessionId.equals(sessionId) & c.isDeleted.equals(false),
+          ))
           .write(const FrontSessionCommentsCompanion(isDeleted: Value(true)));
 
   Future<int> createComment(FrontSessionCommentsCompanion companion) =>
       into(frontSessionComments).insert(companion);
+
+  /// Batch-insert front-session comments in a single Drift `batch()` round-trip.
+  /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
+  Future<void> batchInsertComments(
+    List<FrontSessionCommentsCompanion> rows,
+  ) async {
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAll(frontSessionComments, rows));
+  }
 
   Future<void> updateComment(
     String id,

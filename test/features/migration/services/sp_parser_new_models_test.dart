@@ -17,13 +17,14 @@ void main() {
 
     test('normalizes member info keys before member parsing', () {
       final member = SpMember.fromJson(
-        normalizeSpMemberJsonInfoKeys({
-          '_id': 'm1',
-          'name': 'Kai',
-          'info': {'opaque-a': 'protector', 'cf-age': '27'},
-        }, {
-          'opaque-a': 'cf-role',
-        }),
+        normalizeSpMemberJsonInfoKeys(
+          {
+            '_id': 'm1',
+            'name': 'Kai',
+            'info': {'opaque-a': 'protector', 'cf-age': '27'},
+          },
+          {'opaque-a': 'cf-role'},
+        ),
       );
 
       expect(member.info, {'cf-role': 'protector', 'cf-age': '27'});
@@ -102,7 +103,10 @@ void main() {
         'date': 1700000000000,
       });
 
-      expect(note.date, DateTime.fromMillisecondsSinceEpoch(1700000000000));
+      expect(
+        note.date,
+        DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true),
+      );
     });
 
     test('parses string-encoded timestamp', () {
@@ -113,7 +117,10 @@ void main() {
         'date': '1700000000000',
       });
 
-      expect(note.date, DateTime.fromMillisecondsSinceEpoch(1700000000000));
+      expect(
+        note.date,
+        DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true),
+      );
     });
 
     test('parses ISO date string', () {
@@ -191,7 +198,10 @@ void main() {
       expect(comment.documentId, 'doc-abc');
       expect(comment.collection, 'frontHistory');
       expect(comment.text, 'A comment');
-      expect(comment.time, DateTime.fromMillisecondsSinceEpoch(1700000000000));
+      expect(
+        comment.time,
+        DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true),
+      );
     });
 
     test('handles "text" field (fallback to "comment")', () {
@@ -223,7 +233,10 @@ void main() {
         'text': 'T',
         'time': 1700000000000,
       });
-      expect(intTime.time, DateTime.fromMillisecondsSinceEpoch(1700000000000));
+      expect(
+        intTime.time,
+        DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true),
+      );
 
       // String-encoded epoch
       final strEpoch = SpComment.fromJson({
@@ -233,7 +246,10 @@ void main() {
         'text': 'T',
         'time': '1700000000000',
       });
-      expect(strEpoch.time, DateTime.fromMillisecondsSinceEpoch(1700000000000));
+      expect(
+        strEpoch.time,
+        DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true),
+      );
 
       // ISO date string
       final iso = SpComment.fromJson({
@@ -257,7 +273,10 @@ void main() {
 
       expect(comment.collection, 'members');
       expect(comment.text, 'Profile note');
-      expect(comment.time, DateTime.fromMillisecondsSinceEpoch(1700000000000));
+      expect(
+        comment.time,
+        DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true),
+      );
     });
   });
 
@@ -343,7 +362,10 @@ void main() {
       expect(poll.options.map((o) => o.name).toList(), ['Alpha', 'Beta']);
       expect(poll.options.map((o) => o.color).toList(), ['#AA0000', '#00BB00']);
       expect(poll.votes, hasLength(2));
-      expect(poll.endDate, DateTime.fromMillisecondsSinceEpoch(1700000000000));
+      expect(
+        poll.endDate,
+        DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true),
+      );
     });
   });
 
@@ -367,7 +389,7 @@ void main() {
         expect(msg.message, 'Hi there!');
         expect(
           msg.writtenAt,
-          DateTime.fromMillisecondsSinceEpoch(1700000000000),
+          DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true),
         );
       },
     );
@@ -381,7 +403,7 @@ void main() {
       });
       expect(
         intTime.writtenAt,
-        DateTime.fromMillisecondsSinceEpoch(1700000000000),
+        DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true),
       );
 
       // String-encoded epoch
@@ -392,7 +414,7 @@ void main() {
       });
       expect(
         strEpoch.writtenAt,
-        DateTime.fromMillisecondsSinceEpoch(1700000000000),
+        DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true),
       );
 
       // ISO date string
@@ -411,7 +433,7 @@ void main() {
       });
       expect(
         fallback.writtenAt,
-        DateTime.fromMillisecondsSinceEpoch(1700000000000),
+        DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true),
       );
     });
 
