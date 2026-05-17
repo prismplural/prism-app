@@ -5,6 +5,7 @@ import 'package:prism_plurality/domain/models/system_settings.dart'
 import 'accent_legibility.dart';
 import 'app_colors.dart';
 import 'prism_shapes.dart';
+import 'prism_theme_flavor.dart';
 import 'prism_tokens.dart';
 
 /// Holds all variant-specific colors so [AppTheme._buildTheme] can apply
@@ -415,6 +416,7 @@ class AppTheme {
       accent,
       _paletteThemeColors(colorScheme, accent, isDark: isDark),
       shapes,
+      PrismThemeFlavor.palette,
     );
   }
 
@@ -489,11 +491,16 @@ class AppTheme {
   /// Shared component theme builder. Applies all component themes using the
   /// provided [colorScheme], [accent], and variant-specific [colors].
   /// Dark variants also receive [listTileTheme] and [iconTheme].
+  ///
+  /// [flavor] threads palette-vs-standard awareness into widgets via a
+  /// [ThemeExtension] so decorative accent usage can be scaled back in
+  /// standard mode without affecting palette mode.
   static ThemeData _buildTheme(
     ColorScheme colorScheme,
     Color accent,
     _ThemeColors colors,
     PrismShapes shapes,
+    PrismThemeFlavor flavor,
   ) {
     final isApple =
         defaultTargetPlatform == TargetPlatform.iOS ||
@@ -514,7 +521,7 @@ class AppTheme {
       ).apply(fontFamilyFallback: _linuxFontFamilyFallback),
       scaffoldBackgroundColor: colors.scaffold,
       cardColor: colors.cardColor,
-      extensions: <ThemeExtension<dynamic>>[shapes],
+      extensions: <ThemeExtension<dynamic>>[shapes, flavor],
       cardTheme: CardThemeData(
         color: colors.cardColor,
         shape: RoundedRectangleBorder(
@@ -711,6 +718,7 @@ class AppTheme {
       accent,
       colors,
       PrismShapes(cornerStyle: cornerStyle),
+      PrismThemeFlavor.standard,
     );
   }
 
@@ -761,6 +769,7 @@ class AppTheme {
       accent,
       colors,
       PrismShapes(cornerStyle: cornerStyle),
+      PrismThemeFlavor.standard,
     );
   }
 
@@ -812,6 +821,7 @@ class AppTheme {
       accent,
       colors,
       PrismShapes(cornerStyle: cornerStyle),
+      PrismThemeFlavor.standard,
     );
   }
 

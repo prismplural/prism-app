@@ -1,89 +1,110 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/shared/theme/prism_theme_flavor.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 void main() {
-  testWidgets('tinted glass shadow stays soft in light mode', (tester) async {
-    final theme = ThemeData.light();
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp(
-          theme: theme,
-          home: const Scaffold(
-            body: Center(
-              child: TintedGlassSurface(
-                width: 40,
-                height: 40,
-                child: SizedBox.shrink(),
-              ),
+  testWidgets(
+    'tinted glass defaults to neutral onSurface tint in light standard mode',
+    (tester) async {
+      final theme = ThemeData.light();
+      await _pump(tester, theme);
+
+      final decoration = _surfaceDecoration(tester);
+      final shadow = _surfaceShadow(tester);
+      final expectedBase = theme.colorScheme.surfaceContainerHigh.withValues(
+        alpha: PrismTokens.tintedFillAlphaLight,
+      );
+
+      expect(
+        decoration.color,
+        Color.alphaBlend(
+          theme.colorScheme.onSurface.withValues(
+            alpha: PrismTokens.tintedDefaultTintAlphaLight,
+          ),
+          expectedBase,
+        ),
+      );
+      expect(_surfaceHighlight(tester).colors.first.a, 0.10);
+      expect(shadow.color.a, 0.03);
+      expect(shadow.blurRadius, 4);
+      expect(shadow.offset, const Offset(0, 1));
+    },
+  );
+
+  testWidgets(
+    'tinted glass defaults to neutral onSurface tint in dark standard mode',
+    (tester) async {
+      final theme = ThemeData.dark();
+      await _pump(tester, theme);
+
+      final decoration = _surfaceDecoration(tester);
+      final shadow = _surfaceShadow(tester);
+      final expectedBase = theme.colorScheme.surfaceContainerHigh.withValues(
+        alpha: PrismTokens.tintedFillAlphaDark * 2.4,
+      );
+
+      expect(
+        decoration.color,
+        Color.alphaBlend(
+          theme.colorScheme.onSurface.withValues(
+            alpha: PrismTokens.tintedDefaultTintAlphaDark,
+          ),
+          expectedBase,
+        ),
+      );
+      expect(_surfaceHighlight(tester).colors.first.a, 0.10);
+      expect(shadow.color.a, 0.10);
+      expect(shadow.blurRadius, 4);
+      expect(shadow.offset, const Offset(0, 1));
+    },
+  );
+
+  testWidgets(
+    'tinted glass picks up accent in palette mode',
+    (tester) async {
+      final theme = ThemeData.light().copyWith(
+        extensions: const <ThemeExtension<dynamic>>[PrismThemeFlavor.palette],
+      );
+      await _pump(tester, theme);
+
+      final decoration = _surfaceDecoration(tester);
+      final expectedBase = theme.colorScheme.surfaceContainerHigh.withValues(
+        alpha: PrismTokens.tintedFillAlphaLight,
+      );
+
+      expect(
+        decoration.color,
+        Color.alphaBlend(
+          theme.colorScheme.primary.withValues(
+            alpha: PrismTokens.tintedDefaultTintAlphaLight,
+          ),
+          expectedBase,
+        ),
+      );
+    },
+  );
+}
+
+Future<void> _pump(WidgetTester tester, ThemeData theme) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      child: MaterialApp(
+        theme: theme,
+        home: const Scaffold(
+          body: Center(
+            child: TintedGlassSurface(
+              width: 40,
+              height: 40,
+              child: SizedBox.shrink(),
             ),
           ),
         ),
       ),
-    );
-
-    final decoration = _surfaceDecoration(tester);
-    final shadow = _surfaceShadow(tester);
-    final expectedBase = theme.colorScheme.surfaceContainerHigh.withValues(
-      alpha: PrismTokens.tintedFillAlphaLight,
-    );
-
-    expect(
-      decoration.color,
-      Color.alphaBlend(
-        theme.colorScheme.primary.withValues(
-          alpha: PrismTokens.tintedDefaultTintAlphaLight,
-        ),
-        expectedBase,
-      ),
-    );
-    expect(_surfaceHighlight(tester).colors.first.a, 0.10);
-    expect(shadow.color.a, 0.03);
-    expect(shadow.blurRadius, 4);
-    expect(shadow.offset, const Offset(0, 1));
-  });
-
-  testWidgets('tinted glass shadow stays soft in dark mode', (tester) async {
-    final theme = ThemeData.dark();
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp(
-          theme: theme,
-          home: const Scaffold(
-            body: Center(
-              child: TintedGlassSurface(
-                width: 40,
-                height: 40,
-                child: SizedBox.shrink(),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    final decoration = _surfaceDecoration(tester);
-    final shadow = _surfaceShadow(tester);
-    final expectedBase = theme.colorScheme.surfaceContainerHigh.withValues(
-      alpha: PrismTokens.tintedFillAlphaDark * 2.4,
-    );
-
-    expect(
-      decoration.color,
-      Color.alphaBlend(
-        theme.colorScheme.primary.withValues(
-          alpha: PrismTokens.tintedDefaultTintAlphaDark,
-        ),
-        expectedBase,
-      ),
-    );
-    expect(_surfaceHighlight(tester).colors.first.a, 0.10);
-    expect(shadow.color.a, 0.10);
-    expect(shadow.blurRadius, 4);
-    expect(shadow.offset, const Offset(0, 1));
-  });
+    ),
+  );
 }
 
 BoxDecoration _surfaceDecoration(WidgetTester tester) {

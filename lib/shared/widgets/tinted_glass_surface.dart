@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/theme/prism_theme_flavor.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 /// A cheap faux-glass surface that achieves a glassy appearance through
@@ -83,7 +84,17 @@ class TintedGlassSurface extends ConsumerWidget {
       alpha: isDark ? baseFillAlpha * 2.4 : baseFillAlpha,
     );
 
-    final effectiveTint = tint ?? colors.primary;
+    // Default tint follows the theme flavor. Palette mode seeds the whole UI
+    // with the user's chosen color, so it makes sense for glass surfaces to
+    // pick it up. In standard/oled the accent is the brand purple, and
+    // tinting every glass surface with it (date chips, conversation tiles,
+    // voice bubbles, search bars …) makes the whole app feel themed.
+    // Default to onSurface there so the tint reads as a subtle darken/lighten
+    // with no hue. Callers passing an explicit [tint] are unaffected.
+    final Color defaultTint = PrismThemeFlavor.of(context).isPalette
+        ? colors.primary
+        : colors.onSurface;
+    final effectiveTint = tint ?? defaultTint;
     final effectiveTintStrength = tint != null
         ? tintStrength
         : isDark
