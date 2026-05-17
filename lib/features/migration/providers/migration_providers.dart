@@ -330,11 +330,14 @@ class ImporterNotifier extends Notifier<MigrationState> {
   /// Enter member mapping and custom-front disposition steps as needed.
   /// [resetFirst] carries the user's add-to-existing vs. start-fresh choice
   /// across any pre-import decision steps.
-  void proceedFromPreview({bool resetFirst = false}) {
+  void proceedFromPreview({
+    bool resetFirst = false,
+    bool allowMemberMapping = true,
+  }) {
     final data = state.exportData;
     if (data == null) return;
 
-    if (!resetFirst && data.members.isNotEmpty) {
+    if (allowMemberMapping && !resetFirst && data.members.isNotEmpty) {
       unawaited(_prepareMemberMapping(data, resetFirst: resetFirst));
       return;
     }

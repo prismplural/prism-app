@@ -20,7 +20,6 @@ import 'package:prism_plurality/features/migration/providers/migration_providers
 import 'package:prism_plurality/features/migration/services/sp_importer.dart'
     as sp_importer;
 import 'package:prism_plurality/features/migration/widgets/custom_front_disposition_step.dart';
-import 'package:prism_plurality/features/migration/widgets/sp_member_mapping_step.dart';
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
@@ -1776,7 +1775,9 @@ class _SimplyPluralImportFlowState
         break;
       case sp_importer.ImportState.previewing:
         pendingAction = () async {
-          ref.read(importerProvider.notifier).proceedFromPreview();
+          ref
+              .read(importerProvider.notifier)
+              .proceedFromPreview(allowMemberMapping: false);
         };
         break;
       case sp_importer.ImportState.matchMembers:
@@ -1822,6 +1823,13 @@ class _SimplyPluralImportFlowState
           .read(onboardingPendingImportActionProvider.notifier)
           .set(capturedAction);
     });
+
+    if (migration.step == sp_importer.ImportState.matchMembers) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(importerProvider.notifier).continueFromMemberMapping();
+      });
+    }
 
     // When the SP import completes and the file carried a system name,
     // seed the onboarding system-name field so the user doesn't have to
@@ -2060,19 +2068,12 @@ class _SimplyPluralImportFlowState
             _ActionButton(
               label: context.l10n.onboardingSimplyPluralImportButton,
               onPressed: () {
-                ref.read(importerProvider.notifier).proceedFromPreview();
+                ref
+                    .read(importerProvider.notifier)
+                    .proceedFromPreview(allowMemberMapping: false);
               },
             ),
           ],
-
-          // Member mapping step — lets the user decide which SP members should
-          // link to existing Prism members before importing the rest.
-          if (migration.step == sp_importer.ImportState.matchMembers &&
-              migration.exportData != null)
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.75,
-              child: SpMemberMappingStep(data: migration.exportData!),
-            ),
 
           // Custom-front disposition step — lets the user pick per-CF how to
           // handle SP "custom fronts" (import as member, merge as note,

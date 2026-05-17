@@ -113,6 +113,40 @@ void main() {
         expect(container.read(importerProvider).step, ImportState.matchMembers);
       },
     );
+
+    test('skips member matching when the flow disables it', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final memberRepository = FakeMemberRepository()
+        ..seed([
+          domain.Member(
+            id: 'local-a',
+            name: 'Different',
+            createdAt: DateTime(2026),
+          ),
+        ]);
+      final container = _containerFor(
+        db: db,
+        memberRepository: memberRepository,
+        settings: const settings_models.SystemSettings(
+          hasCompletedOnboarding: true,
+        ),
+      );
+      addTearDown(container.dispose);
+
+      await container.read(importerProvider.notifier).selectAndParseFile();
+      expect(container.read(importerProvider).step, ImportState.previewing);
+
+      container
+          .read(importerProvider.notifier)
+          .proceedFromPreview(allowMemberMapping: false);
+      await pumpEventQueue();
+
+      expect(
+        container.read(importerProvider).step,
+        ImportState.chooseDispositions,
+      );
+    });
   });
 }
 
