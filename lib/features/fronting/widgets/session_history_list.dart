@@ -501,7 +501,10 @@ class _PerMemberRowsList extends ConsumerWidget {
         // Split fronting vs. sleep. perMemberRows shows one row per
         // fronting session, with sleep tiles intermixed (same
         // visual treatment as combinedPeriods).
-        final allSessions = bundle.sessions;
+        final allSessions = _clampSessionsToRange(
+          bundle.sessions,
+          bundle.rangeStart,
+        );
         final frontingSessions = <FrontingSession>[];
         for (final s in allSessions) {
           if (s.isSleep) continue;
@@ -597,6 +600,20 @@ class _PerMemberRowsList extends ConsumerWidget {
       },
     );
   }
+}
+
+List<FrontingSession> _clampSessionsToRange(
+  List<FrontingSession> sessions,
+  DateTime rangeStart,
+) {
+  final now = DateTime.now();
+  return [
+    for (final session in sessions)
+      if ((session.endTime ?? now).isAfter(rangeStart))
+        session.startTime.isBefore(rangeStart)
+            ? session.copyWith(startTime: rangeStart)
+            : session,
+  ];
 }
 
 /// One day's worth of per-member rows, fronting and sleep interleaved

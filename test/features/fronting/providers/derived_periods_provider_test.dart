@@ -404,6 +404,64 @@ void main() {
       );
     });
 
+    test('recently-ended long-running rows do not expand the overlap window '
+        'to their true start', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final repo = DriftFrontingSessionRepository(db.frontingSessionsDao, null);
+
+      final now = DateTime.now();
+      final oldStart = now.subtract(const Duration(days: 400));
+      final recentEnd = now.subtract(const Duration(minutes: 1));
+
+      await db.frontingSessionsDao.insertSession(
+        FrontingSessionMapper.toCompanion(
+          FrontingSession(
+            id: 'long-closed-row',
+            memberId: 'host',
+            startTime: oldStart,
+            endTime: recentEnd,
+          ),
+        ),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          frontingSessionRepositoryProvider.overrideWith(
+            (ref) => repo as FrontingSessionRepository,
+          ),
+          allMembersProvider.overrideWith(
+            (ref) => Stream.value(const <Member>[]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.listen<AsyncValue<List<FrontingSession>>>(
+        unifiedHistoryProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      container.listen<AsyncValue<DerivedPeriodsInputBundle>>(
+        unifiedHistoryOverlapProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+
+      final bundle = await container.read(unifiedHistoryOverlapProvider.future);
+      final tooOld = now.subtract(const Duration(days: 100));
+
+      expect(
+        bundle.rangeStart.isBefore(tooOld),
+        isFalse,
+        reason:
+            'a recently-ended long-running import row should be rendered from '
+            'the bounded lookback window instead of generating hundreds of '
+            'midnight-split history rows',
+      );
+    });
+
     test('provider range clamps a 400-day host so the sweep stays inside the '
         'lookback window', () async {
       // Regression: computeDerivedPeriods used to infer rangeStart from

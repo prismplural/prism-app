@@ -789,6 +789,7 @@ void main() {
       List<FrontingPeriod> periods = const [],
       Map<String, Member> members = const {},
       List<AlwaysPresentMember> alwaysPresent = const [],
+      DateTime? rangeStart,
     }) {
       final router = GoRouter(
         routes: [
@@ -806,12 +807,11 @@ void main() {
         ],
       );
 
-      // Build a bundle for the overlap provider — perMemberRows reads
-      // from this directly. `rangeStart` only matters for derivation,
-      // which the perMemberRows path doesn't run.
+      // Build a bundle for the overlap provider — perMemberRows reads from
+      // this directly and uses `rangeStart` to clamp long display rows.
       final bundle = DerivedPeriodsInputBundle(
         sessions: sessions,
-        rangeStart: DateTime(2020),
+        rangeStart: rangeStart ?? DateTime(2020),
       );
 
       return ProviderScope(
@@ -895,6 +895,29 @@ void main() {
       expect(find.text('Alice'), findsOneWidget);
       expect(find.text('Bob'), findsOneWidget);
       expect(find.text('Alice & Bob'), findsNothing);
+    });
+
+    testWidgets('perMemberRows mode clamps long rows to provider range', (
+      tester,
+    ) async {
+      final rangeStart = DateTime(2026, 4, 1);
+      final oldStart = DateTime(2025, 12, 27, 10);
+      final recentEnd = DateTime(2026, 4, 3, 11);
+
+      await tester.pumpWidget(
+        buildModeSubject(
+          mode: FrontingListViewMode.perMemberRows,
+          sessions: [
+            _s(id: 'long', memberId: 'a', start: oldStart, end: recentEnd),
+          ],
+          members: {'a': _member('a', 'Alice')},
+          rangeStart: rangeStart,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alice'), findsWidgets);
+      expect(find.text('December 27, 2025'), findsNothing);
     });
 
     testWidgets(

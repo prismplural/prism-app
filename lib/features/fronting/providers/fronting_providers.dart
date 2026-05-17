@@ -438,10 +438,10 @@ final unifiedHistoryProvider =
 /// for the unified history list.
 ///
 /// The provider starts with this conservative window, then expands it back
-/// to the oldest closed fronting row already loaded by the raw pager. That
-/// keeps initial renders bounded, while letting infinite-scroll actually
-/// reveal older derived periods instead of showing a spinner for rows the
-/// fixed 90-day window would never include.
+/// to the oldest bounded display window for closed fronting rows already
+/// loaded by the raw pager. That keeps initial renders bounded, while letting
+/// infinite-scroll actually reveal older derived periods instead of showing a
+/// spinner for rows the fixed 90-day window would never include.
 const derivedPeriodsLookbackDays = 90;
 
 /// Far-future safety margin for the SQL overlap query's upper bound.
@@ -473,9 +473,11 @@ const derivedPeriodsLookaheadDays = 30;
 ///
 /// `rangeStart` is the visible window's lower bound. It starts at
 /// `now - derivedPeriodsLookbackDays` and may move farther back when
-/// the raw history pager has already loaded older closed rows. Within a
-/// single provider emission it stays fixed, so derivation has one stable
-/// lower clamp.
+/// the raw history pager has already loaded older closed rows. Long
+/// closed rows expand from their end-time tail instead of their true
+/// start, so ending a multi-year imported current front cannot generate
+/// thousands of midnight-split display rows. Within a single provider
+/// emission it stays fixed, so derivation has one stable lower clamp.
 ///
 /// There is intentionally NO `rangeEnd` here. The derivation captures
 /// a fresh `DateTime.now()` per run and uses it as the visible upper
@@ -507,10 +509,12 @@ class DerivedPeriodsInputBundle {
 /// which a row-paged "newest N rows" query would silently drop.
 ///
 /// The lower bound starts at the 90-day baseline and expands to the oldest
-/// closed fronting row already loaded by [unifiedHistoryProvider]. Open
-/// rows are intentionally ignored for expansion: a 400-day currently-open
+/// bounded closed-row display window already loaded by [unifiedHistoryProvider].
+/// Open rows are intentionally ignored for expansion: a 400-day currently-open
 /// host must be included by overlap, but must not push the visible window
-/// 400 days back and generate hundreds of day slices.
+/// 400 days back and generate hundreds of day slices. Closed rows use the
+/// same bound against their end time, so recently ending a 400-day host does
+/// not turn the app into a multi-year history renderer on next launch.
 ///
 /// The SQL upper bound (`sqlUpperBound`, `now + 30d`) is internal:
 /// it's threaded into `watchSessionsOverlappingRange` so newly-inserted
@@ -552,9 +556,16 @@ DateTime _derivedHistoryRangeStart(
   );
   for (final session in loadedRows) {
     if (session.isDeleted || session.isSleep) continue;
-    if (session.endTime == null) continue;
-    if (session.startTime.isBefore(rangeStart)) {
-      rangeStart = session.startTime;
+    final endTime = session.endTime;
+    if (endTime == null) continue;
+    final boundedStart = endTime.subtract(
+      const Duration(days: derivedPeriodsLookbackDays),
+    );
+    final candidateStart = session.startTime.isAfter(boundedStart)
+        ? session.startTime
+        : boundedStart;
+    if (candidateStart.isBefore(rangeStart)) {
+      rangeStart = candidateStart;
     }
   }
   return rangeStart;
