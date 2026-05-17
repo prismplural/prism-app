@@ -1573,6 +1573,9 @@ DriftSyncEntity _conversationsEntity(
     tableName: 'conversations',
     toSyncFields: (dynamic row) {
       final r = row as Conversation;
+      // Sparse-emit includes_all_members so pre-v25 peers don't quarantine
+      // every ordinary conversation write. Older peers default to false on
+      // their end since they don't know the field exists.
       return {
         'created_at': _dateTimeToSyncString(r.createdAt),
         'last_activity_at': _dateTimeToSyncString(r.lastActivityAt),
@@ -1588,7 +1591,7 @@ DriftSyncEntity _conversationsEntity(
         'category_id': r.categoryId,
         'display_order': r.displayOrder,
         'is_deleted': r.isDeleted,
-        'includes_all_members': r.includesAllMembers,
+        if (r.includesAllMembers) 'includes_all_members': true,
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
@@ -1647,7 +1650,7 @@ DriftSyncEntity _conversationsEntity(
         'category_id': row.categoryId,
         'display_order': row.displayOrder,
         'is_deleted': row.isDeleted,
-        'includes_all_members': row.includesAllMembers,
+        if (row.includesAllMembers) 'includes_all_members': true,
       };
     },
     isDeleted: (String id) async {

@@ -11,6 +11,7 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
@@ -546,9 +547,7 @@ class _ConversationTile extends ConsumerWidget {
       data: (members) {
         final others = members
             .where(
-              (m) =>
-                  m.id != memberId &&
-                  conversation.participantIds.contains(m.id),
+              (m) => m.id != memberId && isImplicitParticipantOf(conversation, m.id),
             )
             .toList();
         if (others.isEmpty) return '';

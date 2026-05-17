@@ -625,6 +625,10 @@ Future<void> _seedDummyRows(AppDatabase db) async {
           id: 'c1',
           createdAt: now,
           lastActivityAt: now,
+          // includesAllMembers=true so the parity test sees the field
+          // emitted. The producer sparse-emits when false (pre-v25 peers
+          // would otherwise quarantine every conversation write).
+          includesAllMembers: const Value(true),
         ),
       );
 

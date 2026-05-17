@@ -100,17 +100,23 @@ void main() {
       expect(fields['muted_by_member_ids'], '["alice","bob"]');
     });
 
-    test('includes_all_members flag is emitted in the sync field map', () {
-      final conversation = domain.Conversation(
+    test('includes_all_members flag is emitted only when true', () {
+      final base = domain.Conversation(
         id: 'conv-1',
         createdAt: DateTime.utc(2026, 4, 27),
         lastActivityAt: DateTime.utc(2026, 4, 27, 1),
-        includesAllMembers: true,
       );
 
-      final fields = repo.debugConversationFields(conversation);
+      // false: omitted so pre-v25 peers don't quarantine every conversation
+      // write on an unknown field.
+      final off = repo.debugConversationFields(base);
+      expect(off.containsKey('includes_all_members'), isFalse);
 
-      expect(fields['includes_all_members'], isTrue);
+      // true: emitted explicitly.
+      final on = repo.debugConversationFields(
+        base.copyWith(includesAllMembers: true),
+      );
+      expect(on['includes_all_members'], isTrue);
     });
   });
 

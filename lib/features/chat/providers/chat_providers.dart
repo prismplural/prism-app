@@ -25,6 +25,15 @@ Member? findCurrentChatViewer(List<Member>? members, String? speakingAs) {
   return null;
 }
 
+/// Whether `memberId` is a participant of `conversation` for badge / read-state
+/// purposes — listed explicitly, or implicit via `includesAllMembers`.
+/// Callers must ensure `memberId` belongs to an active member; SpeakingAsNotifier
+/// already enforces that for `speakingAsProvider`.
+bool isImplicitParticipantOf(Conversation conversation, String memberId) {
+  if (conversation.participantIds.contains(memberId)) return true;
+  return conversation.includesAllMembers && !conversation.isDirectMessage;
+}
+
 ConversationPermissions conversationPermissionsForViewer(
   Conversation conversation, {
   required String? speakingAsMemberId,
@@ -395,6 +404,10 @@ class ChatNotifier extends AsyncNotifier<void> {
   }
 
   Future<void> setIncludesAllMembers(String conversationId, bool value) async {
+    await _requireConversationAction(
+      conversationId,
+      (p) => p.canManage,
+    );
     final repo = ref.read(conversationRepositoryProvider);
     await repo.setIncludesAllMembers(conversationId, value);
   }
@@ -512,7 +525,7 @@ class ChatNotifier extends AsyncNotifier<void> {
       final conv = await convRepo.getConversationById(conversationId);
       if (conv == null) return;
       await _requireCurrentFrontCanTransferOwnership(conversationId, conv);
-      if (!conv.participantIds.contains(newCreatorId)) {
+      if (!isImplicitParticipantOf(conv, newCreatorId)) {
         throw StateError('Conversation owner must be a participant.');
       }
       if (conv.creatorId == newCreatorId) return;
@@ -871,9 +884,9 @@ final allUnreadCountsProvider = StreamProvider<Map<String, int>>((ref) {
   final conversationSince = <String, DateTime>{};
   for (final conv in conversations) {
     // Non-participants don't track unread state — they have no last-read
-    // timestamp, so falling back to createdAt would mark every message in the
-    // conversation unread forever.
-    if (!conv.participantIds.contains(speakingAs)) continue;
+    // timestamp, so falling back to createdAt would mark every message
+    // unread forever.
+    if (!isImplicitParticipantOf(conv, speakingAs)) continue;
     final lastRead = conv.lastReadTimestamps[speakingAs];
     conversationSince[conv.id] = lastRead ?? conv.createdAt;
   }
@@ -966,7 +979,7 @@ int _unreadConversationCount(Ref ref, {bool? isDirectMessage}) {
     if (isDirectMessage != null && conv.isDirectMessage != isDirectMessage) {
       continue;
     }
-    if (!conv.participantIds.contains(speakingAs)) continue;
+    if (!isImplicitParticipantOf(conv, speakingAs)) continue;
     if (conv.mutedByMemberIds.contains(speakingAs)) continue;
     if (conv.archivedByMemberIds.contains(speakingAs)) continue;
 
@@ -1019,7 +1032,7 @@ final mentionConversationIdsProvider = Provider.autoDispose<Set<String>>((ref) {
 
   final conversationSince = <String, DateTime>{};
   for (final conv in conversations) {
-    if (!conv.participantIds.contains(speakingAs)) continue;
+    if (!isImplicitParticipantOf(conv, speakingAs)) continue;
     final lastRead = conv.lastReadTimestamps[speakingAs];
     conversationSince[conv.id] = lastRead ?? conv.createdAt;
   }
@@ -1119,7 +1132,7 @@ class ConversationTileData {
   bool get hasUnread {
     if (speakingAs == null) return false;
     // Non-participants have no read state to track.
-    if (!conversation.participantIds.contains(speakingAs)) return false;
+    if (!isImplicitParticipantOf(conversation, speakingAs!)) return false;
     final lastRead = conversation.lastReadTimestamps[speakingAs];
     if (lastRead == null) {
       return conversation.lastActivityAt.isAfter(conversation.createdAt);

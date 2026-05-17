@@ -241,7 +241,9 @@ class DriftConversationRepository
       'category_id': c.categoryId,
       'display_order': c.displayOrder,
       'is_deleted': false,
-      'includes_all_members': c.includesAllMembers,
+      // Sparse emit: pre-v25 peers quarantine unknown fields, so only
+      // include includes_all_members when it's true.
+      if (c.includesAllMembers) 'includes_all_members': true,
     };
   }
 }

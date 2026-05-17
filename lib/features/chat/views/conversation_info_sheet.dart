@@ -274,13 +274,24 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
 
   Future<void> _changeOwner(Conversation conversation) async {
     final currentOwnerId = effectiveConversationOwnerId(conversation);
-    final candidateIds = conversation.participantIds
-        .where((participantId) => participantId != currentOwnerId)
-        .toList();
-    final candidates =
-        (await ref.read(memberRepositoryProvider).getMembersByIds(candidateIds))
-            .where((member) => member.isActive && !member.isDeleted)
-            .toList();
+    // Everyone-groups: any active member can take ownership. Otherwise
+    // restrict to the explicit participants list.
+    final List<Member> candidates;
+    if (conversation.includesAllMembers) {
+      final all = await ref.read(activeMembersProvider.future);
+      candidates = all
+          .where((m) => m.id != currentOwnerId && !m.isDeleted)
+          .toList();
+    } else {
+      final candidateIds = conversation.participantIds
+          .where((participantId) => participantId != currentOwnerId)
+          .toList();
+      candidates = (await ref
+              .read(memberRepositoryProvider)
+              .getMembersByIds(candidateIds))
+          .where((member) => member.isActive && !member.isDeleted)
+          .toList();
+    }
     if (!mounted || candidates.isEmpty) return;
 
     final newOwnerId = await showCreatorTransferPicker(
@@ -600,15 +611,17 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
   ) {
     final terms = readTerminology(context, ref);
     final currentOwnerId = effectiveConversationOwnerId(conversation);
-    final hasTransferCandidate = conversation.participantIds.any(
-      (participantId) => participantId != currentOwnerId,
-    );
     final canToggleEveryone = permissions.canManage;
     final activeMemberCount =
         ref.watch(activeMembersProvider).value?.length ?? 0;
     final headerCount = conversation.includesAllMembers
         ? activeMemberCount
         : conversation.participantIds.length;
+    // Anyone other than the current owner can take ownership. For everyone-
+    // groups that's the full active roster; otherwise the explicit list.
+    final hasTransferCandidate = conversation.includesAllMembers
+        ? activeMemberCount > (currentOwnerId == null ? 0 : 1)
+        : conversation.participantIds.any((id) => id != currentOwnerId);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
