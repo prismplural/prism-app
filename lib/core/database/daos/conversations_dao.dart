@@ -37,8 +37,9 @@ class ConversationsDao extends DatabaseAccessor<AppDatabase>
       (select(conversations)
             ..where(
               (c) =>
-                  c.participantIds.like('%"$memberId"%') &
-                  c.isDeleted.equals(false),
+                  (c.participantIds.like('%"$memberId"%') |
+                          c.includesAllMembers.equals(true)) &
+                      c.isDeleted.equals(false),
             )
             ..orderBy([(c) => OrderingTerm.desc(c.lastActivityAt)]))
           .get();

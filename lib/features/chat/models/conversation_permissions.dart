@@ -52,8 +52,12 @@ class ConversationPermissions {
   // A DM with no participants has nothing to gate on — gating visibility/write
   // on a participant list that doesn't exist locks everyone out forever. SP
   // imports produced this shape for channels that had no `members` field.
+  // Still requires a picked speakingAs: with no member selected, fall through
+  // to the "pick a member" banner instead of leaking legacy DM content.
   bool get _isUnscopedDirectMessage =>
-      isDirectMessage && conversation.participantIds.isEmpty;
+      speakingAsMemberId != null &&
+      isDirectMessage &&
+      conversation.participantIds.isEmpty;
   bool get _isOrphanedDirectMessage =>
       isDirectMessage && conversation.participantIds.length == 1;
   /// Admin viewing a group they aren't a member of. Admins get read +
@@ -86,7 +90,12 @@ class ConversationPermissions {
       !isDirectMessage && canManage && !conversation.includesAllMembers;
   bool get canTransferOwnership => !isDirectMessage && canManage;
   bool get canDeleteConversation => isDirectMessage ? canView : canManage;
-  bool get canLeave => !isDirectMessage && isParticipant;
+  // Implicit "everyone group" members aren't in participantIds, so leaving is
+  // a no-op for them — only show Leave when there's an explicit row to remove.
+  bool get canLeave =>
+      !isDirectMessage &&
+      speakingAsMemberId != null &&
+      conversation.participantIds.contains(speakingAsMemberId);
   // Personal list-state — if you can see it, you can mute/archive/read it.
   bool get canArchive => canView;
   bool get canMute => canView;

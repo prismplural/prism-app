@@ -380,14 +380,18 @@ void main() {
       expect(perms.canView, isTrue);
     });
 
-    test('null speakingAs can view', () {
+    test('null speakingAs cannot view or write (no anonymous DM peek)', () {
+      // The unscoped-DM carve-out exists so a picked member can still open
+      // legacy SP-imported DMs that arrived with empty participantIds. With
+      // nobody picked there is no participant context to grant — fall through
+      // to the "pick a member" banner instead of leaking content.
       final perms = ConversationPermissions(
         conversation: makeUnscopedDm(),
         speakingAsMemberId: null,
         speakingAsMember: null,
       );
-      expect(perms.canView, isTrue);
-      expect(perms.canWrite, isTrue);
+      expect(perms.canView, isFalse);
+      expect(perms.canWrite, isFalse);
     });
 
     test('non-participant can write (consistent with view)', () {
@@ -591,6 +595,36 @@ void main() {
         expect(perms.canWrite, isTrue);
         expect(perms.canSendMessages, isTrue);
         expect(perms.canReact, isTrue);
+      },
+    );
+
+    test(
+      'implicit-only member cannot leave (would be a no-op on participantIds)',
+      () {
+        // Leaving removes the speakingAs from participantIds. Implicit
+        // everyone-group members were never in that list, so the action does
+        // nothing — hide the button rather than show a dead control.
+        final perms = ConversationPermissions(
+          conversation: makeEveryoneGroup(),
+          speakingAsMemberId: 'outsider',
+          speakingAsMember: makeMember(id: 'outsider'),
+        );
+        expect(perms.canLeave, isFalse);
+      },
+    );
+
+    test(
+      'explicitly listed member of an everyone-group can still leave',
+      () {
+        // Three participants avoids the legacy two-person-no-title DM heuristic
+        // that would otherwise reclassify this as a DM.
+        final perms = ConversationPermissions(
+          conversation: makeEveryoneGroup(
+            participantIds: const ['creator', 'listed', 'other'],
+          ),
+          speakingAsMemberId: 'listed',
+          speakingAsMember: makeMember(id: 'listed'),
+        );
         expect(perms.canLeave, isTrue);
       },
     );

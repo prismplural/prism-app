@@ -453,7 +453,11 @@ class FakeConversationRepository implements ConversationRepository {
   @override
   Future<List<Conversation>> getConversationsForMember(String memberId) async {
     return conversations
-        .where((conversation) => conversation.participantIds.contains(memberId))
+        .where(
+          (conversation) =>
+              conversation.participantIds.contains(memberId) ||
+              conversation.includesAllMembers,
+        )
         .toList();
   }
 

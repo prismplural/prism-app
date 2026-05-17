@@ -170,6 +170,84 @@ void main() {
       expect(repo.conversations.single.creatorId, 'alice');
       expect(container.read(chatNotifierProvider).hasError, isTrue);
     });
+
+    test(
+      'blocks transfer to a bogus id on an everyone-group conversation',
+      () async {
+        // Regression: `isImplicitParticipantOf` returns true for ANY id when
+        // `includesAllMembers` is set, so transferCreator must independently
+        // verify the candidate is a real, active member.
+        final everyoneGroup = Conversation(
+          id: 'conv-1',
+          createdAt: now,
+          lastActivityAt: now,
+          title: 'Everyone',
+          creatorId: 'alice',
+          participantIds: const [],
+          includesAllMembers: true,
+        );
+        final repo = FakeConversationRepository()
+          ..conversations.add(everyoneGroup);
+        final messages = _FakeChatMessageRepository();
+        final container = buildContainer(
+          conversation: everyoneGroup,
+          conversationRepo: repo,
+          messageRepo: messages,
+          members: [member('alice'), member('bob', isAdmin: true)],
+          fronts: [front('bob')],
+        );
+        addTearDown(container.dispose);
+
+        await container
+            .read(chatNotifierProvider.notifier)
+            .transferCreator('conv-1', 'ghost-not-a-member');
+
+        expect(repo.conversations.single.creatorId, 'alice');
+        expect(messages.messages, isEmpty);
+        expect(container.read(chatNotifierProvider).hasError, isTrue);
+        expect(
+          container.read(chatNotifierProvider).error,
+          isA<StateError>(),
+        );
+      },
+    );
+
+    test('blocks transfer to a deleted member on an everyone-group', () async {
+      final everyoneGroup = Conversation(
+        id: 'conv-1',
+        createdAt: now,
+        lastActivityAt: now,
+        title: 'Everyone',
+        creatorId: 'alice',
+        participantIds: const [],
+        includesAllMembers: true,
+      );
+      final repo = FakeConversationRepository()
+        ..conversations.add(everyoneGroup);
+      final messages = _FakeChatMessageRepository();
+      final deletedCarol = Member(
+        id: 'carol',
+        name: 'carol',
+        createdAt: now,
+        isDeleted: true,
+      );
+      final container = buildContainer(
+        conversation: everyoneGroup,
+        conversationRepo: repo,
+        messageRepo: messages,
+        members: [member('alice'), member('bob', isAdmin: true), deletedCarol],
+        fronts: [front('bob')],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(chatNotifierProvider.notifier)
+          .transferCreator('conv-1', 'carol');
+
+      expect(repo.conversations.single.creatorId, 'alice');
+      expect(messages.messages, isEmpty);
+      expect(container.read(chatNotifierProvider).hasError, isTrue);
+    });
   });
 }
 

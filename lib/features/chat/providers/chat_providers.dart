@@ -528,18 +528,22 @@ class ChatNotifier extends AsyncNotifier<void> {
       if (!isImplicitParticipantOf(conv, newCreatorId)) {
         throw StateError('Conversation owner must be a participant.');
       }
+      // Defense-in-depth: `isImplicitParticipantOf` short-circuits true for any
+      // id on an everyone-group, so independently verify the candidate is a
+      // real, active, non-deleted member before writing.
+      final memberRepo = ref.read(memberRepositoryProvider);
+      final member = await memberRepo.getMemberById(newCreatorId);
+      if (member == null || member.isDeleted || !member.isActive) {
+        throw StateError('Conversation owner must be an active member.');
+      }
       if (conv.creatorId == newCreatorId) return;
 
       await convRepo.updateConversation(conv.copyWith(creatorId: newCreatorId));
 
-      final memberRepo = ref.read(memberRepositoryProvider);
-      final member = await memberRepo.getMemberById(newCreatorId);
-      if (member != null && !member.isDeleted) {
-        await _sendSystemMessage(
-          conversationId,
-          '${member.name} is now the conversation owner',
-        );
-      }
+      await _sendSystemMessage(
+        conversationId,
+        '${member.name} is now the conversation owner',
+      );
     });
   }
 
