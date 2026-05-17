@@ -302,14 +302,14 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('soft keyboard send keeps composer focus while send is pending', (
+  testWidgets('mobile composer requests return key instead of soft send', (
     tester,
   ) async {
-    final sendCompleter = Completer<void>();
+    final chatNotifier = _RecordingChatNotifier();
     await tester.pumpWidget(
       buildSubject(
         useKeyboardDismissScope: true,
-        chatNotifierFactory: () => _BlockingChatNotifier(sendCompleter),
+        chatNotifierFactory: () => chatNotifier,
       ),
     );
     await tester.pumpAndSettle();
@@ -320,23 +320,40 @@ void main() {
     await tester.pump();
 
     TextField textField() => tester.widget<TextField>(textFieldFinder);
+    expect(textField().textInputAction, TextInputAction.newline);
     expect(textField().focusNode?.hasFocus, isTrue);
 
-    await tester.testTextInput.receiveAction(TextInputAction.send);
+    await tester.testTextInput.receiveAction(TextInputAction.newline);
     await tester.pump();
 
+    expect(chatNotifier.sendCount, 0);
     expect(textField().focusNode?.hasFocus, isTrue);
     expect(
       tester.testTextInput.hasAnyClients,
       isTrue,
       reason:
-          'The soft keyboard send action must not close the active input '
-          'connection while the send is pending.',
+          'The soft keyboard return action must keep the active input '
+          'connection open for continued multiline drafting.',
     );
-
-    sendCompleter.complete();
-    await tester.pumpAndSettle();
   });
+}
+
+class _RecordingChatNotifier extends ChatNotifier {
+  int sendCount = 0;
+
+  @override
+  Future<String> sendMessage({
+    required String conversationId,
+    required String content,
+    required String authorId,
+    String? messageId,
+    String? replyToId,
+    String? replyToAuthorId,
+    String? replyToContent,
+  }) async {
+    sendCount += 1;
+    return 'message-id';
+  }
 }
 
 class _BlockingChatNotifier extends ChatNotifier {

@@ -1020,8 +1020,9 @@ class _AttachmentMenuItem {
 /// A pill-shaped text field with glass-style fill and border, built natively
 /// via [InputDecoration] so the shape is proper rather than clipped.
 ///
-/// On desktop/tablet, Enter sends and Ctrl/Cmd+Enter inserts a newline.
-/// On phones the soft keyboard's action button sends instead.
+/// On desktop, Enter sends and Ctrl/Cmd/Shift+Enter inserts a newline.
+/// On phones/tablets the soft keyboard keeps a normal return key; the visible
+/// send button sends the message.
 class _GlassTextField extends StatelessWidget {
   const _GlassTextField({
     required this.controller,
@@ -1196,10 +1197,7 @@ class _GlassTextField extends StatelessWidget {
         inputFormatters: const [AtomicMentionFormatter()],
         minLines: 1,
         maxLines: 6,
-        // On phones, show the send action on the soft keyboard
-        textInputAction: useHardwareShortcuts
-            ? TextInputAction.newline
-            : TextInputAction.send,
+        textInputAction: TextInputAction.newline,
         cursorColor: theme.colorScheme.primary,
         textAlignVertical: TextAlignVertical.top,
         contentInsertionConfiguration: ContentInsertionConfiguration(
@@ -1225,9 +1223,6 @@ class _GlassTextField extends StatelessWidget {
           isDense: true,
         ),
         onChanged: onChanged,
-        // On phones, handle the soft keyboard send action before Flutter's
-        // default editing completion unfocuses and restarts the input method.
-        onEditingComplete: useHardwareShortcuts ? null : onSend,
       ),
     );
 
