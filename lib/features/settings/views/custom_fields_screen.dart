@@ -1,22 +1,20 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
-import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
-import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -106,42 +104,6 @@ class _FieldsList extends ConsumerWidget {
     Haptics.selection();
   }
 
-  Future<void> _confirmDelete(
-    BuildContext context,
-    WidgetRef ref,
-    CustomField field,
-  ) async {
-    final confirmed = await PrismDialog.confirm(
-      context: context,
-      title: context.l10n.settingsCustomFieldsDeleteTitle,
-      message: context.l10n.settingsCustomFieldsDeleteConfirm(field.name),
-      confirmLabel: context.l10n.delete,
-      destructive: true,
-    );
-    if (confirmed) {
-      Haptics.heavy();
-      unawaited(
-        ref.read(customFieldNotifierProvider.notifier).deleteField(field.id),
-      );
-      if (context.mounted) {
-        PrismToast.show(
-          context,
-          message: context.l10n.settingsCustomFieldsDeletedToast(field.name),
-        );
-      }
-    }
-  }
-
-  void _openEditSheet(BuildContext context, CustomField field) {
-    PrismSheet.showFullScreen(
-      context: context,
-      builder: (context, scrollController) => CreateEditFieldSheet(
-        scrollController: scrollController,
-        field: field,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -165,43 +127,42 @@ class _FieldsList extends ConsumerWidget {
       },
       itemBuilder: (context, index) {
         final field = fields[index];
-        return Dismissible(
+        return PrismListRow(
           key: ValueKey(field.id),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 24),
-            color: theme.colorScheme.error,
-            child: Icon(AppIcons.delete, color: theme.colorScheme.onError),
+          leading: Icon(
+            _iconForType(field.fieldType),
+            color: theme.colorScheme.primary,
           ),
-          confirmDismiss: (_) async {
-            await _confirmDelete(context, ref, field);
-            return false;
-          },
-          child: PrismListRow(
-            key: ValueKey(field.id),
-            leading: Icon(
-              _iconForType(field.fieldType),
-              color: theme.colorScheme.primary,
+          title: Text(field.name),
+          subtitle: Text(
+            _subtitleForField(field),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            title: Text(field.name),
-            subtitle: Text(
-              _subtitleForField(field),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            trailing: ReorderableDragStartListener(
-              index: index,
-              child: Icon(
-                AppIcons.dragHandle,
-                color: theme.colorScheme.onSurfaceVariant.withValues(
-                  alpha: 0.4,
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ReorderableDragStartListener(
+                index: index,
+                child: Icon(
+                  AppIcons.dragHandle,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.4,
+                  ),
                 ),
               ),
-            ),
-            onTap: () => _openEditSheet(context, field),
+              const SizedBox(width: 8),
+              Icon(
+                AppIcons.chevronRightRounded,
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.7,
+                ),
+              ),
+            ],
           ),
+          onTap: () =>
+              context.push(AppRoutePaths.settingsCustomField(field.id)),
         );
       },
     );

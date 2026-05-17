@@ -86,6 +86,7 @@ abstract final class AppRoutePaths {
   static String settingsMember(String id) => '/settings/members/$id';
   static String settingsMemberFrontingHistory(String id) =>
       '/settings/members/$id/fronting';
+  static String settingsCustomField(String id) => '/settings/custom-fields/$id';
   static String settingsHabit(String id) => '/settings/habits/$id';
   static String settingsFriend(String id) => '/settings/sharing/$id';
   static String memberBoard(String id) => '/boards/member/$id';

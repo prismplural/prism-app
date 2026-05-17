@@ -7803,6 +7803,44 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get settingsCustomFieldNotFound => 'Campo no encontrado';
+
+  @override
+  String get settingsCustomFieldFilledInHeading => 'Completado';
+
+  @override
+  String settingsCustomFieldFilledInCount(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  ) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Completado para $count $termPluralLower',
+      one: 'Completado para 1 $termSingularLower',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsCustomFieldNoValuesTitle => 'Nada completado todavía';
+
+  @override
+  String settingsCustomFieldNoValuesSubtitle(String termPluralLower) {
+    return 'Cuando $termPluralLower completen este campo, aparecerán aquí.';
+  }
+
+  @override
+  String settingsCustomFieldValueSemantics(
+    String fieldName,
+    String memberName,
+    String value,
+  ) {
+    return '$fieldName de $memberName: $value';
+  }
+
+  @override
   String get settingsAccentColorPrismIris => 'Iris Prism';
 
   @override

@@ -101,6 +101,13 @@ class DriftCustomFieldsRepository
   }
 
   @override
+  Stream<List<domain.CustomFieldValue>> watchValuesForField(String fieldId) {
+    return _dao
+        .watchValuesForField(fieldId)
+        .map((rows) => rows.map(CustomFieldValueMapper.toDomain).toList());
+  }
+
+  @override
   Future<List<domain.CustomFieldValue>> getAllValues() async {
     final rows = await _dao.getAllValues();
     return rows.map(CustomFieldValueMapper.toDomain).toList();

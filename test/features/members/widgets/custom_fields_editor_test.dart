@@ -221,4 +221,8 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   @override
   Stream<List<CustomFieldValue>> watchValuesForMember(String memberId) =>
       const Stream.empty();
+
+  @override
+  Stream<List<CustomFieldValue>> watchValuesForField(String fieldId) =>
+      const Stream.empty();
 }

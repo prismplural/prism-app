@@ -12523,6 +12523,50 @@ abstract class AppLocalizations {
   /// **'{name} deleted'**
   String settingsCustomFieldsDeletedToast(String name);
 
+  /// Not found message for a deleted or missing custom field
+  ///
+  /// In en, this message translates to:
+  /// **'Field not found'**
+  String get settingsCustomFieldNotFound;
+
+  /// Heading for the members with values section on custom field detail
+  ///
+  /// In en, this message translates to:
+  /// **'Filled In'**
+  String get settingsCustomFieldFilledInHeading;
+
+  /// Subtitle showing how many members have a value for a custom field
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Filled in for 1 {termSingularLower}} other{Filled in for {count} {termPluralLower}}}'**
+  String settingsCustomFieldFilledInCount(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  );
+
+  /// Empty state title when no members have a custom field value
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing filled in yet'**
+  String get settingsCustomFieldNoValuesTitle;
+
+  /// Empty state subtitle when no members have a custom field value
+  ///
+  /// In en, this message translates to:
+  /// **'When {termPluralLower} fill in this field, they’ll appear here.'**
+  String settingsCustomFieldNoValuesSubtitle(String termPluralLower);
+
+  /// Screen reader label for a member custom field value row
+  ///
+  /// In en, this message translates to:
+  /// **'{fieldName} for {memberName}: {value}'**
+  String settingsCustomFieldValueSemantics(
+    String fieldName,
+    String memberName,
+    String value,
+  );
+
   /// Tooltip for the Prism Iris accent color option
   ///
   /// In en, this message translates to:

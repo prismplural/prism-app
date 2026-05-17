@@ -7685,6 +7685,44 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get settingsCustomFieldNotFound => 'Field not found';
+
+  @override
+  String get settingsCustomFieldFilledInHeading => 'Filled In';
+
+  @override
+  String settingsCustomFieldFilledInCount(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  ) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Filled in for $count $termPluralLower',
+      one: 'Filled in for 1 $termSingularLower',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsCustomFieldNoValuesTitle => 'Nothing filled in yet';
+
+  @override
+  String settingsCustomFieldNoValuesSubtitle(String termPluralLower) {
+    return 'When $termPluralLower fill in this field, they’ll appear here.';
+  }
+
+  @override
+  String settingsCustomFieldValueSemantics(
+    String fieldName,
+    String memberName,
+    String value,
+  ) {
+    return '$fieldName for $memberName: $value';
+  }
+
+  @override
   String get settingsAccentColorPrismIris => 'Prism Iris';
 
   @override

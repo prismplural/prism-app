@@ -8751,6 +8751,35 @@
     "description": "Toast shown after a custom field is deleted",
     "placeholders": { "name": { "type": "String" } }
   },
+  "settingsCustomFieldNotFound": "Field not found",
+  "@settingsCustomFieldNotFound": { "description": "Not found message for a deleted or missing custom field" },
+  "settingsCustomFieldFilledInHeading": "Filled In",
+  "@settingsCustomFieldFilledInHeading": { "description": "Heading for the members with values section on custom field detail" },
+  "settingsCustomFieldFilledInCount": "{count, plural, =1{Filled in for 1 {termSingularLower}} other{Filled in for {count} {termPluralLower}}}",
+  "@settingsCustomFieldFilledInCount": {
+    "description": "Subtitle showing how many members have a value for a custom field",
+    "placeholders": {
+      "count": { "type": "int" },
+      "termSingularLower": { "type": "String" },
+      "termPluralLower": { "type": "String" }
+    }
+  },
+  "settingsCustomFieldNoValuesTitle": "Nothing filled in yet",
+  "@settingsCustomFieldNoValuesTitle": { "description": "Empty state title when no members have a custom field value" },
+  "settingsCustomFieldNoValuesSubtitle": "When {termPluralLower} fill in this field, they’ll appear here.",
+  "@settingsCustomFieldNoValuesSubtitle": {
+    "description": "Empty state subtitle when no members have a custom field value",
+    "placeholders": { "termPluralLower": { "type": "String" } }
+  },
+  "settingsCustomFieldValueSemantics": "{fieldName} for {memberName}: {value}",
+  "@settingsCustomFieldValueSemantics": {
+    "description": "Screen reader label for a member custom field value row",
+    "placeholders": {
+      "fieldName": { "type": "String" },
+      "memberName": { "type": "String" },
+      "value": { "type": "String" }
+    }
+  },
   "settingsAccentColorPrismIris": "Prism Iris",
   "@settingsAccentColorPrismIris": { "description": "Tooltip for the Prism Iris accent color option" },
   "settingsAccentColorHeather": "Heather",

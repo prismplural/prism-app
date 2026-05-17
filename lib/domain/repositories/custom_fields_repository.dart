@@ -1,5 +1,6 @@
 import 'package:prism_plurality/domain/models/custom_field.dart' as domain;
-import 'package:prism_plurality/domain/models/custom_field_value.dart' as domain;
+import 'package:prism_plurality/domain/models/custom_field_value.dart'
+    as domain;
 
 abstract class CustomFieldsRepository {
   Stream<List<domain.CustomField>> watchAllFields();
@@ -11,9 +12,12 @@ abstract class CustomFieldsRepository {
   Future<void> deleteField(String id);
 
   Stream<List<domain.CustomFieldValue>> watchValuesForMember(String memberId);
+  Stream<List<domain.CustomFieldValue>> watchValuesForField(String fieldId);
   Future<List<domain.CustomFieldValue>> getAllValues();
   Future<domain.CustomFieldValue?> getValueForField(
-      String fieldId, String memberId);
+    String fieldId,
+    String memberId,
+  );
   Future<void> upsertValue(domain.CustomFieldValue value);
   Future<void> deleteValue(String id);
   Future<void> deleteValuesForField(String fieldId);

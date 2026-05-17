@@ -25,6 +25,13 @@ final memberCustomFieldValuesProvider = StreamProvider.autoDispose
       return repo.watchValuesForMember(memberId);
     });
 
+/// Watches all member values for a given custom field.
+final customFieldValuesForFieldProvider = StreamProvider.autoDispose
+    .family<List<CustomFieldValue>, String>((ref, fieldId) {
+      final repo = ref.watch(customFieldsRepositoryProvider);
+      return repo.watchValuesForField(fieldId);
+    });
+
 /// Notifier for custom field CRUD operations.
 class CustomFieldNotifier extends AsyncNotifier<void> {
   static const _uuid = Uuid();

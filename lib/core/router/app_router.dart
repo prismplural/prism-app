@@ -64,6 +64,7 @@ import '../../features/settings/views/habits_feature_settings_screen.dart';
 import '../../features/settings/views/fronting_feature_settings_screen.dart';
 import '../../features/settings/views/about_screen.dart';
 import '../../features/settings/views/reset_data_screen.dart';
+import '../../features/settings/views/custom_field_detail_screen.dart';
 import '../../features/settings/views/custom_fields_screen.dart';
 import '../../features/settings/views/analytics_screen.dart';
 import '../../features/members/views/note_detail_screen.dart';
@@ -606,6 +607,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'custom-fields',
                     builder: (context, state) => const CustomFieldsScreen(),
+                    routes: [
+                      GoRoute(
+                        path: ':id',
+                        builder: (context, state) => CustomFieldDetailScreen(
+                          fieldId: state.pathParameters['id']!,
+                        ),
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: 'analytics',
@@ -662,9 +671,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: 'groups/:id',
-                    builder: (context, state) => GroupDetailScreen(
-                      groupId: state.pathParameters['id']!,
-                    ),
+                    builder: (context, state) =>
+                        GroupDetailScreen(groupId: state.pathParameters['id']!),
                   ),
                   GoRoute(
                     path: ':id',
@@ -813,9 +821,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: ':id',
-                    builder: (context, state) => GroupDetailScreen(
-                      groupId: state.pathParameters['id']!,
-                    ),
+                    builder: (context, state) =>
+                        GroupDetailScreen(groupId: state.pathParameters['id']!),
                     routes: [
                       GoRoute(
                         path: 'member/:memberId',
