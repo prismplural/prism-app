@@ -494,6 +494,7 @@ class _FronterSection extends ConsumerWidget {
           return PrismSurface(
             onTap: () => context.push(AppRoutePaths.settingsMember(member.id)),
             padding: EdgeInsets.zero,
+            borderColor: Colors.transparent,
             child: Stack(
               children: [
                 Positioned.fill(

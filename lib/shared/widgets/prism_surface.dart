@@ -88,7 +88,9 @@ class _PrismSurfaceState extends State<PrismSurface> {
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: borderRadius,
-          border: Border.all(color: borderColor),
+          border: borderColor.a == 0
+              ? null
+              : Border.all(color: borderColor),
         ),
         child: widget.child,
       ),
