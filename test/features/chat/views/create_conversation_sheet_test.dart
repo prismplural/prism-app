@@ -547,4 +547,99 @@ void main() {
       expect(find.byKey(const ValueKey('carol')), findsOneWidget);
     });
   });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Include-everyone toggle
+  // ══════════════════════════════════════════════════════════════════════════
+
+  group('include-everyone toggle', () {
+    testWidgets('shows the toggle in group mode and hides it in DM mode',
+        (tester) async {
+      await tester.pumpWidget(_buildSheet(members: [alice, bob]));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Include everyone'), findsOneWidget);
+
+      // Switch to DM tab.
+      await tester.tap(find.text('Direct Message'));
+      await tester.pumpAndSettle();
+      expect(find.text('Include everyone'), findsNothing);
+    });
+
+    testWidgets('flipping it on hides the member picker', (tester) async {
+      await tester.pumpWidget(_buildSheet(members: [alice, bob]));
+      await tester.pumpAndSettle();
+
+      // Picker is present by default.
+      expect(find.byType(SelectedMultiMemberPicker), findsOneWidget);
+
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SelectedMultiMemberPicker), findsNothing);
+      expect(find.text('Select participants (2+)'), findsNothing);
+    });
+
+    testWidgets(
+      'creates the conversation with includesAllMembers=true and creator-only participants',
+      (tester) async {
+        final notifier = _FakeChatNotifier();
+        await tester.pumpWidget(
+          _buildSheet(
+            members: [alice, bob, carol],
+            speakingAs: 'alice',
+            chatNotifier: notifier,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField).first, 'Everyone Chat');
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byType(Switch));
+        await tester.pumpAndSettle();
+
+        // Even with zero explicit member picks, create should be enabled
+        // (everyone-groups don't require the 2+ member selection).
+        await tester.tap(find.byTooltip('Create conversation'));
+        await tester.pumpAndSettle();
+
+        expect(notifier.createdIncludesAllMembers, isTrue);
+        expect(notifier.createdTitle, 'Everyone Chat');
+        expect(
+          notifier.createdParticipantIds,
+          ['alice'],
+          reason:
+              'Everyone-groups store the creator only; other members are '
+              'implicit via the flag.',
+        );
+        expect(notifier.createdIsDirectMessage, isFalse);
+      },
+    );
+
+    testWidgets(
+      'with toggle off, defaults to includesAllMembers=false and requires 2+ picks',
+      (tester) async {
+        final notifier = _FakeChatNotifier();
+        await tester.pumpWidget(
+          _buildSheet(
+            members: [alice, bob, carol],
+            speakingAs: 'alice',
+            initialMemberIds: ['alice', 'bob'],
+            chatNotifier: notifier,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField).first, 'Normal Group');
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Create conversation'));
+        await tester.pumpAndSettle();
+
+        expect(notifier.createdIncludesAllMembers, isFalse);
+        expect(notifier.createdParticipantIds, ['alice', 'bob']);
+      },
+    );
+  });
 }

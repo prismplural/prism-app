@@ -301,4 +301,224 @@ void main() {
     expect(find.byType(MemberSearchSheet), findsOneWidget);
     expect(find.text('Unknown'), findsOneWidget);
   });
+
+  group('admin moderation section', () {
+    Widget buildAdminSubject() {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+
+      final now = DateTime(2026, 5, 8, 12);
+      final admin = Member(
+        id: 'admin',
+        name: 'Admin',
+        createdAt: now,
+        isAdmin: true,
+      );
+      final bob = _member('bob', 'Bob');
+      final carol = _member('carol', 'Carol');
+      final members = FakeMemberRepository()..seed([admin, bob, carol]);
+      final conversations = FakeConversationRepository()
+        ..conversations.addAll([
+          // Group the admin IS a participant of — regular section.
+          _conversation(
+            id: 'group-mine',
+            at: now,
+            participantIds: const ['admin', 'bob'],
+            title: 'Admin Hangout',
+          ),
+          // Group the admin is NOT a participant of — admin-only section.
+          _conversation(
+            id: 'group-moderated',
+            at: now.subtract(const Duration(minutes: 1)),
+            participantIds: const ['bob', 'carol'],
+            title: 'Private Crew',
+          ),
+        ]);
+
+      return ProviderScope(
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(members),
+          conversationRepositoryProvider.overrideWithValue(conversations),
+          chatMessageRepositoryProvider.overrideWithValue(
+            _EmptyChatMessageRepository(),
+          ),
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+          currentChatViewerProvider.overrideWithValue(admin),
+          speakingAsProvider.overrideWith(
+            () => _TestSpeakingAsNotifier('admin'),
+          ),
+          conversationCategoriesProvider.overrideWith(
+            (ref) => Stream.value([]),
+          ),
+          allGroupsProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroup>[]),
+          ),
+          allGroupEntriesProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroupEntry>[]),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en')],
+          home: ChatScreen(),
+        ),
+      );
+    }
+
+    testWidgets(
+      'renders non-participant groups under "Admin · Not a member" section',
+      (tester) async {
+        await tester.pumpWidget(buildAdminSubject());
+        await tester.pumpAndSettle();
+
+        // Both groups visible: one as a participant, one via admin override.
+        expect(find.text('Admin Hangout'), findsOneWidget);
+        expect(find.text('Private Crew'), findsOneWidget);
+        expect(find.text('Admin · Not a member'), findsOneWidget);
+
+        // The admin section sits below the participant section.
+        expect(
+          tester.getTopLeft(find.text('Admin · Not a member')).dy,
+          greaterThan(tester.getTopLeft(find.text('Admin Hangout')).dy),
+        );
+        expect(
+          tester.getTopLeft(find.text('Private Crew')).dy,
+          greaterThan(tester.getTopLeft(find.text('Admin · Not a member')).dy),
+        );
+      },
+    );
+
+    testWidgets(
+      'no admin section when every visible group is a participant chat',
+      (tester) async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        final now = DateTime(2026, 5, 8, 12);
+        final admin = Member(
+          id: 'admin',
+          name: 'Admin',
+          createdAt: now,
+          isAdmin: true,
+        );
+        final bob = _member('bob', 'Bob');
+        final members = FakeMemberRepository()..seed([admin, bob]);
+        final conversations = FakeConversationRepository()
+          ..conversations.add(
+            _conversation(
+              id: 'group-mine',
+              at: now,
+              participantIds: const ['admin', 'bob'],
+              title: 'Admin Hangout',
+            ),
+          );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              memberRepositoryProvider.overrideWithValue(members),
+              conversationRepositoryProvider.overrideWithValue(conversations),
+              chatMessageRepositoryProvider.overrideWithValue(
+                _EmptyChatMessageRepository(),
+              ),
+              systemSettingsProvider.overrideWith(
+                (ref) => Stream.value(const SystemSettings()),
+              ),
+              currentChatViewerProvider.overrideWithValue(admin),
+              speakingAsProvider.overrideWith(
+                () => _TestSpeakingAsNotifier('admin'),
+              ),
+              conversationCategoriesProvider.overrideWith(
+                (ref) => Stream.value([]),
+              ),
+              allGroupsProvider.overrideWith(
+                (ref) => Stream.value(const <MemberGroup>[]),
+              ),
+              allGroupEntriesProvider.overrideWith(
+                (ref) => Stream.value(const <MemberGroupEntry>[]),
+              ),
+            ],
+            child: const MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: [Locale('en')],
+              home: ChatScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Admin Hangout'), findsOneWidget);
+        expect(
+          find.text('Admin · Not a member'),
+          findsNothing,
+          reason: 'Header should only appear when admin-only groups exist.',
+        );
+      },
+    );
+
+    testWidgets(
+      'non-admin viewer never sees the admin section',
+      (tester) async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        final now = DateTime(2026, 5, 8, 12);
+        final bob = _member('bob', 'Bob');
+        final carol = _member('carol', 'Carol');
+        final members = FakeMemberRepository()..seed([bob, carol]);
+        // Two groups: one bob is in (so the list isn't empty), one he's not.
+        // Without the admin override, only the participant group shows.
+        final conversations = FakeConversationRepository()
+          ..conversations.addAll([
+            _conversation(
+              id: 'group-mine',
+              at: now,
+              participantIds: const ['bob', 'carol'],
+              title: 'Shared',
+            ),
+            _conversation(
+              id: 'group-private',
+              at: now.subtract(const Duration(minutes: 1)),
+              participantIds: const ['carol'],
+              title: 'Carol Only',
+            ),
+          ]);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              memberRepositoryProvider.overrideWithValue(members),
+              conversationRepositoryProvider.overrideWithValue(conversations),
+              chatMessageRepositoryProvider.overrideWithValue(
+                _EmptyChatMessageRepository(),
+              ),
+              systemSettingsProvider.overrideWith(
+                (ref) => Stream.value(const SystemSettings()),
+              ),
+              currentChatViewerProvider.overrideWithValue(bob),
+              speakingAsProvider.overrideWith(
+                () => _TestSpeakingAsNotifier('bob'),
+              ),
+              conversationCategoriesProvider.overrideWith(
+                (ref) => Stream.value([]),
+              ),
+              allGroupsProvider.overrideWith(
+                (ref) => Stream.value(const <MemberGroup>[]),
+              ),
+              allGroupEntriesProvider.overrideWith(
+                (ref) => Stream.value(const <MemberGroupEntry>[]),
+              ),
+            ],
+            child: const MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: [Locale('en')],
+              home: ChatScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Shared'), findsOneWidget);
+        expect(find.text('Carol Only'), findsNothing);
+        expect(find.text('Admin · Not a member'), findsNothing);
+      },
+    );
+  });
 }

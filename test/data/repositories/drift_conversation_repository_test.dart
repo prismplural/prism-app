@@ -99,5 +99,73 @@ void main() {
 
       expect(fields['muted_by_member_ids'], '["alice","bob"]');
     });
+
+    test('includes_all_members flag is emitted in the sync field map', () {
+      final conversation = domain.Conversation(
+        id: 'conv-1',
+        createdAt: DateTime.utc(2026, 4, 27),
+        lastActivityAt: DateTime.utc(2026, 4, 27, 1),
+        includesAllMembers: true,
+      );
+
+      final fields = repo.debugConversationFields(conversation);
+
+      expect(fields['includes_all_members'], isTrue);
+    });
+  });
+
+  group('includesAllMembers round-trip', () {
+    Future<domain.Conversation> insert({required bool includesAllMembers}) async {
+      final conversation = domain.Conversation(
+        id: 'conv-1',
+        createdAt: DateTime.utc(2026, 4, 27),
+        lastActivityAt: DateTime.utc(2026, 4, 27, 1),
+        title: 'Everyone',
+        creatorId: 'creator',
+        participantIds: const ['creator'],
+        includesAllMembers: includesAllMembers,
+      );
+      await repo.createConversation(conversation);
+      return conversation;
+    }
+
+    test('createConversation persists the flag and read-back preserves it',
+        () async {
+      await insert(includesAllMembers: true);
+
+      final round = await repo.getConversationById('conv-1');
+      expect(round, isNotNull);
+      expect(round!.includesAllMembers, isTrue);
+      expect(
+        round.participantIds,
+        ['creator'],
+        reason: 'Everyone-groups still store the creator explicitly',
+      );
+    });
+
+    test('setIncludesAllMembers flips the flag in storage', () async {
+      await insert(includesAllMembers: false);
+      expect((await repo.getConversationById('conv-1'))!.includesAllMembers,
+          isFalse);
+
+      await repo.setIncludesAllMembers('conv-1', true);
+      expect((await repo.getConversationById('conv-1'))!.includesAllMembers,
+          isTrue);
+
+      await repo.setIncludesAllMembers('conv-1', false);
+      expect((await repo.getConversationById('conv-1'))!.includesAllMembers,
+          isFalse);
+    });
+
+    test('setIncludesAllMembers leaves other fields untouched', () async {
+      await insert(includesAllMembers: false);
+
+      await repo.setIncludesAllMembers('conv-1', true);
+
+      final after = await repo.getConversationById('conv-1');
+      expect(after!.title, 'Everyone');
+      expect(after.creatorId, 'creator');
+      expect(after.participantIds, ['creator']);
+    });
   });
 }
