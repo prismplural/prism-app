@@ -64,6 +64,7 @@ class _CreateConversationSheetState
   final _emojiController = TextEditingController();
   final Set<String> _selectedMemberIds = {};
   String? _selectedCategoryId;
+  bool _includesAllMembers = false;
   bool _isCreating = false;
   bool _didPreselect = false;
   Set<String> _initialSelectedMemberIds = const {};
@@ -73,6 +74,7 @@ class _CreateConversationSheetState
       _titleController.text.isNotEmpty ||
       _emojiController.text.isNotEmpty ||
       _selectedCategoryId != null ||
+      _includesAllMembers ||
       !_setEquals(_selectedMemberIds, _initialSelectedMemberIds);
 
   bool _normalizeDmSelectionFor(
@@ -107,8 +109,9 @@ class _CreateConversationSheetState
 
   bool get _canCreate {
     if (_isGroupChat) {
-      return _titleController.text.trim().isNotEmpty &&
-          _selectedMemberIds.length >= 2;
+      if (_titleController.text.trim().isEmpty) return false;
+      if (_includesAllMembers) return true;
+      return _selectedMemberIds.length >= 2;
     } else {
       // DM: current fronter + one selected other member
       final speakingAs = ref.read(speakingAsProvider);
@@ -153,6 +156,12 @@ class _CreateConversationSheetState
     final speakingAs = ref.read(speakingAsProvider);
 
     try {
+      // Store the creator explicitly so transfer-ownership still works if
+      // the flag is toggled off later.
+      final effectiveCreator = speakingAs ?? _selectedMemberIds.firstOrNull;
+      final groupParticipants = _includesAllMembers
+          ? <String>[?effectiveCreator]
+          : _selectedMemberIds.toList();
       final conversation = await ref
           .read(chatNotifierProvider.notifier)
           .createGroupConversation(
@@ -160,12 +169,11 @@ class _CreateConversationSheetState
             emoji: _emojiController.text.trim().isNotEmpty
                 ? _emojiController.text.trim()
                 : null,
-            creatorId: speakingAs ?? _selectedMemberIds.first,
-            participantIds: _isGroupChat
-                ? _selectedMemberIds.toList()
-                : _dmParticipants,
+            creatorId: effectiveCreator ?? '',
+            participantIds: _isGroupChat ? groupParticipants : _dmParticipants,
             categoryId: _isGroupChat ? _selectedCategoryId : null,
             isDirectMessage: !_isGroupChat,
+            includesAllMembers: _isGroupChat && _includesAllMembers,
           );
 
       if (mounted) {
@@ -439,6 +447,24 @@ class _CreateConversationSheetState
             ),
           ),
         ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: PrismListRow(
+              title: Text(context.l10n.chatCreateIncludeEveryone),
+              subtitle: Text(
+                context.l10n.chatCreateIncludeEveryoneHint(terms.pluralLower),
+              ),
+              trailing: Switch.adaptive(
+                value: _includesAllMembers,
+                onChanged: (value) =>
+                    setState(() => _includesAllMembers = value),
+              ),
+              onTap: () =>
+                  setState(() => _includesAllMembers = !_includesAllMembers),
+            ),
+          ),
+        ),
         const SliverToBoxAdapter(child: SizedBox(height: 16)),
       ],
 
@@ -452,7 +478,7 @@ class _CreateConversationSheetState
         const SliverToBoxAdapter(child: SizedBox(height: 12)),
       ],
 
-      // ── Member selection header ──────────────────────────────
+      if (!(_isGroupChat && _includesAllMembers))
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -498,9 +524,10 @@ class _CreateConversationSheetState
           ),
         ),
       ),
-      const SliverToBoxAdapter(child: SizedBox(height: 8)),
+      if (!(_isGroupChat && _includesAllMembers))
+        const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-      // ── Member picker ────────────────────────────────────────
+      if (!(_isGroupChat && _includesAllMembers))
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),

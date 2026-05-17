@@ -384,6 +384,8 @@ String _conversationTitle(
   if (conversation.title != null && conversation.title!.isNotEmpty) {
     return conversation.title!;
   }
+  // Untitled everyone-group: enumerating creator-only would be misleading.
+  if (conversation.includesAllMembers) return context.l10n.chatEveryoneTitle;
 
   final participantMapAsync = ref.watch(
     membersByIdsProvider(memberIdsKey(conversation.participantIds)),

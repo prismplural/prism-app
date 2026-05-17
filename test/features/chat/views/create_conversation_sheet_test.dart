@@ -45,6 +45,7 @@ class _FakeChatNotifier extends ChatNotifier {
   List<String>? createdParticipantIds;
   String? createdCategoryId;
   bool? createdIsDirectMessage;
+  bool? createdIncludesAllMembers;
 
   @override
   Future<void> build() async {}
@@ -57,6 +58,7 @@ class _FakeChatNotifier extends ChatNotifier {
     required List<String> participantIds,
     String? categoryId,
     bool isDirectMessage = false,
+    bool includesAllMembers = false,
   }) async {
     createdTitle = title;
     createdEmoji = emoji;
@@ -64,12 +66,14 @@ class _FakeChatNotifier extends ChatNotifier {
     createdParticipantIds = List<String>.from(participantIds);
     createdCategoryId = categoryId;
     createdIsDirectMessage = isDirectMessage;
+    createdIncludesAllMembers = includesAllMembers;
 
     return Conversation(
       id: 'new-conv',
       createdAt: DateTime(2024),
       lastActivityAt: DateTime(2024),
       participantIds: participantIds,
+      includesAllMembers: includesAllMembers,
     );
   }
 }

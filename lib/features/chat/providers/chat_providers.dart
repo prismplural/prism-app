@@ -354,6 +354,7 @@ class ChatNotifier extends AsyncNotifier<void> {
     required List<String> participantIds,
     String? categoryId,
     bool isDirectMessage = false,
+    bool includesAllMembers = false,
   }) async {
     final repo = ref.read(conversationRepositoryProvider);
     final conversation = Conversation(
@@ -365,6 +366,7 @@ class ChatNotifier extends AsyncNotifier<void> {
       isDirectMessage: isDirectMessage,
       creatorId: creatorId,
       participantIds: participantIds,
+      includesAllMembers: includesAllMembers,
       categoryId: categoryId,
     );
     await repo.createConversation(conversation);
@@ -372,6 +374,11 @@ class ChatNotifier extends AsyncNotifier<void> {
       ref.invalidate(memberConversationsProvider(id));
     }
     return conversation;
+  }
+
+  Future<void> setIncludesAllMembers(String conversationId, bool value) async {
+    final repo = ref.read(conversationRepositoryProvider);
+    await repo.setIncludesAllMembers(conversationId, value);
   }
 
   Future<String> sendMessage({
@@ -1110,6 +1117,8 @@ class ConversationTileData {
     if (conversation.title != null && conversation.title!.isNotEmpty) {
       return conversation.title!;
     }
+    // Untitled everyone-group: enumerating creator-only would be misleading.
+    if (conversation.includesAllMembers) return 'Everyone';
     final otherNames = conversation.participantIds
         .where((id) => id != speakingAs)
         .map((id) => participantMap[id]?.name ?? 'Unknown')

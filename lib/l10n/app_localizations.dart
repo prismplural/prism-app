@@ -6239,6 +6239,12 @@ abstract class AppLocalizations {
   /// **'Error loading conversations'**
   String get chatErrorLoadingConversations;
 
+  /// Section header for group chats the viewer can see only via the admin moderation override
+  ///
+  /// In en, this message translates to:
+  /// **'Admin · Not a member'**
+  String get chatAdminNonParticipantSection;
+
   /// Label for conversations without a category
   ///
   /// In en, this message translates to:
@@ -6569,6 +6575,30 @@ abstract class AppLocalizations {
   /// **'Add {termPluralLower}'**
   String chatInfoAddMembers(String termPluralLower);
 
+  /// Toggle title for include-everyone in conversation info
+  ///
+  /// In en, this message translates to:
+  /// **'Include everyone'**
+  String get chatInfoIncludeEveryone;
+
+  /// Subtitle shown when include-everyone is on
+  ///
+  /// In en, this message translates to:
+  /// **'All {count} active {termPluralLower}. New {termPluralLower} are added automatically.'**
+  String chatInfoIncludeEveryoneOnSubtitle(int count, String termPluralLower);
+
+  /// Subtitle shown when include-everyone is off
+  ///
+  /// In en, this message translates to:
+  /// **'Only the {termPluralLower} listed below are in this chat.'**
+  String chatInfoIncludeEveryoneOffSubtitle(String termPluralLower);
+
+  /// Toast shown when include-everyone toggle fails
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t change include-everyone: {error}'**
+  String chatInfoIncludeEveryoneError(Object error);
+
   /// Role chip label for conversation owner
   ///
   /// In en, this message translates to:
@@ -6760,6 +6790,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select participants (2+)'**
   String get chatCreateSelectParticipants;
+
+  /// Toggle to make every active member implicitly a participant of a group chat
+  ///
+  /// In en, this message translates to:
+  /// **'Include everyone'**
+  String get chatCreateIncludeEveryone;
+
+  /// Subtitle under the include-everyone toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Every active {termPluralLower} is automatically a member, including any added later.'**
+  String chatCreateIncludeEveryoneHint(String termPluralLower);
 
   /// Header for DM participant selection, showing current fronter
   ///
@@ -7180,6 +7222,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Conversation'**
   String get chatConversationNoTitle;
+
+  /// Default title for an untitled group chat that includes every active member
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone'**
+  String get chatEveryoneTitle;
 
   /// Error message in the member selection sheet when members fail to load
   ///

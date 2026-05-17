@@ -4922,6 +4922,10 @@
   "@chatErrorLoadingConversations": {
     "description": "Error message when conversations fail to load"
   },
+  "chatAdminNonParticipantSection": "Admin · Not a member",
+  "@chatAdminNonParticipantSection": {
+    "description": "Section header for group chats the viewer can see only via the admin moderation override"
+  },
   "chatUncategorized": "Uncategorized",
   "@chatUncategorized": {
     "description": "Label for conversations without a category"
@@ -5195,6 +5199,40 @@
       }
     }
   },
+  "chatInfoIncludeEveryone": "Include everyone",
+  "@chatInfoIncludeEveryone": {
+    "description": "Toggle title for include-everyone in conversation info"
+  },
+  "chatInfoIncludeEveryoneOnSubtitle": "All {count} active {termPluralLower}. New {termPluralLower} are added automatically.",
+  "@chatInfoIncludeEveryoneOnSubtitle": {
+    "description": "Subtitle shown when include-everyone is on",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
+  },
+  "chatInfoIncludeEveryoneOffSubtitle": "Only the {termPluralLower} listed below are in this chat.",
+  "@chatInfoIncludeEveryoneOffSubtitle": {
+    "description": "Subtitle shown when include-everyone is off",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
+  },
+  "chatInfoIncludeEveryoneError": "Couldn't change include-everyone: {error}",
+  "@chatInfoIncludeEveryoneError": {
+    "description": "Toast shown when include-everyone toggle fails",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
   "chatInfoOwner": "Owner",
   "@chatInfoOwner": {
     "description": "Role chip label for conversation owner"
@@ -5370,6 +5408,19 @@
   "chatCreateSelectParticipants": "Select participants (2+)",
   "@chatCreateSelectParticipants": {
     "description": "Header for participant selection in group chat creation"
+  },
+  "chatCreateIncludeEveryone": "Include everyone",
+  "@chatCreateIncludeEveryone": {
+    "description": "Toggle to make every active member implicitly a participant of a group chat"
+  },
+  "chatCreateIncludeEveryoneHint": "Every active {termPluralLower} is automatically a member, including any added later.",
+  "@chatCreateIncludeEveryoneHint": {
+    "description": "Subtitle under the include-everyone toggle",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
   "chatCreateMessageAs": "Message as {name} with:",
   "@chatCreateMessageAs": {
@@ -5760,6 +5811,10 @@
   "chatConversationNoTitle": "Conversation",
   "@chatConversationNoTitle": {
     "description": "Fallback text for a conversation with no participants other than self"
+  },
+  "chatEveryoneTitle": "Everyone",
+  "@chatEveryoneTitle": {
+    "description": "Default title for an untitled group chat that includes every active member"
   },
   "memberSelectLoadFailed": "Failed to load {termPlural}",
   "@memberSelectLoadFailed": {

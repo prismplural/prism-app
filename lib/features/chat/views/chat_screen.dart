@@ -368,6 +368,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     )
                     .toList();
 
+                // Separate section for admin-only access — keeps "I'm in
+                // this chat" distinct from "I see this because I'm admin".
+                final participantConversations = <Conversation>[];
+                final adminOnlyConversations = <Conversation>[];
+                for (final conversation in visibleConversations) {
+                  final permissions = conversationPermissionsForViewer(
+                    conversation,
+                    speakingAsMemberId: speakingAs,
+                    speakingAsMember: speakingAsMember,
+                  );
+                  if (permissions.isAdminNonParticipantGroup &&
+                      !permissions.isParticipant) {
+                    adminOnlyConversations.add(conversation);
+                  } else {
+                    participantConversations.add(conversation);
+                  }
+                }
+
                 if (conversations.isEmpty || visibleConversations.isEmpty) {
                   return [
                     SliverFillRemaining(
@@ -389,16 +407,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
                 final categories = categoriesAsync.value ?? [];
 
-                // If no categories exist, show flat list.
-                if (categories.isEmpty) {
+                List<Widget> adminSlivers() {
+                  if (adminOnlyConversations.isEmpty) return const [];
                   return _buildCategorySlivers(
                     context: context,
                     theme: theme,
-                    label: null,
-                    conversations: visibleConversations,
+                    label: context.l10n.chatAdminNonParticipantSection,
+                    conversations: adminOnlyConversations,
                     speakingAs: speakingAs,
                     speakingAsMember: speakingAsMember,
                   );
+                }
+
+                // No categories: flat list, then admin section if any.
+                if (categories.isEmpty) {
+                  return [
+                    ..._buildCategorySlivers(
+                      context: context,
+                      theme: theme,
+                      label: null,
+                      conversations: participantConversations,
+                      speakingAs: speakingAs,
+                      speakingAsMember: speakingAsMember,
+                    ),
+                    ...adminSlivers(),
+                  ];
                 }
 
                 // Group conversations by category.
@@ -408,7 +441,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 }
                 grouped[null] = []; // uncategorized
 
-                for (final conv in visibleConversations) {
+                for (final conv in participantConversations) {
                   if (conv.categoryId != null &&
                       grouped.containsKey(conv.categoryId)) {
                     grouped[conv.categoryId]!.add(conv);
@@ -452,6 +485,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
                   );
                 }
+                slivers.addAll(adminSlivers());
                 return slivers;
               },
               loading: () => [const PrismLoadingState.sliver()],

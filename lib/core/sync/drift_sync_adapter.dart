@@ -1588,6 +1588,7 @@ DriftSyncEntity _conversationsEntity(
         'category_id': r.categoryId,
         'display_order': r.displayOrder,
         'is_deleted': r.isDeleted,
+        'includes_all_members': r.includesAllMembers,
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
@@ -1614,6 +1615,7 @@ DriftSyncEntity _conversationsEntity(
         categoryId: f.stringFieldNullable('category_id'),
         displayOrder: f.intField('display_order'),
         isDeleted: f.boolField('is_deleted'),
+        includesAllMembers: f.boolField('includes_all_members'),
       );
       await _insertOrUpdateById(
         db,
@@ -1645,6 +1647,7 @@ DriftSyncEntity _conversationsEntity(
         'category_id': row.categoryId,
         'display_order': row.displayOrder,
         'is_deleted': row.isDeleted,
+        'includes_all_members': row.includesAllMembers,
       };
     },
     isDeleted: (String id) async {

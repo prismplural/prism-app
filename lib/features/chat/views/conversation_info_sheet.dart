@@ -156,6 +156,24 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     }
   }
 
+  Future<void> _setIncludesAllMembers(
+    Conversation conversation,
+    bool value,
+  ) async {
+    try {
+      await ref
+          .read(chatNotifierProvider.notifier)
+          .setIncludesAllMembers(conversation.id, value);
+    } catch (e) {
+      if (mounted) {
+        PrismToast.error(
+          context,
+          message: context.l10n.chatInfoIncludeEveryoneError(e),
+        );
+      }
+    }
+  }
+
   Future<void> _archive(
     String conversationId,
     String? speakingAsMemberId,
@@ -585,6 +603,12 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     final hasTransferCandidate = conversation.participantIds.any(
       (participantId) => participantId != currentOwnerId,
     );
+    final canToggleEveryone = permissions.canManage;
+    final activeMemberCount =
+        ref.watch(activeMembersProvider).value?.length ?? 0;
+    final headerCount = conversation.includesAllMembers
+        ? activeMemberCount
+        : conversation.participantIds.length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -592,9 +616,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         Row(
           children: [
             Text(
-              context.l10n.chatInfoParticipants(
-                conversation.participantIds.length,
-              ),
+              context.l10n.chatInfoParticipants(headerCount),
               style: theme.textTheme.titleSmall,
             ),
             const Spacer(),
@@ -610,6 +632,35 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         ),
         const SizedBox(height: 4),
 
+        // Disabled for non-managers so they can still see the chat's
+        // include-everyone state without being able to flip it.
+        PrismListRow(
+          title: Text(context.l10n.chatInfoIncludeEveryone),
+          subtitle: Text(
+            conversation.includesAllMembers
+                ? context.l10n.chatInfoIncludeEveryoneOnSubtitle(
+                    activeMemberCount,
+                    terms.pluralLower,
+                  )
+                : context.l10n.chatInfoIncludeEveryoneOffSubtitle(
+                    terms.pluralLower,
+                  ),
+          ),
+          trailing: Switch.adaptive(
+            value: conversation.includesAllMembers,
+            onChanged: canToggleEveryone
+                ? (value) => _setIncludesAllMembers(conversation, value)
+                : null,
+          ),
+          onTap: canToggleEveryone
+              ? () => _setIncludesAllMembers(
+                    conversation,
+                    !conversation.includesAllMembers,
+                  )
+              : null,
+        ),
+        const SizedBox(height: 8),
+
         if (currentFrontCanManage && hasTransferCandidate) ...[
           _OwnerTransferRow(
             conversation: conversation,
@@ -618,7 +669,8 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
           const SizedBox(height: 4),
         ],
 
-        // Participant tiles
+        // The explicit list isn't authoritative for everyone-groups.
+        if (!conversation.includesAllMembers)
         for (final participantId in conversation.participantIds)
           _ParticipantTile(
             participantId: participantId,

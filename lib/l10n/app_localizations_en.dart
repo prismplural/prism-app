@@ -3617,6 +3617,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatErrorLoadingConversations => 'Error loading conversations';
 
   @override
+  String get chatAdminNonParticipantSection => 'Admin · Not a member';
+
+  @override
   String get chatUncategorized => 'Uncategorized';
 
   @override
@@ -3806,6 +3809,24 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get chatInfoIncludeEveryone => 'Include everyone';
+
+  @override
+  String chatInfoIncludeEveryoneOnSubtitle(int count, String termPluralLower) {
+    return 'All $count active $termPluralLower. New $termPluralLower are added automatically.';
+  }
+
+  @override
+  String chatInfoIncludeEveryoneOffSubtitle(String termPluralLower) {
+    return 'Only the $termPluralLower listed below are in this chat.';
+  }
+
+  @override
+  String chatInfoIncludeEveryoneError(Object error) {
+    return 'Couldn\'t change include-everyone: $error';
+  }
+
+  @override
   String get chatInfoOwner => 'Owner';
 
   @override
@@ -3919,6 +3940,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatCreateSelectParticipants => 'Select participants (2+)';
+
+  @override
+  String get chatCreateIncludeEveryone => 'Include everyone';
+
+  @override
+  String chatCreateIncludeEveryoneHint(String termPluralLower) {
+    return 'Every active $termPluralLower is automatically a member, including any added later.';
+  }
 
   @override
   String chatCreateMessageAs(String name) {
@@ -4185,6 +4214,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatConversationNoTitle => 'Conversation';
+
+  @override
+  String get chatEveryoneTitle => 'Everyone';
 
   @override
   String memberSelectLoadFailed(String termPlural) {

@@ -3682,6 +3682,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatErrorLoadingConversations => 'Error al cargar conversaciones';
 
   @override
+  String get chatAdminNonParticipantSection => 'Admin · No es miembro';
+
+  @override
   String get chatUncategorized => 'Sin categoría';
 
   @override
@@ -3871,6 +3874,24 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get chatInfoIncludeEveryone => 'Incluir a todos';
+
+  @override
+  String chatInfoIncludeEveryoneOnSubtitle(int count, String termPluralLower) {
+    return 'Todos los $count $termPluralLower activos. Los nuevos $termPluralLower se añaden automáticamente.';
+  }
+
+  @override
+  String chatInfoIncludeEveryoneOffSubtitle(String termPluralLower) {
+    return 'Solo los $termPluralLower listados abajo están en este chat.';
+  }
+
+  @override
+  String chatInfoIncludeEveryoneError(Object error) {
+    return 'No se pudo cambiar incluir a todos: $error';
+  }
+
+  @override
   String get chatInfoOwner => 'Propietario';
 
   @override
@@ -3985,6 +4006,14 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get chatCreateSelectParticipants => 'Seleccionar participantes (2+)';
+
+  @override
+  String get chatCreateIncludeEveryone => 'Incluir a todos';
+
+  @override
+  String chatCreateIncludeEveryoneHint(String termPluralLower) {
+    return 'Cada $termPluralLower activo es automáticamente miembro, incluyendo los añadidos después.';
+  }
 
   @override
   String chatCreateMessageAs(String name) {
@@ -4254,6 +4283,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get chatConversationNoTitle => 'Conversación';
+
+  @override
+  String get chatEveryoneTitle => 'Todos';
 
   @override
   String memberSelectLoadFailed(String termPlural) {
