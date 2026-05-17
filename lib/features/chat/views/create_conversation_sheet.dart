@@ -112,10 +112,11 @@ class _CreateConversationSheetState
       if (_titleController.text.trim().isEmpty) return false;
       if (_includesAllMembers) {
         // The creator is captured explicitly so transfer-ownership keeps
-        // working if the flag is toggled off later. Without a fronter and
-        // with the picker hidden, there would be no creator at all — the
-        // chat would land unmanageable.
-        return ref.read(speakingAsProvider) != null;
+        // working if the flag is toggled off later. Without a real picked
+        // member, the chat would land ownerless (Unknown sentinel can't
+        // own anything either) and unmanageable.
+        final speakingAs = ref.read(speakingAsProvider);
+        return speakingAs != null && !isUnknownChatAuthor(speakingAs);
       }
       return _selectedMemberIds.length >= 2;
     } else {
@@ -163,8 +164,14 @@ class _CreateConversationSheetState
 
     try {
       // Store the creator explicitly so transfer-ownership still works if
-      // the flag is toggled off later.
-      final effectiveCreator = speakingAs ?? _selectedMemberIds.firstOrNull;
+      // the flag is toggled off later. Treat Unknown as "no picked member"
+      // — the sentinel can't own a conversation any more than null can.
+      final pickedRealSpeaker =
+          (speakingAs != null && !isUnknownChatAuthor(speakingAs))
+          ? speakingAs
+          : null;
+      final effectiveCreator =
+          pickedRealSpeaker ?? _selectedMemberIds.firstOrNull;
       final groupParticipants = _includesAllMembers
           ? <String>[?effectiveCreator]
           : _selectedMemberIds.toList();
