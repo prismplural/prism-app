@@ -232,7 +232,7 @@ void main() {
     });
 
     test(
-      'startFronting ends existing active session for same member',
+      'startFronting reuses existing active session for same member',
       () async {
         final repo = FakeFrontingSessionRepository();
         final aliceOld = FrontingSession(
@@ -251,14 +251,160 @@ void main() {
 
         final result = await svc.startFronting(['alice']);
         expect(result.isSuccess, isTrue);
-        expect(repo.sessions, hasLength(2));
+        expect(repo.sessions, hasLength(1));
 
         final old = repo.sessions.firstWhere((s) => s.id == 'alice-old');
-        expect(old.isActive, isFalse, reason: 'old alice session was ended');
+        expect(
+          old.isActive,
+          isTrue,
+          reason: 'continuous same-member fronts stay on one row',
+        );
+      },
+    );
 
-        final newSessions = repo.sessions.where((s) => s.id != 'alice-old');
-        expect(newSessions, hasLength(1));
-        expect(newSessions.single.isActive, isTrue);
+    test(
+      'startFronting reuses an active same-member session from multi-select',
+      () async {
+        final repo = FakeFrontingSessionRepository();
+        final startedAt = DateTime(2026, 5, 15, 0);
+        await repo.createSession(
+          FrontingSession(
+            id: 'member-a-active',
+            startTime: startedAt,
+            memberId: 'member-a',
+          ),
+        );
+
+        final svc = FrontingMutationService(
+          repository: repo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
+
+        final result = await svc.startFronting([
+          'member-a',
+          'member-b',
+        ], startTime: DateTime(2026, 5, 15, 0, 5));
+
+        expect(result.isSuccess, isTrue);
+        expect(repo.sessions, hasLength(2));
+
+        final memberA = repo.sessions.singleWhere(
+          (s) => s.memberId == 'member-a',
+        );
+        expect(memberA.id, 'member-a-active');
+        expect(memberA.startTime, startedAt);
+        expect(memberA.endTime, isNull);
+
+        final memberB = repo.sessions.singleWhere(
+          (s) => s.memberId == 'member-b',
+        );
+        expect(memberB.startTime, DateTime(2026, 5, 15, 0, 5));
+        expect(memberB.endTime, isNull);
+      },
+    );
+
+    test('startFronting ignores duplicate member ids in one request', () async {
+      final repo = FakeFrontingSessionRepository();
+      final svc = FrontingMutationService(
+        repository: repo,
+        mutationRunner: MutationRunner(
+          transactionRunner: _passthroughTransactionRunner,
+        ),
+      );
+
+      final result = await svc.startFronting([
+        'member-a',
+        'member-a',
+        'member-b',
+      ], startTime: DateTime(2026, 5, 15, 0, 5));
+
+      expect(result.isSuccess, isTrue);
+      expect(repo.sessions.map((s) => s.memberId), ['member-a', 'member-b']);
+      expect(
+        repo.sessions.where((s) => s.memberId == 'member-a'),
+        hasLength(1),
+      );
+    });
+
+    test(
+      'startFronting closes extra active rows for the same member',
+      () async {
+        final repo = FakeFrontingSessionRepository();
+        await repo.createSession(
+          FrontingSession(
+            id: 'member-a-first',
+            startTime: DateTime(2026, 5, 15, 0),
+            memberId: 'member-a',
+          ),
+        );
+        await repo.createSession(
+          FrontingSession(
+            id: 'member-a-duplicate',
+            startTime: DateTime(2026, 5, 15, 0, 1),
+            memberId: 'member-a',
+          ),
+        );
+
+        final svc = FrontingMutationService(
+          repository: repo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
+
+        final cleanupAt = DateTime(2026, 5, 15, 0, 5);
+        final result = await svc.startFronting([
+          'member-a',
+        ], startTime: cleanupAt);
+
+        expect(result.isSuccess, isTrue);
+        final memberARows = repo.sessions.where(
+          (s) => s.memberId == 'member-a',
+        );
+        expect(memberARows.where((s) => s.isActive), hasLength(1));
+        expect(
+          repo.sessions.singleWhere((s) => s.id == 'member-a-first').isActive,
+          isTrue,
+        );
+        expect(
+          repo.sessions
+              .singleWhere((s) => s.id == 'member-a-duplicate')
+              .endTime,
+          cleanupAt,
+        );
+      },
+    );
+
+    test(
+      'startFronting keeps the earliest active row when Drift returns newest first',
+      () async {
+        final first = FrontingSession(
+          id: 'member-a-first',
+          startTime: DateTime(2026, 5, 15, 0),
+          memberId: 'member-a',
+        );
+        final duplicate = FrontingSession(
+          id: 'member-a-duplicate',
+          startTime: DateTime(2026, 5, 15, 0, 1),
+          memberId: 'member-a',
+        );
+        await repository.createSession(first);
+        await repository.createSession(duplicate);
+
+        final cleanupAt = DateTime(2026, 5, 15, 0, 5);
+        final result = await service.startFronting([
+          'member-a',
+        ], startTime: cleanupAt);
+
+        expect(result.isSuccess, isTrue);
+        final kept = await repository.getSessionById(first.id);
+        final closed = await repository.getSessionById(duplicate.id);
+        expect(kept, isNotNull);
+        expect(closed, isNotNull);
+        expect(kept!.endTime, isNull);
+        expect(closed!.endTime, cleanupAt);
       },
     );
 
@@ -531,6 +677,65 @@ void main() {
           // And that shared start_time equals the prior session's end_time.
           final alice = repo.sessions.firstWhere((s) => s.id == 'old-1');
           expect(alice.endTime, equals(newSessions.first.startTime));
+        },
+      );
+
+      test('ignores duplicate member ids in one request', () async {
+        final repo = FakeFrontingSessionRepository();
+        final svc = FrontingMutationService(
+          repository: repo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
+
+        final result = await svc.replaceFronting([
+          'member-a',
+          'member-a',
+          'member-b',
+        ], now: DateTime(2026, 5, 15, 0, 5));
+
+        expect(result.isSuccess, isTrue);
+        expect(repo.sessions.map((s) => s.memberId), ['member-a', 'member-b']);
+        expect(
+          repo.sessions.where((s) => s.memberId == 'member-a'),
+          hasLength(1),
+        );
+      });
+
+      test(
+        'keeps only the earliest active selected-member row in Drift',
+        () async {
+          final first = FrontingSession(
+            id: 'member-a-first',
+            startTime: DateTime(2026, 5, 15, 0),
+            memberId: 'member-a',
+          );
+          final duplicate = FrontingSession(
+            id: 'member-a-duplicate',
+            startTime: DateTime(2026, 5, 15, 0, 1),
+            memberId: 'member-a',
+          );
+          await repository.createSession(first);
+          await repository.createSession(duplicate);
+
+          final result = await service.replaceFronting([
+            'member-a',
+            'member-b',
+          ], now: DateTime(2026, 5, 15, 0, 5));
+
+          expect(result.isSuccess, isTrue);
+          final kept = await repository.getSessionById(first.id);
+          final closed = await repository.getSessionById(duplicate.id);
+          final memberBRows = (await repository.getAllSessions()).where(
+            (s) => s.memberId == 'member-b',
+          );
+          expect(kept, isNotNull);
+          expect(closed, isNotNull);
+          expect(kept!.endTime, isNull);
+          expect(closed!.endTime, DateTime(2026, 5, 15, 0, 5));
+          expect(memberBRows, hasLength(1));
+          expect(memberBRows.single.endTime, isNull);
         },
       );
 

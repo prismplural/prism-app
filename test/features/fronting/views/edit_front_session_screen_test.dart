@@ -294,6 +294,95 @@ void main() {
         }
       },
     );
+
+    testWidgets(
+      'saving trims same-member overlaps instead of persisting them',
+      (tester) async {
+        final db = appdb.AppDatabase(NativeDatabase.memory());
+        final repo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+
+        final alice = _member(id: 'alice', name: 'Alice');
+        await memberRepo.createMember(alice);
+
+        final first = FrontingSession(
+          id: 'overlap-1',
+          startTime: DateTime(2026, 5, 15, 0),
+          endTime: DateTime(2026, 5, 15, 2),
+          memberId: 'alice',
+        );
+        final second = FrontingSession(
+          id: 'overlap-2',
+          startTime: DateTime(2026, 5, 15, 1),
+          endTime: DateTime(2026, 5, 15, 3),
+          memberId: 'alice',
+        );
+        await repo.createSession(first);
+        await repo.createSession(second);
+
+        final container = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            frontingSessionRepositoryProvider.overrideWithValue(repo),
+            sessionByIdProvider(
+              first.id,
+            ).overrideWith((ref) => Stream.value(first)),
+            activeMembersProvider.overrideWith(
+              (ref) => Stream.value(<Member>[alice]),
+            ),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+          ],
+        );
+
+        try {
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp(
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: const [Locale('en')],
+                home: Scaffold(
+                  body: EditFrontSessionScreen(sessionId: first.id),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          await tester.enterText(find.byType(TextField).last, 'kept');
+          await tester.pumpAndSettle();
+          await tester.tap(find.byIcon(AppIcons.check));
+          await tester.pumpAndSettle();
+
+          final updatedFirst = await repo.getSessionById(first.id);
+          final trimmedSecond = await repo.getSessionById(second.id);
+          expect(updatedFirst, isNotNull);
+          expect(trimmedSecond, isNotNull);
+          expect(updatedFirst!.notes, 'kept');
+          expect(updatedFirst.startTime, first.startTime);
+          expect(updatedFirst.endTime, first.endTime);
+          expect(trimmedSecond!.startTime, first.endTime);
+          expect(trimmedSecond.endTime, second.endTime);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+          container.dispose();
+          await tester.pump();
+          await db.close();
+        }
+      },
+    );
   });
 
   // ══════════════════════════════════════════════════════════════════════════

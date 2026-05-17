@@ -203,8 +203,34 @@ class _EditFrontSessionScreenState
       timingMode: timingMode,
     );
 
-    // Cross-member overlaps are valid in the per-member model (spec §3.3).
     final allChanges = <FrontingSessionChange>[];
+
+    // Same-member self-overlaps (and sleep/front cross-type overlaps) must be
+    // trimmed away before the edit lands. Cross-member normal overlaps never
+    // appear here; the guard filters them out as valid co-fronting.
+    if (validation.overlappingSessions.isNotEmpty) {
+      final proposedSnapshot = FrontingSessionSnapshot(
+        id: original.id,
+        memberId: patch.clearMemberId
+            ? null
+            : (patch.memberId ?? original.memberId),
+        start: patch.start ?? original.startTime,
+        end: patch.clearEnd ? null : (patch.end ?? original.endTime),
+        notes: patch.notes ?? original.notes,
+        confidenceIndex: patch.confidenceIndex ?? original.confidence?.index,
+        sessionType: original.sessionType,
+        quality: original.quality,
+        isHealthKitImport: original.isHealthKitImport,
+        isDeleted: original.isDeleted,
+      );
+      allChanges.addAll(
+        resolutionService.resolveAllOverlaps(
+          edited: proposedSnapshot,
+          overlaps: validation.overlappingSessions,
+          resolution: OverlapResolution.trim,
+        ),
+      );
+    }
 
     // 8. Handle gaps
     if (validation.gapsCreated.isNotEmpty && mounted) {

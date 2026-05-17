@@ -87,6 +87,22 @@ class FrontingMutationService {
     await repo.ensureUnknownSentinelMember();
   }
 
+  List<String> _dedupeMemberIds(List<String> memberIds) {
+    final seen = <String>{};
+    return [
+      for (final memberId in memberIds)
+        if (seen.add(memberId)) memberId,
+    ];
+  }
+
+  FrontingSession? _earliestSession(List<FrontingSession> sessions) {
+    if (sessions.isEmpty) return null;
+    return sessions.reduce(
+      (earliest, session) =>
+          session.startTime.isBefore(earliest.startTime) ? session : earliest,
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Per-member API
   // ---------------------------------------------------------------------------
@@ -109,35 +125,33 @@ class FrontingMutationService {
     return _mutationRunner.run<FrontingMutationResult>(
       actionLabel: 'Start fronting session',
       action: () async {
+        final selectedMemberIds = _dedupeMemberIds(memberIds);
         // Auto-create the Unknown sentinel member before any session
         // writes if its id appears in the payload.  Done inside the
         // mutation runner so the sentinel create + session create live
         // in the same transaction; either both land or neither does.
-        await _ensureSentinelIfNeeded(memberIds);
+        await _ensureSentinelIfNeeded(selectedMemberIds);
 
         final now = startTime ?? DateTime.now();
         _assertTimeRange(now, null);
         final created = <FrontingSession>[];
+        final existing = await _repository.getAllActiveSessionsUnfiltered();
 
-        for (final memberId in memberIds) {
-          // Hard-block: end any existing open session for this member before
-          // creating a new one. Explicit always-fronting sessions are the
-          // exception: they are persistent background sessions, so starting or
-          // quick-fronting that member reuses the existing row.
-          final existing = await _repository.getAllActiveSessionsUnfiltered();
-          FrontingSession? preservedAlwaysFrontingSession;
-          for (final s in existing) {
-            if (s.memberId == memberId && !s.isSleep) {
-              if (await _isActiveExplicitAlwaysFrontingMember(memberId)) {
-                preservedAlwaysFrontingSession ??= s;
-                continue;
-              }
+        for (final memberId in selectedMemberIds) {
+          // Hard-block: a member can only have one active normal row. If the
+          // member is already active, reuse that row instead of splitting a
+          // continuous front into adjacent duplicate entries. Any extra active
+          // rows for the same member are closed as corruption cleanup.
+          final sameMemberActive = existing
+              .where((s) => s.memberId == memberId && !s.isSleep)
+              .toList();
+          final preservedActiveSession = _earliestSession(sameMemberActive);
+          if (preservedActiveSession != null) {
+            for (final s in sameMemberActive) {
+              if (s.id == preservedActiveSession.id) continue;
               await _repository.endSession(s.id, now);
             }
-          }
-
-          if (preservedAlwaysFrontingSession != null) {
-            created.add(preservedAlwaysFrontingSession);
+            created.add(preservedActiveSession);
             continue;
           }
 
@@ -173,11 +187,12 @@ class FrontingMutationService {
     return _mutationRunner.run<FrontingMutationResult>(
       actionLabel: 'Log historical fronting session',
       action: () async {
-        await _ensureSentinelIfNeeded(memberIds);
+        final selectedMemberIds = _dedupeMemberIds(memberIds);
+        await _ensureSentinelIfNeeded(selectedMemberIds);
         _assertTimeRange(startTime, endTime);
 
         final mergedSessions = <FrontingSession>[];
-        for (final memberId in memberIds) {
+        for (final memberId in selectedMemberIds) {
           final drafted = FrontingSession(
             id: _uuid.v4(),
             startTime: startTime,
@@ -225,10 +240,11 @@ class FrontingMutationService {
     return _mutationRunner.run<FrontingMutationResult>(
       actionLabel: 'Replace fronting session',
       action: () async {
+        final selectedMemberIds = _dedupeMemberIds(memberIds);
         // Sentinel auto-create runs inside the same transaction so the
         // member + session writes are atomic together — same contract as
         // [startFronting].
-        await _ensureSentinelIfNeeded(memberIds);
+        await _ensureSentinelIfNeeded(selectedMemberIds);
 
         final at = now ?? DateTime.now();
         _assertTimeRange(at, null);
@@ -241,12 +257,23 @@ class FrontingMutationService {
         final previousMemberIds = <String?>[];
         final replaceableActives = <FrontingSession>[];
         final preserved = <String, FrontingSession>{};
+        final selectedSet = selectedMemberIds.toSet();
+        for (final memberId in selectedMemberIds) {
+          final sameMemberActive = actives
+              .where((s) => s.memberId == memberId && !s.isSleep)
+              .toList();
+          final preservedSession = _earliestSession(sameMemberActive);
+          if (preservedSession != null) preserved[memberId] = preservedSession;
+        }
         for (final s in actives) {
           if (s.isSleep) continue;
-          if (await _isActiveExplicitAlwaysFrontingMember(s.memberId)) {
-            final memberId = s.memberId;
-            if (memberId != null) preserved[memberId] = s;
-            continue;
+          final memberId = s.memberId;
+          if (memberId != null && selectedSet.contains(memberId)) {
+            if (preserved[memberId]?.id == s.id) continue;
+          } else if (memberId != null &&
+              await _isActiveExplicitAlwaysFrontingMember(memberId)) {
+            preserved.putIfAbsent(memberId, () => s);
+            if (preserved[memberId]?.id == s.id) continue;
           }
           replaceableActives.add(s);
           previousMemberIds.add(s.memberId);
@@ -279,7 +306,7 @@ class FrontingMutationService {
         //    the same `at` so end_time of the previous == start_time of
         //    the new.
         final created = <FrontingSession>[];
-        for (final memberId in memberIds) {
+        for (final memberId in selectedMemberIds) {
           final preservedSession = preserved[memberId];
           if (preservedSession != null) {
             created.add(preservedSession);
