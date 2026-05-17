@@ -3685,6 +3685,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatAdminNonParticipantSection => 'Admin · No es miembro';
 
   @override
+  String get chatPickSpeakerBanner =>
+      'Elige un miembro en el selector para ver tus chats.';
+
+  @override
   String get chatUncategorized => 'Sin categoría';
 
   @override

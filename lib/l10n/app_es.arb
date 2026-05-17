@@ -1019,6 +1019,7 @@
   "chatNoGroupChatsSubtitle": "Inicia una conversación grupal",
   "chatErrorLoadingConversations": "Error al cargar conversaciones",
   "chatAdminNonParticipantSection": "Admin · No es miembro",
+  "chatPickSpeakerBanner": "Elige un miembro en el selector para ver tus chats.",
   "chatUncategorized": "Sin categoría",
   "chatMarkAsRead": "Marcar como leído",
   "chatMarkAllAsRead": "Marcar todo como leído",

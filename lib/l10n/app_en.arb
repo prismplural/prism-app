@@ -4926,6 +4926,10 @@
   "@chatAdminNonParticipantSection": {
     "description": "Section header for group chats the viewer can see only via the admin moderation override"
   },
+  "chatPickSpeakerBanner": "Pick a member from the speaker chip to see your chats.",
+  "@chatPickSpeakerBanner": {
+    "description": "Gentle banner shown in the chat list when nobody is fronting and no speaking-as member is picked"
+  },
   "chatUncategorized": "Uncategorized",
   "@chatUncategorized": {
     "description": "Label for conversations without a category"

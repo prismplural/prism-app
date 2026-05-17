@@ -3620,6 +3620,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatAdminNonParticipantSection => 'Admin · Not a member';
 
   @override
+  String get chatPickSpeakerBanner =>
+      'Pick a member from the speaker chip to see your chats.';
+
+  @override
   String get chatUncategorized => 'Uncategorized';
 
   @override

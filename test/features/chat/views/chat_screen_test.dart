@@ -456,6 +456,71 @@ void main() {
     );
 
     testWidgets(
+      'null speakingAs renders the pick-speaker banner instead of any chats',
+      (tester) async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        final now = DateTime(2026, 5, 8, 12);
+        final alice = _member('alice', 'Alice');
+        final bob = _member('bob', 'Bob');
+        final members = FakeMemberRepository()..seed([alice, bob]);
+        final conversations = FakeConversationRepository()
+          ..conversations.add(
+            _conversation(
+              id: 'group-1',
+              at: now,
+              participantIds: const ['alice', 'bob'],
+              title: 'Planning',
+            ),
+          );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              memberRepositoryProvider.overrideWithValue(members),
+              conversationRepositoryProvider.overrideWithValue(conversations),
+              chatMessageRepositoryProvider.overrideWithValue(
+                _EmptyChatMessageRepository(),
+              ),
+              systemSettingsProvider.overrideWith(
+                (ref) => Stream.value(const SystemSettings()),
+              ),
+              currentChatViewerProvider.overrideWithValue(null),
+              speakingAsProvider.overrideWith(
+                () => _TestSpeakingAsNotifier(null),
+              ),
+              conversationCategoriesProvider.overrideWith(
+                (ref) => Stream.value([]),
+              ),
+              allGroupsProvider.overrideWith(
+                (ref) => Stream.value(const <MemberGroup>[]),
+              ),
+              allGroupEntriesProvider.overrideWith(
+                (ref) => Stream.value(const <MemberGroupEntry>[]),
+              ),
+            ],
+            child: const MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: [Locale('en')],
+              home: ChatScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.textContaining('Pick a member'),
+          findsOneWidget,
+          reason: 'banner should prompt the user to pick a speaker',
+        );
+        expect(
+          find.text('Planning'),
+          findsNothing,
+          reason: 'group content must NOT leak when no member is picked',
+        );
+      },
+    );
+
+    testWidgets(
       'non-admin viewer never sees the admin section',
       (tester) async {
         SharedPreferences.setMockInitialValues(<String, Object>{});

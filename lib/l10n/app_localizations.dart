@@ -6245,6 +6245,12 @@ abstract class AppLocalizations {
   /// **'Admin · Not a member'**
   String get chatAdminNonParticipantSection;
 
+  /// Gentle banner shown in the chat list when nobody is fronting and no speaking-as member is picked
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a member from the speaker chip to see your chats.'**
+  String get chatPickSpeakerBanner;
+
   /// Label for conversations without a category
   ///
   /// In en, this message translates to:

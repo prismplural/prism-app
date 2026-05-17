@@ -536,7 +536,8 @@ void main() {
   });
 
   group('ConversationPermissions — null speakingAsMemberId', () {
-    test('anonymous browser sees group list but cannot write', () {
+    test('cannot view, write, or manage anything when no member is picked',
+        () {
       final conv = makeGroupConversation(creatorId: 'creator');
       final perms = ConversationPermissions(
         conversation: conv,
@@ -545,15 +546,14 @@ void main() {
       );
       expect(perms.isCreator, isFalse);
       expect(perms.isAdmin, isFalse);
-      // Anonymous viewer (no fronter, none picked) sees the group list as
-      // metadata so the chat list isn't empty when no one is fronting.
-      expect(perms.canView, isTrue);
-      // But cannot send messages until a speaking-as member is picked.
+      // No anonymous-browse carve-out — the chat screen shows a "pick a
+      // member" banner instead so we don't expose group content unattended.
+      expect(perms.canView, isFalse);
       expect(perms.canWrite, isFalse);
       expect(perms.canManage, isFalse);
     });
 
-    test('anonymous browser cannot view scoped DMs', () {
+    test('cannot view scoped DMs either', () {
       final perms = ConversationPermissions(
         conversation: makeDmConversation(),
         speakingAsMemberId: null,

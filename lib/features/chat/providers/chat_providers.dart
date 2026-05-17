@@ -214,12 +214,12 @@ class SpeakingAsNotifier extends Notifier<String?> {
 
   @override
   String? build() {
-    // Only default to the fronter when exactly one person is fronting.
-    // With zero or multiple fronters the caller must make an explicit choice.
+    // With co-fronters, default to the most recently-started session — "who's
+    // at the wheel right now." A null default would fall through to the
+    // anonymous viewer gate and expose every group chat on the device.
     final activeSessions = ref.watch(activeSessionsProvider);
     final activeMembers = ref.watch(activeMembersProvider);
     final sessions = activeSessions.value ?? [];
-    final fronterId = sessions.length == 1 ? sessions.first.memberId : null;
     final activeMemberIds = activeMembers.value?.map((m) => m.id).toSet();
 
     final explicitSelection = _explicitSelection;
@@ -232,11 +232,29 @@ class SpeakingAsNotifier extends Notifier<String?> {
       _explicitSelection = null;
     }
 
+    final fronterId = _mostRecentActiveFronter(sessions);
     if (fronterId == null) return null;
     if (activeMemberIds == null || activeMemberIds.contains(fronterId)) {
       return fronterId;
     }
     return null;
+  }
+
+  static String? _mostRecentActiveFronter(List<FrontingSession> sessions) {
+    String? bestId;
+    DateTime? bestStart;
+    for (final s in sessions) {
+      final memberId = s.memberId;
+      if (memberId == null) continue;
+      if (bestStart == null ||
+          s.startTime.isAfter(bestStart) ||
+          (s.startTime.isAtSameMomentAs(bestStart) &&
+              memberId.compareTo(bestId!) < 0)) {
+        bestStart = s.startTime;
+        bestId = memberId;
+      }
+    }
+    return bestId;
   }
 
   void setMember(String? memberId) {

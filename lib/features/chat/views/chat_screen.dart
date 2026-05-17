@@ -387,6 +387,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 }
 
                 if (conversations.isEmpty || visibleConversations.isEmpty) {
+                  if (speakingAs == null) {
+                    return const [
+                      SliverToBoxAdapter(child: _PickSpeakerBanner()),
+                    ];
+                  }
                   return [
                     SliverFillRemaining(
                       hasScrollBody: false,
@@ -560,6 +565,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (conversationId != null && context.mounted) {
       context.go(AppRoutePaths.chatConversation(conversationId));
     }
+  }
+}
+
+class _PickSpeakerBanner extends StatelessWidget {
+  const _PickSpeakerBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.6,
+          ),
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(12),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              AppIcons.infoOutline,
+              size: 18,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                context.l10n.chatPickSpeakerBanner,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

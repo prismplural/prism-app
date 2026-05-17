@@ -56,11 +56,6 @@ class ConversationPermissions {
       isDirectMessage && conversation.participantIds.isEmpty;
   bool get _isOrphanedDirectMessage =>
       isDirectMessage && conversation.participantIds.length == 1;
-  // Anonymous viewer (no speaking-as picked) can browse group metadata so
-  // the chat list isn't empty when nobody is fronting. Scoped DMs stay
-  // hidden regardless.
-  bool get _isAnonymousBrowsingGroup =>
-      !isDirectMessage && speakingAsMemberId == null;
   /// Admin viewing a group they aren't a member of. Admins get read +
   /// moderate access on these (delete messages/conversation, rename, add
   /// or remove members, transfer ownership) but cannot post or react —
@@ -69,10 +64,7 @@ class ConversationPermissions {
   bool get isAdminNonParticipantGroup =>
       !isDirectMessage && isAdmin && !isParticipant;
   bool get canView =>
-      _isUnscopedDirectMessage ||
-      isParticipant ||
-      _isAnonymousBrowsingGroup ||
-      isAdminNonParticipantGroup;
+      _isUnscopedDirectMessage || isParticipant || isAdminNonParticipantGroup;
   bool get canWrite =>
       _isUnscopedDirectMessage ||
       (isParticipant && !_isOrphanedDirectMessage);

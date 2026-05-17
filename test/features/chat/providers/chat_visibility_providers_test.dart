@@ -124,7 +124,7 @@ void main() {
     expect(conversations.map((c) => c.id).toSet(), {'dm-1', 'group-1'});
   });
 
-  test('null speakingAs sees groups (browse mode) but not scoped DMs',
+  test('null speakingAs sees nothing — chat screen shows pick-speaker banner',
       () async {
     final container = buildContainer(null);
     addTearDown(container.dispose);
@@ -134,9 +134,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     final conversations = sub.read().value!;
 
-    // When no member is picked, the chat list shows group metadata so the
-    // list isn't empty. Scoped DMs stay hidden regardless.
-    expect(conversations.map((c) => c.id), ['group-1']);
+    expect(conversations, isEmpty);
   });
 
   test('non-participant cannot open DM by id', () async {
