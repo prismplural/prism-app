@@ -849,7 +849,6 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                               child: _GlassTextField(
                                 controller: _controller,
                                 focusNode: _focusNode,
-                                readOnly: _isSending,
                                 minHeight: inputHeight,
                                 onChanged: (_) => setState(() {}),
                                 onSend: _sendMessage,
@@ -1027,7 +1026,6 @@ class _GlassTextField extends StatelessWidget {
   const _GlassTextField({
     required this.controller,
     required this.focusNode,
-    required this.readOnly,
     required this.minHeight,
     required this.onChanged,
     required this.onSend,
@@ -1038,7 +1036,6 @@ class _GlassTextField extends StatelessWidget {
 
   final TextEditingController controller;
   final FocusNode focusNode;
-  final bool readOnly;
   final double minHeight;
   final ValueChanged<String> onChanged;
   final VoidCallback onSend;
@@ -1195,7 +1192,6 @@ class _GlassTextField extends StatelessWidget {
       child: TextField(
         controller: controller,
         focusNode: focusNode,
-        readOnly: readOnly,
         textCapitalization: TextCapitalization.sentences,
         inputFormatters: const [AtomicMentionFormatter()],
         minLines: 1,

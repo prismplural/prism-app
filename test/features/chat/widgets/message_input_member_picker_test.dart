@@ -290,6 +290,13 @@ void main() {
     await tester.pump();
 
     expect(textField().focusNode?.hasFocus, isTrue);
+    expect(
+      tester.testTextInput.hasAnyClients,
+      isTrue,
+      reason:
+          'The focused composer must keep its platform input connection while '
+          'sending so the soft keyboard does not animate away.',
+    );
 
     sendCompleter.complete();
     await tester.pumpAndSettle();
@@ -319,6 +326,13 @@ void main() {
     await tester.pump();
 
     expect(textField().focusNode?.hasFocus, isTrue);
+    expect(
+      tester.testTextInput.hasAnyClients,
+      isTrue,
+      reason:
+          'The soft keyboard send action must not close the active input '
+          'connection while the send is pending.',
+    );
 
     sendCompleter.complete();
     await tester.pumpAndSettle();
