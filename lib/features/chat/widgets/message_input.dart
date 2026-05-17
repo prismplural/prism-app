@@ -94,7 +94,16 @@ class _MessageInputState extends ConsumerState<MessageInput> {
         .value;
     if (conversation == null) return false;
 
-    final speakingAs = ref.read(speakingAsProvider);
+    // A proxy-tag match in the current draft makes the matched member the
+    // effective author, so the permission check uses that member's identity
+    // rather than the null speakingAs. Without this, the participant gate
+    // would block sending even though the actual author is a participant.
+    final match = _effectiveMatch;
+    final speakingAs =
+        ref.read(speakingAsProvider) ??
+        (match != null && match.strippedText.isNotEmpty
+            ? match.memberId
+            : null);
     final members = ref.read(activeMembersProvider).value;
     final speakingAsMember = findCurrentChatViewer(members, speakingAs);
     final permissions = conversationPermissionsForViewer(

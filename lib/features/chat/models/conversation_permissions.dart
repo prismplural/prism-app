@@ -45,10 +45,15 @@ class ConversationPermissions {
       isDirectMessage && conversation.participantIds.isEmpty;
   bool get _isOrphanedDirectMessage =>
       isDirectMessage && conversation.participantIds.length == 1;
+  // Anonymous viewer (no speaking-as picked) can browse the group conversation
+  // list metadata so the chat list isn't empty when no member is fronting.
+  // Once a member is picked, the participant gate engages for groups too.
+  // Scoped DMs stay hidden from anonymous viewers regardless.
+  bool get _isAnonymousBrowsingGroup =>
+      !isDirectMessage && speakingAsMemberId == null;
   bool get canView =>
-      !isDirectMessage || _isUnscopedDirectMessage || isParticipant;
+      _isUnscopedDirectMessage || isParticipant || _isAnonymousBrowsingGroup;
   bool get canWrite =>
-      !isDirectMessage ||
       _isUnscopedDirectMessage ||
       (isParticipant && !_isOrphanedDirectMessage);
   bool get canManage => canWrite && (isCreator || isAdmin);

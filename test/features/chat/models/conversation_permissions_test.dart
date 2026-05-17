@@ -103,47 +103,102 @@ void main() {
     test('isCreator is false', () => expect(perms.isCreator, isFalse));
     test('isParticipant is false', () => expect(perms.isParticipant, isFalse));
     test('isAdmin is true', () => expect(perms.isAdmin, isTrue));
-    test('canManage is true', () => expect(perms.canManage, isTrue));
+    // Admins have no override for group chats they aren't in — same rule as
+    // DMs (see lines below at `admin non-participant canView is false` for
+    // the DM case). The "speaking-as" picker decides what an admin can see,
+    // not the admin flag itself.
     test(
-      'canTransferOwnership is true',
-      () => expect(perms.canTransferOwnership, isTrue),
-    );
-    test('canView is true', () => expect(perms.canView, isTrue));
-    test('canWrite is true for groups', () => expect(perms.canWrite, isTrue));
-    test(
-      'canEditTitleEmoji is true',
-      () => expect(perms.canEditTitleEmoji, isTrue),
-    );
-    test('canAddMembers is true', () => expect(perms.canAddMembers, isTrue));
-    test(
-      'canRemoveMembers is true',
-      () => expect(perms.canRemoveMembers, isTrue),
+      'canView is false when not a participant',
+      () => expect(perms.canView, isFalse),
     );
     test(
-      'canDeleteConversation is true',
-      () => expect(perms.canDeleteConversation, isTrue),
+      'canWrite is false when not a participant',
+      () => expect(perms.canWrite, isFalse),
+    );
+    test(
+      'canManage is false when not a participant',
+      () => expect(perms.canManage, isFalse),
+    );
+    test(
+      'canTransferOwnership is false when not a participant',
+      () => expect(perms.canTransferOwnership, isFalse),
+    );
+    test(
+      'canEditTitleEmoji is false when not a participant',
+      () => expect(perms.canEditTitleEmoji, isFalse),
+    );
+    test(
+      'canAddMembers is false when not a participant',
+      () => expect(perms.canAddMembers, isFalse),
+    );
+    test(
+      'canRemoveMembers is false when not a participant',
+      () => expect(perms.canRemoveMembers, isFalse),
+    );
+    test(
+      'canDeleteConversation is false when not a participant',
+      () => expect(perms.canDeleteConversation, isFalse),
     );
     test(
       'canLeave is false when not a participant',
       () => expect(perms.canLeave, isFalse),
     );
-    test('canArchive is true', () => expect(perms.canArchive, isTrue));
+    test(
+      'canArchive is false when not a participant',
+      () => expect(perms.canArchive, isFalse),
+    );
+    test(
+      'canMarkRead is false when not a participant',
+      () => expect(perms.canMarkRead, isFalse),
+    );
+    test(
+      'canReact is false when not a participant',
+      () => expect(perms.canReact, isFalse),
+    );
 
     test(
-      'canEditMessage own',
-      () => expect(perms.canEditMessage('admin1'), isTrue),
+      'canEditMessage own is false (cannot write at all)',
+      () => expect(perms.canEditMessage('admin1'), isFalse),
     );
     test(
       'canEditMessage others is false',
       () => expect(perms.canEditMessage('member1'), isFalse),
     );
     test(
-      'canDeleteMessage own',
-      () => expect(perms.canDeleteMessage('admin1'), isTrue),
+      'canDeleteMessage own is false (cannot write at all)',
+      () => expect(perms.canDeleteMessage('admin1'), isFalse),
     );
     test(
-      'canDeleteMessage others (admin manages)',
-      () => expect(perms.canDeleteMessage('member1'), isTrue),
+      'canDeleteMessage others is false',
+      () => expect(perms.canDeleteMessage('member1'), isFalse),
+    );
+  });
+
+  group('ConversationPermissions — regular member non-participant', () {
+    late ConversationPermissions perms;
+
+    setUp(() {
+      final conv = makeGroupConversation(creatorId: 'creator');
+      final member = makeMember(id: 'outsider', isAdmin: false);
+      perms = ConversationPermissions(
+        conversation: conv,
+        speakingAsMemberId: 'outsider',
+        speakingAsMember: member,
+      );
+    });
+
+    test('isParticipant is false', () => expect(perms.isParticipant, isFalse));
+    test('canView is false', () => expect(perms.canView, isFalse));
+    test('canWrite is false', () => expect(perms.canWrite, isFalse));
+    test('canManage is false', () => expect(perms.canManage, isFalse));
+    test(
+      'canDeleteConversation is false',
+      () => expect(perms.canDeleteConversation, isFalse),
+    );
+    test('canArchive is false', () => expect(perms.canArchive, isFalse));
+    test(
+      'canDeleteMessage own is false (cannot write at all)',
+      () => expect(perms.canDeleteMessage('outsider'), isFalse),
     );
   });
 
@@ -467,7 +522,7 @@ void main() {
   });
 
   group('ConversationPermissions — null speakingAsMemberId', () {
-    test('isCreator is false when speaking as null', () {
+    test('anonymous browser sees group list but cannot write', () {
       final conv = makeGroupConversation(creatorId: 'creator');
       final perms = ConversationPermissions(
         conversation: conv,
@@ -476,9 +531,22 @@ void main() {
       );
       expect(perms.isCreator, isFalse);
       expect(perms.isAdmin, isFalse);
+      // Anonymous viewer (no fronter, none picked) sees the group list as
+      // metadata so the chat list isn't empty when no one is fronting.
       expect(perms.canView, isTrue);
-      expect(perms.canWrite, isTrue);
+      // But cannot send messages until a speaking-as member is picked.
+      expect(perms.canWrite, isFalse);
       expect(perms.canManage, isFalse);
+    });
+
+    test('anonymous browser cannot view scoped DMs', () {
+      final perms = ConversationPermissions(
+        conversation: makeDmConversation(),
+        speakingAsMemberId: null,
+        speakingAsMember: null,
+      );
+      expect(perms.canView, isFalse);
+      expect(perms.canWrite, isFalse);
     });
   });
 

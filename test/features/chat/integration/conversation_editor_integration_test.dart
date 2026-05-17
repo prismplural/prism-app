@@ -447,21 +447,17 @@ void main() {
       expect(regularPerms.canDeleteMessage(null), isFalse);
     });
 
-    test('member cannot edit a message authored by themselves if speakingAs is null', () {
+    test('null speakingAs cannot edit any message (write is gated)', () {
       final nullPerms = makePerms(
         conversation: groupConversation,
         memberId: null,
         member: null,
       );
-      // null == null is true in Dart, but ConversationPermissions checks
-      // authorId == speakingAsMemberId — both null → true? Let's verify:
-      // Actually the implementation: bool canEditMessage(String? authorId) =>
-      //   authorId == speakingAsMemberId;
-      // If authorId is null and speakingAsMemberId is null → null == null → true.
-      // This is correct — no speaking member, can't really edit.
-      // The integration test documents this behaviour explicitly.
-      expect(nullPerms.canEditMessage(null), isTrue); // both null matches
-      expect(nullPerms.canEditMessage('alice'), isFalse); // 'alice' != null
+      // `canEditMessage` requires `canWrite`, which now requires participant
+      // status for both DMs and groups. A null speakingAs is never a
+      // participant, so no edits — even the `authorId == null` case.
+      expect(nullPerms.canEditMessage(null), isFalse);
+      expect(nullPerms.canEditMessage('alice'), isFalse);
     });
 
     test('speakingAs null member has no management permissions', () {

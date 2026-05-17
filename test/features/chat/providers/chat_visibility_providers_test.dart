@@ -75,8 +75,43 @@ void main() {
     );
   }
 
-  test('non-participant does not see DM in conversation list', () async {
-    final container = buildContainer('carol');
+  test(
+    'non-participant sees neither DMs nor group chats they are not in',
+    () async {
+      final container = buildContainer('carol');
+      addTearDown(container.dispose);
+      final sub = container.listen(conversationsProvider, (_, _) {});
+      addTearDown(sub.close);
+
+      await Future<void>.delayed(Duration.zero);
+      final conversations = sub.read().value!;
+
+      // Carol is in no participantIds, so she sees nothing — neither the DM
+      // nor the group nor the legacy DM (which is `isDirectMessage:false`
+      // but matches the legacy two-person-untitled shape).
+      expect(conversations, isEmpty);
+    },
+  );
+
+  test(
+    'admin non-participant sees neither DMs nor group chats they are not in',
+    () async {
+      final container = buildContainer('admin');
+      addTearDown(container.dispose);
+      final sub = container.listen(conversationsProvider, (_, _) {});
+      addTearDown(sub.close);
+
+      await Future<void>.delayed(Duration.zero);
+      final conversations = sub.read().value!;
+
+      // Admins have no automatic override — the "speaking-as" picker is what
+      // grants access, not the admin flag.
+      expect(conversations, isEmpty);
+    },
+  );
+
+  test('participant sees the group they are in', () async {
+    final container = buildContainer('alice');
     addTearDown(container.dispose);
     final sub = container.listen(conversationsProvider, (_, _) {});
     addTearDown(sub.close);
@@ -84,11 +119,13 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     final conversations = sub.read().value!;
 
-    expect(conversations.map((c) => c.id), ['group-1']);
+    // Alice is in dm-1 and group-1 but not in legacy-dm-1.
+    expect(conversations.map((c) => c.id).toSet(), {'dm-1', 'group-1'});
   });
 
-  test('admin non-participant does not see DM in conversation list', () async {
-    final container = buildContainer('admin');
+  test('null speakingAs sees groups (browse mode) but not scoped DMs',
+      () async {
+    final container = buildContainer(null);
     addTearDown(container.dispose);
     final sub = container.listen(conversationsProvider, (_, _) {});
     addTearDown(sub.close);
@@ -96,6 +133,8 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     final conversations = sub.read().value!;
 
+    // When no member is picked, the chat list shows group metadata so the
+    // list isn't empty. Scoped DMs stay hidden regardless.
     expect(conversations.map((c) => c.id), ['group-1']);
   });
 
@@ -115,6 +154,36 @@ void main() {
     final container = buildContainer('admin');
     addTearDown(container.dispose);
     final sub = container.listen(conversationByIdProvider('dm-1'), (_, _) {});
+    addTearDown(sub.close);
+
+    await Future<void>.delayed(Duration.zero);
+    final conversation = sub.read().value;
+
+    expect(conversation, isNull);
+  });
+
+  test('non-participant cannot open group chat by id', () async {
+    final container = buildContainer('carol');
+    addTearDown(container.dispose);
+    final sub = container.listen(
+      conversationByIdProvider('group-1'),
+      (_, _) {},
+    );
+    addTearDown(sub.close);
+
+    await Future<void>.delayed(Duration.zero);
+    final conversation = sub.read().value;
+
+    expect(conversation, isNull);
+  });
+
+  test('admin non-participant cannot open group chat by id', () async {
+    final container = buildContainer('admin');
+    addTearDown(container.dispose);
+    final sub = container.listen(
+      conversationByIdProvider('group-1'),
+      (_, _) {},
+    );
     addTearDown(sub.close);
 
     await Future<void>.delayed(Duration.zero);
