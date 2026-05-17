@@ -18,6 +18,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 class PluralKitUnmappedFrontersNoticeBanner extends ConsumerWidget {
   const PluralKitUnmappedFrontersNoticeBanner({
@@ -317,9 +318,7 @@ class _PkUnmappedFrontersReviewSheetState
       await action();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
+        PrismToast.error(context, message: e.toString());
       }
     } finally {
       if (mounted) setState(() => _busy = false);
