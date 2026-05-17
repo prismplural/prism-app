@@ -120,7 +120,10 @@ class _CreateConversationSheetState
       }
       return _selectedMemberIds.length >= 2;
     } else {
-      // DM: current fronter + one selected other member
+      // DM: current fronter + one selected other member. Unknown can't be a
+      // DM participant — its id would land in participantIds, and any other
+      // member picking Unknown as their speaker would match it as a real
+      // participant and read the DM content.
       final speakingAs = ref.read(speakingAsProvider);
       final targetId = _selectedMemberIds.length == 1
           ? _selectedMemberIds.first
@@ -131,6 +134,7 @@ class _CreateConversationSheetState
           ?.map((member) => member.id)
           .toSet();
       return speakingAs != null &&
+          !isUnknownChatAuthor(speakingAs) &&
           targetId != null &&
           targetId != speakingAs &&
           (visibleMemberIds == null || visibleMemberIds.contains(targetId));

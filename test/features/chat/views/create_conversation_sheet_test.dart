@@ -674,6 +674,31 @@ void main() {
     );
 
     testWidgets(
+      'DM creation is blocked when speakingAs is Unknown',
+      (tester) async {
+        // Unknown landing in DM participantIds would let anyone else
+        // selecting Unknown match as a real participant and read the DM.
+        final notifier = _FakeChatNotifier();
+        await tester.pumpWidget(
+          _buildSheet(
+            members: [alice, bob],
+            speakingAs: unknownSentinelMemberId,
+            initialIsGroupChat: false,
+            initialMemberIds: ['bob'],
+            chatNotifier: notifier,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Create conversation'));
+        await tester.pumpAndSettle();
+
+        expect(notifier.createdIsDirectMessage, isNull,
+            reason: 'create button must be disabled for Unknown DM');
+      },
+    );
+
+    testWidgets(
       'normal group with Unknown speakingAs falls back to first picked member as creator',
       (tester) async {
         // Unknown is allowed as speaker for the message stream, but the
