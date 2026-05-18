@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/core/reset/full_reset_service.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 enum ResetRecoveryScreenMode {
   restartRequired,
@@ -106,15 +107,19 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
                   const SizedBox(height: 24),
                   if (isAnomaly) ...[
                     if (_canContinueWithExistingData == true) ...[
-                      FilledButton(
-                        onPressed: _busy ? null : _restoreSentinel,
-                        child: const Text('Continue with existing data'),
+                      PrismButton(
+                        label: 'Continue with existing data',
+                        onPressed: _restoreSentinel,
+                        enabled: !_busy,
+                        tone: PrismButtonTone.filled,
                       ),
                       const SizedBox(height: 8),
                     ] else if (_canContinueWithExistingData == null) ...[
-                      const FilledButton(
-                        onPressed: null,
-                        child: Text('Checking existing data...'),
+                      PrismButton(
+                        label: 'Checking existing data...',
+                        onPressed: () {},
+                        enabled: false,
+                        tone: PrismButtonTone.filled,
                       ),
                       const SizedBox(height: 8),
                     ] else ...[
@@ -125,20 +130,22 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
                       ),
                       const SizedBox(height: 16),
                     ],
-                    OutlinedButton(
-                      onPressed: _busy ? null : _eraseLocalData,
-                      child: const Text('Erase local data'),
+                    PrismButton(
+                      label: 'Erase local data',
+                      onPressed: _eraseLocalData,
+                      enabled: !_busy,
+                      tone: PrismButtonTone.outlined,
                     ),
                   ] else
-                    FilledButton(
-                      onPressed: null,
-                      child: Text(
-                        _mode == ResetRecoveryScreenMode.androidClearing
-                            ? 'Clearing...'
-                            : _busy
-                            ? 'Working...'
-                            : 'Close and reopen Prism',
-                      ),
+                    PrismButton(
+                      label: _mode == ResetRecoveryScreenMode.androidClearing
+                          ? 'Clearing...'
+                          : _busy
+                          ? 'Working...'
+                          : 'Close and reopen Prism',
+                      onPressed: () {},
+                      enabled: false,
+                      tone: PrismButtonTone.filled,
                     ),
                 ],
               ),

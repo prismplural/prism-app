@@ -217,14 +217,14 @@ void main() {
           final group = await batchDb.memberGroupsDao.getGroupById('grp-1');
           expect(group, isNotNull);
           const entryId = 'entry-1';
-          final companion = MemberGroupEntriesCompanion(
-            id: const Value(entryId),
-            groupId: const Value('grp-1'),
-            memberId: const Value('mem-1'),
-            pkGroupUuid: const Value(null),
-            pkMemberUuid: const Value(null),
-            isDeleted: const Value(false),
-            pendingPkOp: const Value('none'),
+          const companion = MemberGroupEntriesCompanion(
+            id: Value(entryId),
+            groupId: Value('grp-1'),
+            memberId: Value('mem-1'),
+            pkGroupUuid: Value(null),
+            pkMemberUuid: Value(null),
+            isDeleted: Value(false),
+            pendingPkOp: Value('none'),
           );
           await batchDb.memberGroupsDao.batchInsertEntries([companion]);
           const stored = MemberGroupEntryRow(
@@ -290,14 +290,14 @@ void main() {
           final group = await batchDb.memberGroupsDao.getGroupById('grp-supp');
           expect(group, isNotNull);
           const entryId = 'entry-1';
-          final companion = MemberGroupEntriesCompanion(
-            id: const Value(entryId),
-            groupId: const Value('grp-supp'),
-            memberId: const Value('mem-1'),
-            pkGroupUuid: const Value(null),
-            pkMemberUuid: const Value(null),
-            isDeleted: const Value(false),
-            pendingPkOp: const Value('none'),
+          const companion = MemberGroupEntriesCompanion(
+            id: Value(entryId),
+            groupId: Value('grp-supp'),
+            memberId: Value('mem-1'),
+            pkGroupUuid: Value(null),
+            pkMemberUuid: Value(null),
+            isDeleted: Value(false),
+            pendingPkOp: Value('none'),
           );
           await batchDb.memberGroupsDao.batchInsertEntries([companion]);
           // Caller must gate emission on isGroupSyncSuppressed; the suppress

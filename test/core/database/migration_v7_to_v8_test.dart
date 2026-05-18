@@ -59,7 +59,9 @@ Future<void> _seedV7Db(File dbFile) async {
 
     rawDb.execute('ALTER TABLE member_group_entries DROP COLUMN pending_pk_op');
 
-    rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled',
+    );
     // Drop columns added by v21-v25 so their migrations can re-add them when
     // stepping forward through v7 -> current.
     rawDb.execute('ALTER TABLE member_groups DROP COLUMN sort_state');
@@ -209,7 +211,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .get();
-        expect(version.first.read<int>('user_version'), 24);
+        expect(version.first.read<int>('user_version'), 25);
       },
     );
   });

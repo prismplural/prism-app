@@ -750,7 +750,7 @@ void main() {
       final uv = await db.customSelect('PRAGMA user_version').getSingle();
       expect(
         uv.read<int>('user_version'),
-        24,
+        25,
         reason: 'all migration steps must complete',
       );
 
@@ -914,7 +914,7 @@ void main() {
 
       // user_version must match the current schema.
       final uv = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(uv.read<int>('user_version'), 24);
+      expect(uv.read<int>('user_version'), 25);
 
       // mode = 'blocked'
       final settings = await db.systemSettingsDao.getSettings();
@@ -1019,7 +1019,7 @@ void main() {
 
       // user_version must match the current schema.
       final uv = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(uv.read<int>('user_version'), 24);
+      expect(uv.read<int>('user_version'), 25);
 
       // mode = 'blocked'
       final settings = await db.systemSettingsDao.getSettings();

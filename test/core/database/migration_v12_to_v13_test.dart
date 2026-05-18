@@ -51,7 +51,9 @@ Future<void> _seedV12Db(File dbFile) async {
     rawDb.execute('DROP TABLE IF EXISTS member_board_posts');
     // Flattened v18→v19: drop pending_pk_op so onUpgrade can re-add it.
     rawDb.execute('ALTER TABLE member_group_entries DROP COLUMN pending_pk_op');
-    rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled',
+    );
     // Drop columns added by v21-v25 so their migrations can re-add them when
     // stepping forward through v12 -> current.
     rawDb.execute('ALTER TABLE member_groups DROP COLUMN sort_state');
@@ -108,7 +110,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(version.read<int>('user_version'), 24);
+        expect(version.read<int>('user_version'), 25);
       },
     );
   });

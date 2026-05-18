@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 void main() {
   testWidgets('restart-required recovery screen tells user to reopen Prism', (
@@ -20,9 +21,9 @@ void main() {
       findsOneWidget,
     );
 
-    final button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Close and reopen Prism'),
+    final button = tester.widget<PrismButton>(
+      find.widgetWithText(PrismButton, 'Close and reopen Prism'),
     );
-    expect(button.onPressed, isNull);
+    expect(button.enabled, isFalse);
   });
 }

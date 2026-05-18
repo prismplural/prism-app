@@ -23,6 +23,8 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/poll_vote.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 
+const _emptyGroupSortState = '{"mode":0,"order":[]}';
+
 void main() {
   group('pollVoteFields', () {
     test('produces the exact tuple Phase 5 capture-replay must mirror', () {
@@ -114,6 +116,7 @@ void main() {
       displayOrder: 0,
       groupType: 0,
       createdAt: DateTime.utc(2026, 5, 12),
+      sortState: _emptyGroupSortState,
       isDeleted: false,
       syncSuppressed: false,
     );
@@ -145,6 +148,7 @@ void main() {
         displayOrder: 0,
         groupType: 0,
         createdAt: DateTime.utc(2026, 5, 12),
+        sortState: _emptyGroupSortState,
         isDeleted: false,
         pluralkitUuid: 'pk-grp-uuid',
         syncSuppressed: false,

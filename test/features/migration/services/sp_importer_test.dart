@@ -397,11 +397,11 @@ class _ThrowingMemberRepository implements MemberRepository {
 
   @override
   Future<List<domain.Member>> getAllMembers() =>
-      _throwOnceOr(() => _inner.getAllMembers());
+      _throwOnceOr(_inner.getAllMembers);
 
   @override
   Future<List<domain.Member>> getAllMembersIncludingDeleted() =>
-      _throwOnceOr(() => _inner.getAllMembersIncludingDeleted());
+      _throwOnceOr(_inner.getAllMembersIncludingDeleted);
 
   Future<List<domain.Member>> _throwOnceOr(
     Future<List<domain.Member>> Function() read,
@@ -420,6 +420,7 @@ class _ThrowingMemberRepository implements MemberRepository {
       _inner.createMember(member);
   @override
   Future<void> deleteMember(String id) => _inner.deleteMember(id);
+  @override
   Future<int> getCount() => _inner.getCount();
   @override
   Future<List<domain.Member>> getDeletedLinkedMembers() =>

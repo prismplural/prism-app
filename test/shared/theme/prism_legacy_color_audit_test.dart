@@ -32,7 +32,7 @@ const _allowedLegacyColorReferenceCounts = <String, int>{
   'lib/features/onboarding/widgets/system_name_step.dart': 6,
   'lib/features/onboarding/widgets/terminology_step.dart': 14,
   'lib/features/onboarding/widgets/welcome_step.dart': 2,
-  'lib/features/onboarding/widgets/whos_fronting_step.dart': 8,
+  'lib/features/onboarding/widgets/whos_fronting_step.dart': 2,
   'lib/features/settings/views/accent_color_picker.dart': 1,
   'lib/features/settings/widgets/secret_key_reveal_content.dart': 1,
   'lib/shared/widgets/markdown_editing_controller.dart': 1,

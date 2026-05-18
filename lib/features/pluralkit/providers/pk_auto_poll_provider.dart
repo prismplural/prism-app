@@ -270,7 +270,7 @@ class PkAutoPollNotifier extends Notifier<void> {
       'mapping_acknowledged': state.mappingAcknowledged,
       'can_auto_sync': state.canAutoSync,
       'is_syncing': state.isSyncing,
-      if (tokenPresent != null) 'token_present': tokenPresent,
+      'token_present': ?tokenPresent,
     };
   }
 }
