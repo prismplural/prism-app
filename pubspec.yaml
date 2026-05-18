@@ -106,8 +106,14 @@ dependencies:
   flutter_markdown_plus: ^1.0.7
   markdown: ^7.0.0
   record: ^6.2.0
-  flutter_soloud: ^4.0.2
-  ogg_caf_converter: ^0.1.4
+  flutter_soloud:
+    git:
+      url: https://github.com/skylartaylor/flutter_soloud.git
+      ref: a59b81032599e0c54f9a85a66c0f7e6193fa2aa1
+  ogg_caf_converter:
+    git:
+      url: https://github.com/skylartaylor/ogg_caf_converter.git
+      ref: 899b9692ea048b90ffa114c25b471b06d495ef7b
   package_info_plus: ^9.0.1
 
 dev_dependencies:

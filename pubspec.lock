@@ -587,10 +587,11 @@ packages:
   flutter_soloud:
     dependency: "direct main"
     description:
-      name: flutter_soloud
-      sha256: "054d7baf7effb3fa6765387d7d3f236961e558573e9a0ad2523b081fac5fa988"
-      url: "https://pub.dev"
-    source: hosted
+      path: "."
+      ref: a59b81032599e0c54f9a85a66c0f7e6193fa2aa1
+      resolved-ref: a59b81032599e0c54f9a85a66c0f7e6193fa2aa1
+      url: "https://github.com/skylartaylor/flutter_soloud.git"
+    source: git
     version: "4.0.6"
   flutter_staggered_grid_view:
     dependency: "direct main"
@@ -999,10 +1000,11 @@ packages:
   ogg_caf_converter:
     dependency: "direct main"
     description:
-      name: ogg_caf_converter
-      sha256: "3faa20f7ae854d6eda233773756de3eddb6c8d4fdc6d0165da992ded95240818"
-      url: "https://pub.dev"
-    source: hosted
+      path: "."
+      ref: "899b9692ea048b90ffa114c25b471b06d495ef7b"
+      resolved-ref: "899b9692ea048b90ffa114c25b471b06d495ef7b"
+      url: "https://github.com/skylartaylor/ogg_caf_converter.git"
+    source: git
     version: "0.1.4"
   package_config:
     dependency: transitive
