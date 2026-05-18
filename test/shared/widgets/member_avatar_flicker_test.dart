@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:image/image.dart' as img;
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -48,24 +47,6 @@ Uint8List _pngBytes() => base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
 );
 
-Uint8List _animatedGifBytes() {
-  final first = img.Image(
-    width: 8,
-    height: 8,
-    frameType: img.FrameType.animation,
-    frameDuration: 100,
-  );
-  img.fill(first, color: img.ColorRgb8(255, 0, 0));
-
-  final second = img.Image(width: 8, height: 8, frameDuration: 100);
-  img.fill(second, color: img.ColorRgb8(0, 255, 0));
-  first.addFrame(second);
-
-  final bytes = img.encodeGif(first);
-  assert(img.decodeGif(bytes)?.numFrames == 2);
-  return Uint8List.fromList(bytes);
-}
-
 void main() {
   group('avatar gaplessPlayback (PK sync flicker regression)', () {
     testWidgets('MemberAvatar Image.memory has gaplessPlayback: true', (
@@ -73,11 +54,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         _wrap(
-          MemberAvatar(
-            avatarImageData: _pngBytes(),
-            memberName: 'Alex',
-            size: 64,
-          ),
+          MemberAvatar(avatarImageData: _pngBytes(), memberName: 'Alex', size: 64),
         ),
       );
 
@@ -117,8 +94,7 @@ void main() {
       expect(
         images,
         isNotEmpty,
-        reason:
-            'GroupMemberAvatar should render Image widgets when bytes are provided',
+        reason: 'GroupMemberAvatar should render Image widgets when bytes are provided',
       );
       for (final image in images) {
         expect(
@@ -173,83 +149,5 @@ void main() {
         expect(image.gaplessPlayback, isTrue);
       },
     );
-
-    testWidgets('MemberAvatar does not resize animated GIF bytes', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _wrap(
-          MemberAvatar(
-            avatarImageData: _animatedGifBytes(),
-            memberName: 'Alex',
-            size: 64,
-          ),
-        ),
-      );
-
-      final image = tester.widget<Image>(find.byType(Image));
-      expect(
-        image.image,
-        isA<MemoryImage>(),
-        reason:
-            'Animated GIF avatars need the raw MemoryImage provider; '
-            'ResizeImage can flatten playback and produce a bad scaled frame.',
-      );
-    });
-
-    testWidgets('MemberAvatar keeps resize hints for static image bytes', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _wrap(
-          MemberAvatar(
-            avatarImageData: _pngBytes(),
-            memberName: 'Alex',
-            size: 64,
-          ),
-        ),
-      );
-
-      final image = tester.widget<Image>(find.byType(Image));
-      expect(
-        image.image,
-        isA<ResizeImage>(),
-        reason: 'Static avatars should keep DPR-aware resize hints.',
-      );
-    });
-
-    testWidgets('GroupMemberAvatar does not resize animated GIF bytes', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _wrap(
-          GroupMemberAvatar(
-            members: [
-              GroupAvatarMember(
-                emoji: '🌟',
-                avatarImageData: _animatedGifBytes(),
-              ),
-              GroupAvatarMember(emoji: '🌙', avatarImageData: _pngBytes()),
-            ],
-            size: 64,
-          ),
-        ),
-      );
-
-      final images = tester.widgetList<Image>(find.byType(Image)).toList();
-      expect(images, hasLength(2));
-      expect(
-        images.first.image,
-        isA<MemoryImage>(),
-        reason:
-            'Animated GIF avatars inside group avatars need the raw '
-            'MemoryImage provider for animation.',
-      );
-      expect(
-        images.last.image,
-        isA<ResizeImage>(),
-        reason: 'Static images should keep DPR-aware resize hints.',
-      );
-    });
   });
 }

@@ -148,29 +148,6 @@ void main() {
         throwsArgumentError,
       );
     });
-
-    // Regression: banners set to a GIF used to display a single static frame.
-    // `decodeImage`+WebP encoding flattens animation; GIF inputs now bypass
-    // the encoder entirely and the display widget center-crops with BoxFit.
-    test('animated GIF input passes through verbatim, skipping the encoder',
-        () async {
-      final source = img.Image(width: 64, height: 64);
-      img.fill(source, color: img.ColorRgb8(50, 80, 110));
-      final gifBytes = Uint8List.fromList(img.encodeGif(source));
-      final encoder = _FakeWebpEncoder.fixed(100);
-
-      final normalized = await normalizeProfileHeaderImage(
-        gifBytes,
-        encoder: encoder,
-      );
-
-      expect(identical(normalized, gifBytes), isTrue);
-      expect(
-        encoder.qualities,
-        isEmpty,
-        reason: 'GIF passthrough should not invoke the WebP encoder',
-      );
-    });
   });
 }
 

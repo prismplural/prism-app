@@ -8,7 +8,6 @@ import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
-import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -226,16 +225,13 @@ class GroupMemberAvatar extends ConsumerWidget {
   ) {
     if (member.avatarImageData != null && member.avatarImageData!.isNotEmpty) {
       final pixelSize = (itemSize * devicePixelRatio).ceil();
-      final isAnimatedGif = AvatarNormalizer.isAnimatedGifInput(
-        member.avatarImageData,
-      );
       final image = Image.memory(
         member.avatarImageData!,
         width: itemSize,
         height: itemSize,
         fit: BoxFit.cover,
-        cacheWidth: isAnimatedGif ? null : pixelSize,
-        cacheHeight: isAnimatedGif ? null : pixelSize,
+        cacheWidth: pixelSize,
+        cacheHeight: pixelSize,
         // See MemberAvatar — Drift re-emits member rows during PK sync with
         // fresh Uint8List instances; MemoryImage equality is identity-based,
         // so without gaplessPlayback every emit clears this frame briefly.

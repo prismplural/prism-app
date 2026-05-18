@@ -88,11 +88,6 @@ class ProfileHeaderImagePicker {
       return null;
     }
 
-    // Cropper rasterizes to a single bitmap — skip it for GIFs.
-    if (_isGif(pickedBytes)) {
-      return normalize(pickedBytes);
-    }
-
     final normalizedBytes =
         await (normalizePickedBytes ?? normalizePickedImageBytes)(
           pickedBytes,
@@ -194,15 +189,4 @@ bool _isDesktopPlatform(TargetPlatform platform) {
     TargetPlatform.fuchsia ||
     TargetPlatform.iOS => false,
   };
-}
-
-bool _isGif(Uint8List bytes) {
-  // GIF87a or GIF89a header.
-  return bytes.length >= 6 &&
-      bytes[0] == 0x47 &&
-      bytes[1] == 0x49 &&
-      bytes[2] == 0x46 &&
-      bytes[3] == 0x38 &&
-      (bytes[4] == 0x37 || bytes[4] == 0x39) &&
-      bytes[5] == 0x61;
 }

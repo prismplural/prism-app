@@ -325,64 +325,6 @@ void main() {
       PrismToast.dismiss();
     });
 
-    // Regression: GIF avatars used to be rasterized into a single frame by
-    // the cropper, killing the animation. The picker now detects GIF bytes
-    // up-front, skips the cropper, and runs them through the normalizer
-    // (which passes GIFs through verbatim).
-    testWidgets('skips cropper and returns GIF bytes verbatim for GIF input', (
-      tester,
-    ) async {
-      // Minimal valid GIF89a header — the picker only checks magic bytes.
-      final gifBytes = Uint8List.fromList([
-        0x47, 0x49, 0x46, 0x38, 0x39, 0x61, // "GIF89a"
-        0x01, 0x00, 0x01, 0x00, 0x80, 0x00, 0x00,
-        0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00,
-        0x21, 0xF9, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x2C, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
-        0x02, 0x02, 0x44, 0x01, 0x00, 0x3B,
-      ]);
-      final pickedImage = _FakePickedImage(
-        path: '/tmp/avatar-source.gif',
-        bytes: gifBytes,
-      );
-      var cropCalls = 0;
-      var normalizeCalls = 0;
-
-      final result = await _pick(
-        tester,
-        pickImage: (_) async => pickedImage,
-        cropImage:
-            (
-              sourceBytes,
-              context, {
-              required title,
-              required doneButtonTitle,
-              required cancelButtonTitle,
-            }) async {
-              cropCalls += 1;
-              return Uint8List.fromList([9, 8, 7]);
-            },
-        normalizeBytes: (bytes, {platform}) async {
-          normalizeCalls += 1;
-          return bytes;
-        },
-        platform: TargetPlatform.iOS,
-      );
-
-      expect(result, isNotNull);
-      expect(
-        result,
-        gifBytes,
-        reason: 'GIF should pass through normalizer verbatim',
-      );
-      expect(cropCalls, 0, reason: 'cropper would flatten animation');
-      expect(
-        normalizeCalls,
-        0,
-        reason: 'platform normalizer should be bypassed for GIFs',
-      );
-    });
-
     testWidgets('returns null if context unmounts after image picking', (
       tester,
     ) async {
