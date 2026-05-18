@@ -49,6 +49,9 @@ jobs:
       - name: Fetch packages
         run: flutter pub get
 
+      - name: Check desktop branding
+        run: dart run tool/desktop_branding.dart check
+
       - name: Build Linux release
         run: flutter build linux --release
 
@@ -62,9 +65,18 @@ jobs:
           #!/bin/sh
           DIR="$(dirname "$(readlink -f "$0")")"
           export GDK_BACKEND=x11
+          if [ -n "${XDG_DATA_DIRS:-}" ]; then
+            export XDG_DATA_DIRS="$DIR/share:$XDG_DATA_DIRS"
+          else
+            export XDG_DATA_DIRS="$DIR/share:/usr/local/share:/usr/share"
+          fi
           exec "$DIR/prism_plurality" "$@"
           WRAPPER
           chmod +x "$bundle/prism"
+          mkdir -p "$bundle/share/applications" "$bundle/share/metainfo" "$bundle/share/icons"
+          cp packaging/linux/com.prismplural.prism.desktop "$bundle/share/applications/"
+          cp packaging/linux/com.prismplural.prism.metainfo.xml "$bundle/share/metainfo/"
+          cp -R packaging/linux/icons/hicolor "$bundle/share/icons/"
           mkdir -p dist
           tar -C "$bundle" -czf "dist/Prism-${version}-linux-x64.tar.gz" .
           (cd dist && sha256sum "Prism-${version}-linux-x64.tar.gz" > "Prism-${version}-linux-x64.tar.gz.sha256")
@@ -118,6 +130,9 @@ jobs:
 
       - name: Fetch packages
         run: flutter pub get
+
+      - name: Check desktop branding
+        run: dart run tool/desktop_branding.dart check
 
       - name: Stage prism-sync crates for cargokit
         # The prism_sync plugin's windows/CMakeLists.txt points cargokit at
