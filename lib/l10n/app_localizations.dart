@@ -6245,6 +6245,18 @@ abstract class AppLocalizations {
   /// **'Admin · Not a member'**
   String get chatAdminNonParticipantSection;
 
+  /// Title for the dismissible chat-tab notice explaining upgraded group chat visibility
+  ///
+  /// In en, this message translates to:
+  /// **'Some group chats are visible to everyone'**
+  String get chatGroupVisibilityNudgeTitle;
+
+  /// Body for the dismissible chat-tab notice explaining where group chat visibility can be changed
+  ///
+  /// In en, this message translates to:
+  /// **'You can change this in Conversation Details.'**
+  String get chatGroupVisibilityNudgeMessage;
+
   /// Gentle banner shown in the chat list when nobody is fronting and no speaking-as member is picked
   ///
   /// In en, this message translates to:

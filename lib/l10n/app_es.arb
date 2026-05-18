@@ -1019,6 +1019,8 @@
   "chatNoGroupChatsSubtitle": "Inicia una conversación grupal",
   "chatErrorLoadingConversations": "Error al cargar conversaciones",
   "chatAdminNonParticipantSection": "Admin · No es miembro",
+  "chatGroupVisibilityNudgeTitle": "Algunos chats grupales son visibles para todos",
+  "chatGroupVisibilityNudgeMessage": "Puedes cambiarlo en Detalles de la conversación.",
   "chatPickSpeakerBanner": "Elige un miembro en el selector para ver tus chats.",
   "chatAdminReadOnlyBanner": "Viendo como admin. No se puede publicar.",
   "chatUncategorized": "Sin categoría",

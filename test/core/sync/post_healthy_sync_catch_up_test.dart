@@ -1,0 +1,85 @@
+import 'package:drift/native.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_sync/generated/api.dart' as ffi;
+
+import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/features/migration/services/group_chat_visibility_sync_reemit_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
+
+class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
+  const _FakePrismSyncHandle();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+void main() {
+  late AppDatabase db;
+
+  setUp(() {
+    db = AppDatabase(NativeDatabase.memory());
+  });
+
+  tearDown(() async {
+    await db.close();
+  });
+
+  test(
+    'post-healthy catch-up runs remote resume before repair and drain',
+    () async {
+      final calls = <String>[];
+
+      await runPostHealthySyncCatchUp(
+        handle: const _FakePrismSyncHandle(),
+        db: db,
+        failureLabel: 'test catch-up failed',
+        onResume: (_) async {
+          calls.add('onResume');
+        },
+        reemitGroupChatVisibility: (_, _) async {
+          calls.add('groupVisibility');
+          return const GroupChatVisibilitySyncReemitResult();
+        },
+        catchUpPk: (_, _) async {
+          calls.add('pkCatchUp');
+          return const PkGroupSyncV2CatchupResult();
+        },
+        drain: (_) async {
+          calls.add('drain');
+        },
+      );
+
+      expect(calls, ['onResume', 'groupVisibility', 'pkCatchUp', 'drain']);
+    },
+  );
+
+  test(
+    'post-healthy catch-up stops and swallows after a failed step',
+    () async {
+      final calls = <String>[];
+
+      await runPostHealthySyncCatchUp(
+        handle: const _FakePrismSyncHandle(),
+        db: db,
+        failureLabel: 'test catch-up failed',
+        onResume: (_) async {
+          calls.add('onResume');
+        },
+        reemitGroupChatVisibility: (_, _) async {
+          calls.add('groupVisibility');
+          throw StateError('boom');
+        },
+        catchUpPk: (_, _) async {
+          calls.add('pkCatchUp');
+          return const PkGroupSyncV2CatchupResult();
+        },
+        drain: (_) async {
+          calls.add('drain');
+        },
+      );
+
+      expect(calls, ['onResume', 'groupVisibility']);
+    },
+  );
+}

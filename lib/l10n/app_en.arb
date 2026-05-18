@@ -4921,6 +4921,14 @@
   "@chatAdminNonParticipantSection": {
     "description": "Section header for group chats the viewer can see only via the admin moderation override"
   },
+  "chatGroupVisibilityNudgeTitle": "Some group chats are visible to everyone",
+  "@chatGroupVisibilityNudgeTitle": {
+    "description": "Title for the dismissible chat-tab notice explaining upgraded group chat visibility"
+  },
+  "chatGroupVisibilityNudgeMessage": "You can change this in Conversation Details.",
+  "@chatGroupVisibilityNudgeMessage": {
+    "description": "Body for the dismissible chat-tab notice explaining where group chat visibility can be changed"
+  },
   "chatPickSpeakerBanner": "Pick a member from the speaker chip to see your chats.",
   "@chatPickSpeakerBanner": {
     "description": "Gentle banner shown in the chat list when nobody is fronting and no speaking-as member is picked"

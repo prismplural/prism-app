@@ -25,6 +25,7 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/info_banner.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_selector_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -37,6 +38,8 @@ import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 const _kLastChatSubTabKey = 'chat.last_sub_tab';
+const _kGroupChatVisibilityNudgeDismissedKey =
+    'chat.group_visibility_nudge.dismissed.v1';
 const _kDirectMessagesTabPreferenceValue = 0;
 const _kGroupChatsTabPreferenceValue = 1;
 
@@ -52,12 +55,14 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _seeded = false;
+  bool? _groupChatVisibilityNudgeDismissed;
   _ChatSubTab _activeTab = _ChatSubTab.groupChats;
 
   @override
   void initState() {
     super.initState();
     _loadSavedTab();
+    _loadGroupChatVisibilityNudgeDismissal();
   }
 
   Future<void> _loadSavedTab() async {
@@ -68,6 +73,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         : _ChatSubTab.groupChats;
     if (mounted) {
       setState(() => _activeTab = tab);
+    }
+  }
+
+  Future<void> _loadGroupChatVisibilityNudgeDismissal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dismissed =
+        prefs.getBool(_kGroupChatVisibilityNudgeDismissedKey) ?? false;
+    if (mounted) {
+      setState(() => _groupChatVisibilityNudgeDismissed = dismissed);
+    }
+  }
+
+  Future<void> _dismissGroupChatVisibilityNudge() async {
+    final prefs = await SharedPreferences.getInstance();
+    final ok = await prefs.setBool(
+      _kGroupChatVisibilityNudgeDismissedKey,
+      true,
+    );
+    if (ok && mounted) {
+      setState(() => _groupChatVisibilityNudgeDismissed = true);
     }
   }
 
@@ -411,6 +436,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 }
 
                 final categories = categoriesAsync.value ?? [];
+                final showVisibilityNudge =
+                    _activeTab == _ChatSubTab.groupChats &&
+                    _groupChatVisibilityNudgeDismissed == false &&
+                    visibleConversations.any(
+                      (conversation) => conversation.includesAllMembers,
+                    );
+                final visibilityNudgeSlivers = showVisibilityNudge
+                    ? <Widget>[
+                        SliverToBoxAdapter(
+                          child: _GroupChatVisibilityNudge(
+                            onDismiss: () {
+                              unawaited(_dismissGroupChatVisibilityNudge());
+                            },
+                          ),
+                        ),
+                      ]
+                    : const <Widget>[];
 
                 List<Widget> adminSlivers() {
                   if (adminOnlyConversations.isEmpty) return const [];
@@ -427,6 +469,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 // No categories: flat list, then admin section if any.
                 if (categories.isEmpty) {
                   return [
+                    ...visibilityNudgeSlivers,
                     ..._buildCategorySlivers(
                       context: context,
                       theme: theme,
@@ -460,6 +503,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 };
 
                 final slivers = <Widget>[];
+                slivers.addAll(visibilityNudgeSlivers);
                 // Category groups in display order
                 for (final cat in categories) {
                   if (grouped[cat.id]!.isNotEmpty) {
@@ -565,6 +609,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (conversationId != null && context.mounted) {
       context.go(AppRoutePaths.chatConversation(conversationId));
     }
+  }
+}
+
+class _GroupChatVisibilityNudge extends StatelessWidget {
+  const _GroupChatVisibilityNudge({required this.onDismiss});
+
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final iconColor = theme.colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: InfoBanner(
+        icon: AppIcons.visibilityOutlined,
+        iconColor: iconColor,
+        backgroundColor: iconColor.withValues(alpha: 0.1),
+        title: context.l10n.chatGroupVisibilityNudgeTitle,
+        message: context.l10n.chatGroupVisibilityNudgeMessage,
+        dismissTooltip: context.l10n.dismiss,
+        onDismiss: onDismiss,
+      ),
+    );
   }
 }
 

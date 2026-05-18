@@ -37,6 +37,7 @@ import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/core/sync/sync_schema.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 import 'package:prism_plurality/features/migration/services/sp_boards_backfill_service.dart';
+import 'package:prism_plurality/features/migration/services/group_chat_visibility_sync_reemit_service.dart';
 import 'package:prism_plurality/features/migration/services/sp_reply_quote_backfill_service.dart';
 import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
@@ -417,31 +418,17 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       // initial trigger, and on a fresh process `last_sync_time` is None so the
       // Rust-side 5s staleness gate does not help us. Kick explicitly, in the
       // background. Run *after* cacheRuntimeKeys + drainRustStore because all three
-      // contend for the same Rust handle mutex, and run PK-backed group cutover
-      // catch-up only after `onResume` has applied startup remote changes. Skip when
-      // the engine is not configured (unpaired / needs-password) — onResume would
-      // just fail with `sync not configured`.
+      // contend for the same Rust handle mutex. Skip when the engine is not
+      // configured (unpaired / needs-password) — onResume would just fail with
+      // `sync not configured`.
       if (health == SyncHealthState.healthy) {
-        unawaited(() async {
-          try {
-            await ffi.onResume(handle: handle);
-            await catchUpPkBackedSyncOnceAfterCutover(
-              handle,
-              ref.read(databaseProvider),
-            );
-            // Persist any state the sync cycle mutated (session_token refresh,
-            // epoch advance, etc.) before a subsequent crash could lose it.
-            await drainRustStore(handle);
-          } catch (e, st) {
-            final structuredError = PrismSyncStructuredError.tryParse(e);
-            ErrorReportingService.instance.report(
-              'Startup catch-up sync failed (non-fatal): '
-              '${structuredError?.userMessage ?? e}',
-              severity: ErrorSeverity.warning,
-              stackTrace: st,
-            );
-          }
-        }());
+        unawaited(
+          runPostHealthySyncCatchUp(
+            handle: handle,
+            db: ref.read(databaseProvider),
+            failureLabel: 'Startup catch-up sync failed',
+          ),
+        );
       }
     }
 
@@ -457,15 +444,11 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       final health = await _autoConfigureIfReady(handle);
       ref.read(syncHealthProvider.notifier).setState(health);
       if (health == SyncHealthState.healthy) {
-        try {
-          await drainRustStore(handle);
-        } catch (e, st) {
-          ErrorReportingService.instance.report(
-            'Post-manual-configure drain failed: $e',
-            severity: ErrorSeverity.warning,
-            stackTrace: st,
-          );
-        }
+        await runPostHealthySyncCatchUp(
+          handle: handle,
+          db: ref.read(databaseProvider),
+          failureLabel: 'Post-manual-configure catch-up sync failed',
+        );
       }
       return health;
     } finally {
@@ -2043,6 +2026,63 @@ Future<PkGroupSyncV2CatchupResult> catchUpPkBackedSyncOnceAfterCutover(
   return service.runOnce();
 }
 
+Future<GroupChatVisibilitySyncReemitResult>
+reemitGroupChatVisibilityOnceAfterUpgrade(
+  ffi.PrismSyncHandle handle,
+  AppDatabase db,
+) {
+  final service = GroupChatVisibilitySyncReemitService(
+    db: db,
+    recordUpdate: ({required table, required entityId, required fields}) {
+      return ffi.recordUpdate(
+        handle: handle,
+        table: table,
+        entityId: entityId,
+        changedFieldsJson: jsonEncode(fields),
+      );
+    },
+  );
+  return service.runOnce();
+}
+
+Future<void> runPostHealthySyncCatchUp({
+  required ffi.PrismSyncHandle handle,
+  required AppDatabase db,
+  required String failureLabel,
+  @visibleForTesting
+  Future<void> Function(ffi.PrismSyncHandle handle)? onResume,
+  @visibleForTesting
+  Future<GroupChatVisibilitySyncReemitResult> Function(
+    ffi.PrismSyncHandle handle,
+    AppDatabase db,
+  )?
+  reemitGroupChatVisibility,
+  @visibleForTesting
+  Future<PkGroupSyncV2CatchupResult> Function(
+    ffi.PrismSyncHandle handle,
+    AppDatabase db,
+  )?
+  catchUpPk,
+  @visibleForTesting Future<void> Function(ffi.PrismSyncHandle handle)? drain,
+}) async {
+  try {
+    await (onResume ?? ((h) => ffi.onResume(handle: h)))(handle);
+    await (reemitGroupChatVisibility ??
+        reemitGroupChatVisibilityOnceAfterUpgrade)(handle, db);
+    await (catchUpPk ?? catchUpPkBackedSyncOnceAfterCutover)(handle, db);
+    // Persist any state the sync cycle mutated (session_token refresh, epoch
+    // advance, emitted migration ops, etc.) before a subsequent crash loses it.
+    await (drain ?? drainRustStore)(handle);
+  } catch (e, st) {
+    final structuredError = PrismSyncStructuredError.tryParse(e);
+    ErrorReportingService.instance.report(
+      '$failureLabel (non-fatal): ${structuredError?.userMessage ?? e}',
+      severity: ErrorSeverity.warning,
+      stackTrace: st,
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Sync quarantine
 // ---------------------------------------------------------------------------
@@ -2637,6 +2677,13 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
       await cacheRuntimeKeys(handle, ref.read(databaseProvider));
 
       state = SyncHealthState.healthy;
+      unawaited(
+        runPostHealthySyncCatchUp(
+          handle: handle,
+          db: ref.read(databaseProvider),
+          failureLabel: 'Post-unlock catch-up sync failed',
+        ),
+      );
       return true;
     } catch (_) {
       // Unexpected error (mnemonicToBytes, engine config, etc.)

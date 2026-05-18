@@ -3619,6 +3619,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatAdminNonParticipantSection => 'Admin · Not a member';
 
   @override
+  String get chatGroupVisibilityNudgeTitle =>
+      'Some group chats are visible to everyone';
+
+  @override
+  String get chatGroupVisibilityNudgeMessage =>
+      'You can change this in Conversation Details.';
+
+  @override
   String get chatPickSpeakerBanner =>
       'Pick a member from the speaker chip to see your chats.';
 

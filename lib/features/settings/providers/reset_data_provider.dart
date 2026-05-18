@@ -23,6 +23,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
+import 'package:prism_plurality/features/migration/services/group_chat_visibility_sync_reemit_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Re-export so tests in `test/features/settings/providers/` can import
@@ -246,6 +247,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('sync.enum_fields_reemit_v1');
+      await prefs.remove(GroupChatVisibilitySyncReemitService.flagKey);
       await prefs.remove(PkGroupSyncV2CatchupService.flagKey);
       await prefs.remove(PkGroupRepairRunGate.checkedVersionKey);
       await prefs.remove(PkGroupRepairRunGate.checkedAtKey);
