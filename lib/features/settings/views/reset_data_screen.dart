@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -125,8 +126,46 @@ class ResetDataScreen extends ConsumerWidget {
     );
     if (!confirmed || !context.mounted) return;
     try {
+      final isAndroid = ref.read(resetIsAndroidProvider);
       await ref.read(resetDataNotifierProvider.notifier).reset(category);
       if (!context.mounted) return;
+      if (isAll) {
+        final restartRequired = await ref
+            .read(fullResetServiceProvider)
+            .isRestartRequired();
+        if (!context.mounted) return;
+        if (isAndroid && !restartRequired) {
+          await Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+            MaterialPageRoute<void>(
+              builder: (_) => const ResetRecoveryScreen(
+                mode: ResetRecoveryScreenMode.androidClearing,
+              ),
+            ),
+            (_) => false,
+          );
+          return;
+        }
+        if (!shouldShowResetRestartScreenAfterSuccess(
+          category,
+          isAndroid: isAndroid,
+          restartRequired: restartRequired,
+        )) {
+          PrismToast.show(
+            context,
+            message: context.l10n.resetDataSuccess(label),
+          );
+          return;
+        }
+        await Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+          MaterialPageRoute<void>(
+            builder: (_) => const ResetRecoveryScreen(
+              mode: ResetRecoveryScreenMode.restartRequired,
+            ),
+          ),
+          (_) => false,
+        );
+        return;
+      }
       PrismToast.show(context, message: context.l10n.resetDataSuccess(label));
     } catch (e) {
       if (!context.mounted) return;
@@ -162,3 +201,12 @@ final _granularCategories = [
   ),
   _CategoryEntry(ResetCategory.sleep, AppIcons.bedtimeOutlined, Colors.indigo),
 ];
+
+@visibleForTesting
+bool shouldShowResetRestartScreenAfterSuccess(
+  ResetCategory category, {
+  required bool isAndroid,
+  bool restartRequired = false,
+}) {
+  return category == ResetCategory.all && (!isAndroid || restartRequired);
+}

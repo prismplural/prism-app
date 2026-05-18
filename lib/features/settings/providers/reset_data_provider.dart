@@ -4,22 +4,26 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
-import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/biometric_service_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/reset/full_reset_service.dart';
+import 'package:prism_plurality/core/reset/native_reset_keys.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/relay_cleanup.dart';
-import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
+import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pk_file_import_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
@@ -33,17 +37,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 export 'package:prism_plurality/core/sync/prism_sync_providers.dart'
     show kProtectedFromReset;
 
-abstract class ResetSecureStore {
+abstract class ResetSecureStore implements FullResetSecureStore {
   Future<String?> read(String key);
+  @override
   Future<void> delete(String key);
 
   /// Read every key/value pair currently in the secure store. Used to
   /// scan for dynamic `prism_sync.epoch_key_*` / `prism_sync.runtime_keys_*`
   /// entries on reset/revoke cleanup.
+  @override
   Future<Map<String, String>> readAll();
 
   /// Wipe every key in the store. Used by full reset only — never by sync-only
   /// reset, which must preserve `database_key` so the app DB stays openable.
+  @override
   Future<void> deleteAll();
 }
 
@@ -67,8 +74,18 @@ final resetSecureStoreProvider = Provider<ResetSecureStore>((ref) {
   return const _PlatformResetSecureStore();
 });
 
+final resetNativeKeysProvider = Provider<NativeResetKeys>((ref) {
+  return const MethodChannelNativeResetKeys();
+});
+
+final resetIsAndroidProvider = Provider<bool>((ref) => Platform.isAndroid);
+
 final resetDocumentsDirectoryProvider = FutureProvider<Directory>((ref) async {
   return getAppDataDir();
+});
+
+final resetTemporaryDirectoryProvider = FutureProvider<Directory>((ref) async {
+  return getTemporaryDirectory();
 });
 
 final resetSyncHandleProvider = Provider<ffi.PrismSyncHandle?>((ref) {
@@ -198,6 +215,23 @@ final resetFileDeleteObserverProvider = Provider<ResetFileDeleteObserver>((
   return (_) {};
 });
 
+final fullResetServiceProvider = Provider<FullResetService>((ref) {
+  return FullResetService(
+    secureStore: ref.watch(resetSecureStoreProvider),
+    nativeResetKeys: ref.watch(resetNativeKeysProvider),
+    appDataDirectory: () => ref.read(resetDocumentsDirectoryProvider.future),
+    temporaryDirectory: () => ref.read(resetTemporaryDirectoryProvider.future),
+    clearMediaCache: () => ref.read(downloadManagerProvider).clearCache(),
+    fileObserver: ref.watch(resetFileDeleteObserverProvider),
+    log: (message) {
+      ErrorReportingService.instance.report(
+        message,
+        severity: ErrorSeverity.info,
+      );
+    },
+  );
+});
+
 /// Enum for reset categories shown in the UI.
 enum ResetCategory {
   members(
@@ -257,6 +291,37 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     }
   }
 
+  Future<void> _clearFullResetFlowState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(spImportCompletedPreferenceKey);
+    } catch (e) {
+      _log('SharedPreferences full-reset cleanup failed (non-fatal): $e');
+    }
+
+    try {
+      ref.read(importerProvider.notifier).reset();
+    } catch (e) {
+      _log('SP importer state reset failed (non-fatal): $e');
+    }
+    try {
+      ref.read(pkFileImportProvider.notifier).reset();
+    } catch (e) {
+      _log('PK file import state reset failed (non-fatal): $e');
+    }
+    try {
+      ref.read(onboardingPendingImportActionProvider.notifier).set(null);
+    } catch (e) {
+      _log('Onboarding pending import state reset failed (non-fatal): $e');
+    }
+
+    ref.invalidate(importerProvider);
+    ref.invalidate(hasPreviousSpImportProvider);
+    ref.invalidate(pkFileImportProvider);
+    ref.invalidate(onboardingPendingImportActionProvider);
+    ref.invalidate(onboardingProvider);
+  }
+
   Future<String?> _readDecodedSecureValue(String key) async {
     final encoded = await ref.read(resetSecureStoreProvider).read(key);
     if (encoded == null || encoded.isEmpty) {
@@ -271,7 +336,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
 
   /// Reset a specific category of data.
   Future<void> reset(ResetCategory category) async {
-    state = await AsyncValue.guard(() async {
+    final result = await AsyncValue.guard(() async {
       switch (category) {
         case ResetCategory.members:
           await _resetMembers();
@@ -291,6 +356,13 @@ class ResetDataNotifier extends AsyncNotifier<void> {
           await _resetAll();
       }
     });
+    state = result;
+    if (result.hasError) {
+      Error.throwWithStackTrace(
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+      );
+    }
   }
 
   Future<void> _resetMembers() async {
@@ -594,124 +666,42 @@ class ResetDataNotifier extends AsyncNotifier<void> {
   }
 
   Future<void> _resetAll() async {
-    final db = ref.read(databaseProvider);
     _log('Resetting all app data');
+
+    // Android's OS-level app-data clear is the most complete local wipe, but
+    // it kills the process after acceptance. Do best-effort remote sync teardown
+    // first so reset does not leave relay/device records behind.
+    if (ref.read(resetIsAndroidProvider)) {
+      await _resetSyncSystem();
+      await _clearFullResetFlowState();
+      try {
+        await ref
+            .read(fullResetServiceProvider)
+            .startAndroidClearApplicationData();
+      } catch (e) {
+        _log(
+          'Android OS app-data clear was rejected; falling back to local full reset: $e',
+        );
+        await _wipeLocalDataAfterSyncTeardown();
+      }
+      return;
+    }
 
     // Full reset must sever sync before deleting app tables, otherwise a
     // relaunch can immediately restore stale remote state back into the app.
     await _resetSyncSystem();
+    await _clearFullResetFlowState();
+    await _wipeLocalDataAfterSyncTeardown();
+  }
 
-    // Delete in dependency order (children first)
-    await db.transaction(() async {
-      await db.customStatement('DELETE FROM habit_completions');
-      await db.customStatement('DELETE FROM habits');
-      await db.customStatement('DELETE FROM poll_votes');
-      await db.customStatement('DELETE FROM poll_options');
-      await db.customStatement('DELETE FROM polls');
-      // FTS first so the chat_messages_fts_delete trigger is a no-op. See
-      // _resetChat for the full explanation.
-      await db.customStatement('DELETE FROM chat_messages_fts');
-      await db.customStatement('DELETE FROM chat_messages');
-      await db.customStatement('DELETE FROM conversation_categories');
-      await db.customStatement('DELETE FROM conversations');
-      await db.customStatement('DELETE FROM front_session_comments');
-      await db.customStatement('DELETE FROM fronting_sessions');
-      await db.customStatement('DELETE FROM sleep_sessions');
-      await db.customStatement('DELETE FROM custom_field_values');
-      await db.customStatement('DELETE FROM custom_fields');
-      await db.customStatement('DELETE FROM member_group_entries');
-      await db.customStatement('DELETE FROM member_groups');
-      await db.customStatement('DELETE FROM pk_group_entry_deferred_sync_ops');
-      await db.customStatement('DELETE FROM pk_group_sync_aliases');
-      await db.customStatement('DELETE FROM notes');
-      await db.customStatement('DELETE FROM reminders');
-      await db.customStatement('DELETE FROM friends');
-      await db.customStatement('DELETE FROM sharing_requests');
-      await db.customStatement('DELETE FROM media_attachments');
-      await db.customStatement('DELETE FROM member_board_posts');
-      await db.customStatement('DELETE FROM members');
-      await db.customStatement('DELETE FROM plural_kit_sync_state');
-      await db.customStatement('DELETE FROM pk_mapping_state');
-      await db.customStatement('DELETE FROM sp_sync_state');
-      await db.customStatement('DELETE FROM sp_id_map');
-      await db.customStatement('DELETE FROM sync_quarantine');
-    });
-
-    // Delete the encrypted media cache from disk. DB rows are already gone
-    // above; the cache files are encrypted ciphertexts stored separately under
-    // getApplicationSupportDirectory()/prism_media/. Without this they'd
-    // become orphaned blobs with no decryption key.
+  Future<void> _wipeLocalDataAfterSyncTeardown() async {
+    final db = ref.read(databaseProvider);
     try {
-      await ref.read(downloadManagerProvider).clearCache();
-    } catch (e) {
-      _log('Media cache clear failed (non-fatal): $e');
+      await ref.read(fullResetServiceProvider).wipeLocalData(openDatabase: db);
+    } finally {
+      ref.invalidate(databaseProvider);
+      ref.invalidate(systemSettingsRepositoryProvider);
     }
-
-    // Recreate default settings with onboarding reset. This must happen
-    // BEFORE deleting DB files — deleting the WAL/SHM while the connection
-    // is open makes SQLite read-only.
-    final settingsRepo = ref.read(systemSettingsRepositoryProvider);
-    await settingsRepo.updateSettings(
-      const SystemSettings(hasCompletedOnboarding: false),
-    );
-
-    // Delete the encrypted database files FIRST, then clear the encryption
-    // key. This ordering is critical: if file deletion fails but the key is
-    // already cleared, next launch would have no key for an encrypted DB
-    // (unrecoverable). With this order, a failed file delete still leaves
-    // the key available to open the DB on next launch.
-    try {
-      final dir = await ref.read(resetDocumentsDirectoryProvider.future);
-      final appDbPath = p.join(dir.path, 'prism.db');
-      for (final suffix in ['', '-wal', '-shm']) {
-        final f = File('$appDbPath$suffix');
-        if (await f.exists()) await f.delete();
-      }
-    } catch (e) {
-      _log('App DB file delete after full reset failed (non-fatal): $e');
-    }
-    // Now safe to clear the key — the DB files are gone (or still openable
-    // with the key if deletion failed above).
-    await clearDatabaseEncryptionState();
-
-    // Wipe the entire keychain namespace. Called after all DB files and
-    // encryption keys are deleted so there's nothing left to protect.
-    // This catches orphaned bare-named items from older app versions (e.g.
-    // keys written before the `prism_sync.` prefix was adopted) that the
-    // selective deletion above would otherwise miss. Also covers
-    // prism_pluralkit_token and any future keys without an explicit listing.
-    await ref.read(resetSecureStoreProvider).deleteAll();
-
-    _notifyTableChanges([
-      'habit_completions',
-      'habits',
-      'poll_votes',
-      'poll_options',
-      'polls',
-      'chat_messages',
-      'conversation_categories',
-      'conversations',
-      'front_session_comments',
-      'fronting_sessions',
-      'sleep_sessions',
-      'custom_field_values',
-      'custom_fields',
-      'member_group_entries',
-      'member_groups',
-      'pk_group_entry_deferred_sync_ops',
-      'pk_group_sync_aliases',
-      'notes',
-      'reminders',
-      'friends',
-      'member_board_posts',
-      'members',
-      'plural_kit_sync_state',
-      'pk_mapping_state',
-      'sp_sync_state',
-      'sp_id_map',
-      'sync_quarantine',
-      'system_settings',
-    ]);
     ref.invalidate(pluralKitSyncProvider);
     ref.invalidate(quarantinedItemsProvider);
     _log('Completed full app reset');

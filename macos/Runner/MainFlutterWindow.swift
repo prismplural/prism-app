@@ -55,6 +55,11 @@ class MainFlutterWindow: NSWindow {
         case "deleteRuntimeDekWrappingKey":
           self.deleteRuntimeDekWrappingKey()
           result(nil)
+        case "deleteAllPrismResetKeys":
+          self.deleteAllPrismResetKeys()
+          result(nil)
+        case "hasPrismResetKeys":
+          result(self.collectPrismResetKeyPresence())
         case "getRuntimeDekDiagnostics":
           result(self.collectRuntimeDekDiagnostics())
         default:
@@ -385,6 +390,30 @@ class MainFlutterWindow: NSWindow {
       kSecUseDataProtectionKeychain as String: true,
     ]
     SecItemDelete(query as CFDictionary)
+  }
+
+  private func deleteAllPrismResetKeys() {
+    deleteRuntimeDekWrappingKey()
+  }
+
+  private func collectPrismResetKeyPresence() -> [String: Any] {
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassKey,
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecAttrApplicationTag as String: runtimeDekPrivateKeyTag,
+      kSecUseDataProtectionKeychain as String: true,
+      kSecMatchLimit as String: kSecMatchLimitOne,
+      kSecReturnAttributes as String: true,
+    ]
+    var item: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    let present = status == errSecSuccess
+    return [
+      "runtime_dek_key": present,
+      "runtime_dek_key_status": Int(status),
+      "residue_count": present ? 1 : 0,
+      "summary": present ? "present" : "clear",
+    ]
   }
 
   private func pngData(from image: NSImage) -> Data? {

@@ -239,6 +239,56 @@ enum PlatformAttestationError: Error, LocalizedError {
   }
 }
 
+enum NativeSecureResidueError: Error, LocalizedError {
+  case deleteFailed(item: String, status: OSStatus)
+  case verifyFailed(item: String, status: OSStatus)
+  case residueStillPresent(item: String)
+
+  var errorDescription: String? {
+    switch self {
+    case .deleteFailed(let item, let status):
+      return "Failed to delete \(item): \(secStatusDescription(status))"
+    case .verifyFailed(let item, let status):
+      return "Failed to verify \(item) deletion: \(secStatusDescription(status))"
+    case .residueStillPresent(let item):
+      return "\(item) is still present after deletion"
+    }
+  }
+
+  var flutterDetails: [String: Any] {
+    switch self {
+    case .deleteFailed(let item, let status):
+      return secureResidueErrorDetails(item: item, operation: "delete", status: status)
+    case .verifyFailed(let item, let status):
+      return secureResidueErrorDetails(item: item, operation: "verify", status: status)
+    case .residueStillPresent(let item):
+      return [
+        "item": item,
+        "operation": "verify",
+        "reason": "present_after_delete",
+      ]
+    }
+  }
+}
+
+private func secStatusDescription(_ status: OSStatus) -> String {
+  let message = SecCopyErrorMessageString(status, nil) as String?
+  return "\(message ?? "OSStatus error") (\(Int(status)))"
+}
+
+private func secureResidueErrorDetails(
+  item: String,
+  operation: String,
+  status: OSStatus
+) -> [String: Any] {
+  [
+    "item": item,
+    "operation": operation,
+    "os_status": Int(status),
+    "os_status_message": secStatusDescription(status),
+  ]
+}
+
 /// Overlays the host window with an opaque view during screen capture or
 /// app backgrounding. Replaces a layer-reparenting trick that crashed
 /// iOS 26 on trait changes (Flutter #181120 / `screen_protector` pattern).
@@ -510,8 +560,13 @@ final class PrivacyOverlay {
             bytes: try self.unwrapRuntimeDek(arguments, aad: Data(aad.utf8))
           ))
         case "deleteRuntimeDekWrappingKey":
-          self.deleteRuntimeDekWrappingKey()
+          try self.deleteRuntimeDekWrappingKey()
           result(nil)
+        case "deleteAllPrismResetKeys":
+          try self.deleteAllPrismResetKeys()
+          result(nil)
+        case "hasPrismResetKeys":
+          result(try self.collectPrismResetKeyPresence())
         case "getRuntimeDekDiagnostics":
           result(self.collectRuntimeDekDiagnostics())
         default:
@@ -533,7 +588,7 @@ final class PrivacyOverlay {
         result(FlutterError(
           code: code,
           message: error.localizedDescription,
-          details: nil
+          details: (error as? NativeSecureResidueError)?.flutterDetails
         ))
       }
     }
@@ -1053,13 +1108,125 @@ final class PrivacyOverlay {
     return "RUNTIME_DEK_WRAP_FAILED"
   }
 
-  private func deleteRuntimeDekWrappingKey() {
-    let query: [String: Any] = [
+  private func runtimeDekWrappingKeyQuery(returnAttributes: Bool = false) -> [String: Any] {
+    var query: [String: Any] = [
       kSecClass as String: kSecClassKey,
       kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
       kSecAttrApplicationTag as String: runtimeDekPrivateKeyTag,
     ]
-    SecItemDelete(query as CFDictionary)
+    if returnAttributes {
+      query[kSecMatchLimit as String] = kSecMatchLimitOne
+      query[kSecReturnAttributes as String] = true
+    }
+    return query
+  }
+
+  private func appAttestKeyIDQuery(returnData: Bool = false) -> [String: Any] {
+    var query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: appAttestKeychainService,
+      kSecAttrAccount as String: appAttestKeychainAccount,
+    ]
+    if returnData {
+      query[kSecReturnData as String] = true
+      query[kSecMatchLimit as String] = kSecMatchLimitOne
+    }
+    return query
+  }
+
+  private func deleteRuntimeDekWrappingKey() throws {
+    try deleteSecureResidueItem(
+      "runtime_dek_key",
+      query: runtimeDekWrappingKeyQuery()
+    )
+  }
+
+  private func deleteAllPrismResetKeys() throws {
+    var firstFailure: Error?
+    do {
+      try deleteRuntimeDekWrappingKey()
+    } catch {
+      firstFailure = error
+    }
+    do {
+      try clearAppAttestKeyID()
+    } catch {
+      firstFailure = firstFailure ?? error
+    }
+    if let firstFailure {
+      throw firstFailure
+    }
+    try verifyPrismResetKeysDeleted()
+  }
+
+  private func deleteSecureResidueItem(
+    _ item: String,
+    query: [String: Any]
+  ) throws {
+    let status = SecItemDelete(query as CFDictionary)
+    guard status == errSecSuccess || status == errSecItemNotFound else {
+      throw NativeSecureResidueError.deleteFailed(item: item, status: status)
+    }
+  }
+
+  private func verifyPrismResetKeysDeleted() throws {
+    let presence = try collectPrismResetKeyPresence()
+    if presence["runtime_dek_key"] as? Bool == true {
+      throw NativeSecureResidueError.residueStillPresent(item: "runtime_dek_key")
+    }
+    if presence["app_attest_key_id"] as? Bool == true {
+      throw NativeSecureResidueError.residueStillPresent(item: "app_attest_key_id")
+    }
+  }
+
+  private func collectPrismResetKeyPresence() throws -> [String: Any] {
+    let runtimeDek = try secureResiduePresence(
+      item: "runtime_dek_key",
+      query: runtimeDekWrappingKeyQuery(returnAttributes: true)
+    )
+    let appAttest = try secureResiduePresence(
+      item: "app_attest_key_id",
+      query: appAttestKeyIDQuery(returnData: true)
+    )
+    return [
+      "runtime_dek_key": runtimeDek.present,
+      "app_attest_key_id": appAttest.present,
+      "residue_count": [runtimeDek, appAttest].filter { $0.present }.count,
+      "summary": runtimeDek.present || appAttest.present ? "present" : "clear",
+      "details": [
+        "runtime_dek_key": runtimeDek.details,
+        "app_attest_key_id": appAttest.details,
+      ],
+    ]
+  }
+
+  private func secureResiduePresence(
+    item: String,
+    query: [String: Any]
+  ) throws -> (present: Bool, details: [String: Any]) {
+    var foundItem: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &foundItem)
+    if status == errSecInteractionNotAllowed || status == errSecAuthFailed {
+      return (
+        false,
+        [
+          "copy_status": Int(status),
+          "copy_status_message": secStatusDescription(status),
+          "state": "unknown_unavailable",
+        ]
+      )
+    }
+    guard status == errSecSuccess || status == errSecItemNotFound else {
+      throw NativeSecureResidueError.verifyFailed(item: item, status: status)
+    }
+    return (
+      status == errSecSuccess,
+      [
+        "copy_status": Int(status),
+        "copy_status_message": secStatusDescription(status),
+        "state": status == errSecSuccess ? "present" : "absent",
+      ]
+    )
   }
 
   // Returns false when no window — Dart side retries on next reconcile.
@@ -1138,7 +1305,7 @@ final class PrivacyOverlay {
         ]
       } catch {
         if attempt == 0 && isInvalidAppAttestKey(error) {
-          clearAppAttestKeyID()
+          try? clearAppAttestKeyID()
           continue
         }
         throw classifyAppAttestError(error, operation: "App Attest attestation")
@@ -1300,16 +1467,8 @@ final class PrivacyOverlay {
   }
 
   private func readKeychainString() -> String? {
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: appAttestKeychainService,
-      kSecAttrAccount as String: appAttestKeychainAccount,
-      kSecReturnData as String: true,
-      kSecMatchLimit as String: kSecMatchLimitOne,
-    ]
-
     var item: CFTypeRef?
-    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    let status = SecItemCopyMatching(appAttestKeyIDQuery(returnData: true) as CFDictionary, &item)
     guard status == errSecSuccess, let data = item as? Data else { return nil }
     return String(data: data, encoding: .utf8)
   }
@@ -1342,13 +1501,14 @@ final class PrivacyOverlay {
     return updateStatus == errSecSuccess
   }
 
-  private func clearAppAttestKeyID() {
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: appAttestKeychainService,
-      kSecAttrAccount as String: appAttestKeychainAccount,
-    ]
-    SecItemDelete(query as CFDictionary)
+  private func clearAppAttestKeyID() throws {
+    // App Attest keys live inside Apple's service. Prism only stores the
+    // opaque key ID; reset removes that reference so the old key cannot be
+    // used by this app process again.
+    try deleteSecureResidueItem(
+      "app_attest_key_id",
+      query: appAttestKeyIDQuery()
+    )
   }
 
   deinit {

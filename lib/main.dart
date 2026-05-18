@@ -16,6 +16,8 @@ import 'package:timezone/timezone.dart' as tz;
 // import 'package:workmanager/workmanager.dart';
 
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
+import 'package:prism_plurality/core/reset/full_reset_service.dart';
+import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/screen_security_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
@@ -56,13 +58,27 @@ void main() async {
     tz.setLocalLocation(tz.getLocation(localTz));
   }
 
-  // iOS Keychain survives app uninstall — clear stale data on fresh install.
-  // Only fires in release builds: dev workflows (Xcode `flutter run`, profile
-  // mode) reinstall too often for the guard to be useful, and the threat model
-  // (different user installs on same phone) only applies to shipped binaries.
-  // See docs/plans/skip-fresh-install-guard-in-non-release-builds.md.
+  final prefs = await SharedPreferences.getInstance();
+  await _applyStartupScreenPrivacy(prefs);
+
+  // iOS Keychain and platform key stores can survive app uninstall/reinstall.
+  // Before any providers or databases hydrate release app state, make a fresh
+  // install clear secure residue when the app-private SharedPreferences
+  // sentinel is missing. If app files still exist, boot a DB-free recovery
+  // shell instead of silently deleting data.
   if (kReleaseMode) {
-    await clearKeychainIfFreshInstall();
+    final resetStartup = await runFreshInstallResidueGuard();
+    switch (resetStartup.mode) {
+      case ResetStartupMode.normal:
+        break;
+      case ResetStartupMode.freshInstallRecoveryRequired:
+        runApp(
+          const ResetRecoveryApp(
+            mode: ResetRecoveryScreenMode.freshInstallAnomaly,
+          ),
+        );
+        return;
+    }
   }
   await migrateRelayUrl();
 
@@ -101,7 +117,6 @@ void main() async {
 
   // Read cached theme prefs so the first frame uses the correct colors,
   // avoiding a white flash while the Drift DB loads.
-  final prefs = await SharedPreferences.getInstance();
   final cachedBrightness =
       ThemeBrightness.values.firstWhereOrNull(
         (b) => b.name == prefs.getString('prism.cache.theme_brightness'),
@@ -135,17 +150,6 @@ void main() async {
       PaletteContrast.standard;
   final cornerIndex = prefs.getInt('prism.cache.theme_corner_style') ?? 0;
   final cachedCornerStyle = CornerStyle.values[cornerIndex];
-
-  // Apply the Screen Privacy preference BEFORE the first frame so a
-  // cold start with the toggle ON immediately blanks the app-switcher
-  // snapshot on Android / iOS. The provider tree picks up the same
-  // SharedPreferences value asynchronously, but waiting on that would
-  // leak one unprotected frame.
-  final screenPrivacyEnabled =
-      prefs.getBool('prism.pref.screen_privacy_enabled') ?? false;
-  if (screenPrivacyEnabled && (Platform.isAndroid || Platform.isIOS)) {
-    await ScreenSecurityService.setGlobalEnabled(true);
-  }
 
   BootTimings.mark('runApp');
   runApp(
@@ -249,5 +253,16 @@ final class _DebugProviderObserver extends ProviderObserver {
       '[Riverpod] ${context.provider.name ?? context.provider.runtimeType}: '
       'FAILED $error',
     );
+  }
+}
+
+Future<void> _applyStartupScreenPrivacy(SharedPreferences prefs) async {
+  // Apply the Screen Privacy preference BEFORE any first frame, including the
+  // reset recovery shell, so an app-switcher snapshot is protected when the
+  // user already enabled the toggle.
+  final screenPrivacyEnabled =
+      prefs.getBool('prism.pref.screen_privacy_enabled') ?? false;
+  if (screenPrivacyEnabled && (Platform.isAndroid || Platform.isIOS)) {
+    await ScreenSecurityService.setGlobalEnabled(true);
   }
 }

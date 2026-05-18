@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Source-level invariant: `clearKeychainIfFreshInstall()` must remain
+/// Source-level invariant: `runFreshInstallResidueGuard()` must remain
 /// gated on `kReleaseMode` in `lib/main.dart`.
 ///
 /// Why this matters:
@@ -17,56 +17,52 @@ import 'package:flutter_test/flutter_test.dart';
 ///
 /// See `docs/plans/skip-fresh-install-guard-in-non-release-builds.md`.
 void main() {
-  test(
-    'clearKeychainIfFreshInstall call in main.dart stays gated on '
-    'kReleaseMode',
-    () {
-      final source = File('lib/main.dart').readAsStringSync();
+  test('runFreshInstallResidueGuard call in main.dart stays gated on '
+      'kReleaseMode', () {
+    final source = File('lib/main.dart').readAsStringSync();
 
-      // Strip line comments so a commented-out call cannot fool the matcher.
-      // (No block comments in main.dart today; if that changes, expand this
-      // stripper.)
-      final uncommented = source
-          .split('\n')
-          .map((l) => l.replaceFirst(RegExp(r'\s*//.*$'), ''))
-          .join('\n');
+    // Strip line comments so a commented-out call cannot fool the matcher.
+    // (No block comments in main.dart today; if that changes, expand this
+    // stripper.)
+    final uncommented = source
+        .split('\n')
+        .map((l) => l.replaceFirst(RegExp(r'\s*//.*$'), ''))
+        .join('\n');
 
-      // Exactly one real call site must exist.
-      final callMatches =
-          RegExp(r'\bclearKeychainIfFreshInstall\s*\(\s*\)')
-              .allMatches(uncommented)
-              .length;
-      expect(
-        callMatches,
-        equals(1),
-        reason:
-            'main.dart must contain exactly one (uncommented) call to '
-            'clearKeychainIfFreshInstall(). Found $callMatches. The guard '
-            'is real (do not delete it) but must not be duplicated outside '
-            'the kReleaseMode gate. See '
-            'docs/plans/skip-fresh-install-guard-in-non-release-builds.md',
-      );
+    // Exactly one real call site must exist.
+    final callMatches = RegExp(
+      r'\brunFreshInstallResidueGuard\s*\(\s*\)',
+    ).allMatches(uncommented).length;
+    expect(
+      callMatches,
+      equals(1),
+      reason:
+          'main.dart must contain exactly one (uncommented) call to '
+          'runFreshInstallResidueGuard(). Found $callMatches. The guard '
+          'is real (do not delete it) but must not be duplicated outside '
+          'the kReleaseMode gate. See '
+          'docs/plans/skip-fresh-install-guard-in-non-release-builds.md',
+    );
 
-      // That single call must be the sole statement inside an
-      // `if (kReleaseMode) { await clearKeychainIfFreshInstall(); }` block.
-      final guardedPattern = RegExp(
-        r'if\s*\(\s*kReleaseMode\s*\)\s*\{\s*'
-        r'await\s+clearKeychainIfFreshInstall\(\)\s*;\s*'
-        r'\}',
-        multiLine: true,
-        dotAll: true,
-      );
-      expect(
-        guardedPattern.hasMatch(uncommented),
-        isTrue,
-        reason:
-            'clearKeychainIfFreshInstall() in main.dart must be the sole '
-            'statement inside `if (kReleaseMode) { await ...(); }`. '
-            'Without this gate, every `flutter run` reinstall wipes sync '
-            'credentials. See '
-            'docs/plans/skip-fresh-install-guard-in-non-release-builds.md '
-            'for the security analysis.',
-      );
-    },
-  );
+    // That single call must remain inside an `if (kReleaseMode) { ... }`
+    // block. The guard now branches to a recovery shell, so the block has
+    // more than one statement.
+    final guardedPattern = RegExp(
+      r'if\s*\(\s*kReleaseMode\s*\)\s*\{\s*'
+      r'final\s+resetStartup\s*=\s*await\s+runFreshInstallResidueGuard\(\)\s*;',
+      multiLine: true,
+      dotAll: true,
+    );
+    expect(
+      guardedPattern.hasMatch(uncommented),
+      isTrue,
+      reason:
+          'runFreshInstallResidueGuard() in main.dart must stay inside '
+          '`if (kReleaseMode) { ... }`. '
+          'Without this gate, every `flutter run` reinstall wipes sync '
+          'credentials. See '
+          'docs/plans/skip-fresh-install-guard-in-non-release-builds.md '
+          'for the security analysis.',
+    );
+  });
 }

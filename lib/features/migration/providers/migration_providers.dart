@@ -17,7 +17,7 @@ import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/providers/sp_member_mapping_provider.dart';
 
 /// Key used to track whether a previous SP import has been completed.
-const _spImportCompletedKey = 'sp_import_completed';
+const spImportCompletedPreferenceKey = 'sp_import_completed';
 const _unsetAvatarZipPath = Object();
 const _unsetAvatarZipName = Object();
 const _unsetAvatarZipBytes = Object();
@@ -473,7 +473,7 @@ class ImporterNotifier extends Notifier<MigrationState> {
 
       // Mark that an SP import has been completed.
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_spImportCompletedKey, true);
+      await prefs.setBool(spImportCompletedPreferenceKey, true);
 
       ref.read(cfDispositionControllerProvider).clear();
       ref.read(spMemberMappingControllerProvider).clear();
@@ -566,7 +566,7 @@ final importerProvider = NotifierProvider<ImporterNotifier, MigrationState>(
 /// Whether a previous SP import has been completed.
 final hasPreviousSpImportProvider = FutureProvider<bool>((ref) async {
   final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool(_spImportCompletedKey) ?? false;
+  return prefs.getBool(spImportCompletedPreferenceKey) ?? false;
 });
 
 // ---------------------------------------------------------------------------

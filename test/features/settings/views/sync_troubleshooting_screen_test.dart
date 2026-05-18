@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
 import 'package:prism_plurality/features/settings/views/sync_troubleshooting_screen.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
@@ -11,6 +12,7 @@ void main() {
   Widget buildScreen({
     Locale locale = const Locale('en'),
     int quarantinedBatchCount = 0,
+    bool resetThrows = false,
   }) {
     return ProviderScope(
       overrides: [
@@ -27,15 +29,21 @@ void main() {
           const AsyncValue<bool>.data(true),
         ),
         syncStatusProvider.overrideWith(
-          () =>
-              _StubSyncStatusNotifier(quarantinedBatchCount: quarantinedBatchCount),
+          () => _StubSyncStatusNotifier(
+            quarantinedBatchCount: quarantinedBatchCount,
+          ),
         ),
+        if (resetThrows)
+          resetDataNotifierProvider.overrideWith(
+            _ThrowingResetDataNotifier.new,
+          ),
       ],
       child: MaterialApp(
         locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        builder: (context, child) => PrismToastHost(child: child ?? const SizedBox.shrink()),
+        builder: (context, child) =>
+            PrismToastHost(child: child ?? const SizedBox.shrink()),
         home: const SyncTroubleshootingScreen(),
       ),
     );
@@ -56,6 +64,54 @@ void main() {
     expect(find.text('Re-pair Device?'), findsOneWidget);
     expect(find.text('Export Data First'), findsOneWidget);
     expect(find.text('Re-pair Now'), findsOneWidget);
+  });
+
+  testWidgets('reset sync failure shows an error toast', (tester) async {
+    addTearDown(PrismToast.resetForTest);
+
+    await tester.pumpWidget(buildScreen(resetThrows: true));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Reset Sync System'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Reset Sync System'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Reset'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.textContaining('Prism sync failed:'), findsOneWidget);
+
+    PrismToast.dismiss();
+    await tester.pump();
+  });
+
+  testWidgets('re-pair reset failure shows an error toast', (tester) async {
+    addTearDown(PrismToast.resetForTest);
+
+    await tester.pumpWidget(buildScreen(resetThrows: true));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Re-pair Device'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Re-pair Device'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Re-pair Now'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.textContaining('Prism sync failed:'), findsOneWidget);
+
+    PrismToast.dismiss();
+    await tester.pump();
   });
 
   testWidgets('shows a PluralKit repair entry point', (tester) async {
@@ -106,30 +162,25 @@ void main() {
     expect(find.text('Repair stuck sync'), findsNothing);
   });
 
-  testWidgets(
-    'shows quarantine banner with singular copy when count is 1',
-    (tester) async {
-      await tester.pumpWidget(buildScreen(quarantinedBatchCount: 1));
-      await tester.pumpAndSettle();
+  testWidgets('shows quarantine banner with singular copy when count is 1', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildScreen(quarantinedBatchCount: 1));
+    await tester.pumpAndSettle();
 
-      expect(find.text('1 item is too large to sync'), findsOneWidget);
-      // Phase 1C banner body now points the user at the Repair button.
-      expect(
-        find.textContaining('Tap Repair stuck sync below'),
-        findsOneWidget,
-      );
-    },
-  );
+    expect(find.text('1 item is too large to sync'), findsOneWidget);
+    // Phase 1C banner body now points the user at the Repair button.
+    expect(find.textContaining('Tap Repair stuck sync below'), findsOneWidget);
+  });
 
-  testWidgets(
-    'shows quarantine banner with plural copy when count > 1',
-    (tester) async {
-      await tester.pumpWidget(buildScreen(quarantinedBatchCount: 3));
-      await tester.pumpAndSettle();
+  testWidgets('shows quarantine banner with plural copy when count > 1', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildScreen(quarantinedBatchCount: 3));
+    await tester.pumpAndSettle();
 
-      expect(find.text('3 items are too large to sync'), findsOneWidget);
-    },
-  );
+    expect(find.text('3 items are too large to sync'), findsOneWidget);
+  });
 
   // ── Phase 1C: repair stuck sync ──
 
@@ -142,9 +193,7 @@ void main() {
       // Button label and description copy must be visible.
       expect(find.text('Repair stuck sync'), findsOneWidget);
       expect(
-        find.textContaining(
-          'Splits the affected items into smaller chunks',
-        ),
+        find.textContaining('Splits the affected items into smaller chunks'),
         findsOneWidget,
       );
     },
@@ -178,10 +227,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(
-        find.text('Repaired 7 items — sync resuming…'),
-        findsOneWidget,
-      );
+      expect(find.text('Repaired 7 items — sync resuming…'), findsOneWidget);
 
       // Dismiss the toast so the auto-dismiss timer doesn't outlive the
       // test and trip the binding's timersPending invariant.
@@ -214,10 +260,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(
-        find.textContaining('Repair failed:'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Repair failed:'), findsOneWidget);
 
       PrismToast.dismiss();
       await tester.pump();
@@ -238,5 +281,12 @@ class _StubSyncStatusNotifier extends SyncStatusNotifier {
   @override
   Future<void> refreshQuarantinedBatchCount() async {
     // No-op in tests: the override returns its own synthetic count.
+  }
+}
+
+class _ThrowingResetDataNotifier extends ResetDataNotifier {
+  @override
+  Future<void> reset(ResetCategory category) async {
+    throw StateError('reset failed');
   }
 }

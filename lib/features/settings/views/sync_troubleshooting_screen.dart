@@ -432,14 +432,22 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
         destructive: true,
       ).then((confirmed) async {
         if (!confirmed) return;
-        await ref
-            .read(resetDataNotifierProvider.notifier)
-            .reset(ResetCategory.sync);
-        if (!context.mounted) return;
-        PrismToast.show(
-          context,
-          message: context.l10n.syncTroubleshootingResetSuccess,
-        );
+        try {
+          await ref
+              .read(resetDataNotifierProvider.notifier)
+              .reset(ResetCategory.sync);
+          if (!context.mounted) return;
+          PrismToast.show(
+            context,
+            message: context.l10n.syncTroubleshootingResetSuccess,
+          );
+        } catch (e) {
+          if (!context.mounted) return;
+          PrismToast.error(
+            context,
+            message: context.l10n.syncTroubleshootingFailed(e),
+          );
+        }
       }),
     );
   }
@@ -476,15 +484,23 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
           return;
         }
         if (result != 'repair') return;
-        await ref
-            .read(resetDataNotifierProvider.notifier)
-            .reset(ResetCategory.sync);
-        if (!context.mounted) return;
-        PrismToast.show(
-          context,
-          message: context.l10n.syncTroubleshootingCredentialsCleared,
-        );
-        context.go(AppRoutePaths.syncSetup);
+        try {
+          await ref
+              .read(resetDataNotifierProvider.notifier)
+              .reset(ResetCategory.sync);
+          if (!context.mounted) return;
+          PrismToast.show(
+            context,
+            message: context.l10n.syncTroubleshootingCredentialsCleared,
+          );
+          context.go(AppRoutePaths.syncSetup);
+        } catch (e) {
+          if (!context.mounted) return;
+          PrismToast.error(
+            context,
+            message: context.l10n.syncTroubleshootingFailed(e),
+          );
+        }
       }),
     );
   }

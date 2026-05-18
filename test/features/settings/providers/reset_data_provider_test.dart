@@ -10,11 +10,18 @@ import 'package:path/path.dart' as p;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/reset/full_reset_service.dart';
+import 'package:prism_plurality/core/reset/native_reset_keys.dart';
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart' as sync;
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
+import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
+import 'package:prism_plurality/features/migration/services/sp_importer.dart'
+    as sp_importer;
+import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
+import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
@@ -340,9 +347,7 @@ void main() {
                   );
                 case 'readAll':
                   return Map<String, String>.from(
-                    secureStorageState.map(
-                      (k, v) => MapEntry(k, v ?? ''),
-                    ),
+                    secureStorageState.map((k, v) => MapEntry(k, v ?? '')),
                   );
                 case 'deleteAll':
                   secureStorageState.clear();
@@ -395,9 +400,7 @@ void main() {
         isTrue,
       );
       expect(
-        await harness.container.read(
-          sync.syncWrappedDekPresentProvider.future,
-        ),
+        await harness.container.read(sync.syncWrappedDekPresentProvider.future),
         isTrue,
       );
 
@@ -430,9 +433,7 @@ void main() {
             '_resetSyncSystem',
       );
       expect(
-        await harness.container.read(
-          sync.syncWrappedDekPresentProvider.future,
-        ),
+        await harness.container.read(sync.syncWrappedDekPresentProvider.future),
         isFalse,
         reason:
             'syncWrappedDekPresentProvider must be invalidated by '
@@ -743,60 +744,57 @@ void main() {
       );
     });
 
-    test(
-      'reset_calls_deleteSyncGroup_after_any_deregister_failure',
-      () async {
-        // Reset path passes `fallbackOnAnyDeregisterFailure: true` to
-        // `cleanupRelayRegistration`, so even a transient/non-403
-        // deregister failure must still attempt `deleteSyncGroup`. The
-        // user is wiping the device — leaving the relay-side group
-        // behind is the worse outcome here.
-        final fakeHandle = _FakeSyncHandle();
-        final recordingFfi = _RecordingResetSyncFfi()
-          // Generic non-403 failure — pre-fix this would have skipped
-          // the deleteSyncGroup fallback entirely.
-          ..throwOnDeregister = Exception('Network unreachable');
+    test('reset_calls_deleteSyncGroup_after_any_deregister_failure', () async {
+      // Reset path passes `fallbackOnAnyDeregisterFailure: true` to
+      // `cleanupRelayRegistration`, so even a transient/non-403
+      // deregister failure must still attempt `deleteSyncGroup`. The
+      // user is wiping the device — leaving the relay-side group
+      // behind is the worse outcome here.
+      final fakeHandle = _FakeSyncHandle();
+      final recordingFfi = _RecordingResetSyncFfi()
+        // Generic non-403 failure — pre-fix this would have skipped
+        // the deleteSyncGroup fallback entirely.
+        ..throwOnDeregister = Exception('Network unreachable');
 
-        final harness = await _ResetHarness.create(
-          handleOverride: fakeHandle,
-          ffiOverride: recordingFfi,
-        );
-        addTearDown(harness.dispose);
+      final harness = await _ResetHarness.create(
+        handleOverride: fakeHandle,
+        ffiOverride: recordingFfi,
+      );
+      addTearDown(harness.dispose);
 
-        harness.secureStore
-          ..seedSyncValue(
-            'prism_sync.sync_id',
-            base64Encode(utf8.encode('sync-abc')),
-          )
-          ..seedSyncValue(
-            'prism_sync.device_id',
-            base64Encode(utf8.encode('device-abc')),
-          )
-          ..seedSyncValue(
-            'prism_sync.session_token',
-            base64Encode(utf8.encode('session-abc')),
-          );
+      harness.secureStore
+        ..seedSyncValue(
+          'prism_sync.sync_id',
+          base64Encode(utf8.encode('sync-abc')),
+        )
+        ..seedSyncValue(
+          'prism_sync.device_id',
+          base64Encode(utf8.encode('device-abc')),
+        )
+        ..seedSyncValue(
+          'prism_sync.session_token',
+          base64Encode(utf8.encode('session-abc')),
+        );
 
-        await harness.reset(ResetCategory.sync);
+      await harness.reset(ResetCategory.sync);
 
-        expect(
-          recordingFfi.calls,
-          contains('deregisterDevice'),
-          reason: 'reset must always attempt deregister first',
-        );
-        expect(
-          recordingFfi.calls,
-          contains('deleteSyncGroup'),
-          reason:
-              'reset must fall back to deleteSyncGroup after a generic '
-              'deregister failure (fallbackOnAnyDeregisterFailure: true)',
-        );
-        expect(
-          recordingFfi.calls.indexOf('deregisterDevice'),
-          lessThan(recordingFfi.calls.indexOf('deleteSyncGroup')),
-        );
-      },
-    );
+      expect(
+        recordingFfi.calls,
+        contains('deregisterDevice'),
+        reason: 'reset must always attempt deregister first',
+      );
+      expect(
+        recordingFfi.calls,
+        contains('deleteSyncGroup'),
+        reason:
+            'reset must fall back to deleteSyncGroup after a generic '
+            'deregister failure (fallbackOnAnyDeregisterFailure: true)',
+      );
+      expect(
+        recordingFfi.calls.indexOf('deregisterDevice'),
+        lessThan(recordingFfi.calls.indexOf('deleteSyncGroup')),
+      );
+    });
 
     test('reset_disposes_handle_before_deleting_db', () async {
       final fakeHandle = _FakeSyncHandle();
@@ -997,16 +995,112 @@ void main() {
     // ── Full reset ──────────────────────────────────────────────────
 
     test(
+      'android full reset tears down sync before OS app-data clear',
+      () async {
+        final fakeHandle = _FakeSyncHandle();
+        final recordingFfi = _RecordingResetSyncFfi();
+        final orderLog = <String>[];
+        recordingFfi.onDeregisterDevice = () => orderLog.add('deregister');
+        recordingFfi.onDispose = () => orderLog.add('dispose');
+
+        final harness = await _ResetHarness.create(
+          handleOverride: fakeHandle,
+          ffiOverride: recordingFfi,
+          isAndroidOverride: true,
+        );
+        addTearDown(harness.dispose);
+        harness.nativeResetKeys.onDeleteKnownKeys = () {
+          orderLog.add('deleteKnownKeys');
+        };
+        harness.nativeResetKeys.onClearApplicationUserData = () {
+          orderLog.add('clearApplicationUserData');
+        };
+
+        harness.secureStore
+          ..seedSyncValue(
+            'prism_sync.sync_id',
+            base64Encode(utf8.encode('sync-abc')),
+          )
+          ..seedSyncValue(
+            'prism_sync.device_id',
+            base64Encode(utf8.encode('device-abc')),
+          )
+          ..seedSyncValue(
+            'prism_sync.session_token',
+            base64Encode(utf8.encode('session-abc')),
+          );
+
+        await harness.reset(ResetCategory.all);
+
+        expect(recordingFfi.calls, contains('deregisterDevice'));
+        expect(harness.nativeResetKeys.deleteKnownKeysCalls, 1);
+        expect(harness.nativeResetKeys.clearApplicationUserDataCalls, 1);
+        expect(
+          orderLog.indexOf('deregister'),
+          lessThan(orderLog.indexOf('clearApplicationUserData')),
+          reason:
+              'Android clearApplicationUserData kills the process after OS '
+              'acceptance, so relay teardown must be attempted first',
+        );
+        expect(
+          orderLog.indexOf('dispose'),
+          lessThan(orderLog.indexOf('clearApplicationUserData')),
+        );
+        expect(
+          orderLog.indexOf('deleteKnownKeys'),
+          lessThan(orderLog.indexOf('clearApplicationUserData')),
+        );
+      },
+    );
+
+    test(
+      'android full reset falls back to local wipe when OS app-data clear is rejected',
+      () async {
+        final harness = await _ResetHarness.create(isAndroidOverride: true);
+        addTearDown(harness.dispose);
+        harness.nativeResetKeys.clearApplicationUserDataResult = false;
+
+        await harness.seedAllData();
+        await harness.reset(ResetCategory.all);
+
+        expect(harness.nativeResetKeys.clearApplicationUserDataCalls, 1);
+        expect(await harness.appDbFile.exists(), isFalse);
+        expect(await harness.syncDbFile.exists(), isFalse);
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
+        expect(prefs.getBool(kFullResetRestartRequiredKey), isTrue);
+      },
+    );
+
+    test(
       'full reset clears every table, recreates default settings, and removes external state',
       () async {
         final harness = await _ResetHarness.create();
         addTearDown(harness.dispose);
 
         await harness.seedAllData();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('prism.cache.theme_style', 'dreamy');
+        await prefs.setBool('prism.pref.screen_privacy_enabled', true);
+        await prefs.setBool('pk.auto_poll_enabled', true);
+        await prefs.setInt('sync_pin.failed_attempts', 3);
+
         await harness.reset(ResetCategory.all);
+
+        expect(await harness.appDbFile.exists(), isFalse);
+        expect(harness.nativeResetKeys.deleteKnownKeysCalls, 1);
+        expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
+        expect(prefs.getBool(kFullResetRestartRequiredKey), isTrue);
+        expect(prefs.getString(kFullResetCompletedAtKey), isNotNull);
+        expect(prefs.getString('prism.cache.theme_style'), 'dreamy');
+        expect(prefs.getBool('prism.pref.screen_privacy_enabled'), isTrue);
+        expect(prefs.getBool('pk.auto_poll_enabled'), isNull);
+        expect(prefs.getInt('sync_pin.failed_attempts'), isNull);
 
         final reopened = await harness.reopenDatabase();
         addTearDown(reopened.close);
+        await reopened.systemSettingsDao.getSettings();
 
         // Every user-data table except system_settings must be empty.
         for (final table in _allUserDataTables) {
@@ -1058,6 +1152,7 @@ void main() {
 
       final reopened = await harness.reopenDatabase();
       addTearDown(reopened.close);
+      await reopened.systemSettingsDao.getSettings();
 
       for (final table in _allUserDataTables) {
         if (table == 'system_settings') continue;
@@ -1070,6 +1165,140 @@ void main() {
 
       expect(await harness.mediaCacheDir.exists(), isFalse);
     });
+
+    test('full reset clears stale import and onboarding state', () async {
+      SharedPreferences.setMockInitialValues({
+        spImportCompletedPreferenceKey: true,
+      });
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      await harness.seedAllData();
+      await harness.container.read(importerProvider.notifier).verifyToken('');
+      harness.container
+          .read(onboardingProvider.notifier)
+          .showImportedDataReady(const OnboardingDataCounts(members: 3));
+      harness.container
+          .read(onboardingPendingImportActionProvider.notifier)
+          .set(() async {});
+
+      expect(
+        harness.container.read(importerProvider).step,
+        sp_importer.ImportState.error,
+      );
+      expect(
+        harness.container.read(onboardingProvider).currentStep,
+        OnboardingStep.importedDataReady,
+      );
+      expect(
+        harness.container.read(onboardingProvider).importedDataCounts?.members,
+        3,
+      );
+      expect(
+        harness.container.read(onboardingPendingImportActionProvider),
+        isNotNull,
+      );
+
+      await harness.reset(ResetCategory.all);
+
+      expect(
+        harness.container.read(importerProvider).step,
+        sp_importer.ImportState.idle,
+      );
+      expect(
+        harness.container.read(onboardingProvider).currentStep,
+        OnboardingStep.welcome,
+      );
+      expect(
+        harness.container.read(onboardingProvider).importedDataCounts,
+        isNull,
+      );
+      expect(harness.container.read(onboardingProvider).systemName, isEmpty);
+      expect(
+        harness.container.read(onboardingPendingImportActionProvider),
+        isNull,
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(spImportCompletedPreferenceKey), isNull);
+    });
+
+    test('full reset clears stale Simply Plural import state', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      await harness.seedAllData();
+      await harness.container.read(importerProvider.notifier).verifyToken('');
+      harness.container
+          .read(onboardingProvider.notifier)
+          .setSystemName('Old import');
+      harness.container
+          .read(onboardingProvider.notifier)
+          .setWasImportedFromSimplyPlural(
+            true,
+            conversationCount: 1,
+            messageCount: 2,
+          );
+      harness.container
+          .read(onboardingPendingImportActionProvider.notifier)
+          .set(() async {});
+
+      expect(
+        harness.container.read(importerProvider).step,
+        sp_importer.ImportState.error,
+      );
+      expect(
+        harness.container.read(onboardingProvider).wasImportedFromSimplyPlural,
+        isTrue,
+      );
+      expect(
+        harness.container.read(onboardingPendingImportActionProvider),
+        isNotNull,
+      );
+
+      await harness.reset(ResetCategory.all);
+
+      expect(
+        harness.container.read(importerProvider).step,
+        sp_importer.ImportState.idle,
+      );
+      expect(
+        harness.container.read(onboardingProvider).wasImportedFromSimplyPlural,
+        isFalse,
+      );
+      expect(
+        harness.container.read(onboardingPendingImportActionProvider),
+        isNull,
+      );
+    });
+
+    test(
+      'full reset reopens production app database instead of leaving a deleted live handle',
+      () async {
+        final harness = await _ResetHarness.create(
+          dynamicDatabaseProvider: true,
+        );
+        addTearDown(harness.dispose);
+
+        await harness.seedAllData();
+        await harness.reset(ResetCategory.all);
+
+        final freshDb = harness.container.read(databaseProvider);
+        await freshDb
+            .into(freshDb.members)
+            .insert(
+              MembersCompanion(
+                id: const Value('after-reset-member'),
+                name: const Value('After Reset'),
+                emoji: const Value('A'),
+                createdAt: Value(DateTime.utc(2026, 5, 17)),
+              ),
+            );
+
+        expect(await harness.appDbFile.exists(), isTrue);
+        expect(await _countRows(freshDb, 'members'), 1);
+      },
+    );
   });
 }
 
@@ -1084,6 +1313,7 @@ class _ResetHarness {
     required this.db,
     required this.container,
     required this.secureStore,
+    required this.nativeResetKeys,
   });
 
   final Directory tempDir;
@@ -1095,6 +1325,7 @@ class _ResetHarness {
   final AppDatabase db;
   final ProviderContainer container;
   final _FakeResetSecureStore secureStore;
+  final _FakeNativeResetKeys nativeResetKeys;
 
   bool _disposed = false;
 
@@ -1102,20 +1333,24 @@ class _ResetHarness {
     ffi.PrismSyncHandle? handleOverride,
     ResetSyncFfi? ffiOverride,
     ResetFileDeleteObserver? deleteObserver,
+    bool dynamicDatabaseProvider = false,
+    bool? isAndroidOverride,
   }) async {
     final tempDir = await Directory.systemTemp.createTemp('prism-reset-test-');
-    final appDbFile = File(p.join(tempDir.path, 'prism-test.db'));
+    final appDbFile = File(p.join(tempDir.path, 'prism.db'));
     final syncDbFile = File(p.join(tempDir.path, 'prism_sync.db'));
     final syncWalFile = File('${syncDbFile.path}-wal');
     final syncShmFile = File('${syncDbFile.path}-shm');
     final mediaCacheDir = Directory(p.join(tempDir.path, 'prism_media'));
 
-    final db = AppDatabase(NativeDatabase(appDbFile));
     final secureStore = _FakeResetSecureStore();
-    final systemSettingsRepository = DriftSystemSettingsRepository(
-      db.systemSettingsDao,
-      null,
-    );
+    final nativeResetKeys = _FakeNativeResetKeys();
+    final db = dynamicDatabaseProvider
+        ? null
+        : AppDatabase(NativeDatabase(appDbFile));
+    final systemSettingsRepository = db == null
+        ? null
+        : DriftSystemSettingsRepository(db.systemSettingsDao, null);
 
     // DownloadManager is overridden with a cache dir inside tempDir so that
     // clearCache() doesn't hit getApplicationSupportDirectory() (which requires
@@ -1128,13 +1363,25 @@ class _ResetHarness {
 
     final container = ProviderContainer(
       overrides: [
-        databaseProvider.overrideWithValue(db),
-        systemSettingsRepositoryProvider.overrideWithValue(
-          systemSettingsRepository,
-        ),
+        if (dynamicDatabaseProvider)
+          databaseProvider.overrideWith((ref) {
+            final db = AppDatabase(NativeDatabase(appDbFile));
+            ref.onDispose(db.close);
+            return db;
+          })
+        else
+          databaseProvider.overrideWithValue(db!),
+        if (systemSettingsRepository != null)
+          systemSettingsRepositoryProvider.overrideWithValue(
+            systemSettingsRepository,
+          ),
         resetSecureStoreProvider.overrideWithValue(secureStore),
+        resetNativeKeysProvider.overrideWithValue(nativeResetKeys),
         resetDocumentsDirectoryProvider.overrideWith((ref) async => tempDir),
+        resetTemporaryDirectoryProvider.overrideWith((ref) async => tempDir),
         resetSyncHandleProvider.overrideWithValue(handleOverride),
+        if (isAndroidOverride != null)
+          resetIsAndroidProvider.overrideWithValue(isAndroidOverride),
         downloadManagerProvider.overrideWithValue(downloadManager),
         if (ffiOverride != null)
           resetSyncFfiProvider.overrideWithValue(ffiOverride),
@@ -1142,6 +1389,7 @@ class _ResetHarness {
           resetFileDeleteObserverProvider.overrideWithValue(deleteObserver),
       ],
     );
+    final AppDatabase resolvedDb = db ?? container.read(databaseProvider);
 
     return _ResetHarness._(
       tempDir: tempDir,
@@ -1150,9 +1398,10 @@ class _ResetHarness {
       syncWalFile: syncWalFile,
       syncShmFile: syncShmFile,
       mediaCacheDir: mediaCacheDir,
-      db: db,
+      db: resolvedDb,
       container: container,
       secureStore: secureStore,
+      nativeResetKeys: nativeResetKeys,
     );
   }
 
@@ -1649,6 +1898,32 @@ class _FakeResetSecureStore implements ResetSecureStore {
   String? readSyncValue(String key) => _values[key];
 }
 
+class _FakeNativeResetKeys implements NativeResetKeys {
+  int deleteKnownKeysCalls = 0;
+  int clearApplicationUserDataCalls = 0;
+  bool hasKeys = false;
+  bool clearApplicationUserDataResult = true;
+  void Function()? onDeleteKnownKeys;
+  void Function()? onClearApplicationUserData;
+
+  @override
+  Future<void> deleteKnownKeys() async {
+    deleteKnownKeysCalls += 1;
+    onDeleteKnownKeys?.call();
+    hasKeys = false;
+  }
+
+  @override
+  Future<bool> hasKnownNativeKeys() async => hasKeys;
+
+  @override
+  Future<bool> clearApplicationUserData() async {
+    clearApplicationUserDataCalls += 1;
+    onClearApplicationUserData?.call();
+    return clearApplicationUserDataResult;
+  }
+}
+
 Future<int> _countRows(AppDatabase db, String table) async {
   final row = await db
       .customSelect('SELECT COUNT(*) AS c FROM $table')
@@ -1699,6 +1974,7 @@ class _FakeSyncHandle implements ffi.PrismSyncHandle {
 /// assert ordering invariants (e.g. setAutoSync(false) must be first).
 class _RecordingResetSyncFfi implements ResetSyncFfi {
   final List<String> calls = <String>[];
+  void Function()? onDeregisterDevice;
   void Function()? onDispose;
   void Function(String syncId)? onClearSyncState;
   bool throwOnClearSyncState = false;
@@ -1723,6 +1999,7 @@ class _RecordingResetSyncFfi implements ResetSyncFfi {
     required String sessionToken,
   }) async {
     calls.add('deregisterDevice');
+    onDeregisterDevice?.call();
     if (throwOnDeregister != null) {
       throw throwOnDeregister!;
     }

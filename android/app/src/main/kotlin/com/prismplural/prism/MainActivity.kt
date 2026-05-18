@@ -2,6 +2,7 @@ package com.prismplural.prism
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.ActivityManager
 import android.app.KeyguardManager
 import android.content.ClipDescription
 import android.content.Context
@@ -26,10 +27,10 @@ import android.util.Log
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.KeyStoreException
+import java.security.InvalidAlgorithmParameterException
 import java.security.MessageDigest
 import java.security.ProviderException
 import java.security.UnrecoverableKeyException
-import java.security.InvalidAlgorithmParameterException
 import java.security.cert.X509Certificate
 import java.security.spec.ECGenParameterSpec
 import javax.crypto.AEADBadTagException
@@ -63,6 +64,10 @@ class MainActivity : FlutterFragmentActivity() {
         private const val SAVE_EXISTING_FILE_REQUEST = 7301
         private const val ANDROID_ATTESTATION_CONTEXT = "PRISM_SYNC_ANDROID_ATTEST_V2\u0000"
         private const val RUNTIME_DEK_KEY_ALIAS = "prism_runtime_dek_wrap_v1"
+        private const val FSS_AES_OR_RSA_KEY_ALIAS_SUFFIX = ".FlutterSecureStoragePluginKey"
+        private const val FSS_RSA_OAEP_KEY_ALIAS_SUFFIX = ".FlutterSecureStoragePluginKeyOAEP"
+        private const val ANDROIDX_SECURITY_MASTER_KEY_ALIAS = "_androidx_security_master_key_"
+        private const val ANDROID_ATTESTATION_ALIAS_PREFIX = "prism_sync_attestation_"
     }
 
     private data class PendingFileHandoff(
@@ -195,6 +200,14 @@ class MainActivity : FlutterFragmentActivity() {
                         deleteRuntimeDekWrappingKey()
                         result.success(null)
                     }
+                    "clearApplicationUserData" ->
+                        requestApplicationUserDataClear(result)
+                    "deleteAllPrismResetKeys" -> {
+                        deleteAllPrismResetKeys()
+                        result.success(null)
+                    }
+                    "hasPrismResetKeys" ->
+                        result.success(collectPrismResetKeyPresence())
                     "getRuntimeDekDiagnostics" ->
                         result.success(collectRuntimeDekDiagnostics())
                     else -> result.notImplemented()
@@ -650,6 +663,163 @@ class MainActivity : FlutterFragmentActivity() {
         if (keyStore.containsAlias(RUNTIME_DEK_KEY_ALIAS)) {
             keyStore.deleteEntry(RUNTIME_DEK_KEY_ALIAS)
         }
+    }
+
+    private fun requestApplicationUserDataClear(result: MethodChannel.Result) {
+        val activityManager =
+            getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        if (activityManager == null) {
+            result.error(
+                "android_clear_user_data_unavailable",
+                "ActivityManager service is unavailable; cannot clear application data",
+                null,
+            )
+            return
+        }
+
+        try {
+            // On success Android clears this package's app data and may kill
+            // the process before Flutter observes the channel response.
+            val accepted = activityManager.clearApplicationUserData()
+            if (accepted) {
+                result.success(true)
+            } else {
+                result.error(
+                    "android_clear_user_data_rejected",
+                    "Android rejected clearApplicationUserData() for $packageName",
+                    null,
+                )
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "clearApplicationUserData() failed", e)
+            result.error(
+                "android_clear_user_data_failed",
+                "clearApplicationUserData() failed: ${e::class.java.simpleName}: " +
+                    (e.message ?: "no message"),
+                null,
+            )
+        }
+    }
+
+    private fun deleteAllPrismResetKeys() {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val aliasesToDelete = ArrayList<String>()
+        val aliases = keyStore.aliases()
+        while (aliases.hasMoreElements()) {
+            val alias = aliases.nextElement()
+            if (
+                isFlutterSecureStorageKeyAlias(alias) ||
+                    alias == RUNTIME_DEK_KEY_ALIAS ||
+                    alias.startsWith(ANDROID_ATTESTATION_ALIAS_PREFIX)
+            ) {
+                aliasesToDelete.add(alias)
+            }
+        }
+
+        val failures = ArrayList<String>()
+        for (alias in aliasesToDelete) {
+            try {
+                keyStore.deleteEntry(alias)
+            } catch (t: Throwable) {
+                failures.add("$alias: ${t::class.java.simpleName}: ${t.message ?: ""}")
+            }
+        }
+
+        for (name in flutterSecureStoragePreferenceNames()) {
+            try {
+                val ok = getSharedPreferences(name, Context.MODE_PRIVATE)
+                    .edit()
+                    .clear()
+                    .commit()
+                if (!ok) {
+                    failures.add("$name: SharedPreferences commit returned false")
+                }
+            } catch (t: Throwable) {
+                failures.add("$name: ${t::class.java.simpleName}: ${t.message ?: ""}")
+            }
+        }
+
+        if (failures.isNotEmpty()) {
+            throw IllegalStateException(
+                "Failed to clear Prism reset keys: ${failures.joinToString("; ")}"
+            )
+        }
+    }
+
+    private fun collectPrismResetKeyPresence(): Map<String, Any> {
+        val out = HashMap<String, Any>()
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val aliases = HashMap<String, Boolean>()
+        for (alias in flutterSecureStorageKeyAliases() + listOf(RUNTIME_DEK_KEY_ALIAS)) {
+            aliases[alias] = keyStore.containsAlias(alias)
+        }
+        var namespacedFlutterSecureStorageAliasPresent = false
+        val flutterSecureStorageAliasPrefix = packageName + FSS_AES_OR_RSA_KEY_ALIAS_SUFFIX + "."
+        val flutterSecureStorageOaepAliasPrefix = packageName + FSS_RSA_OAEP_KEY_ALIAS_SUFFIX + "."
+        var attestationAliasPresent = false
+        val allAliases = keyStore.aliases()
+        while (allAliases.hasMoreElements()) {
+            val alias = allAliases.nextElement()
+            if (
+                alias.startsWith(flutterSecureStorageAliasPrefix) ||
+                    alias.startsWith(flutterSecureStorageOaepAliasPrefix)
+            ) {
+                namespacedFlutterSecureStorageAliasPresent = true
+            }
+            if (alias.startsWith(ANDROID_ATTESTATION_ALIAS_PREFIX)) {
+                attestationAliasPresent = true
+            }
+        }
+        aliases["$flutterSecureStorageAliasPrefix*"] =
+            namespacedFlutterSecureStorageAliasPresent
+        aliases["${ANDROID_ATTESTATION_ALIAS_PREFIX}*"] = attestationAliasPresent
+        out["android_keystore_aliases"] = aliases
+
+        val prefs = HashMap<String, Boolean>()
+        for (name in flutterSecureStoragePreferenceNames()) {
+            prefs[name] = getSharedPreferences(name, Context.MODE_PRIVATE)
+                .all
+                .isNotEmpty()
+        }
+        out["flutter_secure_storage_preferences"] = prefs
+        return out
+    }
+
+    private fun flutterSecureStorageKeyAliases(): List<String> {
+        return listOf(
+            packageName + FSS_AES_OR_RSA_KEY_ALIAS_SUFFIX,
+            packageName + FSS_RSA_OAEP_KEY_ALIAS_SUFFIX,
+            ANDROIDX_SECURITY_MASTER_KEY_ALIAS,
+        )
+    }
+
+    private fun isFlutterSecureStorageKeyAlias(alias: String): Boolean {
+        // flutter_secure_storage's AndroidOptions.biometric() uses the AES
+        // Keystore alias (`.FlutterSecureStoragePluginKey`). Namespaced
+        // storage appends ".<namespace>", so match both the default alias and
+        // its namespace variants.
+        return flutterSecureStorageKeyAliases().any { known ->
+            alias == known || alias.startsWith("$known.")
+        }
+    }
+
+    private fun flutterSecureStoragePreferenceNames(): List<String> {
+        val names = linkedSetOf(
+            "FlutterSecureStorage",
+            "FlutterSecureKeyStorage",
+            "FlutterSecureStorageConfiguration",
+        )
+        val prefsDir = File(applicationInfo.dataDir, "shared_prefs")
+        prefsDir.listFiles()?.forEach { file ->
+            val name = file.name.removeSuffix(".xml")
+            if (
+                name.startsWith("FlutterSecureStorageConfiguration:") ||
+                    name.startsWith("FlutterSecureKeyStorage:")
+            ) {
+                names.add(name)
+            }
+        }
+        return names.toList()
     }
 
     /**
