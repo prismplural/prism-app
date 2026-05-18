@@ -20,6 +20,16 @@ class RuntimeDekUnwrapFailure {
     required this.attempts,
     required this.cachePreserved,
     required this.timestamp,
+    this.retryPolicy,
+    this.backoffHintMillis,
+    this.isTransientFailure,
+    this.requiresUserAuthentication,
+    this.isSystemError,
+    this.numericErrorCode,
+    this.throwableClass,
+    this.rootCauseClass,
+    this.deviceLocked,
+    this.userUnlocked,
   });
 
   final RuntimeDekUnwrapClassification classification;
@@ -40,6 +50,19 @@ class RuntimeDekUnwrapFailure {
 
   final DateTime timestamp;
 
+  /// Android Keystore retry policy metadata when available. Values are
+  /// platform-defined integers; diagnostics preserve the raw value.
+  final int? retryPolicy;
+  final int? backoffHintMillis;
+  final bool? isTransientFailure;
+  final bool? requiresUserAuthentication;
+  final bool? isSystemError;
+  final int? numericErrorCode;
+  final String? throwableClass;
+  final String? rootCauseClass;
+  final bool? deviceLocked;
+  final bool? userUnlocked;
+
   Map<String, dynamic> toJson() => {
     'classification': classification.name,
     if (errorCode != null) 'error_code': errorCode,
@@ -47,9 +70,30 @@ class RuntimeDekUnwrapFailure {
     'attempts': attempts,
     'cache_preserved': cachePreserved,
     'timestamp': timestamp.toIso8601String(),
+    if (retryPolicy != null) 'retry_policy': retryPolicy,
+    if (backoffHintMillis != null) 'backoff_hint_millis': backoffHintMillis,
+    if (isTransientFailure != null) 'is_transient_failure': isTransientFailure,
+    if (requiresUserAuthentication != null)
+      'requires_user_authentication': requiresUserAuthentication,
+    if (isSystemError != null) 'is_system_error': isSystemError,
+    if (numericErrorCode != null) 'numeric_error_code': numericErrorCode,
+    if (throwableClass != null) 'throwable_class': throwableClass,
+    if (rootCauseClass != null) 'root_cause_class': rootCauseClass,
+    if (deviceLocked != null) 'device_locked': deviceLocked,
+    if (userUnlocked != null) 'user_unlocked': userUnlocked,
   };
 
   factory RuntimeDekUnwrapFailure.fromJson(Map<String, dynamic> json) {
+    int? intValue(String key) {
+      final value = json[key];
+      return value is num ? value.toInt() : null;
+    }
+
+    bool? boolValue(String key) {
+      final value = json[key];
+      return value is bool ? value : null;
+    }
+
     return RuntimeDekUnwrapFailure(
       classification: RuntimeDekUnwrapClassification.values.firstWhere(
         (c) => c.name == (json['classification'] as String?),
@@ -60,6 +104,16 @@ class RuntimeDekUnwrapFailure {
       attempts: json['attempts'] as int? ?? 1,
       cachePreserved: json['cache_preserved'] as bool? ?? true,
       timestamp: DateTime.parse(json['timestamp'] as String),
+      retryPolicy: intValue('retry_policy'),
+      backoffHintMillis: intValue('backoff_hint_millis'),
+      isTransientFailure: boolValue('is_transient_failure'),
+      requiresUserAuthentication: boolValue('requires_user_authentication'),
+      isSystemError: boolValue('is_system_error'),
+      numericErrorCode: intValue('numeric_error_code'),
+      throwableClass: json['throwable_class'] as String?,
+      rootCauseClass: json['root_cause_class'] as String?,
+      deviceLocked: boolValue('device_locked'),
+      userUnlocked: boolValue('user_unlocked'),
     );
   }
 }

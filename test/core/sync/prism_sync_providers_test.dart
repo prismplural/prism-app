@@ -635,6 +635,301 @@ void main() {
     });
 
     test(
+      'persistent transient unwrap returns retryable outcome metadata',
+      () async {
+        final store = <String, String>{kRuntimeDekWrappedKey: 'transient-blob'};
+        RuntimeDekUnwrapFailure? recorded;
+
+        final outcome = await readCachedRuntimeDekForRestoreOutcomeCore(
+          aad: 'sync-1|device-1|1',
+          readKey: (key) async => store[key],
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          unwrapDek: (_, _) async {
+            throw PlatformException(
+              code: 'runtime_dek_wrap_transient',
+              message: 'backend busy',
+              details: {
+                'backoff_hint_millis': 900,
+                'retry_policy': 2,
+                'is_transient_failure': true,
+                'requires_user_authentication': false,
+                'numeric_error_code': -68,
+                'throwable_class':
+                    'android.security.keystore.BackendBusyException',
+                'root_cause_class':
+                    'android.security.keystore.BackendBusyException',
+                'device_state': {
+                  'is_device_locked': false,
+                  'is_user_unlocked': true,
+                },
+              },
+            );
+          },
+          wrapDek: (_, _) => throw StateError('should not wrap'),
+          recordFailure: (failure) => recorded = failure,
+        );
+
+        expect(outcome.kind, RuntimeDekRestoreOutcomeKind.retryableFailure);
+        expect(outcome.failure?.cachePreserved, isTrue);
+        expect(outcome.failure?.backoffHintMillis, 900);
+        expect(outcome.failure?.retryPolicy, 2);
+        expect(outcome.failure?.isTransientFailure, isTrue);
+        expect(outcome.failure?.numericErrorCode, -68);
+        expect(outcome.failure?.deviceLocked, isFalse);
+        expect(outcome.failure?.userUnlocked, isTrue);
+        expect(recorded, same(outcome.failure));
+        expect(store[kRuntimeDekWrappedKey], 'transient-blob');
+      },
+    );
+
+    test(
+      'unknown preserved outcome maps to deferred health, not password',
+      () async {
+        final failure = RuntimeDekUnwrapFailure(
+          classification: RuntimeDekUnwrapClassification.unknown,
+          errorCode: 'runtime_dek_wrap_failed',
+          errorMessage: 'OEM-specific Keystore failure',
+          attempts: 1,
+          cachePreserved: true,
+          timestamp: DateTime.utc(2026, 5, 18),
+        );
+
+        final health = classifyHealthFromRuntimeDekRestoreOutcome(
+          outcome: RuntimeDekRestoreOutcome.unknownFailure(failure),
+          wrappedDekPresent: true,
+        );
+
+        expect(health, SyncHealthState.runtimeDekRestoreDeferred);
+      },
+    );
+
+    test(
+      'terminal outcome still maps to needsPassword when wrapped_dek exists',
+      () {
+        final failure = RuntimeDekUnwrapFailure(
+          classification: RuntimeDekUnwrapClassification.terminal,
+          errorCode: 'runtime_dek_wrap_terminal',
+          errorMessage: 'alias missing',
+          attempts: 1,
+          cachePreserved: false,
+          timestamp: DateTime.utc(2026, 5, 18),
+        );
+
+        final health = classifyHealthFromRuntimeDekRestoreOutcome(
+          outcome: RuntimeDekRestoreOutcome.terminalFailure(failure),
+          wrappedDekPresent: true,
+        );
+
+        expect(health, SyncHealthState.needsPassword);
+      },
+    );
+
+    test(
+      'restored DEK without device secret does not report healthy and zeroes bytes',
+      () {
+        final dekBytes = Uint8List.fromList(List<int>.filled(32, 7));
+
+        final health = syncHealthForRestoredRuntimeDekMissingDeviceSecret(
+          dekBytes: dekBytes,
+          wrappedDekPresent: true,
+        );
+
+        expect(health, SyncHealthState.needsPassword);
+        expect(dekBytes, everyElement(0));
+      },
+    );
+
+    test(
+      'legacy raw cache can still recover after terminal wrapped failure',
+      () async {
+        final rawDek = List<int>.generate(32, (i) => i);
+        final store = <String, String>{
+          kRuntimeDekKey: base64Encode(rawDek),
+          kRuntimeDekWrappedKey: 'dead-wrapped-cache',
+        };
+
+        final outcome = await readCachedRuntimeDekForRestoreOutcomeCore(
+          aad: 'sync-1|device-1|1',
+          readKey: (key) async => store[key],
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          unwrapDek: (_, _) async {
+            throw PlatformException(code: 'runtime_dek_wrap_terminal');
+          },
+          wrapDek: (_, _) async => 'rewrapped-legacy-cache',
+        );
+
+        expect(outcome.kind, RuntimeDekRestoreOutcomeKind.restored);
+        expect(outcome.bytes, rawDek);
+        expect(store[kRuntimeDekKey], isNull);
+        expect(store[kRuntimeDekWrappedKey], 'rewrapped-legacy-cache');
+      },
+    );
+
+    test(
+      'legacy raw cache is preserved when migration wrap fails transiently',
+      () async {
+        final rawDek = List<int>.generate(32, (i) => i);
+        final rawCache = base64Encode(rawDek);
+        final store = <String, String>{kRuntimeDekKey: rawCache};
+        String? warning;
+        var clearedFailureRecord = false;
+
+        final outcome = await readCachedRuntimeDekForRestoreOutcomeCore(
+          aad: 'sync-1|device-1|1',
+          readKey: (key) async => store[key],
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          unwrapDek: (_, _) => throw StateError('should not unwrap'),
+          wrapDek: (_, _) async {
+            throw PlatformException(code: 'runtime_dek_wrap_transient');
+          },
+          clearFailureRecord: () => clearedFailureRecord = true,
+          reportWarning: (message, _, _) => warning = message,
+        );
+
+        expect(outcome.kind, RuntimeDekRestoreOutcomeKind.restored);
+        expect(outcome.bytes, rawDek);
+        expect(store[kRuntimeDekKey], rawCache);
+        expect(store[kRuntimeDekWrappedKey], isNull);
+        expect(clearedFailureRecord, isFalse);
+        expect(
+          warning,
+          'Legacy runtime DEK migration failed; raw cache preserved for next launch.',
+        );
+
+        await writeRuntimeDekCacheCore(
+          dekBytes: Uint8List.fromList(outcome.bytes!),
+          aad: 'sync-1|device-1|1',
+          wrapDek: (_, _) async {
+            throw PlatformException(code: 'runtime_dek_wrap_transient');
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          preserveLegacyRawOnFailure: true,
+        );
+
+        expect(
+          store[kRuntimeDekKey],
+          rawCache,
+          reason: 'post-healthy cache refresh failure must not undo recovery',
+        );
+      },
+    );
+
+    test(
+      'legacy migration fallback preserves wrapped failure diagnostics',
+      () async {
+        final rawDek = List<int>.generate(32, (i) => i);
+        final rawCache = base64Encode(rawDek);
+        final store = <String, String>{
+          kRuntimeDekKey: rawCache,
+          kRuntimeDekWrappedKey: 'transient-wrapped-cache',
+        };
+        final failures = <RuntimeDekUnwrapFailure>[];
+        var clearedFailureRecord = false;
+
+        final outcome = await readCachedRuntimeDekForRestoreOutcomeCore(
+          aad: 'sync-1|device-1|1',
+          readKey: (key) async => store[key],
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          unwrapDek: (_, _) async {
+            throw PlatformException(code: 'runtime_dek_wrap_transient');
+          },
+          wrapDek: (_, _) async {
+            throw PlatformException(code: 'runtime_dek_wrap_transient');
+          },
+          recordFailure: failures.add,
+          clearFailureRecord: () => clearedFailureRecord = true,
+        );
+
+        expect(outcome.kind, RuntimeDekRestoreOutcomeKind.restored);
+        expect(outcome.bytes, rawDek);
+        expect(store[kRuntimeDekKey], rawCache);
+        expect(store[kRuntimeDekWrappedKey], 'transient-wrapped-cache');
+        expect(clearedFailureRecord, isFalse);
+        expect(failures, hasLength(2));
+        expect(
+          failures.last.classification,
+          RuntimeDekUnwrapClassification.transient,
+        );
+        expect(failures.last.cachePreserved, isTrue);
+      },
+    );
+
+    test('retryRuntimeDekRestoreCore respects bounded backoff hint', () async {
+      final delays = <Duration>[];
+      var calls = 0;
+      final failure = RuntimeDekUnwrapFailure(
+        classification: RuntimeDekUnwrapClassification.transient,
+        errorCode: 'runtime_dek_wrap_transient',
+        errorMessage: 'busy',
+        attempts: 2,
+        cachePreserved: true,
+        timestamp: DateTime.utc(2026, 5, 18),
+        backoffHintMillis: 5000,
+      );
+
+      final outcome = await retryRuntimeDekRestoreCore(
+        readOnce: () async {
+          calls++;
+          if (calls == 1) {
+            return RuntimeDekRestoreOutcome.retryableFailure(failure);
+          }
+          return RuntimeDekRestoreOutcome.restored(
+            Uint8List.fromList(List<int>.filled(32, 1)),
+          );
+        },
+        delay: (duration) async {
+          delays.add(duration);
+        },
+      );
+
+      expect(outcome.kind, RuntimeDekRestoreOutcomeKind.restored);
+      expect(delays, [const Duration(milliseconds: 1200)]);
+    });
+
+    test('device-state helper defers when Android user is still locked', () {
+      expect(
+        isRuntimeDekUnwrapBlockedByDeviceState({
+          'device_state': {
+            'is_device_locked': false,
+            'is_user_unlocked': false,
+          },
+        }),
+        isTrue,
+      );
+      expect(
+        isRuntimeDekUnwrapBlockedByDeviceState({
+          'device_state': {'is_device_locked': false, 'is_user_unlocked': true},
+        }),
+        isFalse,
+      );
+    });
+
+    test(
       'non-platform unwrap failure diagnostics do not include wrapped blob text',
       () async {
         final store = <String, String>{
@@ -672,7 +967,7 @@ void main() {
     );
 
     test(
-      'writeRuntimeDekCacheCore preserves existing wrapped cache on refresh failure',
+      'writeRuntimeDekCacheCore cleans legacy raw cache on refresh failure',
       () async {
         final store = <String, String>{
           kRuntimeDekKey: 'legacy-raw-cache',
@@ -863,6 +1158,10 @@ void main() {
       expect(SyncHealthState.values, contains(SyncHealthState.disconnected));
       expect(SyncHealthState.values, contains(SyncHealthState.unpaired));
       expect(SyncHealthState.values, contains(SyncHealthState.needsRewrap));
+      expect(
+        SyncHealthState.values,
+        contains(SyncHealthState.runtimeDekRestoreDeferred),
+      );
     });
   });
 
@@ -875,6 +1174,12 @@ void main() {
   // --------------------------------------------------------------------
 
   group('classifyPairReadinessFromWrappedDek', () {
+    test('shared wrapped_dek presence helper treats empty as absent', () {
+      expect(hasStoredWrappedDek(null), isFalse);
+      expect(hasStoredWrappedDek(''), isFalse);
+      expect(hasStoredWrappedDek('base64-payload=='), isTrue);
+    });
+
     test('returns needsRewrap when wrapped_dek is null (missing slot)', () {
       expect(
         classifyPairReadinessFromWrappedDek(null),
@@ -1250,7 +1555,10 @@ void main() {
         expect(storage['prism_sync.relay_url'], 'snapshot-relay');
         expect(storage['prism_sync.sync_id'], 'snapshot-sync-id');
         expect(storage['prism_sync.database_key'], 'PROTECTED-db-key');
-        expect(storage['prism_sync.sync_database_key'], 'PROTECTED-sync-db-key');
+        expect(
+          storage['prism_sync.sync_database_key'],
+          'PROTECTED-sync-db-key',
+        );
         // No stale non-snapshot non-protected keys left over.
         for (final key in storage.keys) {
           final isProtected = kProtectedFromReset.contains(key);
@@ -1346,7 +1654,8 @@ void main() {
           'prism_sync.database_key': 'SNAPSHOT-db-key',
           'prism_sync.database_key_staging': 'SNAPSHOT-db-key-staging',
           'prism_sync.sync_database_key': 'SNAPSHOT-sync-db-key',
-          'prism_sync.sync_database_key_staging': 'SNAPSHOT-sync-db-key-staging',
+          'prism_sync.sync_database_key_staging':
+              'SNAPSHOT-sync-db-key-staging',
           // A non-protected snapshot entry to prove rollback DOES restore
           // those.
           'prism_sync.relay_url': 'snapshot-relay',
@@ -1396,118 +1705,115 @@ void main() {
       },
     );
 
-    test(
-      'rollback namespace scan failure falls back to attempted-keys + '
-      'static allowlist delete and reports a warning',
-      () async {
-        // Reproduces a realistic Android keystore failure: Phase 2 throws
-        // mid-write AND `readCurrentNamespace()` (the post-failure scan
-        // used by the rollback to discover leftover keys to delete) also
-        // throws. Without the fallback, the rollback would only restore
-        // snapshot entries — leaving the post-Phase-1 + post-partial-Phase-2
-        // leftover keys in the keychain.
-        ErrorReportingService.instance.clear();
+    test('rollback namespace scan failure falls back to attempted-keys + '
+        'static allowlist delete and reports a warning', () async {
+      // Reproduces a realistic Android keystore failure: Phase 2 throws
+      // mid-write AND `readCurrentNamespace()` (the post-failure scan
+      // used by the rollback to discover leftover keys to delete) also
+      // throws. Without the fallback, the rollback would only restore
+      // snapshot entries — leaving the post-Phase-1 + post-partial-Phase-2
+      // leftover keys in the keychain.
+      ErrorReportingService.instance.clear();
 
-        // Snapshot is non-empty — proves the rollback still restores
-        // those entries even when the namespace scan fails.
-        final snapshot = <String, String>{
-          'prism_sync.relay_url': 'snapshot-relay-url',
-        };
+      // Snapshot is non-empty — proves the rollback still restores
+      // those entries even when the namespace scan fails.
+      final snapshot = <String, String>{
+        'prism_sync.relay_url': 'snapshot-relay-url',
+      };
 
-        // Storage contains the snapshot, the protected DB slot, plus a
-        // stale identity key that Phase 1 should re-delete on rollback.
-        final storage = <String, String>{
-          ...snapshot,
-          'prism_sync.session_token': 'leftover-token',
-          'prism_sync.database_key': 'PROTECTED-db-key',
-        };
+      // Storage contains the snapshot, the protected DB slot, plus a
+      // stale identity key that Phase 1 should re-delete on rollback.
+      final storage = <String, String>{
+        ...snapshot,
+        'prism_sync.session_token': 'leftover-token',
+        'prism_sync.database_key': 'PROTECTED-db-key',
+      };
 
-        // Drained entries — the post-Phase-2 leftover will be the first
-        // priority-0 write that succeeded before the throw.
-        final entries = <String, String>{
-          'device_id': 'new-device-id',
-          'device_secret': 'new-device-secret',
-          'wrapped_dek': 'new-wrapped-dek',
-        };
+      // Drained entries — the post-Phase-2 leftover will be the first
+      // priority-0 write that succeeded before the throw.
+      final entries = <String, String>{
+        'device_id': 'new-device-id',
+        'device_secret': 'new-device-secret',
+        'wrapped_dek': 'new-wrapped-dek',
+      };
 
-        var deleteCalls = 0;
-        var writeCalls = 0;
+      var deleteCalls = 0;
+      var writeCalls = 0;
 
-        Object? caught;
-        try {
-          await applyDrainedEntriesWithSnapshotRollback(
-            entries: entries,
-            rollbackSnapshot: snapshot,
-            deleteKey: (key) async {
-              deleteCalls++;
-              storage.remove(key);
-            },
-            writeKey: (key, value) async {
-              writeCalls++;
-              if (writeCalls == 2) {
-                throw StateError('injected write failure');
-              }
-              storage[key] = value;
-            },
-            // Inject the Android keystore failure on the rollback's
-            // namespace scan.
-            readCurrentNamespace: () async {
-              throw StateError('injected readAll failure during rollback');
-            },
-          );
-        } catch (e) {
-          caught = e;
-        }
-
-        expect(caught, isA<DrainPartialWriteException>());
-
-        // The fallback path attempted to delete:
-        //   - keys we tried to mutate during this drain (the Phase-2
-        //     writes, including the one that committed before the throw)
-        //     that aren't in the snapshot
-        //   - keys in the static `_secureStoreKeys` allow-list that
-        //     aren't in the snapshot
-        // None of those are in the snapshot, so the storage should end
-        // up snapshot-only (plus untouched protected slots).
-        for (final key in entries.keys) {
-          expect(
-            storage.containsKey('prism_sync.$key'),
-            isFalse,
-            reason:
-                'attempted-write key $key should be deleted by the '
-                'fallback rollback even when readCurrentNamespace throws',
-          );
-        }
-        // The pre-existing stale `session_token` is in `_secureStoreKeys`,
-        // so the static-allowlist fallback delete catches it too.
-        expect(storage.containsKey('prism_sync.session_token'), isFalse);
-
-        // Snapshot was restored verbatim.
-        expect(storage['prism_sync.relay_url'], 'snapshot-relay-url');
-        // Protected slot untouched.
-        expect(storage['prism_sync.database_key'], 'PROTECTED-db-key');
-
-        // Deletes ran: Phase 1 delete sweep + the fallback deletes.
-        expect(deleteCalls, greaterThan(0));
-
-        // ErrorReportingService captured the namespace-scan failure as
-        // a warning so diagnostics can flag the degraded restore.
-        final scanWarnings = ErrorReportingService.instance.errors
-            .where(
-              (e) =>
-                  e.severity == ErrorSeverity.warning &&
-                  e.message.contains('rollback namespace scan failed'),
-            )
-            .toList();
-        expect(
-          scanWarnings,
-          isNotEmpty,
-          reason:
-              'rollback must surface a warning when the namespace scan '
-              'fails so the degraded exactness guarantee is observable',
+      Object? caught;
+      try {
+        await applyDrainedEntriesWithSnapshotRollback(
+          entries: entries,
+          rollbackSnapshot: snapshot,
+          deleteKey: (key) async {
+            deleteCalls++;
+            storage.remove(key);
+          },
+          writeKey: (key, value) async {
+            writeCalls++;
+            if (writeCalls == 2) {
+              throw StateError('injected write failure');
+            }
+            storage[key] = value;
+          },
+          // Inject the Android keystore failure on the rollback's
+          // namespace scan.
+          readCurrentNamespace: () async {
+            throw StateError('injected readAll failure during rollback');
+          },
         );
-      },
-    );
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught, isA<DrainPartialWriteException>());
+
+      // The fallback path attempted to delete:
+      //   - keys we tried to mutate during this drain (the Phase-2
+      //     writes, including the one that committed before the throw)
+      //     that aren't in the snapshot
+      //   - keys in the static `_secureStoreKeys` allow-list that
+      //     aren't in the snapshot
+      // None of those are in the snapshot, so the storage should end
+      // up snapshot-only (plus untouched protected slots).
+      for (final key in entries.keys) {
+        expect(
+          storage.containsKey('prism_sync.$key'),
+          isFalse,
+          reason:
+              'attempted-write key $key should be deleted by the '
+              'fallback rollback even when readCurrentNamespace throws',
+        );
+      }
+      // The pre-existing stale `session_token` is in `_secureStoreKeys`,
+      // so the static-allowlist fallback delete catches it too.
+      expect(storage.containsKey('prism_sync.session_token'), isFalse);
+
+      // Snapshot was restored verbatim.
+      expect(storage['prism_sync.relay_url'], 'snapshot-relay-url');
+      // Protected slot untouched.
+      expect(storage['prism_sync.database_key'], 'PROTECTED-db-key');
+
+      // Deletes ran: Phase 1 delete sweep + the fallback deletes.
+      expect(deleteCalls, greaterThan(0));
+
+      // ErrorReportingService captured the namespace-scan failure as
+      // a warning so diagnostics can flag the degraded restore.
+      final scanWarnings = ErrorReportingService.instance.errors
+          .where(
+            (e) =>
+                e.severity == ErrorSeverity.warning &&
+                e.message.contains('rollback namespace scan failed'),
+          )
+          .toList();
+      expect(
+        scanWarnings,
+        isNotEmpty,
+        reason:
+            'rollback must surface a warning when the namespace scan '
+            'fails so the degraded exactness guarantee is observable',
+      );
+    });
 
     test(
       'snapshot values containing non-ASCII bytes round-trip byte-identical',
@@ -1562,8 +1868,7 @@ void main() {
               }
               storage[key] = value;
             },
-            readCurrentNamespace: () async =>
-                Map<String, String>.from(storage),
+            readCurrentNamespace: () async => Map<String, String>.from(storage),
           );
         } catch (e) {
           caught = e;
@@ -1833,28 +2138,25 @@ void main() {
       expect(logs.any((m) => m.contains('prism_sync.epoch_key_1')), isTrue);
     });
 
-    test(
-      'swallows wrapping-key delete failure when '
-      'includeRuntimeDekWrappingKey: true',
-      () async {
-        final store = <String, String>{};
-        final logs = <String>[];
+    test('swallows wrapping-key delete failure when '
+        'includeRuntimeDekWrappingKey: true', () async {
+      final store = <String, String>{};
+      final logs = <String>[];
 
-        // Must complete without throwing even though deleteWrappingKey threw.
-        await wipeSyncKeychainNamespace(
-          readAll: () async => store,
-          deleteKey: (key) async {
-            store.remove(key);
-          },
-          includeRuntimeDekWrappingKey: true,
-          deleteWrappingKey: () async {
-            throw StateError('keystore unavailable');
-          },
-          log: logs.add,
-        );
+      // Must complete without throwing even though deleteWrappingKey threw.
+      await wipeSyncKeychainNamespace(
+        readAll: () async => store,
+        deleteKey: (key) async {
+          store.remove(key);
+        },
+        includeRuntimeDekWrappingKey: true,
+        deleteWrappingKey: () async {
+          throw StateError('keystore unavailable');
+        },
+        log: logs.add,
+      );
 
-        expect(logs.any((m) => m.contains('Runtime DEK wrapping-key')), isTrue);
-      },
-    );
+      expect(logs.any((m) => m.contains('Runtime DEK wrapping-key')), isTrue);
+    });
   });
 }

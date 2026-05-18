@@ -524,6 +524,7 @@ class _AppShellState extends ConsumerState<AppShell>
   /// know whether PIN lock is enabled.
   bool _pinCheckResolved = false;
   bool _navExpanded = false;
+  bool _syncConfigureRetryInFlight = false;
   final _navBarKey = GlobalKey<_FloatingNavBarState>();
   DateTime? _backgroundedAt;
 
@@ -662,23 +663,26 @@ class _AppShellState extends ConsumerState<AppShell>
       _checkLockOnResume();
       ref.invalidate(currentDateProvider);
       ref.read(pkAutoPollProvider.notifier).markForegrounded(true);
-      _retrySyncConfigureIfAwaitingUnlock();
+      _retryDeferredSyncConfigure();
     }
   }
 
-  /// When the app foregrounds and sync was paused at boot because the
-  /// Android device was locked (Keystore `setUnlockedDeviceRequired(true)`
-  /// blocked the runtime DEK unwrap), retry auto-config now. The user is
-  /// here, the device is unlocked, the cache is intact — the unwrap
-  /// should succeed cleanly and transition health to `healthy` without
-  /// the user ever seeing the password modal.
-  void _retrySyncConfigureIfAwaitingUnlock() {
+  /// Retry auto-config after a deferred runtime DEK restore.
+  void _retryDeferredSyncConfigure() {
     final health = ref.read(syncHealthProvider);
-    if (health != SyncHealthState.awaitingDeviceUnlock) return;
+    if (health != SyncHealthState.awaitingDeviceUnlock &&
+        health != SyncHealthState.runtimeDekRestoreDeferred) {
+      return;
+    }
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle == null) return;
+    if (_syncConfigureRetryInFlight) return;
+    _syncConfigureRetryInFlight = true;
     unawaited(
-      ref.read(prismSyncHandleProvider.notifier).ensureConfigured(handle),
+      ref
+          .read(prismSyncHandleProvider.notifier)
+          .ensureConfigured(handle)
+          .whenComplete(() => _syncConfigureRetryInFlight = false),
     );
   }
 

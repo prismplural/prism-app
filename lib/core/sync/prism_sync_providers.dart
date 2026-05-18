@@ -179,6 +179,7 @@ final prismSyncHandleProvider =
 
 class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
   ffi.PrismSyncHandle? _handle;
+  Future<SyncHealthState>? _ensureConfiguredFuture;
 
   @override
   Future<ffi.PrismSyncHandle?> build() async {
@@ -328,6 +329,7 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // old sync group detached until the user completes the migration reset and
     // pairs again.
     late SyncHealthState health;
+    Future<SyncHealthState>? configureFuture;
     try {
       if (migrationGateHealth != null) {
         // `unpaired` already means "engine isn't configured; skip the
@@ -337,7 +339,10 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
         // `inProgress`.
         health = migrationGateHealth;
       } else {
-        health = await _autoConfigureIfReady(handle);
+        final future = _autoConfigureIfReady(handle);
+        configureFuture = future;
+        _ensureConfiguredFuture = future;
+        health = await future;
       }
       BootTimings.mark('createHandle:_autoConfigureIfReady');
       ref.read(syncHealthProvider.notifier).setState(health);
@@ -350,6 +355,10 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       );
       ref.read(syncHealthProvider.notifier).setState(health);
     } finally {
+      if (configureFuture != null &&
+          identical(_ensureConfiguredFuture, configureFuture)) {
+        _ensureConfiguredFuture = null;
+      }
       syncAutoConfigureInProgress.value = false;
     }
 
@@ -439,6 +448,24 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
   /// handle. Manual reconnect uses this when a handle was published but the
   /// earlier auto-configure attempt failed before `configureEngine`.
   Future<SyncHealthState> ensureConfigured(ffi.PrismSyncHandle handle) async {
+    final inFlight = _ensureConfiguredFuture;
+    if (inFlight != null) {
+      return inFlight;
+    }
+
+    late final Future<SyncHealthState> tracked;
+    tracked = _ensureConfiguredExclusive(handle).whenComplete(() {
+      if (identical(_ensureConfiguredFuture, tracked)) {
+        _ensureConfiguredFuture = null;
+      }
+    });
+    _ensureConfiguredFuture = tracked;
+    return tracked;
+  }
+
+  Future<SyncHealthState> _ensureConfiguredExclusive(
+    ffi.PrismSyncHandle handle,
+  ) async {
     syncAutoConfigureInProgress.value = true;
     try {
       final health = await _autoConfigureIfReady(handle);
@@ -496,10 +523,44 @@ SyncHealthState? classifyHealthFromKeychain({
 /// missing or empty. Otherwise returns `SyncHealthState.healthy`.
 @visibleForTesting
 SyncHealthState classifyPairReadinessFromWrappedDek(String? wrappedDek) {
-  if (wrappedDek == null || wrappedDek.isEmpty) {
+  if (!hasStoredWrappedDek(wrappedDek)) {
     return SyncHealthState.needsRewrap;
   }
   return SyncHealthState.healthy;
+}
+
+@visibleForTesting
+bool hasStoredWrappedDek(String? wrappedDek) =>
+    wrappedDek != null && wrappedDek.isNotEmpty;
+
+@visibleForTesting
+SyncHealthState classifyHealthFromRuntimeDekRestoreOutcome({
+  required RuntimeDekRestoreOutcome outcome,
+  required bool wrappedDekPresent,
+}) {
+  switch (outcome.kind) {
+    case RuntimeDekRestoreOutcomeKind.restored:
+      return SyncHealthState.healthy;
+    case RuntimeDekRestoreOutcomeKind.retryableFailure:
+    case RuntimeDekRestoreOutcomeKind.unknownFailure:
+      return SyncHealthState.runtimeDekRestoreDeferred;
+    case RuntimeDekRestoreOutcomeKind.missing:
+    case RuntimeDekRestoreOutcomeKind.terminalFailure:
+      return wrappedDekPresent
+          ? SyncHealthState.needsPassword
+          : SyncHealthState.disconnected;
+  }
+}
+
+@visibleForTesting
+SyncHealthState syncHealthForRestoredRuntimeDekMissingDeviceSecret({
+  required Uint8List dekBytes,
+  required bool wrappedDekPresent,
+}) {
+  _zeroBytesBestEffort(dekBytes);
+  return wrappedDekPresent
+      ? SyncHealthState.needsPassword
+      : SyncHealthState.disconnected;
 }
 
 /// Pure helper: decide whether fronting migration state blocks startup sync.
@@ -535,7 +596,7 @@ SyncHealthState? startupHealthForMigrationMode(String? mode) {
 ///   disconnected  — credentials gone → reconnect card in sync settings
 ///
 /// Transitions:
-///   startup → this method → one of the five states
+///   startup → this method → a sync health state
 ///   DeviceRevoked WebSocket event → disconnected
 ///   password entry → Argon2id unlock → healthy
 ///   PIN + mnemonic via recovery sheet → rewrap_dek FFI → healthy
@@ -564,16 +625,8 @@ Future<SyncHealthState> _autoConfigureIfReady(
   // Try the fast path: restore runtime keys from the device-bound wrapped DEK.
   final isUnlocked = await ffi.isUnlocked(handle: handle);
   if (!isUnlocked) {
-    // Android only: the runtime DEK wrapping key sets
-    // `setUnlockedDeviceRequired(true)` on API 35+. If the device is
-    // currently locked from KeyguardManager's perspective (typical when
-    // the app is woken by workmanager / BOOT_COMPLETED before the user
-    // has unlocked the screen, OR when `flutter run` reinstalls onto a
-    // screen-off phone), an unwrap attempt would fail with a transient
-    // Keystore error. Skip the attempt entirely and report a new
-    // `awaitingDeviceUnlock` state so AppShell does NOT show the
-    // password modal — the cache is intact and the next foreground
-    // after unlock will retry cleanly via `onAppLifecycleResume`.
+    // Android may reject device-bound unwraps before first unlock; defer
+    // instead of surfacing recovery while the cache is still viable.
     if (await _isAndroidDeviceLockedForRuntimeDekUnwrap()) {
       return SyncHealthState.awaitingDeviceUnlock;
     }
@@ -585,9 +638,20 @@ Future<SyncHealthState> _autoConfigureIfReady(
     final deviceSecretB64 = await _storage.read(
       key: '${_secureStorePrefix}device_secret',
     );
-    final dekBytes = runtimeDekAad == null
-        ? null
-        : await _readCachedRuntimeDekForRestore(aad: runtimeDekAad);
+    final dekOutcome = runtimeDekAad == null
+        ? const RuntimeDekRestoreOutcome.missing()
+        : await _readCachedRuntimeDekForRestoreOutcome(aad: runtimeDekAad);
+    final dekBytes = dekOutcome.bytes;
+
+    if (dekBytes != null && deviceSecretB64 == null) {
+      final wrappedDek = await _storage.read(
+        key: '${_secureStorePrefix}wrapped_dek',
+      );
+      return syncHealthForRestoredRuntimeDekMissingDeviceSecret(
+        dekBytes: dekBytes,
+        wrappedDekPresent: hasStoredWrappedDek(wrappedDek),
+      );
+    }
 
     if (dekBytes != null && deviceSecretB64 != null) {
       Uint8List? deviceSecretBytes;
@@ -616,14 +680,13 @@ Future<SyncHealthState> _autoConfigureIfReady(
         }
       }
     } else {
-      // No cached DEK. Check if we can recover with a password.
       final wrappedDek = await _storage.read(
         key: '${_secureStorePrefix}wrapped_dek',
       );
-      if (wrappedDek != null) {
-        return SyncHealthState.needsPassword;
-      }
-      return SyncHealthState.disconnected;
+      return classifyHealthFromRuntimeDekRestoreOutcome(
+        outcome: dekOutcome,
+        wrappedDekPresent: hasStoredWrappedDek(wrappedDek),
+      );
     }
   }
 
@@ -1172,6 +1235,45 @@ class _UnwrapAttempt {
   final StackTrace? stackTrace;
 }
 
+enum RuntimeDekRestoreOutcomeKind {
+  restored,
+  missing,
+  retryableFailure,
+  unknownFailure,
+  terminalFailure,
+}
+
+@visibleForTesting
+class RuntimeDekRestoreOutcome {
+  const RuntimeDekRestoreOutcome._(this.kind, {this.bytes, this.failure});
+
+  const RuntimeDekRestoreOutcome.restored(Uint8List bytes)
+    : this._(RuntimeDekRestoreOutcomeKind.restored, bytes: bytes);
+
+  const RuntimeDekRestoreOutcome.missing()
+    : this._(RuntimeDekRestoreOutcomeKind.missing);
+
+  const RuntimeDekRestoreOutcome.retryableFailure(
+    RuntimeDekUnwrapFailure failure,
+  ) : this._(RuntimeDekRestoreOutcomeKind.retryableFailure, failure: failure);
+
+  const RuntimeDekRestoreOutcome.unknownFailure(RuntimeDekUnwrapFailure failure)
+    : this._(RuntimeDekRestoreOutcomeKind.unknownFailure, failure: failure);
+
+  const RuntimeDekRestoreOutcome.terminalFailure(
+    RuntimeDekUnwrapFailure failure,
+  ) : this._(RuntimeDekRestoreOutcomeKind.terminalFailure, failure: failure);
+
+  final RuntimeDekRestoreOutcomeKind kind;
+  final Uint8List? bytes;
+  final RuntimeDekUnwrapFailure? failure;
+
+  bool get hasBytes => bytes != null;
+  bool get isCachePreservedFailure =>
+      kind == RuntimeDekRestoreOutcomeKind.retryableFailure ||
+      kind == RuntimeDekRestoreOutcomeKind.unknownFailure;
+}
+
 Future<_UnwrapAttempt> _tryUnwrapForRestore({
   required String blob,
   required String aad,
@@ -1194,7 +1296,7 @@ Future<_UnwrapAttempt> _tryUnwrapForRestore({
 }
 
 @visibleForTesting
-Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
+Future<RuntimeDekRestoreOutcome> readCachedRuntimeDekForRestoreOutcomeCore({
   required String aad,
   required Future<String?> Function(String key) readKey,
   required Future<void> Function(String key) deleteKey,
@@ -1212,13 +1314,98 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
   final clearRecord =
       clearFailureRecord ?? RuntimeDekUnwrapFailureRegistry.clear;
 
-  String? errorCodeOf(Object? e) => e is PlatformException ? e.code : null;
-  String? errorMessageOf(Object? e) {
-    if (e == null) return null;
-    if (e is PlatformException) return e.message;
-    if (e is FormatException) return e.message;
-    return e.runtimeType.toString();
+  RuntimeDekUnwrapFailure buildFailure({
+    required _UnwrapAttempt attempt,
+    required RuntimeDekUnwrapClassification classification,
+    required int attempts,
+    required bool cachePreserved,
+  }) {
+    final details = attempt.error is PlatformException
+        ? (attempt.error as PlatformException).details
+        : null;
+    final detailsMap = details is Map ? details : const {};
+    final deviceState = detailsMap['device_state'];
+    final deviceStateMap = deviceState is Map ? deviceState : const {};
+
+    int? intDetail(String key) {
+      final value = detailsMap[key];
+      return value is num ? value.toInt() : null;
+    }
+
+    bool? boolDetail(String key) {
+      final value = detailsMap[key];
+      return value is bool ? value : null;
+    }
+
+    String? stringDetail(String key) {
+      final value = detailsMap[key];
+      return value is String ? value : null;
+    }
+
+    bool? deviceBool(String key) {
+      final value = deviceStateMap[key];
+      return value is bool ? value : null;
+    }
+
+    String? errorCodeOf(Object? e) => e is PlatformException ? e.code : null;
+    String? errorMessageOf(Object? e) {
+      if (e == null) return null;
+      if (e is PlatformException) return e.message;
+      if (e is FormatException) return e.message;
+      return e.runtimeType.toString();
+    }
+
+    return RuntimeDekUnwrapFailure(
+      classification: classification,
+      errorCode: errorCodeOf(attempt.error),
+      errorMessage: errorMessageOf(attempt.error),
+      attempts: attempts,
+      cachePreserved: cachePreserved,
+      timestamp: DateTime.now().toUtc(),
+      retryPolicy: intDetail('retry_policy'),
+      backoffHintMillis: intDetail('backoff_hint_millis'),
+      isTransientFailure: boolDetail('is_transient_failure'),
+      requiresUserAuthentication: boolDetail('requires_user_authentication'),
+      isSystemError: boolDetail('is_system_error'),
+      numericErrorCode: intDetail('numeric_error_code'),
+      throwableClass: stringDetail('throwable_class'),
+      rootCauseClass: stringDetail('root_cause_class'),
+      deviceLocked: deviceBool('is_device_locked'),
+      userUnlocked: deviceBool('is_user_unlocked'),
+    );
   }
+
+  RuntimeDekRestoreOutcome outcomeForFailure(RuntimeDekUnwrapFailure failure) {
+    return switch (failure.classification) {
+      RuntimeDekUnwrapClassification.transient =>
+        RuntimeDekRestoreOutcome.retryableFailure(failure),
+      RuntimeDekUnwrapClassification.terminal =>
+        RuntimeDekRestoreOutcome.terminalFailure(failure),
+      RuntimeDekUnwrapClassification.unknown =>
+        RuntimeDekRestoreOutcome.unknownFailure(failure),
+    };
+  }
+
+  RuntimeDekRestoreOutcome fallbackOutcome({
+    RuntimeDekUnwrapFailure? preservedFailure,
+    RuntimeDekUnwrapFailure? terminalFailure,
+  }) {
+    if (preservedFailure != null) return outcomeForFailure(preservedFailure);
+    if (terminalFailure != null) {
+      return RuntimeDekRestoreOutcome.terminalFailure(terminalFailure);
+    }
+    return const RuntimeDekRestoreOutcome.missing();
+  }
+
+  Object reportErrorObject(RuntimeDekUnwrapFailure failure, Object? error) {
+    return error ?? StateError('unknown ${failure.classification.name}');
+  }
+
+  StackTrace reportStackTrace(_UnwrapAttempt attempt) =>
+      attempt.stackTrace ?? StackTrace.empty;
+
+  RuntimeDekUnwrapFailure? preservedFailure;
+  RuntimeDekUnwrapFailure? terminalFailure;
 
   final wrapped = await readKey(kRuntimeDekWrappedKey);
   if (wrapped != null && wrapped.isNotEmpty) {
@@ -1231,7 +1418,7 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
     if (firstAttempt.bytes != null) {
       await deleteKey(kRuntimeDekKey);
       clearRecord();
-      return firstAttempt.bytes;
+      return RuntimeDekRestoreOutcome.restored(firstAttempt.bytes!);
     }
 
     // Retry once on transient failures (Android Keystore device-lock race
@@ -1247,76 +1434,69 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
       if (secondAttempt.bytes != null) {
         await deleteKey(kRuntimeDekKey);
         clearRecord();
-        return secondAttempt.bytes;
+        return RuntimeDekRestoreOutcome.restored(secondAttempt.bytes!);
       }
       // Retry also failed — leave the cache alone for the next launch.
-      // The user falls through to needsPassword for THIS session, but
-      // we don't permanently invalidate a viable blob.
-      record(
-        RuntimeDekUnwrapFailure(
-          classification: RuntimeDekUnwrapClassification.transient,
-          errorCode: errorCodeOf(secondAttempt.error ?? firstAttempt.error),
-          errorMessage: errorMessageOf(
-            secondAttempt.error ?? firstAttempt.error,
-          ),
-          attempts: 2,
-          cachePreserved: true,
-          timestamp: DateTime.now().toUtc(),
-        ),
+      final failure = buildFailure(
+        attempt: secondAttempt.error != null ? secondAttempt : firstAttempt,
+        classification: RuntimeDekUnwrapClassification.transient,
+        attempts: 2,
+        cachePreserved: true,
       );
+      preservedFailure = failure;
+      record(failure);
       reportWarning?.call(
         'Wrapped runtime DEK transient unwrap failed twice; cache '
         'preserved for next launch.',
-        secondAttempt.error ?? firstAttempt.error ?? StateError('unknown'),
-        secondAttempt.stackTrace ?? firstAttempt.stackTrace ?? StackTrace.empty,
+        reportErrorObject(failure, secondAttempt.error ?? firstAttempt.error),
+        reportStackTrace(
+          secondAttempt.error != null ? secondAttempt : firstAttempt,
+        ),
       );
     } else if (firstAttempt.classification ==
         RuntimeDekUnwrapClassification.terminal) {
       // Blob can't be unwrapped by any key we hold — discard so the next
       // successful unlock writes a fresh one.
       await deleteKey(kRuntimeDekWrappedKey);
-      record(
-        RuntimeDekUnwrapFailure(
-          classification: RuntimeDekUnwrapClassification.terminal,
-          errorCode: errorCodeOf(firstAttempt.error),
-          errorMessage: errorMessageOf(firstAttempt.error),
-          attempts: 1,
-          cachePreserved: false,
-          timestamp: DateTime.now().toUtc(),
-        ),
+      final failure = buildFailure(
+        attempt: firstAttempt,
+        classification: RuntimeDekUnwrapClassification.terminal,
+        attempts: 1,
+        cachePreserved: false,
       );
+      terminalFailure = failure;
+      record(failure);
       reportWarning?.call(
         'Wrapped runtime DEK terminal unwrap failure; cache deleted.',
-        firstAttempt.error ?? StateError('unknown'),
-        firstAttempt.stackTrace ?? StackTrace.empty,
+        reportErrorObject(failure, firstAttempt.error),
+        reportStackTrace(firstAttempt),
       );
     } else {
-      // Unknown failure mode — preserve the cache conservatively. If the
-      // blob really is dead, every launch will harmlessly re-fail and the
-      // user will fall through to needsPassword; if it's actually a new
-      // transient mode we haven't classified, future launches will pick
-      // it up cleanly.
-      record(
-        RuntimeDekUnwrapFailure(
-          classification: RuntimeDekUnwrapClassification.unknown,
-          errorCode: errorCodeOf(firstAttempt.error),
-          errorMessage: errorMessageOf(firstAttempt.error),
-          attempts: 1,
-          cachePreserved: true,
-          timestamp: DateTime.now().toUtc(),
-        ),
+      // Unknown failure mode — preserve the cache conservatively.
+      final failure = buildFailure(
+        attempt: firstAttempt,
+        classification: RuntimeDekUnwrapClassification.unknown,
+        attempts: 1,
+        cachePreserved: true,
       );
+      preservedFailure = failure;
+      record(failure);
       reportWarning?.call(
         'Wrapped runtime DEK unwrap failed with unclassified error; '
         'cache preserved.',
-        firstAttempt.error ?? StateError('unknown'),
-        firstAttempt.stackTrace ?? StackTrace.empty,
+        reportErrorObject(failure, firstAttempt.error),
+        reportStackTrace(firstAttempt),
       );
     }
   }
 
   final legacyRaw = await readKey(kRuntimeDekKey);
-  if (legacyRaw == null || legacyRaw.isEmpty) return null;
+  if (legacyRaw == null || legacyRaw.isEmpty) {
+    return fallbackOutcome(
+      preservedFailure: preservedFailure,
+      terminalFailure: terminalFailure,
+    );
+  }
 
   Uint8List dekBytes;
   try {
@@ -1328,21 +1508,42 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
       e,
       st,
     );
-    return null;
+    return fallbackOutcome(
+      preservedFailure: preservedFailure,
+      terminalFailure: terminalFailure,
+    );
   }
 
   if (dekBytes.length != 32) {
     _zeroBytesBestEffort(dekBytes);
     await deleteKey(kRuntimeDekKey);
-    return null;
+    return fallbackOutcome(
+      preservedFailure: preservedFailure,
+      terminalFailure: terminalFailure,
+    );
   }
 
   try {
     final migrated = await wrapDek(dekBytes, aad);
     await writeKey(kRuntimeDekWrappedKey, migrated);
     await deleteKey(kRuntimeDekKey);
-    return dekBytes;
+    clearRecord();
+    return RuntimeDekRestoreOutcome.restored(dekBytes);
   } catch (e, st) {
+    final classification = classify(e);
+    if (classification != RuntimeDekUnwrapClassification.terminal) {
+      reportWarning?.call(
+        'Legacy runtime DEK migration failed; raw cache preserved for next launch.',
+        e,
+        st,
+      );
+      final fallbackFailure = preservedFailure ?? terminalFailure;
+      if (fallbackFailure != null) {
+        record(fallbackFailure);
+      }
+      return RuntimeDekRestoreOutcome.restored(dekBytes);
+    }
+
     _zeroBytesBestEffort(dekBytes);
     await deleteKey(kRuntimeDekKey);
     reportWarning?.call(
@@ -1350,8 +1551,81 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
       e,
       st,
     );
-    return null;
+    return fallbackOutcome(
+      preservedFailure: preservedFailure,
+      terminalFailure: terminalFailure,
+    );
   }
+}
+
+@visibleForTesting
+Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
+  required String aad,
+  required Future<String?> Function(String key) readKey,
+  required Future<void> Function(String key) deleteKey,
+  required Future<void> Function(String key, String value) writeKey,
+  required Future<Uint8List> Function(String blob, String aad) unwrapDek,
+  required Future<String> Function(Uint8List dekBytes, String aad) wrapDek,
+  RuntimeDekUnwrapClassification Function(Object error)? classifyError,
+  void Function(RuntimeDekUnwrapFailure failure)? recordFailure,
+  void Function()? clearFailureRecord,
+  void Function(String message, Object error, StackTrace stackTrace)?
+  reportWarning,
+}) async {
+  final outcome = await readCachedRuntimeDekForRestoreOutcomeCore(
+    aad: aad,
+    readKey: readKey,
+    deleteKey: deleteKey,
+    writeKey: writeKey,
+    unwrapDek: unwrapDek,
+    wrapDek: wrapDek,
+    classifyError: classifyError,
+    recordFailure: recordFailure,
+    clearFailureRecord: clearFailureRecord,
+    reportWarning: reportWarning,
+  );
+  return outcome.bytes;
+}
+
+@visibleForTesting
+Duration runtimeDekRestoreRetryDelay(RuntimeDekUnwrapFailure? failure) {
+  final hinted = failure?.backoffHintMillis;
+  if (hinted != null && hinted > 0) {
+    final clamped = hinted.clamp(100, 1200).toInt();
+    return Duration(milliseconds: clamped);
+  }
+  return const Duration(milliseconds: 250);
+}
+
+@visibleForTesting
+Future<RuntimeDekRestoreOutcome> retryRuntimeDekRestoreCore({
+  required Future<RuntimeDekRestoreOutcome> Function() readOnce,
+  Future<void> Function(Duration duration)? delay,
+  int maxRetries = 1,
+}) async {
+  final delayFn = delay ?? Future<void>.delayed;
+  var outcome = await readOnce();
+  for (var retry = 0; retry < maxRetries; retry++) {
+    if (outcome.kind != RuntimeDekRestoreOutcomeKind.retryableFailure) {
+      return outcome;
+    }
+    await delayFn(runtimeDekRestoreRetryDelay(outcome.failure));
+    outcome = await readOnce();
+  }
+  return outcome;
+}
+
+@visibleForTesting
+bool isRuntimeDekUnwrapBlockedByDeviceState(
+  Map<dynamic, dynamic>? diagnostics,
+) {
+  if (diagnostics == null) return false;
+  final deviceState = diagnostics['device_state'];
+  if (deviceState is! Map) return false;
+  final locked = deviceState['is_device_locked'];
+  if (locked is bool && locked) return true;
+  final userUnlocked = deviceState['is_user_unlocked'];
+  return userUnlocked is bool && !userUnlocked;
 }
 
 /// Returns true when running on Android AND the device is currently
@@ -1363,11 +1637,7 @@ Future<bool> _isAndroidDeviceLockedForRuntimeDekUnwrap() async {
   if (!Platform.isAndroid) return false;
   try {
     final diagnostics = await _runtimeDekStore.getDiagnostics();
-    if (diagnostics == null) return false;
-    final deviceState = diagnostics['device_state'];
-    if (deviceState is! Map) return false;
-    final locked = deviceState['is_device_locked'];
-    return locked is bool && locked;
+    return isRuntimeDekUnwrapBlockedByDeviceState(diagnostics);
   } catch (_) {
     // Diagnostic IPC failed — fall back to attempting the unwrap. The
     // existing classify-and-retry policy still protects the cache.
@@ -1375,21 +1645,25 @@ Future<bool> _isAndroidDeviceLockedForRuntimeDekUnwrap() async {
   }
 }
 
-Future<Uint8List?> _readCachedRuntimeDekForRestore({required String aad}) {
-  return readCachedRuntimeDekForRestoreCore(
-    aad: aad,
-    readKey: (key) => _storage.read(key: key),
-    deleteKey: (key) => _storage.delete(key: key),
-    writeKey: (key, value) => _storage.write(key: key, value: value),
-    unwrapDek: (blob, aad) => _runtimeDekStore.unwrap(blob, aad: aad),
-    wrapDek: (dekBytes, aad) => _runtimeDekStore.wrap(dekBytes, aad: aad),
-    reportWarning: (message, error, stackTrace) {
-      ErrorReportingService.instance.report(
-        message,
-        severity: ErrorSeverity.warning,
-        stackTrace: stackTrace,
-      );
-    },
+Future<RuntimeDekRestoreOutcome> _readCachedRuntimeDekForRestoreOutcome({
+  required String aad,
+}) {
+  return retryRuntimeDekRestoreCore(
+    readOnce: () => readCachedRuntimeDekForRestoreOutcomeCore(
+      aad: aad,
+      readKey: (key) => _storage.read(key: key),
+      deleteKey: (key) => _storage.delete(key: key),
+      writeKey: (key, value) => _storage.write(key: key, value: value),
+      unwrapDek: (blob, aad) => _runtimeDekStore.unwrap(blob, aad: aad),
+      wrapDek: (dekBytes, aad) => _runtimeDekStore.wrap(dekBytes, aad: aad),
+      reportWarning: (message, error, stackTrace) {
+        ErrorReportingService.instance.report(
+          message,
+          severity: ErrorSeverity.warning,
+          stackTrace: stackTrace,
+        );
+      },
+    ),
   );
 }
 
@@ -1416,6 +1690,7 @@ Future<void> writeRuntimeDekCacheCore({
   required Future<String> Function(Uint8List dekBytes, String aad) wrapDek,
   required Future<void> Function(String key, String value) writeKey,
   required Future<void> Function(String key) deleteKey,
+  bool preserveLegacyRawOnFailure = false,
   void Function(String message, Object error, StackTrace stackTrace)?
   reportWarning,
 }) async {
@@ -1424,10 +1699,16 @@ Future<void> writeRuntimeDekCacheCore({
     await writeKey(kRuntimeDekWrappedKey, wrapped);
     await deleteKey(kRuntimeDekKey);
   } catch (e, st) {
-    try {
-      await deleteKey(kRuntimeDekKey);
-    } catch (_) {
-      // Best effort — never let cleanup hide the original refresh failure.
+    if (!preserveLegacyRawOnFailure) {
+      try {
+        await deleteKey(kRuntimeDekKey);
+      } catch (deleteError, deleteStackTrace) {
+        reportWarning?.call(
+          'Runtime DEK legacy raw cache cleanup failed after refresh failure.',
+          deleteError,
+          deleteStackTrace,
+        );
+      }
     }
     reportWarning?.call(
       'Runtime DEK cache refresh failed; previous wrapped cache preserved.',
@@ -1467,6 +1748,9 @@ Future<void> cacheRuntimeKeys(
       '[SYNC] Skipping runtime DEK cache: sync_id/device_id unavailable',
     );
   } else {
+    final legacyRaw = await _storage.read(key: kRuntimeDekKey);
+    final preserveLegacyRawOnFailure =
+        legacyRaw != null && legacyRaw.isNotEmpty;
     final dekBytes = Uint8List.fromList(await ffi.exportDek(handle: handle));
     try {
       await writeRuntimeDekCacheCore(
@@ -1475,6 +1759,7 @@ Future<void> cacheRuntimeKeys(
         wrapDek: (dekBytes, aad) => _runtimeDekStore.wrap(dekBytes, aad: aad),
         writeKey: (key, value) => _storage.write(key: key, value: value),
         deleteKey: (key) => _storage.delete(key: key),
+        preserveLegacyRawOnFailure: preserveLegacyRawOnFailure,
         reportWarning: (message, error, stackTrace) {
           ErrorReportingService.instance.report(
             message,
@@ -2575,19 +2860,14 @@ enum SyncHealthState {
   /// Credentials are gone or device was revoked — must re-pair.
   disconnected,
 
-  /// The device has never been paired. Behaves like healthy from the user's
-  /// perspective (no password sheet, no reconnect card), but skips the
-  /// post-config drain / cacheRuntimeKeys / scheduled onResume calls that
-  /// would otherwise warn "no DEK loaded" on a locked handle.
+  /// The device has never been paired.
   unpaired,
 
-  /// Android device is currently locked, so the runtime DEK wrapping key
-  /// (which uses `setUnlockedDeviceRequired(true)` on API 35+) cannot be
-  /// used right now. Auto-config skipped the unwrap deliberately — the
-  /// cache is intact; the next foreground after unlock retries cleanly.
-  /// Behaves like `unpaired` from the AppShell perspective: NO password
-  /// sheet, NO reconnect card. The user is unaware sync was paused.
+  /// Android is locked, so device-bound runtime DEK unwrap is deferred.
   awaitingDeviceUnlock,
+
+  /// Platform unwrap failed without proving the runtime DEK cache is dead.
+  runtimeDekRestoreDeferred,
 }
 
 final syncHealthProvider =
@@ -2635,7 +2915,7 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
       final wrappedDek = await _storage.read(
         key: '${_secureStorePrefix}wrapped_dek',
       );
-      state = wrappedDek != null
+      state = hasStoredWrappedDek(wrappedDek)
           ? SyncHealthState.needsPassword
           : SyncHealthState.disconnected;
     }

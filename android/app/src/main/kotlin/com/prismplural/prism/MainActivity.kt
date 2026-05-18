@@ -224,7 +224,12 @@ class MainActivity : FlutterFragmentActivity() {
                 } else {
                     "runtime_dek_wrap_failed"
                 }
-                result.error(code, t.message, null)
+                val details = if (call.method == "unwrapRuntimeDek") {
+                    runtimeDekUnwrapFailureDetails(t, code)
+                } else {
+                    null
+                }
+                result.error(code, t.message, details)
             }
         }
         MethodChannel(
@@ -599,6 +604,9 @@ class MainActivity : FlutterFragmentActivity() {
         var current: Throwable? = throwable
         val seen = HashSet<Throwable>()
         while (current != null && seen.add(current)) {
+            if (isBackendBusyException(current)) {
+                return "runtime_dek_wrap_transient"
+            }
             // android.security.KeyStoreException (API 30+) is a SEPARATE
             // type from java.security.KeyStoreException — different
             // package, different inheritance tree. The diagnostic methods
@@ -635,10 +643,9 @@ class MainActivity : FlutterFragmentActivity() {
      * Classifies an android.security.KeyStoreException via reflection
      * (the class is API 30+; diagnostic methods are API 33+). Treats
      * isTransientFailure() / requiresUserAuthentication() as transient.
-     * Other API-33+ verdicts default to terminal (the keystore says this
-     * is the permanent answer). On API 30-32 the diagnostic methods are
-     * absent, default to transient — these are most commonly thrown for
-     * retryable device-state issues.
+     * Other API-33+ verdicts stay unknown so OEM-specific flakes do not force
+     * recovery. On API 30-32 the diagnostic methods are absent, so default to
+     * transient.
      */
     private fun classifyAndroidKeyStoreException(e: Throwable): String {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -650,13 +657,86 @@ class MainActivity : FlutterFragmentActivity() {
                 val requiresAuth = cls.getMethod("requiresUserAuthentication")
                     .invoke(e) as? Boolean ?: false
                 if (requiresAuth) return "runtime_dek_wrap_transient"
-                return "runtime_dek_wrap_terminal"
+                return "runtime_dek_wrap_failed"
             } catch (_: Throwable) {
                 // Fall through to default below.
             }
         }
         return "runtime_dek_wrap_transient"
     }
+
+    private fun runtimeDekUnwrapFailureDetails(
+        throwable: Throwable,
+        code: String,
+    ): Map<String, Any?> {
+        val out = HashMap<String, Any?>()
+        out["classification"] = when (code) {
+            "runtime_dek_wrap_terminal" -> "terminal"
+            "runtime_dek_wrap_transient" -> "transient"
+            else -> "unknown"
+        }
+        out["throwable_class"] = throwable::class.java.name
+        out["throwable_simple_class"] = throwable::class.java.simpleName
+        out["device_state"] = collectRuntimeDekDeviceState()
+
+        var current: Throwable? = throwable
+        var root: Throwable = throwable
+        val seen = HashSet<Throwable>()
+        while (current != null && seen.add(current)) {
+            root = current
+            if (isBackendBusyException(current)) {
+                out["backend_busy"] = true
+                reflectLong(current, "getBackOffHintMillis")?.let {
+                    out["backoff_hint_millis"] = it
+                }
+            }
+            if (current::class.java.name == "android.security.KeyStoreException") {
+                reflectBoolean(current, "isTransientFailure")?.let {
+                    out["is_transient_failure"] = it
+                }
+                reflectBoolean(current, "requiresUserAuthentication")?.let {
+                    out["requires_user_authentication"] = it
+                }
+                reflectBoolean(current, "isSystemError")?.let {
+                    out["is_system_error"] = it
+                }
+                reflectInt(current, "getNumericErrorCode")?.let {
+                    out["numeric_error_code"] = it
+                }
+                reflectInt(current, "getRetryPolicy")?.let {
+                    out["retry_policy"] = it
+                }
+            }
+            current = current.cause
+        }
+        out["root_cause_class"] = root::class.java.name
+        out["root_cause_simple_class"] = root::class.java.simpleName
+        return out
+    }
+
+    private fun isBackendBusyException(t: Throwable): Boolean =
+        t::class.java.name == "android.security.keystore.BackendBusyException"
+
+    private fun reflectBoolean(target: Throwable, method: String): Boolean? =
+        try {
+            target::class.java.getMethod(method).invoke(target) as? Boolean
+        } catch (_: Throwable) {
+            null
+        }
+
+    private fun reflectInt(target: Throwable, method: String): Int? =
+        try {
+            (target::class.java.getMethod(method).invoke(target) as? Number)?.toInt()
+        } catch (_: Throwable) {
+            null
+        }
+
+    private fun reflectLong(target: Throwable, method: String): Long? =
+        try {
+            (target::class.java.getMethod(method).invoke(target) as? Number)?.toLong()
+        } catch (_: Throwable) {
+            null
+        }
 
     private fun deleteRuntimeDekWrappingKey() {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -863,6 +943,20 @@ class MainActivity : FlutterFragmentActivity() {
         out["get_key_succeeded"] = getKeySucceeded
         out["key_security"] = keySecurity
 
+        out["device_state"] = collectRuntimeDekDeviceState()
+
+        out["build"] = mapOf(
+            "manufacturer" to (Build.MANUFACTURER ?: "unknown"),
+            "model" to (Build.MODEL ?: "unknown"),
+            "device" to (Build.DEVICE ?: "unknown"),
+            "sdk_int" to Build.VERSION.SDK_INT,
+            "security_patch" to (Build.VERSION.SECURITY_PATCH ?: "unknown"),
+        )
+
+        return out
+    }
+
+    private fun collectRuntimeDekDeviceState(): Map<String, Any?> {
         val deviceState = HashMap<String, Any?>()
         try {
             val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
@@ -882,17 +976,7 @@ class MainActivity : FlutterFragmentActivity() {
             deviceState["device_state_error"] =
                 "${t::class.java.simpleName}: ${t.message ?: ""}"
         }
-        out["device_state"] = deviceState
-
-        out["build"] = mapOf(
-            "manufacturer" to (Build.MANUFACTURER ?: "unknown"),
-            "model" to (Build.MODEL ?: "unknown"),
-            "device" to (Build.DEVICE ?: "unknown"),
-            "sdk_int" to Build.VERSION.SDK_INT,
-            "security_patch" to (Build.VERSION.SECURITY_PATCH ?: "unknown"),
-        )
-
-        return out
+        return deviceState
     }
 
     private fun collectFirstDeviceAdmissionProof(

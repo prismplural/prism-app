@@ -420,9 +420,7 @@ class _ConfiguredView extends ConsumerWidget {
     // so the row stays hidden during async loads rather than briefly
     // visible on a stale truthy state.
     final pairingDeviceIdAsync = ref.watch(syncDeviceIdProvider);
-    final pairingDeviceSecretAsync = ref.watch(
-      syncDeviceSecretPresentProvider,
-    );
+    final pairingDeviceSecretAsync = ref.watch(syncDeviceSecretPresentProvider);
     final pairingWrappedDekAsync = ref.watch(syncWrappedDekPresentProvider);
     final canSetUpAnotherDevice = canSetUpAnotherDeviceRow(
       hasActiveHandle: handle != null,
@@ -482,6 +480,25 @@ class _ConfiguredView extends ConsumerWidget {
                       ? () => _syncNow(context, ref, handle, relayUrl)
                       : null,
                 ),
+                if (syncHealth ==
+                    SyncHealthState.runtimeDekRestoreDeferred) ...[
+                  const Divider(height: 1, indent: 60, endIndent: 12),
+                  PrismSettingsRow(
+                    icon: AppIcons.passwordOutlined,
+                    title: 'Recover sync access',
+                    subtitle:
+                        'Use your PIN and recovery phrase if the device key '
+                        'cannot be restored.',
+                    onTap: () {
+                      if (ref.read(syncHealthProvider) ==
+                          SyncHealthState.runtimeDekRestoreDeferred) {
+                        ref
+                            .read(syncHealthProvider.notifier)
+                            .setState(SyncHealthState.needsPassword);
+                      }
+                    },
+                  ),
+                ],
                 if (handle != null) ...[
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   if (canSetUpAnotherDevice &&
@@ -671,6 +688,9 @@ class _ConfiguredView extends ConsumerWidget {
         SyncHealthState.awaitingDeviceUnlock =>
           'Sync paused while the device was locked — it will reconnect '
               'once you bring the app to the foreground.',
+        SyncHealthState.runtimeDekRestoreDeferred =>
+          'Sync paused while the device key is being checked. Reopen Prism '
+              'or unlock your device to retry.',
         SyncHealthState.healthy => 'Sync is not ready yet.',
       };
 }
