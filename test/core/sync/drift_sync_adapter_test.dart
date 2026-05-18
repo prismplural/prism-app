@@ -196,81 +196,75 @@ void main() {
     },
   );
 
-  test(
-    'fronting_sessions applyFields without pk_member_ids_json preserves the '
-    'local column value',
-    () async {
-      // Workstream 2 step 1 (remediation-plan-2026-04-30): a v7 receiver
-      // applying a payload that omits the transitional `pk_member_ids_json`
-      // field must NOT clobber whatever is on disk — that column is the
-      // input to the v8 cleanup migration's PK fan-out backfill.
-      final db = database.AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
+  test('fronting_sessions applyFields without pk_member_ids_json preserves the '
+      'local column value', () async {
+    // Workstream 2 step 1 (remediation-plan-2026-04-30): a v7 receiver
+    // applying a payload that omits the transitional `pk_member_ids_json`
+    // field must NOT clobber whatever is on disk — that column is the
+    // input to the v8 cleanup migration's PK fan-out backfill.
+    final db = database.AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
 
-      await db
-          .into(db.frontingSessions)
-          .insert(
-            database.FrontingSessionsCompanion.insert(
-              id: 'session-1',
-              startTime: DateTime.utc(2026, 4, 29, 10),
-              memberId: const Value('m1'),
-              pkMemberIdsJson: const Value('["pkmem-1","pkmem-2"]'),
-            ),
-          );
+    await db
+        .into(db.frontingSessions)
+        .insert(
+          database.FrontingSessionsCompanion.insert(
+            id: 'session-1',
+            startTime: DateTime.utc(2026, 4, 29, 10),
+            memberId: const Value('m1'),
+            pkMemberIdsJson: const Value('["pkmem-1","pkmem-2"]'),
+          ),
+        );
 
-      final syncAdapter = buildSyncAdapterWithCompletion(db);
-      final sessions = syncAdapter.adapter.entities.singleWhere(
-        (entity) => entity.tableName == 'fronting_sessions',
-      );
+    final syncAdapter = buildSyncAdapterWithCompletion(db);
+    final sessions = syncAdapter.adapter.entities.singleWhere(
+      (entity) => entity.tableName == 'fronting_sessions',
+    );
 
-      // Apply an update payload that does NOT include pk_member_ids_json.
-      await sessions.applyFields('session-1', {
-        'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
-        'session_type': 0,
-        'is_health_kit_import': false,
-        'is_deleted': false,
-      });
+    // Apply an update payload that does NOT include pk_member_ids_json.
+    await sessions.applyFields('session-1', {
+      'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
+      'session_type': 0,
+      'is_health_kit_import': false,
+      'is_deleted': false,
+    });
 
-      final row = await (db.select(
-        db.frontingSessions,
-      )..where((t) => t.id.equals('session-1'))).getSingle();
-      expect(
-        row.pkMemberIdsJson,
-        '["pkmem-1","pkmem-2"]',
-        reason:
-            'omitted transitional fields must use Value.absent() in the '
-            'companion so the local column survives',
-      );
-    },
-  );
+    final row = await (db.select(
+      db.frontingSessions,
+    )..where((t) => t.id.equals('session-1'))).getSingle();
+    expect(
+      row.pkMemberIdsJson,
+      '["pkmem-1","pkmem-2"]',
+      reason:
+          'omitted transitional fields must use Value.absent() in the '
+          'companion so the local column survives',
+    );
+  });
 
-  test(
-    'fronting_sessions applyFields writes pk_member_ids_json when the '
-    'payload carries it',
-    () async {
-      final db = database.AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
+  test('fronting_sessions applyFields writes pk_member_ids_json when the '
+      'payload carries it', () async {
+    final db = database.AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
 
-      final syncAdapter = buildSyncAdapterWithCompletion(db);
-      final sessions = syncAdapter.adapter.entities.singleWhere(
-        (entity) => entity.tableName == 'fronting_sessions',
-      );
+    final syncAdapter = buildSyncAdapterWithCompletion(db);
+    final sessions = syncAdapter.adapter.entities.singleWhere(
+      (entity) => entity.tableName == 'fronting_sessions',
+    );
 
-      await sessions.applyFields('session-1', {
-        'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
-        'session_type': 0,
-        'member_id': 'm1',
-        'is_health_kit_import': false,
-        'is_deleted': false,
-        'pk_member_ids_json': '["pkmem-7"]',
-      });
+    await sessions.applyFields('session-1', {
+      'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
+      'session_type': 0,
+      'member_id': 'm1',
+      'is_health_kit_import': false,
+      'is_deleted': false,
+      'pk_member_ids_json': '["pkmem-7"]',
+    });
 
-      final row = await (db.select(
-        db.frontingSessions,
-      )..where((t) => t.id.equals('session-1'))).getSingle();
-      expect(row.pkMemberIdsJson, '["pkmem-7"]');
-    },
-  );
+    final row = await (db.select(
+      db.frontingSessions,
+    )..where((t) => t.id.equals('session-1'))).getSingle();
+    expect(row.pkMemberIdsJson, '["pkmem-7"]');
+  });
 
   test(
     'fronting_sessions toSyncFields emits pk_member_ids_json when present on '
@@ -394,6 +388,56 @@ void main() {
             'rows must accept partial sync payloads without requiring every '
             'create-time field again.',
       );
+    },
+  );
+
+  test(
+    'remote tombstones for unknown rows do not abort pairing apply',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final adapter = buildSyncAdapterWithCompletion(db).adapter;
+
+      final conversations = adapter.entities.singleWhere(
+        (e) => e.tableName == 'conversations',
+      );
+      await conversations.applyFields('missing-conversation', {
+        'is_deleted': true,
+      });
+      final conversation = await conversations.readRow('missing-conversation');
+      expect(conversation, isNotNull);
+      expect(conversation?['is_deleted'], isTrue);
+
+      final members = adapter.entities.singleWhere(
+        (e) => e.tableName == 'members',
+      );
+      await members.applyFields('missing-member', {
+        'pluralkit_uuid': 'missing-pk-member',
+        'is_deleted': true,
+      });
+      final member = await members.readRow('missing-member');
+      expect(member, isNotNull);
+      expect(member?['pluralkit_uuid'], 'missing-pk-member');
+      expect(member?['is_deleted'], isTrue);
+
+      final groups = adapter.entities.singleWhere(
+        (e) => e.tableName == 'member_groups',
+      );
+      await groups.applyFields('pk-group:missing-pk-group', {
+        'is_deleted': true,
+      });
+      final group = await groups.readRow('pk-group:missing-pk-group');
+      expect(group, isNotNull);
+      expect(group?['pluralkit_uuid'], 'missing-pk-group');
+      expect(group?['is_deleted'], isTrue);
+
+      final entries = adapter.entities.singleWhere(
+        (e) => e.tableName == 'member_group_entries',
+      );
+      await entries.applyFields('missing-member-group-entry', {
+        'is_deleted': true,
+      });
+      expect(await entries.readRow('missing-member-group-entry'), isNull);
     },
   );
 
@@ -904,62 +948,58 @@ void main() {
   // migration is `blocked` or `inProgress`.
   // ──────────────────────────────────────────────────────────────────────────
 
-  test(
-    'fronting_sessions applyFields defers via quarantine while migration is '
-    'blocked',
-    () async {
-      final db = database.AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
+  test('fronting_sessions applyFields defers via quarantine while migration is '
+      'blocked', () async {
+    final db = database.AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
 
-      final quarantine = SyncQuarantineService(db.syncQuarantineDao);
-      final syncAdapter = buildSyncAdapterWithCompletion(
-        db,
-        quarantine: quarantine,
-        applyGate: (table) {
-          if (table == 'fronting_sessions') {
-            return DriftSyncApplyRefusal.frontingMigrationGate;
-          }
-          return null;
-        },
-      );
+    final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+    final syncAdapter = buildSyncAdapterWithCompletion(
+      db,
+      quarantine: quarantine,
+      applyGate: (table) {
+        if (table == 'fronting_sessions') {
+          return DriftSyncApplyRefusal.frontingMigrationGate;
+        }
+        return null;
+      },
+    );
 
-      final sessions = syncAdapter.adapter.entities.singleWhere(
-        (entity) => entity.tableName == 'fronting_sessions',
-      );
+    final sessions = syncAdapter.adapter.entities.singleWhere(
+      (entity) => entity.tableName == 'fronting_sessions',
+    );
 
-      syncAdapter.beginSyncBatch();
-      await sessions.applyFields('session-blocked', {
-        'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
-        'session_type': 0,
-        'is_health_kit_import': false,
-        'is_deleted': false,
-      });
-      await syncAdapter.completeSyncBatch();
+    syncAdapter.beginSyncBatch();
+    await sessions.applyFields('session-blocked', {
+      'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
+      'session_type': 0,
+      'is_health_kit_import': false,
+      'is_deleted': false,
+    });
+    await syncAdapter.completeSyncBatch();
 
-      // No fronting_sessions row should have been written.
-      final row = await (db.select(
-        db.frontingSessions,
-      )..where((t) => t.id.equals('session-blocked'))).getSingleOrNull();
-      expect(row, isNull,
-          reason: 'gate must hold the apply back from disk');
+    // No fronting_sessions row should have been written.
+    final row = await (db.select(
+      db.frontingSessions,
+    )..where((t) => t.id.equals('session-blocked'))).getSingleOrNull();
+    expect(row, isNull, reason: 'gate must hold the apply back from disk');
 
-      // Quarantine must have logged the deferred apply with a typed reason.
-      final entries = await db.syncQuarantineDao.getAll();
-      expect(entries, hasLength(1));
-      final entry = entries.single;
-      expect(entry.entityType, 'fronting_sessions');
-      expect(entry.entityId, 'session-blocked');
-      expect(entry.expectedType, 'apply');
-      expect(entry.receivedType, 'deferred');
-      expect(
-        entry.errorMessage,
-        contains('frontingMigrationGate'),
-        reason:
-            'errorMessage must name the refusal reason so diagnostics can '
-            'trace deferred rows back to the migration gate',
-      );
-    },
-  );
+    // Quarantine must have logged the deferred apply with a typed reason.
+    final entries = await db.syncQuarantineDao.getAll();
+    expect(entries, hasLength(1));
+    final entry = entries.single;
+    expect(entry.entityType, 'fronting_sessions');
+    expect(entry.entityId, 'session-blocked');
+    expect(entry.expectedType, 'apply');
+    expect(entry.receivedType, 'deferred');
+    expect(
+      entry.errorMessage,
+      contains('frontingMigrationGate'),
+      reason:
+          'errorMessage must name the refusal reason so diagnostics can '
+          'trace deferred rows back to the migration gate',
+    );
+  });
 
   test(
     'front_session_comments applyFields defers via quarantine while migration '
@@ -1008,44 +1048,118 @@ void main() {
     },
   );
 
+  test('fronting_sessions soft tombstone bypasses migration gate', () async {
+    final db = database.AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await db
+        .into(db.frontingSessions)
+        .insert(
+          database.FrontingSessionsCompanion.insert(
+            id: 'session-delete',
+            startTime: DateTime.utc(2026, 4, 29, 10),
+            memberId: const Value('member-1'),
+            isDeleted: const Value(false),
+          ),
+        );
+
+    final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+    final syncAdapter = buildSyncAdapterWithCompletion(
+      db,
+      quarantine: quarantine,
+      applyGate: (table) => table == 'fronting_sessions'
+          ? DriftSyncApplyRefusal.frontingMigrationGate
+          : null,
+    );
+    final sessions = syncAdapter.adapter.entities.singleWhere(
+      (entity) => entity.tableName == 'fronting_sessions',
+    );
+
+    await sessions.applyFields('session-delete', {'is_deleted': true});
+
+    final row = await (db.select(
+      db.frontingSessions,
+    )..where((t) => t.id.equals('session-delete'))).getSingle();
+    expect(row.isDeleted, isTrue);
+    expect(await db.syncQuarantineDao.count(), 0);
+  });
+
   test(
-    'fronting_sessions apply succeeds when the gate clears (no quarantine '
-    'entry)',
+    'front_session_comments soft tombstone bypasses migration gate',
     () async {
-      // Control: with no gate refusal, the existing apply path runs and no
-      // deferred-quarantine entry is created. Pins that the gate is the
-      // only writer to that channel.
       final db = database.AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
+
+      await db
+          .into(db.frontSessionComments)
+          .insert(
+            database.FrontSessionCommentsCompanion.insert(
+              id: 'comment-delete',
+              sessionId: 'session-delete',
+              body: 'queued comment',
+              timestamp: DateTime.utc(2026, 4, 29, 12, 1),
+              createdAt: DateTime.utc(2026, 4, 29, 12, 2),
+              isDeleted: const Value(false),
+            ),
+          );
 
       final quarantine = SyncQuarantineService(db.syncQuarantineDao);
       final syncAdapter = buildSyncAdapterWithCompletion(
         db,
         quarantine: quarantine,
-        applyGate: (_) => null,
+        applyGate: (table) => table == 'front_session_comments'
+            ? DriftSyncApplyRefusal.frontingMigrationGate
+            : null,
+      );
+      final comments = syncAdapter.adapter.entities.singleWhere(
+        (entity) => entity.tableName == 'front_session_comments',
       );
 
-      final sessions = syncAdapter.adapter.entities.singleWhere(
-        (entity) => entity.tableName == 'fronting_sessions',
-      );
-
-      syncAdapter.beginSyncBatch();
-      await sessions.applyFields('session-clear', {
-        'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
-        'session_type': 0,
-        'member_id': 'm1',
-        'is_health_kit_import': false,
-        'is_deleted': false,
-      });
-      await syncAdapter.completeSyncBatch();
+      await comments.applyFields('comment-delete', {'is_deleted': true});
 
       final row = await (db.select(
-        db.frontingSessions,
-      )..where((t) => t.id.equals('session-clear'))).getSingleOrNull();
-      expect(row, isNotNull);
+        db.frontSessionComments,
+      )..where((t) => t.id.equals('comment-delete'))).getSingle();
+      expect(row.isDeleted, isTrue);
       expect(await db.syncQuarantineDao.count(), 0);
     },
   );
+
+  test('fronting_sessions apply succeeds when the gate clears (no quarantine '
+      'entry)', () async {
+    // Control: with no gate refusal, the existing apply path runs and no
+    // deferred-quarantine entry is created. Pins that the gate is the
+    // only writer to that channel.
+    final db = database.AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+    final syncAdapter = buildSyncAdapterWithCompletion(
+      db,
+      quarantine: quarantine,
+      applyGate: (_) => null,
+    );
+
+    final sessions = syncAdapter.adapter.entities.singleWhere(
+      (entity) => entity.tableName == 'fronting_sessions',
+    );
+
+    syncAdapter.beginSyncBatch();
+    await sessions.applyFields('session-clear', {
+      'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
+      'session_type': 0,
+      'member_id': 'm1',
+      'is_health_kit_import': false,
+      'is_deleted': false,
+    });
+    await syncAdapter.completeSyncBatch();
+
+    final row = await (db.select(
+      db.frontingSessions,
+    )..where((t) => t.id.equals('session-clear'))).getSingleOrNull();
+    expect(row, isNotNull);
+    expect(await db.syncQuarantineDao.count(), 0);
+  });
 }
 
 Map<String, dynamic> _expectedReadRowForRemotePayload(

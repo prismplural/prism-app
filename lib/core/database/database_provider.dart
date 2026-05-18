@@ -65,9 +65,18 @@ LazyDatabase _openConnection() {
         );
       }
 
-      // Key exists but DB does not open with it. Fail closed: the DB may be
-      // encrypted with a different key (for example after backup/restore where
-      // the keychain did not transfer), or it may be corrupted.
+      final recoveryHexKey = await _verifiedSyncRecoveryKey(file.path);
+      if (recoveryHexKey != null) {
+        await restoreDatabaseKeyHexForRecovery(recoveryHexKey);
+        debugPrint('[DB_PROVIDER] Recovered stale Drift database key');
+        return NativeDatabase.createInBackground(
+          file,
+          setup: makeCipherSetup(recoveryHexKey),
+        );
+      }
+
+      // Key exists but no recovery slot opens the DB. Fail closed: the DB may
+      // be corrupted, or every surviving key slot may be stale.
       throw StateError(
         'Database file exists but cannot be opened with the stored key '
         'or is corrupted. A full data reset may be required.',
@@ -75,14 +84,46 @@ LazyDatabase _openConnection() {
     }
 
     // ── Path 3: DB file exists + no key ─────────────────────────────────
-    // DB exists but the keychain has no DB key. Fail closed. This can happen
-    // after backup/restore where the first_unlock_this_device keychain item
-    // did not transfer.
+    // DB exists but the keychain has no DB key. Before failing closed, try the
+    // dedicated sync-DB key slot: after sync setup both DB keys converge to the
+    // same local-storage key, and older installs also seeded the sync slot from
+    // the Drift slot. If it opens the app DB, restore the missing Drift slot.
+    final recoveryHexKey = await _verifiedSyncRecoveryKey(file.path);
+    if (recoveryHexKey != null) {
+      await restoreDatabaseKeyHexForRecovery(recoveryHexKey);
+      debugPrint('[DB_PROVIDER] Recovered missing Drift database key');
+      return NativeDatabase.createInBackground(
+        file,
+        setup: makeCipherSetup(recoveryHexKey),
+      );
+    }
+
+    // If no recovery slot works, fail closed. This can happen after
+    // backup/restore where first_unlock_this_device keychain items did not
+    // transfer, or after a destructive keychain wipe that left the DB file.
     throw StateError(
       'Database file exists but no encryption key is available. The key may '
       'have been lost during backup/restore. A full data reset may be required.',
     );
   });
+}
+
+Future<String?> _verifiedSyncRecoveryKey(String dbPath) async {
+  final candidates = <String?>[
+    await readSyncDatabaseKeyHex(),
+    await readStagingSyncDatabaseKeyHex(),
+  ];
+  final tried = <String>{};
+  for (final candidate in candidates) {
+    if (candidate == null || !tried.add(candidate)) continue;
+    if (_tryOpenEncrypted(dbPath, candidate)) return candidate;
+  }
+  return null;
+}
+
+@visibleForTesting
+Future<String?> verifiedSyncRecoveryKeyForTest(String dbPath) {
+  return _verifiedSyncRecoveryKey(dbPath);
 }
 
 // ---------------------------------------------------------------------------

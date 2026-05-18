@@ -823,6 +823,158 @@ void main() {
     },
   );
 
+  test(
+    'member_group_entries: unknown tombstone cancels queued deferred replay',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await _ensurePkGroupPhase1RuntimeSchema(db);
+
+      final entriesEntity = _entityFor(db, 'member_group_entries');
+      final canonicalEntryId = _deterministicPkEntryId(
+        'pk-group-1',
+        'pk-member-1',
+      );
+      final now = DateTime.utc(2026, 4, 18, 12);
+
+      for (final row in [
+        ('member_group_entries:$canonicalEntryId', canonicalEntryId),
+        ('member_group_entries:legacy-entry-id', 'legacy-entry-id'),
+      ]) {
+        await db.customStatement(
+          '''
+          INSERT INTO pk_group_entry_deferred_sync_ops
+            (id, entity_type, entity_id, fields_json, reason, created_at, retry_count)
+          VALUES (?, ?, ?, ?, ?, ?, 0)
+          ''',
+          [
+            row.$1,
+            'member_group_entries',
+            row.$2,
+            jsonEncode({
+              'pk_group_uuid': 'pk-group-1',
+              'pk_member_uuid': 'pk-member-1',
+              'is_deleted': false,
+            }),
+            'seeded_for_test',
+            now.millisecondsSinceEpoch,
+          ],
+        );
+      }
+
+      await entriesEntity.applyFields(canonicalEntryId, {'is_deleted': true});
+
+      final applied = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals(canonicalEntryId))).getSingleOrNull();
+      expect(applied, isNull);
+
+      final deferredRows = await db.customSelect('''
+        SELECT id
+        FROM pk_group_entry_deferred_sync_ops
+      ''').get();
+      expect(deferredRows, isEmpty);
+    },
+  );
+
+  test(
+    'member_groups: tombstone cancels queued deferred entry replays',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await _ensurePkGroupPhase1RuntimeSchema(db);
+
+      final groupsEntity = _entityFor(db, 'member_groups');
+      final now = DateTime.utc(2026, 4, 18, 12);
+      final canonicalEntryId = _deterministicPkEntryId(
+        'pk-group-1',
+        'pk-member-1',
+      );
+
+      await db.customStatement(
+        '''
+        INSERT INTO pk_group_entry_deferred_sync_ops
+          (id, entity_type, entity_id, fields_json, reason, created_at, retry_count)
+        VALUES (?, ?, ?, ?, ?, ?, 0)
+        ''',
+        [
+          'member_group_entries:$canonicalEntryId',
+          'member_group_entries',
+          canonicalEntryId,
+          jsonEncode({
+            'pk_group_uuid': 'pk-group-1',
+            'pk_member_uuid': 'pk-member-1',
+            'is_deleted': false,
+          }),
+          'seeded_for_test',
+          now.millisecondsSinceEpoch,
+        ],
+      );
+
+      await groupsEntity.applyFields('pk-group:pk-group-1', {
+        'is_deleted': true,
+      });
+
+      final group = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals('pk-group:pk-group-1'))).getSingleOrNull();
+      expect(group, isNotNull);
+      expect(group?.pluralkitUuid, 'pk-group-1');
+      expect(group?.isDeleted, isTrue);
+
+      final deferredRows = await db.pkGroupEntryDeferredSyncOpsDao.getAll();
+      expect(deferredRows, isEmpty);
+    },
+  );
+
+  test('members: tombstone cancels queued deferred entry replays', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await _ensurePkGroupPhase1RuntimeSchema(db);
+
+    final membersEntity = _entityFor(db, 'members');
+    final now = DateTime.utc(2026, 4, 18, 12);
+    final canonicalEntryId = _deterministicPkEntryId(
+      'pk-group-1',
+      'pk-member-1',
+    );
+
+    await db.customStatement(
+      '''
+      INSERT INTO pk_group_entry_deferred_sync_ops
+        (id, entity_type, entity_id, fields_json, reason, created_at, retry_count)
+      VALUES (?, ?, ?, ?, ?, ?, 0)
+      ''',
+      [
+        'member_group_entries:$canonicalEntryId',
+        'member_group_entries',
+        canonicalEntryId,
+        jsonEncode({
+          'pk_group_uuid': 'pk-group-1',
+          'pk_member_uuid': 'pk-member-1',
+          'is_deleted': false,
+        }),
+        'seeded_for_test',
+        now.millisecondsSinceEpoch,
+      ],
+    );
+
+    await membersEntity.applyFields('member-tombstone', {
+      'pluralkit_uuid': 'pk-member-1',
+      'is_deleted': true,
+    });
+
+    final member = await (db.select(
+      db.members,
+    )..where((t) => t.id.equals('member-tombstone'))).getSingleOrNull();
+    expect(member, isNotNull);
+    expect(member?.pluralkitUuid, 'pk-member-1');
+    expect(member?.isDeleted, isTrue);
+
+    final deferredRows = await db.pkGroupEntryDeferredSyncOpsDao.getAll();
+    expect(deferredRows, isEmpty);
+  });
+
   test('member_group_entries: canonical hard delete cancels legacy deferred PK '
       'edge siblings', () async {
     final db = AppDatabase(NativeDatabase.memory());

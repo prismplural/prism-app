@@ -1779,9 +1779,7 @@ Future<int> applyDrainedEntriesWithSnapshotRollback({
           await deleteKey(key);
         } catch (e) {
           // Best-effort — never mask the original failure.
-          debugPrint(
-            '[SYNC] drain rollback delete failed for $key: $e',
-          );
+          debugPrint('[SYNC] drain rollback delete failed for $key: $e');
         }
       }
     } catch (e, st) {
@@ -1816,9 +1814,7 @@ Future<int> applyDrainedEntriesWithSnapshotRollback({
       try {
         await writeKey(entry.key, entry.value);
       } catch (e) {
-        debugPrint(
-          '[SYNC] drain rollback restore failed for ${entry.key}: $e',
-        );
+        debugPrint('[SYNC] drain rollback restore failed for ${entry.key}: $e');
       }
     }
     Error.throwWithStackTrace(
@@ -2476,7 +2472,16 @@ Future<ApplyResult> applyRemoteChanges(
           if (isDelete) {
             await adapter.hardDelete(table, entityId);
           } else {
-            await adapter.applyFields(table, entityId, fields);
+            final skipUnknownTombstone =
+                await _shouldSkipUnknownRemoteTombstone(
+                  adapter,
+                  table,
+                  entityId,
+                  fields,
+                );
+            if (!skipUnknownTombstone) {
+              await adapter.applyFields(table, entityId, fields);
+            }
           }
           rowsApplied++;
         } catch (e, st) {
@@ -2507,6 +2512,35 @@ Future<ApplyResult> applyRemoteChanges(
   }
 
   return ApplyResult(rowsApplied: rowsApplied);
+}
+
+Future<bool> _shouldSkipUnknownRemoteTombstone(
+  DriftSyncAdapter adapter,
+  String table,
+  String entityId,
+  Map<String, dynamic> fields,
+) async {
+  if (!_fieldsCarryRemoteTombstone(fields)) return false;
+  if (table == 'conversations' ||
+      table == 'members' ||
+      table == 'member_groups' ||
+      table == 'member_group_entries') {
+    return false;
+  }
+  final entity = adapter.entityForTable(table);
+  if (entity == null) return false;
+  return await entity.readRow(entityId) == null;
+}
+
+bool _fieldsCarryRemoteTombstone(Map<String, dynamic> fields) {
+  final value = fields['is_deleted'];
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    final normalized = value.toLowerCase();
+    return normalized == 'true' || normalized == '1';
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart' as raw;
 
 import 'package:prism_plurality/core/database/database_encryption.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
 
 // ---------------------------------------------------------------------------
 // In-memory FlutterSecureStorage stub (same pattern as biometric_service_test)
@@ -18,37 +19,37 @@ class _SecureStorageStub {
     TestWidgetsFlutterBinding.ensureInitialized();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      (MethodCall call) async {
-        switch (call.method) {
-          case 'write':
-            final key = call.arguments['key'] as String;
-            final value = call.arguments['value'] as String?;
-            _store[key] = value;
-            return null;
-          case 'read':
-            final key = call.arguments['key'] as String;
-            return _store[key];
-          case 'delete':
-            final key = call.arguments['key'] as String;
-            _store.remove(key);
-            return null;
-          case 'containsKey':
-            final key = call.arguments['key'] as String;
-            return _store.containsKey(key);
-          default:
-            return null;
-        }
-      },
-    );
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          (MethodCall call) async {
+            switch (call.method) {
+              case 'write':
+                final key = call.arguments['key'] as String;
+                final value = call.arguments['value'] as String?;
+                _store[key] = value;
+                return null;
+              case 'read':
+                final key = call.arguments['key'] as String;
+                return _store[key];
+              case 'delete':
+                final key = call.arguments['key'] as String;
+                _store.remove(key);
+                return null;
+              case 'containsKey':
+                final key = call.arguments['key'] as String;
+                return _store.containsKey(key);
+              default:
+                return null;
+            }
+          },
+        );
   }
 
   void teardown() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      null,
-    );
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          null,
+        );
     _store.clear();
   }
 }
@@ -94,6 +95,76 @@ void main() {
     test('rejects non-hex characters', () {
       final hex = List.generate(64, (_) => 'g').join();
       expect(validateHexKey(hex), isFalse);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // restoreDatabaseKeyHexForRecovery
+  // ---------------------------------------------------------------------------
+
+  group('restoreDatabaseKeyHexForRecovery', () {
+    late _SecureStorageStub storageStub;
+
+    setUp(() {
+      storageStub = _SecureStorageStub()..setup();
+    });
+
+    tearDown(() {
+      storageStub.teardown();
+    });
+
+    test('writes a verified recovery key to the primary Drift slot', () async {
+      final hexKey = '0123456789abcdef' * 4;
+      storageStub._store['${kDatabaseKeyStorageKey}_staging'] = hexKey;
+
+      await restoreDatabaseKeyHexForRecovery(hexKey);
+
+      expect(storageStub._store[kDatabaseKeyStorageKey], hexKey);
+      expect(
+        storageStub._store.containsKey('${kDatabaseKeyStorageKey}_staging'),
+        isFalse,
+      );
+    });
+
+    test('rejects invalid recovery keys', () async {
+      expect(
+        () => restoreDatabaseKeyHexForRecovery('not-a-key'),
+        throwsArgumentError,
+      );
+      expect(storageStub._store[kDatabaseKeyStorageKey], isNull);
+    });
+  });
+
+  group('verified sync recovery key', () {
+    late Directory tempDir;
+    late _SecureStorageStub storageStub;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync(
+        'prism_db_recovery_candidate_',
+      );
+      storageStub = _SecureStorageStub()..setup();
+    });
+
+    tearDown(() {
+      if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      storageStub.teardown();
+    });
+
+    test('tries sync staging when sync primary does not open app DB', () async {
+      final dbPath = '${tempDir.path}/prism.db';
+      final oldKey = 'aa' * 32;
+      final newKey = 'bb' * 32;
+
+      final db = raw.sqlite3.open(dbPath);
+      db.execute("PRAGMA key = \"x'$newKey'\";");
+      db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY);');
+      db.close();
+
+      storageStub._store[kSyncDatabaseKeyStorageKey] = oldKey;
+      storageStub._store['${kSyncDatabaseKeyStorageKey}_staging'] = newKey;
+
+      expect(await verifiedSyncRecoveryKeyForTest(dbPath), newKey);
     });
   });
 
@@ -223,7 +294,6 @@ void main() {
       } catch (_) {}
       expect(readable, isTrue);
     });
-
   });
 
   // ---------------------------------------------------------------------------
@@ -294,30 +364,37 @@ void main() {
     setUp(storageStub.setup);
     tearDown(storageStub.teardown);
 
-    test('readStagingDatabaseKeyHex returns null when no staging key exists',
-        () async {
-      expect(await readStagingDatabaseKeyHex(), isNull);
-    });
+    test(
+      'readStagingDatabaseKeyHex returns null when no staging key exists',
+      () async {
+        expect(await readStagingDatabaseKeyHex(), isNull);
+      },
+    );
 
     test(
-        'readStagingDatabaseKeyHex returns null and ignores invalid (short) key',
-        () async {
-      storageStub._store['${kDatabaseKeyStorageKey}_staging'] = 'tooshort';
-      expect(await readStagingDatabaseKeyHex(), isNull);
-    });
+      'readStagingDatabaseKeyHex returns null and ignores invalid (short) key',
+      () async {
+        storageStub._store['${kDatabaseKeyStorageKey}_staging'] = 'tooshort';
+        expect(await readStagingDatabaseKeyHex(), isNull);
+      },
+    );
 
-    test('promoteStagingDatabaseKey writes to primary slot and removes staging',
-        () async {
-      final hexKey = 'ab' * 32; // 64 lowercase hex chars
-      storageStub._store['${kDatabaseKeyStorageKey}_staging'] = hexKey;
-      storageStub._store[kDatabaseKeyStorageKey] = 'oldkey${'0' * 58}';
+    test(
+      'promoteStagingDatabaseKey writes to primary slot and removes staging',
+      () async {
+        final hexKey = 'ab' * 32; // 64 lowercase hex chars
+        storageStub._store['${kDatabaseKeyStorageKey}_staging'] = hexKey;
+        storageStub._store[kDatabaseKeyStorageKey] = 'oldkey${'0' * 58}';
 
-      await promoteStagingDatabaseKey(hexKey);
+        await promoteStagingDatabaseKey(hexKey);
 
-      expect(storageStub._store[kDatabaseKeyStorageKey], equals(hexKey));
-      expect(storageStub._store.containsKey('${kDatabaseKeyStorageKey}_staging'),
-          isFalse);
-    });
+        expect(storageStub._store[kDatabaseKeyStorageKey], equals(hexKey));
+        expect(
+          storageStub._store.containsKey('${kDatabaseKeyStorageKey}_staging'),
+          isFalse,
+        );
+      },
+    );
 
     test('discardStagingDatabaseKey removes staging slot only', () async {
       final primaryKey = 'cd' * 32;
@@ -330,8 +407,10 @@ void main() {
       // Primary slot unchanged
       expect(storageStub._store[kDatabaseKeyStorageKey], equals(primaryKey));
       // Staging slot removed
-      expect(storageStub._store.containsKey('${kDatabaseKeyStorageKey}_staging'),
-          isFalse);
+      expect(
+        storageStub._store.containsKey('${kDatabaseKeyStorageKey}_staging'),
+        isFalse,
+      );
     });
   });
 
@@ -365,78 +444,90 @@ void main() {
       return fill.toRadixString(16).padLeft(2, '0') * 32;
     }
 
-    test('Scenario A: staging key opens DB → promotes staging to primary',
-        () async {
-      final dbPath = '${tempDir.path}/prism_sync.db';
-      final oldKey = makeHexKey(0xaa); // primary slot — stale after crash
-      final newKey = makeHexKey(0xbb); // staging slot — rekey succeeded before crash
+    test(
+      'Scenario A: staging key opens DB → promotes staging to primary',
+      () async {
+        final dbPath = '${tempDir.path}/prism_sync.db';
+        final oldKey = makeHexKey(0xaa); // primary slot — stale after crash
+        final newKey = makeHexKey(
+          0xbb,
+        ); // staging slot — rekey succeeded before crash
 
-      // DB was re-keyed to newKey before the crash
-      final db = raw.sqlite3.open(dbPath);
-      db.execute("PRAGMA key = \"x'$newKey'\";");
-      db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY);');
-      db.close();
+        // DB was re-keyed to newKey before the crash
+        final db = raw.sqlite3.open(dbPath);
+        db.execute("PRAGMA key = \"x'$newKey'\";");
+        db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY);');
+        db.close();
 
-      // Simulate keychain state after crash
-      storageStub._store[kSyncDatabaseKeyStorageKey] = oldKey;
-      storageStub._store['${kSyncDatabaseKeyStorageKey}_staging'] = newKey;
+        // Simulate keychain state after crash
+        storageStub._store[kSyncDatabaseKeyStorageKey] = oldKey;
+        storageStub._store['${kSyncDatabaseKeyStorageKey}_staging'] = newKey;
 
-      // Recovery logic (mirrors prism_sync_providers.dart createHandle)
-      final stagingKey = await readStagingSyncDatabaseKeyHex();
-      expect(stagingKey, equals(newKey));
+        // Recovery logic (mirrors prism_sync_providers.dart createHandle)
+        final stagingKey = await readStagingSyncDatabaseKeyHex();
+        expect(stagingKey, equals(newKey));
 
-      if (stagingKey != null &&
-          File(dbPath).existsSync() &&
-          tryOpenEncryptedDb(dbPath, stagingKey)) {
-        await promoteStagingSyncDatabaseKey(stagingKey);
-      } else {
-        await discardStagingSyncDatabaseKey();
-      }
+        if (stagingKey != null &&
+            File(dbPath).existsSync() &&
+            tryOpenEncryptedDb(dbPath, stagingKey)) {
+          await promoteStagingSyncDatabaseKey(stagingKey);
+        } else {
+          await discardStagingSyncDatabaseKey();
+        }
 
-      // Primary slot updated to new key
-      expect(storageStub._store[kSyncDatabaseKeyStorageKey], equals(newKey));
-      // Staging slot cleared
-      expect(
-          storageStub._store
-              .containsKey('${kSyncDatabaseKeyStorageKey}_staging'),
-          isFalse);
-    });
+        // Primary slot updated to new key
+        expect(storageStub._store[kSyncDatabaseKeyStorageKey], equals(newKey));
+        // Staging slot cleared
+        expect(
+          storageStub._store.containsKey(
+            '${kSyncDatabaseKeyStorageKey}_staging',
+          ),
+          isFalse,
+        );
+      },
+    );
 
-    test('Scenario B: staging key does not open DB → staging discarded',
-        () async {
-      final dbPath = '${tempDir.path}/prism_sync.db';
-      final realKey = makeHexKey(0xcc); // DB actually encrypted with this
-      final staleKey = makeHexKey(0xdd); // written to staging, rekey never ran
+    test(
+      'Scenario B: staging key does not open DB → staging discarded',
+      () async {
+        final dbPath = '${tempDir.path}/prism_sync.db';
+        final realKey = makeHexKey(0xcc); // DB actually encrypted with this
+        final staleKey = makeHexKey(
+          0xdd,
+        ); // written to staging, rekey never ran
 
-      // DB is still encrypted with realKey (rekey never happened)
-      final db = raw.sqlite3.open(dbPath);
-      db.execute("PRAGMA key = \"x'$realKey'\";");
-      db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY);');
-      db.close();
+        // DB is still encrypted with realKey (rekey never happened)
+        final db = raw.sqlite3.open(dbPath);
+        db.execute("PRAGMA key = \"x'$realKey'\";");
+        db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY);');
+        db.close();
 
-      // Simulate keychain state: primary=realKey, staging=staleKey
-      storageStub._store[kSyncDatabaseKeyStorageKey] = realKey;
-      storageStub._store['${kSyncDatabaseKeyStorageKey}_staging'] = staleKey;
+        // Simulate keychain state: primary=realKey, staging=staleKey
+        storageStub._store[kSyncDatabaseKeyStorageKey] = realKey;
+        storageStub._store['${kSyncDatabaseKeyStorageKey}_staging'] = staleKey;
 
-      // Recovery logic
-      final stagingKey = await readStagingSyncDatabaseKeyHex();
-      expect(stagingKey, equals(staleKey));
+        // Recovery logic
+        final stagingKey = await readStagingSyncDatabaseKeyHex();
+        expect(stagingKey, equals(staleKey));
 
-      if (stagingKey != null &&
-          File(dbPath).existsSync() &&
-          tryOpenEncryptedDb(dbPath, stagingKey)) {
-        await promoteStagingSyncDatabaseKey(stagingKey);
-      } else {
-        await discardStagingSyncDatabaseKey();
-      }
+        if (stagingKey != null &&
+            File(dbPath).existsSync() &&
+            tryOpenEncryptedDb(dbPath, stagingKey)) {
+          await promoteStagingSyncDatabaseKey(stagingKey);
+        } else {
+          await discardStagingSyncDatabaseKey();
+        }
 
-      // Primary slot unchanged
-      expect(storageStub._store[kSyncDatabaseKeyStorageKey], equals(realKey));
-      // Staging slot cleared
-      expect(
-          storageStub._store
-              .containsKey('${kSyncDatabaseKeyStorageKey}_staging'),
-          isFalse);
-    });
+        // Primary slot unchanged
+        expect(storageStub._store[kSyncDatabaseKeyStorageKey], equals(realKey));
+        // Staging slot cleared
+        expect(
+          storageStub._store.containsKey(
+            '${kSyncDatabaseKeyStorageKey}_staging',
+          ),
+          isFalse,
+        );
+      },
+    );
   });
 }

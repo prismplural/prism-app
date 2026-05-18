@@ -9,12 +9,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// - Keys are device-bound (not included in iCloud backups or device migration)
 /// - Keys are available after the user's first unlock since boot
 ///
-/// On Android, uses defaults (Android Keystore with resetOnError: true).
+/// On Android, fail closed instead of letting flutter_secure_storage delete
+/// all entries after a Keystore/storage mismatch. Losing the DB key while
+/// `prism.db` remains on disk makes the local database unrecoverable.
 const secureStorage = FlutterSecureStorage(
   iOptions: IOSOptions(
     accessibility: KeychainAccessibility.first_unlock_this_device,
   ),
-  aOptions: AndroidOptions(),
+  aOptions: AndroidOptions(resetOnError: false),
 );
 
 /// One-time migration: rewrite relay URL from old domain to new one.

@@ -48,7 +48,7 @@ Map<String, BootstrapFetcher> bootstrapFetchersFor(
       return rows
           .map(
             (row) => SyncRow(
-              id: (row as dynamic).id as String,
+              id: entity.entityIdFor(row),
               fields: entity.toSyncFields(row),
             ),
           )

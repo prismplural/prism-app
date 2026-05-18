@@ -410,6 +410,9 @@ Future<void> _insertOrUpdateById<T extends Table, D>(
   await (db.update(table)..where(matchesId)).write(companion);
 }
 
+bool _isRemoteTombstone(Map<String, dynamic> fields) =>
+    _asBool(fields['is_deleted']) == true;
+
 Future<MemberGroupRow?> _memberGroupRowById(AppDatabase db, String id) {
   return (db.select(
     db.memberGroups,
@@ -673,6 +676,37 @@ Future<Set<String>> _deleteDeferredPkBackedMemberGroupEntryOpsForLogicalEdge(
   return deletedIds;
 }
 
+Future<Set<String>> _deleteDeferredPkBackedMemberGroupEntryOpsForPkRefs(
+  AppDatabase db, {
+  String? pkGroupUuid,
+  String? pkMemberUuid,
+}) async {
+  if (pkGroupUuid == null && pkMemberUuid == null) {
+    return const <String>{};
+  }
+  if (!await _tableExists(db, _pkGroupEntryDeferredOpsTableName)) {
+    return const <String>{};
+  }
+
+  final deletedIds = <String>{};
+  final deferredRows = await db.pkGroupEntryDeferredSyncOpsDao.getAll();
+  for (final row in deferredRows) {
+    if (row.entityType != 'member_group_entries') continue;
+    final deferredEdge = _pkMemberGroupEntryLogicalEdgeFromFieldsJson(
+      row.fieldsJson,
+    );
+    if (deferredEdge == null) continue;
+    final matchesGroup =
+        pkGroupUuid != null && deferredEdge.pkGroupUuid == pkGroupUuid;
+    final matchesMember =
+        pkMemberUuid != null && deferredEdge.pkMemberUuid == pkMemberUuid;
+    if (!matchesGroup && !matchesMember) continue;
+    await db.pkGroupEntryDeferredSyncOpsDao.deleteById(row.id);
+    deletedIds.add(row.id);
+  }
+  return deletedIds;
+}
+
 Future<Set<String>>
 _deleteDeferredPkBackedMemberGroupEntryOpsForCanonicalEntityId(
   AppDatabase db, {
@@ -712,6 +746,31 @@ _deleteDeferredPkBackedMemberGroupEntryOpsForCanonicalEntityId(
     deletedIds.add(row.id);
   }
   return deletedIds;
+}
+
+Future<void> _deleteDeferredPkBackedMemberGroupEntryOpsForTombstone(
+  AppDatabase db, {
+  required String entityId,
+  required Map<String, dynamic> fields,
+}) async {
+  if (!await _tableExists(db, _pkGroupEntryDeferredOpsTableName)) {
+    return;
+  }
+
+  await db.pkGroupEntryDeferredSyncOpsDao.deleteById(
+    'member_group_entries:$entityId',
+  );
+  await _deleteDeferredPkBackedMemberGroupEntryOpsForCanonicalEntityId(
+    db,
+    entityId: entityId,
+  );
+  final logicalEdge = _pkMemberGroupEntryLogicalEdgeFromFields(fields);
+  if (logicalEdge != null) {
+    await _deleteDeferredPkBackedMemberGroupEntryOpsForLogicalEdge(
+      db,
+      edge: logicalEdge,
+    );
+  }
 }
 
 Future<void> _writeMemberGroupEntryPkFields(
@@ -816,6 +875,14 @@ Future<bool> _applyMemberGroupEntryFields(
   final existingRow = await (db.select(
     db.memberGroupEntries,
   )..where((t) => t.id.equals(id))).getSingleOrNull();
+  if (existingRow == null && _isRemoteTombstone(fields)) {
+    await _deleteDeferredPkBackedMemberGroupEntryOpsForTombstone(
+      db,
+      entityId: id,
+      fields: fields,
+    );
+    return false;
+  }
   final f = _FieldContext(
     entityType: 'member_group_entries',
     entityId: id,
@@ -1284,11 +1351,15 @@ DriftSyncEntity _membersEntity(
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
+      final remoteTombstone = _isRemoteTombstone(fields);
       final shouldCheckPkUuidChange = fields.containsKey('pluralkit_uuid');
-      final priorPkUuid = shouldCheckPkUuidChange
-          ? (await (db.select(
+      final existing = (shouldCheckPkUuidChange || remoteTombstone)
+          ? await (db.select(
               db.members,
-            )..where((t) => t.id.equals(id))).getSingleOrNull())?.pluralkitUuid
+            )..where((t) => t.id.equals(id))).getSingleOrNull()
+          : null;
+      final priorPkUuid = shouldCheckPkUuidChange
+          ? existing?.pluralkitUuid
           : null;
       final nextPkUuid = shouldCheckPkUuidChange
           ? _asString(fields['pluralkit_uuid'])
@@ -1300,6 +1371,35 @@ DriftSyncEntity _membersEntity(
         quarantine: quarantine,
         trackQuarantineWrite: trackQuarantineWrite,
       );
+      final tombstonePkMemberUuid = nextPkUuid ?? existing?.pluralkitUuid;
+      if (existing == null && remoteTombstone) {
+        final createdAt = f.dateTimeField('created_at');
+        final fallbackTimestamp = DateTime.fromMillisecondsSinceEpoch(
+          0,
+          isUtc: true,
+        );
+        await _deleteDeferredPkBackedMemberGroupEntryOpsForPkRefs(
+          db,
+          pkMemberUuid: tombstonePkMemberUuid,
+        );
+        await _insertOrUpdateById(
+          db,
+          db.members,
+          MembersCompanion(
+            id: Value(id),
+            name: fields.containsKey('name')
+                ? f.stringField('name')
+                : const Value(''),
+            createdAt: createdAt.present ? createdAt : Value(fallbackTimestamp),
+            pluralkitUuid: fields.containsKey('pluralkit_uuid')
+                ? f.stringFieldNullable('pluralkit_uuid')
+                : const Value.absent(),
+            isDeleted: const Value(true),
+          ),
+          (t) => t.id.equals(id),
+        );
+        return;
+      }
       final companion = MembersCompanion(
         id: Value(id),
         name: f.stringField('name'),
@@ -1348,7 +1448,12 @@ DriftSyncEntity _membersEntity(
         companion,
         (t) => t.id.equals(id),
       );
-      if (shouldCheckPkUuidChange && priorPkUuid != nextPkUuid) {
+      if (remoteTombstone) {
+        await _deleteDeferredPkBackedMemberGroupEntryOpsForPkRefs(
+          db,
+          pkMemberUuid: tombstonePkMemberUuid,
+        );
+      } else if (shouldCheckPkUuidChange && priorPkUuid != nextPkUuid) {
         await _retryDeferredPkBackedMemberGroupEntryOps(
           db,
           quarantine: quarantine,
@@ -1467,6 +1572,7 @@ DriftSyncEntity _frontingSessionsEntity(
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
+      final remoteTombstone = _isRemoteTombstone(fields);
       // Migration gate (WS1 step 4 + 5): if the per-member fronting
       // migration is `blocked` or `inProgress`, the local schema is in
       // a transitional shape (single-column unique index still in
@@ -1479,7 +1585,7 @@ DriftSyncEntity _frontingSessionsEntity(
       // the migrated primary, so the deferred row reaches us through
       // bootstrap rather than the apply path.
       final refusal = gate('fronting_sessions');
-      if (refusal != null) {
+      if (refusal != null && !remoteTombstone) {
         _trackMigrationGatedQuarantine(
           quarantine: quarantine,
           trackQuarantineWrite: trackQuarantineWrite,
@@ -1488,6 +1594,12 @@ DriftSyncEntity _frontingSessionsEntity(
           refusal: refusal,
         );
         return;
+      }
+      if (remoteTombstone) {
+        final existing = await (db.select(
+          db.frontingSessions,
+        )..where((t) => t.id.equals(id))).getSingleOrNull();
+        if (existing == null) return;
       }
       final f = _FieldContext(
         entityType: 'fronting_sessions',
@@ -1602,6 +1714,31 @@ DriftSyncEntity _conversationsEntity(
         quarantine: quarantine,
         trackQuarantineWrite: trackQuarantineWrite,
       );
+      final existing = await (db.select(
+        db.conversations,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      if (existing == null && _isRemoteTombstone(fields)) {
+        final createdAt = f.dateTimeField('created_at');
+        final lastActivityAt = f.dateTimeField('last_activity_at');
+        final fallbackTimestamp = DateTime.fromMillisecondsSinceEpoch(
+          0,
+          isUtc: true,
+        );
+        await _insertOrUpdateById(
+          db,
+          db.conversations,
+          ConversationsCompanion(
+            id: Value(id),
+            createdAt: createdAt.present ? createdAt : Value(fallbackTimestamp),
+            lastActivityAt: lastActivityAt.present
+                ? lastActivityAt
+                : Value(fallbackTimestamp),
+            isDeleted: const Value(true),
+          ),
+          (t) => t.id.equals(id),
+        );
+        return;
+      }
       final companion = ConversationsCompanion(
         id: Value(id),
         createdAt: f.dateTimeField('created_at'),
@@ -2642,6 +2779,46 @@ DriftSyncEntity _memberGroupsEntity(
         payloadPkGroupUuid: resolvedPkGroupUuid,
       );
       final localRowId = existingRow?.id ?? id;
+      final tombstonePkGroupUuid =
+          resolvedPkGroupUuid ?? existingRow?.pluralkitUuid;
+      if (existingRow == null && _isRemoteTombstone(fields)) {
+        final createdAt = f.dateTimeField('created_at');
+        final fallbackTimestamp = DateTime.fromMillisecondsSinceEpoch(
+          0,
+          isUtc: true,
+        );
+        await _deleteDeferredPkBackedMemberGroupEntryOpsForPkRefs(
+          db,
+          pkGroupUuid: tombstonePkGroupUuid,
+        );
+        await _insertOrUpdateById(
+          db,
+          db.memberGroups,
+          MemberGroupsCompanion(
+            id: Value(localRowId),
+            name: fields.containsKey('name')
+                ? f.stringField('name')
+                : const Value(''),
+            createdAt: createdAt.present ? createdAt : Value(fallbackTimestamp),
+            pluralkitUuid: fields.containsKey('pluralkit_uuid')
+                ? f.stringFieldNullable('pluralkit_uuid')
+                : resolvedPkGroupUuid != null
+                ? Value(resolvedPkGroupUuid)
+                : const Value.absent(),
+            sortState: _validatedSortStateValue(id, fields),
+            isDeleted: const Value(true),
+          ),
+          (t) => t.id.equals(localRowId),
+        );
+        if (tombstonePkGroupUuid != null && tombstonePkGroupUuid.isNotEmpty) {
+          await _recordPkGroupAliasIfNeeded(
+            db,
+            legacyEntityId: id,
+            pkGroupUuid: tombstonePkGroupUuid,
+          );
+        }
+        return;
+      }
       final companion = MemberGroupsCompanion(
         id: Value(localRowId),
         name: f.stringField('name'),
@@ -2682,11 +2859,18 @@ DriftSyncEntity _memberGroupsEntity(
           pkGroupUuid: resolvedPkGroupUuid,
         );
       }
-      await _retryDeferredPkBackedMemberGroupEntryOps(
-        db,
-        quarantine: quarantine,
-        trackQuarantineWrite: trackQuarantineWrite,
-      );
+      if (_isRemoteTombstone(fields)) {
+        await _deleteDeferredPkBackedMemberGroupEntryOpsForPkRefs(
+          db,
+          pkGroupUuid: tombstonePkGroupUuid,
+        );
+      } else {
+        await _retryDeferredPkBackedMemberGroupEntryOps(
+          db,
+          quarantine: quarantine,
+          trackQuarantineWrite: trackQuarantineWrite,
+        );
+      }
     },
     hardDelete: (String id) async {
       final row = await _resolveMemberGroupRowForSyncDelete(db, id);
@@ -3113,13 +3297,14 @@ DriftSyncEntity _frontSessionCommentsEntity(
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
+      final remoteTombstone = _isRemoteTombstone(fields);
       // Migration gate — same rationale as fronting_sessions above.
       // Comments live on the same migration boundary; new-shape comment
       // rows depend on the new fronting_sessions shape being in place.
       // Surface deferred applies through quarantine instead of silent
       // skip so the user can audit what was held back.
       final refusal = gate('front_session_comments');
-      if (refusal != null) {
+      if (refusal != null && !remoteTombstone) {
         _trackMigrationGatedQuarantine(
           quarantine: quarantine,
           trackQuarantineWrite: trackQuarantineWrite,
@@ -3139,6 +3324,9 @@ DriftSyncEntity _frontSessionCommentsEntity(
       final existing = await (db.select(
         db.frontSessionComments,
       )..where((t) => t.id.equals(id))).getSingleOrNull();
+      if (remoteTombstone && existing == null) {
+        return;
+      }
       final sessionId = f.stringField('session_id');
       if (sessionId.present && sessionId.value.trim().isEmpty) {
         _trackInvalidFrontSessionCommentSessionId(

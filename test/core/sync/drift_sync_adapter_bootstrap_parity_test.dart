@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,15 +19,15 @@ void main() {
     final syncAdapter = buildSyncAdapterWithCompletion(db);
     final adapter = syncAdapter.adapter;
 
-    final adapterTables =
-        adapter.entities.map((e) => e.tableName).toSet();
+    final adapterTables = adapter.entities.map((e) => e.tableName).toSet();
     final bootstrapTables = bootstrapFetchersFor(adapter, db).keys.toSet();
 
     final missingFromBootstrap = adapterTables.difference(bootstrapTables);
     expect(
       missingFromBootstrap,
       isEmpty,
-      reason: 'The following adapter-registered tables are missing from '
+      reason:
+          'The following adapter-registered tables are missing from '
           'bootstrapFetchersFor and will be skipped during first-device '
           'seed: $missingFromBootstrap. Add them to '
           'bootstrapFetchersFor in drift_sync_adapter_bootstrap.dart.',
@@ -36,7 +37,8 @@ void main() {
     expect(
       extrasInBootstrap,
       isEmpty,
-      reason: 'bootstrapFetchersFor references tables the adapter does not '
+      reason:
+          'bootstrapFetchersFor references tables the adapter does not '
           'know about: $extrasInBootstrap. Either remove them from the '
           'bootstrap map or register them on the adapter.',
     );
@@ -48,7 +50,8 @@ void main() {
       expect(
         adapter.entityForTable(tableName),
         isNotNull,
-        reason: 'bootstrap map has an entry for "$tableName" but the '
+        reason:
+            'bootstrap map has an entry for "$tableName" but the '
             'adapter has no entity registered for it.',
       );
     }
@@ -98,12 +101,70 @@ void main() {
     final fetchers = bootstrapFetchersFor(adapter, db);
     final records = await buildBootstrapRecords(fetchers);
 
-    final members =
-        records.where((r) => r['table'] == 'members').toList();
+    final members = records.where((r) => r['table'] == 'members').toList();
     expect(members, hasLength(1));
     final row = members.single;
     expect(row['entity_id'], 'm-1');
     expect(row['fields'], isA<Map<String, dynamic>>());
     expect((row['fields'] as Map)['name'], 'Ada');
   });
+
+  test(
+    'buildBootstrapRecords uses entityIdFor for deterministic PK ids',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final syncAdapter = buildSyncAdapterWithCompletion(db);
+      final adapter = syncAdapter.adapter;
+
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: 'pk-group-local',
+              name: 'PK Group',
+              createdAt: DateTime.utc(2026, 4, 18),
+              pluralkitUuid: const Value('pk-group-1'),
+            ),
+          );
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            MemberGroupEntriesCompanion.insert(
+              id: 'entry-local',
+              groupId: 'pk-group-local',
+              memberId: 'member-local',
+              pkGroupUuid: const Value('pk-group-1'),
+              pkMemberUuid: const Value('pk-member-1'),
+            ),
+          );
+
+      final fetchers = bootstrapFetchersFor(adapter, db);
+      final records = await buildBootstrapRecords(fetchers);
+
+      final group = records.singleWhere((r) => r['table'] == 'member_groups');
+      expect(group['entity_id'], 'pk-group:pk-group-1');
+
+      final entry = records.singleWhere(
+        (r) => r['table'] == 'member_group_entries',
+      );
+      expect(
+        entry['entity_id'],
+        adapter
+            .entityForTable('member_group_entries')!
+            .entityIdFor(
+              const MemberGroupEntryRow(
+                id: 'entry-local',
+                groupId: 'pk-group-local',
+                memberId: 'member-local',
+                isDeleted: false,
+                pkGroupUuid: 'pk-group-1',
+                pkMemberUuid: 'pk-member-1',
+                pendingPkOp: 'none',
+              ),
+            ),
+      );
+    },
+  );
 }

@@ -51,7 +51,9 @@ Future<String?> readDatabaseKeyHex() async {
   final hex = await _storage.read(key: kDatabaseKeyStorageKey);
   // Treat corrupted/invalid keys as missing so the caller can recover.
   if (hex != null && !validateHexKey(hex)) {
-    debugPrint('[DB_ENCRYPT] Invalid key in keychain (${hex.length} chars) — treating as missing');
+    debugPrint(
+      '[DB_ENCRYPT] Invalid key in keychain (${hex.length} chars) — treating as missing',
+    );
     return null;
   }
   return hex;
@@ -65,7 +67,9 @@ Future<String?> readDatabaseKeyHex() async {
 Future<String?> readStagingDatabaseKeyHex() async {
   final hex = await _storage.read(key: '${kDatabaseKeyStorageKey}_staging');
   if (hex != null && !validateHexKey(hex)) {
-    debugPrint('[DB_ENCRYPT] Invalid staging key (${hex.length} chars) — ignoring');
+    debugPrint(
+      '[DB_ENCRYPT] Invalid staging key (${hex.length} chars) — ignoring',
+    );
     return null;
   }
   return hex;
@@ -98,6 +102,19 @@ Future<void> discardStagingDatabaseKey() async {
 Future<void> cacheDatabaseKey(Uint8List keyBytes) async {
   final hex = keyBytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   await _storage.write(key: kDatabaseKeyStorageKey, value: hex);
+}
+
+/// Restore the Drift database key from a verified recovery candidate.
+///
+/// The caller must first prove [hexKey] opens `prism.db`; this helper only
+/// validates the key shape and writes it back to the primary keychain slot.
+Future<void> restoreDatabaseKeyHexForRecovery(String hexKey) async {
+  if (!validateHexKey(hexKey)) {
+    throw ArgumentError.value(hexKey, 'hexKey', 'invalid database key');
+  }
+  await _storage.write(key: kDatabaseKeyStorageKey, value: hexKey);
+  await _storage.delete(key: '${kDatabaseKeyStorageKey}_staging');
+  debugPrint('[DB_ENCRYPT] Restored missing database key from recovery slot');
 }
 
 /// Ensure a database encryption key exists in the platform keychain.
@@ -170,8 +187,7 @@ Future<String?> readSyncDatabaseKeyHex() async {
 
 /// Read the staging sync database key from secure storage.
 Future<String?> readStagingSyncDatabaseKeyHex() async {
-  final hex =
-      await _storage.read(key: '${kSyncDatabaseKeyStorageKey}_staging');
+  final hex = await _storage.read(key: '${kSyncDatabaseKeyStorageKey}_staging');
   if (hex != null && !validateHexKey(hex)) {
     debugPrint('[DB_ENCRYPT] Invalid sync DB staging key — ignoring');
     return null;
@@ -271,8 +287,9 @@ Future<void> rotateDatabaseToKey({
       'rotateDatabaseToKey: key must be exactly 32 bytes, got ${newKey.length}',
     );
   }
-  final newHexKey =
-      newKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  final newHexKey = newKey
+      .map((b) => b.toRadixString(16).padLeft(2, '0'))
+      .join();
   // Write staging slot first — crash recovery: if we crash after PRAGMA rekey
   // but before the primary keychain write, startup reads the staging slot.
   await _storage.write(
@@ -294,7 +311,10 @@ Future<void> rotateDatabaseToKey({
 /// SQLite3MultipleCiphers (sqlite3mc) uses its default cipher (AES-256 CBC)
 /// when you supply a raw hex key with `PRAGMA key = "x'...'";`.
 void Function(raw.Database) makeCipherSetup(String hexKey) {
-  assert(validateHexKey(hexKey), 'Invalid hex key: expected 64 lowercase hex chars');
+  assert(
+    validateHexKey(hexKey),
+    'Invalid hex key: expected 64 lowercase hex chars',
+  );
   return (raw.Database db) {
     // x'...' hex syntax passes raw key bytes (avoids SQL string escaping issues).
     db.execute("PRAGMA key = \"x'$hexKey'\";");

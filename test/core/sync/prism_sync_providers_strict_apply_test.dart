@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart' as database;
+import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_sync_drift/prism_sync_drift.dart';
@@ -32,10 +33,7 @@ DriftSyncEntity _fakeEntity({
 }
 
 SyncEvent _eventFromChanges(List<Map<String, dynamic>> changes) {
-  return SyncEvent.fromJson({
-    'type': 'RemoteChanges',
-    'changes': changes,
-  });
+  return SyncEvent.fromJson({'type': 'RemoteChanges', 'changes': changes});
 }
 
 void main() {
@@ -168,15 +166,46 @@ void main() {
         },
       ]);
 
-      final result = await applyRemoteChanges(
-        db,
-        adapter,
-        event,
-        strict: true,
-      );
+      final result = await applyRemoteChanges(db, adapter, event, strict: true);
       expect(result.rowsApplied, 2);
       expect(result.failedTables, isEmpty);
       expect(applied, ['members/a', 'members/b']);
+    });
+
+    test('unknown tombstones do not abort strict pairing apply', () async {
+      final adapter = buildSyncAdapterWithCompletion(db).adapter;
+      final idsByTable = {
+        'conversations': 'missing-conversation',
+        'member_groups': 'pk-group:missing-pk-group',
+        'member_group_entries': 'missing-member-group-entry',
+        'chat_messages': 'missing-message',
+        'system_settings': 'singleton',
+      };
+      final event = _eventFromChanges([
+        for (final entity in adapter.entities)
+          {
+            'table': entity.tableName,
+            'entity_id':
+                idsByTable[entity.tableName] ?? 'missing-${entity.tableName}',
+            'is_delete': false,
+            'fields': {'is_deleted': true},
+          },
+      ]);
+
+      final result = await applyRemoteChanges(db, adapter, event, strict: true);
+
+      expect(result.rowsApplied, adapter.entities.length);
+      final group = await adapter
+          .entityForTable('member_groups')!
+          .readRow('pk-group:missing-pk-group');
+      expect(group, isNotNull);
+      expect(group?['pluralkit_uuid'], 'missing-pk-group');
+      expect(group?['is_deleted'], isTrue);
+
+      final message = await (db.select(
+        db.chatMessages,
+      )..where((t) => t.id.equals('missing-message'))).getSingleOrNull();
+      expect(message, isNull);
     });
   });
 
@@ -196,10 +225,7 @@ void main() {
       c.signalFailure(const StrictApplyFailure(message: 'boom'));
       final outcome = await future;
       expect(outcome, isA<ApplyOutcomeFailure>());
-      expect(
-        (outcome as ApplyOutcomeFailure).failure.message,
-        'boom',
-      );
+      expect((outcome as ApplyOutcomeFailure).failure.message, 'boom');
       c.exitStrictMode();
     });
 
@@ -212,14 +238,16 @@ void main() {
       c.exitStrictMode();
     });
 
-    test('exitStrictMode completes a still-pending outcome as success',
-        () async {
-      final c = StrictApplyCoordinator();
-      final future = c.enterStrictMode();
-      c.exitStrictMode();
-      final outcome = await future;
-      expect(outcome, isA<ApplyOutcomeSuccess>());
-    });
+    test(
+      'exitStrictMode completes a still-pending outcome as success',
+      () async {
+        final c = StrictApplyCoordinator();
+        final future = c.enterStrictMode();
+        c.exitStrictMode();
+        final outcome = await future;
+        expect(outcome, isA<ApplyOutcomeSuccess>());
+      },
+    );
 
     // Regression: reproduces the Future.any race the latch pattern fixes.
     // If the failure signal is recorded BEFORE the awaiter is registered
