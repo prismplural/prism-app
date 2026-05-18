@@ -2,6 +2,15 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.9.1] - 2026-05-18
+
+This patch release fixes sync restore edge cases found after 0.9.0.
+
+### Fixed
+- Runtime data encryption key restore is more resilient when the platform key store reports transient failures, including Android device-lock and secure-element timing races.
+- Sync startup preserves recoverable runtime key snapshots instead of discarding them after non-terminal unwrap failures, so Prism can retry cleanly on the next launch.
+- Runtime key restore diagnostics now include platform retry metadata to make future sync recovery issues easier to identify.
+
 ## [0.9.0] - 2026-05-18
 
 This release adds Linux and Windows desktop builds alongside macOS, a new palette appearance system with accessible font choices, manual group member ordering with a Groups navigation tab, safer group chat privacy controls, custom field detail pages, multi-member wake-up, native file import/export handoffs, faster Simply Plural imports, and stronger reset/sync recovery.
