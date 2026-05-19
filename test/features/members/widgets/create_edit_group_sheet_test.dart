@@ -222,6 +222,6 @@ void main() {
     await tester.tap(find.text('Color'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(BlockPicker), findsOneWidget);
+    expect(find.byType(ColorPicker), findsOneWidget);
   });
 }

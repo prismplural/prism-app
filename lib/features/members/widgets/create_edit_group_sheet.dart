@@ -29,25 +29,6 @@ import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 const _uuid = Uuid();
 
-const _kGroupColors = [
-  Color(0xFFAF8EE9), // prism purple
-  Color(0xFFE88EA0), // rose
-  Color(0xFF8EA8E8), // blue
-  Color(0xFF8EE8A0), // sage green
-  Color(0xFFE8D08E), // amber
-  Color(0xFFB88EE8), // lavender
-  Color(0xFFE88E8E), // red
-  Color(0xFF8EE8D0), // teal
-  Color(0xFFE8B88E), // orange
-  Color(0xFF8EB8E8), // light blue
-  Color(0xFFD08EE8), // violet
-  Color(0xFF8EE8B8), // mint
-  Color(0xFF607D8B), // blue grey
-  Color(0xFF795548), // brown
-  Color(0xFF9E9E9E), // grey
-  Color(0xFF424242), // dark grey
-];
-
 /// Modal sheet for creating or editing a member group.
 ///
 /// When [group] is provided the sheet operates in edit mode and pre-populates
@@ -184,36 +165,23 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
-            BlockPicker(
+            ColorPicker(
               pickerColor: _selectedColor ?? const Color(0xFFAF8EE9),
-              onColorChanged: (color) {
-                setState(() => _selectedColor = color);
-                Navigator.of(sheetContext).pop();
-              },
-              availableColors: _kGroupColors,
-              layoutBuilder: (context, colors, child) => Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [for (final color in colors) child(color)],
+              onColorChanged: (color) => setState(() => _selectedColor = color),
+              enableAlpha: false,
+              hexInputBar: true,
+              labelTypes: const [],
+              portraitOnly: true,
+              pickerAreaHeightPercent: 0.65,
+            ),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerRight,
+              child: PrismButton(
+                label: l10n.done,
+                tone: PrismButtonTone.filled,
+                onPressed: () => Navigator.of(sheetContext).pop(),
               ),
-              itemBuilder: (color, isCurrentColor, changeColor) =>
-                  GestureDetector(
-                    onTap: changeColor,
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: isCurrentColor
-                            ? Border.all(
-                                color: Theme.of(context).colorScheme.primary,
-                                width: 3,
-                              )
-                            : null,
-                      ),
-                    ),
-                  ),
             ),
           ],
         ),
