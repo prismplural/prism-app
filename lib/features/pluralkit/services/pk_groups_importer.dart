@@ -250,6 +250,7 @@ class PkGroupsImporter with SyncRecordMixin {
         // preserve. Local emoji stays null (R8): PK's `icon` is a URL, not an
         // emoji.
         final displayOrder = await _dao.nextDisplayOrder(null);
+        // Preserved across PK pulls — never overwrite avatar_image_data without an explicit migration plan.
         await _dao.upsertGroup(
           MemberGroupsCompanion.insert(
             id: groupLocalId,
@@ -278,6 +279,7 @@ class PkGroupsImporter with SyncRecordMixin {
       } else {
         // Existing row. Refresh last_seen_from_pk_at always; only update
         // metadata when the caller asked us to (R5). Never touch emoji (R8).
+        // Preserved across PK pulls — never overwrite avatar_image_data without an explicit migration plan.
         final updates = MemberGroupsCompanion(
           id: Value(existing.id),
           lastSeenFromPkAt: Value(now),
