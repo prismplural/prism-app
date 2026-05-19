@@ -3301,6 +3301,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberListViewSettingsTitle => 'Ajustes de vista';
 
   @override
+  String get memberViewSettingsBannerTitle => 'Opciones de vista de miembros';
+
+  @override
+  String memberViewSettingsBannerMessage(String term) {
+    return 'Las preferencias de grupos y vista de $term se pueden ajustar en Ajustes de vista.';
+  }
+
+  @override
   String get memberListViewModeLabel => 'Vista';
 
   @override

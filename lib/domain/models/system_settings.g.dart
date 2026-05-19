@@ -136,7 +136,7 @@ _SystemSettings _$SystemSettingsFromJson(
         _$MembersListViewModeEnumMap,
         json['membersListViewMode'],
       ) ??
-      MembersListViewMode.groupedSections,
+      MembersListViewMode.folders,
   membersGroupedDefaultState:
       $enumDecodeNullable(
         _$MembersGroupedDefaultStateEnumMap,

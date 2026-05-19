@@ -111,7 +111,7 @@ class SystemSettingsMapper {
       membersListViewMode: enumByIndex(
         row.membersListViewMode,
         domain.MembersListViewMode.values,
-        domain.MembersListViewMode.groupedSections,
+        domain.MembersListViewMode.folders,
       ),
       membersGroupedDefaultState: enumByIndex(
         row.membersGroupedDefaultState,

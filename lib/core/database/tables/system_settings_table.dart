@@ -230,9 +230,9 @@ class SystemSettingsTable extends Table {
   // not system data. Stored as enum indices.
 
   /// `MembersListViewMode` index.
-  /// 0 = groupedSections (default), 1 = folders.
+  /// 0 = groupedSections, 1 = folders (default).
   IntColumn get membersListViewMode =>
-      integer().withDefault(const Constant(0))();
+      integer().withDefault(const Constant(1))();
 
   /// `MembersGroupedDefaultState` index.
   /// 0 = open (default), 1 = closed.

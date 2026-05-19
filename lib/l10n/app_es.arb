@@ -919,6 +919,8 @@
   "memberGroupFilterBarLabel": "Filtrar por grupo",
   "memberGroupFilterUngrouped": "Sin grupo",
   "memberListViewSettingsTitle": "Ajustes de vista",
+  "memberViewSettingsBannerTitle": "Opciones de vista de miembros",
+  "memberViewSettingsBannerMessage": "Las preferencias de grupos y vista de {term} se pueden ajustar en Ajustes de vista.",
   "memberListViewModeLabel": "Vista",
   "memberListViewModeDescription": "Secciones muestra los grupos expandidos en la lista. Carpetas muestra los grupos como filas que puedes abrir.",
   "memberListViewModeGroupedSections": "Secciones",

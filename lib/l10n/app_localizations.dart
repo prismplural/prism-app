@@ -5638,6 +5638,18 @@ abstract class AppLocalizations {
   /// **'View Settings'**
   String get memberListViewSettingsTitle;
 
+  /// Title for the dismissible members list banner that points users to View Settings
+  ///
+  /// In en, this message translates to:
+  /// **'Member view options'**
+  String get memberViewSettingsBannerTitle;
+
+  /// Body for the dismissible members list banner that points users to View Settings. The term is the user's chosen singular member terminology in lowercase.
+  ///
+  /// In en, this message translates to:
+  /// **'Group and {term} view preferences can be adjusted in View Settings.'**
+  String memberViewSettingsBannerMessage(String term);
+
   /// Label for choosing how the members list is displayed
   ///
   /// In en, this message translates to:

@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -26,6 +27,7 @@ import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/info_banner.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/shared/widgets/member_card.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
@@ -42,6 +44,9 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
+const _kMembersViewSettingsBannerSeenKey =
+    'prism.members.view_settings_banner_seen';
+
 /// Main member list screen.
 class MembersScreen extends ConsumerStatefulWidget {
   const MembersScreen({super.key, this.showBackButton = true});
@@ -54,6 +59,7 @@ class MembersScreen extends ConsumerStatefulWidget {
 
 class _MembersScreenState extends ConsumerState<MembersScreen> {
   bool _showInactive = false;
+  bool? _viewSettingsBannerSeen;
 
   // Section keys for scroll-to-section navigation in the grouped list.
   final Map<String, GlobalKey> _sectionKeys = {};
@@ -62,9 +68,36 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   final ScrollController _scrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(_loadViewSettingsBannerSeen());
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadViewSettingsBannerSeen() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _viewSettingsBannerSeen =
+          prefs.getBool(_kMembersViewSettingsBannerSeenKey) ?? false;
+    });
+  }
+
+  Future<void> _markViewSettingsBannerSeen() async {
+    if (mounted && _viewSettingsBannerSeen != true) {
+      setState(() => _viewSettingsBannerSeen = true);
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kMembersViewSettingsBannerSeenKey, true);
+    } catch (_) {
+      // Hint persistence should not block opening settings.
+    }
   }
 
   /// Whether we're inside the top-level /members branch or /settings/members.
@@ -144,7 +177,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           ),
           onTap: () {
             close();
-            _openViewSettingsSheet();
+            unawaited(_openViewSettingsSheet());
           },
         );
       },
@@ -263,8 +296,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     );
   }
 
-  void _openViewSettingsSheet() {
-    PrismSheet.showFullScreen(
+  Future<void> _openViewSettingsSheet() async {
+    await _markViewSettingsBannerSeen();
+    if (!mounted) return;
+    await PrismSheet.showFullScreen(
       context: context,
       builder: (context, scrollController) =>
           MemberListViewSettingsSheet(scrollController: scrollController),
@@ -288,6 +323,29 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       case MemberSearchResultUnknown():
         break;
     }
+  }
+
+  bool _shouldShowViewSettingsBanner({
+    required MembersListViewMode viewMode,
+    required MembersGroupedDefaultState groupedDefault,
+    required MembersFolderMemberVisibility folderVisibility,
+    required bool showPronouns,
+    required bool showFrontButtons,
+    required FrontStartBehavior frontButtonBehavior,
+  }) {
+    if (_viewSettingsBannerSeen != false) return false;
+    final unchangedRowPrefs =
+        showPronouns &&
+        !showFrontButtons &&
+        frontButtonBehavior == FrontStartBehavior.additive;
+    final oldDefaultLayout =
+        viewMode == MembersListViewMode.groupedSections &&
+        groupedDefault == MembersGroupedDefaultState.open &&
+        folderVisibility == MembersFolderMemberVisibility.allMembers;
+    final newDefaultLayout =
+        viewMode == MembersListViewMode.folders &&
+        folderVisibility == MembersFolderMemberVisibility.allMembers;
+    return unchangedRowPrefs && (oldDefaultLayout || newDefaultLayout);
   }
 
   Future<bool?> _confirmDeleteMember(
@@ -467,7 +525,20 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     final groups = ref.watch(allGroupsProvider).value ?? [];
     final hasGroups = groups.isNotEmpty;
     final viewMode = ref.watch(membersListViewModeProvider);
+    final groupedDefault = ref.watch(membersGroupedDefaultStateProvider);
+    final folderVisibility = ref.watch(membersFolderMemberVisibilityProvider);
+    final showPronouns = ref.watch(membersShowPronounsProvider);
+    final showFrontButtons = ref.watch(membersShowFrontButtonsProvider);
+    final frontButtonBehavior = ref.watch(membersFrontButtonBehaviorProvider);
     final showGroupedSections = viewMode == MembersListViewMode.groupedSections;
+    final showViewSettingsBanner = _shouldShowViewSettingsBanner(
+      viewMode: viewMode,
+      groupedDefault: groupedDefault,
+      folderVisibility: folderVisibility,
+      showPronouns: showPronouns,
+      showFrontButtons: showFrontButtons,
+      frontButtonBehavior: frontButtonBehavior,
+    );
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -485,6 +556,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       bodyPadding: EdgeInsets.zero,
       body: Column(
         children: [
+          if (showViewSettingsBanner)
+            _MemberViewSettingsBanner(
+              terms: terms,
+              onOpenSettings: () => unawaited(_openViewSettingsSheet()),
+              onDismiss: () => unawaited(_markViewSettingsBannerSeen()),
+            ),
           if (showGroupedSections)
             MemberGroupFilterBar(onChipTap: hasGroups ? _scrollToGroup : null),
           Expanded(
@@ -865,6 +942,38 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       title: context.l10n.memberGroupManageTitle,
       builder: (_) =>
           ManageGroupsSheet(memberId: member.id, memberName: member.name),
+    );
+  }
+}
+
+class _MemberViewSettingsBanner extends StatelessWidget {
+  const _MemberViewSettingsBanner({
+    required this.terms,
+    required this.onOpenSettings,
+    required this.onDismiss,
+  });
+
+  final Terminology terms;
+  final VoidCallback onOpenSettings;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: InfoBanner(
+        icon: AppIcons.moreVert,
+        iconColor: theme.colorScheme.primary,
+        title: context.l10n.memberViewSettingsBannerTitle,
+        message: context.l10n.memberViewSettingsBannerMessage(
+          terms.singularLower,
+        ),
+        buttonText: context.l10n.memberListViewSettingsTitle,
+        onButtonPressed: onOpenSettings,
+        onDismiss: onDismiss,
+        dismissTooltip: context.l10n.dismiss,
+      ),
     );
   }
 }

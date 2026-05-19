@@ -1034,7 +1034,7 @@ final membersListViewModeProvider = Provider<MembersListViewMode>((ref) {
   return ref
           .watch(systemSettingsProvider)
           .whenOrNull(data: (s) => s.membersListViewMode) ??
-      MembersListViewMode.groupedSections;
+      MembersListViewMode.folders;
 });
 
 /// Device-local default expansion state for grouped member sections.

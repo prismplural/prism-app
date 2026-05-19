@@ -5805,7 +5805,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: false,
-    defaultValue: const Constant(0),
+    defaultValue: const Constant(1),
   );
   static const VerificationMeta _membersGroupedDefaultStateMeta =
       const VerificationMeta('membersGroupedDefaultState');
@@ -7020,7 +7020,7 @@ class SystemSettingsData extends DataClass
   final DateTime? spBoardsBackfilledAt;
 
   /// `MembersListViewMode` index.
-  /// 0 = groupedSections (default), 1 = folders.
+  /// 0 = groupedSections, 1 = folders (default).
   final int membersListViewMode;
 
   /// `MembersGroupedDefaultState` index.

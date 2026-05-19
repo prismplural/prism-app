@@ -280,7 +280,7 @@ abstract class SystemSettings with _$SystemSettings {
     // completes. Null means the backfill has not yet run.
     DateTime? spBoardsBackfilledAt,
     // Members tab display preferences (device-local).
-    @Default(MembersListViewMode.groupedSections)
+    @Default(MembersListViewMode.folders)
     MembersListViewMode membersListViewMode,
     @Default(MembersGroupedDefaultState.open)
     MembersGroupedDefaultState membersGroupedDefaultState,

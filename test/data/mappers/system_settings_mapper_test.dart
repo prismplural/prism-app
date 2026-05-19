@@ -349,21 +349,27 @@ void main() {
   );
 
   group('SystemSettingsMapper — members list view preferences', () {
-    test('default SystemSettings keeps grouped sections open', () {
-      const settings = SystemSettings();
-      expect(settings.membersListViewMode, MembersListViewMode.groupedSections);
-      expect(
-        settings.membersGroupedDefaultState,
-        MembersGroupedDefaultState.open,
-      );
-      expect(
-        settings.membersFolderMemberVisibility,
-        MembersFolderMemberVisibility.allMembers,
-      );
-      expect(settings.membersShowPronouns, isTrue);
-      expect(settings.membersShowFrontButtons, isFalse);
-      expect(settings.membersFrontButtonBehavior, FrontStartBehavior.additive);
-    });
+    test(
+      'default SystemSettings starts in folders with all members visible',
+      () {
+        const settings = SystemSettings();
+        expect(settings.membersListViewMode, MembersListViewMode.folders);
+        expect(
+          settings.membersGroupedDefaultState,
+          MembersGroupedDefaultState.open,
+        );
+        expect(
+          settings.membersFolderMemberVisibility,
+          MembersFolderMemberVisibility.allMembers,
+        );
+        expect(settings.membersShowPronouns, isTrue);
+        expect(settings.membersShowFrontButtons, isFalse);
+        expect(
+          settings.membersFrontButtonBehavior,
+          FrontStartBehavior.additive,
+        );
+      },
+    );
 
     test('stored enum indices map to domain values', () {
       final settings = SystemSettingsMapper.toDomain(
@@ -401,7 +407,7 @@ void main() {
         ),
       );
 
-      expect(settings.membersListViewMode, MembersListViewMode.groupedSections);
+      expect(settings.membersListViewMode, MembersListViewMode.folders);
       expect(
         settings.membersGroupedDefaultState,
         MembersGroupedDefaultState.open,

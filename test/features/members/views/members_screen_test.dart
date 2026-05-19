@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -131,6 +132,12 @@ class _FakeFrontingNotifier extends FrontingNotifier {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'prism.members.view_settings_banner_seen': true,
+    });
+  });
+
   testWidgets('group chips stay reachable after jumping to a section', (
     tester,
   ) async {
@@ -161,6 +168,9 @@ void main() {
 
     await tester.pumpWidget(
       _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.groupedSections,
+        ),
         members: members,
         groups: [topGroup, laterGroup],
         entries: entries,
@@ -259,6 +269,171 @@ void main() {
     );
     expect(find.text('Add'), findsNothing);
     expect(find.text('Replace'), findsNothing);
+  });
+
+  testWidgets('default settings show folders and all members below groups', (
+    tester,
+  ) async {
+    final group = _group('crew', 'Crew');
+    final members = [_member('alice'), _member('bob', displayOrder: 1)];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        members: members,
+        groups: [group],
+        entries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'crew',
+            memberId: 'alice',
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Crew'), findsOneWidget);
+    expect(find.text('Crew • 1'), findsNothing);
+    expect(find.text('Member alice'), findsOneWidget);
+    expect(find.text('Member bob'), findsOneWidget);
+  });
+
+  testWidgets('explicit sections preference is preserved', (tester) async {
+    final group = _group('crew', 'Crew');
+    final members = [_member('alice'), _member('bob', displayOrder: 1)];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.groupedSections,
+        ),
+        members: members,
+        groups: [group],
+        entries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'crew',
+            memberId: 'alice',
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Crew • 1'), findsOneWidget);
+  });
+
+  testWidgets('old default settings banner opens view settings and marks seen', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final members = [_member('alice')];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.groupedSections,
+        ),
+        members: members,
+        groups: const [],
+        entries: const [],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Group and headmate view preferences can be adjusted in View Settings.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('View Settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('View'), findsOneWidget);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('prism.members.view_settings_banner_seen'), isTrue);
+  });
+
+  testWidgets('new default settings still show the view settings banner once', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final members = [_member('alice')];
+
+    await tester.pumpWidget(
+      _buildSubject(members: members, groups: const [], entries: const []),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Group and headmate view preferences can be adjusted in View Settings.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('customized view settings skip the default-layout banner', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final members = [_member('alice')];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.folders,
+          membersFolderMemberVisibility:
+              MembersFolderMemberVisibility.ungroupedOnly,
+        ),
+        members: members,
+        groups: const [],
+        entries: const [],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Group and headmate view preferences can be adjusted in View Settings.',
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('old default settings banner can be dismissed permanently', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final members = [_member('alice')];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.groupedSections,
+        ),
+        members: members,
+        groups: const [],
+        entries: const [],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Dismiss'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Group and headmate view preferences can be adjusted in View Settings.',
+      ),
+      findsNothing,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('prism.members.view_settings_banner_seen'), isTrue);
   });
 
   testWidgets('view settings shows front button behavior when enabled', (
