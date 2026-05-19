@@ -732,7 +732,17 @@ class AppDatabase extends _$AppDatabase {
         current = 25;
       }
       if (current == 25 && to >= 26) {
-        await migrator.addColumn(memberGroups, memberGroups.avatarImageData);
+        // Idempotent: test seeders and dev DBs may already carry this column
+        // because AppDatabase.open() creates tables at the current schema
+        // before the seeder resets PRAGMA user_version back to 25.
+        final cols = await customSelect(
+          'PRAGMA table_info(member_groups)',
+        ).get();
+        final hasAvatar = cols
+            .any((row) => row.read<String>('name') == 'avatar_image_data');
+        if (!hasAvatar) {
+          await migrator.addColumn(memberGroups, memberGroups.avatarImageData);
+        }
         current = 26;
       }
       if (current != to) {
