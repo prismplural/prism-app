@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
 import 'package:prism_plurality/data/mappers/member_group_entry_mapper.dart';
@@ -87,8 +88,9 @@ class DriftMemberGroupsRepository
 
   @override
   Future<void> createGroup(domain.MemberGroup group) async {
-    final displayOrder = await _dao.nextDisplayOrder(group.parentGroupId);
-    final withOrder = group.copyWith(displayOrder: displayOrder);
+    final normalized = _normalizeGroup(group);
+    final displayOrder = await _dao.nextDisplayOrder(normalized.parentGroupId);
+    final withOrder = normalized.copyWith(displayOrder: displayOrder);
     final companion = MemberGroupMapper.toCompanion(withOrder);
     await _dao.createGroup(companion);
     final stored = await _requireGroupRow(withOrder.id);
@@ -97,9 +99,10 @@ class DriftMemberGroupsRepository
 
   @override
   Future<void> updateGroup(domain.MemberGroup group) async {
-    final companion = MemberGroupMapper.toCompanion(group);
-    await _dao.updateGroup(group.id, companion);
-    final stored = await _requireGroupRow(group.id);
+    final normalized = _normalizeGroup(group);
+    final companion = MemberGroupMapper.toCompanion(normalized);
+    await _dao.updateGroup(normalized.id, companion);
+    final stored = await _requireGroupRow(normalized.id);
     await _syncGroupUpdateIfAllowed(stored);
   }
 
@@ -611,6 +614,14 @@ class DriftMemberGroupsRepository
     for (final legacyEntityId in legacyEntityIds) {
       await syncRecordDelete(_groupTable, legacyEntityId);
     }
+  }
+
+  domain.MemberGroup _normalizeGroup(domain.MemberGroup group) {
+    final normalizedAvatar = AvatarNormalizer.normalize(group.avatarImageData);
+    if (normalizedAvatar == group.avatarImageData) {
+      return group;
+    }
+    return group.copyWith(avatarImageData: normalizedAvatar);
   }
 
   Future<MemberGroupRow> _requireGroupRow(String id) async {
