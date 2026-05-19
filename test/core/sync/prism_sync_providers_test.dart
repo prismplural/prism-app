@@ -1,10 +1,17 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/database/database_encryption.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/services/keychain_degraded_state.dart';
 import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sync/sync_pairing_phase.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqlite3/sqlite3.dart' as raw;
 
 void main() {
   test('syncStatusAfterCompleted keeps last successful sync on sync error', () {
@@ -2159,4 +2166,418 @@ void main() {
       expect(logs.any((m) => m.contains('Runtime DEK wrapping-key')), isTrue);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // §5 — probeSyncDatabaseStartup + wipeSyncDatabaseForRepair
+  // ---------------------------------------------------------------------------
+
+  group('probeSyncDatabaseStartup', () {
+    late Directory tempDir;
+    late _SecureStorageStub storageStub;
+    late KeychainDegradedStateService degradedStateService;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('prism_sync_probe_test_');
+      storageStub = _SecureStorageStub()..setup();
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      degradedStateService = KeychainDegradedStateService();
+    });
+
+    tearDown(() {
+      if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      storageStub.teardown();
+    });
+
+    test('no prism_sync.db on disk → ready via fresh slot', () async {
+      final report = await probeSyncDatabaseStartup(
+        verifiedAppDbKey: null,
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
+      expect(report.state, DbStartupState.ready);
+      expect(report.usedRecoverySlot, 'fresh');
+      expect(report.keyInMemory, isNull);
+      expect(report.diagnostic?.recoveredVia, 'fresh');
+      final state = await degradedStateService.read();
+      expect(state.syncKey, SlotState.ok);
+    });
+
+    test('valid sync primary key → ready via primary', () async {
+      final hex = _hexKey(0xaa);
+      final dbPath = '${tempDir.path}/prism_sync.db';
+      _createEncryptedDb(dbPath, hex);
+      storageStub.store[kSyncDatabaseKeyStorageKey] = hex;
+
+      final report = await probeSyncDatabaseStartup(
+        verifiedAppDbKey: null,
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
+      expect(report.state, DbStartupState.ready);
+      expect(report.usedRecoverySlot, 'primary');
+      expect(report.keyInMemory, hex);
+      final state = await degradedStateService.read();
+      expect(state.syncKey, SlotState.ok);
+    });
+
+    test('cipher-failing sync primary + valid sync staging that opens DB → '
+        'staging is promoted, returns ready via primary slot', () async {
+      // The staging-crash-recovery step (probe step 2) promotes the
+      // staging key to the primary slot BEFORE step 3 reads primary. So
+      // a valid staging key effectively rescues the primary slot before
+      // the rest of the probe runs.
+      final hex = _hexKey(0xbb);
+      final dbPath = '${tempDir.path}/prism_sync.db';
+      _createEncryptedDb(dbPath, hex);
+
+      // Primary slot is missing entirely (simulates the crash-between-
+      // rekeyDb-and-primary-write scenario the staging slot exists for).
+      storageStub.store['${kSyncDatabaseKeyStorageKey}_staging'] = hex;
+
+      final report = await probeSyncDatabaseStartup(
+        verifiedAppDbKey: null,
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
+      expect(report.state, DbStartupState.ready);
+      // After staging promotion, the primary slot now has the right key,
+      // so the probe reports it as 'primary' (not 'sync_staging').
+      expect(report.usedRecoverySlot, 'primary');
+      expect(report.keyInMemory, hex);
+      // Verify the staging key was actually promoted into the primary slot.
+      expect(storageStub.store[kSyncDatabaseKeyStorageKey], hex);
+    });
+
+    test('cipher-failing sync primary + valid sync staging + repair-pending '
+        '(promote blocked) → ready via sync_staging slot directly',
+        () async {
+      // When `keychain_repair_pending` is set the guarded writer in step 2
+      // refuses to promote without a verifiedStartupKey; the probe
+      // swallows that and falls through to step 4, which DOES return the
+      // staging slot value directly when it opens the DB.
+      await setKeychainRepairPending(true);
+      final hex = _hexKey(0xb3);
+      final dbPath = '${tempDir.path}/prism_sync.db';
+      _createEncryptedDb(dbPath, hex);
+
+      storageStub.throwOnReadKeyQueue[kSyncDatabaseKeyStorageKey] = [
+        _cipherException(),
+      ];
+      storageStub.store['${kSyncDatabaseKeyStorageKey}_staging'] = hex;
+
+      final report = await probeSyncDatabaseStartup(
+        verifiedAppDbKey: null,
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
+      expect(report.state, DbStartupState.ready);
+      expect(report.usedRecoverySlot, 'sync_staging');
+      expect(report.keyInMemory, hex);
+    });
+
+    test('sync primary returns cipher + staging slot in keychain but does '
+        'NOT open the DB → falls through past sync_staging', () async {
+      // Staging slot is stale (does not open the DB); primary slot
+      // cipher-fails. App primary saves the day via cross-DB recovery.
+      final realHex = _hexKey(0xb1);
+      final staleStagingHex = _hexKey(0xb2);
+      final dbPath = '${tempDir.path}/prism_sync.db';
+      _createEncryptedDb(dbPath, realHex);
+
+      storageStub.throwOnReadKeyQueue[kSyncDatabaseKeyStorageKey] = [
+        _cipherException(),
+      ];
+      storageStub.store['${kSyncDatabaseKeyStorageKey}_staging'] =
+          staleStagingHex;
+
+      final report = await probeSyncDatabaseStartup(
+        verifiedAppDbKey: realHex,
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
+      expect(report.state, DbStartupState.ready);
+      expect(report.usedRecoverySlot, 'app_primary');
+      expect(report.keyInMemory, realHex);
+    });
+
+    test('all sync slots failing + valid app primary that opens sync DB → '
+        'ready via app_primary (cross-DB recovery)', () async {
+      final hex = _hexKey(0xcc);
+      final dbPath = '${tempDir.path}/prism_sync.db';
+      _createEncryptedDb(dbPath, hex);
+
+      // Sync slots either missing or cipher-failing.
+      storageStub.throwOnReadKeyQueue[kSyncDatabaseKeyStorageKey] = [
+        _cipherException(),
+      ];
+      storageStub
+              .throwOnReadKeyQueue['${kSyncDatabaseKeyStorageKey}_staging'] =
+          [_cipherException()];
+      // The verified app DB key happens to also open the sync DB
+      // (older installs converged the two keys).
+
+      final report = await probeSyncDatabaseStartup(
+        verifiedAppDbKey: hex,
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
+      expect(report.state, DbStartupState.ready);
+      expect(report.usedRecoverySlot, 'app_primary');
+      expect(report.keyInMemory, hex);
+      final state = await degradedStateService.read();
+      expect(state.syncKey, SlotState.ok);
+    });
+
+    test('all slots failing → unrecoverable + degraded state marked',
+        () async {
+      final hex = _hexKey(0xdd);
+      final dbPath = '${tempDir.path}/prism_sync.db';
+      _createEncryptedDb(dbPath, hex);
+
+      // Every read fails with cipher; verifiedAppDbKey is also null so the
+      // cross-DB fallback can't help.
+      storageStub.throwOnReadKeyQueue[kSyncDatabaseKeyStorageKey] = [
+        _cipherException(),
+      ];
+      storageStub
+              .throwOnReadKeyQueue['${kSyncDatabaseKeyStorageKey}_staging'] =
+          [_cipherException()];
+      storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
+        _cipherException(),
+      ];
+      storageStub.throwOnReadKeyQueue['${kDatabaseKeyStorageKey}_staging'] = [
+        _cipherException(),
+      ];
+
+      final report = await probeSyncDatabaseStartup(
+        verifiedAppDbKey: null,
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
+      expect(report.state, DbStartupState.unrecoverable);
+      expect(report.keyInMemory, isNull);
+      expect(report.usedRecoverySlot, isNull);
+      final state = await degradedStateService.read();
+      expect(state.syncKey, SlotState.unreadable);
+      expect(state.syncCredentials, SlotState.unreadable);
+    });
+
+    test('stale sync primary that does NOT open the DB → falls through to '
+        'app primary cross-DB recovery', () async {
+      final realHex = _hexKey(0xee);
+      final staleHex = _hexKey(0x12);
+      final dbPath = '${tempDir.path}/prism_sync.db';
+      _createEncryptedDb(dbPath, realHex);
+
+      storageStub.store[kSyncDatabaseKeyStorageKey] = staleHex;
+
+      final report = await probeSyncDatabaseStartup(
+        verifiedAppDbKey: realHex,
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
+      expect(report.state, DbStartupState.ready);
+      expect(report.usedRecoverySlot, 'app_primary');
+      expect(report.keyInMemory, realHex);
+    });
+  });
+
+  group('wipeSyncDatabaseForRepair', () {
+    late Directory tempDir;
+    late _SecureStorageStub storageStub;
+    late KeychainDegradedStateService degradedStateService;
+    late SyncPairingPhaseService phaseService;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('prism_sync_wipe_test_');
+      storageStub = _SecureStorageStub()..setup();
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      degradedStateService = KeychainDegradedStateService();
+      phaseService = SyncPairingPhaseService();
+    });
+
+    tearDown(() {
+      if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      storageStub.teardown();
+    });
+
+    test('happy path: transitions phase, deletes DB file + sidecars, clears '
+        'sync slots, ends in pendingPair', () async {
+      // Pre-state: syncKey is unreadable; phase is unread.
+      await degradedStateService.updateSlot('syncKey', SlotState.unreadable);
+      final dbPath = '${tempDir.path}/prism_sync.db';
+      _createEncryptedDb(dbPath, _hexKey(0x99));
+      File('$dbPath-shm').writeAsStringSync('shm-bytes');
+      File('$dbPath-wal').writeAsStringSync('wal-bytes');
+      storageStub.store[kSyncDatabaseKeyStorageKey] = _hexKey(0x99);
+      storageStub.store['${kSyncDatabaseKeyStorageKey}_staging'] =
+          _hexKey(0x88);
+      storageStub.store['prism_sync.sync_id'] = 'fake-sync-id';
+      storageStub.store['prism_sync.device_id'] = 'fake-device-id';
+      storageStub.store['prism_sync.device_secret'] = 'fake-secret';
+
+      await wipeSyncDatabaseForRepair(
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+        phaseService: phaseService,
+      );
+
+      // Phase ended in pendingPair.
+      expect(await phaseService.read(), SyncPairingPhase.pendingPair);
+      // DB file + sidecars are gone.
+      expect(File(dbPath).existsSync(), isFalse);
+      expect(File('$dbPath-shm').existsSync(), isFalse);
+      expect(File('$dbPath-wal').existsSync(), isFalse);
+      // Sync key slots cleared.
+      expect(
+        storageStub.store.containsKey(kSyncDatabaseKeyStorageKey),
+        isFalse,
+      );
+      expect(
+        storageStub.store
+            .containsKey('${kSyncDatabaseKeyStorageKey}_staging'),
+        isFalse,
+      );
+      // Sync credential slots cleared.
+      expect(storageStub.store.containsKey('prism_sync.sync_id'), isFalse);
+      expect(storageStub.store.containsKey('prism_sync.device_id'), isFalse);
+      expect(
+        storageStub.store.containsKey('prism_sync.device_secret'),
+        isFalse,
+      );
+    });
+
+    test('refuses when phase is already wipeInProgress', () async {
+      await degradedStateService.updateSlot('syncKey', SlotState.unreadable);
+      await phaseService.write(SyncPairingPhase.wipeInProgress);
+
+      expect(
+        () => wipeSyncDatabaseForRepair(
+          directory: tempDir,
+          degradedStateService: degradedStateService,
+          phaseService: phaseService,
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('refuses when phase is already pendingPair', () async {
+      await degradedStateService.updateSlot('syncKey', SlotState.unreadable);
+      await phaseService.write(SyncPairingPhase.pendingPair);
+
+      expect(
+        () => wipeSyncDatabaseForRepair(
+          directory: tempDir,
+          degradedStateService: degradedStateService,
+          phaseService: phaseService,
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('refuses when syncKey is not unreadable (sync is healthy)',
+        () async {
+      // Phase is unread, but syncKey is still ok — refuse, because we only
+      // wipe broken sync state.
+      expect(await degradedStateService.read(), isA<KeychainDegradedState>());
+      // Healthy by default — sync wipe must be refused.
+
+      expect(
+        () => wipeSyncDatabaseForRepair(
+          directory: tempDir,
+          degradedStateService: degradedStateService,
+          phaseService: phaseService,
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Helpers for §5 probe + wipe tests
+// ---------------------------------------------------------------------------
+
+class _SecureStorageStub {
+  final Map<String, String> store = <String, String>{};
+  final Map<String, List<PlatformException>> throwOnReadKeyQueue =
+      <String, List<PlatformException>>{};
+
+  void setup() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+      (MethodCall call) async {
+        switch (call.method) {
+          case 'write':
+            final key = call.arguments['key'] as String;
+            final value = call.arguments['value'] as String?;
+            if (value == null) {
+              store.remove(key);
+            } else {
+              store[key] = value;
+            }
+            return null;
+          case 'read':
+            final key = call.arguments['key'] as String;
+            final queue = throwOnReadKeyQueue[key];
+            if (queue != null && queue.isNotEmpty) {
+              throw queue.removeAt(0);
+            }
+            return store[key];
+          case 'readAll':
+            return Map<String, String>.from(store);
+          case 'delete':
+            final key = call.arguments['key'] as String;
+            store.remove(key);
+            return null;
+          case 'deleteAll':
+            store.clear();
+            return null;
+          case 'containsKey':
+            final key = call.arguments['key'] as String;
+            return store.containsKey(key);
+          default:
+            return null;
+        }
+      },
+    );
+  }
+
+  void teardown() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+      null,
+    );
+    store.clear();
+    throwOnReadKeyQueue.clear();
+  }
+}
+
+PlatformException _cipherException() => PlatformException(
+      code: 'Exception encountered',
+      message: 'error:1e000065:Cipher functions:OPENSSL_internal:BAD_DECRYPT',
+      details:
+          'javax.crypto.AEADBadTagException: Error while decrypting\n\tat '
+          'com.it_nomads.fluttersecurestorage.FlutterSecureStorage.read(FlutterSecureStorage.java:200)',
+    );
+
+String _hexKey(int fill) => fill.toRadixString(16).padLeft(2, '0') * 32;
+
+void _createEncryptedDb(String path, String hexKey) {
+  final db = raw.sqlite3.open(path);
+  db.execute("PRAGMA key = \"x'$hexKey'\";");
+  db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY);');
+  db.execute('INSERT INTO t (id) VALUES (1);');
+  db.close();
 }

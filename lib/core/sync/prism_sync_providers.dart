@@ -24,10 +24,12 @@ import 'package:prism_plurality/core/services/biometric_service.dart';
 import 'package:prism_plurality/core/services/biometric_service_provider.dart';
 import 'package:prism_plurality/core/services/crypto_boot_log.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/services/keychain_degraded_state.dart';
 import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/database/daos/sync_quarantine_dao.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
+import 'package:prism_plurality/core/sync/sync_pairing_phase.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
@@ -167,6 +169,399 @@ String? formatPrismSyncError(Object? rawError) {
   return '$_prismSyncFailedPrefix$message';
 }
 
+/// Thrown by `createHandle` when the §5 sync DB probe returned
+/// `unrecoverable`. The `build()` path catches this, marks
+/// `syncKey/syncCredentials = unreadable` and the pairing phase as
+/// `pendingPair`-ready (left as `unread` until the user explicitly opts
+/// into a wipe via the recovery UI in §7), and returns a null handle so
+/// the app continues launching in local-only mode.
+class SyncDbUnrecoverableException implements Exception {
+  const SyncDbUnrecoverableException();
+
+  @override
+  String toString() =>
+      'SyncDbUnrecoverableException: sync DB key slots are unreadable; '
+      'app continues in local-only mode pending re-pair';
+}
+
+// ---------------------------------------------------------------------------
+// §5 — Sync DB startup probe + recovery
+// ---------------------------------------------------------------------------
+//
+// Mirrors the §4 app DB probe in `database_provider.dart`, with two
+// differences:
+//
+//   1. The fresh-install branch does NOT generate a key. The sync DB is only
+//      created during the pairing flow; there is no sensible standalone key
+//      to write at boot.
+//   2. There are additional cross-DB recovery candidates: older installs
+//      converged the two keys when `cacheRuntimeKeys` rotated both DBs to
+//      the HKDF-derived local-storage key, so the app-DB primary/staging
+//      slots are valid candidates for opening `prism_sync.db` on those
+//      installs. (`ensureLocalSyncDatabaseKey` documents the migration
+//      that seeds the dedicated sync slot from the Drift slot.)
+//
+// On unrecoverable: the app still launches (local-only mode); the sync
+// handle is just null and the in-app banner surfaces re-pair guidance.
+// See §6/§7 for the boot wiring and recovery UI.
+
+/// Riverpod provider exposing the sync DB startup probe result.
+///
+/// `main.dart` (§6) overrides this via `ProviderScope.overrides` with the
+/// output of [probeSyncDatabaseStartup]. The default override throws so
+/// any code that forgets to set it up fails loudly in tests rather than
+/// silently mis-routing the recovery flow.
+final syncDatabaseStartupProvider = Provider<DbStartupReport>((ref) {
+  throw UnimplementedError(
+    'syncDatabaseStartupProvider must be overridden by main.dart with the '
+    'sync DB probe result. See docs/0.9.2-secure-storage-remediation.md §5.',
+  );
+});
+
+/// Probe `prism_sync.db` at startup, returning a verified key in memory or
+/// signalling unrecoverable so the boot path can route to the re-pair UI.
+///
+/// Order of operations (the only path through):
+///
+/// 1. **Fresh install.** If `prism_sync.db` does not exist, return
+///    `ready(slot: 'fresh', keyInMemory: null)`. No key is generated — the
+///    sync DB is created during pairing, not boot.
+/// 2. **Staging crash recovery.** Mirrors the existing sync staging
+///    recovery in `createHandle()` (which we keep in place — this is the
+///    new probe path; that path is now no-op'd by the probe ready check).
+///    If a sync staging key exists and opens the on-disk DB, promote it
+///    to the primary sync slot. If it doesn't open, discard it.
+/// 3. **Sync primary slot** — open with the dedicated sync slot.
+/// 4. **Sync staging slot** — same.
+/// 5. **App primary slot** (cross-DB recovery candidate) — only consulted
+///    when [verifiedAppDbKey] is non-null. Opens the sync DB on installs
+///    where `cacheRuntimeKeys` converged the two keys.
+/// 6. **App staging slot** — same.
+/// 7. **Unrecoverable** — no slot opened the sync DB.
+///
+/// The optional [directory] override exists so tests don't need to mock the
+/// `path_provider` platform channel. [degradedStateService] is the §8
+/// service used to record the sync slot outcome.
+Future<DbStartupReport> probeSyncDatabaseStartup({
+  required String? verifiedAppDbKey,
+  Directory? directory,
+  KeychainDegradedStateService? degradedStateService,
+}) async {
+  final service = degradedStateService ?? KeychainDegradedStateService();
+  final slotOutcomes = <String, String>{};
+  final dir = directory ?? await getAppDataDir();
+  final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
+  final file = File(dbPath);
+
+  // ── 1. Fresh install ───────────────────────────────────────────────────
+  if (!file.existsSync()) {
+    debugPrint(
+      '[SYNC_PROBE] No prism_sync.db on disk — fresh sync (no key generated)',
+    );
+    slotOutcomes['fresh'] = 'no-sync-db';
+    await service.updateSlot('syncKey', SlotState.ok);
+    return DbStartupReport(
+      state: DbStartupState.ready,
+      keyInMemory: null,
+      usedRecoverySlot: 'fresh',
+      diagnostic: SecureStorageDiagnostic(
+        recoveredVia: 'fresh',
+        slotOutcomes: slotOutcomes,
+      ),
+    );
+  }
+
+  // ── 2. Staging crash recovery (best-effort; swallow guard refusal) ─────
+  //
+  // If a prior `cacheRuntimeKeys` rotation crashed between rekeyDb and the
+  // primary-slot write, the staging slot is the real key. If `keychain_repair_pending`
+  // is set, the promote write may be refused — that's fine; we'll still try
+  // the staging slot directly below, it just won't get promoted yet.
+  try {
+    final syncStagingKey = await readStagingSyncDatabaseKeyHex();
+    if (syncStagingKey != null) {
+      if (tryOpenEncryptedDb(dbPath, syncStagingKey)) {
+        debugPrint(
+          '[SYNC_PROBE] Crash-recovery: sync DB staging key verified — promoting',
+        );
+        await promoteStagingSyncDatabaseKey(syncStagingKey);
+      } else {
+        await discardStagingSyncDatabaseKey();
+      }
+    }
+  } catch (e) {
+    slotOutcomes['sync_staging_promote'] = 'recovery-skipped: $e';
+    debugPrint('[SYNC_PROBE] Sync staging crash recovery skipped: $e');
+  }
+
+  // ── 3. Sync primary slot ───────────────────────────────────────────────
+  final syncPrimary = await readSyncDatabaseKeyHex();
+  if (syncPrimary != null) {
+    if (tryOpenEncryptedDb(dbPath, syncPrimary)) {
+      debugPrint('[SYNC_PROBE] Sync primary slot opened the sync DB');
+      slotOutcomes['sync_primary'] = 'opened';
+      await service.updateSlot('syncKey', SlotState.ok);
+      return DbStartupReport(
+        state: DbStartupState.ready,
+        keyInMemory: syncPrimary,
+        usedRecoverySlot: 'primary',
+        diagnostic: SecureStorageDiagnostic(
+          recoveredVia: 'primary',
+          slotOutcomes: slotOutcomes,
+        ),
+      );
+    }
+    slotOutcomes['sync_primary'] = 'present-but-stale';
+  } else {
+    slotOutcomes['sync_primary'] = 'missing-or-failed';
+  }
+
+  // ── 4. Sync staging slot ───────────────────────────────────────────────
+  final syncStaging = await readStagingSyncDatabaseKeyHex();
+  if (syncStaging != null) {
+    if (tryOpenEncryptedDb(dbPath, syncStaging)) {
+      debugPrint(
+        '[SYNC_PROBE] Sync staging slot opened the sync DB — repair-pending',
+      );
+      slotOutcomes['sync_staging'] = 'opened';
+      await service.updateSlot('syncKey', SlotState.ok);
+      return DbStartupReport(
+        state: DbStartupState.ready,
+        keyInMemory: syncStaging,
+        usedRecoverySlot: 'sync_staging',
+        diagnostic: SecureStorageDiagnostic(
+          recoveredVia: 'sync_staging',
+          slotOutcomes: slotOutcomes,
+        ),
+      );
+    }
+    slotOutcomes['sync_staging'] = 'present-but-stale';
+  } else {
+    slotOutcomes['sync_staging'] = 'missing-or-failed';
+  }
+
+  // ── 5. App primary slot (cross-DB recovery candidate) ──────────────────
+  //
+  // Older installs converged the two keys after cacheRuntimeKeys rotated
+  // both DBs to the HKDF-derived local-storage key. ensureLocalSyncDatabaseKey
+  // also seeded the dedicated sync slot from the Drift slot on first
+  // upgrade. If the in-memory verified app DB key opens the sync DB, it's
+  // the real sync key for this device.
+  if (verifiedAppDbKey != null) {
+    if (tryOpenEncryptedDb(dbPath, verifiedAppDbKey)) {
+      debugPrint(
+        '[SYNC_PROBE] App primary slot opened the sync DB (cross-DB recovery)',
+      );
+      slotOutcomes['app_primary'] = 'opened';
+      await service.updateSlot('syncKey', SlotState.ok);
+      return DbStartupReport(
+        state: DbStartupState.ready,
+        keyInMemory: verifiedAppDbKey,
+        usedRecoverySlot: 'app_primary',
+        diagnostic: SecureStorageDiagnostic(
+          recoveredVia: 'app_primary',
+          slotOutcomes: slotOutcomes,
+        ),
+      );
+    }
+    slotOutcomes['app_primary'] = 'present-but-stale';
+  } else {
+    slotOutcomes['app_primary'] = 'app-db-unrecoverable';
+  }
+
+  // ── 6. App staging slot ────────────────────────────────────────────────
+  final appStaging = await readStagingDatabaseKeyHex();
+  if (appStaging != null) {
+    if (tryOpenEncryptedDb(dbPath, appStaging)) {
+      debugPrint(
+        '[SYNC_PROBE] App staging slot opened the sync DB (cross-DB recovery)',
+      );
+      slotOutcomes['app_staging'] = 'opened';
+      await service.updateSlot('syncKey', SlotState.ok);
+      return DbStartupReport(
+        state: DbStartupState.ready,
+        keyInMemory: appStaging,
+        usedRecoverySlot: 'app_staging',
+        diagnostic: SecureStorageDiagnostic(
+          recoveredVia: 'app_staging',
+          slotOutcomes: slotOutcomes,
+        ),
+      );
+    }
+    slotOutcomes['app_staging'] = 'present-but-stale';
+  } else {
+    slotOutcomes['app_staging'] = 'missing-or-failed';
+  }
+
+  // ── 7. Unrecoverable ───────────────────────────────────────────────────
+  debugPrint(
+    '[SYNC_PROBE] All recovery slots exhausted — sync DB unrecoverable. '
+    'Outcomes: $slotOutcomes',
+  );
+  await service.updateSlot('syncKey', SlotState.unreadable);
+  await service.updateSlot('syncCredentials', SlotState.unreadable);
+  return DbStartupReport(
+    state: DbStartupState.unrecoverable,
+    keyInMemory: null,
+    usedRecoverySlot: null,
+    diagnostic: SecureStorageDiagnostic(
+      recoveredVia: null,
+      slotOutcomes: slotOutcomes,
+    ),
+  );
+}
+
+/// Atomically wipe `prism_sync.db` and its keychain slots so a fresh pair
+/// can recover the device. Tied to the [SyncPairingPhase] state machine —
+/// the phase persistence is the safety mechanism: if the user goes offline
+/// AFTER the wipe but BEFORE pair, we leave the device in
+/// [SyncPairingPhase.pendingPair] so next launch surfaces
+/// "complete the pair you started" rather than recreating the broken state.
+///
+/// Caller responsibilities (NOT enforced here):
+///   * The pairing UI is responsible for the outer online-check / pair-flow.
+///     This function does the local-only wipe and ends in `pendingPair`.
+///   * The pairing UI is responsible for transitioning
+///     `pendingPair → paired` on successful pair.
+///
+/// Guards (enforced here):
+///   * Current phase must be [SyncPairingPhase.unread]. Any other phase
+///     means a wipe is already in flight, completed but unpaired, or sync
+///     is currently healthy — refuse.
+///   * `syncKey` slot in [KeychainDegradedState] must be
+///     [SlotState.unreadable]. We only wipe broken sync state.
+///
+/// Steps (in order):
+///   1. Transition `unread → wipeInProgress`.
+///   2. Stop any in-flight sync handle. Background sync jobs are currently
+///      disabled (`workmanager` is commented out in main.dart) — when they
+///      come back, cancel them here.
+///   3. Delete `prism_sync.db` and its sidecar files (`-shm`, `-wal`).
+///   4. Clear the sync key slots via guarded delete.
+///   5. Clear sync-related credential slots via guarded delete (sync_id,
+///      device_id, device_secret, wrapped_dek, runtime DEK cache, etc.).
+///   6. Transition `wipeInProgress → pendingPair`.
+///
+/// The phase persistence (`SharedPref`) is set BEFORE any destructive step
+/// and updated to `pendingPair` AFTER all destructive steps succeed. A
+/// crash between 1 and 6 leaves the device in `wipeInProgress`; the next
+/// launch will see that and re-invoke `wipeSyncDatabaseForRepair` to
+/// finish.
+Future<void> wipeSyncDatabaseForRepair({
+  Directory? directory,
+  KeychainDegradedStateService? degradedStateService,
+  SyncPairingPhaseService? phaseService,
+  ffi.PrismSyncHandle? currentHandle,
+}) async {
+  final phase = phaseService ?? SyncPairingPhaseService();
+  final degraded = degradedStateService ?? KeychainDegradedStateService();
+  final currentPhase = await phase.read();
+  if (currentPhase != SyncPairingPhase.unread) {
+    debugPrint(
+      '[SYNC_WIPE] Refused — phase is ${currentPhase.name}, expected unread',
+    );
+    throw StateError(
+      'wipeSyncDatabaseForRepair refused: phase is ${currentPhase.name}, '
+      'expected unread',
+    );
+  }
+  final degradedState = await degraded.read();
+  if (degradedState.syncKey != SlotState.unreadable) {
+    debugPrint(
+      '[SYNC_WIPE] Refused — syncKey state is ${degradedState.syncKey.name}, '
+      'expected unreadable',
+    );
+    throw StateError(
+      'wipeSyncDatabaseForRepair refused: syncKey is '
+      '${degradedState.syncKey.name}, expected unreadable',
+    );
+  }
+
+  // 1. Transition into wipeInProgress BEFORE any destructive step so a
+  //    crash mid-flow is recoverable on next launch.
+  await phase.transition(
+    from: SyncPairingPhase.unread,
+    to: SyncPairingPhase.wipeInProgress,
+  );
+
+  // 2. Stop any in-flight sync handle. workmanager jobs are currently
+  //    disabled — when re-enabled, cancel via Workmanager().cancelAll().
+  try {
+    currentHandle?.dispose();
+  } catch (e) {
+    debugPrint('[SYNC_WIPE] handle.dispose() threw (continuing): $e');
+  }
+
+  // 3. Delete prism_sync.db + sidecar files.
+  final dir = directory ?? await getAppDataDir();
+  final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
+  for (final suffix in const <String>['', '-shm', '-wal', '-journal']) {
+    final f = File('$dbPath$suffix');
+    if (f.existsSync()) {
+      try {
+        f.deleteSync();
+        debugPrint('[SYNC_WIPE] Deleted $dbPath$suffix');
+      } catch (e) {
+        debugPrint('[SYNC_WIPE] Failed to delete $dbPath$suffix: $e');
+      }
+    }
+  }
+
+  // 4. Clear sync key slots via guarded delete.
+  final syncSlotKeys = <String>[
+    kSyncDatabaseKeyStorageKey,
+    '${kSyncDatabaseKeyStorageKey}_staging',
+  ];
+  for (final key in syncSlotKeys) {
+    final result = await safeSecureDelete(key);
+    if (!result.ok) {
+      debugPrint(
+        '[SYNC_WIPE] Failed to clear $key '
+        '(failure=${result.failure?.name}, code=${result.code})',
+      );
+    }
+  }
+
+  // 5. Clear sync-related credential slots via guarded delete.
+  //
+  // Conservative — only `prism_sync.*` credential keys. App-level
+  // SharedPrefs (theme, etc) are NOT touched here.
+  const credentialKeys = <String>[
+    kSyncIdKey,
+    kSyncRelayUrlKey,
+    kSyncDeviceIdKey,
+    kSyncDeviceSecretKey,
+    kRuntimeDekKey,
+    kRuntimeDekWrappedKey,
+    kSnapshotApplyCompleteKey,
+    '${_secureStorePrefix}wrapped_dek',
+    '${_secureStorePrefix}dek_salt',
+    '${_secureStorePrefix}session_token',
+    '${_secureStorePrefix}epoch',
+    '${_secureStorePrefix}registration_token',
+    '${_secureStorePrefix}setup_rollback_marker',
+    '${_secureStorePrefix}sharing_prekey_store',
+    '${_secureStorePrefix}sharing_id_cache',
+    '${_secureStorePrefix}min_signature_version_floor',
+  ];
+  for (final key in credentialKeys) {
+    final result = await safeSecureDelete(key);
+    if (!result.ok) {
+      debugPrint(
+        '[SYNC_WIPE] Failed to clear $key '
+        '(failure=${result.failure?.name}, code=${result.code})',
+      );
+    }
+  }
+
+  // 6. Transition to pendingPair. The pairing UI takes over from here.
+  await phase.transition(
+    from: SyncPairingPhase.wipeInProgress,
+    to: SyncPairingPhase.pendingPair,
+  );
+  debugPrint('[SYNC_WIPE] Complete — phase is now pendingPair');
+}
+
 // ---------------------------------------------------------------------------
 // Core handle
 // ---------------------------------------------------------------------------
@@ -215,6 +610,22 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
           relayUrl = relayUrlB64!; // Fallback: already plain text
         }
         return await createHandle(relayUrl: relayUrl);
+      } on SyncDbUnrecoverableException catch (e) {
+        // §5: sync DB probe was unrecoverable. The app continues in
+        // local-only mode; the in-app banner (§7) surfaces re-pair
+        // guidance. Mark the degraded slots so the banner derives the
+        // right copy. Leave the pairing phase as `unread` — the user
+        // explicitly opts into wipeSyncDatabaseForRepair() from the
+        // recovery UI.
+        debugPrint('[SYNC] Probe unrecoverable — running in local-only mode');
+        final degraded = KeychainDegradedStateService();
+        await degraded.updateSlot('syncKey', SlotState.unreadable);
+        await degraded.updateSlot('syncCredentials', SlotState.unreadable);
+        ErrorReportingService.instance.report(
+          'Sync DB unrecoverable on boot: $e',
+          severity: ErrorSeverity.warning,
+        );
+        return null;
       } catch (e, st) {
         // Non-fatal: user can re-setup from settings
         ErrorReportingService.instance.report(
@@ -240,29 +651,30 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
     await excludeFromiCloudBackup(dbPath);
 
-    // Crash recovery for the Rust sync DB staging slot.
-    //
-    // If a previous cacheRuntimeKeys() wrote the sync DB staging slot but
-    // crashed between rekeyDb() and the primary slot write, we need to detect
-    // which state the DB is in and promote or discard the staging slot before
-    // passing any key to createPrismSync.
-    final syncStagingKey = await readStagingSyncDatabaseKeyHex();
-    if (syncStagingKey != null) {
-      if (File(dbPath).existsSync() &&
-          tryOpenEncryptedDb(dbPath, syncStagingKey)) {
-        // rekeyDb() completed — promote the staging key to the primary slot.
-        debugPrint(
-          '[SYNC] Crash-recovery: sync DB staging key verified — promoting',
-        );
-        await promoteStagingSyncDatabaseKey(syncStagingKey);
-      } else {
-        // rekeyDb() did NOT complete — staging key is stale. The DB still has
-        // the key from the primary slot; discard staging and proceed normally.
-        await discardStagingSyncDatabaseKey();
-      }
+    // §5: the §6 boot path runs probeSyncDatabaseStartup() before runApp
+    // and overrides syncDatabaseStartupProvider with the result. Staging
+    // crash recovery is handled INSIDE the probe; we no longer touch the
+    // staging slot here. We also no longer auto-generate a fresh key when
+    // prism_sync.db exists but the key slot fails — that was the bug
+    // Codex flagged as P1. If the probe says unrecoverable, throw a
+    // typed signal that `build()` translates into a null handle.
+    final probeReport = ref.read(syncDatabaseStartupProvider);
+    if (probeReport.state == DbStartupState.unrecoverable) {
+      throw const SyncDbUnrecoverableException();
     }
-
-    final databaseKeyHex = await ensureLocalSyncDatabaseKey();
+    final probeKeyHex = probeReport.keyInMemory;
+    final String databaseKeyHex;
+    if (probeKeyHex != null) {
+      databaseKeyHex = probeKeyHex;
+    } else {
+      // probe state == ready, keyInMemory == null means the fresh-install
+      // branch: prism_sync.db does not exist. This is the ONE path where
+      // we generate a new sync DB key, because Drift/Rust createPrismSync
+      // is about to create the file and needs a key to encrypt it with.
+      // Goes through the guarded writer (repair-pending refuses any
+      // divergent value).
+      databaseKeyHex = await ensureLocalSyncDatabaseKey();
+    }
     final databaseKey = await ffi.hexDecode(hexStr: databaseKeyHex);
     final handle = await ffi.createPrismSync(
       relayUrl: relayUrl,
