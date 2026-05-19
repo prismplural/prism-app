@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Centralized FlutterSecureStorage instance with correct platform options.
@@ -18,6 +19,300 @@ const secureStorage = FlutterSecureStorage(
   ),
   aOptions: AndroidOptions(resetOnError: false),
 );
+
+// ---------------------------------------------------------------------------
+// Classified secure-storage wrappers (Prism 0.9.2 secure storage remediation §1)
+// ---------------------------------------------------------------------------
+//
+// Every secure-storage read/write/delete in this codebase should funnel
+// through these wrappers so PlatformException leaks cannot surface to the UI.
+// See docs/0.9.2-secure-storage-remediation.md for the full plan.
+
+/// Classification of a failed secure-storage operation.
+///
+/// - [cipher]: Keystore-backed AES-GCM (or related) cipher failure. The stored
+///   blob cannot be decrypted with the current key — almost always permanent
+///   for that slot; never auto-retry.
+/// - [transient]: temporary platform-side condition (e.g. user not
+///   authenticated yet, backend busy). Safe to retry with bounded backoff.
+/// - [unknown]: everything else. Treat as failure but don't retry blindly.
+enum SecureStorageFailure { cipher, transient, unknown }
+
+/// Substring fragments that indicate a cipher-level failure.
+///
+/// Matched case-insensitively against [PlatformException.code], `details`,
+/// and `message` in that order. See fss 10.0.0 plugin source —
+/// `FlutterSecureStoragePlugin.java#handleException` — which forwards the
+/// underlying Java exception's `getMessage()` (and a full stack trace in
+/// `details`) for things like `javax.crypto.AEADBadTagException`,
+/// `BadPaddingException`, `InvalidKeyException`,
+/// `UnrecoverableKeyException`, and `KeyPermanentlyInvalidatedException`.
+const _kCipherSubstrings = <String>[
+  'aeadbadtag',
+  'badpadding',
+  'bad_decrypt',
+  'invalidkey',
+  'unrecoverablekey',
+  'keypermanentlyinvalidated',
+];
+
+/// Substring fragments that indicate a transient platform-side failure.
+const _kTransientSubstrings = <String>[
+  'usernotauthenticated',
+  'backendbusy',
+];
+
+/// Classify a [PlatformException] raised by `flutter_secure_storage`.
+///
+/// Checks fields in priority order: `code`, then `details`, then `message`.
+/// Returns the first matching kind, or [SecureStorageFailure.unknown] when
+/// nothing matches.
+SecureStorageFailure classifySecureStorageError(PlatformException e) {
+  // Priority 1: code
+  final codeMatch = _classifyText(e.code);
+  if (codeMatch != null) return codeMatch;
+
+  // Priority 2: details (may be String, may be other)
+  final details = e.details;
+  if (details is String) {
+    final detailsMatch = _classifyText(details);
+    if (detailsMatch != null) return detailsMatch;
+  }
+
+  // Priority 3: message
+  final message = e.message;
+  if (message != null) {
+    final messageMatch = _classifyText(message);
+    if (messageMatch != null) return messageMatch;
+  }
+
+  return SecureStorageFailure.unknown;
+}
+
+/// Returns the matching failure kind for [text], or null if no substring
+/// fragment is present. Matching is case-insensitive.
+SecureStorageFailure? _classifyText(String text) {
+  if (text.isEmpty) return null;
+  final lower = text.toLowerCase();
+  for (final fragment in _kCipherSubstrings) {
+    if (lower.contains(fragment)) return SecureStorageFailure.cipher;
+  }
+  for (final fragment in _kTransientSubstrings) {
+    if (lower.contains(fragment)) return SecureStorageFailure.transient;
+  }
+  return null;
+}
+
+/// Result of a single-key secure-storage read.
+///
+/// - When the operation succeeded the [failure] is null and [value] is the
+///   stored string (or null when the key was absent).
+/// - When the operation failed [failure] is set and [value] is null; the
+///   raw platform [code] and [message] are preserved for diagnostics.
+class SecureReadResult {
+  const SecureReadResult({
+    this.value,
+    this.failure,
+    this.code,
+    this.message,
+  });
+
+  /// Stored value, or null when the key was absent or the read failed.
+  final String? value;
+
+  /// Failure classification. Null when the read succeeded.
+  final SecureStorageFailure? failure;
+
+  /// Raw `PlatformException.code` when [failure] is non-null.
+  final String? code;
+
+  /// Raw `PlatformException.message` when [failure] is non-null.
+  final String? message;
+
+  bool get ok => failure == null;
+}
+
+/// Result of a `readAll`-style secure-storage read.
+///
+/// On success [entries] contains every key/value pair the plugin returned and
+/// [failure] is null. On failure [entries] may be partially populated (when
+/// the wrapper fell back to per-key probes) or empty.
+class SecureReadAllResult {
+  const SecureReadAllResult({
+    this.entries = const <String, String>{},
+    this.failure,
+    this.code,
+    this.message,
+  });
+
+  /// Stored entries, possibly partial when [failure] is non-null.
+  final Map<String, String> entries;
+
+  /// Failure classification. Null when the read succeeded.
+  final SecureStorageFailure? failure;
+
+  /// Raw `PlatformException.code` when [failure] is non-null.
+  final String? code;
+
+  /// Raw `PlatformException.message` when [failure] is non-null.
+  final String? message;
+
+  bool get ok => failure == null;
+}
+
+/// Result of a secure-storage write.
+class SecureWriteResult {
+  const SecureWriteResult({this.failure, this.code, this.message});
+
+  /// Failure classification. Null when the write succeeded.
+  final SecureStorageFailure? failure;
+
+  /// Raw `PlatformException.code` when [failure] is non-null.
+  final String? code;
+
+  /// Raw `PlatformException.message` when [failure] is non-null.
+  final String? message;
+
+  bool get ok => failure == null;
+}
+
+/// Result of a secure-storage delete (single key or `deleteAll`).
+class SecureDeleteResult {
+  const SecureDeleteResult({this.failure, this.code, this.message});
+
+  /// Failure classification. Null when the delete succeeded.
+  final SecureStorageFailure? failure;
+
+  /// Raw `PlatformException.code` when [failure] is non-null.
+  final String? code;
+
+  /// Raw `PlatformException.message` when [failure] is non-null.
+  final String? message;
+
+  bool get ok => failure == null;
+}
+
+/// Read [key] from secure storage, classifying any [PlatformException] into a
+/// [SecureReadResult]. Callers must decide what to do with [SecureReadResult.failure].
+///
+/// When [storage] is omitted the canonical [secureStorage] singleton is used;
+/// injection exists for testing.
+Future<SecureReadResult> safeSecureRead(
+  String key, {
+  FlutterSecureStorage storage = secureStorage,
+}) async {
+  try {
+    final value = await storage.read(key: key);
+    return SecureReadResult(value: value);
+  } on PlatformException catch (e) {
+    return SecureReadResult(
+      failure: classifySecureStorageError(e),
+      code: e.code,
+      message: e.message,
+    );
+  }
+}
+
+/// Read every entry from secure storage, classifying any [PlatformException]
+/// into a [SecureReadAllResult].
+Future<SecureReadAllResult> safeSecureReadAll({
+  FlutterSecureStorage storage = secureStorage,
+}) async {
+  try {
+    final all = await storage.readAll();
+    return SecureReadAllResult(entries: Map<String, String>.from(all));
+  } on PlatformException catch (e) {
+    return SecureReadAllResult(
+      failure: classifySecureStorageError(e),
+      code: e.code,
+      message: e.message,
+    );
+  }
+}
+
+/// Read every entry from secure storage; if the top-level `readAll` fails with
+/// a cipher error, fall back to probing each of [knownKeys] individually so
+/// diagnostic capture isn't empty.
+///
+/// The returned [SecureReadAllResult.failure] reflects the original `readAll`
+/// failure; `entries` may contain whatever individual keys did succeed.
+Future<SecureReadAllResult> safeSecureReadAllWithSlotProbe(
+  List<String> knownKeys, {
+  FlutterSecureStorage storage = secureStorage,
+}) async {
+  final initial = await safeSecureReadAll(storage: storage);
+  if (initial.ok || initial.failure != SecureStorageFailure.cipher) {
+    return initial;
+  }
+
+  final salvaged = <String, String>{};
+  for (final key in knownKeys) {
+    final probe = await safeSecureRead(key, storage: storage);
+    if (probe.ok && probe.value != null) {
+      salvaged[key] = probe.value!;
+    }
+  }
+  return SecureReadAllResult(
+    entries: salvaged,
+    failure: initial.failure,
+    code: initial.code,
+    message: initial.message,
+  );
+}
+
+/// Write [value] under [key], classifying any [PlatformException] into a
+/// [SecureWriteResult].
+Future<SecureWriteResult> safeSecureWrite(
+  String key,
+  String value, {
+  FlutterSecureStorage storage = secureStorage,
+}) async {
+  try {
+    await storage.write(key: key, value: value);
+    return const SecureWriteResult();
+  } on PlatformException catch (e) {
+    return SecureWriteResult(
+      failure: classifySecureStorageError(e),
+      code: e.code,
+      message: e.message,
+    );
+  }
+}
+
+/// Delete [key] from secure storage, classifying any [PlatformException] into
+/// a [SecureDeleteResult].
+Future<SecureDeleteResult> safeSecureDelete(
+  String key, {
+  FlutterSecureStorage storage = secureStorage,
+}) async {
+  try {
+    await storage.delete(key: key);
+    return const SecureDeleteResult();
+  } on PlatformException catch (e) {
+    return SecureDeleteResult(
+      failure: classifySecureStorageError(e),
+      code: e.code,
+      message: e.message,
+    );
+  }
+}
+
+/// Delete every entry from secure storage, classifying any [PlatformException]
+/// into a [SecureDeleteResult].
+Future<SecureDeleteResult> safeSecureDeleteAll({
+  FlutterSecureStorage storage = secureStorage,
+}) async {
+  try {
+    await storage.deleteAll();
+    return const SecureDeleteResult();
+  } on PlatformException catch (e) {
+    return SecureDeleteResult(
+      failure: classifySecureStorageError(e),
+      code: e.code,
+      message: e.message,
+    );
+  }
+}
 
 /// One-time migration: rewrite relay URL from old domain to new one.
 /// Safe to remove once all devices have launched with this build.
