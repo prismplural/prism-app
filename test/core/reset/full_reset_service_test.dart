@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart' as raw;
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/reset/native_reset_keys.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -703,6 +704,44 @@ void main() {
       expect(prefs.getBool(kFullResetRestartRequiredKey), isNull);
     },
   );
+
+  group('ResetStartupDecision', () {
+    test('default normal constructor preserves existing semantics', () {
+      const decision = ResetStartupDecision.normal();
+      expect(decision.mode, ResetStartupMode.normal);
+      expect(decision.diagnostic, isNull);
+      expect(decision.report.hasResidue, isFalse);
+    });
+
+    test('keychainUnreadable mode is reachable and carries the diagnostic',
+        () {
+      final diag = SecureStorageDiagnostic(
+        recoveredVia: null,
+        slotOutcomes: const <String, String>{'primary': 'cipher'},
+      );
+      final decision = ResetStartupDecision.keychainUnreadable(
+        diagnostic: diag,
+      );
+      expect(decision.mode, ResetStartupMode.keychainUnreadable);
+      expect(decision.diagnostic, same(diag));
+      expect(decision.report.hasResidue, isFalse);
+    });
+
+    test('all ResetStartupMode values can be switched exhaustively', () {
+      // Compile-time check that downstream switches are exhaustive over the
+      // new enum variant. Failing here means a downstream switch missed it.
+      for (final mode in ResetStartupMode.values) {
+        switch (mode) {
+          case ResetStartupMode.normal:
+          case ResetStartupMode.freshInstallRecoveryRequired:
+          case ResetStartupMode.keychainUnreadable:
+            // Exhaustive — no fallthrough needed.
+            break;
+        }
+      }
+      expect(ResetStartupMode.values.length, 3);
+    });
+  });
 
   test('fresh install guard reports recovery instead of throwing', () async {
     final service = FullResetService(

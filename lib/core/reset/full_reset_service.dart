@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
+import 'package:prism_plurality/core/database/database_provider.dart'
+    show SecureStorageDiagnostic;
 import 'package:prism_plurality/core/reset/native_reset_keys.dart';
 import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
@@ -17,6 +19,18 @@ const kFullResetCompletedAtKey = 'prism.reset.completed_at';
 const kFreshInstallAnomalyKey = 'prism.reset.fresh_install_anomaly';
 const kNativeResetKeyClearPendingKey = 'prism.reset.native_key_clear_pending';
 const kMediaCacheClearPendingKey = 'prism.reset.media_cache_clear_pending';
+
+/// SharedPreferences flag set to `true` on the first successful sync pairing.
+///
+/// Read by the §7 keychain-unreadable recovery screen to decide whether the
+/// "Re-pair from another device" affordance is meaningful for this user. A
+/// fresh install that never paired should not see the re-pair option — there
+/// is nothing to re-pair from.
+///
+/// TODO(§6 / §10 follow-up): set this from the pair-success path in
+/// `lib/core/sync/prism_sync_providers.dart` / `lib/features/onboarding/`.
+/// For §7 scope this constant is read-only.
+const kPrismHadSyncSetup = 'prism.sync.had_setup';
 
 typedef FullResetLog = void Function(String message);
 typedef FullResetFileObserver = void Function(String path);
@@ -76,13 +90,34 @@ class FreshInstallResidueReport {
   }
 }
 
-enum ResetStartupMode { normal, freshInstallRecoveryRequired }
+enum ResetStartupMode {
+  normal,
+  freshInstallRecoveryRequired,
+  keychainUnreadable,
+}
 
 class ResetStartupDecision {
-  const ResetStartupDecision({required this.mode, required this.report});
+  const ResetStartupDecision({
+    required this.mode,
+    required this.report,
+    this.diagnostic,
+  });
 
   const ResetStartupDecision.normal()
     : mode = ResetStartupMode.normal,
+      report = const FreshInstallResidueReport(
+        preferenceKeys: {},
+        files: [],
+        secureStoreKeys: {},
+        nativeKeysPresent: false,
+      ),
+      diagnostic = null;
+
+  /// Decision for the §6 keychain-unreadable boot branch. Carries the
+  /// secure-storage diagnostic so the recovery screen can write it out via
+  /// "Save diagnostic report".
+  const ResetStartupDecision.keychainUnreadable({this.diagnostic})
+    : mode = ResetStartupMode.keychainUnreadable,
       report = const FreshInstallResidueReport(
         preferenceKeys: {},
         files: [],
@@ -92,6 +127,10 @@ class ResetStartupDecision {
 
   final ResetStartupMode mode;
   final FreshInstallResidueReport report;
+
+  /// Boot-time secure-storage diagnostic captured by `probeAppDatabaseStartup`.
+  /// Non-null only for [ResetStartupMode.keychainUnreadable]; null otherwise.
+  final SecureStorageDiagnostic? diagnostic;
 }
 
 class FullResetFailure implements Exception {

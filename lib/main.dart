@@ -16,6 +16,8 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 // import 'package:workmanager/workmanager.dart';
 
+import 'package:prism_plurality/core/database/database_encryption.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
@@ -23,6 +25,7 @@ import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/screen_security_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -30,6 +33,16 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 // import 'package:prism_plurality/features/pluralkit/services/pluralkit_background_service.dart';
 import 'app.dart';
+
+// TODO(banner-widget): an in-app "Sync paused — re-pair to resume" banner
+// should be inserted at the top-level scaffold (the home shell — see
+// `lib/app.dart` / the main `Scaffold` it builds) and driven by
+// `keychainDegradedStateProvider`. The state plumbing is already in place
+// via §8 (`KeychainDegradedStateService.updateSlot('syncKey', unreadable)`
+// gets called by `probeSyncDatabaseStartup` on the sync-only unrecoverable
+// branch). All that's missing is the visible banner widget that watches
+// `keychainDegradedStateProvider` and renders the string returned by
+// `deriveDegradedBannerMessage`.
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,24 +68,6 @@ void main() async {
     return kReleaseMode; // In debug, let the error propagate to show the error overlay
   };
 
-  final windowsDataMigration =
-      await migrateWindowsLegacyAppSupportDirIfNeeded();
-  if (windowsDataMigration.shouldBlockStartup) {
-    runApp(
-      _WindowsDataMigrationBlockedApp(reason: windowsDataMigration.reason),
-    );
-    return;
-  }
-
-  tz.initializeTimeZones();
-  if (!kIsWeb) {
-    final localTz = (await FlutterTimezone.getLocalTimezone()).identifier;
-    tz.setLocalLocation(tz.getLocation(localTz));
-  }
-
-  final prefs = await SharedPreferences.getInstance();
-  await _applyStartupScreenPrivacy(prefs);
-
   // iOS Keychain and platform key stores can survive app uninstall/reinstall.
   // Before any providers or databases hydrate release app state, make a fresh
   // install clear secure residue when the app-private SharedPreferences
@@ -90,9 +85,77 @@ void main() async {
           ),
         );
         return;
+      case ResetStartupMode.keychainUnreadable:
+        // The fresh-install guard never returns this mode itself — it's
+        // produced downstream by the §6 probe branch below. Defensive switch
+        // arm for type completeness.
+        break;
     }
   }
+
+  // ── §6 boot probes ──────────────────────────────────────────────────────
+  //
+  // App DB probe first; sync DB probe consumes the in-memory app key for
+  // cross-DB recovery candidates (§5).
+  final appProbe = await _safeProbeAppDb();
+  final syncProbe = await _safeProbeSyncDb(
+    verifiedAppDbKey: appProbe.keyInMemory,
+  );
+
+  // App DB unrecoverable → full-screen keychain-unreadable recovery. The
+  // sync probe state doesn't matter at this point.
+  if (appProbe.state == DbStartupState.unrecoverable) {
+    runApp(
+      ResetRecoveryApp(
+        mode: ResetRecoveryScreenMode.keychainUnreadable,
+        diagnostic: appProbe.diagnostic,
+      ),
+    );
+    return;
+  }
+
+  // Sync DB only unrecoverable → continue boot in degraded mode. The §8
+  // KeychainDegradedStateService transitions were already written by
+  // `probeSyncDatabaseStartup` itself (syncKey + syncCredentials →
+  // unreadable). The in-app banner picks this up — see top-of-file TODO.
+
+  // Opportunistic keychain repair write-back. If the app DB probe recovered
+  // via a sync slot, the `keychain_repair_pending` flag is set; this attempt
+  // tries to rewrite the verified key into the primary slot. Never throws,
+  // never blocks boot.
+  if (appProbe.keyInMemory != null) {
+    await attemptKeychainRepairWriteback(appProbe.keyInMemory!);
+  }
+
+  // ── Migrations and platform init (moved post-probe per §6) ──────────────
+
+  final windowsDataMigration =
+      await migrateWindowsLegacyAppSupportDirIfNeeded();
+  if (windowsDataMigration.shouldBlockStartup) {
+    runApp(
+      _WindowsDataMigrationBlockedApp(reason: windowsDataMigration.reason),
+    );
+    return;
+  }
+
   await migrateRelayUrl();
+
+  try {
+    tz.initializeTimeZones();
+    if (!kIsWeb) {
+      final localTz = (await FlutterTimezone.getLocalTimezone()).identifier;
+      tz.setLocalLocation(tz.getLocation(localTz));
+    }
+  } catch (e) {
+    debugPrint('[BOOT] Timezone init failed (non-fatal): $e');
+  }
+
+  final prefs = await SharedPreferences.getInstance();
+  try {
+    await _applyStartupScreenPrivacy(prefs);
+  } catch (e) {
+    debugPrint('[BOOT] Screen privacy init failed (non-fatal): $e');
+  }
 
   // On iOS/macOS, the Rust library is statically linked via -force_load in the
   // podspec. Use ExternalLibrary.process() to find symbols in the current process
@@ -167,6 +230,10 @@ void main() async {
   runApp(
     ProviderScope(
       overrides: [
+        // §6 probe results threaded into the riverpod tree. These overrides
+        // satisfy the throw-by-default providers declared in §3/§5.
+        verifiedStartupKeyProvider.overrideWithValue(appProbe.keyInMemory),
+        syncDatabaseStartupProvider.overrideWithValue(syncProbe),
         cachedThemeBrightnessProvider.overrideWith(
           () => CachedThemeBrightnessNotifier(cachedBrightness),
         ),
@@ -218,6 +285,48 @@ void main() async {
   //     Workmanager().initialize(callbackDispatcher);
   //   });
   // }
+}
+
+/// Wraps [probeAppDatabaseStartup] so any unexpected throw becomes a
+/// synthetic unrecoverable report. The probe itself already catches
+/// classified secure-storage failures; this is belt-and-braces.
+Future<DbStartupReport> _safeProbeAppDb() async {
+  try {
+    return await probeAppDatabaseStartup();
+  } catch (e, st) {
+    debugPrint('[BOOT] probeAppDatabaseStartup threw — synthesising '
+        'unrecoverable report: $e\n$st');
+    return DbStartupReport(
+      state: DbStartupState.unrecoverable,
+      keyInMemory: null,
+      usedRecoverySlot: null,
+      diagnostic: SecureStorageDiagnostic(
+        recoveredVia: null,
+        slotOutcomes: <String, String>{'probe': 'threw: $e'},
+      ),
+    );
+  }
+}
+
+/// Wraps [probeSyncDatabaseStartup] so any unexpected throw becomes a
+/// synthetic unrecoverable report. The probe itself already catches
+/// classified secure-storage failures; this is belt-and-braces.
+Future<DbStartupReport> _safeProbeSyncDb({required String? verifiedAppDbKey}) async {
+  try {
+    return await probeSyncDatabaseStartup(verifiedAppDbKey: verifiedAppDbKey);
+  } catch (e, st) {
+    debugPrint('[BOOT] probeSyncDatabaseStartup threw — synthesising '
+        'unrecoverable report: $e\n$st');
+    return DbStartupReport(
+      state: DbStartupState.unrecoverable,
+      keyInMemory: null,
+      usedRecoverySlot: null,
+      diagnostic: SecureStorageDiagnostic(
+        recoveredVia: null,
+        slotOutcomes: <String, String>{'probe': 'threw: $e'},
+      ),
+    );
+  }
 }
 
 class _WindowsDataMigrationBlockedApp extends StatelessWidget {

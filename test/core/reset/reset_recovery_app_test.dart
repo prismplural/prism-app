@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('restart-required recovery screen tells user to reopen Prism', (
     tester,
   ) async {
@@ -25,5 +34,231 @@ void main() {
       find.widgetWithText(PrismButton, 'Close and reopen Prism'),
     );
     expect(button.enabled, isFalse);
+  });
+
+  group('keychainUnreadable mode', () {
+    testWidgets('renders the title and body copy', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnreadable,
+            syncHistoryHintReader: () async => false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Local data cannot be unlocked'), findsOneWidget);
+      expect(
+        find.textContaining("Prism's encryption keys for this device"),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('renders primary, reset, and diagnostic actions', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnreadable,
+            syncHistoryHintReader: () async => false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(
+          PrismButton,
+          'Restart and unlock once and try again',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(PrismButton, 'Reset local data'),
+        findsOneWidget,
+      );
+      expect(find.text('Save diagnostic report'), findsOneWidget);
+    });
+
+    testWidgets('re-pair action is hidden when no sync hint exists', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnreadable,
+            syncHistoryHintReader: () async => false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(PrismButton, 'Re-pair from another device'),
+        findsNothing,
+      );
+    });
+
+    testWidgets('re-pair action is shown when sync hint exists', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnreadable,
+            syncHistoryHintReader: () async => true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(PrismButton, 'Re-pair from another device'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('re-pair action is shown when kPrismHadSyncSetup is set', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        kPrismHadSyncSetup: true,
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnreadable,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(PrismButton, 'Re-pair from another device'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('re-pair action is shown when any prism_sync.* pref exists', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'prism_sync.relay_hint': 'something',
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnreadable,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(PrismButton, 'Re-pair from another device'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tapping "Reset local data" surfaces a confirmation dialog', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnreadable,
+            syncHistoryHintReader: () async => false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.widgetWithText(PrismButton, 'Reset local data'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Reset local data?'), findsOneWidget);
+      expect(
+        find.text(
+          'This will erase all local Prism data on this device. Continue?',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Erase'), findsOneWidget);
+
+      // Cancel keeps us on the recovery screen — no wipe attempt.
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('Local data cannot be unlocked'), findsOneWidget);
+    });
+
+    testWidgets('tapping "Save diagnostic report" invokes the share handler', (
+      tester,
+    ) async {
+      String? capturedPayload;
+      final diag = SecureStorageDiagnostic(
+        recoveredVia: null,
+        slotOutcomes: const <String, String>{'primary': 'cipher'},
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnreadable,
+            syncHistoryHintReader: () async => false,
+            diagnostic: diag,
+            shareDiagnostic: (payload) async {
+              capturedPayload = payload;
+              return true;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save diagnostic report'));
+      await tester.pumpAndSettle();
+
+      expect(capturedPayload, isNotNull);
+      expect(capturedPayload, contains('"slotOutcomes"'));
+      expect(capturedPayload, contains('"primary": "cipher"'));
+      expect(
+        find.textContaining('Diagnostic report saved'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'tapping "Restart and unlock once and try again" invokes the exit hook',
+      (tester) async {
+        var exitCalls = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ResetRecoveryScreen(
+              mode: ResetRecoveryScreenMode.keychainUnreadable,
+              syncHistoryHintReader: () async => false,
+              appExit: () async {
+                exitCalls += 1;
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.widgetWithText(
+            PrismButton,
+            'Restart and unlock once and try again',
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(exitCalls, 1);
+      },
+    );
   });
 }

@@ -316,9 +316,19 @@ Future<SecureDeleteResult> safeSecureDeleteAll({
 
 /// One-time migration: rewrite relay URL from old domain to new one.
 /// Safe to remove once all devices have launched with this build.
+///
+/// Wrapped via [safeSecureRead] / [safeSecureWrite] so a cipher failure on
+/// the relay-URL slot cannot crash boot. The relay URL is reconstructable
+/// (users can re-pair); skip the migration on any read/write failure.
 Future<void> migrateRelayUrl() async {
   const key = 'prism_sync.relay_url';
-  final stored = await secureStorage.read(key: key);
+  final read = await safeSecureRead(key);
+  if (!read.ok) {
+    // Cipher / transient / unknown — skip the migration. Relay URL is
+    // reconstructable on the next successful pair.
+    return;
+  }
+  final stored = read.value;
   if (stored == null) return;
 
   // The URL is stored base64-encoded. Decode, check, re-encode.
@@ -333,10 +343,8 @@ Future<void> migrateRelayUrl() async {
   }
 
   if (decoded == oldUrl) {
-    await secureStorage.write(
-      key: key,
-      value: base64Encode(utf8.encode(newUrl)),
-    );
+    // Write failure is non-fatal — the migration will be retried next boot.
+    await safeSecureWrite(key, base64Encode(utf8.encode(newUrl)));
   }
 }
 
