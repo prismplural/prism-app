@@ -7,6 +7,7 @@ class MemberGroups extends Table {
   TextColumn get description => text().nullable()();
   TextColumn get colorHex => text().nullable()();
   TextColumn get emoji => text().nullable()();
+  BlobColumn get avatarImageData => blob().nullable()();
   IntColumn get displayOrder => integer().withDefault(const Constant(0))();
   TextColumn get parentGroupId => text().nullable()();
   IntColumn get groupType => integer().withDefault(const Constant(0))();

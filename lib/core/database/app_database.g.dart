@@ -14681,6 +14681,18 @@ class $MemberGroupsTable extends MemberGroups
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _avatarImageDataMeta = const VerificationMeta(
+    'avatarImageData',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> avatarImageData =
+      GeneratedColumn<Uint8List>(
+        'avatar_image_data',
+        aliasedName,
+        true,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _displayOrderMeta = const VerificationMeta(
     'displayOrder',
   );
@@ -14832,6 +14844,7 @@ class $MemberGroupsTable extends MemberGroups
     description,
     colorHex,
     emoji,
+    avatarImageData,
     displayOrder,
     parentGroupId,
     groupType,
@@ -14889,6 +14902,15 @@ class $MemberGroupsTable extends MemberGroups
       context.handle(
         _emojiMeta,
         emoji.isAcceptableOrUnknown(data['emoji']!, _emojiMeta),
+      );
+    }
+    if (data.containsKey('avatar_image_data')) {
+      context.handle(
+        _avatarImageDataMeta,
+        avatarImageData.isAcceptableOrUnknown(
+          data['avatar_image_data']!,
+          _avatarImageDataMeta,
+        ),
       );
     }
     if (data.containsKey('display_order')) {
@@ -15018,6 +15040,10 @@ class $MemberGroupsTable extends MemberGroups
         DriftSqlType.string,
         data['${effectivePrefix}emoji'],
       ),
+      avatarImageData: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}avatar_image_data'],
+      ),
       displayOrder: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}display_order'],
@@ -15081,6 +15107,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
   final String? description;
   final String? colorHex;
   final String? emoji;
+  final Uint8List? avatarImageData;
   final int displayOrder;
   final String? parentGroupId;
   final int groupType;
@@ -15121,6 +15148,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     this.description,
     this.colorHex,
     this.emoji,
+    this.avatarImageData,
     required this.displayOrder,
     this.parentGroupId,
     required this.groupType,
@@ -15147,6 +15175,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     }
     if (!nullToAbsent || emoji != null) {
       map['emoji'] = Variable<String>(emoji);
+    }
+    if (!nullToAbsent || avatarImageData != null) {
+      map['avatar_image_data'] = Variable<Uint8List>(avatarImageData);
     }
     map['display_order'] = Variable<int>(displayOrder);
     if (!nullToAbsent || parentGroupId != null) {
@@ -15188,6 +15219,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       emoji: emoji == null && nullToAbsent
           ? const Value.absent()
           : Value(emoji),
+      avatarImageData: avatarImageData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(avatarImageData),
       displayOrder: Value(displayOrder),
       parentGroupId: parentGroupId == null && nullToAbsent
           ? const Value.absent()
@@ -15226,6 +15260,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       description: serializer.fromJson<String?>(json['description']),
       colorHex: serializer.fromJson<String?>(json['colorHex']),
       emoji: serializer.fromJson<String?>(json['emoji']),
+      avatarImageData: serializer.fromJson<Uint8List?>(json['avatarImageData']),
       displayOrder: serializer.fromJson<int>(json['displayOrder']),
       parentGroupId: serializer.fromJson<String?>(json['parentGroupId']),
       groupType: serializer.fromJson<int>(json['groupType']),
@@ -15253,6 +15288,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       'description': serializer.toJson<String?>(description),
       'colorHex': serializer.toJson<String?>(colorHex),
       'emoji': serializer.toJson<String?>(emoji),
+      'avatarImageData': serializer.toJson<Uint8List?>(avatarImageData),
       'displayOrder': serializer.toJson<int>(displayOrder),
       'parentGroupId': serializer.toJson<String?>(parentGroupId),
       'groupType': serializer.toJson<int>(groupType),
@@ -15274,6 +15310,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     Value<String?> description = const Value.absent(),
     Value<String?> colorHex = const Value.absent(),
     Value<String?> emoji = const Value.absent(),
+    Value<Uint8List?> avatarImageData = const Value.absent(),
     int? displayOrder,
     Value<String?> parentGroupId = const Value.absent(),
     int? groupType,
@@ -15292,6 +15329,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     description: description.present ? description.value : this.description,
     colorHex: colorHex.present ? colorHex.value : this.colorHex,
     emoji: emoji.present ? emoji.value : this.emoji,
+    avatarImageData: avatarImageData.present
+        ? avatarImageData.value
+        : this.avatarImageData,
     displayOrder: displayOrder ?? this.displayOrder,
     parentGroupId: parentGroupId.present
         ? parentGroupId.value
@@ -15322,6 +15362,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           : this.description,
       colorHex: data.colorHex.present ? data.colorHex.value : this.colorHex,
       emoji: data.emoji.present ? data.emoji.value : this.emoji,
+      avatarImageData: data.avatarImageData.present
+          ? data.avatarImageData.value
+          : this.avatarImageData,
       displayOrder: data.displayOrder.present
           ? data.displayOrder.value
           : this.displayOrder,
@@ -15361,6 +15404,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           ..write('description: $description, ')
           ..write('colorHex: $colorHex, ')
           ..write('emoji: $emoji, ')
+          ..write('avatarImageData: $avatarImageData, ')
           ..write('displayOrder: $displayOrder, ')
           ..write('parentGroupId: $parentGroupId, ')
           ..write('groupType: $groupType, ')
@@ -15384,6 +15428,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     description,
     colorHex,
     emoji,
+    $driftBlobEquality.hash(avatarImageData),
     displayOrder,
     parentGroupId,
     groupType,
@@ -15406,6 +15451,10 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           other.description == this.description &&
           other.colorHex == this.colorHex &&
           other.emoji == this.emoji &&
+          $driftBlobEquality.equals(
+            other.avatarImageData,
+            this.avatarImageData,
+          ) &&
           other.displayOrder == this.displayOrder &&
           other.parentGroupId == this.parentGroupId &&
           other.groupType == this.groupType &&
@@ -15426,6 +15475,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
   final Value<String?> description;
   final Value<String?> colorHex;
   final Value<String?> emoji;
+  final Value<Uint8List?> avatarImageData;
   final Value<int> displayOrder;
   final Value<String?> parentGroupId;
   final Value<int> groupType;
@@ -15445,6 +15495,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.description = const Value.absent(),
     this.colorHex = const Value.absent(),
     this.emoji = const Value.absent(),
+    this.avatarImageData = const Value.absent(),
     this.displayOrder = const Value.absent(),
     this.parentGroupId = const Value.absent(),
     this.groupType = const Value.absent(),
@@ -15465,6 +15516,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.description = const Value.absent(),
     this.colorHex = const Value.absent(),
     this.emoji = const Value.absent(),
+    this.avatarImageData = const Value.absent(),
     this.displayOrder = const Value.absent(),
     this.parentGroupId = const Value.absent(),
     this.groupType = const Value.absent(),
@@ -15487,6 +15539,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Expression<String>? description,
     Expression<String>? colorHex,
     Expression<String>? emoji,
+    Expression<Uint8List>? avatarImageData,
     Expression<int>? displayOrder,
     Expression<String>? parentGroupId,
     Expression<int>? groupType,
@@ -15507,6 +15560,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       if (description != null) 'description': description,
       if (colorHex != null) 'color_hex': colorHex,
       if (emoji != null) 'emoji': emoji,
+      if (avatarImageData != null) 'avatar_image_data': avatarImageData,
       if (displayOrder != null) 'display_order': displayOrder,
       if (parentGroupId != null) 'parent_group_id': parentGroupId,
       if (groupType != null) 'group_type': groupType,
@@ -15530,6 +15584,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Value<String?>? description,
     Value<String?>? colorHex,
     Value<String?>? emoji,
+    Value<Uint8List?>? avatarImageData,
     Value<int>? displayOrder,
     Value<String?>? parentGroupId,
     Value<int>? groupType,
@@ -15550,6 +15605,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       description: description ?? this.description,
       colorHex: colorHex ?? this.colorHex,
       emoji: emoji ?? this.emoji,
+      avatarImageData: avatarImageData ?? this.avatarImageData,
       displayOrder: displayOrder ?? this.displayOrder,
       parentGroupId: parentGroupId ?? this.parentGroupId,
       groupType: groupType ?? this.groupType,
@@ -15583,6 +15639,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     }
     if (emoji.present) {
       map['emoji'] = Variable<String>(emoji.value);
+    }
+    if (avatarImageData.present) {
+      map['avatar_image_data'] = Variable<Uint8List>(avatarImageData.value);
     }
     if (displayOrder.present) {
       map['display_order'] = Variable<int>(displayOrder.value);
@@ -15636,6 +15695,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
           ..write('description: $description, ')
           ..write('colorHex: $colorHex, ')
           ..write('emoji: $emoji, ')
+          ..write('avatarImageData: $avatarImageData, ')
           ..write('displayOrder: $displayOrder, ')
           ..write('parentGroupId: $parentGroupId, ')
           ..write('groupType: $groupType, ')
@@ -31045,6 +31105,7 @@ typedef $$MemberGroupsTableCreateCompanionBuilder =
       Value<String?> description,
       Value<String?> colorHex,
       Value<String?> emoji,
+      Value<Uint8List?> avatarImageData,
       Value<int> displayOrder,
       Value<String?> parentGroupId,
       Value<int> groupType,
@@ -31066,6 +31127,7 @@ typedef $$MemberGroupsTableUpdateCompanionBuilder =
       Value<String?> description,
       Value<String?> colorHex,
       Value<String?> emoji,
+      Value<Uint8List?> avatarImageData,
       Value<int> displayOrder,
       Value<String?> parentGroupId,
       Value<int> groupType,
@@ -31112,6 +31174,11 @@ class $$MemberGroupsTableFilterComposer
 
   ColumnFilters<String> get emoji => $composableBuilder(
     column: $table.emoji,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get avatarImageData => $composableBuilder(
+    column: $table.avatarImageData,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -31210,6 +31277,11 @@ class $$MemberGroupsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<Uint8List> get avatarImageData => $composableBuilder(
+    column: $table.avatarImageData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get displayOrder => $composableBuilder(
     column: $table.displayOrder,
     builder: (column) => ColumnOrderings(column),
@@ -31296,6 +31368,11 @@ class $$MemberGroupsTableAnnotationComposer
 
   GeneratedColumn<String> get emoji =>
       $composableBuilder(column: $table.emoji, builder: (column) => column);
+
+  GeneratedColumn<Uint8List> get avatarImageData => $composableBuilder(
+    column: $table.avatarImageData,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get displayOrder => $composableBuilder(
     column: $table.displayOrder,
@@ -31386,6 +31463,7 @@ class $$MemberGroupsTableTableManager
                 Value<String?> description = const Value.absent(),
                 Value<String?> colorHex = const Value.absent(),
                 Value<String?> emoji = const Value.absent(),
+                Value<Uint8List?> avatarImageData = const Value.absent(),
                 Value<int> displayOrder = const Value.absent(),
                 Value<String?> parentGroupId = const Value.absent(),
                 Value<int> groupType = const Value.absent(),
@@ -31405,6 +31483,7 @@ class $$MemberGroupsTableTableManager
                 description: description,
                 colorHex: colorHex,
                 emoji: emoji,
+                avatarImageData: avatarImageData,
                 displayOrder: displayOrder,
                 parentGroupId: parentGroupId,
                 groupType: groupType,
@@ -31426,6 +31505,7 @@ class $$MemberGroupsTableTableManager
                 Value<String?> description = const Value.absent(),
                 Value<String?> colorHex = const Value.absent(),
                 Value<String?> emoji = const Value.absent(),
+                Value<Uint8List?> avatarImageData = const Value.absent(),
                 Value<int> displayOrder = const Value.absent(),
                 Value<String?> parentGroupId = const Value.absent(),
                 Value<int> groupType = const Value.absent(),
@@ -31445,6 +31525,7 @@ class $$MemberGroupsTableTableManager
                 description: description,
                 colorHex: colorHex,
                 emoji: emoji,
+                avatarImageData: avatarImageData,
                 displayOrder: displayOrder,
                 parentGroupId: parentGroupId,
                 groupType: groupType,

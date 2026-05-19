@@ -98,7 +98,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 25;
+  int get schemaVersion => 26;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -730,6 +730,10 @@ class AppDatabase extends _$AppDatabase {
           );
         });
         current = 25;
+      }
+      if (current == 25 && to >= 26) {
+        await migrator.addColumn(memberGroups, memberGroups.avatarImageData);
+        current = 26;
       }
       if (current != to) {
         throw UnsupportedError(
