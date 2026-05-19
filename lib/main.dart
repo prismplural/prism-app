@@ -5,7 +5,8 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb, kReleaseMode;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show FontLoader, rootBundle;
+import 'package:flutter/services.dart'
+    show FontLoader, SystemNavigator, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -18,6 +19,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
+import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/screen_security_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
@@ -51,6 +53,15 @@ void main() async {
     ErrorReportingService.instance.report(error.toString(), stackTrace: stack);
     return kReleaseMode; // In debug, let the error propagate to show the error overlay
   };
+
+  final windowsDataMigration =
+      await migrateWindowsLegacyAppSupportDirIfNeeded();
+  if (windowsDataMigration.shouldBlockStartup) {
+    runApp(
+      _WindowsDataMigrationBlockedApp(reason: windowsDataMigration.reason),
+    );
+    return;
+  }
 
   tz.initializeTimeZones();
   if (!kIsWeb) {
@@ -206,6 +217,77 @@ void main() async {
   //     Workmanager().initialize(callbackDispatcher);
   //   });
   // }
+}
+
+class _WindowsDataMigrationBlockedApp extends StatelessWidget {
+  const _WindowsDataMigrationBlockedApp({required this.reason});
+
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Prism',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF9070A0)),
+        useMaterial3: true,
+      ),
+      home: Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Prism found Windows data that needs recovery',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _windowsDataMigrationBlockedMessage(reason),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const FilledButton(
+                      onPressed: SystemNavigator.pop,
+                      child: Text('Close Prism'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+String _windowsDataMigrationBlockedMessage(String reason) {
+  return switch (reason) {
+    'legacy-in-use' =>
+      'Close every Prism window, including any older extracted copy, then reopen this build. Your existing data was left in place.',
+    'current-has-user-data' =>
+      'Prism found data in both the old and new Windows data folders. Your data was left in place; please contact support before continuing.',
+    _ =>
+      'Prism could not safely move your existing Windows data into the new folder. Your data was left in place; please close Prism and contact support.',
+  };
 }
 
 void _scheduleLinuxEmojiFontLoad() {
