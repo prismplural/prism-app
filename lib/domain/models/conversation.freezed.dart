@@ -15,12 +15,8 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Conversation {
 
- String get id; DateTime get createdAt; DateTime get lastActivityAt; String? get title; String? get emoji; bool get isDirectMessage; String? get creatorId; List<String> get participantIds;// When true, every active member is implicitly a participant. The
-// explicit participantIds list still holds the creator (and is
-// updated when members are explicitly added/removed before the flag
-// is toggled on), but `ConversationPermissions.isParticipant`
-// short-circuits on this flag for active, non-deleted members so
-// toggling on/off doesn't require a sync op per member.
+ String get id; DateTime get createdAt; DateTime get lastActivityAt; String? get title; String? get emoji; bool get isDirectMessage; String? get creatorId; List<String> get participantIds;// When true, every active member is implicitly a participant — avoids
+// a sync op per member on toggle and on every membership change after.
  bool get includesAllMembers; List<String> get archivedByMemberIds; List<String> get mutedByMemberIds; Map<String, DateTime> get lastReadTimestamps; String? get description; String? get categoryId; int get displayOrder;
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
@@ -246,12 +242,8 @@ class _Conversation implements Conversation {
   return EqualUnmodifiableListView(_participantIds);
 }
 
-// When true, every active member is implicitly a participant. The
-// explicit participantIds list still holds the creator (and is
-// updated when members are explicitly added/removed before the flag
-// is toggled on), but `ConversationPermissions.isParticipant`
-// short-circuits on this flag for active, non-deleted members so
-// toggling on/off doesn't require a sync op per member.
+// When true, every active member is implicitly a participant — avoids
+// a sync op per member on toggle and on every membership change after.
 @override@JsonKey() final  bool includesAllMembers;
  final  List<String> _archivedByMemberIds;
 @override@JsonKey() List<String> get archivedByMemberIds {

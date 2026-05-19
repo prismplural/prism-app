@@ -76,8 +76,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
   late final Color? _initialSelectedColor;
   late final String? _initialParentGroupId;
   late final Uint8List? _initialAvatarImageData;
-  // Not late final — updated in the post-frame callback when loading the
-  // persisted show-emoji-on-avatar preference for an existing group.
+  // Mutable: a post-frame callback hydrates this from the SharedPreferences-backed provider.
   bool _initialShowEmojiOnAvatar = true;
 
   bool _bytesEqual(Uint8List? left, Uint8List? right) {
@@ -108,9 +107,6 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     _emoji = g?.emoji;
     _parentGroupId = g?.parentGroupId ?? widget.initialParentGroupId;
     _avatarImageData = g?.avatarImageData;
-    // _showEmojiOnAvatar defaults to true; if editing, we read the persisted
-    // preference asynchronously in a post-frame callback so Riverpod ref is
-    // available.
     _initialName = _nameController.text;
     _initialDescription = _descriptionController.text;
     _initialEmoji = _emoji;
@@ -360,7 +356,6 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
                       ),
                       children: [
-                        // Avatar tile (primary pick affordance).
                         Center(
                           child: GroupAvatarPicker(
                             avatarImageData: _avatarImageData,
@@ -373,8 +368,6 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        // Emoji picker as a smaller secondary affordance below
-                        // the avatar tile.
                         Center(
                           child: PrismEmojiPicker(
                             emoji: _emoji,
@@ -384,8 +377,6 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                             },
                           ),
                         ),
-                        // Emoji-on-avatar toggle only when BOTH avatar and emoji
-                        // are set.
                         if (_avatarImageData != null &&
                             _avatarImageData!.isNotEmpty &&
                             _emoji != null &&
@@ -415,7 +406,6 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Color picker row
                         InkWell(
                           onTap: _openColorPicker,
                           borderRadius: BorderRadius.circular(
@@ -484,7 +474,6 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Description — tap to open full-screen markdown editor
                         InkWell(
                           onTap: _openDescriptionEditor,
                           borderRadius: BorderRadius.circular(
@@ -548,7 +537,6 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Parent group selector
                         InkWell(
                           onTap: _openParentPicker,
                           borderRadius: BorderRadius.circular(

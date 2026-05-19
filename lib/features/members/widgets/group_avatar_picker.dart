@@ -76,8 +76,7 @@ class _GroupAvatarPickerState extends State<GroupAvatarPicker> {
                   .round(),
           gaplessPlayback: true,
           errorBuilder: (_, _, _) {
-            // Mark decode failure so the badge is suppressed, preventing the
-            // emoji from appearing both centred (here) and as a badge overlay.
+            // Suppress the emoji badge on decode failure — otherwise the fallback emoji and the badge double up.
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted && !_imageDecodeFailed) {
                 setState(() => _imageDecodeFailed = true);
