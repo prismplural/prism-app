@@ -1156,10 +1156,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // existing catch.
     final write = await safeSecureWrite(
       kSnapshotApplyCompleteKey,
-      snapshotApplyCompleteMarkerValue(
-        syncId: syncId,
-        deviceId: deviceId,
-      ),
+      snapshotApplyCompleteMarkerValue(syncId: syncId, deviceId: deviceId),
     );
     if (!write.ok) {
       throw PlatformException(
@@ -1397,9 +1394,26 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       // cipher failure during cleanup cannot escape past this helper. The
       // wipe is by-prefix best-effort; individual delete failures are
       // already accepted by the helper.
-      readAll: () async => (await safeSecureReadAll()).entries,
+      readAll: () async {
+        final result = await safeSecureReadAll();
+        if (!result.ok) {
+          throw StateError(
+            'secure storage readAll failed during pairing cleanup '
+            '(failure=${result.failure?.name ?? 'unknown'}, '
+            'code=${result.code}, message=${result.message})',
+          );
+        }
+        return result.entries;
+      },
       deleteKey: (key) async {
-        await safeSecureDelete(key);
+        final result = await safeSecureDelete(key);
+        if (!result.ok) {
+          throw StateError(
+            'secure storage delete failed during pairing cleanup for $key '
+            '(failure=${result.failure?.name ?? 'unknown'}, '
+            'code=${result.code}, message=${result.message})',
+          );
+        }
       },
       includeRuntimeDekWrappingKey: false,
       log: (message) {

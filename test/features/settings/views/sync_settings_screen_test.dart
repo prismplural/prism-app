@@ -315,6 +315,7 @@ void main() {
             hasRelayUrl: false,
             isSyncActive: false,
             isHandleLoading: false,
+            syncDatabaseReady: true,
           ),
           isTrue,
         );
@@ -324,6 +325,7 @@ void main() {
             hasRelayUrl: true,
             isSyncActive: false,
             isHandleLoading: false,
+            syncDatabaseReady: true,
           ),
           isTrue,
         );
@@ -333,6 +335,7 @@ void main() {
             hasRelayUrl: false,
             isSyncActive: false,
             isHandleLoading: false,
+            syncDatabaseReady: true,
           ),
           isFalse,
         );
@@ -348,6 +351,7 @@ void main() {
             hasRelayUrl: true,
             isSyncActive: true,
             isHandleLoading: false,
+            syncDatabaseReady: true,
           ),
           isFalse,
         );
@@ -357,6 +361,33 @@ void main() {
             hasRelayUrl: true,
             isSyncActive: false,
             isHandleLoading: true,
+            syncDatabaseReady: true,
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'disabled when boot probe says the sync database is unrecoverable',
+      () {
+        expect(
+          canTriggerManualSync(
+            hasHandle: false,
+            hasRelayUrl: true,
+            isSyncActive: false,
+            isHandleLoading: false,
+            syncDatabaseReady: false,
+          ),
+          isFalse,
+        );
+        expect(
+          canTriggerManualSync(
+            hasHandle: true,
+            hasRelayUrl: true,
+            isSyncActive: false,
+            isHandleLoading: false,
+            syncDatabaseReady: false,
           ),
           isFalse,
         );

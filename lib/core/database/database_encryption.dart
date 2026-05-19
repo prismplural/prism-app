@@ -430,6 +430,15 @@ Future<SecureWriteResult> writeStagingSyncDatabaseKeyHex(String hex) async {
   return safeSecureWrite('${kSyncDatabaseKeyStorageKey}_staging', hex);
 }
 
+void _requireSecureWriteOk(SecureWriteResult result, String operation) {
+  if (result.ok) return;
+  throw StateError(
+    '$operation failed '
+    '(failure=${result.failure?.name ?? 'unknown'}, code=${result.code}, '
+    'message=${result.message})',
+  );
+}
+
 Future<void> _guardPrimaryWrite({
   required String slotLabel,
   required String hex,
@@ -488,10 +497,11 @@ Future<void> promoteStagingDatabaseKey(
   String stagingHexKey, {
   String? verifiedStartupKey,
 }) async {
-  await writeDatabaseKeyHex(
+  final writeResult = await writeDatabaseKeyHex(
     stagingHexKey,
     verifiedStartupKey: verifiedStartupKey,
   );
+  _requireSecureWriteOk(writeResult, 'Promote staging DB key to primary slot');
   await _safeDelete('${kDatabaseKeyStorageKey}_staging');
   debugPrint('[DB_ENCRYPT] Promoted staging key to primary slot');
 }
@@ -517,7 +527,11 @@ Future<void> cacheDatabaseKey(
   String? verifiedStartupKey,
 }) async {
   final hex = keyBytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-  await writeDatabaseKeyHex(hex, verifiedStartupKey: verifiedStartupKey);
+  final writeResult = await writeDatabaseKeyHex(
+    hex,
+    verifiedStartupKey: verifiedStartupKey,
+  );
+  _requireSecureWriteOk(writeResult, 'Cache Drift database key');
 }
 
 /// Restore the Drift database key from a verified recovery candidate.
@@ -533,7 +547,11 @@ Future<void> restoreDatabaseKeyHexForRecovery(
   if (!validateHexKey(hexKey)) {
     throw ArgumentError.value(hexKey, 'hexKey', 'invalid database key');
   }
-  await writeDatabaseKeyHex(hexKey, verifiedStartupKey: verifiedStartupKey);
+  final writeResult = await writeDatabaseKeyHex(
+    hexKey,
+    verifiedStartupKey: verifiedStartupKey,
+  );
+  _requireSecureWriteOk(writeResult, 'Restore Drift database key');
   await _safeDelete('${kDatabaseKeyStorageKey}_staging');
   debugPrint('[DB_ENCRYPT] Restored missing database key from recovery slot');
 }
@@ -622,9 +640,13 @@ Future<void> promoteStagingSyncDatabaseKey(
   String stagingHexKey, {
   String? verifiedStartupKey,
 }) async {
-  await writeSyncDatabaseKeyHex(
+  final writeResult = await writeSyncDatabaseKeyHex(
     stagingHexKey,
     verifiedStartupKey: verifiedStartupKey,
+  );
+  _requireSecureWriteOk(
+    writeResult,
+    'Promote staging sync DB key to primary slot',
   );
   await _safeDelete('${kSyncDatabaseKeyStorageKey}_staging');
   debugPrint('[DB_ENCRYPT] Promoted sync DB staging key to primary slot');
@@ -650,10 +672,11 @@ Future<String> ensureLocalSyncDatabaseKey({String? verifiedStartupKey}) async {
   // Copy it to the new dedicated slot so the DB remains openable.
   final driftKey = await readDatabaseKeyHex();
   if (driftKey != null) {
-    await writeSyncDatabaseKeyHex(
+    final writeResult = await writeSyncDatabaseKeyHex(
       driftKey,
       verifiedStartupKey: verifiedStartupKey,
     );
+    _requireSecureWriteOk(writeResult, 'Migrate sync DB key from Drift slot');
     debugPrint(
       '[DB_ENCRYPT] Migrated sync DB key from Drift slot to dedicated slot',
     );
@@ -667,7 +690,11 @@ Future<String> ensureLocalSyncDatabaseKey({String? verifiedStartupKey}) async {
     bytes[i] = rng.nextInt(256);
   }
   final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-  await writeSyncDatabaseKeyHex(hex, verifiedStartupKey: verifiedStartupKey);
+  final writeResult = await writeSyncDatabaseKeyHex(
+    hex,
+    verifiedStartupKey: verifiedStartupKey,
+  );
+  _requireSecureWriteOk(writeResult, 'Generate sync database key');
   debugPrint('[DB_ENCRYPT] Generated and cached new sync database key');
   return hex;
 }
@@ -730,9 +757,17 @@ Future<void> rotateDatabaseToKey({
   // but before the primary keychain write, startup reads the staging slot.
   // (Both writes go through the guarded writers; staging writes are refused
   // entirely while keychain repair is pending.)
-  await writeStagingDatabaseKeyHex(newHexKey);
+  final stagingWrite = await writeStagingDatabaseKeyHex(newHexKey);
+  _requireSecureWriteOk(
+    stagingWrite,
+    'Write Drift DB staging key before rekey',
+  );
   await db.customStatement("PRAGMA rekey = \"x'$newHexKey'\";");
-  await writeDatabaseKeyHex(newHexKey, verifiedStartupKey: verifiedStartupKey);
+  final primaryWrite = await writeDatabaseKeyHex(
+    newHexKey,
+    verifiedStartupKey: verifiedStartupKey,
+  );
+  _requireSecureWriteOk(primaryWrite, 'Write Drift DB primary key after rekey');
   await _safeDelete('${kDatabaseKeyStorageKey}_staging');
 }
 

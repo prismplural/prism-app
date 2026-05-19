@@ -27,6 +27,9 @@ enum SyncSetupProgress {
 }
 
 const _sentinel = Object();
+const _syncDatabaseRepairRequiredMessage =
+    'Sync database needs repair before setup can continue. Open Sync '
+    'troubleshooting, reset sync, then pair again.';
 
 class SyncSetupState {
   final SyncSetupStep step;
@@ -120,10 +123,28 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     // Create the handle now so the phrase-verification step can use it.
     // The handle is read back from `prismSyncHandleProvider` at each use
     // site via the `_handle` getter, so we don't cache the return value.
+    if (!_syncDatabaseReadyForSetup()) {
+      state = state.copyWith(error: _syncDatabaseRepairRequiredMessage);
+      return;
+    }
     final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
-    await handleNotifier.createHandle(relayUrl: state.relayUrl);
+    try {
+      await handleNotifier.createHandle(relayUrl: state.relayUrl);
+    } on SyncDbUnrecoverableException {
+      state = state.copyWith(error: _syncDatabaseRepairRequiredMessage);
+      return;
+    }
 
     state = state.copyWith(step: SyncSetupStep.enterPhrase, error: null);
+  }
+
+  bool _syncDatabaseReadyForSetup() {
+    try {
+      return ref.read(syncDatabaseStartupProvider).state ==
+          DbStartupState.ready;
+    } catch (_) {
+      return true;
+    }
   }
 
   void goBack() {
@@ -187,8 +208,7 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       // verify-then-create flow. Cipher failure surfaces as null (the blob
       // is effectively gone for this device) — fall through into the
       // createSyncGroup path without attempting unlock.
-      final wrappedDek =
-          (await safeSecureRead('prism_sync.wrapped_dek')).value;
+      final wrappedDek = (await safeSecureRead('prism_sync.wrapped_dek')).value;
       if (wrappedDek != null) {
         pinBytes = secretUtf8Bytes(pin);
         await ffi.unlock(
@@ -367,7 +387,9 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   /// remains the user-facing failure mode. See `relay_cleanup.dart` and the
   /// Rust FFI doc on `rollback_first_device_registration` for the
   /// outcome shape.
-  Future<void> _runRelayRollbackForFailedSetup(Object originalSetupError) async {
+  Future<void> _runRelayRollbackForFailedSetup(
+    Object originalSetupError,
+  ) async {
     final handle = _handle;
     if (handle == null) {
       // Without a live handle there is nothing to call. The Rust
@@ -471,22 +493,29 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   }) async {
     // Base64-encode before storing — seedRustStore expects base64.
     //
-    // Writes go through [safeSecureWrite]; a failure here is reported
-    // (caller's catch path runs the keychain-snapshot rollback) but does
-    // not propagate as a raw PlatformException.
-    await safeSecureWrite(
+    // Writes go through [safeSecureWrite]; classified failures throw a
+    // non-PlatformException so the caller's rollback path still runs.
+    await _checkedSecureWrite(
       kSyncRelayUrlKey,
       base64Encode(utf8.encode(relayUrl)),
     );
-    await safeSecureWrite(
-      kSyncIdKey,
-      base64Encode(utf8.encode(syncId)),
-    );
+    await _checkedSecureWrite(kSyncIdKey, base64Encode(utf8.encode(syncId)));
     ref.invalidate(relayUrlProvider);
     ref.invalidate(syncIdProvider);
     ref.invalidate(syncDeviceIdProvider);
     ref.invalidate(syncDeviceSecretPresentProvider);
     ref.invalidate(syncWrappedDekPresentProvider);
+  }
+
+  Future<void> _checkedSecureWrite(String key, String value) async {
+    final result = await safeSecureWrite(key, value);
+    if (!result.ok) {
+      throw StateError(
+        'secure storage write failed for $key '
+        '(failure=${result.failure?.name ?? 'unknown'}, code=${result.code}, '
+        'message=${result.message})',
+      );
+    }
   }
 
   Future<Map<String, String>> _snapshotPrismSyncKeychain() async {
@@ -496,7 +525,8 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     );
   }
 
-  Future<Map<String, String>?> _snapshotPrismSyncKeychainWithSetupGuard() async {
+  Future<Map<String, String>?>
+  _snapshotPrismSyncKeychainWithSetupGuard() async {
     try {
       return await _snapshotPrismSyncKeychain();
     } catch (_) {

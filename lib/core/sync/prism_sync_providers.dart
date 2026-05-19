@@ -338,11 +338,11 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
         ),
       );
     }
-    slotOutcomes[DiagnosticSlotIds.syncDbPrimary] =
-        'threw: present-but-stale';
+    slotOutcomes[DiagnosticSlotIds.syncDbPrimary] = 'threw: present-but-stale';
   } else {
-    slotOutcomes[DiagnosticSlotIds.syncDbPrimary] =
-        slotOutcomeName(syncPrimary.outcome);
+    slotOutcomes[DiagnosticSlotIds.syncDbPrimary] = slotOutcomeName(
+      syncPrimary.outcome,
+    );
   }
 
   // ── 4. Sync staging slot ───────────────────────────────────────────────
@@ -370,8 +370,9 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
     slotOutcomes[DiagnosticSlotIds.syncDbSyncStaging] =
         'threw: present-but-stale';
   } else {
-    slotOutcomes[DiagnosticSlotIds.syncDbSyncStaging] =
-        slotOutcomeName(syncStaging.outcome);
+    slotOutcomes[DiagnosticSlotIds.syncDbSyncStaging] = slotOutcomeName(
+      syncStaging.outcome,
+    );
   }
 
   // ── 5. App primary slot (cross-DB recovery candidate) ──────────────────
@@ -430,8 +431,9 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
     slotOutcomes[DiagnosticSlotIds.syncDbAppStagingCandidate] =
         'threw: present-but-stale';
   } else {
-    slotOutcomes[DiagnosticSlotIds.syncDbAppStagingCandidate] =
-        slotOutcomeName(appStaging.outcome);
+    slotOutcomes[DiagnosticSlotIds.syncDbAppStagingCandidate] = slotOutcomeName(
+      appStaging.outcome,
+    );
   }
 
   // ── 7. Unrecoverable ───────────────────────────────────────────────────
@@ -497,17 +499,20 @@ Future<void> wipeSyncDatabaseForRepair({
   final phase = phaseService ?? SyncPairingPhaseService();
   final degraded = degradedStateService ?? KeychainDegradedStateService();
   final currentPhase = await phase.read();
-  if (currentPhase != SyncPairingPhase.unread) {
+  if (currentPhase != SyncPairingPhase.unread &&
+      currentPhase != SyncPairingPhase.wipeInProgress) {
     debugPrint(
-      '[SYNC_WIPE] Refused — phase is ${currentPhase.name}, expected unread',
+      '[SYNC_WIPE] Refused — phase is ${currentPhase.name}, '
+      'expected unread or wipeInProgress',
     );
     throw StateError(
       'wipeSyncDatabaseForRepair refused: phase is ${currentPhase.name}, '
-      'expected unread',
+      'expected unread or wipeInProgress',
     );
   }
   final degradedState = await degraded.read();
-  if (degradedState.syncKey != SlotState.unreadable) {
+  if (currentPhase == SyncPairingPhase.unread &&
+      degradedState.syncKey != SlotState.unreadable) {
     debugPrint(
       '[SYNC_WIPE] Refused — syncKey state is ${degradedState.syncKey.name}, '
       'expected unreadable',
@@ -520,10 +525,14 @@ Future<void> wipeSyncDatabaseForRepair({
 
   // 1. Transition into wipeInProgress BEFORE any destructive step so a
   //    crash mid-flow is recoverable on next launch.
-  await phase.transition(
-    from: SyncPairingPhase.unread,
-    to: SyncPairingPhase.wipeInProgress,
-  );
+  if (currentPhase == SyncPairingPhase.unread) {
+    await phase.transition(
+      from: SyncPairingPhase.unread,
+      to: SyncPairingPhase.wipeInProgress,
+    );
+  } else {
+    debugPrint('[SYNC_WIPE] Resuming wipe from wipeInProgress');
+  }
 
   // 2. Stop any in-flight sync handle. workmanager jobs are currently
   //    disabled — when re-enabled, cancel via Workmanager().cancelAll().
@@ -554,13 +563,7 @@ Future<void> wipeSyncDatabaseForRepair({
     '${kSyncDatabaseKeyStorageKey}_staging',
   ];
   for (final key in syncSlotKeys) {
-    final result = await safeSecureDelete(key);
-    if (!result.ok) {
-      debugPrint(
-        '[SYNC_WIPE] Failed to clear $key '
-        '(failure=${result.failure?.name}, code=${result.code})',
-      );
-    }
+    await _checkedDeleteKey(key);
   }
 
   // 5. Clear sync-related credential slots via guarded delete.
@@ -586,13 +589,7 @@ Future<void> wipeSyncDatabaseForRepair({
     '${_secureStorePrefix}min_signature_version_floor',
   ];
   for (final key in credentialKeys) {
-    final result = await safeSecureDelete(key);
-    if (!result.ok) {
-      debugPrint(
-        '[SYNC_WIPE] Failed to clear $key '
-        '(failure=${result.failure?.name}, code=${result.code})',
-      );
-    }
+    await _checkedDeleteKey(key);
   }
 
   // 6. Transition to pendingPair. The pairing UI takes over from here.
@@ -692,13 +689,9 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
     await excludeFromiCloudBackup(dbPath);
 
-    // §5: the §6 boot path runs probeSyncDatabaseStartup() before runApp
-    // and overrides syncDatabaseStartupProvider with the result. Staging
-    // crash recovery is handled INSIDE the probe; we no longer touch the
-    // staging slot here. We also no longer auto-generate a fresh key when
-    // prism_sync.db exists but the key slot fails — that was the bug
-    // Codex flagged as P1. If the probe says unrecoverable, throw a
-    // typed signal that `build()` translates into a null handle.
+    // Startup already verified the sync DB key and handled staging recovery.
+    // If the existing sync DB cannot be opened, surface degraded sync instead
+    // of generating a replacement key.
     final probeReport = ref.read(syncDatabaseStartupProvider);
     if (probeReport.state == DbStartupState.unrecoverable) {
       throw const SyncDbUnrecoverableException();
@@ -746,9 +739,7 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
 
     final preconfigureSyncId = await _safeReadValue(kSyncIdKey);
     final preconfigureDeviceId = await _safeReadValue(kSyncDeviceIdKey);
-    final preconfigureDeviceSecret = await _safeReadValue(
-      kSyncDeviceSecretKey,
-    );
+    final preconfigureDeviceSecret = await _safeReadValue(kSyncDeviceSecretKey);
     final preconfigureHealth = classifyHealthFromKeychain(
       syncId: preconfigureSyncId,
       deviceId: preconfigureDeviceId,
@@ -1264,6 +1255,14 @@ const kSnapshotApplyCompleteKey =
 
 const _runtimeDekStore = DeviceBoundRuntimeDekStore();
 
+Future<Uint8List> _unwrapRuntimeDek(String blob, String aad) {
+  return _runtimeDekStore.unwrap(blob, aad: aad);
+}
+
+Future<String> _wrapRuntimeDek(Uint8List dekBytes, String aad) {
+  return _runtimeDekStore.wrap(dekBytes, aad: aad);
+}
+
 // ---------------------------------------------------------------------------
 // Module-internal classified helpers (Prism 0.9.2 secure storage remediation §2)
 // ---------------------------------------------------------------------------
@@ -1283,14 +1282,41 @@ const _runtimeDekStore = DeviceBoundRuntimeDekStore();
 Future<String?> _safeReadValue(String key) async =>
     (await safeSecureRead(key)).value;
 
-Future<Map<String, String>> _safeReadAllEntries() async =>
-    (await safeSecureReadAll()).entries;
-
-Future<void> _safeWriteValue(String key, String value) async {
-  await safeSecureWrite(key, value);
+Future<Map<String, String>> _safeReadAllEntries() async {
+  final result = await safeSecureReadAll();
+  if (!result.ok) {
+    throw StateError(
+      'secure storage readAll failed '
+      '(failure=${result.failure?.name ?? 'unknown'}, code=${result.code}, '
+      'message=${result.message})',
+    );
+  }
+  return result.entries;
 }
 
-Future<void> _safeDeleteKey(String key) async {
+Future<void> _checkedWriteValue(String key, String value) async {
+  final result = await safeSecureWrite(key, value);
+  if (!result.ok) {
+    throw StateError(
+      'secure storage write failed for $key '
+      '(failure=${result.failure?.name ?? 'unknown'}, code=${result.code}, '
+      'message=${result.message})',
+    );
+  }
+}
+
+Future<void> _checkedDeleteKey(String key) async {
+  final result = await safeSecureDelete(key);
+  if (!result.ok) {
+    throw StateError(
+      'secure storage delete failed for $key '
+      '(failure=${result.failure?.name ?? 'unknown'}, code=${result.code}, '
+      'message=${result.message})',
+    );
+  }
+}
+
+Future<void> _bestEffortDeleteKey(String key) async {
   await safeSecureDelete(key);
 }
 
@@ -1693,7 +1719,7 @@ Future<void> _clearBiometricSyncDekBestEffort([Ref? ref]) async {
 Future<void> wipeFrontingMigrationSyncKeychain() async {
   await _deleteSyncCredentialKeychainEntries(
     readAll: _safeReadAllEntries,
-    deleteKey: (key) => _safeDeleteKey(key),
+    deleteKey: _checkedDeleteKey,
   );
   try {
     await _runtimeDekStore.deleteWrappingKey();
@@ -2133,11 +2159,11 @@ Future<RuntimeDekRestoreOutcome> _readCachedRuntimeDekForRestoreOutcome({
   return retryRuntimeDekRestoreCore(
     readOnce: () => readCachedRuntimeDekForRestoreOutcomeCore(
       aad: aad,
-      readKey: (key) => _safeReadValue(key),
-      deleteKey: (key) => _safeDeleteKey(key),
-      writeKey: (key, value) => _safeWriteValue(key, value),
-      unwrapDek: (blob, aad) => _runtimeDekStore.unwrap(blob, aad: aad),
-      wrapDek: (dekBytes, aad) => _runtimeDekStore.wrap(dekBytes, aad: aad),
+      readKey: _safeReadValue,
+      deleteKey: _bestEffortDeleteKey,
+      writeKey: _checkedWriteValue,
+      unwrapDek: _unwrapRuntimeDek,
+      wrapDek: _wrapRuntimeDek,
       reportWarning: (message, error, stackTrace) {
         ErrorReportingService.instance.report(
           message,
@@ -2150,8 +2176,8 @@ Future<RuntimeDekRestoreOutcome> _readCachedRuntimeDekForRestoreOutcome({
 }
 
 Future<void> _deleteCachedRuntimeDek({bool deleteWrappingKey = false}) async {
-  await _safeDeleteKey(kRuntimeDekWrappedKey);
-  await _safeDeleteKey(kRuntimeDekKey);
+  await _bestEffortDeleteKey(kRuntimeDekWrappedKey);
+  await _bestEffortDeleteKey(kRuntimeDekKey);
   if (deleteWrappingKey) {
     try {
       await _runtimeDekStore.deleteWrappingKey();
@@ -2238,9 +2264,9 @@ Future<void> cacheRuntimeKeys(
       await writeRuntimeDekCacheCore(
         dekBytes: dekBytes,
         aad: runtimeDekAad,
-        wrapDek: (dekBytes, aad) => _runtimeDekStore.wrap(dekBytes, aad: aad),
-        writeKey: (key, value) => _safeWriteValue(key, value),
-        deleteKey: (key) => _safeDeleteKey(key),
+        wrapDek: _wrapRuntimeDek,
+        writeKey: _checkedWriteValue,
+        deleteKey: _bestEffortDeleteKey,
         preserveLegacyRawOnFailure: preserveLegacyRawOnFailure,
         reportWarning: (message, error, stackTrace) {
           ErrorReportingService.instance.report(
@@ -2327,7 +2353,7 @@ Future<void> cacheRuntimeKeys(
 /// — the keystore is suspect, key rotation must wait until the next boot's
 /// repair path clears the flag. The discard-staging delete after the primary
 /// write goes through [safeSecureDelete]; failure is non-fatal because the
-/// next call to `_safeDeleteKey` (or the §4 boot probe) sweeps it up.
+/// next best-effort cleanup call (or the §4 boot probe) sweeps it up.
 Future<void> _rotateSyncDatabaseKey({
   required ffi.PrismSyncHandle handle,
   required Uint8List newKey,
@@ -2343,13 +2369,27 @@ Future<void> _rotateSyncDatabaseKey({
       .join();
   // Write staging slot before rekeyDb — crash before rekeyDb means staging key
   // ≠ DB key, so createHandle discards the staging slot on next startup.
-  await writeStagingSyncDatabaseKeyHex(newHexKey);
+  final stagingWrite = await writeStagingSyncDatabaseKeyHex(newHexKey);
+  if (!stagingWrite.ok) {
+    throw StateError(
+      'Write sync DB staging key before rekey failed '
+      '(failure=${stagingWrite.failure?.name ?? 'unknown'}, '
+      'code=${stagingWrite.code}, message=${stagingWrite.message})',
+    );
+  }
   await ffi.rekeyDb(handle: handle, newKey: newKey);
-  await writeSyncDatabaseKeyHex(
+  final primaryWrite = await writeSyncDatabaseKeyHex(
     newHexKey,
     verifiedStartupKey: verifiedStartupKey,
   );
-  await _safeDeleteKey('${kSyncDatabaseKeyStorageKey}_staging');
+  if (!primaryWrite.ok) {
+    throw StateError(
+      'Write sync DB primary key after rekey failed '
+      '(failure=${primaryWrite.failure?.name ?? 'unknown'}, '
+      'code=${primaryWrite.code}, message=${primaryWrite.message})',
+    );
+  }
+  await _bestEffortDeleteKey('${kSyncDatabaseKeyStorageKey}_staging');
   debugPrint('[SYNC] Rust sync DB rotated to HKDF-derived local storage key');
 }
 
@@ -2450,8 +2490,8 @@ Future<void> drainRustStore(
   final entries = encodeDrainedEntries(drained);
   await applyDrainedEntries(
     entries: entries,
-    deleteKey: (full) => _safeDeleteKey(full),
-    writeKey: (full, value) => _safeWriteValue(full, value),
+    deleteKey: _checkedDeleteKey,
+    writeKey: _checkedWriteValue,
     shouldAbort: shouldAbort,
   );
 }
@@ -2688,8 +2728,8 @@ Future<void> drainRustStoreWithSnapshotRollback(
   await applyDrainedEntriesWithSnapshotRollback(
     entries: entries,
     rollbackSnapshot: rollbackSnapshot,
-    deleteKey: (full) => _safeDeleteKey(full),
-    writeKey: (full, value) => _safeWriteValue(full, value),
+    deleteKey: _checkedDeleteKey,
+    writeKey: _checkedWriteValue,
     readCurrentNamespace: () => readPrefixed(_secureStorePrefix),
     shouldAbort: shouldAbort,
   );
@@ -4469,7 +4509,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
   Future<void> _wipeSyncKeychainEntries() async {
     await _deleteSyncCredentialKeychainEntries(
       readAll: _safeReadAllEntries,
-      deleteKey: (key) => _safeDeleteKey(key),
+      deleteKey: _checkedDeleteKey,
     );
     try {
       await _runtimeDekStore.deleteWrappingKey();

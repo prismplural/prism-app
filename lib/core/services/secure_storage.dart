@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -29,10 +30,7 @@ const secureStorage = FlutterSecureStorage(
   iOptions: IOSOptions(
     accessibility: KeychainAccessibility.first_unlock_this_device,
   ),
-  aOptions: AndroidOptions(
-    resetOnError: false,
-    migrateWithBackup: true,
-  ),
+  aOptions: AndroidOptions(resetOnError: false, migrateWithBackup: true),
 );
 
 // ---------------------------------------------------------------------------
@@ -53,6 +51,100 @@ const secureStorage = FlutterSecureStorage(
 /// - [unknown]: everything else. Treat as failure but don't retry blindly.
 enum SecureStorageFailure { cipher, transient, unknown }
 
+/// Operations supported by the debug-only secure-storage fault injector.
+///
+/// The injector is inactive in release builds. It exists so on-device QA can
+/// exercise wrapper classification and rollback paths without needing to
+/// induce a real Keychain / Keystore failure.
+enum SecureStorageFaultOperation { read, readAll, write, delete, deleteAll }
+
+class SecureStorageInjectedFault {
+  const SecureStorageInjectedFault({
+    required this.operation,
+    required this.failure,
+    this.key,
+  });
+
+  final SecureStorageFaultOperation operation;
+  final SecureStorageFailure failure;
+  final String? key;
+
+  String get label {
+    final keySuffix = key == null ? '' : '($key)';
+    return '${operation.name}$keySuffix → ${failure.name}';
+  }
+}
+
+class SecureStorageFaultInjector {
+  SecureStorageFaultInjector._();
+
+  static final List<SecureStorageInjectedFault> _pending =
+      <SecureStorageInjectedFault>[];
+
+  static bool get enabled => !kReleaseMode;
+
+  static List<SecureStorageInjectedFault> get pending =>
+      List.unmodifiable(_pending);
+
+  static void queueNext({
+    required SecureStorageFaultOperation operation,
+    SecureStorageFailure failure = SecureStorageFailure.cipher,
+    String? key,
+  }) {
+    if (!enabled) return;
+    _pending.add(
+      SecureStorageInjectedFault(
+        operation: operation,
+        failure: failure,
+        key: key,
+      ),
+    );
+  }
+
+  static void clear() {
+    _pending.clear();
+  }
+
+  static PlatformException? take(
+    SecureStorageFaultOperation operation, {
+    String? key,
+  }) {
+    if (!enabled || _pending.isEmpty) return null;
+    final index = _pending.indexWhere((fault) {
+      if (fault.operation != operation) return false;
+      return fault.key == null || fault.key == key;
+    });
+    if (index < 0) return null;
+    final fault = _pending.removeAt(index);
+    return _exceptionFor(fault.failure);
+  }
+
+  static PlatformException _exceptionFor(SecureStorageFailure failure) {
+    switch (failure) {
+      case SecureStorageFailure.cipher:
+        return PlatformException(
+          code: 'Exception encountered',
+          message:
+              'error:1e000065:Cipher functions:OPENSSL_internal:BAD_DECRYPT',
+          details:
+              'javax.crypto.AEADBadTagException: Error while decrypting '
+              '(injected by Prism debug fault injector)',
+        );
+      case SecureStorageFailure.transient:
+        return PlatformException(
+          code: 'UserNotAuthenticated',
+          message:
+              'UserNotAuthenticated: injected by Prism debug fault injector',
+        );
+      case SecureStorageFailure.unknown:
+        return PlatformException(
+          code: 'PrismInjectedSecureStorageFault',
+          message: 'Injected secure-storage failure',
+        );
+    }
+  }
+}
+
 /// Substring fragments that indicate a cipher-level failure.
 ///
 /// Matched case-insensitively against [PlatformException.code], `details`,
@@ -72,10 +164,7 @@ const _kCipherSubstrings = <String>[
 ];
 
 /// Substring fragments that indicate a transient platform-side failure.
-const _kTransientSubstrings = <String>[
-  'usernotauthenticated',
-  'backendbusy',
-];
+const _kTransientSubstrings = <String>['usernotauthenticated', 'backendbusy'];
 
 /// Classify a [PlatformException] raised by `flutter_secure_storage`.
 ///
@@ -125,12 +214,7 @@ SecureStorageFailure? _classifyText(String text) {
 /// - When the operation failed [failure] is set and [value] is null; the
 ///   raw platform [code] and [message] are preserved for diagnostics.
 class SecureReadResult {
-  const SecureReadResult({
-    this.value,
-    this.failure,
-    this.code,
-    this.message,
-  });
+  const SecureReadResult({this.value, this.failure, this.code, this.message});
 
   /// Stored value, or null when the key was absent or the read failed.
   final String? value;
@@ -217,6 +301,11 @@ Future<SecureReadResult> safeSecureRead(
   FlutterSecureStorage storage = secureStorage,
 }) async {
   try {
+    final injected = SecureStorageFaultInjector.take(
+      SecureStorageFaultOperation.read,
+      key: key,
+    );
+    if (injected != null) throw injected;
     final value = await storage.read(key: key);
     return SecureReadResult(value: value);
   } on PlatformException catch (e) {
@@ -234,6 +323,10 @@ Future<SecureReadAllResult> safeSecureReadAll({
   FlutterSecureStorage storage = secureStorage,
 }) async {
   try {
+    final injected = SecureStorageFaultInjector.take(
+      SecureStorageFaultOperation.readAll,
+    );
+    if (injected != null) throw injected;
     final all = await storage.readAll();
     return SecureReadAllResult(entries: Map<String, String>.from(all));
   } on PlatformException catch (e) {
@@ -283,6 +376,11 @@ Future<SecureWriteResult> safeSecureWrite(
   FlutterSecureStorage storage = secureStorage,
 }) async {
   try {
+    final injected = SecureStorageFaultInjector.take(
+      SecureStorageFaultOperation.write,
+      key: key,
+    );
+    if (injected != null) throw injected;
     await storage.write(key: key, value: value);
     return const SecureWriteResult();
   } on PlatformException catch (e) {
@@ -301,6 +399,11 @@ Future<SecureDeleteResult> safeSecureDelete(
   FlutterSecureStorage storage = secureStorage,
 }) async {
   try {
+    final injected = SecureStorageFaultInjector.take(
+      SecureStorageFaultOperation.delete,
+      key: key,
+    );
+    if (injected != null) throw injected;
     await storage.delete(key: key);
     return const SecureDeleteResult();
   } on PlatformException catch (e) {
@@ -318,6 +421,10 @@ Future<SecureDeleteResult> safeSecureDeleteAll({
   FlutterSecureStorage storage = secureStorage,
 }) async {
   try {
+    final injected = SecureStorageFaultInjector.take(
+      SecureStorageFaultOperation.deleteAll,
+    );
+    if (injected != null) throw injected;
     await storage.deleteAll();
     return const SecureDeleteResult();
   } on PlatformException catch (e) {

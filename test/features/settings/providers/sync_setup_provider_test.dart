@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/sync_setup_provider.dart';
@@ -12,6 +13,8 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 /// from `core/services/secure_storage.dart` go through its real code path.
 class _InMemoryKeychain {
   final Map<String, String> values = <String, String>{};
+  final Map<String, List<PlatformException>> throwOnWriteKeyQueue =
+      <String, List<PlatformException>>{};
   bool throwOnReadAll = false;
 
   void install() {
@@ -36,7 +39,12 @@ class _InMemoryKeychain {
       case 'read':
         return values[args['key'] as String];
       case 'write':
-        values[args['key'] as String] = args['value'] as String;
+        final key = args['key'] as String;
+        final queue = throwOnWriteKeyQueue[key];
+        if (queue != null && queue.isNotEmpty) {
+          throw queue.removeAt(0);
+        }
+        values[key] = args['value'] as String;
         return null;
       case 'delete':
         values.remove(args['key'] as String);
@@ -107,9 +115,13 @@ void main() {
 
   ProviderContainer makeContainer({
     required _FakePrismSyncHandleNotifier handleNotifier,
+    List<dynamic> overrides = const [],
   }) {
     final container = ProviderContainer(
-      overrides: [prismSyncHandleProvider.overrideWith(() => handleNotifier)],
+      overrides: [
+        prismSyncHandleProvider.overrideWith(() => handleNotifier),
+        ...overrides.cast(),
+      ],
     );
     addTearDown(container.dispose);
     return container;
@@ -184,6 +196,39 @@ void main() {
         expect(keychain.values['prism_sync.sync_id'], 'bmV3LXN5bmM=');
       },
     );
+
+    test('throws when a classified identity write fails', () async {
+      keychain.throwOnWriteKeyQueue[kSyncIdKey] = [
+        PlatformException(
+          code: 'Exception encountered',
+          message:
+              'error:1e000065:Cipher functions:OPENSSL_internal:BAD_DECRYPT',
+        ),
+      ];
+
+      final notifier = _FakePrismSyncHandleNotifier(
+        const _FakePrismSyncHandle(),
+      );
+      final container = makeContainer(handleNotifier: notifier);
+      final setup = container.read(syncSetupProvider.notifier);
+
+      await expectLater(
+        () => setup.persistSyncIdentityForTest(
+          relayUrl: 'https://sync.prismplural.com',
+          syncId: 'new-sync',
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('secure storage write failed for $kSyncIdKey'),
+          ),
+        ),
+      );
+
+      expect(keychain.values.containsKey(kSyncRelayUrlKey), isTrue);
+      expect(keychain.values.containsKey(kSyncIdKey), isFalse);
+    });
   });
 
   // ── Phase 1A — convention-based rollback test ──────────────────────────
@@ -378,30 +423,21 @@ void main() {
   // ── Keychain snapshot failure handling ─────────────────────────────────
 
   group('SyncSetupNotifier snapshot error path', () {
-    test(
-      'snapshot helper propagates keychain readAll failures',
-      () async {
-        // Documents the failure mode that `_complete` now guards against:
-        // a keychain readAll throw would escape past `isProcessing: true`
-        // and leave the setup sheet spinning. The fix wraps the snapshot
-        // in a try/catch that surfaces a user-facing error and resets
-        // state; this test pins that the underlying helper still throws
-        // when storage fails, so the guard remains load-bearing.
-        keychain.throwOnReadAll = true;
-        addTearDown(() => keychain.throwOnReadAll = false);
+    test('snapshot helper propagates keychain readAll failures', () async {
+      keychain.throwOnReadAll = true;
+      addTearDown(() => keychain.throwOnReadAll = false);
 
-        final notifier = _FakePrismSyncHandleNotifier(
-          const _FakePrismSyncHandle(),
-        );
-        final container = makeContainer(handleNotifier: notifier);
-        final setup = container.read(syncSetupProvider.notifier);
+      final notifier = _FakePrismSyncHandleNotifier(
+        const _FakePrismSyncHandle(),
+      );
+      final container = makeContainer(handleNotifier: notifier);
+      final setup = container.read(syncSetupProvider.notifier);
 
-        await expectLater(
-          setup.snapshotPrismSyncKeychainForTest(),
-          throwsA(isA<PlatformException>()),
-        );
-      },
-    );
+      await expectLater(
+        setup.snapshotPrismSyncKeychainForTest(),
+        throwsA(isA<PlatformException>()),
+      );
+    });
 
     test(
       'guarded snapshot failure resets setup state and records retryable error',
@@ -432,6 +468,37 @@ void main() {
   // ── Phase 4D — handle re-read on submitPhrase ───────────────────────────
 
   group('SyncSetupNotifier handle re-read (Phase 4D)', () {
+    test(
+      'proceedToEnterPhrase blocks handle creation when sync DB is unrecoverable',
+      () async {
+        final handleNotifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(
+          handleNotifier: handleNotifier,
+          overrides: [
+            syncDatabaseStartupProvider.overrideWithValue(
+              const DbStartupReport(
+                state: DbStartupState.unrecoverable,
+                keyInMemory: null,
+                usedRecoverySlot: null,
+                diagnostic: null,
+              ),
+            ),
+          ],
+        );
+        final setup = container.read(syncSetupProvider.notifier);
+
+        setup.setRelayUrl('https://example.com');
+        await setup.proceedToEnterPhrase();
+
+        final state = container.read(syncSetupProvider);
+        expect(state.step, SyncSetupStep.intro);
+        expect(state.error, contains('Sync database needs repair'));
+        expect(handleNotifier.lastRelayUrl, isNull);
+      },
+    );
+
     test(
       'submitPhrase surfaces clean error when handle was invalidated',
       () async {
@@ -475,10 +542,7 @@ void main() {
   });
 
   // ── Block 4 — setup-failure relay rollback ──────────────────────────────
-  // These exercise the `_runRelayRollbackForFailedSetup` seam directly.
-  // The full `_complete` catch path can't run in pure-Dart tests because
-  // `createSyncGroup` etc. live behind the FFI; the `runRelayRollbackForFailedSetupForTest`
-  // hook lets us pin the contract anyway.
+  // Exercise rollback directly; full setup is behind FFI.
 
   group('SyncSetupNotifier setup-failure relay rollback (Block 4)', () {
     setUp(ErrorReportingService.instance.clear);
@@ -556,61 +620,49 @@ void main() {
       },
     );
 
-    test(
-      'rollback returning NoOp suppresses the warning entirely',
-      () async {
-        // No-op means the Rust secure store had nothing usable to clean up
-        // (e.g. setup failed before `create_sync_group` returned), so there
-        // is no follow-up signal to surface — the original setup error is
-        // already enough.
-        final notifier = _FakePrismSyncHandleNotifier(
-          const _FakePrismSyncHandle(),
-        );
-        final container = makeContainer(handleNotifier: notifier);
-        await container.read(prismSyncHandleProvider.future);
-        final setup = container.read(syncSetupProvider.notifier);
-        setup.rollbackFirstDeviceRegistrationFnForTest =
-            ({required ffi.PrismSyncHandle handle}) async =>
-                '{"outcome":"no_op","reason":"sync_id missing"}';
+    test('rollback returning NoOp suppresses the warning entirely', () async {
+      final notifier = _FakePrismSyncHandleNotifier(
+        const _FakePrismSyncHandle(),
+      );
+      final container = makeContainer(handleNotifier: notifier);
+      await container.read(prismSyncHandleProvider.future);
+      final setup = container.read(syncSetupProvider.notifier);
+      setup.rollbackFirstDeviceRegistrationFnForTest =
+          ({required ffi.PrismSyncHandle handle}) async =>
+              '{"outcome":"no_op","reason":"sync_id missing"}';
 
-        await setup.runRelayRollbackForFailedSetupForTest(
-          Exception('configureEngine failed'),
-        );
+      await setup.runRelayRollbackForFailedSetupForTest(
+        Exception('configureEngine failed'),
+      );
 
-        expect(
-          ErrorReportingService.instance.errors,
-          isEmpty,
-          reason: 'no_op rollback must not emit a warning',
-        );
-      },
-    );
+      expect(
+        ErrorReportingService.instance.errors,
+        isEmpty,
+        reason: 'no_op rollback must not emit a warning',
+      );
+    });
 
-    test(
-      'rollback FFI throwing is caught and reported as warning',
-      () async {
-        final notifier = _FakePrismSyncHandleNotifier(
-          const _FakePrismSyncHandle(),
-        );
-        final container = makeContainer(handleNotifier: notifier);
-        await container.read(prismSyncHandleProvider.future);
-        final setup = container.read(syncSetupProvider.notifier);
-        setup.rollbackFirstDeviceRegistrationFnForTest =
-            ({required ffi.PrismSyncHandle handle}) async {
-              throw Exception('relay 502');
-            };
+    test('rollback FFI throwing is caught and reported as warning', () async {
+      final notifier = _FakePrismSyncHandleNotifier(
+        const _FakePrismSyncHandle(),
+      );
+      final container = makeContainer(handleNotifier: notifier);
+      await container.read(prismSyncHandleProvider.future);
+      final setup = container.read(syncSetupProvider.notifier);
+      setup.rollbackFirstDeviceRegistrationFnForTest =
+          ({required ffi.PrismSyncHandle handle}) async {
+            throw Exception('relay 502');
+          };
 
-        // Must NOT throw — the original setup error is what propagates.
-        await setup.runRelayRollbackForFailedSetupForTest(
-          Exception('drainRustStore failed'),
-        );
+      await setup.runRelayRollbackForFailedSetupForTest(
+        Exception('drainRustStore failed'),
+      );
 
-        final reports = ErrorReportingService.instance.errors;
-        expect(reports, hasLength(1));
-        expect(reports.single.severity, ErrorSeverity.warning);
-        // Inner FFI throw bubbles into the wrapper as null → warning.
-        expect(reports.single.message, contains('FFI threw'));
-      },
-    );
+      final reports = ErrorReportingService.instance.errors;
+      expect(reports, hasLength(1));
+      expect(reports.single.severity, ErrorSeverity.warning);
+      expect(reports.single.message, contains('FFI threw'));
+    });
 
     test(
       'no-op when handle is null (process death / provider invalidation)',
@@ -629,9 +681,7 @@ void main() {
               return '{"outcome":"deregistered"}';
             };
 
-        // Drop the handle BEFORE the catch path runs (mirrors a provider
-        // invalidation between createSyncGroup returning and configureEngine
-        // throwing).
+        // Simulate provider invalidation before rollback runs.
         handleNotifier.clearHandle();
 
         await setup.runRelayRollbackForFailedSetupForTest(

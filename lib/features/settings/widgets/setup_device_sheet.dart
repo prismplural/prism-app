@@ -98,6 +98,10 @@ class SetupDeviceSheet {
     }
     if (handle != null) return handle;
 
+    if (!_syncDatabaseReadyForHandleRestore(ref)) {
+      return null;
+    }
+
     final relayUrl = await ref.read(relayUrlProvider.future);
     final syncId = await ref.read(syncIdProvider.future);
     final deviceId = await ref.read(syncDeviceIdProvider.future);
@@ -119,6 +123,15 @@ class SetupDeviceSheet {
           .createHandle(relayUrl: relayUrl!);
     } catch (_) {
       return null;
+    }
+  }
+
+  static bool _syncDatabaseReadyForHandleRestore(WidgetRef ref) {
+    try {
+      return ref.read(syncDatabaseStartupProvider).state ==
+          DbStartupState.ready;
+    } catch (_) {
+      return true;
     }
   }
 }

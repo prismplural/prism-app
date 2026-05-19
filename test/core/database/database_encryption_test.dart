@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart' as raw;
 
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 
@@ -28,6 +30,12 @@ class _SecureStorageStub {
   final Map<String, List<PlatformException>> throwOnReadKeyQueue =
       <String, List<PlatformException>>{};
 
+  /// Per-key queued write exceptions. If the queue is non-empty, the next
+  /// write for that key throws the first entry and removes it. The store is
+  /// left unchanged, matching a platform write failure.
+  final Map<String, List<PlatformException>> throwOnWriteKeyQueue =
+      <String, List<PlatformException>>{};
+
   void setup() {
     TestWidgetsFlutterBinding.ensureInitialized();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -38,6 +46,10 @@ class _SecureStorageStub {
               case 'write':
                 final key = call.arguments['key'] as String;
                 final value = call.arguments['value'] as String?;
+                final queue = throwOnWriteKeyQueue[key];
+                if (queue != null && queue.isNotEmpty) {
+                  throw queue.removeAt(0);
+                }
                 _store[key] = value;
                 return null;
               case 'read':
@@ -71,24 +83,25 @@ class _SecureStorageStub {
     _store.clear();
     readCalls.clear();
     throwOnReadKeyQueue.clear();
+    throwOnWriteKeyQueue.clear();
   }
 }
 
 PlatformException _cipherException() => PlatformException(
-      code: 'Exception encountered',
-      message: 'error:1e000065:Cipher functions:OPENSSL_internal:BAD_DECRYPT',
-      details:
-          'javax.crypto.AEADBadTagException: Error while decrypting\n\tat '
-          'com.it_nomads.fluttersecurestorage.FlutterSecureStorage.read(FlutterSecureStorage.java:200)',
-    );
+  code: 'Exception encountered',
+  message: 'error:1e000065:Cipher functions:OPENSSL_internal:BAD_DECRYPT',
+  details:
+      'javax.crypto.AEADBadTagException: Error while decrypting\n\tat '
+      'com.it_nomads.fluttersecurestorage.FlutterSecureStorage.read(FlutterSecureStorage.java:200)',
+);
 
 PlatformException _transientException() => PlatformException(
-      code: 'Exception encountered',
-      message: 'UserNotAuthenticated',
-      details:
-          'android.security.keystore.UserNotAuthenticatedException: '
-          'User not authenticated',
-    );
+  code: 'Exception encountered',
+  message: 'UserNotAuthenticated',
+  details:
+      'android.security.keystore.UserNotAuthenticatedException: '
+      'User not authenticated',
+);
 
 void main() {
   // ---------------------------------------------------------------------------
@@ -622,29 +635,33 @@ void main() {
       expect(storageStub.readCalls[kDatabaseKeyStorageKey], 1);
     });
 
-    test('transient failure retries and returns the value on recovery',
-        () async {
-      final hexKey = 'cd' * 32;
-      storageStub._store[kDatabaseKeyStorageKey] = hexKey;
-      storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
-        _transientException(),
-      ];
-      expect(await readDatabaseKeyHex(), equals(hexKey));
-      // Initial attempt + one retry = 2 calls.
-      expect(storageStub.readCalls[kDatabaseKeyStorageKey], 2);
-    });
+    test(
+      'transient failure retries and returns the value on recovery',
+      () async {
+        final hexKey = 'cd' * 32;
+        storageStub._store[kDatabaseKeyStorageKey] = hexKey;
+        storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
+          _transientException(),
+        ];
+        expect(await readDatabaseKeyHex(), equals(hexKey));
+        // Initial attempt + one retry = 2 calls.
+        expect(storageStub.readCalls[kDatabaseKeyStorageKey], 2);
+      },
+    );
 
-    test('transient failure exhausts retries → null after 3 attempts',
-        () async {
-      storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
-        _transientException(),
-        _transientException(),
-        _transientException(),
-      ];
-      expect(await readDatabaseKeyHex(), isNull);
-      // Initial + 2 retries.
-      expect(storageStub.readCalls[kDatabaseKeyStorageKey], 3);
-    });
+    test(
+      'transient failure exhausts retries → null after 3 attempts',
+      () async {
+        storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
+          _transientException(),
+          _transientException(),
+          _transientException(),
+        ];
+        expect(await readDatabaseKeyHex(), isNull);
+        // Initial + 2 retries.
+        expect(storageStub.readCalls[kDatabaseKeyStorageKey], 3);
+      },
+    );
   });
 
   group('readSyncDatabaseKeyHex classified failures', () {
@@ -795,10 +812,7 @@ void main() {
 
     test('matching verifiedStartupKey allowed during repair-pending', () async {
       await setKeychainRepairPending(true);
-      final result = await writeDatabaseKeyHex(
-        hex,
-        verifiedStartupKey: hex,
-      );
+      final result = await writeDatabaseKeyHex(hex, verifiedStartupKey: hex);
       expect(result.ok, isTrue);
       expect(storageStub._store[kDatabaseKeyStorageKey], equals(hex));
     });
@@ -815,10 +829,7 @@ void main() {
 
     test('null verifiedStartupKey refused during repair-pending', () async {
       await setKeychainRepairPending(true);
-      expect(
-        () => writeDatabaseKeyHex(hex),
-        throwsStateError,
-      );
+      expect(() => writeDatabaseKeyHex(hex), throwsStateError);
       expect(storageStub._store.containsKey(kDatabaseKeyStorageKey), isFalse);
     });
   });
@@ -865,10 +876,7 @@ void main() {
 
     test('null verifiedStartupKey refused during repair-pending', () async {
       await setKeychainRepairPending(true);
-      expect(
-        () => writeSyncDatabaseKeyHex(hex),
-        throwsStateError,
-      );
+      expect(() => writeSyncDatabaseKeyHex(hex), throwsStateError);
       expect(
         storageStub._store.containsKey(kSyncDatabaseKeyStorageKey),
         isFalse,
@@ -891,44 +899,203 @@ void main() {
 
     tearDown(() => storageStub.teardown());
 
-    test('writeStagingDatabaseKeyHex passes through when not pending',
-        () async {
-      final result = await writeStagingDatabaseKeyHex(hex);
-      expect(result.ok, isTrue);
-      expect(
-        storageStub._store['${kDatabaseKeyStorageKey}_staging'],
-        equals(hex),
-      );
+    test(
+      'writeStagingDatabaseKeyHex passes through when not pending',
+      () async {
+        final result = await writeStagingDatabaseKeyHex(hex);
+        expect(result.ok, isTrue);
+        expect(
+          storageStub._store['${kDatabaseKeyStorageKey}_staging'],
+          equals(hex),
+        );
+      },
+    );
+
+    test(
+      'writeStagingDatabaseKeyHex refused entirely during pending',
+      () async {
+        await setKeychainRepairPending(true);
+        expect(() => writeStagingDatabaseKeyHex(hex), throwsStateError);
+        expect(
+          storageStub._store.containsKey('${kDatabaseKeyStorageKey}_staging'),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'writeStagingSyncDatabaseKeyHex passes through when not pending',
+      () async {
+        final result = await writeStagingSyncDatabaseKeyHex(hex);
+        expect(result.ok, isTrue);
+        expect(
+          storageStub._store['${kSyncDatabaseKeyStorageKey}_staging'],
+          equals(hex),
+        );
+      },
+    );
+
+    test(
+      'writeStagingSyncDatabaseKeyHex refused entirely during pending',
+      () async {
+        await setKeychainRepairPending(true);
+        expect(() => writeStagingSyncDatabaseKeyHex(hex), throwsStateError);
+        expect(
+          storageStub._store.containsKey(
+            '${kSyncDatabaseKeyStorageKey}_staging',
+          ),
+          isFalse,
+        );
+      },
+    );
+  });
+
+  group('high-level DB key writers require durable primary writes', () {
+    late _SecureStorageStub storageStub;
+    final hex = '23' * 32;
+
+    setUp(() {
+      storageStub = _SecureStorageStub()..setup();
+      SharedPreferences.setMockInitialValues({});
     });
 
-    test('writeStagingDatabaseKeyHex refused entirely during pending',
-        () async {
-      await setKeychainRepairPending(true);
-      expect(() => writeStagingDatabaseKeyHex(hex), throwsStateError);
+    tearDown(() => storageStub.teardown());
+
+    test(
+      'promoteStagingDatabaseKey keeps staging when primary write fails',
+      () async {
+        const stagingSlot = '${kDatabaseKeyStorageKey}_staging';
+        storageStub._store[kDatabaseKeyStorageKey] = '11' * 32;
+        storageStub._store[stagingSlot] = hex;
+        storageStub.throwOnWriteKeyQueue[kDatabaseKeyStorageKey] = [
+          _cipherException(),
+        ];
+
+        await expectLater(
+          () => promoteStagingDatabaseKey(hex),
+          throwsStateError,
+        );
+
+        expect(storageStub._store[kDatabaseKeyStorageKey], '11' * 32);
+        expect(
+          storageStub._store[stagingSlot],
+          hex,
+          reason: 'staging must remain available for next-boot recovery',
+        );
+      },
+    );
+
+    test(
+      'promoteStagingSyncDatabaseKey keeps staging when primary write fails',
+      () async {
+        const stagingSlot = '${kSyncDatabaseKeyStorageKey}_staging';
+        storageStub._store[kSyncDatabaseKeyStorageKey] = '12' * 32;
+        storageStub._store[stagingSlot] = hex;
+        storageStub.throwOnWriteKeyQueue[kSyncDatabaseKeyStorageKey] = [
+          _cipherException(),
+        ];
+
+        await expectLater(
+          () => promoteStagingSyncDatabaseKey(hex),
+          throwsStateError,
+        );
+
+        expect(storageStub._store[kSyncDatabaseKeyStorageKey], '12' * 32);
+        expect(storageStub._store[stagingSlot], hex);
+      },
+    );
+
+    test('ensureLocalSyncDatabaseKey does not report success when migration '
+        'write fails', () async {
+      final driftKey = '42' * 32;
+      storageStub._store[kDatabaseKeyStorageKey] = driftKey;
+      storageStub.throwOnWriteKeyQueue[kSyncDatabaseKeyStorageKey] = [
+        _cipherException(),
+      ];
+
+      await expectLater(ensureLocalSyncDatabaseKey, throwsStateError);
+
+      expect(
+        storageStub._store.containsKey(kSyncDatabaseKeyStorageKey),
+        isFalse,
+      );
+    });
+  });
+
+  group('rotateDatabaseToKey requires durable staging and primary writes', () {
+    late Directory tempDir;
+    late _SecureStorageStub storageStub;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('prism_rotate_guard_');
+      storageStub = _SecureStorageStub()..setup();
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    tearDown(() {
+      if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      storageStub.teardown();
+    });
+
+    String hexFor(int fill) => fill.toRadixString(16).padLeft(2, '0') * 32;
+    Uint8List bytesFor(int fill) => Uint8List.fromList(List.filled(32, fill));
+
+    Future<AppDatabase> openAppDb(String path, String hexKey) async {
+      final db = AppDatabase(
+        NativeDatabase(File(path), setup: makeCipherSetup(hexKey)),
+      );
+      await db.customSelect('SELECT 1').get();
+      return db;
+    }
+
+    test('staging write failure aborts before PRAGMA rekey', () async {
+      final dbPath = '${tempDir.path}/prism.db';
+      final oldHex = hexFor(0x31);
+      final newBytes = bytesFor(0x32);
+      storageStub._store[kDatabaseKeyStorageKey] = oldHex;
+      storageStub.throwOnWriteKeyQueue['${kDatabaseKeyStorageKey}_staging'] = [
+        _cipherException(),
+      ];
+      final db = await openAppDb(dbPath, oldHex);
+
+      await expectLater(
+        () => rotateDatabaseToKey(db: db, newKey: newBytes),
+        throwsStateError,
+      );
+      await db.close();
+
+      expect(tryOpenEncryptedDb(dbPath, oldHex), isTrue);
+      expect(tryOpenEncryptedDb(dbPath, hexFor(0x32)), isFalse);
       expect(
         storageStub._store.containsKey('${kDatabaseKeyStorageKey}_staging'),
         isFalse,
       );
     });
 
-    test('writeStagingSyncDatabaseKeyHex passes through when not pending',
-        () async {
-      final result = await writeStagingSyncDatabaseKeyHex(hex);
-      expect(result.ok, isTrue);
-      expect(
-        storageStub._store['${kSyncDatabaseKeyStorageKey}_staging'],
-        equals(hex),
-      );
-    });
+    test('primary write failure keeps staging after PRAGMA rekey', () async {
+      final dbPath = '${tempDir.path}/prism.db';
+      final oldHex = hexFor(0x41);
+      final newHex = hexFor(0x42);
+      final newBytes = bytesFor(0x42);
+      storageStub._store[kDatabaseKeyStorageKey] = oldHex;
+      storageStub.throwOnWriteKeyQueue[kDatabaseKeyStorageKey] = [
+        _cipherException(),
+      ];
+      final db = await openAppDb(dbPath, oldHex);
 
-    test('writeStagingSyncDatabaseKeyHex refused entirely during pending',
-        () async {
-      await setKeychainRepairPending(true);
-      expect(() => writeStagingSyncDatabaseKeyHex(hex), throwsStateError);
+      await expectLater(
+        () => rotateDatabaseToKey(db: db, newKey: newBytes),
+        throwsStateError,
+      );
+      await db.close();
+
+      expect(tryOpenEncryptedDb(dbPath, newHex), isTrue);
+      expect(tryOpenEncryptedDb(dbPath, oldHex), isFalse);
+      expect(storageStub._store[kDatabaseKeyStorageKey], oldHex);
       expect(
-        storageStub._store
-            .containsKey('${kSyncDatabaseKeyStorageKey}_staging'),
-        isFalse,
+        storageStub._store['${kDatabaseKeyStorageKey}_staging'],
+        newHex,
+        reason: 'next boot needs staging to recover the rekeyed DB',
       );
     });
   });

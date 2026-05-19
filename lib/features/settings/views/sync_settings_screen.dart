@@ -37,7 +37,9 @@ bool canTriggerManualSync({
   required bool hasRelayUrl,
   required bool isSyncActive,
   required bool isHandleLoading,
+  required bool syncDatabaseReady,
 }) {
+  if (!syncDatabaseReady) return false;
   if (isSyncActive || isHandleLoading) return false;
   return hasHandle || hasRelayUrl;
 }
@@ -409,6 +411,7 @@ class _ConfiguredView extends ConsumerWidget {
     final handleAsync = ref.watch(prismSyncHandleProvider);
     final handle = handleAsync.value;
     final isHandleLoading = handleAsync.isLoading && handle == null;
+    final syncDatabaseReady = _watchSyncDatabaseReadyForUi(ref);
     final nodeId = ref.watch(nodeIdProvider).value;
     final wsConnected = ref.watch(websocketConnectedProvider);
 
@@ -440,6 +443,7 @@ class _ConfiguredView extends ConsumerWidget {
       hasRelayUrl: hasRelayUrl,
       isSyncActive: isSyncActive,
       isHandleLoading: isHandleLoading,
+      syncDatabaseReady: syncDatabaseReady,
     );
 
     return ListView(
@@ -465,6 +469,8 @@ class _ConfiguredView extends ConsumerWidget {
                   title: context.l10n.syncNowTitle,
                   subtitle: isSyncActive
                       ? context.l10n.syncInProgress
+                      : !syncDatabaseReady
+                      ? 'Sync database needs repair before syncing.'
                       : isHandleLoading
                       ? context.l10n.syncStatusWaiting
                       : context.l10n.syncNowSubtitle,
@@ -635,6 +641,13 @@ class _ConfiguredView extends ConsumerWidget {
     String relayUrl,
   ) async {
     try {
+      if (!_readSyncDatabaseReadyForAction(ref)) {
+        if (context.mounted) {
+          PrismToast.error(context, message: _syncDatabaseNeedsRepairMessage);
+        }
+        return;
+      }
+
       var handle = currentHandle;
       if (handle == null) {
         if (relayUrl.isEmpty) {
@@ -671,7 +684,10 @@ class _ConfiguredView extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        PrismToast.error(context, message: context.l10n.syncFailed(e));
+        final message = e is SyncDbUnrecoverableException
+            ? _syncDatabaseNeedsRepairMessage
+            : context.l10n.syncFailed(e);
+        PrismToast.error(context, message: message);
       }
     }
   }
@@ -693,6 +709,26 @@ class _ConfiguredView extends ConsumerWidget {
               'or unlock your device to retry.',
         SyncHealthState.healthy => 'Sync is not ready yet.',
       };
+}
+
+const _syncDatabaseNeedsRepairMessage =
+    'Sync database needs repair. Open Sync troubleshooting to reset sync '
+    'and re-pair this device.';
+
+bool _watchSyncDatabaseReadyForUi(WidgetRef ref) {
+  try {
+    return ref.watch(syncDatabaseStartupProvider).state == DbStartupState.ready;
+  } catch (_) {
+    return true;
+  }
+}
+
+bool _readSyncDatabaseReadyForAction(WidgetRef ref) {
+  try {
+    return ref.read(syncDatabaseStartupProvider).state == DbStartupState.ready;
+  } catch (_) {
+    return true;
+  }
 }
 
 class _SyncAppearanceToggle extends ConsumerWidget {

@@ -1,14 +1,22 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import 'package:prism_sync/generated/api.dart' as ffi;
 
+import 'package:prism_plurality/core/constants/app_constants.dart';
+import 'package:prism_plurality/core/database/database_encryption.dart';
+import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/crypto_boot_log.dart';
+import 'package:prism_plurality/core/services/keychain_degraded_state.dart';
 import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sync/sync_pairing_phase.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -41,6 +49,7 @@ class _CryptoStorageDebugScreenState
     extends ConsumerState<CryptoStorageDebugScreen> {
   Future<_SnapshotData>? _future;
   Future<List<CryptoBootSnapshot>>? _historyFuture;
+  bool _faultBusy = false;
 
   @override
   void initState() {
@@ -77,9 +86,7 @@ class _CryptoStorageDebugScreenState
     // glance instead of just being absent from the list.
     for (final expected in _expectedKeys) {
       if (scanned.contains(expected)) continue;
-      entries.add(
-        _KeyStatus(bareKey: expected, present: false),
-      );
+      entries.add(_KeyStatus(bareKey: expected, present: false));
     }
 
     entries.sort((a, b) => a.bareKey.compareTo(b.bareKey));
@@ -98,8 +105,8 @@ class _CryptoStorageDebugScreenState
 
     Map<String, dynamic>? platformDiagnostics;
     try {
-      platformDiagnostics =
-          await const DeviceBoundRuntimeDekStore().getDiagnostics();
+      platformDiagnostics = await const DeviceBoundRuntimeDekStore()
+          .getDiagnostics();
     } catch (_) {
       platformDiagnostics = null;
     }
@@ -225,17 +232,21 @@ class _CryptoStorageDebugScreenState
     if (history.isNotEmpty) {
       buf
         ..writeln()
-        ..writeln('Boot log history (${history.length} entries, '
-            'oldest first):');
+        ..writeln(
+          'Boot log history (${history.length} entries, '
+          'oldest first):',
+        );
       for (final s in history) {
         buf
           ..writeln()
-          ..writeln('  ${s.timestamp.toIso8601String()}  '
-              'trigger=${s.trigger}  '
-              'health=${s.syncHealth}  '
-              'unlocked=${s.engineUnlocked ?? 'unknown'}  '
-              'v=${s.appVersion}  '
-              'platform=${s.platform}');
+          ..writeln(
+            '  ${s.timestamp.toIso8601String()}  '
+            'trigger=${s.trigger}  '
+            'health=${s.syncHealth}  '
+            'unlocked=${s.engineUnlocked ?? 'unknown'}  '
+            'v=${s.appVersion}  '
+            'platform=${s.platform}',
+          );
         if (s.unwrapFailure != null) {
           final f = s.unwrapFailure!;
           buf.writeln(
@@ -266,6 +277,226 @@ class _CryptoStorageDebugScreenState
     await Clipboard.setData(ClipboardData(text: buf.toString()));
     if (!mounted) return;
     PrismToast.show(context, message: 'Diagnostic copied to clipboard');
+  }
+
+  Future<void> _runFaultAction({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required String successMessage,
+    required Future<void> Function() action,
+    bool destructive = true,
+    bool refreshAfter = true,
+    bool invalidateProviders = false,
+  }) async {
+    final confirmed = await PrismDialog.confirm(
+      context: context,
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+      destructive: destructive,
+      icon: destructive
+          ? AppIcons.warningAmberRounded
+          : AppIcons.bugReportOutlined,
+    );
+    if (confirmed != true) return;
+
+    setState(() => _faultBusy = true);
+    try {
+      await action();
+      if (invalidateProviders) {
+        _invalidateCryptoProviders();
+      }
+      if (refreshAfter) {
+        await _refresh();
+      } else if (mounted) {
+        setState(() {});
+      }
+      if (!mounted) return;
+      PrismToast.success(context, message: successMessage);
+    } catch (e) {
+      if (!mounted) return;
+      PrismToast.error(context, message: 'Fault action failed: $e');
+    } finally {
+      if (mounted) setState(() => _faultBusy = false);
+    }
+  }
+
+  void _invalidateCryptoProviders() {
+    ref.invalidate(prismSyncHandleProvider);
+    ref.invalidate(syncHealthProvider);
+  }
+
+  Future<String> _readRequiredSlot(String key) async {
+    final result = await safeSecureRead(key);
+    if (!result.ok) {
+      throw StateError(
+        'read failed for $key '
+        '(failure=${result.failure?.name}, code=${result.code})',
+      );
+    }
+    final value = result.value;
+    if (value == null || value.isEmpty) {
+      throw StateError('$key is missing');
+    }
+    return value;
+  }
+
+  Future<String?> _readOptionalSlot(String key) async {
+    final result = await safeSecureRead(key);
+    if (!result.ok) {
+      throw StateError(
+        'read failed for $key '
+        '(failure=${result.failure?.name}, code=${result.code})',
+      );
+    }
+    final value = result.value;
+    return value == null || value.isEmpty ? null : value;
+  }
+
+  Future<void> _writeSlot(String key, String value) async {
+    final result = await safeSecureWrite(key, value);
+    if (!result.ok) {
+      throw StateError(
+        'write failed for $key '
+        '(failure=${result.failure?.name}, code=${result.code})',
+      );
+    }
+  }
+
+  String _wrongHexDifferentFrom(String? current, int byte) {
+    final first = byte.clamp(0, 255).toRadixString(16).padLeft(2, '0');
+    final candidate = first * 32;
+    if (candidate != current) return candidate;
+    final second = ((byte + 1) & 0xff).toRadixString(16).padLeft(2, '0');
+    return second * 32;
+  }
+
+  Future<void> _seedAppRecoveryAndCorruptPrimary() async {
+    final appKey = await _readRequiredSlot(kDatabaseKeyStorageKey);
+    await _writeSlot('${kSyncDatabaseKeyStorageKey}_staging', appKey);
+    await _writeSlot(
+      kDatabaseKeyStorageKey,
+      _wrongHexDifferentFrom(appKey, 0x01),
+    );
+  }
+
+  Future<void> _corruptAllAppDbKeyCandidates() async {
+    await _writeSlot(
+      kDatabaseKeyStorageKey,
+      _wrongHexDifferentFrom(null, 0x11),
+    );
+    await _writeSlot(
+      '${kDatabaseKeyStorageKey}_staging',
+      _wrongHexDifferentFrom(null, 0x22),
+    );
+    await _writeSlot(
+      kSyncDatabaseKeyStorageKey,
+      _wrongHexDifferentFrom(null, 0x33),
+    );
+    await _writeSlot(
+      '${kSyncDatabaseKeyStorageKey}_staging',
+      _wrongHexDifferentFrom(null, 0x44),
+    );
+  }
+
+  Future<void> _seedSyncStagingAndCorruptPrimary() async {
+    final syncKey = await _resolveVerifiedSyncDbKeyForFaultInjection();
+    await _writeSlot('${kSyncDatabaseKeyStorageKey}_staging', syncKey);
+    await _writeSlot(
+      kSyncDatabaseKeyStorageKey,
+      _wrongHexDifferentFrom(syncKey, 0x55),
+    );
+  }
+
+  Future<String> _resolveVerifiedSyncDbKeyForFaultInjection() async {
+    final dir = await getAppDataDir();
+    final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
+    if (!File(dbPath).existsSync()) {
+      throw StateError('${AppConstants.syncDatabaseName} is missing');
+    }
+
+    String? bootSyncKey;
+    try {
+      bootSyncKey = ref.read(syncDatabaseStartupProvider).keyInMemory;
+    } catch (_) {
+      bootSyncKey = null;
+    }
+
+    String? verifiedAppKey;
+    try {
+      verifiedAppKey = ref.read(verifiedStartupKeyProvider);
+    } catch (_) {
+      verifiedAppKey = null;
+    }
+
+    final candidates = <String?>[
+      await _readOptionalSlot(kSyncDatabaseKeyStorageKey),
+      await _readOptionalSlot('${kSyncDatabaseKeyStorageKey}_staging'),
+      bootSyncKey,
+      verifiedAppKey,
+      await _readOptionalSlot(kDatabaseKeyStorageKey),
+      await _readOptionalSlot('${kDatabaseKeyStorageKey}_staging'),
+    ];
+    final verified = debugFirstVerifiedHexKeyForDatabase(
+      dbPath: dbPath,
+      candidates: candidates,
+    );
+    if (verified == null) {
+      throw StateError(
+        'No available keychain/startup candidate opens '
+        '${AppConstants.syncDatabaseName}',
+      );
+    }
+    return verified;
+  }
+
+  Future<void> _corruptSyncDbKeySlots() async {
+    await _writeSlot(
+      kSyncDatabaseKeyStorageKey,
+      _wrongHexDifferentFrom(null, 0x66),
+    );
+    await _writeSlot(
+      '${kSyncDatabaseKeyStorageKey}_staging',
+      _wrongHexDifferentFrom(null, 0x77),
+    );
+  }
+
+  Future<void> _markSyncWipeInProgress() async {
+    await KeychainDegradedStateService().updateSlot(
+      'syncKey',
+      SlotState.unreadable,
+    );
+    await SyncPairingPhaseService().write(SyncPairingPhase.wipeInProgress);
+  }
+
+  Future<void> _runSyncRepairWipe() async {
+    await wipeSyncDatabaseForRepair();
+  }
+
+  Future<void> _deleteSyncDatabaseFiles() async {
+    final dir = await getAppDataDir();
+    final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
+    for (final suffix in const <String>['', '-shm', '-wal', '-journal']) {
+      final file = File('$dbPath$suffix');
+      if (file.existsSync()) {
+        file.deleteSync();
+      }
+    }
+  }
+
+  void _queueFault(
+    SecureStorageFaultOperation operation, {
+    String? key,
+    SecureStorageFailure failure = SecureStorageFailure.cipher,
+  }) {
+    SecureStorageFaultInjector.queueNext(
+      operation: operation,
+      key: key,
+      failure: failure,
+    );
+    setState(() {});
+    PrismToast.success(context, message: 'Queued ${operation.name} failure');
   }
 
   @override
@@ -317,6 +548,107 @@ class _CryptoStorageDebugScreenState
                 onCaptureNow: _captureNow,
                 onClear: _clearHistory,
               ),
+              if (!kReleaseMode) ...[
+                const SizedBox(height: 16),
+                _FaultInjectionCard(
+                  busy: _faultBusy,
+                  pendingFaults: SecureStorageFaultInjector.pending,
+                  onSeedAppRecoveryAndCorruptPrimary: () => _runFaultAction(
+                    title: 'Seed app recovery path?',
+                    message:
+                        'Copies the current app DB key into the sync staging '
+                        'slot, then replaces the app primary key with a wrong '
+                        '64-character key. Restart the app to verify fallback '
+                        'startup and repair write-back.',
+                    confirmLabel: 'Corrupt key',
+                    successMessage: 'App primary key corrupted',
+                    action: _seedAppRecoveryAndCorruptPrimary,
+                  ),
+                  onCorruptAllAppDbCandidates: () => _runFaultAction(
+                    title: 'Make app DB unrecoverable?',
+                    message:
+                        'Replaces every app DB recovery key candidate with a '
+                        'wrong 64-character key. Restart should enter the '
+                        'keychain-unreadable recovery screen.',
+                    confirmLabel: 'Corrupt all',
+                    successMessage: 'All app DB key candidates corrupted',
+                    action: _corruptAllAppDbKeyCandidates,
+                  ),
+                  onSeedSyncStagingAndCorruptPrimary: () => _runFaultAction(
+                    title: 'Seed sync staging recovery?',
+                    message:
+                        'Copies the current sync DB key into sync staging, then '
+                        'replaces the sync primary key with a wrong key. Restart '
+                        'should promote staging.',
+                    confirmLabel: 'Corrupt key',
+                    successMessage: 'Sync primary key corrupted',
+                    action: _seedSyncStagingAndCorruptPrimary,
+                  ),
+                  onCorruptSyncDbKeySlots: () => _runFaultAction(
+                    title: 'Corrupt sync DB key slots?',
+                    message:
+                        'Replaces sync primary and staging DB-key slots with '
+                        'wrong keys. App data should still open; sync should '
+                        'recover via app-primary only on older converged-key '
+                        'installs, otherwise degrade.',
+                    confirmLabel: 'Corrupt sync',
+                    successMessage: 'Sync DB key slots corrupted',
+                    action: _corruptSyncDbKeySlots,
+                  ),
+                  onMarkSyncWipeInProgress: () => _runFaultAction(
+                    title: 'Mark sync wipe in progress?',
+                    message:
+                        'Sets syncKey unreadable and persists the pairing phase '
+                        'as wipeInProgress without deleting sync files. Use this '
+                        'to test crash-resume behavior.',
+                    confirmLabel: 'Mark phase',
+                    successMessage: 'Sync wipeInProgress marker written',
+                    action: _markSyncWipeInProgress,
+                  ),
+                  onRunSyncRepairWipe: () => _runFaultAction(
+                    title: 'Run sync repair wipe?',
+                    message:
+                        'Deletes prism_sync.db sidecars and sync keychain '
+                        'credentials, then moves the pairing phase to '
+                        'pendingPair only if every checked delete succeeds.',
+                    confirmLabel: 'Run wipe',
+                    successMessage: 'Sync repair wipe completed',
+                    action: _runSyncRepairWipe,
+                    invalidateProviders: true,
+                  ),
+                  onDeleteSyncDatabaseFiles: () => _runFaultAction(
+                    title: 'Delete sync database files?',
+                    message:
+                        'Deletes prism_sync.db and sidecar files only. Keychain '
+                        'credentials are left untouched.',
+                    confirmLabel: 'Delete files',
+                    successMessage: 'Sync database files deleted',
+                    action: _deleteSyncDatabaseFiles,
+                  ),
+                  onQueueAppDbReadFailure: () => _queueFault(
+                    SecureStorageFaultOperation.read,
+                    key: kDatabaseKeyStorageKey,
+                  ),
+                  onQueueReadAllFailure: () =>
+                      _queueFault(SecureStorageFaultOperation.readAll),
+                  onQueueSyncIdWriteFailure: () => _queueFault(
+                    SecureStorageFaultOperation.write,
+                    key: kSyncIdKey,
+                  ),
+                  onQueueSyncIdDeleteFailure: () => _queueFault(
+                    SecureStorageFaultOperation.delete,
+                    key: kSyncIdKey,
+                  ),
+                  onClearFaults: () {
+                    SecureStorageFaultInjector.clear();
+                    setState(() {});
+                    PrismToast.success(
+                      context,
+                      message: 'Queued wrapper failures cleared',
+                    );
+                  },
+                ),
+              ],
               const SizedBox(height: 16),
               PrismButton(
                 tone: PrismButtonTone.subtle,
@@ -330,9 +662,8 @@ class _CryptoStorageDebugScreenState
                 'unexpected PIN or recovery-phrase prompts. The boot log '
                 'auto-captures on every cold start (capped at 50 entries).',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color:
-                          Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           );
@@ -340,6 +671,23 @@ class _CryptoStorageDebugScreenState
       ),
     );
   }
+}
+
+@visibleForTesting
+String? debugFirstVerifiedHexKeyForDatabase({
+  required String dbPath,
+  required Iterable<String?> candidates,
+}) {
+  final seen = <String>{};
+  for (final candidate in candidates) {
+    if (!validateHexKey(candidate) || !seen.add(candidate!)) {
+      continue;
+    }
+    if (tryOpenEncryptedDb(dbPath, candidate)) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 class _EngineStateCard extends StatelessWidget {
@@ -351,25 +699,25 @@ class _EngineStateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     Widget row(String label, String value) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              Text(
-                value,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ],
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
-        );
+          Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
 
     return PrismSectionCard(
       padding: const EdgeInsets.all(16),
@@ -441,9 +789,9 @@ class _EngineStateCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             SelectableText(
-              const JsonEncoder.withIndent('  ').convert(
-                snapshot.platformDiagnostics,
-              ),
+              const JsonEncoder.withIndent(
+                '  ',
+              ).convert(snapshot.platformDiagnostics),
               style: theme.textTheme.bodySmall?.copyWith(
                 fontFamily: 'monospace',
               ),
@@ -489,15 +837,14 @@ class _KeychainCard extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius:
-                  BorderRadius.circular(PrismShapes.of(context).radius(8)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(8),
+              ),
             ),
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final e in entries) _KeyRow(entry: e),
-              ],
+              children: [for (final e in entries) _KeyRow(entry: e)],
             ),
           ),
         ],
@@ -551,6 +898,219 @@ class _KeyRow extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _FaultInjectionCard extends StatelessWidget {
+  const _FaultInjectionCard({
+    required this.busy,
+    required this.pendingFaults,
+    required this.onSeedAppRecoveryAndCorruptPrimary,
+    required this.onCorruptAllAppDbCandidates,
+    required this.onSeedSyncStagingAndCorruptPrimary,
+    required this.onCorruptSyncDbKeySlots,
+    required this.onMarkSyncWipeInProgress,
+    required this.onRunSyncRepairWipe,
+    required this.onDeleteSyncDatabaseFiles,
+    required this.onQueueAppDbReadFailure,
+    required this.onQueueReadAllFailure,
+    required this.onQueueSyncIdWriteFailure,
+    required this.onQueueSyncIdDeleteFailure,
+    required this.onClearFaults,
+  });
+
+  final bool busy;
+  final List<SecureStorageInjectedFault> pendingFaults;
+  final VoidCallback onSeedAppRecoveryAndCorruptPrimary;
+  final VoidCallback onCorruptAllAppDbCandidates;
+  final VoidCallback onSeedSyncStagingAndCorruptPrimary;
+  final VoidCallback onCorruptSyncDbKeySlots;
+  final VoidCallback onMarkSyncWipeInProgress;
+  final VoidCallback onRunSyncRepairWipe;
+  final VoidCallback onDeleteSyncDatabaseFiles;
+  final VoidCallback onQueueAppDbReadFailure;
+  final VoidCallback onQueueReadAllFailure;
+  final VoidCallback onQueueSyncIdWriteFailure;
+  final VoidCallback onQueueSyncIdDeleteFailure;
+  final VoidCallback onClearFaults;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return PrismSectionCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                AppIcons.bugReportOutlined,
+                size: 18,
+                color: theme.colorScheme.error,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Fault injection',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Debug/profile builds only. These actions intentionally corrupt '
+            'local secure-storage state for recovery testing.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _sectionLabel(context, 'Cold-start state mutations'),
+          const SizedBox(height: 8),
+          _FaultButton(
+            label: 'Seed app fallback + corrupt app primary',
+            icon: AppIcons.key,
+            busy: busy,
+            onPressed: onSeedAppRecoveryAndCorruptPrimary,
+          ),
+          _FaultButton(
+            label: 'Corrupt all app DB key candidates',
+            icon: AppIcons.dangerousOutlined,
+            busy: busy,
+            destructive: true,
+            onPressed: onCorruptAllAppDbCandidates,
+          ),
+          _FaultButton(
+            label: 'Seed sync staging + corrupt sync primary',
+            icon: AppIcons.syncProblem,
+            busy: busy,
+            onPressed: onSeedSyncStagingAndCorruptPrimary,
+          ),
+          _FaultButton(
+            label: 'Corrupt sync DB key slots',
+            icon: AppIcons.syncDisabled,
+            busy: busy,
+            destructive: true,
+            onPressed: onCorruptSyncDbKeySlots,
+          ),
+          _FaultButton(
+            label: 'Mark sync wipeInProgress',
+            icon: AppIcons.pendingOutlined,
+            busy: busy,
+            onPressed: onMarkSyncWipeInProgress,
+          ),
+          _FaultButton(
+            label: 'Run sync repair wipe',
+            icon: AppIcons.deleteForever,
+            busy: busy,
+            destructive: true,
+            onPressed: onRunSyncRepairWipe,
+          ),
+          _FaultButton(
+            label: 'Delete sync DB files only',
+            icon: AppIcons.deleteOutline,
+            busy: busy,
+            destructive: true,
+            onPressed: onDeleteSyncDatabaseFiles,
+          ),
+          const SizedBox(height: 16),
+          _sectionLabel(context, 'One-shot wrapper failures'),
+          const SizedBox(height: 8),
+          _FaultButton(
+            label: 'Next app DB key read → cipher',
+            icon: AppIcons.lockClock,
+            busy: busy,
+            onPressed: onQueueAppDbReadFailure,
+          ),
+          _FaultButton(
+            label: 'Next readAll → cipher',
+            icon: AppIcons.warningAmber,
+            busy: busy,
+            onPressed: onQueueReadAllFailure,
+          ),
+          _FaultButton(
+            label: 'Next sync_id write → cipher',
+            icon: AppIcons.keyOffRounded,
+            busy: busy,
+            onPressed: onQueueSyncIdWriteFailure,
+          ),
+          _FaultButton(
+            label: 'Next sync_id delete → cipher',
+            icon: AppIcons.block,
+            busy: busy,
+            onPressed: onQueueSyncIdDeleteFailure,
+          ),
+          if (pendingFaults.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Queued: ${pendingFaults.map((f) => f.label).join(', ')}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+                color: theme.colorScheme.error,
+              ),
+            ),
+            const SizedBox(height: 8),
+            PrismButton(
+              label: 'Clear queued failures',
+              icon: AppIcons.close,
+              tone: PrismButtonTone.outlined,
+              density: PrismControlDensity.compact,
+              expanded: true,
+              onPressed: onClearFaults,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabel(BuildContext context, String label) {
+    final theme = Theme.of(context);
+    return Text(
+      label,
+      style: theme.textTheme.titleSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
+class _FaultButton extends StatelessWidget {
+  const _FaultButton({
+    required this.label,
+    required this.icon,
+    required this.busy,
+    required this.onPressed,
+    this.destructive = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool busy;
+  final bool destructive;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: PrismButton(
+        label: label,
+        icon: icon,
+        tone: destructive
+            ? PrismButtonTone.destructive
+            : PrismButtonTone.subtle,
+        density: PrismControlDensity.compact,
+        expanded: true,
+        enabled: !busy,
+        onPressed: onPressed,
       ),
     );
   }
@@ -626,9 +1186,7 @@ class _BootLogCard extends StatelessWidget {
               // Newest first.
               final ordered = history.reversed.toList();
               return Column(
-                children: [
-                  for (final s in ordered) _BootLogTile(snapshot: s),
-                ],
+                children: [for (final s in ordered) _BootLogTile(snapshot: s)],
               );
             },
           ),
@@ -732,8 +1290,9 @@ class _BootLogTile extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 8, top: 2),
                   child: SelectableText(
-                    const JsonEncoder.withIndent('  ')
-                        .convert(snapshot.platformDiagnostics),
+                    const JsonEncoder.withIndent(
+                      '  ',
+                    ).convert(snapshot.platformDiagnostics),
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontFamily: 'monospace',
                     ),
@@ -787,28 +1346,22 @@ class _BootLogTile extends StatelessWidget {
   }
 
   Widget _kv(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 100,
-              child: Text(
-                label,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-          ],
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(label, style: const TextStyle(fontSize: 12)),
         ),
-      );
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+          ),
+        ),
+      ],
+    ),
+  );
 
   String _formatTimestamp(DateTime ts) {
     final local = ts.toLocal();

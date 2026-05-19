@@ -50,54 +50,54 @@ class _FakeSecureStorage {
     TestWidgetsFlutterBinding.ensureInitialized();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      (MethodCall call) async {
-        if (throwOnEvery != null) throw throwOnEvery!;
-        switch (call.method) {
-          case 'write':
-            if (throwOnWrite != null) throw throwOnWrite!;
-            final key = call.arguments['key'] as String;
-            final value = call.arguments['value'] as String?;
-            if (value == null) {
-              store.remove(key);
-            } else {
-              store[key] = value;
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          (MethodCall call) async {
+            if (throwOnEvery != null) throw throwOnEvery!;
+            switch (call.method) {
+              case 'write':
+                if (throwOnWrite != null) throw throwOnWrite!;
+                final key = call.arguments['key'] as String;
+                final value = call.arguments['value'] as String?;
+                if (value == null) {
+                  store.remove(key);
+                } else {
+                  store[key] = value;
+                }
+                return null;
+              case 'read':
+                final key = call.arguments['key'] as String;
+                final perKey = throwOnReadKey[key];
+                if (perKey != null) throw perKey;
+                if (throwOnRead != null) throw throwOnRead!;
+                return store[key];
+              case 'readAll':
+                if (throwOnReadAll != null) throw throwOnReadAll!;
+                return Map<String, String>.from(store);
+              case 'delete':
+                if (throwOnDelete != null) throw throwOnDelete!;
+                final key = call.arguments['key'] as String;
+                store.remove(key);
+                return null;
+              case 'deleteAll':
+                if (throwOnDeleteAll != null) throw throwOnDeleteAll!;
+                store.clear();
+                return null;
+              case 'containsKey':
+                final key = call.arguments['key'] as String;
+                return store.containsKey(key);
+              default:
+                return null;
             }
-            return null;
-          case 'read':
-            final key = call.arguments['key'] as String;
-            final perKey = throwOnReadKey[key];
-            if (perKey != null) throw perKey;
-            if (throwOnRead != null) throw throwOnRead!;
-            return store[key];
-          case 'readAll':
-            if (throwOnReadAll != null) throw throwOnReadAll!;
-            return Map<String, String>.from(store);
-          case 'delete':
-            if (throwOnDelete != null) throw throwOnDelete!;
-            final key = call.arguments['key'] as String;
-            store.remove(key);
-            return null;
-          case 'deleteAll':
-            if (throwOnDeleteAll != null) throw throwOnDeleteAll!;
-            store.clear();
-            return null;
-          case 'containsKey':
-            final key = call.arguments['key'] as String;
-            return store.containsKey(key);
-          default:
-            return null;
-        }
-      },
-    );
+          },
+        );
   }
 
   void uninstall() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      null,
-    );
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          null,
+        );
     store.clear();
   }
 }
@@ -124,7 +124,8 @@ PlatformException _fssCipherException({
   return PlatformException(
     code: 'Exception encountered',
     message: message,
-    details: 'at $stackTraceFqcn(SomeFile.java:123)\n'
+    details:
+        'at $stackTraceFqcn(SomeFile.java:123)\n'
         '\tat com.it_nomads.fluttersecurestorage.FlutterSecureStorage.read(FlutterSecureStorage.java:200)',
   );
 }
@@ -143,10 +144,7 @@ void main() {
               'javax.crypto.AEADBadTagException: Error while decrypting',
           stackTraceFqcn: 'javax.crypto.AEADBadTagException',
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.cipher,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
       });
 
       test('BadPaddingException in details → cipher', () {
@@ -158,10 +156,7 @@ void main() {
               'javax.crypto.BadPaddingException: pad block corrupted\n\tat '
               'com.it_nomads.fluttersecurestorage.FlutterSecureStorage.read(FlutterSecureStorage.java:200)',
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.cipher,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
       });
 
       test('BAD_DECRYPT in code with empty message → cipher', () {
@@ -172,10 +167,7 @@ void main() {
           message: null,
           details: null,
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.cipher,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
       });
 
       test('InvalidKeyException in message → cipher', () {
@@ -183,23 +175,18 @@ void main() {
           message: 'Invalid key, key type incompatible with cipher',
           stackTraceFqcn: 'java.security.InvalidKeyException',
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.cipher,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
       });
 
       test('UnrecoverableKeyException in details → cipher', () {
         final ex = PlatformException(
           code: 'Exception encountered',
           message: 'Failed to get key',
-          details: 'java.security.UnrecoverableKeyException: '
+          details:
+              'java.security.UnrecoverableKeyException: '
               'Failed to obtain information about key',
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.cipher,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
       });
 
       test('KeyPermanentlyInvalidatedException in details → cipher', () {
@@ -210,10 +197,7 @@ void main() {
               'android.security.keystore.KeyPermanentlyInvalidatedException: '
               'Key permanently invalidated',
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.cipher,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
       });
     });
 
@@ -226,10 +210,7 @@ void main() {
               'android.security.keystore.UserNotAuthenticatedException: '
               'User not authenticated',
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.transient,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.transient);
       });
 
       test('BackendBusyException → transient', () {
@@ -238,10 +219,7 @@ void main() {
           message: 'Backend busy',
           details: 'android.security.KeyStoreException: -38 (BackendBusy)',
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.transient,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.transient);
       });
     });
 
@@ -252,18 +230,12 @@ void main() {
           message: 'I/O error',
           details: 'java.io.IOException: Disk full',
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.unknown,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.unknown);
       });
 
       test('totally empty exception → unknown', () {
         final ex = PlatformException(code: '');
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.unknown,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.unknown);
       });
 
       test('null message and non-string details → unknown', () {
@@ -272,10 +244,7 @@ void main() {
           message: null,
           details: <String, dynamic>{'some': 'map'},
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.unknown,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.unknown);
       });
     });
 
@@ -285,10 +254,7 @@ void main() {
           code: 'Exception encountered',
           message: 'AEADBADTAGEXCEPTION',
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.cipher,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
       });
 
       test('mixed-case BadPadding in details → cipher', () {
@@ -297,10 +263,7 @@ void main() {
           message: 'Decryption failed',
           details: 'javax.crypto.BaDpAdDiNgException: pad block corrupted',
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.cipher,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
       });
 
       test('uppercase USERNOTAUTHENTICATED → transient', () {
@@ -308,10 +271,7 @@ void main() {
           code: 'Exception encountered',
           message: 'USERNOTAUTHENTICATED',
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.transient,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.transient);
       });
     });
 
@@ -324,10 +284,7 @@ void main() {
           message: 'UserNotAuthenticated: please re-auth',
           details: 'UserNotAuthenticatedException stack...',
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.cipher,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
       });
 
       test('details is checked before message', () {
@@ -338,10 +295,7 @@ void main() {
           message: 'UserNotAuthenticated',
           details: 'javax.crypto.AEADBadTagException',
         );
-        expect(
-          classifySecureStorageError(ex),
-          SecureStorageFailure.cipher,
-        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
       });
     });
   });
@@ -362,8 +316,10 @@ void main() {
 
     test('returns value on success', () async {
       fake.store['db_key'] = 'deadbeef';
-      final result =
-          await safeSecureRead('db_key', storage: const FlutterSecureStorage());
+      final result = await safeSecureRead(
+        'db_key',
+        storage: const FlutterSecureStorage(),
+      );
       expect(result.ok, isTrue);
       expect(result.value, 'deadbeef');
       expect(result.failure, isNull);
@@ -383,8 +339,10 @@ void main() {
         message: 'AEADBadTagException: bad tag',
         stackTraceFqcn: 'javax.crypto.AEADBadTagException',
       );
-      final result =
-          await safeSecureRead('k', storage: const FlutterSecureStorage());
+      final result = await safeSecureRead(
+        'k',
+        storage: const FlutterSecureStorage(),
+      );
       expect(result.ok, isFalse);
       expect(result.failure, SecureStorageFailure.cipher);
       expect(result.value, isNull);
@@ -396,8 +354,10 @@ void main() {
         code: 'Exception encountered',
         message: 'UserNotAuthenticated',
       );
-      final result =
-          await safeSecureRead('k', storage: const FlutterSecureStorage());
+      final result = await safeSecureRead(
+        'k',
+        storage: const FlutterSecureStorage(),
+      );
       expect(result.failure, SecureStorageFailure.transient);
     });
 
@@ -406,8 +366,10 @@ void main() {
         code: 'Exception encountered',
         message: 'random IO problem',
       );
-      final result =
-          await safeSecureRead('k', storage: const FlutterSecureStorage());
+      final result = await safeSecureRead(
+        'k',
+        storage: const FlutterSecureStorage(),
+      );
       expect(result.failure, SecureStorageFailure.unknown);
     });
   });
@@ -493,8 +455,10 @@ void main() {
 
     test('deletes successfully', () async {
       fake.store['k'] = 'v';
-      final result =
-          await safeSecureDelete('k', storage: const FlutterSecureStorage());
+      final result = await safeSecureDelete(
+        'k',
+        storage: const FlutterSecureStorage(),
+      );
       expect(result.ok, isTrue);
       expect(fake.store.containsKey('k'), isFalse);
     });
@@ -504,8 +468,10 @@ void main() {
         message: 'AEADBadTagException',
         stackTraceFqcn: 'javax.crypto.AEADBadTagException',
       );
-      final result =
-          await safeSecureDelete('k', storage: const FlutterSecureStorage());
+      final result = await safeSecureDelete(
+        'k',
+        storage: const FlutterSecureStorage(),
+      );
       expect(result.failure, SecureStorageFailure.cipher);
     });
 
@@ -514,8 +480,10 @@ void main() {
         code: 'Exception encountered',
         message: 'BackendBusy',
       );
-      final result =
-          await safeSecureDelete('k', storage: const FlutterSecureStorage());
+      final result = await safeSecureDelete(
+        'k',
+        storage: const FlutterSecureStorage(),
+      );
       expect(result.failure, SecureStorageFailure.transient);
     });
 
@@ -524,8 +492,10 @@ void main() {
         code: 'Exception encountered',
         message: 'some IO thing',
       );
-      final result =
-          await safeSecureDelete('k', storage: const FlutterSecureStorage());
+      final result = await safeSecureDelete(
+        'k',
+        storage: const FlutterSecureStorage(),
+      );
       expect(result.failure, SecureStorageFailure.unknown);
     });
 
@@ -549,6 +519,91 @@ void main() {
       );
       expect(result.failure, SecureStorageFailure.cipher);
     });
+  });
+
+  group('SecureStorageFaultInjector', () {
+    late _FakeSecureStorage fake;
+
+    setUp(() {
+      SecureStorageFaultInjector.clear();
+      fake = _FakeSecureStorage();
+      fake.install();
+    });
+
+    tearDown(() {
+      SecureStorageFaultInjector.clear();
+      fake.uninstall();
+    });
+
+    test('injects one read failure and then consumes it', () async {
+      fake.store['k'] = 'v';
+      SecureStorageFaultInjector.queueNext(
+        operation: SecureStorageFaultOperation.read,
+        key: 'k',
+      );
+
+      final first = await safeSecureRead(
+        'k',
+        storage: const FlutterSecureStorage(),
+      );
+      expect(first.failure, SecureStorageFailure.cipher);
+
+      final second = await safeSecureRead(
+        'k',
+        storage: const FlutterSecureStorage(),
+      );
+      expect(second.ok, isTrue);
+      expect(second.value, 'v');
+    });
+
+    test('injected delete failure leaves the stored value intact', () async {
+      fake.store['k'] = 'v';
+      SecureStorageFaultInjector.queueNext(
+        operation: SecureStorageFaultOperation.delete,
+        key: 'k',
+      );
+
+      final first = await safeSecureDelete(
+        'k',
+        storage: const FlutterSecureStorage(),
+      );
+      expect(first.failure, SecureStorageFailure.cipher);
+      expect(fake.store['k'], 'v');
+
+      final second = await safeSecureDelete(
+        'k',
+        storage: const FlutterSecureStorage(),
+      );
+      expect(second.ok, isTrue);
+      expect(fake.store.containsKey('k'), isFalse);
+    });
+
+    test(
+      'injects readAll failure without consuming key-specific faults',
+      () async {
+        fake.store['k'] = 'v';
+        SecureStorageFaultInjector.queueNext(
+          operation: SecureStorageFaultOperation.readAll,
+        );
+        SecureStorageFaultInjector.queueNext(
+          operation: SecureStorageFaultOperation.read,
+          key: 'k',
+        );
+
+        final readAll = await safeSecureReadAll(
+          storage: const FlutterSecureStorage(),
+        );
+        expect(readAll.failure, SecureStorageFailure.cipher);
+        expect(SecureStorageFaultInjector.pending, hasLength(1));
+
+        final read = await safeSecureRead(
+          'k',
+          storage: const FlutterSecureStorage(),
+        );
+        expect(read.failure, SecureStorageFailure.cipher);
+        expect(SecureStorageFaultInjector.pending, isEmpty);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -606,10 +661,10 @@ void main() {
     test('returns readAll result directly on success', () async {
       fake.store['a'] = '1';
       fake.store['b'] = '2';
-      final result = await safeSecureReadAllWithSlotProbe(
-        const ['a', 'b'],
-        storage: const FlutterSecureStorage(),
-      );
+      final result = await safeSecureReadAllWithSlotProbe(const [
+        'a',
+        'b',
+      ], storage: const FlutterSecureStorage());
       expect(result.ok, isTrue);
       expect(result.entries, {'a': '1', 'b': '2'});
     });
@@ -629,10 +684,11 @@ void main() {
         stackTraceFqcn: 'javax.crypto.BadPaddingException',
       );
 
-      final result = await safeSecureReadAllWithSlotProbe(
-        const ['a', 'b', 'c'],
-        storage: const FlutterSecureStorage(),
-      );
+      final result = await safeSecureReadAllWithSlotProbe(const [
+        'a',
+        'b',
+        'c',
+      ], storage: const FlutterSecureStorage());
 
       expect(result.ok, isFalse);
       expect(result.failure, SecureStorageFailure.cipher);
@@ -648,10 +704,10 @@ void main() {
         message: 'UserNotAuthenticated',
       );
 
-      final result = await safeSecureReadAllWithSlotProbe(
-        const ['a', 'b'],
-        storage: const FlutterSecureStorage(),
-      );
+      final result = await safeSecureReadAllWithSlotProbe(const [
+        'a',
+        'b',
+      ], storage: const FlutterSecureStorage());
 
       expect(result.failure, SecureStorageFailure.transient);
       expect(result.entries, isEmpty);

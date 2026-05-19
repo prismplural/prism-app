@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
@@ -245,6 +246,60 @@ void main() {
 
     PrismToast.dismiss();
   });
+
+  testWidgets(
+    'guard: unrecoverable sync DB does not try to restore handle from creds',
+    (tester) async {
+      const fakeHandle = _FakePrismSyncHandle();
+      final handleNotifier = _RecoveringHandleNotifier(fakeHandle);
+
+      await _pumpGuardHarness(
+        tester,
+        overrides: [
+          pairingCeremonyApiProvider.overrideWith(
+            (ref) => _FakePairingCeremonyApi(),
+          ),
+          prismSyncHandleProvider.overrideWith(() => handleNotifier),
+          syncDatabaseStartupProvider.overrideWithValue(
+            const DbStartupReport(
+              state: DbStartupState.unrecoverable,
+              keyInMemory: null,
+              usedRecoverySlot: null,
+              diagnostic: null,
+            ),
+          ),
+          relayUrlProvider.overrideWithValue(
+            const AsyncValue<String?>.data('https://relay.example.com'),
+          ),
+          syncIdProvider.overrideWithValue(
+            const AsyncValue<String?>.data('sync-123'),
+          ),
+          syncDeviceIdProvider.overrideWithValue(
+            const AsyncValue<String?>.data('device-123'),
+          ),
+          syncDeviceSecretPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
+          syncWrappedDekPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
+        ],
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(handleNotifier.createdRelayUrl, isNull);
+      expect(
+        find.text("Sync isn't ready yet. Wait a moment and try again."),
+        findsOneWidget,
+      );
+      expect(find.text('Continue'), findsNothing);
+
+      PrismToast.dismiss();
+    },
+  );
 
   testWidgets(
     'guard: partial identity shows partial-identity toast (not engine-unavailable)',

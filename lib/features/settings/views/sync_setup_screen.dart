@@ -91,6 +91,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
               relayUrlController: _relayUrlController,
               registrationTokenController: _registrationTokenController,
               relayUrlError: _relayUrlError,
+              setupError: setupState.error,
               onToggleRelay: () =>
                   setState(() => _showRelayField = !_showRelayField),
               onContinue: () {
@@ -163,6 +164,7 @@ class _IntroStep extends StatelessWidget {
     required this.relayUrlController,
     required this.registrationTokenController,
     required this.relayUrlError,
+    required this.setupError,
     required this.onToggleRelay,
     required this.onContinue,
   });
@@ -172,6 +174,7 @@ class _IntroStep extends StatelessWidget {
   final TextEditingController relayUrlController;
   final TextEditingController registrationTokenController;
   final String? relayUrlError;
+  final String? setupError;
   final VoidCallback onToggleRelay;
   final VoidCallback onContinue;
 
@@ -264,6 +267,16 @@ class _IntroStep extends StatelessWidget {
             ],
           ],
           const SizedBox(height: 32),
+          if (setupError != null) ...[
+            Text(
+              setupError!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+          ],
           PrismButton(
             label: context.l10n.syncSetupButton,
             icon: AppIcons.arrowForward,
