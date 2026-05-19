@@ -5584,11 +5584,17 @@ abstract class AppLocalizations {
   /// **'Description'**
   String get memberGroupDescriptionLabel;
 
-  /// Empty-state hint shown on the group description row in the editor sheet when no description is set
+  /// Tooltip for the button that opens the full-screen group description editor
   ///
   /// In en, this message translates to:
-  /// **'Tap to write about this group'**
-  String get memberGroupDescriptionEmptyHint;
+  /// **'Open description in full screen'**
+  String get memberGroupDescriptionFullscreenTooltip;
+
+  /// Hint text for the inline group description text field
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s this group about?'**
+  String get memberGroupDescriptionHint;
 
   /// Label for the group color hex text field
   ///
@@ -5601,6 +5607,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No color'**
   String get memberGroupColorNone;
+
+  /// Button label in the group color picker dialog to remove the selected color
+  ///
+  /// In en, this message translates to:
+  /// **'Clear color'**
+  String get memberGroupColorClear;
 
   /// Label on the remove-photo button below the group avatar tile in the editor sheet
   ///

@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/members/providers/group_display_prefs_provider.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -74,6 +76,12 @@ Widget _buildSheet({
     overrides: [
       allGroupsProvider.overrideWithValue(AsyncValue.data(groups)),
       groupNotifierProvider.overrideWith(() => fakeNotifier),
+      terminologySettingProvider.overrideWithValue((
+        term: SystemTerminology.headmates,
+        customSingular: null,
+        customPlural: null,
+        useEnglish: false,
+      )),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -287,6 +295,12 @@ void main() {
             groupShowEmojiOnAvatarProvider(groupId).overrideWith(
               () => _FakeShowEmojiNotifier(false),
             ),
+            terminologySettingProvider.overrideWithValue((
+              term: SystemTerminology.headmates,
+              customSingular: null,
+              customPlural: null,
+              useEnglish: false,
+            )),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,

@@ -18,6 +18,7 @@ import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart'
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -148,40 +149,54 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
 
   Future<void> _openColorPicker() async {
     final l10n = context.l10n;
-    final theme = Theme.of(context);
-    await PrismSheet.show<void>(
+    await PrismDialog.show<void>(
       context: context,
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.memberGroupColorLabel,
-              style: theme.textTheme.titleMedium,
+      title: l10n.memberGroupColorLabel,
+      builder: (dialogContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.54,
             ),
-            const SizedBox(height: 16),
-            ColorPicker(
-              pickerColor: _selectedColor ?? const Color(0xFFAF8EE9),
-              onColorChanged: (color) => setState(() => _selectedColor = color),
-              enableAlpha: false,
-              hexInputBar: true,
-              labelTypes: const [],
-              portraitOnly: true,
-              pickerAreaHeightPercent: 0.65,
-            ),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerRight,
-              child: PrismButton(
-                label: l10n.done,
-                tone: PrismButtonTone.filled,
-                onPressed: () => Navigator.of(sheetContext).pop(),
+            child: SingleChildScrollView(
+              child: ColorPicker(
+                pickerColor: _selectedColor ?? const Color(0xFFAF8EE9),
+                onColorChanged: (color) =>
+                    setState(() => _selectedColor = color),
+                enableAlpha: false,
+                hexInputBar: true,
+                labelTypes: const [],
+                portraitOnly: true,
+                pickerAreaHeightPercent: 0.65,
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (_selectedColor != null)
+                PrismButton(
+                  label: l10n.memberGroupColorClear,
+                  tone: PrismButtonTone.subtle,
+                  onPressed: () {
+                    setState(() => _selectedColor = null);
+                    Navigator.of(dialogContext, rootNavigator: true).pop();
+                  },
+                ),
+              PrismButton(
+                label: l10n.done,
+                tone: PrismButtonTone.filled,
+                onPressed: () =>
+                    Navigator.of(dialogContext, rootNavigator: true).pop(),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -454,78 +469,6 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                                     ],
                                   ),
                                 ),
-                                if (_selectedColor != null)
-                                  PrismButton(
-                                    label: l10n.cancel,
-                                    tone: PrismButtonTone.subtle,
-                                    density: PrismControlDensity.compact,
-                                    onPressed: () =>
-                                        setState(() => _selectedColor = null),
-                                  ),
-                                if (_selectedColor == null)
-                                  Icon(
-                                    AppIcons.chevronRight,
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                    size: 18,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        InkWell(
-                          onTap: _openDescriptionEditor,
-                          borderRadius: BorderRadius.circular(
-                            PrismShapes.of(context).radius(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  AppIcons.notesOutlined,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        l10n.memberGroupDescriptionLabel,
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color: theme
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                            ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      if (_descriptionController.text
-                                          .trim()
-                                          .isEmpty)
-                                        Text(
-                                          l10n.memberGroupDescriptionEmptyHint,
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                              ),
-                                        )
-                                      else
-                                        Text(
-                                          _descriptionController.text,
-                                          maxLines: 3,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: theme.textTheme.bodyMedium,
-                                        ),
-                                    ],
-                                  ),
-                                ),
                                 Icon(
                                   AppIcons.chevronRight,
                                   color: theme.colorScheme.onSurfaceVariant,
@@ -534,6 +477,34 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                               ],
                             ),
                           ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                l10n.memberGroupDescriptionLabel,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            PrismIconButton(
+                              icon: AppIcons.edit,
+                              tooltip:
+                                  l10n.memberGroupDescriptionFullscreenTooltip,
+                              onPressed: _openDescriptionEditor,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        PrismTextField(
+                          controller: _descriptionController,
+                          hintText: l10n.memberGroupDescriptionHint,
+                          maxLines: 6,
+                          minLines: 3,
+                          textCapitalization: TextCapitalization.sentences,
                         ),
                         const SizedBox(height: 16),
 

@@ -4,8 +4,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/members/widgets/group_avatar_picker.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// A minimal 1×1 gray PNG that is known to decode in the Flutter test environment.
 /// (Same fixture used in member_profile_header_test.dart.)
@@ -14,6 +17,14 @@ final Uint8List _kOnePxPng = base64Decode(
 );
 
 Widget _wrap(Widget child) => ProviderScope(
+  overrides: [
+    terminologySettingProvider.overrideWithValue((
+      term: SystemTerminology.headmates,
+      customSingular: null,
+      customPlural: null,
+      useEnglish: false,
+    )),
+  ],
   child: MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: const [Locale('en')],
@@ -40,14 +51,30 @@ void main() {
       );
       await tester.pump();
 
-      // Tap the InkWell on the avatar tile.
-      await tester.tap(find.byType(InkWell).first);
+      await tester.tap(find.byType(GestureDetector).first);
       await tester.pump();
 
       expect(pickCount, 1);
     });
 
-    testWidgets('remove row is visible when avatarImageData is non-null and non-empty', (
+    testWidgets('camera badge is always visible', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          GroupAvatarPicker(
+            avatarImageData: null,
+            emoji: null,
+            showEmojiOnAvatar: false,
+            onPickImage: () {},
+            onRemoveImage: () {},
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byIcon(AppIcons.cameraAlt), findsOneWidget);
+    });
+
+    testWidgets('remove × badge is visible when avatarImageData is non-null and non-empty', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -63,10 +90,10 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Remove photo'), findsOneWidget);
+      expect(find.byIcon(AppIcons.close), findsOneWidget);
     });
 
-    testWidgets('remove row is hidden when avatarImageData is null', (
+    testWidgets('remove × badge is hidden when avatarImageData is null', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -82,13 +109,12 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Remove photo'), findsNothing);
+      expect(find.byIcon(AppIcons.close), findsNothing);
     });
 
     testWidgets(
-      'remove row is hidden when avatarImageData is empty (0 bytes)',
+      'remove × badge is hidden when avatarImageData is empty (0 bytes)',
       (tester) async {
-        // Regression: _blob decodes "" to Uint8List(0) instead of null.
         await tester.pumpWidget(
           _wrap(
             GroupAvatarPicker(
@@ -102,11 +128,11 @@ void main() {
         );
         await tester.pump();
 
-        expect(find.text('Remove photo'), findsNothing);
+        expect(find.byIcon(AppIcons.close), findsNothing);
       },
     );
 
-    testWidgets('tapping the remove row triggers onRemoveImage callback', (
+    testWidgets('tapping the remove × badge triggers onRemoveImage callback', (
       tester,
     ) async {
       var removeCount = 0;
@@ -123,126 +149,11 @@ void main() {
       );
       await tester.pump();
 
-      await tester.tap(find.text('Remove photo'));
+      await tester.tap(find.byIcon(AppIcons.close));
       await tester.pump();
 
       expect(removeCount, 1);
     });
-
-    testWidgets(
-      'emoji badge is suppressed when avatar set AND image fails to decode (prevents double-emoji)',
-      (tester) async {
-        // In the widget test environment Image.memory does not decode, so
-        // errorBuilder fires and _imageDecodeFailed becomes true, causing the
-        // badge to be suppressed. This is the correct fix: avoid rendering the
-        // emoji both centred (errorBuilder fallback) and as a badge overlay.
-        await tester.pumpWidget(
-          _wrap(
-            GroupAvatarPicker(
-              avatarImageData: _kOnePxPng,
-              emoji: '🌟',
-              showEmojiOnAvatar: true,
-              onPickImage: () {},
-              onRemoveImage: () {},
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        // After decode failure, the badge Positioned widget must be absent so
-        // the emoji is not rendered twice.
-        expect(find.byType(Positioned), findsNothing);
-        // The emoji should still render once, centred in the fallback circle.
-        expect(find.text('🌟'), findsOneWidget);
-      },
-    );
-
-    testWidgets('emoji badge is hidden when showEmojiOnAvatar is false', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _wrap(
-          GroupAvatarPicker(
-            avatarImageData: _kOnePxPng,
-            emoji: '🌟',
-            showEmojiOnAvatar: false,
-            onPickImage: () {},
-            onRemoveImage: () {},
-          ),
-        ),
-      );
-      await tester.pump();
-
-      // When showEmojiOnAvatar is false, the badge Positioned widget must not
-      // be present in the tile — the emoji should NOT overlay the avatar as a badge.
-      // (Image.memory may fall back in test env, but badge layout is not used.)
-      expect(find.byType(Positioned), findsNothing);
-    });
-
-    testWidgets(
-      'emoji renders centered (not as badge) when no avatar present',
-      (tester) async {
-        await tester.pumpWidget(
-          _wrap(
-            GroupAvatarPicker(
-              avatarImageData: null,
-              emoji: '🌈',
-              showEmojiOnAvatar: true,
-              onPickImage: () {},
-              onRemoveImage: () {},
-            ),
-          ),
-        );
-        await tester.pump();
-
-        // Emoji should render in a centered TintedGlassSurface, not in a Stack badge.
-        expect(find.text('🌈'), findsOneWidget);
-        // There should be no Positioned widget (no badge layout) at the top level.
-        expect(find.byType(Positioned), findsNothing);
-      },
-    );
-
-    testWidgets(
-      'folder fallback icon visible when no avatar AND no emoji',
-      (tester) async {
-        await tester.pumpWidget(
-          _wrap(
-            GroupAvatarPicker(
-              avatarImageData: null,
-              emoji: null,
-              showEmojiOnAvatar: false,
-              onPickImage: () {},
-              onRemoveImage: () {},
-            ),
-          ),
-        );
-        await tester.pump();
-
-        // The folder icon should be visible as the fallback.
-        expect(find.byType(Icon), findsWidgets);
-      },
-    );
-
-    testWidgets(
-      'folder fallback icon visible when avatarImageData is empty (0 bytes) AND no emoji',
-      (tester) async {
-        await tester.pumpWidget(
-          _wrap(
-            GroupAvatarPicker(
-              avatarImageData: Uint8List(0),
-              emoji: null,
-              showEmojiOnAvatar: false,
-              onPickImage: () {},
-              onRemoveImage: () {},
-            ),
-          ),
-        );
-        await tester.pump();
-
-        expect(find.byType(Icon), findsWidgets);
-        expect(find.text('Remove photo'), findsNothing);
-      },
-    );
 
     testWidgets(
       'tile has merged Semantics node with button: true and image: true when avatar set',

@@ -3272,14 +3272,20 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupDescriptionLabel => 'Descripción';
 
   @override
-  String get memberGroupDescriptionEmptyHint =>
-      'Toca para escribir sobre este grupo';
+  String get memberGroupDescriptionFullscreenTooltip =>
+      'Abrir descripción en pantalla completa';
+
+  @override
+  String get memberGroupDescriptionHint => '¿De qué trata este grupo?';
 
   @override
   String get memberGroupColorLabel => 'Color';
 
   @override
   String get memberGroupColorNone => 'Sin color';
+
+  @override
+  String get memberGroupColorClear => 'Quitar color';
 
   @override
   String get memberGroupRemovePhoto => 'Quitar foto';

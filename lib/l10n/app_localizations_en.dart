@@ -3208,13 +3208,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupDescriptionLabel => 'Description';
 
   @override
-  String get memberGroupDescriptionEmptyHint => 'Tap to write about this group';
+  String get memberGroupDescriptionFullscreenTooltip =>
+      'Open description in full screen';
+
+  @override
+  String get memberGroupDescriptionHint => 'What\'s this group about?';
 
   @override
   String get memberGroupColorLabel => 'Color';
 
   @override
   String get memberGroupColorNone => 'No color';
+
+  @override
+  String get memberGroupColorClear => 'Clear color';
 
   @override
   String get memberGroupRemovePhoto => 'Remove photo';

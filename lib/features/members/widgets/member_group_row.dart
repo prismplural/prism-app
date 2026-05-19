@@ -5,7 +5,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
-import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
+import 'package:prism_plurality/shared/widgets/group_avatar.dart';
 
 class MemberGroupRow extends StatelessWidget {
   const MemberGroupRow({
@@ -189,36 +189,13 @@ class _GroupAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tint = accentColor ?? theme.colorScheme.primary;
-    final hasAvatar =
-        group.avatarImageData != null && group.avatarImageData!.isNotEmpty;
-    final hasEmoji = group.emoji != null && group.emoji!.isNotEmpty;
-
-    return TintedGlassSurface.circle(
+    return GroupAvatar(
+      group: group,
       size: 44,
-      tint: tint,
-      child: Center(
-        child: hasAvatar
-            ? ClipOval(
-                child: Image.memory(
-                  group.avatarImageData!,
-                  fit: BoxFit.cover,
-                  width: 44,
-                  height: 44,
-                  cacheWidth:
-                      (44 * MediaQuery.devicePixelRatioOf(context)).round(),
-                  cacheHeight:
-                      (44 * MediaQuery.devicePixelRatioOf(context)).round(),
-                  errorBuilder: (_, _, _) => hasEmoji
-                      ? Text(group.emoji!, style: const TextStyle(fontSize: 22))
-                      : Icon(AppIcons.folderOutlined, size: 22, color: tint),
-                ),
-              )
-            : hasEmoji
-                ? Text(group.emoji!, style: const TextStyle(fontSize: 22))
-                : Icon(AppIcons.folderOutlined, size: 22, color: tint),
-      ),
+      // No emoji badge at 44pt — too small to read. Documented downgrade
+      // (the picker tile and detail header carry the badge).
+      showEmojiOnAvatar: false,
+      tintOverride: accentColor,
     );
   }
 }

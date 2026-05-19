@@ -4386,9 +4386,13 @@
   "@memberGroupDescriptionLabel": {
     "description": "Label for the group description text field"
   },
-  "memberGroupDescriptionEmptyHint": "Tap to write about this group",
-  "@memberGroupDescriptionEmptyHint": {
-    "description": "Empty-state hint shown on the group description row in the editor sheet when no description is set"
+  "memberGroupDescriptionFullscreenTooltip": "Open description in full screen",
+  "@memberGroupDescriptionFullscreenTooltip": {
+    "description": "Tooltip for the button that opens the full-screen group description editor"
+  },
+  "memberGroupDescriptionHint": "What's this group about?",
+  "@memberGroupDescriptionHint": {
+    "description": "Hint text for the inline group description text field"
   },
   "memberGroupColorLabel": "Color",
   "@memberGroupColorLabel": {
@@ -4397,6 +4401,10 @@
   "memberGroupColorNone": "No color",
   "@memberGroupColorNone": {
     "description": "Option label when no color is selected for a group"
+  },
+  "memberGroupColorClear": "Clear color",
+  "@memberGroupColorClear": {
+    "description": "Button label in the group color picker dialog to remove the selected color"
   },
   "memberGroupRemovePhoto": "Remove photo",
   "@memberGroupRemovePhoto": {
