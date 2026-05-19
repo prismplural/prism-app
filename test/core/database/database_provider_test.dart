@@ -295,12 +295,102 @@ void main() {
 
       expect(report.diagnostic, isNotNull);
       expect(report.diagnostic!.recoveredVia, 'primary');
-      expect(report.diagnostic!.slotOutcomes['primary'], 'opened');
+      expect(
+        report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbPrimary],
+        'ok',
+      );
+      expect(
+        report.diagnostic!.appDbState,
+        DbStartupStateName.ready,
+      );
 
       final json = report.diagnostic!.toJson();
-      expect(json['recoveredVia'], 'primary');
-      expect(json['slotOutcomes'], isA<Map<String, dynamic>>());
-      expect(json['capturedAt'], isA<String>());
+      expect(json['recovered_via'], 'primary');
+      expect(json['slot_outcomes'], isA<Map<String, dynamic>>());
+      expect(json['app_db_state'], 'ready');
+      expect(json['captured_at'], isA<String>());
+    });
+
+    test('diagnostic includes a KeychainDegradedState snapshot', () async {
+      final hex = _hexKeyForByte(0x78);
+      final dbPath = '${tempDir.path}/prism.db';
+      _createEncryptedDb(dbPath, hex);
+      storageStub.store[kDatabaseKeyStorageKey] = hex;
+
+      final report = await probeAppDatabaseStartup(
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
+      expect(
+        report.diagnostic!.keychainDegradedStateSnapshot,
+        isNotNull,
+      );
+      // Probe set appDbKey to ok on success.
+      expect(
+        report.diagnostic!.keychainDegradedStateSnapshot!.appDbKey,
+        SlotState.ok,
+      );
+    });
+
+    test('diagnostic records cipher outcomes when slots throw', () async {
+      // Primary slot throws cipher; sync slot succeeds and opens the DB.
+      final hex = _hexKeyForByte(0x9b);
+      final dbPath = '${tempDir.path}/prism.db';
+      _createEncryptedDb(dbPath, hex);
+      storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
+        _cipherException(),
+      ];
+      storageStub.store[kSyncDatabaseKeyStorageKey] = hex;
+
+      final report = await probeAppDatabaseStartup(
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
+      expect(report.state, DbStartupState.ready);
+      expect(
+        report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbPrimary],
+        'cipher',
+      );
+      expect(
+        report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbSync],
+        'ok',
+      );
+    });
+
+    test('diagnostic records missing outcomes on a fully empty keychain',
+        () async {
+      // DB file exists but no keys are present — every slot reads
+      // `missing`. The probe should land on unrecoverable with an
+      // unrecoverable app_db_state.
+      final hex = _hexKeyForByte(0x6c);
+      final dbPath = '${tempDir.path}/prism.db';
+      _createEncryptedDb(dbPath, hex);
+
+      final report = await probeAppDatabaseStartup(
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
+      expect(report.state, DbStartupState.unrecoverable);
+      expect(report.diagnostic!.recoveredVia, isNull);
+      expect(
+        report.diagnostic!.appDbState,
+        DbStartupStateName.unrecoverable,
+      );
+      expect(
+        report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbPrimary],
+        'missing',
+      );
+      expect(
+        report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbSync],
+        'missing',
+      );
+      expect(
+        report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbSyncStaging],
+        'missing',
+      );
     });
   });
 

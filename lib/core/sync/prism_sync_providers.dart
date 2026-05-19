@@ -253,20 +253,38 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
   final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
   final file = File(dbPath);
 
+  Future<SecureStorageDiagnostic> buildDiagnostic({
+    required String? recoveredVia,
+    required DbStartupStateName syncDbState,
+  }) async {
+    KeychainDegradedState? degradedSnapshot;
+    try {
+      degradedSnapshot = await service.read();
+    } catch (e) {
+      debugPrint('[SYNC_PROBE] Failed to snapshot degraded state: $e');
+    }
+    return SecureStorageDiagnostic(
+      recoveredVia: recoveredVia,
+      slotOutcomes: slotOutcomes,
+      syncDbState: syncDbState,
+      keychainDegradedStateSnapshot: degradedSnapshot,
+    );
+  }
+
   // ── 1. Fresh install ───────────────────────────────────────────────────
   if (!file.existsSync()) {
     debugPrint(
       '[SYNC_PROBE] No prism_sync.db on disk — fresh sync (no key generated)',
     );
-    slotOutcomes['fresh'] = 'no-sync-db';
+    slotOutcomes[DiagnosticSlotIds.syncDbFresh] = 'ok';
     await service.updateSlot('syncKey', SlotState.ok);
     return DbStartupReport(
       state: DbStartupState.ready,
       keyInMemory: null,
       usedRecoverySlot: 'fresh',
-      diagnostic: SecureStorageDiagnostic(
+      diagnostic: await buildDiagnostic(
         recoveredVia: 'fresh',
-        slotOutcomes: slotOutcomes,
+        syncDbState: DbStartupStateName.ready,
       ),
     );
   }
@@ -285,59 +303,75 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
           '[SYNC_PROBE] Crash-recovery: sync DB staging key verified — promoting',
         );
         await promoteStagingSyncDatabaseKey(syncStagingKey);
+        slotOutcomes[DiagnosticSlotIds.syncDbStagingPromote] = 'ok';
       } else {
         await discardStagingSyncDatabaseKey();
+        slotOutcomes[DiagnosticSlotIds.syncDbStagingPromote] =
+            'threw: discarded-stale';
       }
+    } else {
+      slotOutcomes[DiagnosticSlotIds.syncDbStagingPromote] = 'missing';
     }
   } catch (e) {
-    slotOutcomes['sync_staging_promote'] = 'recovery-skipped: $e';
+    slotOutcomes[DiagnosticSlotIds.syncDbStagingPromote] =
+        slotOutcomeThrewString(e);
     debugPrint('[SYNC_PROBE] Sync staging crash recovery skipped: $e');
   }
 
   // ── 3. Sync primary slot ───────────────────────────────────────────────
-  final syncPrimary = await readSyncDatabaseKeyHex();
-  if (syncPrimary != null) {
-    if (tryOpenEncryptedDb(dbPath, syncPrimary)) {
+  final syncPrimary = await readSlotForDiagnostic(
+    kSyncDatabaseKeyStorageKey,
+    slotLabel: 'sync DB key',
+  );
+  if (syncPrimary.hex != null) {
+    if (tryOpenEncryptedDb(dbPath, syncPrimary.hex!)) {
       debugPrint('[SYNC_PROBE] Sync primary slot opened the sync DB');
-      slotOutcomes['sync_primary'] = 'opened';
+      slotOutcomes[DiagnosticSlotIds.syncDbPrimary] = 'ok';
       await service.updateSlot('syncKey', SlotState.ok);
       return DbStartupReport(
         state: DbStartupState.ready,
-        keyInMemory: syncPrimary,
+        keyInMemory: syncPrimary.hex,
         usedRecoverySlot: 'primary',
-        diagnostic: SecureStorageDiagnostic(
+        diagnostic: await buildDiagnostic(
           recoveredVia: 'primary',
-          slotOutcomes: slotOutcomes,
+          syncDbState: DbStartupStateName.ready,
         ),
       );
     }
-    slotOutcomes['sync_primary'] = 'present-but-stale';
+    slotOutcomes[DiagnosticSlotIds.syncDbPrimary] =
+        'threw: present-but-stale';
   } else {
-    slotOutcomes['sync_primary'] = 'missing-or-failed';
+    slotOutcomes[DiagnosticSlotIds.syncDbPrimary] =
+        slotOutcomeName(syncPrimary.outcome);
   }
 
   // ── 4. Sync staging slot ───────────────────────────────────────────────
-  final syncStaging = await readStagingSyncDatabaseKeyHex();
-  if (syncStaging != null) {
-    if (tryOpenEncryptedDb(dbPath, syncStaging)) {
+  final syncStaging = await readSlotForDiagnostic(
+    '${kSyncDatabaseKeyStorageKey}_staging',
+    slotLabel: 'sync DB staging key',
+  );
+  if (syncStaging.hex != null) {
+    if (tryOpenEncryptedDb(dbPath, syncStaging.hex!)) {
       debugPrint(
         '[SYNC_PROBE] Sync staging slot opened the sync DB — repair-pending',
       );
-      slotOutcomes['sync_staging'] = 'opened';
+      slotOutcomes[DiagnosticSlotIds.syncDbSyncStaging] = 'ok';
       await service.updateSlot('syncKey', SlotState.ok);
       return DbStartupReport(
         state: DbStartupState.ready,
-        keyInMemory: syncStaging,
+        keyInMemory: syncStaging.hex,
         usedRecoverySlot: 'sync_staging',
-        diagnostic: SecureStorageDiagnostic(
+        diagnostic: await buildDiagnostic(
           recoveredVia: 'sync_staging',
-          slotOutcomes: slotOutcomes,
+          syncDbState: DbStartupStateName.ready,
         ),
       );
     }
-    slotOutcomes['sync_staging'] = 'present-but-stale';
+    slotOutcomes[DiagnosticSlotIds.syncDbSyncStaging] =
+        'threw: present-but-stale';
   } else {
-    slotOutcomes['sync_staging'] = 'missing-or-failed';
+    slotOutcomes[DiagnosticSlotIds.syncDbSyncStaging] =
+        slotOutcomeName(syncStaging.outcome);
   }
 
   // ── 5. App primary slot (cross-DB recovery candidate) ──────────────────
@@ -352,45 +386,52 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
       debugPrint(
         '[SYNC_PROBE] App primary slot opened the sync DB (cross-DB recovery)',
       );
-      slotOutcomes['app_primary'] = 'opened';
+      slotOutcomes[DiagnosticSlotIds.syncDbAppPrimaryCandidate] = 'ok';
       await service.updateSlot('syncKey', SlotState.ok);
       return DbStartupReport(
         state: DbStartupState.ready,
         keyInMemory: verifiedAppDbKey,
         usedRecoverySlot: 'app_primary',
-        diagnostic: SecureStorageDiagnostic(
+        diagnostic: await buildDiagnostic(
           recoveredVia: 'app_primary',
-          slotOutcomes: slotOutcomes,
+          syncDbState: DbStartupStateName.ready,
         ),
       );
     }
-    slotOutcomes['app_primary'] = 'present-but-stale';
+    slotOutcomes[DiagnosticSlotIds.syncDbAppPrimaryCandidate] =
+        'threw: present-but-stale';
   } else {
-    slotOutcomes['app_primary'] = 'app-db-unrecoverable';
+    slotOutcomes[DiagnosticSlotIds.syncDbAppPrimaryCandidate] =
+        'threw: app-db-unrecoverable';
   }
 
   // ── 6. App staging slot ────────────────────────────────────────────────
-  final appStaging = await readStagingDatabaseKeyHex();
-  if (appStaging != null) {
-    if (tryOpenEncryptedDb(dbPath, appStaging)) {
+  final appStaging = await readSlotForDiagnostic(
+    '${kDatabaseKeyStorageKey}_staging',
+    slotLabel: 'app DB staging key',
+  );
+  if (appStaging.hex != null) {
+    if (tryOpenEncryptedDb(dbPath, appStaging.hex!)) {
       debugPrint(
         '[SYNC_PROBE] App staging slot opened the sync DB (cross-DB recovery)',
       );
-      slotOutcomes['app_staging'] = 'opened';
+      slotOutcomes[DiagnosticSlotIds.syncDbAppStagingCandidate] = 'ok';
       await service.updateSlot('syncKey', SlotState.ok);
       return DbStartupReport(
         state: DbStartupState.ready,
-        keyInMemory: appStaging,
+        keyInMemory: appStaging.hex,
         usedRecoverySlot: 'app_staging',
-        diagnostic: SecureStorageDiagnostic(
+        diagnostic: await buildDiagnostic(
           recoveredVia: 'app_staging',
-          slotOutcomes: slotOutcomes,
+          syncDbState: DbStartupStateName.ready,
         ),
       );
     }
-    slotOutcomes['app_staging'] = 'present-but-stale';
+    slotOutcomes[DiagnosticSlotIds.syncDbAppStagingCandidate] =
+        'threw: present-but-stale';
   } else {
-    slotOutcomes['app_staging'] = 'missing-or-failed';
+    slotOutcomes[DiagnosticSlotIds.syncDbAppStagingCandidate] =
+        slotOutcomeName(appStaging.outcome);
   }
 
   // ── 7. Unrecoverable ───────────────────────────────────────────────────
@@ -404,9 +445,9 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
     state: DbStartupState.unrecoverable,
     keyInMemory: null,
     usedRecoverySlot: null,
-    diagnostic: SecureStorageDiagnostic(
+    diagnostic: await buildDiagnostic(
       recoveredVia: null,
-      slotOutcomes: slotOutcomes,
+      syncDbState: DbStartupStateName.unrecoverable,
     ),
   );
 }

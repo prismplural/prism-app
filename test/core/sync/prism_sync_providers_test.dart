@@ -2388,6 +2388,49 @@ void main() {
       expect(report.usedRecoverySlot, 'app_primary');
       expect(report.keyInMemory, realHex);
     });
+
+    test('§10 — diagnostic populates per-slot outcomes for the sync probe',
+        () async {
+      // sync primary cipher; sync staging missing; verifiedAppDbKey opens
+      // the DB via cross-DB recovery.
+      final hex = _hexKey(0x7e);
+      final dbPath = '${tempDir.path}/prism_sync.db';
+      _createEncryptedDb(dbPath, hex);
+      storageStub.throwOnReadKeyQueue[kSyncDatabaseKeyStorageKey] = [
+        _cipherException(),
+      ];
+
+      final report = await probeSyncDatabaseStartup(
+        verifiedAppDbKey: hex,
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
+      expect(report.state, DbStartupState.ready);
+      final diag = report.diagnostic;
+      expect(diag, isNotNull);
+      expect(diag!.recoveredVia, 'app_primary');
+      expect(diag.syncDbState, DbStartupStateName.ready);
+      expect(
+        diag.slotOutcomes[DiagnosticSlotIds.syncDbPrimary],
+        'cipher',
+      );
+      expect(
+        diag.slotOutcomes[DiagnosticSlotIds.syncDbSyncStaging],
+        'missing',
+      );
+      expect(
+        diag.slotOutcomes[DiagnosticSlotIds.syncDbAppPrimaryCandidate],
+        'ok',
+      );
+      expect(diag.keychainDegradedStateSnapshot, isNotNull);
+
+      // JSON wire form is snake_case.
+      final json = diag.toJson();
+      expect(json['recovered_via'], 'app_primary');
+      expect(json['sync_db_state'], 'ready');
+      expect(json['slot_outcomes'], isA<Map<String, dynamic>>());
+    });
   });
 
   group('wipeSyncDatabaseForRepair', () {

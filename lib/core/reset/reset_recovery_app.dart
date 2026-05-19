@@ -4,14 +4,14 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:prism_plurality/core/database/database_provider.dart'
-    show SecureStorageDiagnostic;
 import 'package:prism_plurality/core/reset/full_reset_service.dart';
+import 'package:prism_plurality/core/services/secure_storage_diagnostic.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 enum ResetRecoveryScreenMode {
@@ -67,21 +67,31 @@ class ResetRecoveryApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Prism',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF9070A0)),
-        useMaterial3: true,
+    // Wrap in a ProviderScope so [ResetRecoveryScreen]'s
+    // ConsumerState can resolve [bootSecureStorageDiagnosticProvider].
+    // The diagnostic passed via [diagnostic] is also threaded through
+    // the provider so child widgets get a consistent view.
+    return ProviderScope(
+      overrides: [
+        if (diagnostic != null)
+          bootSecureStorageDiagnosticProvider.overrideWithValue(diagnostic),
+      ],
+      child: MaterialApp(
+        title: 'Prism',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF9070A0)),
+          useMaterial3: true,
+        ),
+        home: ResetRecoveryScreen(
+          mode: mode,
+          service: service,
+          diagnostic: diagnostic,
+          shareDiagnostic: shareDiagnostic,
+          syncHistoryHintReader: syncHistoryHintReader,
+          appExit: appExit,
+        ),
+        debugShowCheckedModeBanner: false,
       ),
-      home: ResetRecoveryScreen(
-        mode: mode,
-        service: service,
-        diagnostic: diagnostic,
-        shareDiagnostic: shareDiagnostic,
-        syncHistoryHintReader: syncHistoryHintReader,
-        appExit: appExit,
-      ),
-      debugShowCheckedModeBanner: false,
     );
   }
 }
@@ -438,13 +448,26 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
   }
 
   String _buildDiagnosticJson() {
-    final diag = widget.diagnostic;
+    // Prefer the diagnostic passed via the constructor (the boot path
+    // threads it in directly). Fall back to the Riverpod provider for
+    // in-app callers — settings screen etc. — that don't have a
+    // reference handy. Pretty-printed so users can read the file.
+    SecureStorageDiagnostic? diag = widget.diagnostic;
+    if (diag == null) {
+      try {
+        final container = ProviderScope.containerOf(context, listen: false);
+        diag = container.read(bootSecureStorageDiagnosticProvider);
+      } catch (_) {
+        // No ProviderScope ancestor (e.g. direct ResetRecoveryScreen use
+        // in tests). Tolerate; the diagnostic just stays null.
+      }
+    }
     const encoder = JsonEncoder.withIndent('  ');
     final payload = <String, Object?>{
-      'prismDiagnosticVersion': 1,
-      'capturedAt': DateTime.now().toUtc().toIso8601String(),
+      'prism_diagnostic_version': 1,
+      'captured_at': DateTime.now().toUtc().toIso8601String(),
       'platform': Platform.operatingSystem,
-      'platformVersion': Platform.operatingSystemVersion,
+      'platform_version': Platform.operatingSystemVersion,
       'diagnostic': diag?.toJson(),
     };
     return encoder.convert(payload);

@@ -14,6 +14,22 @@ import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/backup_exclusion.dart';
 import 'package:prism_plurality/core/services/keychain_degraded_state.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/core/services/secure_storage_diagnostic.dart';
+
+// Re-export so existing callers that import database_provider.dart for the
+// SecureStorageDiagnostic type don't have to change their imports. The
+// canonical definition now lives in
+// `lib/core/services/secure_storage_diagnostic.dart`.
+export 'package:prism_plurality/core/services/secure_storage_diagnostic.dart'
+    show
+        SecureStorageDiagnostic,
+        SlotOutcome,
+        DbStartupStateName,
+        KeychainRepairWritebackResult,
+        DiagnosticSlotIds,
+        slotOutcomeName,
+        slotOutcomeThrewString,
+        bootSecureStorageDiagnosticProvider;
 
 // ---------------------------------------------------------------------------
 // Public API — §4 app DB startup probe
@@ -53,38 +69,6 @@ Future<File> getDatabaseFile({Directory? directory}) async {
 /// - [unrecoverable]: every recovery slot failed to open the DB. The boot
 ///   path MUST short-circuit to the recovery UI (§7 — not implemented yet).
 enum DbStartupState { ready, unrecoverable }
-
-/// Stub diagnostic record — §10 will replace this with the real
-/// [SecureStorageDiagnostic] populated by the wrapped secure-storage reads.
-/// For §4 we only need a placeholder so the probe's signature is stable.
-class SecureStorageDiagnostic {
-  SecureStorageDiagnostic({
-    this.recoveredVia,
-    DateTime? capturedAt,
-    Map<String, String>? slotOutcomes,
-  })  : capturedAt = capturedAt ?? DateTime.now(),
-        slotOutcomes = Map<String, String>.unmodifiable(
-          slotOutcomes ?? const <String, String>{},
-        );
-
-  /// Which slot ultimately produced the verified key, or null if
-  /// unrecoverable.
-  final String? recoveredVia;
-
-  /// Per-slot outcome string (e.g. `'primary': 'opened'`, `'sync': 'cipher'`,
-  /// `'sync_staging': 'missing'`). §10 will replace this with a richer
-  /// structured shape; for now it's a flat map.
-  final Map<String, String> slotOutcomes;
-
-  /// When the diagnostic was captured. Useful for cross-boot diffing.
-  final DateTime capturedAt;
-
-  Map<String, dynamic> toJson() => <String, dynamic>{
-        'recoveredVia': recoveredVia,
-        'slotOutcomes': slotOutcomes,
-        'capturedAt': capturedAt.toIso8601String(),
-      };
-}
 
 /// Result of the §4 app DB startup probe.
 @immutable
@@ -161,6 +145,24 @@ Future<DbStartupReport> probeAppDatabaseStartup({
   final file = await getDatabaseFile(directory: directory);
   final dbPath = file.path;
 
+  Future<SecureStorageDiagnostic> buildDiagnostic({
+    required String? recoveredVia,
+    required DbStartupStateName appDbState,
+  }) async {
+    KeychainDegradedState? degradedSnapshot;
+    try {
+      degradedSnapshot = await service.read();
+    } catch (e) {
+      debugPrint('[DB_PROVIDER] Failed to snapshot degraded state: $e');
+    }
+    return SecureStorageDiagnostic(
+      recoveredVia: recoveredVia,
+      slotOutcomes: slotOutcomes,
+      appDbState: appDbState,
+      keychainDegradedStateSnapshot: degradedSnapshot,
+    );
+  }
+
   // ── 1. Fresh-install branch ────────────────────────────────────────────
   if (!file.existsSync()) {
     final rng = random ?? Random.secure();
@@ -180,43 +182,44 @@ Future<DbStartupReport> probeAppDatabaseStartup({
     try {
       writeResult = await writeDatabaseKeyHex(newKey);
     } on StateError catch (e) {
-      slotOutcomes['fresh'] = 'guard-refused: $e';
+      slotOutcomes[DiagnosticSlotIds.appDbFresh] =
+          slotOutcomeThrewString(e);
       await service.updateSlot('appDbKey', SlotState.unreadable);
       return DbStartupReport(
         state: DbStartupState.unrecoverable,
         keyInMemory: null,
         usedRecoverySlot: null,
-        diagnostic: SecureStorageDiagnostic(
+        diagnostic: await buildDiagnostic(
           recoveredVia: null,
-          slotOutcomes: slotOutcomes,
+          appDbState: DbStartupStateName.unrecoverable,
         ),
       );
     }
     if (!writeResult.ok) {
-      slotOutcomes['fresh'] =
-          'write-failed: ${writeResult.failure?.name ?? 'unknown'}';
+      slotOutcomes[DiagnosticSlotIds.appDbFresh] =
+          'threw: write-failed (${writeResult.failure?.name ?? 'unknown'})';
       await service.updateSlot('appDbKey', SlotState.unreadable);
       return DbStartupReport(
         state: DbStartupState.unrecoverable,
         keyInMemory: null,
         usedRecoverySlot: null,
-        diagnostic: SecureStorageDiagnostic(
+        diagnostic: await buildDiagnostic(
           recoveredVia: null,
-          slotOutcomes: slotOutcomes,
+          appDbState: DbStartupStateName.unrecoverable,
         ),
       );
     }
 
     debugPrint('[DB_PROVIDER] Fresh install — generated new database key');
-    slotOutcomes['fresh'] = 'generated';
+    slotOutcomes[DiagnosticSlotIds.appDbFresh] = 'ok';
     await service.updateSlot('appDbKey', SlotState.ok);
     return DbStartupReport(
       state: DbStartupState.ready,
       keyInMemory: newKey,
       usedRecoverySlot: 'fresh',
-      diagnostic: SecureStorageDiagnostic(
+      diagnostic: await buildDiagnostic(
         recoveredVia: 'fresh',
-        slotOutcomes: slotOutcomes,
+        appDbState: DbStartupStateName.ready,
       ),
     );
   }
@@ -229,90 +232,111 @@ Future<DbStartupReport> probeAppDatabaseStartup({
   // the subsequent slot reads do their job — the staging key will still be
   // tried as part of the primary-slot read path if it happens to be the
   // active key.
-  final stagingKey = await _readStagingKey();
-  if (stagingKey != null) {
+  final stagingRead = await readSlotForDiagnostic(
+    '${kDatabaseKeyStorageKey}_staging',
+    slotLabel: 'app DB staging key',
+  );
+  if (stagingRead.hex != null) {
     try {
-      await _recoverFromStagingKey(stagingKey, dbPath);
+      await _recoverFromStagingKey(stagingRead.hex!, dbPath);
+      slotOutcomes[DiagnosticSlotIds.appDbPrimaryStaging] = 'ok';
     } catch (e) {
-      slotOutcomes['primary_staging'] = 'recovery-skipped: $e';
+      slotOutcomes[DiagnosticSlotIds.appDbPrimaryStaging] =
+          slotOutcomeThrewString(e);
       debugPrint(
         '[DB_PROVIDER] Staging crash recovery skipped (repair-pending?): $e',
       );
     }
+  } else {
+    slotOutcomes[DiagnosticSlotIds.appDbPrimaryStaging] =
+        slotOutcomeName(stagingRead.outcome);
   }
 
   // ── 3. Primary slot ────────────────────────────────────────────────────
-  final primaryHex = await readDatabaseKeyHex();
-  if (primaryHex != null) {
-    if (_tryOpenEncrypted(dbPath, primaryHex)) {
+  final primaryRead = await readSlotForDiagnostic(
+    kDatabaseKeyStorageKey,
+    slotLabel: 'primary DB key',
+  );
+  if (primaryRead.hex != null) {
+    if (_tryOpenEncrypted(dbPath, primaryRead.hex!)) {
       debugPrint('[DB_PROVIDER] Primary slot opened the DB');
-      slotOutcomes['primary'] = 'opened';
+      slotOutcomes[DiagnosticSlotIds.appDbPrimary] = 'ok';
       await service.updateSlot('appDbKey', SlotState.ok);
       return DbStartupReport(
         state: DbStartupState.ready,
-        keyInMemory: primaryHex,
+        keyInMemory: primaryRead.hex,
         usedRecoverySlot: 'primary',
-        diagnostic: SecureStorageDiagnostic(
+        diagnostic: await buildDiagnostic(
           recoveredVia: 'primary',
-          slotOutcomes: slotOutcomes,
+          appDbState: DbStartupStateName.ready,
         ),
       );
     }
-    slotOutcomes['primary'] = 'present-but-stale';
+    slotOutcomes[DiagnosticSlotIds.appDbPrimary] = 'threw: present-but-stale';
     debugPrint(
       '[DB_PROVIDER] Primary slot returned a key that does not open the DB '
       '— falling through to sync candidates',
     );
   } else {
-    slotOutcomes['primary'] = 'missing-or-failed';
+    slotOutcomes[DiagnosticSlotIds.appDbPrimary] =
+        slotOutcomeName(primaryRead.outcome);
   }
 
   // ── 4. Sync primary slot ───────────────────────────────────────────────
-  final syncHex = await readSyncDatabaseKeyHex();
-  if (syncHex != null) {
-    if (_tryOpenEncrypted(dbPath, syncHex)) {
+  final syncRead = await readSlotForDiagnostic(
+    kSyncDatabaseKeyStorageKey,
+    slotLabel: 'sync DB key',
+  );
+  if (syncRead.hex != null) {
+    if (_tryOpenEncrypted(dbPath, syncRead.hex!)) {
       debugPrint('[DB_PROVIDER] Sync slot opened the DB — repair-pending');
-      slotOutcomes['sync'] = 'opened';
+      slotOutcomes[DiagnosticSlotIds.appDbSync] = 'ok';
       await setKeychainRepairPending(true);
       await service.updateSlot('appDbKey', SlotState.ok);
       return DbStartupReport(
         state: DbStartupState.ready,
-        keyInMemory: syncHex,
+        keyInMemory: syncRead.hex,
         usedRecoverySlot: 'sync',
-        diagnostic: SecureStorageDiagnostic(
+        diagnostic: await buildDiagnostic(
           recoveredVia: 'sync',
-          slotOutcomes: slotOutcomes,
+          appDbState: DbStartupStateName.ready,
         ),
       );
     }
-    slotOutcomes['sync'] = 'present-but-stale';
+    slotOutcomes[DiagnosticSlotIds.appDbSync] = 'threw: present-but-stale';
   } else {
-    slotOutcomes['sync'] = 'missing-or-failed';
+    slotOutcomes[DiagnosticSlotIds.appDbSync] =
+        slotOutcomeName(syncRead.outcome);
   }
 
   // ── 5. Sync staging slot ───────────────────────────────────────────────
-  final syncStagingHex = await readStagingSyncDatabaseKeyHex();
-  if (syncStagingHex != null) {
-    if (_tryOpenEncrypted(dbPath, syncStagingHex)) {
+  final syncStagingRead = await readSlotForDiagnostic(
+    '${kSyncDatabaseKeyStorageKey}_staging',
+    slotLabel: 'sync DB staging key',
+  );
+  if (syncStagingRead.hex != null) {
+    if (_tryOpenEncrypted(dbPath, syncStagingRead.hex!)) {
       debugPrint(
         '[DB_PROVIDER] Sync staging slot opened the DB — repair-pending',
       );
-      slotOutcomes['sync_staging'] = 'opened';
+      slotOutcomes[DiagnosticSlotIds.appDbSyncStaging] = 'ok';
       await setKeychainRepairPending(true);
       await service.updateSlot('appDbKey', SlotState.ok);
       return DbStartupReport(
         state: DbStartupState.ready,
-        keyInMemory: syncStagingHex,
+        keyInMemory: syncStagingRead.hex,
         usedRecoverySlot: 'sync_staging',
-        diagnostic: SecureStorageDiagnostic(
+        diagnostic: await buildDiagnostic(
           recoveredVia: 'sync_staging',
-          slotOutcomes: slotOutcomes,
+          appDbState: DbStartupStateName.ready,
         ),
       );
     }
-    slotOutcomes['sync_staging'] = 'present-but-stale';
+    slotOutcomes[DiagnosticSlotIds.appDbSyncStaging] =
+        'threw: present-but-stale';
   } else {
-    slotOutcomes['sync_staging'] = 'missing-or-failed';
+    slotOutcomes[DiagnosticSlotIds.appDbSyncStaging] =
+        slotOutcomeName(syncStagingRead.outcome);
   }
 
   // ── 6. Unrecoverable ───────────────────────────────────────────────────
@@ -325,9 +349,9 @@ Future<DbStartupReport> probeAppDatabaseStartup({
     state: DbStartupState.unrecoverable,
     keyInMemory: null,
     usedRecoverySlot: null,
-    diagnostic: SecureStorageDiagnostic(
+    diagnostic: await buildDiagnostic(
       recoveredVia: null,
-      slotOutcomes: slotOutcomes,
+      appDbState: DbStartupStateName.unrecoverable,
     ),
   );
 }
@@ -465,14 +489,6 @@ bool _tryOpenEncrypted(String path, String hexKey) {
   } catch (_) {
     return false;
   }
-}
-
-/// Read the staging key slot written by `rotateDatabaseToKey` for crash
-/// recovery. Returns the hex key string, or null if no staging slot exists.
-Future<String?> _readStagingKey() async {
-  final staging = await readStagingDatabaseKeyHex();
-  if (staging != null && validateHexKey(staging)) return staging;
-  return null;
 }
 
 /// Promote the staging key to the primary slot if — and only if — the DB

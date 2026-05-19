@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
+import 'package:prism_plurality/core/services/secure_storage_diagnostic.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -202,7 +204,10 @@ void main() {
       String? capturedPayload;
       final diag = SecureStorageDiagnostic(
         recoveredVia: null,
-        slotOutcomes: const <String, String>{'primary': 'cipher'},
+        slotOutcomes: const <String, String>{
+          DiagnosticSlotIds.appDbPrimary: 'cipher',
+        },
+        appDbState: DbStartupStateName.unrecoverable,
       );
 
       await tester.pumpWidget(
@@ -224,13 +229,67 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(capturedPayload, isNotNull);
-      expect(capturedPayload, contains('"slotOutcomes"'));
-      expect(capturedPayload, contains('"primary": "cipher"'));
+      // §10 — JSON shape uses snake_case for readability.
+      expect(capturedPayload, contains('"slot_outcomes"'));
+      expect(capturedPayload, contains('"app_db_primary": "cipher"'));
+      expect(capturedPayload, contains('"app_db_state": "unrecoverable"'));
+      expect(capturedPayload, contains('"prism_diagnostic_version": 1'));
       expect(
         find.textContaining('Diagnostic report saved'),
         findsOneWidget,
       );
     });
+
+    testWidgets(
+      'Save diagnostic report falls back to bootSecureStorageDiagnosticProvider',
+      (tester) async {
+        String? capturedPayload;
+        final providerDiag = SecureStorageDiagnostic(
+          recoveredVia: 'sync',
+          slotOutcomes: const <String, String>{
+            DiagnosticSlotIds.appDbPrimary: 'cipher',
+            DiagnosticSlotIds.appDbSync: 'ok',
+          },
+          appDbState: DbStartupStateName.ready,
+          keychainRepairPendingBeforeBoot: false,
+          keychainRepairWritebackAttemptedThisBoot: true,
+          keychainRepairWritebackResult: KeychainRepairWritebackResult.ok,
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              bootSecureStorageDiagnosticProvider
+                  .overrideWithValue(providerDiag),
+            ],
+            child: MaterialApp(
+              home: ResetRecoveryScreen(
+                mode: ResetRecoveryScreenMode.keychainUnreadable,
+                syncHistoryHintReader: () async => false,
+                // Intentionally omit `diagnostic:` so the screen falls
+                // back to the provider.
+                shareDiagnostic: (payload) async {
+                  capturedPayload = payload;
+                  return true;
+                },
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Save diagnostic report'));
+        await tester.pumpAndSettle();
+
+        expect(capturedPayload, isNotNull);
+        expect(capturedPayload, contains('"recovered_via": "sync"'));
+        expect(capturedPayload, contains('"app_db_sync": "ok"'));
+        expect(
+          capturedPayload,
+          contains('"keychain_repair_writeback_result": "ok"'),
+        );
+      },
+    );
 
     testWidgets(
       'tapping "Restart and unlock once and try again" invokes the exit hook',

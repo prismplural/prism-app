@@ -22,7 +22,9 @@ import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
 import 'package:prism_plurality/core/services/app_data_dir.dart';
+import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/screen_security_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -97,18 +99,68 @@ void main() async {
   //
   // App DB probe first; sync DB probe consumes the in-memory app key for
   // cross-DB recovery candidates (§5).
+  //
+  // §10 captures a per-boot diagnostic threaded into the recovery UI via
+  // [bootSecureStorageDiagnosticProvider]. Snapshot the keychain-repair
+  // pending flag BEFORE the write-back attempt so the diagnostic records
+  // both "was set when boot started" and "was the write-back attempted".
+  final keychainRepairPendingBeforeBoot = await _safeIsKeychainRepairPending();
+
   final appProbe = await _safeProbeAppDb();
   final syncProbe = await _safeProbeSyncDb(
     verifiedAppDbKey: appProbe.keyInMemory,
   );
 
+  // Opportunistic keychain repair write-back. If the app DB probe recovered
+  // via a sync slot, the `keychain_repair_pending` flag is set; this attempt
+  // tries to rewrite the verified key into the primary slot. Never throws,
+  // never blocks boot. Capture whether we attempted and the result for the
+  // diagnostic.
+  var writebackAttempted = false;
+  KeychainRepairWritebackResult? writebackResult;
+  if (appProbe.keyInMemory != null && keychainRepairPendingBeforeBoot == true) {
+    writebackAttempted = true;
+    final pendingAfter =
+        await _safeAttemptKeychainRepairWriteback(appProbe.keyInMemory!);
+    if (pendingAfter == false) {
+      writebackResult = KeychainRepairWritebackResult.ok;
+    } else if (pendingAfter == null) {
+      // Couldn't read SharedPrefs — best-effort classify as cipher_failure
+      // since the underlying write must have thrown.
+      writebackResult = KeychainRepairWritebackResult.cipherFailure;
+    } else {
+      writebackResult = KeychainRepairWritebackResult.cipherFailure;
+    }
+  } else if (appProbe.keyInMemory != null) {
+    // Call through anyway so the no-op fast path is exercised on every
+    // boot (the function early-returns when the flag is unset). Tracked
+    // as `noop` in the diagnostic.
+    await _safeAttemptKeychainRepairWriteback(appProbe.keyInMemory!);
+    writebackResult = KeychainRepairWritebackResult.noop;
+  }
+
+  // Build the §10 combined diagnostic. The app and sync probes each
+  // returned a diagnostic populated with their own slot outcomes and
+  // states; we merge them and attach the boot-level fields (write-back
+  // result, runtime DEK device state, app build metadata).
+  final combinedDiagnostic = await _buildBootDiagnostic(
+    appProbe: appProbe,
+    syncProbe: syncProbe,
+    keychainRepairPendingBeforeBoot: keychainRepairPendingBeforeBoot,
+    writebackAttempted: writebackAttempted,
+    writebackResult: writebackResult,
+  );
+
   // App DB unrecoverable → full-screen keychain-unreadable recovery. The
-  // sync probe state doesn't matter at this point.
+  // sync probe state doesn't matter at this point. ResetRecoveryApp
+  // injects [bootSecureStorageDiagnosticProvider] internally so children
+  // can read the diagnostic via Riverpod when they don't have a direct
+  // reference.
   if (appProbe.state == DbStartupState.unrecoverable) {
     runApp(
       ResetRecoveryApp(
         mode: ResetRecoveryScreenMode.keychainUnreadable,
-        diagnostic: appProbe.diagnostic,
+        diagnostic: combinedDiagnostic,
       ),
     );
     return;
@@ -118,14 +170,8 @@ void main() async {
   // KeychainDegradedStateService transitions were already written by
   // `probeSyncDatabaseStartup` itself (syncKey + syncCredentials →
   // unreadable). The in-app banner picks this up — see top-of-file TODO.
-
-  // Opportunistic keychain repair write-back. If the app DB probe recovered
-  // via a sync slot, the `keychain_repair_pending` flag is set; this attempt
-  // tries to rewrite the verified key into the primary slot. Never throws,
-  // never blocks boot.
-  if (appProbe.keyInMemory != null) {
-    await attemptKeychainRepairWriteback(appProbe.keyInMemory!);
-  }
+  // The combined diagnostic is still threaded into the riverpod tree so
+  // the in-app banner / settings entry can read it.
 
   // ── Migrations and platform init (moved post-probe per §6) ──────────────
 
@@ -234,6 +280,10 @@ void main() async {
         // satisfy the throw-by-default providers declared in §3/§5.
         verifiedStartupKeyProvider.overrideWithValue(appProbe.keyInMemory),
         syncDatabaseStartupProvider.overrideWithValue(syncProbe),
+        // §10 — make the captured per-boot diagnostic reachable by the
+        // in-app banner / settings entry / recovery UI.
+        bootSecureStorageDiagnosticProvider
+            .overrideWithValue(combinedDiagnostic),
         cachedThemeBrightnessProvider.overrideWith(
           () => CachedThemeBrightnessNotifier(cachedBrightness),
         ),
@@ -327,6 +377,91 @@ Future<DbStartupReport> _safeProbeSyncDb({required String? verifiedAppDbKey}) as
       ),
     );
   }
+}
+
+/// Best-effort read of the keychain-repair pending flag for the §10
+/// diagnostic. Returns null when SharedPreferences itself is unreachable
+/// — the diagnostic still serializes, just with a null slot for the
+/// field rather than a lie.
+Future<bool?> _safeIsKeychainRepairPending() async {
+  try {
+    return await isKeychainRepairPending();
+  } catch (e, st) {
+    debugPrint('[BOOT] isKeychainRepairPending threw: $e\n$st');
+    return null;
+  }
+}
+
+/// Wraps [attemptKeychainRepairWriteback] and returns the
+/// post-write-back state of the `keychain_repair_pending` flag (or null
+/// when SharedPreferences itself is unreachable).
+Future<bool?> _safeAttemptKeychainRepairWriteback(String key) async {
+  try {
+    await attemptKeychainRepairWriteback(key);
+  } catch (e, st) {
+    debugPrint('[BOOT] attemptKeychainRepairWriteback threw: $e\n$st');
+  }
+  return _safeIsKeychainRepairPending();
+}
+
+/// Build the combined §10 diagnostic from the app + sync probe results
+/// and the boot-level fields. Reaches into the Android runtime DEK
+/// device state via the existing platform channel that
+/// [DeviceBoundRuntimeDekStore] already exposes.
+Future<SecureStorageDiagnostic> _buildBootDiagnostic({
+  required DbStartupReport appProbe,
+  required DbStartupReport syncProbe,
+  required bool? keychainRepairPendingBeforeBoot,
+  required bool writebackAttempted,
+  required KeychainRepairWritebackResult? writebackResult,
+}) async {
+  // Pull the runtime DEK device-state map off the existing
+  // `runtime_dek_wrap` channel. The full diagnostics map nests
+  // `device_state` inside it (see MainActivity.kt#collectRuntimeDekDiagnostics);
+  // we surface the whole map so consumers can correlate alias presence
+  // with device-locked state.
+  Map<String, dynamic>? runtimeDekDeviceState;
+  try {
+    runtimeDekDeviceState =
+        await const DeviceBoundRuntimeDekStore().getDiagnostics();
+  } catch (e) {
+    debugPrint('[BOOT] runtime DEK diagnostics failed: $e');
+  }
+
+  // Pick the platform-version host-side; package_info_plus would round-trip
+  // a bunch of plugin init we don't want on the recovery path. Build_info
+  // pubspec values are baked at compile time via --dart-define.
+  final appBuild = <String, String>{
+    'flavor': 'production',
+    'mode': _resolveBuildMode(),
+    'app_version': BuildInfo.appVersion,
+    'app_build_number': 'unknown',
+    'platform_version': Platform.operatingSystemVersion,
+  };
+
+  final base = appProbe.diagnostic ??
+      SecureStorageDiagnostic(
+        recoveredVia: appProbe.usedRecoverySlot,
+        slotOutcomes: const <String, String>{},
+      );
+  final merged = syncProbe.diagnostic == null
+      ? base
+      : base.mergeWith(syncProbe.diagnostic!);
+
+  return merged.copyWith(
+    keychainRepairPendingBeforeBoot: keychainRepairPendingBeforeBoot,
+    keychainRepairWritebackAttemptedThisBoot: writebackAttempted,
+    keychainRepairWritebackResult: writebackResult,
+    runtimeDekDeviceState: runtimeDekDeviceState,
+    appBuild: appBuild,
+    capturedAt: DateTime.now().toUtc(),
+  );
+}
+
+String _resolveBuildMode() {
+  if (kDebugMode) return 'debug';
+  if (kReleaseMode) return 'release';
+  return 'profile';
 }
 
 class _WindowsDataMigrationBlockedApp extends StatelessWidget {

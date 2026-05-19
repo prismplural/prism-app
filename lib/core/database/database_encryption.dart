@@ -8,6 +8,8 @@ import 'package:sqlite3/sqlite3.dart' as raw;
 
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/core/services/secure_storage_diagnostic.dart'
+    show SlotOutcome;
 
 // ---------------------------------------------------------------------------
 // Secure storage keys
@@ -180,6 +182,100 @@ Future<String?> _readWithTransientRetry(
 // ---------------------------------------------------------------------------
 // Key management — reads
 // ---------------------------------------------------------------------------
+
+/// Read [key] and classify the outcome into a [SlotOutcome] alongside the
+/// returned hex value.
+///
+/// Used by the boot probes (§4/§5) to populate per-slot diagnostic
+/// outcomes. Mirrors [_readWithTransientRetry]'s policy (cipher/unknown
+/// treated as terminal, transients retried twice) but returns the
+/// classification rather than swallowing it.
+///
+/// Returns a record:
+///   * `hex`     — the validated hex key, or null when missing /
+///                 invalid / failed.
+///   * `outcome` — one of [SlotOutcome.ok], [SlotOutcome.cipher],
+///                 [SlotOutcome.transient], [SlotOutcome.unknown],
+///                 [SlotOutcome.missing], [SlotOutcome.invalidHex].
+///                 (`threw` is reserved for unclassified exceptions
+///                 outside this read — the probe records those at the
+///                 boundary.)
+Future<({String? hex, SlotOutcome outcome})> readSlotForDiagnostic(
+  String key, {
+  required String slotLabel,
+  Random? random,
+}) async {
+  final rng = random ?? Random();
+
+  const baseDelaysMs = <int>[0, 100, 400];
+  const jitterRangesMs = <int>[0, 50, 100];
+  SecureStorageFailure? lastFailure;
+
+  for (var attempt = 0; attempt < baseDelaysMs.length; attempt++) {
+    if (attempt > 0) {
+      final base = baseDelaysMs[attempt];
+      final jitterRange = jitterRangesMs[attempt];
+      final jitter = jitterRange == 0
+          ? 0
+          : rng.nextInt(jitterRange * 2 + 1) - jitterRange;
+      final delayMs = (base + jitter).clamp(0, base + jitterRange).toInt();
+      await Future<void>.delayed(Duration(milliseconds: delayMs));
+    }
+
+    final result = await safeSecureRead(key);
+    if (result.ok) {
+      final value = result.value;
+      if (value == null) {
+        return (hex: null, outcome: SlotOutcome.missing);
+      }
+      if (!validateHexKey(value)) {
+        debugPrint(
+          '[DB_ENCRYPT] $slotLabel returned an invalid hex value '
+          '(${value.length} chars) — outcome=invalid_hex',
+        );
+        return (hex: null, outcome: SlotOutcome.invalidHex);
+      }
+      return (hex: value, outcome: SlotOutcome.ok);
+    }
+
+    lastFailure = result.failure;
+    switch (result.failure) {
+      case SecureStorageFailure.cipher:
+        debugPrint(
+          '[DB_ENCRYPT] Cipher failure reading $slotLabel (code=${result.code})',
+        );
+        return (hex: null, outcome: SlotOutcome.cipher);
+      case SecureStorageFailure.unknown:
+        debugPrint(
+          '[DB_ENCRYPT] Unknown failure reading $slotLabel '
+          '(code=${result.code}, message=${result.message})',
+        );
+        return (hex: null, outcome: SlotOutcome.unknown);
+      case SecureStorageFailure.transient:
+        if (attempt == baseDelaysMs.length - 1) {
+          debugPrint(
+            '[DB_ENCRYPT] Transient failures exhausted for $slotLabel '
+            '(code=${result.code})',
+          );
+          return (hex: null, outcome: SlotOutcome.transient);
+        }
+        continue;
+      case null:
+        return (hex: result.value, outcome: SlotOutcome.ok);
+    }
+  }
+  // Unreachable in practice (loop always returns) — fall through to a
+  // best-guess based on the last observed failure.
+  return (
+    hex: null,
+    outcome: switch (lastFailure) {
+      SecureStorageFailure.cipher => SlotOutcome.cipher,
+      SecureStorageFailure.transient => SlotOutcome.transient,
+      SecureStorageFailure.unknown => SlotOutcome.unknown,
+      null => SlotOutcome.missing,
+    },
+  );
+}
 
 /// Read the cached database encryption key from secure storage.
 ///
