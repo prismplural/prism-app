@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
@@ -1132,8 +1133,12 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   }
 
   Future<void> _writeSnapshotApplyCompleteMarker() async {
-    final syncId = await secureStorage.read(key: kSyncIdKey);
-    final deviceId = await secureStorage.read(key: kSyncDeviceIdKey);
+    // Reads use the classified wrapper — cipher failure here resolves to
+    // null and triggers the same StateError as a clean miss. The pairing
+    // flow has no recovery path if sync_id/device_id are unreadable so a
+    // typed error to the user-facing catch is the right escalation.
+    final syncId = (await safeSecureRead(kSyncIdKey)).value;
+    final deviceId = (await safeSecureRead(kSyncDeviceIdKey)).value;
     if (syncId == null ||
         syncId.isEmpty ||
         deviceId == null ||
@@ -1143,13 +1148,26 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       );
     }
 
-    await secureStorage.write(
-      key: kSnapshotApplyCompleteKey,
-      value: snapshotApplyCompleteMarkerValue(
+    // Critical write: if the marker doesn't land, the next launch cannot
+    // distinguish "snapshot applied" from "pairing interrupted mid-apply".
+    // Surface platform failures to the caller (the pairing flow) so it
+    // routes to the failure path. The classified wrapper returns a
+    // structured result; we re-throw as a PlatformException for the caller's
+    // existing catch.
+    final write = await safeSecureWrite(
+      kSnapshotApplyCompleteKey,
+      snapshotApplyCompleteMarkerValue(
         syncId: syncId,
         deviceId: deviceId,
       ),
     );
+    if (!write.ok) {
+      throw PlatformException(
+        code: write.code ?? 'snapshot_apply_marker_write_failed',
+        message:
+            write.message ?? 'Failed to write snapshot apply complete marker',
+      );
+    }
   }
 
   @visibleForTesting
@@ -1338,7 +1356,10 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   }
 
   Future<String?> _readDecodedSecureValue(String key) async {
-    final raw = await secureStorage.read(key: key);
+    // Classified read — cipher / transient / unknown failures resolve to
+    // null. The caller (cancel-and-remove-device flow) interprets null as
+    // "credential unavailable, skip deregister" rather than crashing.
+    final raw = (await safeSecureRead(key)).value;
     if (raw == null || raw.isEmpty) return null;
     try {
       return utf8.decode(base64Decode(raw));
@@ -1372,8 +1393,14 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// DrainPartialWriteException` on the caught error.
   Future<void> _cleanupKeychainOnFailure() async {
     await wipeSyncKeychainNamespace(
-      readAll: secureStorage.readAll,
-      deleteKey: (key) => secureStorage.delete(key: key),
+      // Funnel readAll + deleteKey through the classified wrappers so a
+      // cipher failure during cleanup cannot escape past this helper. The
+      // wipe is by-prefix best-effort; individual delete failures are
+      // already accepted by the helper.
+      readAll: () async => (await safeSecureReadAll()).entries,
+      deleteKey: (key) async {
+        await safeSecureDelete(key);
+      },
       includeRuntimeDekWrappingKey: false,
       log: (message) {
         // Best-effort cleanup — surface as a debug log, don't propagate.

@@ -115,8 +115,14 @@ class DeviceListNotifier extends AsyncNotifier<List<Device>> {
   }
 
   /// Read a base64-encoded credential from secure storage.
+  ///
+  /// Cipher / transient / unknown read failures resolve to null — the caller
+  /// (device-list refresh path) treats null as "credential unavailable" and
+  /// surfaces the empty-state UI rather than crashing on an unhandled
+  /// PlatformException.
   Future<String?> _readCredential(String key) async {
-    final value = await secureStorage.read(key: 'prism_sync.$key');
+    final read = await safeSecureRead('prism_sync.$key');
+    final value = read.value;
     if (value == null || value.isEmpty) return null;
     try {
       return utf8.decode(base64Decode(value));

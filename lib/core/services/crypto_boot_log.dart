@@ -23,6 +23,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:prism_plurality/core/database/database_encryption.dart'
+    show kDatabaseKeyStorageKey, kSyncDatabaseKeyStorageKey;
 import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
@@ -170,7 +172,20 @@ class CryptoBootLog {
     required bool? engineUnlocked,
     required String trigger,
   }) async {
-    final all = await secureStorage.readAll();
+    // Use the slot-probe variant so a cipher failure on top-level readAll
+    // still surfaces per-slot diagnostic data for the known DB-key slots
+    // (the ones we care about most for crash triage). When readAll succeeds,
+    // the probe is skipped — entries is identical to the unwrapped readAll.
+    // See `docs/0.9.2-secure-storage-remediation.md` §2 / §10.
+    final readAll = await safeSecureReadAllWithSlotProbe(
+      const <String>[
+        kDatabaseKeyStorageKey,
+        '${kDatabaseKeyStorageKey}_staging',
+        kSyncDatabaseKeyStorageKey,
+        '${kSyncDatabaseKeyStorageKey}_staging',
+      ],
+    );
+    final all = readAll.entries;
     final entries = <CryptoBootKeyEntry>[];
     for (final fullKey in all.keys) {
       if (!fullKey.startsWith('prism_sync.')) continue;
@@ -184,6 +199,12 @@ class CryptoBootLog {
       );
     }
     entries.sort((a, b) => a.bareKey.compareTo(b.bareKey));
+    if (!readAll.ok) {
+      debugPrint(
+        '[CryptoBootLog] readAll failed (failure=${readAll.failure}, '
+        'code=${readAll.code}); recovered ${entries.length} entries via slot probe',
+      );
+    }
 
     // Best-effort platform Keystore/Keychain introspection. Read-only —
     // never mutates platform state. Returns null on unsupported platforms

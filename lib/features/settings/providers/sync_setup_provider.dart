@@ -183,9 +183,12 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       // hierarchy before creating a new sync group. After a sync reset,
       // wrapped_dek is gone — skip verification and go straight to
       // createSyncGroup.
-      final wrappedDek = await secureStorage.read(
-        key: 'prism_sync.wrapped_dek',
-      );
+      // Probe wrapped_dek to decide whether this is a fresh setup or a
+      // verify-then-create flow. Cipher failure surfaces as null (the blob
+      // is effectively gone for this device) — fall through into the
+      // createSyncGroup path without attempting unlock.
+      final wrappedDek =
+          (await safeSecureRead('prism_sync.wrapped_dek')).value;
       if (wrappedDek != null) {
         pinBytes = secretUtf8Bytes(pin);
         await ffi.unlock(
@@ -467,13 +470,17 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     required String syncId,
   }) async {
     // Base64-encode before storing — seedRustStore expects base64.
-    await secureStorage.write(
-      key: kSyncRelayUrlKey,
-      value: base64Encode(utf8.encode(relayUrl)),
+    //
+    // Writes go through [safeSecureWrite]; a failure here is reported
+    // (caller's catch path runs the keychain-snapshot rollback) but does
+    // not propagate as a raw PlatformException.
+    await safeSecureWrite(
+      kSyncRelayUrlKey,
+      base64Encode(utf8.encode(relayUrl)),
     );
-    await secureStorage.write(
-      key: kSyncIdKey,
-      value: base64Encode(utf8.encode(syncId)),
+    await safeSecureWrite(
+      kSyncIdKey,
+      base64Encode(utf8.encode(syncId)),
     );
     ref.invalidate(relayUrlProvider);
     ref.invalidate(syncIdProvider);
@@ -518,11 +525,9 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       for (final key in current.keys) {
         if (kProtectedFromReset.contains(key)) continue;
         if (snapshot.containsKey(key)) continue;
-        try {
-          await secureStorage.delete(key: key);
-        } catch (_) {
-          // Best-effort delete — don't propagate errors.
-        }
+        // Best-effort delete — failures from the classified wrapper are
+        // returned as a result; the rollback path swallows them.
+        await safeSecureDelete(key);
       }
     } catch (_) {
       // Best-effort scan — don't propagate errors.
@@ -530,11 +535,11 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
 
     for (final entry in snapshot.entries) {
       if (kProtectedFromReset.contains(entry.key)) continue;
-      try {
-        await secureStorage.write(key: entry.key, value: entry.value);
-      } catch (_) {
-        // Best-effort restore — don't propagate errors.
-      }
+      // Best-effort restore — classified wrapper returns a result we
+      // intentionally ignore. Mid-rollback failure leaves the keychain
+      // straddling pre/post-setup state; the snapshot caller treats that
+      // as still-recoverable on the next attempt.
+      await safeSecureWrite(entry.key, entry.value);
     }
   }
 

@@ -505,9 +505,18 @@ class PluralKitSyncService {
     return trimmed;
   }
 
-  Future<String?> _getToken() => _tokenOverride != null
-      ? Future.value(_tokenOverride)
-      : _secureStorage.read(key: _pkTokenKey);
+  Future<String?> _getToken() async {
+    if (_tokenOverride != null) return _tokenOverride;
+    // Classified read — cipher / transient / unknown failures resolve to
+    // null. The PK token is reconstructable (user re-enters it), so a
+    // cipher failure on this slot is treated as "no token" and surfaces
+    // the disconnected UI rather than crashing the service.
+    return (await storage_config.safeSecureRead(
+      _pkTokenKey,
+      storage: _secureStorage,
+    ))
+        .value;
+  }
 
   PluralKitClient _makeClient(String token) => _clientFactory != null
       ? _clientFactory(token)
@@ -753,7 +762,11 @@ class PluralKitSyncService {
       return;
     }
 
-    await _secureStorage.write(key: _pkTokenKey, value: trimmed);
+    await storage_config.safeSecureWrite(
+      _pkTokenKey,
+      trimmed,
+      storage: _secureStorage,
+    );
     debugPrint('[PK_SVC] setToken: wrote to secureStorage');
 
     try {
@@ -826,7 +839,10 @@ class PluralKitSyncService {
       );
     } on PluralKitAuthError catch (e) {
       debugPrint('[PK_SVC] setToken: PluralKitAuthError: $e');
-      await _secureStorage.delete(key: _pkTokenKey);
+      await storage_config.safeSecureDelete(
+        _pkTokenKey,
+        storage: _secureStorage,
+      );
       _emit(
         _state.copyWith(
           isConnected: false,
@@ -838,7 +854,10 @@ class PluralKitSyncService {
       _bus.emit(const PkTokenAuthFailed());
     } catch (e, st) {
       debugPrint('[PK_SVC] setToken: caught $e\n$st');
-      await _secureStorage.delete(key: _pkTokenKey);
+      await storage_config.safeSecureDelete(
+        _pkTokenKey,
+        storage: _secureStorage,
+      );
       _emit(
         _state.copyWith(
           isConnected: false,
@@ -863,7 +882,10 @@ class PluralKitSyncService {
   /// Skip/Link decisions keyed by the previous session's local member IDs
   /// would otherwise silently skip or link members the user never saw.
   Future<void> clearToken() async {
-    await _secureStorage.delete(key: _pkTokenKey);
+    await storage_config.safeSecureDelete(
+      _pkTokenKey,
+      storage: _secureStorage,
+    );
     await _syncDao.upsertSyncState(
       const PluralKitSyncStateCompanion(
         id: Value('pk_config'),

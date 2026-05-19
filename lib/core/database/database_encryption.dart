@@ -31,7 +31,13 @@ const kDatabaseKeyStorageKey = 'prism_sync.database_key';
 /// the sync DB with the same key it was using before.
 const kSyncDatabaseKeyStorageKey = 'prism_sync.sync_database_key';
 
-const _storage = secureStorage;
+// Internal cleanup-delete helper. Every delete in this file is a
+// best-effort cleanup of a DB-key slot (staging cleanup, full reset, etc.).
+// Cipher / unknown / transient failures during these deletes are not fatal —
+// the slot is either re-written on the next boot's repair path or remains
+// stale until then. We funnel everything through [safeSecureDelete] so a
+// platform exception cannot escape and crash the call site.
+Future<SecureDeleteResult> _safeDelete(String key) => safeSecureDelete(key);
 
 // ---------------------------------------------------------------------------
 // Keychain repair state (Prism 0.9.2 secure storage remediation §3)
@@ -486,7 +492,7 @@ Future<void> promoteStagingDatabaseKey(
     stagingHexKey,
     verifiedStartupKey: verifiedStartupKey,
   );
-  await _storage.delete(key: '${kDatabaseKeyStorageKey}_staging');
+  await _safeDelete('${kDatabaseKeyStorageKey}_staging');
   debugPrint('[DB_ENCRYPT] Promoted staging key to primary slot');
 }
 
@@ -496,7 +502,7 @@ Future<void> promoteStagingDatabaseKey(
 /// database — meaning the crash happened before PRAGMA rekey, so the DB still
 /// has the old primary key and the staging slot is stale.
 Future<void> discardStagingDatabaseKey() async {
-  await _storage.delete(key: '${kDatabaseKeyStorageKey}_staging');
+  await _safeDelete('${kDatabaseKeyStorageKey}_staging');
   debugPrint('[DB_ENCRYPT] Discarded stale staging key (crash before rekey)');
 }
 
@@ -528,7 +534,7 @@ Future<void> restoreDatabaseKeyHexForRecovery(
     throw ArgumentError.value(hexKey, 'hexKey', 'invalid database key');
   }
   await writeDatabaseKeyHex(hexKey, verifiedStartupKey: verifiedStartupKey);
-  await _storage.delete(key: '${kDatabaseKeyStorageKey}_staging');
+  await _safeDelete('${kDatabaseKeyStorageKey}_staging');
   debugPrint('[DB_ENCRYPT] Restored missing database key from recovery slot');
 }
 
@@ -592,11 +598,11 @@ Future<String> ensureLocalDatabaseKey({String? verifiedStartupKey}) async {
 /// Called during a full data reset. The caller must delete the DB files
 /// BEFORE calling this — otherwise next launch has no key for an encrypted DB.
 Future<void> clearDatabaseEncryptionState() async {
-  await _storage.delete(key: kDatabaseKeyStorageKey);
-  await _storage.delete(key: '${kDatabaseKeyStorageKey}_staging');
+  await _safeDelete(kDatabaseKeyStorageKey);
+  await _safeDelete('${kDatabaseKeyStorageKey}_staging');
   // Also clear the sync DB dedicated slot and its staging slot.
-  await _storage.delete(key: kSyncDatabaseKeyStorageKey);
-  await _storage.delete(key: '${kSyncDatabaseKeyStorageKey}_staging');
+  await _safeDelete(kSyncDatabaseKeyStorageKey);
+  await _safeDelete('${kSyncDatabaseKeyStorageKey}_staging');
 }
 
 // ---------------------------------------------------------------------------
@@ -620,13 +626,13 @@ Future<void> promoteStagingSyncDatabaseKey(
     stagingHexKey,
     verifiedStartupKey: verifiedStartupKey,
   );
-  await _storage.delete(key: '${kSyncDatabaseKeyStorageKey}_staging');
+  await _safeDelete('${kSyncDatabaseKeyStorageKey}_staging');
   debugPrint('[DB_ENCRYPT] Promoted sync DB staging key to primary slot');
 }
 
 /// Discard the sync DB staging slot without promoting it.
 Future<void> discardStagingSyncDatabaseKey() async {
-  await _storage.delete(key: '${kSyncDatabaseKeyStorageKey}_staging');
+  await _safeDelete('${kSyncDatabaseKeyStorageKey}_staging');
   debugPrint('[DB_ENCRYPT] Discarded stale sync DB staging key');
 }
 
@@ -727,7 +733,7 @@ Future<void> rotateDatabaseToKey({
   await writeStagingDatabaseKeyHex(newHexKey);
   await db.customStatement("PRAGMA rekey = \"x'$newHexKey'\";");
   await writeDatabaseKeyHex(newHexKey, verifiedStartupKey: verifiedStartupKey);
-  await _storage.delete(key: '${kDatabaseKeyStorageKey}_staging');
+  await _safeDelete('${kDatabaseKeyStorageKey}_staging');
 }
 
 // ---------------------------------------------------------------------------

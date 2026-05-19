@@ -632,10 +632,10 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     });
 
     // Auto-create handle if sync credentials exist from a previous session
-    final syncIdB64 = await _storage.read(key: kSyncIdKey);
-    final relayUrlB64 = await _storage.read(key: kSyncRelayUrlKey);
-    final deviceIdB64 = await _storage.read(key: kSyncDeviceIdKey);
-    final deviceSecretB64 = await _storage.read(key: kSyncDeviceSecretKey);
+    final syncIdB64 = await _safeReadValue(kSyncIdKey);
+    final relayUrlB64 = await _safeReadValue(kSyncRelayUrlKey);
+    final deviceIdB64 = await _safeReadValue(kSyncDeviceIdKey);
+    final deviceSecretB64 = await _safeReadValue(kSyncDeviceSecretKey);
     if (hasCompletePersistentSyncIdentity(
       relayUrl: relayUrlB64,
       syncId: syncIdB64,
@@ -744,10 +744,10 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     }
     BootTimings.mark('createHandle:_seedRustStore');
 
-    final preconfigureSyncId = await _storage.read(key: kSyncIdKey);
-    final preconfigureDeviceId = await _storage.read(key: kSyncDeviceIdKey);
-    final preconfigureDeviceSecret = await _storage.read(
-      key: kSyncDeviceSecretKey,
+    final preconfigureSyncId = await _safeReadValue(kSyncIdKey);
+    final preconfigureDeviceId = await _safeReadValue(kSyncDeviceIdKey);
+    final preconfigureDeviceSecret = await _safeReadValue(
+      kSyncDeviceSecretKey,
     );
     final preconfigureHealth = classifyHealthFromKeychain(
       syncId: preconfigureSyncId,
@@ -1057,10 +1057,10 @@ Future<SyncHealthState> _autoConfigureIfReady(
   ffi.PrismSyncHandle handle,
 ) async {
   // Check if we have the minimum credentials needed
-  final syncId = await _storage.read(key: '${_secureStorePrefix}sync_id');
-  final deviceId = await _storage.read(key: '${_secureStorePrefix}device_id');
-  final deviceSecret = await _storage.read(
-    key: '${_secureStorePrefix}device_secret',
+  final syncId = await _safeReadValue('${_secureStorePrefix}sync_id');
+  final deviceId = await _safeReadValue('${_secureStorePrefix}device_id');
+  final deviceSecret = await _safeReadValue(
+    '${_secureStorePrefix}device_secret',
   );
   // Not paired — distinguished from `healthy` so the post-config block in
   // `createHandle` skips cacheRuntimeKeys/drainRustStore/onResume on a
@@ -1088,8 +1088,8 @@ Future<SyncHealthState> _autoConfigureIfReady(
       syncId: decodeStoredUtf8(syncId),
       deviceId: decodeStoredUtf8(deviceId),
     );
-    final deviceSecretB64 = await _storage.read(
-      key: '${_secureStorePrefix}device_secret',
+    final deviceSecretB64 = await _safeReadValue(
+      '${_secureStorePrefix}device_secret',
     );
     final dekOutcome = runtimeDekAad == null
         ? const RuntimeDekRestoreOutcome.missing()
@@ -1097,8 +1097,8 @@ Future<SyncHealthState> _autoConfigureIfReady(
     final dekBytes = dekOutcome.bytes;
 
     if (dekBytes != null && deviceSecretB64 == null) {
-      final wrappedDek = await _storage.read(
-        key: '${_secureStorePrefix}wrapped_dek',
+      final wrappedDek = await _safeReadValue(
+        '${_secureStorePrefix}wrapped_dek',
       );
       return syncHealthForRestoredRuntimeDekMissingDeviceSecret(
         dekBytes: dekBytes,
@@ -1133,8 +1133,8 @@ Future<SyncHealthState> _autoConfigureIfReady(
         }
       }
     } else {
-      final wrappedDek = await _storage.read(
-        key: '${_secureStorePrefix}wrapped_dek',
+      final wrappedDek = await _safeReadValue(
+        '${_secureStorePrefix}wrapped_dek',
       );
       return classifyHealthFromRuntimeDekRestoreOutcome(
         outcome: dekOutcome,
@@ -1182,8 +1182,8 @@ Future<SyncHealthState> _autoConfigureIfReady(
     // pairing another device reads `wrapped_dek` to derive the joiner
     // bundle and would fail. Surface `needsRewrap` so the user can
     // regenerate it via PIN + mnemonic.
-    final wrappedDekAfterRestore = await _storage.read(
-      key: '${_secureStorePrefix}wrapped_dek',
+    final wrappedDekAfterRestore = await _safeReadValue(
+      '${_secureStorePrefix}wrapped_dek',
     );
     return classifyPairReadinessFromWrappedDek(wrappedDekAfterRestore);
   } catch (e, st) {
@@ -1262,8 +1262,37 @@ const kSyncDeviceSecretKey = '${_secureStorePrefix}device_secret';
 const kSnapshotApplyCompleteKey =
     '${_secureStorePrefix}snapshot_apply_complete_v1';
 
-const _storage = secureStorage;
 const _runtimeDekStore = DeviceBoundRuntimeDekStore();
+
+// ---------------------------------------------------------------------------
+// Module-internal classified helpers (Prism 0.9.2 secure storage remediation §2)
+// ---------------------------------------------------------------------------
+//
+// These wrappers preserve the existing call shape (return `String?` for reads,
+// fire-and-forget semantics for writes/deletes that were already best-effort)
+// while routing through the classified secure-storage wrappers. Cipher /
+// transient / unknown failures are swallowed at the call site — every read
+// resolves to null, every write/delete returns. The callers in this file
+// already treat secure-storage failures as soft failures (the surrounding
+// retry / health-classifier logic re-runs on the next event).
+//
+// Where the failure shape matters (e.g. credential cleanup that should mark
+// the syncCredentials slot unreadable), the call site sets the
+// [KeychainDegradedState] slot directly via `KeychainDegradedStateService`.
+
+Future<String?> _safeReadValue(String key) async =>
+    (await safeSecureRead(key)).value;
+
+Future<Map<String, String>> _safeReadAllEntries() async =>
+    (await safeSecureReadAll()).entries;
+
+Future<void> _safeWriteValue(String key, String value) async {
+  await safeSecureWrite(key, value);
+}
+
+Future<void> _safeDeleteKey(String key) async {
+  await safeSecureDelete(key);
+}
 
 @visibleForTesting
 String? decodeStoredUtf8(String? raw) {
@@ -1342,7 +1371,7 @@ const _dynamicSecureStorePrefixes = ['epoch_key_', 'runtime_keys_'];
 
 /// End-to-end seed request builder.
 ///
-/// Takes the output of `FlutterSecureStorage.readAll()` and returns the
+/// Takes the output of [safeSecureReadAll] and returns the
 /// binary map that `_seedRustStore` passes into `ffi.seedSecureStore`,
 /// or `null` if there are no entries to seed. Platform keychain values
 /// stay base64 strings at rest, but the FFI boundary receives bytes.
@@ -1431,7 +1460,7 @@ List<String> computeKeysToClearOnReset(Map<String, String> all) {
 Future<void> _seedRustStore(ffi.PrismSyncHandle handle) async {
   Map<String, String> all;
   try {
-    all = await _storage.readAll();
+    all = await _safeReadAllEntries();
   } catch (e, st) {
     // `readAll()` is best-effort: if the keychain fails we still try
     // the static keys individually. The auto-sync driver will recover
@@ -1444,7 +1473,7 @@ Future<void> _seedRustStore(ffi.PrismSyncHandle handle) async {
     );
     all = <String, String>{};
     for (final key in _secureStoreKeys) {
-      final value = await _storage.read(key: '$_secureStorePrefix$key');
+      final value = await _safeReadValue('$_secureStorePrefix$key');
       if (value != null) all['$_secureStorePrefix$key'] = value;
     }
   }
@@ -1514,7 +1543,7 @@ Future<String?> _readPendingFrontingMigrationMode(Ref ref) async {
 /// that as "nothing left to clear" and advances substate so the
 /// remaining cleanup steps proceed.
 Future<String?> readFrontingMigrationSyncId() async {
-  final raw = await _storage.read(key: kSyncIdKey);
+  final raw = await _safeReadValue(kSyncIdKey);
   if (raw == null || raw.isEmpty) return null;
   // Keychain values are base64-encoded by convention (see [syncIdProvider]),
   // with a plaintext fallback for legacy installs.
@@ -1663,8 +1692,8 @@ Future<void> _clearBiometricSyncDekBestEffort([Ref? ref]) async {
 
 Future<void> wipeFrontingMigrationSyncKeychain() async {
   await _deleteSyncCredentialKeychainEntries(
-    readAll: _storage.readAll,
-    deleteKey: (key) => _storage.delete(key: key),
+    readAll: _safeReadAllEntries,
+    deleteKey: (key) => _safeDeleteKey(key),
   );
   try {
     await _runtimeDekStore.deleteWrappingKey();
@@ -2104,9 +2133,9 @@ Future<RuntimeDekRestoreOutcome> _readCachedRuntimeDekForRestoreOutcome({
   return retryRuntimeDekRestoreCore(
     readOnce: () => readCachedRuntimeDekForRestoreOutcomeCore(
       aad: aad,
-      readKey: (key) => _storage.read(key: key),
-      deleteKey: (key) => _storage.delete(key: key),
-      writeKey: (key, value) => _storage.write(key: key, value: value),
+      readKey: (key) => _safeReadValue(key),
+      deleteKey: (key) => _safeDeleteKey(key),
+      writeKey: (key, value) => _safeWriteValue(key, value),
       unwrapDek: (blob, aad) => _runtimeDekStore.unwrap(blob, aad: aad),
       wrapDek: (dekBytes, aad) => _runtimeDekStore.wrap(dekBytes, aad: aad),
       reportWarning: (message, error, stackTrace) {
@@ -2121,8 +2150,8 @@ Future<RuntimeDekRestoreOutcome> _readCachedRuntimeDekForRestoreOutcome({
 }
 
 Future<void> _deleteCachedRuntimeDek({bool deleteWrappingKey = false}) async {
-  await _storage.delete(key: kRuntimeDekWrappedKey);
-  await _storage.delete(key: kRuntimeDekKey);
+  await _safeDeleteKey(kRuntimeDekWrappedKey);
+  await _safeDeleteKey(kRuntimeDekKey);
   if (deleteWrappingKey) {
     try {
       await _runtimeDekStore.deleteWrappingKey();
@@ -2189,10 +2218,10 @@ Future<void> cacheRuntimeKeys(
 ) async {
   final runtimeDekAad = buildRuntimeDekAad(
     syncId: decodeStoredUtf8(
-      await _storage.read(key: '${_secureStorePrefix}sync_id'),
+      await _safeReadValue('${_secureStorePrefix}sync_id'),
     ),
     deviceId: decodeStoredUtf8(
-      await _storage.read(key: '${_secureStorePrefix}device_id'),
+      await _safeReadValue('${_secureStorePrefix}device_id'),
     ),
   );
   if (runtimeDekAad == null) {
@@ -2201,7 +2230,7 @@ Future<void> cacheRuntimeKeys(
       '[SYNC] Skipping runtime DEK cache: sync_id/device_id unavailable',
     );
   } else {
-    final legacyRaw = await _storage.read(key: kRuntimeDekKey);
+    final legacyRaw = await _safeReadValue(kRuntimeDekKey);
     final preserveLegacyRawOnFailure =
         legacyRaw != null && legacyRaw.isNotEmpty;
     final dekBytes = Uint8List.fromList(await ffi.exportDek(handle: handle));
@@ -2210,8 +2239,8 @@ Future<void> cacheRuntimeKeys(
         dekBytes: dekBytes,
         aad: runtimeDekAad,
         wrapDek: (dekBytes, aad) => _runtimeDekStore.wrap(dekBytes, aad: aad),
-        writeKey: (key, value) => _storage.write(key: key, value: value),
-        deleteKey: (key) => _storage.delete(key: key),
+        writeKey: (key, value) => _safeWriteValue(key, value),
+        deleteKey: (key) => _safeDeleteKey(key),
         preserveLegacyRawOnFailure: preserveLegacyRawOnFailure,
         reportWarning: (message, error, stackTrace) {
           ErrorReportingService.instance.report(
@@ -2290,9 +2319,19 @@ Future<void> cacheRuntimeKeys(
 /// Crash recovery is handled in [PrismSyncHandleNotifier.createHandle] before
 /// [ffi.createPrismSync] is called, mirroring the Drift recovery in
 /// _openConnection() in database_provider.dart.
+///
+/// **§3 routing:** both writes go through the guarded
+/// [writeStagingSyncDatabaseKeyHex] / [writeSyncDatabaseKeyHex] helpers, so a
+/// rotation attempted while the keychain repair flag is set is rejected with
+/// a [StateError] (`"Cannot rotate keys while keychain repair is pending"`)
+/// — the keystore is suspect, key rotation must wait until the next boot's
+/// repair path clears the flag. The discard-staging delete after the primary
+/// write goes through [safeSecureDelete]; failure is non-fatal because the
+/// next call to `_safeDeleteKey` (or the §4 boot probe) sweeps it up.
 Future<void> _rotateSyncDatabaseKey({
   required ffi.PrismSyncHandle handle,
   required Uint8List newKey,
+  String? verifiedStartupKey,
 }) async {
   if (newKey.length != 32) {
     throw ArgumentError(
@@ -2304,13 +2343,13 @@ Future<void> _rotateSyncDatabaseKey({
       .join();
   // Write staging slot before rekeyDb — crash before rekeyDb means staging key
   // ≠ DB key, so createHandle discards the staging slot on next startup.
-  await _storage.write(
-    key: '${kSyncDatabaseKeyStorageKey}_staging',
-    value: newHexKey,
-  );
+  await writeStagingSyncDatabaseKeyHex(newHexKey);
   await ffi.rekeyDb(handle: handle, newKey: newKey);
-  await _storage.write(key: kSyncDatabaseKeyStorageKey, value: newHexKey);
-  await _storage.delete(key: '${kSyncDatabaseKeyStorageKey}_staging');
+  await writeSyncDatabaseKeyHex(
+    newHexKey,
+    verifiedStartupKey: verifiedStartupKey,
+  );
+  await _safeDeleteKey('${kSyncDatabaseKeyStorageKey}_staging');
   debugPrint('[SYNC] Rust sync DB rotated to HKDF-derived local storage key');
 }
 
@@ -2411,8 +2450,8 @@ Future<void> drainRustStore(
   final entries = encodeDrainedEntries(drained);
   await applyDrainedEntries(
     entries: entries,
-    deleteKey: (full) => _storage.delete(key: full),
-    writeKey: (full, value) => _storage.write(key: full, value: value),
+    deleteKey: (full) => _safeDeleteKey(full),
+    writeKey: (full, value) => _safeWriteValue(full, value),
     shouldAbort: shouldAbort,
   );
 }
@@ -2649,8 +2688,8 @@ Future<void> drainRustStoreWithSnapshotRollback(
   await applyDrainedEntriesWithSnapshotRollback(
     entries: entries,
     rollbackSnapshot: rollbackSnapshot,
-    deleteKey: (full) => _storage.delete(key: full),
-    writeKey: (full, value) => _storage.write(key: full, value: value),
+    deleteKey: (full) => _safeDeleteKey(full),
+    writeKey: (full, value) => _safeWriteValue(full, value),
     readCurrentNamespace: () => readPrefixed(_secureStorePrefix),
     shouldAbort: shouldAbort,
   );
@@ -3365,8 +3404,8 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
     }
     if (hard) {
       await _deleteCachedRuntimeDek(deleteWrappingKey: true);
-      final wrappedDek = await _storage.read(
-        key: '${_secureStorePrefix}wrapped_dek',
+      final wrappedDek = await _safeReadValue(
+        '${_secureStorePrefix}wrapped_dek',
       );
       state = hasStoredWrappedDek(wrappedDek)
           ? SyncHealthState.needsPassword
@@ -4211,7 +4250,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     // Step 2 — determine whether this event targets us.
     String? currentDeviceId;
     try {
-      final raw = await _storage.read(key: '${_secureStorePrefix}device_id');
+      final raw = await _safeReadValue('${_secureStorePrefix}device_id');
       if (raw != null && raw.isNotEmpty) {
         try {
           currentDeviceId = utf8.decode(base64Decode(raw));
@@ -4283,7 +4322,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     // sibling-revoke and we leave THIS device's credentials alone.
     String? currentDeviceId;
     try {
-      final raw = await _storage.read(key: '${_secureStorePrefix}device_id');
+      final raw = await _safeReadValue('${_secureStorePrefix}device_id');
       if (raw != null && raw.isNotEmpty) {
         try {
           currentDeviceId = utf8.decode(base64Decode(raw));
@@ -4429,8 +4468,8 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
   /// re-cleanup timer.
   Future<void> _wipeSyncKeychainEntries() async {
     await _deleteSyncCredentialKeychainEntries(
-      readAll: _storage.readAll,
-      deleteKey: (key) => _storage.delete(key: key),
+      readAll: _safeReadAllEntries,
+      deleteKey: (key) => _safeDeleteKey(key),
     );
     try {
       await _runtimeDekStore.deleteWrappingKey();
@@ -4480,7 +4519,7 @@ const kSyncIdKey = 'prism_sync.sync_id';
 /// The relay URL configured for sync. Null when sync is not set up.
 /// Values are stored base64-encoded in the keychain.
 final relayUrlProvider = FutureProvider<String?>((ref) async {
-  final value = await _storage.read(key: kSyncRelayUrlKey);
+  final value = await _safeReadValue(kSyncRelayUrlKey);
   if (value == null || value.isEmpty) return null;
   try {
     return utf8.decode(base64Decode(value));
@@ -4492,7 +4531,7 @@ final relayUrlProvider = FutureProvider<String?>((ref) async {
 /// The sync group ID for this device. Null when sync is not set up.
 /// Values are stored base64-encoded in the keychain.
 final syncIdProvider = FutureProvider<String?>((ref) async {
-  final value = await _storage.read(key: kSyncIdKey);
+  final value = await _safeReadValue(kSyncIdKey);
   if (value == null || value.isEmpty) return null;
   try {
     return utf8.decode(base64Decode(value));
@@ -4503,12 +4542,12 @@ final syncIdProvider = FutureProvider<String?>((ref) async {
 
 /// The durable device ID from the platform keychain.
 final syncDeviceIdProvider = FutureProvider<String?>((ref) async {
-  return decodeStoredUtf8(await _storage.read(key: kSyncDeviceIdKey));
+  return decodeStoredUtf8(await _safeReadValue(kSyncDeviceIdKey));
 });
 
 /// Whether the device secret is durably present in the platform keychain.
 final syncDeviceSecretPresentProvider = FutureProvider<bool>((ref) async {
-  final value = await _storage.read(key: kSyncDeviceSecretKey);
+  final value = await _safeReadValue(kSyncDeviceSecretKey);
   return value != null && value.isNotEmpty;
 });
 
@@ -4517,7 +4556,7 @@ final syncDeviceSecretPresentProvider = FutureProvider<bool>((ref) async {
 /// breaks the inviter side of the pairing ceremony, so the user must
 /// run the wrapped_dek recovery flow before attempting to pair.
 final syncWrappedDekPresentProvider = FutureProvider<bool>((ref) async {
-  final value = await _storage.read(key: '${_secureStorePrefix}wrapped_dek');
+  final value = await _safeReadValue('${_secureStorePrefix}wrapped_dek');
   return value != null && value.isNotEmpty;
 });
 

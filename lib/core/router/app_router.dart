@@ -177,7 +177,7 @@ Future<bool> recoverCompletedOnboardingFromPairedState({
 Future<bool> _recoverCompletedOnboardingFromPairedState(Ref ref) async {
   try {
     return await recoverCompletedOnboardingFromPairedState(
-      readSecureValue: (key) => secureStorage.read(key: key),
+      readSecureValue: (key) async => (await safeSecureRead(key)).value,
       getMemberCount: ref.read(memberRepositoryProvider).getCount,
       markOnboardingComplete: () => ref
           .read(systemSettingsRepositoryProvider)

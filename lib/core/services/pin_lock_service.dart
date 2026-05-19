@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hashlib/hashlib.dart' as hashlib;
 import 'package:local_auth/local_auth.dart';
+import 'package:prism_plurality/core/services/keychain_degraded_state.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 
 /// Keys used in secure storage for PIN lock.
@@ -14,10 +15,31 @@ const _pinHashVersionKey = 'prism.pin_hash_version';
 
 /// Service for PIN lock and biometric authentication.
 class PinLockService {
-  PinLockService({LocalAuthentication? localAuth})
-    : _localAuth = localAuth ?? LocalAuthentication();
+  PinLockService({
+    LocalAuthentication? localAuth,
+    KeychainDegradedStateService? degradedState,
+  })  : _localAuth = localAuth ?? LocalAuthentication(),
+        _degradedState = degradedState ?? KeychainDegradedStateService();
 
   final LocalAuthentication _localAuth;
+  final KeychainDegradedStateService _degradedState;
+
+  /// Inspect a [SecureReadResult] / [SecureWriteResult] / [SecureDeleteResult]
+  /// for a cipher failure and mark the PIN slot as `unreadable` so the
+  /// degraded-state banner (§7/§8) can surface a "set a new PIN" prompt on
+  /// the next UI traversal. Cipher failures on the PIN slot are terminal —
+  /// the blob cannot be decrypted, so the saved PIN is effectively gone.
+  Future<void> _markPinUnreadableIfCipher(
+    SecureStorageFailure? failure,
+    String op,
+  ) async {
+    if (failure == SecureStorageFailure.cipher) {
+      debugPrint(
+        '[PIN_LOCK] Cipher failure during $op — marking PIN slot unreadable',
+      );
+      await _degradedState.updateSlot('pin', SlotState.unreadable);
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // PIN hashing
@@ -94,25 +116,47 @@ class PinLockService {
   }
 
   /// Store new PIN bytes (hashed with Argon2id) in secure storage.
+  ///
+  /// Each write is wrapped via [safeSecureWrite] so a platform exception
+  /// surfaces as a `SecureWriteResult` rather than escaping; on cipher
+  /// failure the PIN slot is marked unreadable so the next launch prompts
+  /// the user to set a new PIN (per §8). On successful write the slot is
+  /// implicitly recovered — clearing the `unreadable` flag is the caller's
+  /// responsibility once they've validated the new PIN end-to-end.
   Future<void> storePinBytes(List<int> pinBytes) async {
     final salt = _generateSalt();
     final hash = hashPinArgon2idBytes(pinBytes, salt);
     final hashBase64 = base64Encode(Uint8List.fromList(hash));
-    await secureStorage.write(key: _pinHashVersionKey, value: '2');
-    await secureStorage.write(key: _pinHashKey, value: hashBase64);
-    await secureStorage.write(key: _pinSaltKey, value: salt);
+    final v = await safeSecureWrite(_pinHashVersionKey, '2');
+    await _markPinUnreadableIfCipher(v.failure, 'storePinBytes:version');
+    final h = await safeSecureWrite(_pinHashKey, hashBase64);
+    await _markPinUnreadableIfCipher(h.failure, 'storePinBytes:hash');
+    final s = await safeSecureWrite(_pinSaltKey, salt);
+    await _markPinUnreadableIfCipher(s.failure, 'storePinBytes:salt');
+    if (v.ok && h.ok && s.ok) {
+      // Restore the slot to healthy — caller's new PIN landed cleanly.
+      await _degradedState.updateSlot('pin', SlotState.ok);
+    }
   }
 
   /// Clear the stored PIN.
+  ///
+  /// Cleanup-style deletes — failures here are non-fatal; the slot is either
+  /// already gone or will be overwritten on the next setPin.
   Future<void> clearPin() async {
-    await secureStorage.delete(key: _pinHashKey);
-    await secureStorage.delete(key: _pinSaltKey);
-    await secureStorage.delete(key: _pinHashVersionKey);
+    await safeSecureDelete(_pinHashKey);
+    await safeSecureDelete(_pinSaltKey);
+    await safeSecureDelete(_pinHashVersionKey);
   }
 
   /// Check whether a PIN is currently set.
+  ///
+  /// Treats a cipher failure as "no PIN" (the slot is effectively gone) and
+  /// flags the slot unreadable so the UI can surface the recovery prompt.
   Future<bool> isPinSet() async {
-    final hash = await secureStorage.read(key: _pinHashKey);
+    final read = await safeSecureRead(_pinHashKey);
+    await _markPinUnreadableIfCipher(read.failure, 'isPinSet');
+    final hash = read.value;
     return hash != null && hash.isNotEmpty;
   }
 
@@ -120,13 +164,27 @@ class PinLockService {
   ///
   /// Supports both legacy SHA-256 (version 1) and Argon2id (version 2).
   /// On successful legacy verification, automatically migrates to Argon2id.
+  ///
+  /// A cipher failure reading either slot is reported via the degraded-state
+  /// service and treated as "no stored PIN" — the call returns false rather
+  /// than propagating the platform exception. The user lands in the
+  /// set-new-PIN recovery path on the next launch.
   Future<bool> verifyStoredPin(String pin) async {
-    final hashBase64 = await secureStorage.read(key: _pinHashKey);
-    final salt = await secureStorage.read(key: _pinSaltKey);
+    final hashRead = await safeSecureRead(_pinHashKey);
+    await _markPinUnreadableIfCipher(hashRead.failure, 'verifyStoredPin:hash');
+    final saltRead = await safeSecureRead(_pinSaltKey);
+    await _markPinUnreadableIfCipher(saltRead.failure, 'verifyStoredPin:salt');
+    final hashBase64 = hashRead.value;
+    final salt = saltRead.value;
     if (hashBase64 == null || salt == null) return false;
 
     final storedHash = base64Decode(hashBase64);
-    final version = await secureStorage.read(key: _pinHashVersionKey);
+    final versionRead = await safeSecureRead(_pinHashVersionKey);
+    await _markPinUnreadableIfCipher(
+      versionRead.failure,
+      'verifyStoredPin:version',
+    );
+    final version = versionRead.value;
 
     if (version == '2') {
       // Argon2id verification — no fallback to SHA-256 since the stored
@@ -142,12 +200,13 @@ class PinLockService {
     // Legacy SHA-256 verification
     if (!verifyPin(pin, storedHash, salt)) return false;
 
-    // Migration: re-hash with Argon2id on successful legacy verification
+    // Migration: re-hash with Argon2id on successful legacy verification.
+    // Best-effort — retry on next unlock if anything fails.
     try {
       final newHash = hashPinArgon2id(pin, salt);
       final newHashBase64 = base64Encode(Uint8List.fromList(newHash));
-      await secureStorage.write(key: _pinHashKey, value: newHashBase64);
-      await secureStorage.write(key: _pinHashVersionKey, value: '2');
+      await safeSecureWrite(_pinHashKey, newHashBase64);
+      await safeSecureWrite(_pinHashVersionKey, '2');
     } catch (_) {
       // Migration failed — will retry on next unlock. SHA-256 still works.
     }

@@ -46,14 +46,27 @@ abstract interface class FullResetSecureStore {
 class PlatformFullResetSecureStore implements FullResetSecureStore {
   const PlatformFullResetSecureStore();
 
+  /// Funnels each operation through the classified wrappers in
+  /// [safeSecureReadAll] / [safeSecureDeleteAll] / [safeSecureDelete] so a
+  /// platform exception during reset cannot escape this layer. Reset is
+  /// best-effort by contract — cipher / transient / unknown failures are
+  /// swallowed at the call site (see `lib/core/reset/full_reset_service.dart`
+  /// further down) which records partial-cleanup state in SharedPref.
   @override
-  Future<Map<String, String>> readAll() => secureStorage.readAll();
+  Future<Map<String, String>> readAll() async {
+    final result = await safeSecureReadAll();
+    return result.entries;
+  }
 
   @override
-  Future<void> deleteAll() => secureStorage.deleteAll();
+  Future<void> deleteAll() async {
+    await safeSecureDeleteAll();
+  }
 
   @override
-  Future<void> delete(String key) => secureStorage.delete(key: key);
+  Future<void> delete(String key) async {
+    await safeSecureDelete(key);
+  }
 }
 
 class FreshInstallResidueReport {

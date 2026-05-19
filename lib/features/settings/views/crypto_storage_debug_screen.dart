@@ -50,7 +50,12 @@ class _CryptoStorageDebugScreenState
   }
 
   Future<_SnapshotData> _loadSnapshot() async {
-    final all = await secureStorage.readAll();
+    // Debug-screen readAll — go through the classified wrapper so a cipher
+    // failure on the top-level readAll still produces a populated entries
+    // list via the slot probe, and the debug screen reflects "missing"
+    // rather than crashing. See `docs/0.9.2-secure-storage-remediation.md` §2.
+    final readAll = await safeSecureReadAll();
+    final all = readAll.entries;
     final entries = <_KeyStatus>[];
 
     final scanned = <String>{};

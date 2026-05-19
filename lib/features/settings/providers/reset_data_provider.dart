@@ -57,17 +57,30 @@ abstract class ResetSecureStore implements FullResetSecureStore {
 class _PlatformResetSecureStore implements ResetSecureStore {
   const _PlatformResetSecureStore();
 
+  /// Each operation routes through the classified secure-storage wrappers
+  /// so a PlatformException during reset (e.g. cipher failure on `readAll`)
+  /// surfaces as null/empty rather than escaping into the reset flow's
+  /// caller. The reset-path callers already treat read/delete failures as
+  /// non-fatal (best-effort cleanup); this just makes the failure mode
+  /// classified instead of raw.
   @override
-  Future<String?> read(String key) => secureStorage.read(key: key);
+  Future<String?> read(String key) async => (await safeSecureRead(key)).value;
 
   @override
-  Future<void> delete(String key) => secureStorage.delete(key: key);
+  Future<void> delete(String key) async {
+    await safeSecureDelete(key);
+  }
 
   @override
-  Future<Map<String, String>> readAll() => secureStorage.readAll();
+  Future<Map<String, String>> readAll() async {
+    final result = await safeSecureReadAll();
+    return result.entries;
+  }
 
   @override
-  Future<void> deleteAll() => secureStorage.deleteAll();
+  Future<void> deleteAll() async {
+    await safeSecureDeleteAll();
+  }
 }
 
 final resetSecureStoreProvider = Provider<ResetSecureStore>((ref) {

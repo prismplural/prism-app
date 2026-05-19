@@ -253,7 +253,10 @@ class DeviceBoundRuntimeDekStore {
   Future<void> deleteWrappingKey() async {
     if (!isSupported) return;
     if (Platform.isLinux) {
-      await secureStorage.delete(key: _linuxWrappingKeyStorageKey);
+      // Cleanup-style delete on the Linux wrapping-key slot. Failure here is
+      // non-fatal — the slot is rewritten on the next wrap. Funnel through
+      // [safeSecureDelete] so a PlatformException cannot escape the API.
+      await safeSecureDelete(_linuxWrappingKeyStorageKey);
       return;
     }
     await _channel.invokeMethod<void>('deleteRuntimeDekWrappingKey');
@@ -275,11 +278,18 @@ class DeviceBoundRuntimeDekStore {
     if (Platform.isLinux) {
       var keyPresent = false;
       var secretServiceAccessible = true;
-      try {
-        keyPresent = await secureStorage.containsKey(
-          key: _linuxWrappingKeyStorageKey,
-        );
-      } catch (_) {
+      // Probe by reading the slot through the classified wrapper. A cipher
+      // failure means the wrapping key blob exists but can't be decrypted —
+      // mark the key as "present but unrecoverable" by setting both flags.
+      // A clean miss (value == null, ok) leaves keyPresent = false.
+      final probe = await safeSecureRead(_linuxWrappingKeyStorageKey);
+      if (probe.ok) {
+        keyPresent = probe.value != null;
+      } else if (probe.failure == SecureStorageFailure.cipher) {
+        // Slot is there but unrecoverable. Surface this to the diagnostic.
+        keyPresent = true;
+        secretServiceAccessible = false;
+      } else {
         secretServiceAccessible = false;
       }
       return {
@@ -395,7 +405,20 @@ class DeviceBoundRuntimeDekStore {
   }
 
   Future<Uint8List?> _readLinuxWrappingKey() async {
-    final encoded = await secureStorage.read(key: _linuxWrappingKeyStorageKey);
+    // Goes through [safeSecureRead] so we can distinguish a cipher failure
+    // (wrapping key blob present but undecryptable) from a clean miss.
+    // Cipher / unknown failures escalate to a PlatformException so callers
+    // can route to the wrap_transient terminal classification (same shape
+    // as before — the prior implementation threw out of base64Decode if the
+    // backend surfaced a typed exception).
+    final read = await safeSecureRead(_linuxWrappingKeyStorageKey);
+    if (!read.ok) {
+      throw PlatformException(
+        code: read.code ?? 'runtime_dek_wrap_transient',
+        message: read.message ?? 'Linux Secret Service read failed',
+      );
+    }
+    final encoded = read.value;
     if (encoded == null || encoded.isEmpty) return null;
     try {
       final key = Uint8List.fromList(base64Decode(encoded));
@@ -411,10 +434,20 @@ class DeviceBoundRuntimeDekStore {
     if (existing != null) return existing;
 
     final key = _randomBytes(_linuxWrappingKeyLength);
-    await secureStorage.write(
-      key: _linuxWrappingKeyStorageKey,
-      value: base64Encode(key),
+    // Persist the freshly-generated wrapping key. Failure escalates to a
+    // PlatformException so the caller falls back to the wrap_transient
+    // classification (preserves the prior contract — the call site treats
+    // any throw as a transient backend outage).
+    final write = await safeSecureWrite(
+      _linuxWrappingKeyStorageKey,
+      base64Encode(key),
     );
+    if (!write.ok) {
+      throw PlatformException(
+        code: write.code ?? 'runtime_dek_wrap_transient',
+        message: write.message ?? 'Linux Secret Service write failed',
+      );
+    }
     return key;
   }
 }
