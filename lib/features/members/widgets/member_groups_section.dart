@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/members/widgets/manage_groups_sheet.dar
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/group_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -57,6 +58,17 @@ class MemberGroupsSection extends ConsumerWidget {
       loading: () => const SizedBox.shrink(),
       error: (_, _) => const SizedBox.shrink(),
       data: (groups) {
+        final flatList = ref.watch(flatGroupListProvider);
+        final order = <String, int>{
+          for (var i = 0; i < flatList.length; i++) flatList[i].group.id: i,
+        };
+        final sortedGroups = [...groups]
+          ..sort((a, b) {
+            final ai = order[a.id] ?? 1 << 30;
+            final bi = order[b.id] ?? 1 << 30;
+            return ai.compareTo(bi);
+          });
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: Column(
@@ -112,17 +124,15 @@ class MemberGroupsSection extends ConsumerWidget {
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        for (final group in groups)
+                        for (final group in sortedGroups)
                           PrismChip(
                             label: group.name,
                             selected: false,
-                            avatar:
-                                group.emoji != null && group.emoji!.isNotEmpty
-                                ? Text(
-                                    group.emoji!,
-                                    style: const TextStyle(fontSize: 12),
-                                  )
-                                : null,
+                            avatar: GroupAvatar(
+                              group: group,
+                              size: 20,
+                              showEmojiOnAvatar: false,
+                            ),
                             tintColor:
                                 group.colorHex != null &&
                                     group.colorHex!.isNotEmpty

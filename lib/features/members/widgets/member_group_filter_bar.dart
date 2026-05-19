@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/widgets/group_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 
 class MemberGroupFilterBar extends ConsumerWidget {
@@ -17,7 +18,7 @@ class MemberGroupFilterBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final groups = ref.watch(allGroupsProvider).value ?? [];
+    final flatList = ref.watch(flatGroupListProvider);
     final counts = ref.watch(groupMemberCountsProvider);
     final activeFilter = ref.watch(activeGroupFilterProvider);
     final ungroupedExists = ref.watch(ungroupedMembersExistProvider);
@@ -25,7 +26,7 @@ class MemberGroupFilterBar extends ConsumerWidget {
     final scrollMode = onChipTap != null;
 
     // Hide bar when there are no groups at all.
-    if (groups.isEmpty) return const SizedBox.shrink();
+    if (flatList.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
       height: 48,
@@ -54,15 +55,15 @@ class MemberGroupFilterBar extends ConsumerWidget {
                 ),
               ),
               // Group chips
-              ...groups.map((group) {
+              ...flatList.map((entry) {
+                final group = entry.group;
                 final count = counts[group.id] ?? 0;
                 final isSelected =
                     scrollMode ? false : activeFilter == group.id;
                 final groupColor = group.colorHex != null
                     ? AppColors.fromHex(group.colorHex!)
                     : null;
-                final prefix = group.emoji != null ? '${group.emoji} ' : '';
-                final labelText = '$prefix${group.name} \u2022 $count';
+                final labelText = '${group.name} \u2022 $count';
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Semantics(
@@ -73,6 +74,11 @@ class MemberGroupFilterBar extends ConsumerWidget {
                       label: labelText,
                       selected: isSelected,
                       selectedColor: groupColor,
+                      avatar: GroupAvatar(
+                        group: group,
+                        size: 20,
+                        showEmojiOnAvatar: false,
+                      ),
                       onTap: () {
                         if (scrollMode) {
                           onChipTap!(group.id);
