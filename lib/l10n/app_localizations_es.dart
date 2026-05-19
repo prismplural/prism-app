@@ -3266,6 +3266,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupNameLabel => 'Nombre';
 
   @override
+  String get memberGroupNameHint => 'Nombre del grupo';
+
+  @override
   String get memberGroupNameRequired => 'El nombre es obligatorio';
 
   @override

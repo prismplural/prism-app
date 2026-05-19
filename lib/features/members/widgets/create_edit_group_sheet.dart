@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +22,8 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_picker_text_field_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -64,9 +67,9 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
 
   late final TextEditingController _nameController;
   late final MarkdownEditingController _descriptionController;
+  late final TextEditingController _colorHexController;
 
   String? _emoji;
-  Color? _selectedColor;
   String? _parentGroupId;
   bool _saving = false;
   Uint8List? _avatarImageData;
@@ -74,7 +77,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
   late final String _initialName;
   late final String _initialDescription;
   late final String? _initialEmoji;
-  late final Color? _initialSelectedColor;
+  late final String _initialColorHex;
   late final String? _initialParentGroupId;
   late final Uint8List? _initialAvatarImageData;
   // Mutable: a post-frame callback hydrates this from the SharedPreferences-backed provider.
@@ -89,7 +92,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
       _nameController.text != _initialName ||
       _descriptionController.text != _initialDescription ||
       _emoji != _initialEmoji ||
-      _selectedColor != _initialSelectedColor ||
+      _colorHexController.text != _initialColorHex ||
       _parentGroupId != _initialParentGroupId ||
       !_bytesEqual(_avatarImageData, _initialAvatarImageData) ||
       _showEmojiOnAvatar != _initialShowEmojiOnAvatar;
@@ -102,16 +105,16 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     _descriptionController = MarkdownEditingController(
       text: g?.description ?? '',
     );
-    if (g?.colorHex != null) {
-      _selectedColor = AppColors.fromHex(g!.colorHex!);
-    }
+    _colorHexController = TextEditingController(
+      text: _normalizeColorHexForField(g?.colorHex),
+    );
     _emoji = g?.emoji;
     _parentGroupId = g?.parentGroupId ?? widget.initialParentGroupId;
     _avatarImageData = g?.avatarImageData;
     _initialName = _nameController.text;
     _initialDescription = _descriptionController.text;
     _initialEmoji = _emoji;
-    _initialSelectedColor = _selectedColor;
+    _initialColorHex = _colorHexController.text;
     _initialParentGroupId = _parentGroupId;
     _initialAvatarImageData =
         _avatarImageData == null ? null : Uint8List.fromList(_avatarImageData!);
@@ -133,6 +136,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _colorHexController.dispose();
     super.dispose();
   }
 
@@ -147,57 +151,77 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     );
   }
 
+  Color? _previewColor() {
+    final hex = _colorHexController.text.trim();
+    if (hex.isEmpty) return null;
+    try {
+      return AppColors.fromHex(hex);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _normalizeColorHexForField(String? hex) {
+    final cleaned = (hex ?? '').trim().replaceFirst('#', '');
+    if (cleaned.length == 8 && cleaned.toUpperCase().startsWith('FF')) {
+      return cleaned.substring(2).toUpperCase();
+    }
+    return cleaned.toUpperCase();
+  }
+
+  String _colorToFieldHex(Color color) {
+    final value = color.toARGB32() & 0xFFFFFF;
+    return value.toRadixString(16).padLeft(6, '0').toUpperCase();
+  }
+
   Future<void> _openColorPicker() async {
     final l10n = context.l10n;
+    var pickerColor = _previewColor() ?? const Color(0xFFAF8EE9);
     await PrismDialog.show<void>(
       context: context,
       title: l10n.memberGroupColorLabel,
-      builder: (dialogContext) => Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * 0.54,
-            ),
-            child: SingleChildScrollView(
-              child: ColorPicker(
-                pickerColor: _selectedColor ?? const Color(0xFFAF8EE9),
-                onColorChanged: (color) =>
-                    setState(() => _selectedColor = color),
-                enableAlpha: false,
-                hexInputBar: true,
-                labelTypes: const [],
-                portraitOnly: true,
-                pickerAreaHeightPercent: 0.65,
-              ),
-            ),
+      builder: (_) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.54,
+        ),
+        child: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: pickerColor,
+            onColorChanged: (color) => pickerColor = color,
+            enableAlpha: false,
+            hexInputBar: true,
+            labelTypes: const [],
+            portraitOnly: true,
+            pickerAreaHeightPercent: 0.65,
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            alignment: WrapAlignment.end,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (_selectedColor != null)
-                PrismButton(
-                  label: l10n.memberGroupColorClear,
-                  tone: PrismButtonTone.subtle,
-                  onPressed: () {
-                    setState(() => _selectedColor = null);
-                    Navigator.of(dialogContext, rootNavigator: true).pop();
-                  },
-                ),
-              PrismButton(
-                label: l10n.done,
-                tone: PrismButtonTone.filled,
-                onPressed: () =>
-                    Navigator.of(dialogContext, rootNavigator: true).pop(),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
+      actions: [
+        if (_colorHexController.text.trim().isNotEmpty)
+          PrismButton(
+            label: l10n.memberGroupColorClear,
+            tone: PrismButtonTone.subtle,
+            onPressed: () {
+              setState(() => _colorHexController.text = '');
+              Navigator.of(context, rootNavigator: true).pop();
+            },
+          ),
+        PrismButton(
+          label: l10n.cancel,
+          tone: PrismButtonTone.subtle,
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+        ),
+        PrismButton(
+          label: l10n.done,
+          tone: PrismButtonTone.filled,
+          onPressed: () {
+            setState(() {
+              _colorHexController.text = _colorToFieldHex(pickerColor);
+            });
+            Navigator.of(context, rootNavigator: true).pop();
+          },
+        ),
+      ],
     );
   }
 
@@ -228,9 +252,8 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
 
     final name = _nameController.text.trim();
     final description = _descriptionController.text.trim();
-    final colorHex = _selectedColor != null
-        ? '#${_selectedColor!.toARGB32().toRadixString(16).substring(2).toUpperCase()}'
-        : null;
+    final hex = _colorHexController.text.trim();
+    final colorHex = hex.isNotEmpty ? '#${hex.toUpperCase()}' : null;
 
     try {
       final allGroupsAsync = ref.read(allGroupsProvider);
@@ -376,27 +399,17 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                             avatarImageData: _avatarImageData,
                             emoji: _emoji,
                             showEmojiOnAvatar: _showEmojiOnAvatar,
-                            accentColor: _selectedColor,
+                            accentColor: _previewColor(),
                             onPickImage: _pickAvatar,
                             onRemoveImage: () =>
                                 setState(() => _avatarImageData = null),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Center(
-                          child: PrismEmojiPicker(
-                            emoji: _emoji,
-                            size: 44,
-                            onSelected: (emoji) {
-                              setState(() => _emoji = emoji);
-                            },
                           ),
                         ),
                         if (_avatarImageData != null &&
                             _avatarImageData!.isNotEmpty &&
                             _emoji != null &&
                             _emoji!.isNotEmpty) ...[
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                           PrismSwitchRow(
                             title: l10n.memberGroupShowEmojiOnAvatar,
                             value: _showEmojiOnAvatar,
@@ -406,76 +419,87 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                         ],
                         const SizedBox(height: 24),
 
-                        // Name
-                        PrismTextField(
-                          controller: _nameController,
-                          labelText: l10n.memberGroupNameLabel,
-                          textCapitalization: TextCapitalization.words,
-                          onChanged: (_) => setState(() {}),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return l10n.memberGroupNameRequired;
-                            }
-                            return null;
-                          },
+                        // Emoji + name as a unit
+                        PrismPickerTextFieldRow(
+                          pickerLabel: l10n.onboardingAddMemberFieldEmoji,
+                          picker: PrismEmojiPicker(
+                            emoji: _emoji,
+                            size: 48,
+                            onSelected: (emoji) =>
+                                setState(() => _emoji = emoji),
+                          ),
+                          field: PrismTextField(
+                            controller: _nameController,
+                            labelText: l10n.memberGroupNameLabel,
+                            hintText: l10n.memberGroupNameHint,
+                            textCapitalization: TextCapitalization.words,
+                            onChanged: (_) => setState(() {}),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return l10n.memberGroupNameRequired;
+                              }
+                              return null;
+                            },
+                          ),
                         ),
                         const SizedBox(height: 16),
 
-                        InkWell(
-                          onTap: _openColorPicker,
-                          borderRadius: BorderRadius.circular(
-                            PrismShapes.of(context).radius(12),
+                        Text(
+                          l10n.memberGroupColorLabel,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color:
-                                        _selectedColor ??
-                                        theme
-                                            .colorScheme
-                                            .surfaceContainerHighest,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: theme.colorScheme.outlineVariant,
+                        ),
+                        const SizedBox(height: 6),
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: PrismTextField(
+                                  controller: _colorHexController,
+                                  hintText: '#AF8EE9',
+                                  prefixText: '#',
+                                  onChanged: (_) => setState(() {}),
+                                  suffix: PrismFieldIconButton(
+                                    icon: AppIcons.colorize,
+                                    tooltip: l10n.memberGroupColorLabel,
+                                    onPressed: _openColorPicker,
+                                  ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'[0-9a-fA-F]'),
+                                    ),
+                                    LengthLimitingTextInputFormatter(6),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              AspectRatio(
+                                aspectRatio: 1,
+                                child: Tooltip(
+                                  message: l10n.memberGroupColorLabel,
+                                  child: Semantics(
+                                    button: true,
+                                    label: l10n.memberGroupColorLabel,
+                                    child: GestureDetector(
+                                      onTap: _openColorPicker,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: _previewColor() ??
+                                              theme.colorScheme
+                                                  .surfaceContainerHighest,
+                                          border: Border.all(
+                                            color: theme.colorScheme.outline,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        l10n.memberGroupColorLabel,
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color: theme
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                            ),
-                                      ),
-                                      Text(
-                                        _selectedColor != null
-                                            ? '#${_selectedColor!.toARGB32().toRadixString(16).substring(2).toUpperCase()}'
-                                            : l10n.memberGroupColorNone,
-                                        style: theme.textTheme.bodyLarge,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Icon(
-                                  AppIcons.chevronRight,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  size: 18,
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 16),

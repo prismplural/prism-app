@@ -908,6 +908,7 @@
   "memberGroupEditTitle": "Editar Grupo",
   "memberGroupNewTitle": "Nuevo Grupo",
   "memberGroupNameLabel": "Nombre",
+  "memberGroupNameHint": "Nombre del grupo",
   "memberGroupNameRequired": "El nombre es obligatorio",
   "memberGroupDescriptionLabel": "Descripción",
   "memberGroupDescriptionFullscreenTooltip": "Abrir descripción en pantalla completa",

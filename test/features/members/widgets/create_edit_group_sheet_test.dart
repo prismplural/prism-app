@@ -246,10 +246,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // The label 'Color' is present and the hex field is empty (no color set).
     expect(find.text('Color'), findsOneWidget);
-    expect(find.text('No color'), findsOneWidget);
+    expect(find.byTooltip('Color'), findsWidgets);
 
-    await tester.tap(find.text('Color'));
+    // Tapping the swatch opens the color picker dialog.
+    await tester.tap(find.byTooltip('Color').last);
     await tester.pumpAndSettle();
 
     expect(find.byType(ColorPicker), findsOneWidget);

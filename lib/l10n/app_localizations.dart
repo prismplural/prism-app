@@ -5572,6 +5572,12 @@ abstract class AppLocalizations {
   /// **'Name'**
   String get memberGroupNameLabel;
 
+  /// Placeholder inside the name field on the group editor sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Group name'**
+  String get memberGroupNameHint;
+
   /// Validation error when group name is empty
   ///
   /// In en, this message translates to:

@@ -3202,6 +3202,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupNameLabel => 'Name';
 
   @override
+  String get memberGroupNameHint => 'Group name';
+
+  @override
   String get memberGroupNameRequired => 'Name is required';
 
   @override

@@ -4378,6 +4378,10 @@
   "@memberGroupNameLabel": {
     "description": "Label for the group name text field"
   },
+  "memberGroupNameHint": "Group name",
+  "@memberGroupNameHint": {
+    "description": "Placeholder inside the name field on the group editor sheet."
+  },
   "memberGroupNameRequired": "Name is required",
   "@memberGroupNameRequired": {
     "description": "Validation error when group name is empty"
