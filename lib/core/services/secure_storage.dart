@@ -10,14 +10,29 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// - Keys are device-bound (not included in iCloud backups or device migration)
 /// - Keys are available after the user's first unlock since boot
 ///
-/// On Android, fail closed instead of letting flutter_secure_storage delete
-/// all entries after a Keystore/storage mismatch. Losing the DB key while
-/// `prism.db` remains on disk makes the local database unrecoverable.
+/// On Android, both options are stated explicitly (no defaults relied upon):
+///
+/// - `resetOnError: false` — fail closed instead of letting
+///   flutter_secure_storage delete all entries after a Keystore/storage
+///   mismatch. Losing the DB key while `prism.db` remains on disk makes the
+///   local database unrecoverable. (fss 10.0.0 flipped this default to
+///   `true`; we explicitly opt back out.)
+///
+/// - `migrateWithBackup: true` — added in fss 10.1.0. When fss migrates
+///   data between cipher algorithms (e.g. the deprecated
+///   `AES_CBC_PKCS7Padding` → default `AES_GCM_NoPadding` path in 10.2.0),
+///   backup copies of encrypted entries are written before the migration
+///   starts so a mid-migration crash or interrupted write leaves the
+///   pre-migration data intact rather than corrupted. This is the exact
+///   class of failure that produced the original 0.9.1 BAD_DECRYPT bug.
 const secureStorage = FlutterSecureStorage(
   iOptions: IOSOptions(
     accessibility: KeychainAccessibility.first_unlock_this_device,
   ),
-  aOptions: AndroidOptions(resetOnError: false),
+  aOptions: AndroidOptions(
+    resetOnError: false,
+    migrateWithBackup: true,
+  ),
 );
 
 // ---------------------------------------------------------------------------
