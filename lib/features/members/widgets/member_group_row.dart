@@ -60,7 +60,7 @@ class MemberGroupRow extends StatelessWidget {
     final subGroup = depth > 0 ? ', ${l10n.memberGroupSubGroupSemantic}' : '';
     final hasAvatar =
         group.avatarImageData != null && group.avatarImageData!.isNotEmpty;
-    final visualHint = hasAvatar ? ', photo' : '';
+    final visualHint = hasAvatar ? ', ${l10n.memberGroupRowPhotoSemantic}' : '';
     return '${group.name}$subGroup$visualHint, '
         '${l10n.memberGroupMemberCountSemantic(memberCount)}, '
         '${l10n.memberGroupOpenSemantic}';
@@ -206,6 +206,11 @@ class _GroupAvatar extends StatelessWidget {
                   fit: BoxFit.cover,
                   width: 44,
                   height: 44,
+                  cacheWidth: 88,
+                  cacheHeight: 88,
+                  errorBuilder: (_, _, _) => hasEmoji
+                      ? Text(group.emoji!, style: const TextStyle(fontSize: 22))
+                      : Icon(AppIcons.folderOutlined, size: 22, color: tint),
                 ),
               )
             : hasEmoji

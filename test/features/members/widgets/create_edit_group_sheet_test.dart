@@ -1,12 +1,17 @@
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/features/members/providers/group_display_prefs_provider.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -34,6 +39,25 @@ class _FakeGroupNotifier extends GroupNotifier {
   @override
   Future<void> updateGroup(MemberGroup group) async {
     updateCalls++;
+  }
+}
+
+/// Fake notifier that immediately resolves to a fixed [value].
+///
+/// Extends [GroupShowEmojiOnAvatarNotifier] so it can be used as a drop-in
+/// override for [groupShowEmojiOnAvatarProvider]. By returning synchronously
+/// via [SynchronousFuture], the provider is in `AsyncData` state before the
+/// sheet's post-frame callback fires.
+class _FakeShowEmojiNotifier extends GroupShowEmojiOnAvatarNotifier {
+  _FakeShowEmojiNotifier(this._fixedValue) : super('');
+  final bool _fixedValue;
+
+  @override
+  Future<bool> build() {
+    // SynchronousFuture resolves within the same microtask tick, which means
+    // the AsyncNotifier state is already AsyncData<bool> when the
+    // post-frame callback calls `ref.read(...)`.
+    return SynchronousFuture(_fixedValue);
   }
 }
 
@@ -224,4 +248,85 @@ void main() {
 
     expect(find.byType(ColorPicker), findsOneWidget);
   });
+
+  testWidgets(
+    'edit mode: post-frame callback seeds _showEmojiOnAvatar from persisted '
+    'false preference',
+    (tester) async {
+      // A minimal 1×1 PNG so the avatar condition is satisfied and the emoji
+      // toggle is visible.
+      final pngBytes = Uint8List.fromList(
+        [
+          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+          0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+          0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+          0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
+          0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41,
+          0x54, 0x08, 0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00,
+          0x00, 0x00, 0x02, 0x00, 0x01, 0xE2, 0x21, 0xBC,
+          0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E,
+          0x44, 0xAE, 0x42, 0x60, 0x82,
+        ],
+      );
+
+      const groupId = 'g_emoji';
+      final group = MemberGroup(
+        id: groupId,
+        name: 'Emoji Group',
+        createdAt: DateTime(2024, 1, 1),
+        emoji: '🌟',
+        avatarImageData: pngBytes,
+      );
+      final fakeGroupNotifier = _FakeGroupNotifier();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            allGroupsProvider.overrideWithValue(AsyncValue.data([group])),
+            groupNotifierProvider.overrideWith(() => fakeGroupNotifier),
+            // Override the family provider for this specific groupId to return
+            // false synchronously, so the post-frame callback reads it as data.
+            groupShowEmojiOnAvatarProvider(groupId).overrideWith(
+              () => _FakeShowEmojiNotifier(false),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => SizedBox(
+                  height: 800,
+                  child: CreateEditGroupSheet(
+                    group: group,
+                    scrollController: ScrollController(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      // pumpAndSettle lets the post-frame callback fire and setState rebuild.
+      await tester.pumpAndSettle();
+
+      // Scroll down to make the emoji toggle visible.
+      await tester.scrollUntilVisible(
+        find.widgetWithText(PrismSwitchRow, 'Show emoji on avatar'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      final switchRow = tester.widget<PrismSwitchRow>(
+        find.widgetWithText(PrismSwitchRow, 'Show emoji on avatar'),
+      );
+      expect(
+        switchRow.value,
+        isFalse,
+        reason:
+            'post-frame callback must seed _showEmojiOnAvatar from the persisted false preference',
+      );
+    },
+  );
 }

@@ -3272,7 +3272,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupDescriptionLabel => 'Descripción';
 
   @override
-  String get memberGroupDescriptionEmptyHint => 'Tap to write about this group';
+  String get memberGroupDescriptionEmptyHint =>
+      'Toca para escribir sobre este grupo';
 
   @override
   String get memberGroupColorLabel => 'Color';
@@ -3281,10 +3282,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupColorNone => 'Sin color';
 
   @override
-  String get memberGroupRemovePhoto => 'Remove photo';
+  String get memberGroupRemovePhoto => 'Quitar foto';
 
   @override
-  String get memberGroupShowEmojiOnAvatar => 'Show emoji on avatar';
+  String get memberGroupShowEmojiOnAvatar => 'Mostrar emoji en la foto';
 
   @override
   String memberGroupErrorSaving(Object error) {
@@ -3416,6 +3417,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get memberGroupOpenSemantic => 'abre el grupo';
+
+  @override
+  String get memberGroupAvatarPickerSemantic =>
+      'Foto del grupo. Toca para cambiarla.';
+
+  @override
+  String get memberGroupRowPhotoSemantic => 'foto';
 
   @override
   String get reorder => 'Reordenar';

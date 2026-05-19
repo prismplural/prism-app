@@ -4573,6 +4573,14 @@
   "@memberGroupOpenSemantic": {
     "description": "Accessibility phrase for group rows that navigate into a group"
   },
+  "memberGroupAvatarPickerSemantic": "Group photo. Tap to change.",
+  "@memberGroupAvatarPickerSemantic": {
+    "description": "Accessibility label on the avatar picker tile in the group editor sheet"
+  },
+  "memberGroupRowPhotoSemantic": "photo",
+  "@memberGroupRowPhotoSemantic": {
+    "description": "Accessibility hint fragment appended to a group row label when the group has a photo"
+  },
   "reorder": "Reorder",
   "@reorder": {
     "description": "Tooltip for a drag handle that reorders list items"

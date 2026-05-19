@@ -139,7 +139,7 @@ class GroupAvatarPicker extends StatelessWidget {
     final tile = Semantics(
       button: true,
       image: _hasAvatar,
-      label: 'Group photo. Tap to change.',
+      label: l10n.memberGroupAvatarPickerSemantic,
       child: SizedBox(
         width: tileSize,
         height: tileSize,

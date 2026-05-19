@@ -3354,6 +3354,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupOpenSemantic => 'opens group';
 
   @override
+  String get memberGroupAvatarPickerSemantic => 'Group photo. Tap to change.';
+
+  @override
+  String get memberGroupRowPhotoSemantic => 'photo';
+
+  @override
   String get reorder => 'Reorder';
 
   @override

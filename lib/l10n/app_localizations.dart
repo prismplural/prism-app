@@ -5830,6 +5830,18 @@ abstract class AppLocalizations {
   /// **'opens group'**
   String get memberGroupOpenSemantic;
 
+  /// Accessibility label on the avatar picker tile in the group editor sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Group photo. Tap to change.'**
+  String get memberGroupAvatarPickerSemantic;
+
+  /// Accessibility hint fragment appended to a group row label when the group has a photo
+  ///
+  /// In en, this message translates to:
+  /// **'photo'**
+  String get memberGroupRowPhotoSemantic;
+
   /// Tooltip for a drag handle that reorders list items
   ///
   /// In en, this message translates to:

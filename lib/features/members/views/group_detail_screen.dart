@@ -1237,7 +1237,25 @@ class _GroupInfoHeader extends ConsumerWidget {
           fit: BoxFit.cover,
           width: 64,
           height: 64,
+          cacheWidth: 128,
+          cacheHeight: 128,
           gaplessPlayback: true,
+          errorBuilder: (_, _, _) => TintedGlassSurface.circle(
+            size: 56,
+            tint: accentColor ?? theme.colorScheme.primary,
+            child: Center(
+              child: hasEmoji
+                  ? Text(
+                      group.emoji!,
+                      style: const TextStyle(fontSize: 30),
+                    )
+                  : Icon(
+                      AppIcons.folderOutlined,
+                      size: 26,
+                      color: accentColor ?? theme.colorScheme.primary,
+                    ),
+            ),
+          ),
         ),
       );
 
