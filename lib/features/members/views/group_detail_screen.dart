@@ -42,6 +42,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/features/members/providers/group_display_prefs_provider.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -1209,51 +1210,110 @@ class _GroupSortBadge extends StatelessWidget {
   }
 }
 
-class _GroupInfoHeader extends StatelessWidget {
+class _GroupInfoHeader extends ConsumerWidget {
   const _GroupInfoHeader({required this.group, required this.ancestors});
 
   final MemberGroup group;
   final List<MemberGroup> ancestors;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final hasColor = group.colorHex != null && group.colorHex!.isNotEmpty;
     final accentColor = hasColor ? AppColors.fromHex(group.colorHex!) : null;
     final radius = BorderRadius.circular(PrismShapes.of(context).radius(14));
     final hasEmoji = group.emoji != null && group.emoji!.isNotEmpty;
+    final showEmojiOnAvatar =
+        ref.watch(groupShowEmojiOnAvatarProvider(group.id)).value ?? true;
+    final hasAvatar =
+        group.avatarImageData != null && group.avatarImageData!.isNotEmpty;
+    final showEmojiBadge = hasAvatar && hasEmoji && showEmojiOnAvatar;
+
+    Widget leadingVisual;
+    if (hasAvatar) {
+      Widget image = ClipOval(
+        child: Image.memory(
+          group.avatarImageData!,
+          fit: BoxFit.cover,
+          width: 64,
+          height: 64,
+          gaplessPlayback: true,
+        ),
+      );
+
+      if (showEmojiBadge) {
+        image = Stack(
+          clipBehavior: Clip.none,
+          children: [
+            image,
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.colorScheme.surface,
+                  border: Border.all(
+                    color: theme.colorScheme.surface,
+                    width: 2,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    group.emoji!,
+                    style: const TextStyle(fontSize: 11),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+
+      leadingVisual = SizedBox(width: 64, height: 64, child: image);
+    } else {
+      leadingVisual = TintedGlassSurface.circle(
+        size: 56,
+        tint: accentColor ?? theme.colorScheme.primary,
+        child: Center(
+          child: hasEmoji
+              ? Text(
+                  group.emoji!,
+                  style: const TextStyle(fontSize: 30),
+                )
+              : Icon(
+                  AppIcons.folderOutlined,
+                  size: 26,
+                  color: accentColor ?? theme.colorScheme.primary,
+                ),
+        ),
+      );
+    }
+
+    final cardColor = hasAvatar && hasColor
+        ? accentColor!.withValues(alpha: 0.12)
+        : theme.colorScheme.onSurface.withValues(alpha: 0.06);
 
     return Material(
-      color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+      color: cardColor,
       borderRadius: radius,
       clipBehavior: Clip.antiAlias,
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (hasColor) Container(width: 4, color: accentColor),
+            if (hasColor && !hasAvatar) Container(width: 4, color: accentColor),
             Expanded(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(hasColor ? 12 : 16, 16, 16, 16),
+                padding: EdgeInsets.fromLTRB(
+                    hasColor && !hasAvatar ? 12 : 16, 16, 16, 16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TintedGlassSurface.circle(
-                      size: 56,
-                      tint: accentColor ?? theme.colorScheme.primary,
-                      child: Center(
-                        child: hasEmoji
-                            ? Text(
-                                group.emoji!,
-                                style: const TextStyle(fontSize: 30),
-                              )
-                            : Icon(
-                                AppIcons.folderOutlined,
-                                size: 26,
-                                color: accentColor ?? theme.colorScheme.primary,
-                              ),
-                      ),
-                    ),
+                    leadingVisual,
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
