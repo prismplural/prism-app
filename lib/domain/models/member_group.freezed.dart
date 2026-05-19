@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$MemberGroup {
 
- String get id; String get name; String? get description; String? get colorHex; String? get emoji; int get displayOrder; String? get parentGroupId; int get groupType; String? get filterRules; DateTime get createdAt; GroupSortState get sortState;
+ String get id; String get name; String? get description; String? get colorHex; String? get emoji;@JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) Uint8List? get avatarImageData; int get displayOrder; String? get parentGroupId; int get groupType; String? get filterRules; DateTime get createdAt; GroupSortState get sortState;
 /// Create a copy of MemberGroup
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $MemberGroupCopyWith<MemberGroup> get copyWith => _$MemberGroupCopyWithImpl<Memb
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MemberGroup&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.colorHex, colorHex) || other.colorHex == colorHex)&&(identical(other.emoji, emoji) || other.emoji == emoji)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder)&&(identical(other.parentGroupId, parentGroupId) || other.parentGroupId == parentGroupId)&&(identical(other.groupType, groupType) || other.groupType == groupType)&&(identical(other.filterRules, filterRules) || other.filterRules == filterRules)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.sortState, sortState) || other.sortState == sortState));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MemberGroup&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.colorHex, colorHex) || other.colorHex == colorHex)&&(identical(other.emoji, emoji) || other.emoji == emoji)&&const DeepCollectionEquality().equals(other.avatarImageData, avatarImageData)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder)&&(identical(other.parentGroupId, parentGroupId) || other.parentGroupId == parentGroupId)&&(identical(other.groupType, groupType) || other.groupType == groupType)&&(identical(other.filterRules, filterRules) || other.filterRules == filterRules)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.sortState, sortState) || other.sortState == sortState));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,description,colorHex,emoji,displayOrder,parentGroupId,groupType,filterRules,createdAt,sortState);
+int get hashCode => Object.hash(runtimeType,id,name,description,colorHex,emoji,const DeepCollectionEquality().hash(avatarImageData),displayOrder,parentGroupId,groupType,filterRules,createdAt,sortState);
 
 @override
 String toString() {
-  return 'MemberGroup(id: $id, name: $name, description: $description, colorHex: $colorHex, emoji: $emoji, displayOrder: $displayOrder, parentGroupId: $parentGroupId, groupType: $groupType, filterRules: $filterRules, createdAt: $createdAt, sortState: $sortState)';
+  return 'MemberGroup(id: $id, name: $name, description: $description, colorHex: $colorHex, emoji: $emoji, avatarImageData: $avatarImageData, displayOrder: $displayOrder, parentGroupId: $parentGroupId, groupType: $groupType, filterRules: $filterRules, createdAt: $createdAt, sortState: $sortState)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $MemberGroupCopyWith<$Res>  {
   factory $MemberGroupCopyWith(MemberGroup value, $Res Function(MemberGroup) _then) = _$MemberGroupCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String? description, String? colorHex, String? emoji, int displayOrder, String? parentGroupId, int groupType, String? filterRules, DateTime createdAt, GroupSortState sortState
+ String id, String name, String? description, String? colorHex, String? emoji,@JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) Uint8List? avatarImageData, int displayOrder, String? parentGroupId, int groupType, String? filterRules, DateTime createdAt, GroupSortState sortState
 });
 
 
@@ -65,14 +65,15 @@ class _$MemberGroupCopyWithImpl<$Res>
 
 /// Create a copy of MemberGroup
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? description = freezed,Object? colorHex = freezed,Object? emoji = freezed,Object? displayOrder = null,Object? parentGroupId = freezed,Object? groupType = null,Object? filterRules = freezed,Object? createdAt = null,Object? sortState = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? description = freezed,Object? colorHex = freezed,Object? emoji = freezed,Object? avatarImageData = freezed,Object? displayOrder = null,Object? parentGroupId = freezed,Object? groupType = null,Object? filterRules = freezed,Object? createdAt = null,Object? sortState = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,colorHex: freezed == colorHex ? _self.colorHex : colorHex // ignore: cast_nullable_to_non_nullable
 as String?,emoji: freezed == emoji ? _self.emoji : emoji // ignore: cast_nullable_to_non_nullable
-as String?,displayOrder: null == displayOrder ? _self.displayOrder : displayOrder // ignore: cast_nullable_to_non_nullable
+as String?,avatarImageData: freezed == avatarImageData ? _self.avatarImageData : avatarImageData // ignore: cast_nullable_to_non_nullable
+as Uint8List?,displayOrder: null == displayOrder ? _self.displayOrder : displayOrder // ignore: cast_nullable_to_non_nullable
 as int,parentGroupId: freezed == parentGroupId ? _self.parentGroupId : parentGroupId // ignore: cast_nullable_to_non_nullable
 as String?,groupType: null == groupType ? _self.groupType : groupType // ignore: cast_nullable_to_non_nullable
 as int,filterRules: freezed == filterRules ? _self.filterRules : filterRules // ignore: cast_nullable_to_non_nullable
@@ -172,10 +173,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String? description,  String? colorHex,  String? emoji,  int displayOrder,  String? parentGroupId,  int groupType,  String? filterRules,  DateTime createdAt,  GroupSortState sortState)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String? description,  String? colorHex,  String? emoji, @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)  Uint8List? avatarImageData,  int displayOrder,  String? parentGroupId,  int groupType,  String? filterRules,  DateTime createdAt,  GroupSortState sortState)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _MemberGroup() when $default != null:
-return $default(_that.id,_that.name,_that.description,_that.colorHex,_that.emoji,_that.displayOrder,_that.parentGroupId,_that.groupType,_that.filterRules,_that.createdAt,_that.sortState);case _:
+return $default(_that.id,_that.name,_that.description,_that.colorHex,_that.emoji,_that.avatarImageData,_that.displayOrder,_that.parentGroupId,_that.groupType,_that.filterRules,_that.createdAt,_that.sortState);case _:
   return orElse();
 
 }
@@ -193,10 +194,10 @@ return $default(_that.id,_that.name,_that.description,_that.colorHex,_that.emoji
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String? description,  String? colorHex,  String? emoji,  int displayOrder,  String? parentGroupId,  int groupType,  String? filterRules,  DateTime createdAt,  GroupSortState sortState)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String? description,  String? colorHex,  String? emoji, @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)  Uint8List? avatarImageData,  int displayOrder,  String? parentGroupId,  int groupType,  String? filterRules,  DateTime createdAt,  GroupSortState sortState)  $default,) {final _that = this;
 switch (_that) {
 case _MemberGroup():
-return $default(_that.id,_that.name,_that.description,_that.colorHex,_that.emoji,_that.displayOrder,_that.parentGroupId,_that.groupType,_that.filterRules,_that.createdAt,_that.sortState);case _:
+return $default(_that.id,_that.name,_that.description,_that.colorHex,_that.emoji,_that.avatarImageData,_that.displayOrder,_that.parentGroupId,_that.groupType,_that.filterRules,_that.createdAt,_that.sortState);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -213,10 +214,10 @@ return $default(_that.id,_that.name,_that.description,_that.colorHex,_that.emoji
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String? description,  String? colorHex,  String? emoji,  int displayOrder,  String? parentGroupId,  int groupType,  String? filterRules,  DateTime createdAt,  GroupSortState sortState)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String? description,  String? colorHex,  String? emoji, @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)  Uint8List? avatarImageData,  int displayOrder,  String? parentGroupId,  int groupType,  String? filterRules,  DateTime createdAt,  GroupSortState sortState)?  $default,) {final _that = this;
 switch (_that) {
 case _MemberGroup() when $default != null:
-return $default(_that.id,_that.name,_that.description,_that.colorHex,_that.emoji,_that.displayOrder,_that.parentGroupId,_that.groupType,_that.filterRules,_that.createdAt,_that.sortState);case _:
+return $default(_that.id,_that.name,_that.description,_that.colorHex,_that.emoji,_that.avatarImageData,_that.displayOrder,_that.parentGroupId,_that.groupType,_that.filterRules,_that.createdAt,_that.sortState);case _:
   return null;
 
 }
@@ -228,7 +229,7 @@ return $default(_that.id,_that.name,_that.description,_that.colorHex,_that.emoji
 @JsonSerializable()
 
 class _MemberGroup implements MemberGroup {
-  const _MemberGroup({required this.id, required this.name, this.description, this.colorHex, this.emoji, this.displayOrder = 0, this.parentGroupId, this.groupType = 0, this.filterRules, required this.createdAt, this.sortState = GroupSortState.manualEmpty});
+  const _MemberGroup({required this.id, required this.name, this.description, this.colorHex, this.emoji, @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) this.avatarImageData, this.displayOrder = 0, this.parentGroupId, this.groupType = 0, this.filterRules, required this.createdAt, this.sortState = GroupSortState.manualEmpty});
   factory _MemberGroup.fromJson(Map<String, dynamic> json) => _$MemberGroupFromJson(json);
 
 @override final  String id;
@@ -236,6 +237,7 @@ class _MemberGroup implements MemberGroup {
 @override final  String? description;
 @override final  String? colorHex;
 @override final  String? emoji;
+@override@JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) final  Uint8List? avatarImageData;
 @override@JsonKey() final  int displayOrder;
 @override final  String? parentGroupId;
 @override@JsonKey() final  int groupType;
@@ -256,16 +258,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MemberGroup&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.colorHex, colorHex) || other.colorHex == colorHex)&&(identical(other.emoji, emoji) || other.emoji == emoji)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder)&&(identical(other.parentGroupId, parentGroupId) || other.parentGroupId == parentGroupId)&&(identical(other.groupType, groupType) || other.groupType == groupType)&&(identical(other.filterRules, filterRules) || other.filterRules == filterRules)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.sortState, sortState) || other.sortState == sortState));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MemberGroup&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.colorHex, colorHex) || other.colorHex == colorHex)&&(identical(other.emoji, emoji) || other.emoji == emoji)&&const DeepCollectionEquality().equals(other.avatarImageData, avatarImageData)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder)&&(identical(other.parentGroupId, parentGroupId) || other.parentGroupId == parentGroupId)&&(identical(other.groupType, groupType) || other.groupType == groupType)&&(identical(other.filterRules, filterRules) || other.filterRules == filterRules)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.sortState, sortState) || other.sortState == sortState));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,description,colorHex,emoji,displayOrder,parentGroupId,groupType,filterRules,createdAt,sortState);
+int get hashCode => Object.hash(runtimeType,id,name,description,colorHex,emoji,const DeepCollectionEquality().hash(avatarImageData),displayOrder,parentGroupId,groupType,filterRules,createdAt,sortState);
 
 @override
 String toString() {
-  return 'MemberGroup(id: $id, name: $name, description: $description, colorHex: $colorHex, emoji: $emoji, displayOrder: $displayOrder, parentGroupId: $parentGroupId, groupType: $groupType, filterRules: $filterRules, createdAt: $createdAt, sortState: $sortState)';
+  return 'MemberGroup(id: $id, name: $name, description: $description, colorHex: $colorHex, emoji: $emoji, avatarImageData: $avatarImageData, displayOrder: $displayOrder, parentGroupId: $parentGroupId, groupType: $groupType, filterRules: $filterRules, createdAt: $createdAt, sortState: $sortState)';
 }
 
 
@@ -276,7 +278,7 @@ abstract mixin class _$MemberGroupCopyWith<$Res> implements $MemberGroupCopyWith
   factory _$MemberGroupCopyWith(_MemberGroup value, $Res Function(_MemberGroup) _then) = __$MemberGroupCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String? description, String? colorHex, String? emoji, int displayOrder, String? parentGroupId, int groupType, String? filterRules, DateTime createdAt, GroupSortState sortState
+ String id, String name, String? description, String? colorHex, String? emoji,@JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) Uint8List? avatarImageData, int displayOrder, String? parentGroupId, int groupType, String? filterRules, DateTime createdAt, GroupSortState sortState
 });
 
 
@@ -293,14 +295,15 @@ class __$MemberGroupCopyWithImpl<$Res>
 
 /// Create a copy of MemberGroup
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? description = freezed,Object? colorHex = freezed,Object? emoji = freezed,Object? displayOrder = null,Object? parentGroupId = freezed,Object? groupType = null,Object? filterRules = freezed,Object? createdAt = null,Object? sortState = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? description = freezed,Object? colorHex = freezed,Object? emoji = freezed,Object? avatarImageData = freezed,Object? displayOrder = null,Object? parentGroupId = freezed,Object? groupType = null,Object? filterRules = freezed,Object? createdAt = null,Object? sortState = null,}) {
   return _then(_MemberGroup(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,colorHex: freezed == colorHex ? _self.colorHex : colorHex // ignore: cast_nullable_to_non_nullable
 as String?,emoji: freezed == emoji ? _self.emoji : emoji // ignore: cast_nullable_to_non_nullable
-as String?,displayOrder: null == displayOrder ? _self.displayOrder : displayOrder // ignore: cast_nullable_to_non_nullable
+as String?,avatarImageData: freezed == avatarImageData ? _self.avatarImageData : avatarImageData // ignore: cast_nullable_to_non_nullable
+as Uint8List?,displayOrder: null == displayOrder ? _self.displayOrder : displayOrder // ignore: cast_nullable_to_non_nullable
 as int,parentGroupId: freezed == parentGroupId ? _self.parentGroupId : parentGroupId // ignore: cast_nullable_to_non_nullable
 as String?,groupType: null == groupType ? _self.groupType : groupType // ignore: cast_nullable_to_non_nullable
 as int,filterRules: freezed == filterRules ? _self.filterRules : filterRules // ignore: cast_nullable_to_non_nullable
