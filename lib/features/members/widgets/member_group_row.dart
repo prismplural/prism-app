@@ -206,8 +206,10 @@ class _GroupAvatar extends StatelessWidget {
                   fit: BoxFit.cover,
                   width: 44,
                   height: 44,
-                  cacheWidth: 88,
-                  cacheHeight: 88,
+                  cacheWidth:
+                      (44 * MediaQuery.devicePixelRatioOf(context)).round(),
+                  cacheHeight:
+                      (44 * MediaQuery.devicePixelRatioOf(context)).round(),
                   errorBuilder: (_, _, _) => hasEmoji
                       ? Text(group.emoji!, style: const TextStyle(fontSize: 22))
                       : Icon(AppIcons.folderOutlined, size: 22, color: tint),

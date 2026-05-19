@@ -14,7 +14,7 @@ import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 /// The host is responsible for showing a "Remove photo" affordance when there's
 /// an avatar — pass [onRemoveImage] and we'll render a labeled InkWell row below
 /// the tile when an avatar is present.
-class GroupAvatarPicker extends StatelessWidget {
+class GroupAvatarPicker extends StatefulWidget {
   const GroupAvatarPicker({
     super.key,
     required this.avatarImageData,
@@ -36,33 +36,61 @@ class GroupAvatarPicker extends StatelessWidget {
   final VoidCallback onPickImage;
   final VoidCallback onRemoveImage;
 
+  @override
+  State<GroupAvatarPicker> createState() => _GroupAvatarPickerState();
+}
+
+class _GroupAvatarPickerState extends State<GroupAvatarPicker> {
+  bool _imageDecodeFailed = false;
+
   bool get _hasAvatar =>
-      avatarImageData != null && avatarImageData!.isNotEmpty;
-  bool get _hasEmoji => emoji != null && emoji!.isNotEmpty;
+      widget.avatarImageData != null && widget.avatarImageData!.isNotEmpty;
+  bool get _hasEmoji => widget.emoji != null && widget.emoji!.isNotEmpty;
+
+  @override
+  void didUpdateWidget(GroupAvatarPicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reset failure flag when the image bytes change so a newly picked
+    // image gets a fresh decode attempt.
+    if (oldWidget.avatarImageData != widget.avatarImageData) {
+      _imageDecodeFailed = false;
+    }
+  }
 
   Widget _buildTileContent(BuildContext context) {
     final theme = Theme.of(context);
-    final effectiveTint = accentColor ?? theme.colorScheme.primary;
+    final effectiveTint = widget.accentColor ?? theme.colorScheme.primary;
 
     if (_hasAvatar) {
       Widget image = ClipOval(
         child: Image.memory(
-          avatarImageData!,
+          widget.avatarImageData!,
           fit: BoxFit.cover,
-          width: tileSize,
-          height: tileSize,
+          width: widget.tileSize,
+          height: widget.tileSize,
+          cacheWidth:
+              (widget.tileSize * MediaQuery.devicePixelRatioOf(context))
+                  .round(),
+          cacheHeight:
+              (widget.tileSize * MediaQuery.devicePixelRatioOf(context))
+                  .round(),
           gaplessPlayback: true,
           errorBuilder: (_, _, _) {
-            // If image fails to decode, fall back to emoji or folder icon.
-            if (_hasEmoji) {
-              return _buildEmojiFallback(context, effectiveTint);
-            }
-            return _buildFolderFallback(context, effectiveTint);
+            // Mark decode failure so the badge is suppressed, preventing the
+            // emoji from appearing both centred (here) and as a badge overlay.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && !_imageDecodeFailed) {
+                setState(() => _imageDecodeFailed = true);
+              }
+            });
+            return _hasEmoji
+                ? _buildEmojiFallback(context, effectiveTint)
+                : _buildFolderFallback(context, effectiveTint);
           },
         ),
       );
 
-      if (_hasEmoji && showEmojiOnAvatar) {
+      if (_hasEmoji && widget.showEmojiOnAvatar && !_imageDecodeFailed) {
         image = Stack(
           clipBehavior: Clip.none,
           children: [
@@ -88,12 +116,12 @@ class GroupAvatarPicker extends StatelessWidget {
 
   Widget _buildEmojiFallback(BuildContext context, Color tint) {
     return TintedGlassSurface.circle(
-      size: tileSize,
+      size: widget.tileSize,
       tint: tint,
       child: Center(
         child: Text(
-          emoji!,
-          style: TextStyle(fontSize: tileSize * 0.5),
+          widget.emoji!,
+          style: TextStyle(fontSize: widget.tileSize * 0.5),
         ),
       ),
     );
@@ -101,18 +129,18 @@ class GroupAvatarPicker extends StatelessWidget {
 
   Widget _buildFolderFallback(BuildContext context, Color tint) {
     return TintedGlassSurface.circle(
-      size: tileSize,
+      size: widget.tileSize,
       tint: tint,
       child: Center(
-        child: Icon(AppIcons.folderOutlined, size: tileSize * 0.4),
+        child: Icon(AppIcons.folderOutlined, size: widget.tileSize * 0.4),
       ),
     );
   }
 
   Widget _buildEmojiSmallBadge(BuildContext context, ThemeData theme) {
     return Container(
-      width: badgeSize,
-      height: badgeSize,
+      width: widget.badgeSize,
+      height: widget.badgeSize,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: theme.colorScheme.surface,
@@ -123,8 +151,8 @@ class GroupAvatarPicker extends StatelessWidget {
       ),
       child: Center(
         child: Text(
-          emoji!,
-          style: TextStyle(fontSize: badgeSize * 0.55),
+          widget.emoji!,
+          style: TextStyle(fontSize: widget.badgeSize * 0.55),
           textAlign: TextAlign.center,
         ),
       ),
@@ -141,14 +169,14 @@ class GroupAvatarPicker extends StatelessWidget {
       image: _hasAvatar,
       label: l10n.memberGroupAvatarPickerSemantic,
       child: SizedBox(
-        width: tileSize,
-        height: tileSize,
+        width: widget.tileSize,
+        height: widget.tileSize,
         child: Material(
           color: Colors.transparent,
           shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: onPickImage,
+            onTap: widget.onPickImage,
             customBorder: const CircleBorder(),
             child: _buildTileContent(context),
           ),
@@ -164,7 +192,7 @@ class GroupAvatarPicker extends StatelessWidget {
         if (_hasAvatar) ...[
           const SizedBox(height: 8),
           InkWell(
-            onTap: onRemoveImage,
+            onTap: widget.onRemoveImage,
             borderRadius: BorderRadius.circular(8),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

@@ -130,8 +130,12 @@ void main() {
     });
 
     testWidgets(
-      'emoji badge is visible when avatar set AND emoji set AND showEmojiOnAvatar is true',
+      'emoji badge is suppressed when avatar set AND image fails to decode (prevents double-emoji)',
       (tester) async {
+        // In the widget test environment Image.memory does not decode, so
+        // errorBuilder fires and _imageDecodeFailed becomes true, causing the
+        // badge to be suppressed. This is the correct fix: avoid rendering the
+        // emoji both centred (errorBuilder fallback) and as a badge overlay.
         await tester.pumpWidget(
           _wrap(
             GroupAvatarPicker(
@@ -145,10 +149,11 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Positioned badge should be in a Stack (regardless of whether the image
-        // itself decoded — the badge is structural, not image-dependent).
-        expect(find.byType(Stack), findsWidgets);
-        expect(find.byType(Positioned), findsWidgets);
+        // After decode failure, the badge Positioned widget must be absent so
+        // the emoji is not rendered twice.
+        expect(find.byType(Positioned), findsNothing);
+        // The emoji should still render once, centred in the fallback circle.
+        expect(find.text('🌟'), findsOneWidget);
       },
     );
 

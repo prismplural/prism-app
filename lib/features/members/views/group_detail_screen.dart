@@ -1231,63 +1231,80 @@ class _GroupInfoHeader extends ConsumerWidget {
 
     Widget leadingVisual;
     if (hasAvatar) {
+      // Track image decode failure so we can suppress the emoji badge when the
+      // image fails — without it, the errorBuilder fallback (which already
+      // shows the emoji centred) would be doubly-visible alongside the badge.
+      final imageDecodeFailed = ValueNotifier<bool>(false);
+
       Widget image = ClipOval(
         child: Image.memory(
           group.avatarImageData!,
           fit: BoxFit.cover,
           width: 64,
           height: 64,
-          cacheWidth: 128,
-          cacheHeight: 128,
+          cacheWidth:
+              (64 * MediaQuery.devicePixelRatioOf(context)).round(),
+          cacheHeight:
+              (64 * MediaQuery.devicePixelRatioOf(context)).round(),
           gaplessPlayback: true,
-          errorBuilder: (_, _, _) => TintedGlassSurface.circle(
-            size: 56,
-            tint: accentColor ?? theme.colorScheme.primary,
-            child: Center(
-              child: hasEmoji
-                  ? Text(
-                      group.emoji!,
-                      style: const TextStyle(fontSize: 30),
-                    )
-                  : Icon(
-                      AppIcons.folderOutlined,
-                      size: 26,
-                      color: accentColor ?? theme.colorScheme.primary,
-                    ),
-            ),
-          ),
+          errorBuilder: (_, _, _) {
+            imageDecodeFailed.value = true;
+            return TintedGlassSurface.circle(
+              size: 56,
+              tint: accentColor ?? theme.colorScheme.primary,
+              child: Center(
+                child: hasEmoji
+                    ? Text(
+                        group.emoji!,
+                        style: const TextStyle(fontSize: 30),
+                      )
+                    : Icon(
+                        AppIcons.folderOutlined,
+                        size: 26,
+                        color: accentColor ?? theme.colorScheme.primary,
+                      ),
+              ),
+            );
+          },
         ),
       );
 
       if (showEmojiBadge) {
-        image = Stack(
-          clipBehavior: Clip.none,
-          children: [
-            image,
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: theme.colorScheme.surface,
-                  border: Border.all(
-                    color: theme.colorScheme.surface,
-                    width: 2,
+        image = ListenableBuilder(
+          listenable: imageDecodeFailed,
+          builder: (context, child) {
+            if (imageDecodeFailed.value) return child!;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                child!,
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: theme.colorScheme.surface,
+                      border: Border.all(
+                        color: theme.colorScheme.surface,
+                        width: 2,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        group.emoji!,
+                        style: const TextStyle(fontSize: 11),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   ),
                 ),
-                child: Center(
-                  child: Text(
-                    group.emoji!,
-                    style: const TextStyle(fontSize: 11),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
+          child: image,
         );
       }
 
