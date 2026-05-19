@@ -115,7 +115,7 @@ void main() {
       final version = await upgraded
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 25);
+      expect(version.read<int>('user_version'), 26);
 
       final entryCols = await upgraded
           .customSelect('PRAGMA table_info(member_group_entries)')

@@ -130,7 +130,7 @@ void main() {
       expect(member.nameStyleColorHex, isNull);
 
       final version = await upgraded.customSelect('PRAGMA user_version').get();
-      expect(version.first.read<int>('user_version'), 25);
+      expect(version.first.read<int>('user_version'), 26);
     });
   });
 }

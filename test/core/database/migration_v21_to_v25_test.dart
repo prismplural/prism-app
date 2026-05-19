@@ -148,7 +148,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(version.read<int>('user_version'), 25);
+        expect(version.read<int>('user_version'), 26);
 
         final groups = await upgraded
             .customSelect('SELECT COUNT(*) AS c FROM member_groups')
@@ -653,7 +653,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(version.read<int>('user_version'), 25);
+        expect(version.read<int>('user_version'), 26);
 
         final member = await upgraded
             .customSelect(
