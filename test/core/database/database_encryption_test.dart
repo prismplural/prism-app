@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart' as raw;
 
 import 'package:prism_plurality/core/database/database_encryption.dart';
@@ -10,10 +11,22 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 
 // ---------------------------------------------------------------------------
 // In-memory FlutterSecureStorage stub (same pattern as biometric_service_test)
+//
+// Extended to support per-key/per-method PlatformException throws so we can
+// exercise the classified-read paths in database_encryption.dart.
 // ---------------------------------------------------------------------------
 
 class _SecureStorageStub {
   final _store = <String, String?>{};
+
+  /// Per-key call counter for reads (used to assert "cipher does not retry").
+  final Map<String, int> readCalls = <String, int>{};
+
+  /// Per-key queued read exceptions. If the queue is non-empty, the next read
+  /// for that key throws the first entry and removes it. After the queue
+  /// drains the read returns the stored value.
+  final Map<String, List<PlatformException>> throwOnReadKeyQueue =
+      <String, List<PlatformException>>{};
 
   void setup() {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +42,11 @@ class _SecureStorageStub {
                 return null;
               case 'read':
                 final key = call.arguments['key'] as String;
+                readCalls[key] = (readCalls[key] ?? 0) + 1;
+                final queue = throwOnReadKeyQueue[key];
+                if (queue != null && queue.isNotEmpty) {
+                  throw queue.removeAt(0);
+                }
                 return _store[key];
               case 'delete':
                 final key = call.arguments['key'] as String;
@@ -51,8 +69,26 @@ class _SecureStorageStub {
           null,
         );
     _store.clear();
+    readCalls.clear();
+    throwOnReadKeyQueue.clear();
   }
 }
+
+PlatformException _cipherException() => PlatformException(
+      code: 'Exception encountered',
+      message: 'error:1e000065:Cipher functions:OPENSSL_internal:BAD_DECRYPT',
+      details:
+          'javax.crypto.AEADBadTagException: Error while decrypting\n\tat '
+          'com.it_nomads.fluttersecurestorage.FlutterSecureStorage.read(FlutterSecureStorage.java:200)',
+    );
+
+PlatformException _transientException() => PlatformException(
+      code: 'Exception encountered',
+      message: 'UserNotAuthenticated',
+      details:
+          'android.security.keystore.UserNotAuthenticatedException: '
+          'User not authenticated',
+    );
 
 void main() {
   // ---------------------------------------------------------------------------
@@ -107,6 +143,8 @@ void main() {
 
     setUp(() {
       storageStub = _SecureStorageStub()..setup();
+      // Guarded writers consult shared_preferences; default to "not pending".
+      SharedPreferences.setMockInitialValues({});
     });
 
     tearDown(() {
@@ -361,7 +399,10 @@ void main() {
   group('staging key helpers', () {
     final storageStub = _SecureStorageStub();
 
-    setUp(storageStub.setup);
+    setUp(() {
+      storageStub.setup();
+      SharedPreferences.setMockInitialValues({});
+    });
     tearDown(storageStub.teardown);
 
     test(
@@ -433,6 +474,7 @@ void main() {
     setUp(() {
       tempDir = Directory.systemTemp.createTempSync('prism_crash_recovery_');
       storageStub.setup();
+      SharedPreferences.setMockInitialValues({});
     });
 
     tearDown(() {
@@ -529,5 +571,365 @@ void main() {
         );
       },
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Classified reads — cipher / transient / unknown handling (§3)
+  // ---------------------------------------------------------------------------
+
+  group('readDatabaseKeyHex classified failures', () {
+    late _SecureStorageStub storageStub;
+
+    setUp(() {
+      storageStub = _SecureStorageStub()..setup();
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    tearDown(() => storageStub.teardown());
+
+    test('returns the value on successful read with valid hex', () async {
+      final hexKey = 'ab' * 32;
+      storageStub._store[kDatabaseKeyStorageKey] = hexKey;
+      expect(await readDatabaseKeyHex(), equals(hexKey));
+    });
+
+    test('returns null when storage returns null (key missing)', () async {
+      expect(await readDatabaseKeyHex(), isNull);
+    });
+
+    test('returns null on successful read with invalid hex', () async {
+      storageStub._store[kDatabaseKeyStorageKey] = 'definitely-not-hex';
+      expect(await readDatabaseKeyHex(), isNull);
+    });
+
+    test('returns null on cipher failure (no throw, no retry)', () async {
+      storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
+        _cipherException(),
+      ];
+      expect(await readDatabaseKeyHex(), isNull);
+      // Cipher MUST NOT retry — exactly one read attempt.
+      expect(storageStub.readCalls[kDatabaseKeyStorageKey], 1);
+    });
+
+    test('returns null on unknown failure (no throw, no retry)', () async {
+      storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
+        PlatformException(
+          code: 'Exception encountered',
+          message: 'random IO problem',
+        ),
+      ];
+      expect(await readDatabaseKeyHex(), isNull);
+      expect(storageStub.readCalls[kDatabaseKeyStorageKey], 1);
+    });
+
+    test('transient failure retries and returns the value on recovery',
+        () async {
+      final hexKey = 'cd' * 32;
+      storageStub._store[kDatabaseKeyStorageKey] = hexKey;
+      storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
+        _transientException(),
+      ];
+      expect(await readDatabaseKeyHex(), equals(hexKey));
+      // Initial attempt + one retry = 2 calls.
+      expect(storageStub.readCalls[kDatabaseKeyStorageKey], 2);
+    });
+
+    test('transient failure exhausts retries → null after 3 attempts',
+        () async {
+      storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
+        _transientException(),
+        _transientException(),
+        _transientException(),
+      ];
+      expect(await readDatabaseKeyHex(), isNull);
+      // Initial + 2 retries.
+      expect(storageStub.readCalls[kDatabaseKeyStorageKey], 3);
+    });
+  });
+
+  group('readSyncDatabaseKeyHex classified failures', () {
+    late _SecureStorageStub storageStub;
+
+    setUp(() {
+      storageStub = _SecureStorageStub()..setup();
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    tearDown(() => storageStub.teardown());
+
+    test('returns the value on success', () async {
+      final hex = 'ef' * 32;
+      storageStub._store[kSyncDatabaseKeyStorageKey] = hex;
+      expect(await readSyncDatabaseKeyHex(), equals(hex));
+    });
+
+    test('returns null on null (missing)', () async {
+      expect(await readSyncDatabaseKeyHex(), isNull);
+    });
+
+    test('returns null on invalid hex', () async {
+      storageStub._store[kSyncDatabaseKeyStorageKey] = 'short';
+      expect(await readSyncDatabaseKeyHex(), isNull);
+    });
+
+    test('returns null on cipher failure (no retry)', () async {
+      storageStub.throwOnReadKeyQueue[kSyncDatabaseKeyStorageKey] = [
+        _cipherException(),
+      ];
+      expect(await readSyncDatabaseKeyHex(), isNull);
+      expect(storageStub.readCalls[kSyncDatabaseKeyStorageKey], 1);
+    });
+
+    test('transient retry recovers the value', () async {
+      final hex = '12' * 32;
+      storageStub._store[kSyncDatabaseKeyStorageKey] = hex;
+      storageStub.throwOnReadKeyQueue[kSyncDatabaseKeyStorageKey] = [
+        _transientException(),
+      ];
+      expect(await readSyncDatabaseKeyHex(), equals(hex));
+      expect(storageStub.readCalls[kSyncDatabaseKeyStorageKey], 2);
+    });
+  });
+
+  group('readStagingDatabaseKeyHex classified failures', () {
+    late _SecureStorageStub storageStub;
+    const stagingKey = '${kDatabaseKeyStorageKey}_staging';
+
+    setUp(() {
+      storageStub = _SecureStorageStub()..setup();
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    tearDown(() => storageStub.teardown());
+
+    test('returns null on cipher failure (no retry)', () async {
+      storageStub.throwOnReadKeyQueue[stagingKey] = [_cipherException()];
+      expect(await readStagingDatabaseKeyHex(), isNull);
+      expect(storageStub.readCalls[stagingKey], 1);
+    });
+
+    test('returns value on success with valid hex', () async {
+      final hex = '34' * 32;
+      storageStub._store[stagingKey] = hex;
+      expect(await readStagingDatabaseKeyHex(), equals(hex));
+    });
+
+    test('returns null on success with invalid hex', () async {
+      storageStub._store[stagingKey] = 'not-hex';
+      expect(await readStagingDatabaseKeyHex(), isNull);
+    });
+  });
+
+  group('readStagingSyncDatabaseKeyHex classified failures', () {
+    late _SecureStorageStub storageStub;
+    const stagingKey = '${kSyncDatabaseKeyStorageKey}_staging';
+
+    setUp(() {
+      storageStub = _SecureStorageStub()..setup();
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    tearDown(() => storageStub.teardown());
+
+    test('returns null on cipher failure (no retry)', () async {
+      storageStub.throwOnReadKeyQueue[stagingKey] = [_cipherException()];
+      expect(await readStagingSyncDatabaseKeyHex(), isNull);
+      expect(storageStub.readCalls[stagingKey], 1);
+    });
+
+    test('transient retry recovers the value', () async {
+      final hex = '56' * 32;
+      storageStub._store[stagingKey] = hex;
+      storageStub.throwOnReadKeyQueue[stagingKey] = [_transientException()];
+      expect(await readStagingSyncDatabaseKeyHex(), equals(hex));
+      expect(storageStub.readCalls[stagingKey], 2);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Keychain repair flag round-trip (§3)
+  // ---------------------------------------------------------------------------
+
+  group('keychain repair pending flag', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('defaults to false when unset', () async {
+      expect(await isKeychainRepairPending(), isFalse);
+    });
+
+    test('round-trips true', () async {
+      await setKeychainRepairPending(true);
+      expect(await isKeychainRepairPending(), isTrue);
+    });
+
+    test('round-trips back to false', () async {
+      await setKeychainRepairPending(true);
+      await setKeychainRepairPending(false);
+      expect(await isKeychainRepairPending(), isFalse);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Guarded primary writers (§3)
+  // ---------------------------------------------------------------------------
+
+  group('writeDatabaseKeyHex guard', () {
+    late _SecureStorageStub storageStub;
+    final hex = '78' * 32;
+    final otherHex = '9a' * 32;
+
+    setUp(() {
+      storageStub = _SecureStorageStub()..setup();
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    tearDown(() => storageStub.teardown());
+
+    test('passes through when repair-pending is false', () async {
+      final result = await writeDatabaseKeyHex(hex);
+      expect(result.ok, isTrue);
+      expect(storageStub._store[kDatabaseKeyStorageKey], equals(hex));
+    });
+
+    test('matching verifiedStartupKey allowed during repair-pending', () async {
+      await setKeychainRepairPending(true);
+      final result = await writeDatabaseKeyHex(
+        hex,
+        verifiedStartupKey: hex,
+      );
+      expect(result.ok, isTrue);
+      expect(storageStub._store[kDatabaseKeyStorageKey], equals(hex));
+    });
+
+    test('divergent value refused during repair-pending', () async {
+      await setKeychainRepairPending(true);
+      expect(
+        () => writeDatabaseKeyHex(otherHex, verifiedStartupKey: hex),
+        throwsStateError,
+      );
+      // Should NOT have written.
+      expect(storageStub._store.containsKey(kDatabaseKeyStorageKey), isFalse);
+    });
+
+    test('null verifiedStartupKey refused during repair-pending', () async {
+      await setKeychainRepairPending(true);
+      expect(
+        () => writeDatabaseKeyHex(hex),
+        throwsStateError,
+      );
+      expect(storageStub._store.containsKey(kDatabaseKeyStorageKey), isFalse);
+    });
+  });
+
+  group('writeSyncDatabaseKeyHex guard', () {
+    late _SecureStorageStub storageStub;
+    final hex = 'bc' * 32;
+    final otherHex = 'de' * 32;
+
+    setUp(() {
+      storageStub = _SecureStorageStub()..setup();
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    tearDown(() => storageStub.teardown());
+
+    test('passes through when not pending', () async {
+      final result = await writeSyncDatabaseKeyHex(hex);
+      expect(result.ok, isTrue);
+      expect(storageStub._store[kSyncDatabaseKeyStorageKey], equals(hex));
+    });
+
+    test('matching verifiedStartupKey allowed during repair-pending', () async {
+      await setKeychainRepairPending(true);
+      final result = await writeSyncDatabaseKeyHex(
+        hex,
+        verifiedStartupKey: hex,
+      );
+      expect(result.ok, isTrue);
+      expect(storageStub._store[kSyncDatabaseKeyStorageKey], equals(hex));
+    });
+
+    test('divergent value refused during repair-pending', () async {
+      await setKeychainRepairPending(true);
+      expect(
+        () => writeSyncDatabaseKeyHex(otherHex, verifiedStartupKey: hex),
+        throwsStateError,
+      );
+      expect(
+        storageStub._store.containsKey(kSyncDatabaseKeyStorageKey),
+        isFalse,
+      );
+    });
+
+    test('null verifiedStartupKey refused during repair-pending', () async {
+      await setKeychainRepairPending(true);
+      expect(
+        () => writeSyncDatabaseKeyHex(hex),
+        throwsStateError,
+      );
+      expect(
+        storageStub._store.containsKey(kSyncDatabaseKeyStorageKey),
+        isFalse,
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Guarded staging writers (§3)
+  // ---------------------------------------------------------------------------
+
+  group('staging writers refuse all writes during repair-pending', () {
+    late _SecureStorageStub storageStub;
+    final hex = '01' * 32;
+
+    setUp(() {
+      storageStub = _SecureStorageStub()..setup();
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    tearDown(() => storageStub.teardown());
+
+    test('writeStagingDatabaseKeyHex passes through when not pending',
+        () async {
+      final result = await writeStagingDatabaseKeyHex(hex);
+      expect(result.ok, isTrue);
+      expect(
+        storageStub._store['${kDatabaseKeyStorageKey}_staging'],
+        equals(hex),
+      );
+    });
+
+    test('writeStagingDatabaseKeyHex refused entirely during pending',
+        () async {
+      await setKeychainRepairPending(true);
+      expect(() => writeStagingDatabaseKeyHex(hex), throwsStateError);
+      expect(
+        storageStub._store.containsKey('${kDatabaseKeyStorageKey}_staging'),
+        isFalse,
+      );
+    });
+
+    test('writeStagingSyncDatabaseKeyHex passes through when not pending',
+        () async {
+      final result = await writeStagingSyncDatabaseKeyHex(hex);
+      expect(result.ok, isTrue);
+      expect(
+        storageStub._store['${kSyncDatabaseKeyStorageKey}_staging'],
+        equals(hex),
+      );
+    });
+
+    test('writeStagingSyncDatabaseKeyHex refused entirely during pending',
+        () async {
+      await setKeychainRepairPending(true);
+      expect(() => writeStagingSyncDatabaseKeyHex(hex), throwsStateError);
+      expect(
+        storageStub._store
+            .containsKey('${kSyncDatabaseKeyStorageKey}_staging'),
+        isFalse,
+      );
+    });
   });
 }
