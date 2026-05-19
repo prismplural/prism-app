@@ -19,8 +19,18 @@ env:
 
 jobs:
   linux:
-    name: Linux x64
-    runs-on: ubuntu-22.04
+    name: Linux ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target-platform: linux-x64
+            runner: ubuntu-22.04
+          - arch: arm64
+            target-platform: linux-arm64
+            runner: ubuntu-22.04-arm
     steps:
       - uses: actions/checkout@v4
 
@@ -30,7 +40,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             ninja-build libgtk-3-dev clang cmake pkg-config \
             libsecret-1-dev libjsoncpp-dev libsqlite3-dev \
-            libasound2-dev
+            libasound2-dev libflac-dev libogg-dev libopus-dev \
+            libvorbis-dev
 
       - uses: subosito/flutter-action@v2
         with:
@@ -42,7 +53,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: linux-cargokit
+          shared-key: linux-${{ matrix.arch }}-cargokit
 
       - run: flutter --version
 
@@ -53,13 +64,17 @@ jobs:
         run: dart run tool/desktop_branding.dart check
 
       - name: Build Linux release
-        run: flutter build linux --release
+        env:
+          # flutter_soloud's bundled Linux Xiph libraries are x86-64 only.
+          # Use runner-native libraries so linux-arm64 links against arm64 deps.
+          TRY_SYSTEM_LIBS_FIRST: '1'
+        run: flutter build linux --release --target-platform ${{ matrix.target-platform }}
 
       - name: Package tarball
         run: |
           set -euo pipefail
           version=$(grep '^version:' pubspec.yaml | awk '{print $2}')
-          bundle=build/linux/x64/release/bundle
+          bundle=build/linux/${{ matrix.arch }}/release/bundle
           # Wrapper script: forces XWayland to match packaging/linux/README.md.
           cat > "$bundle/prism" <<'WRAPPER'
           #!/bin/sh
@@ -77,14 +92,22 @@ jobs:
           cp packaging/linux/com.prismplural.prism.desktop "$bundle/share/applications/"
           cp packaging/linux/com.prismplural.prism.metainfo.xml "$bundle/share/metainfo/"
           cp -R packaging/linux/icons/hicolor "$bundle/share/icons/"
+          for lib in libFLAC libogg libopus libvorbis libvorbisfile; do
+            path=$(ldd "$bundle/lib/libflutter_soloud_plugin.so" | awk -v lib="$lib" '$1 ~ "^" lib "\\.so" { print $3; exit }')
+            if [ -z "$path" ] || [ ! -f "$path" ]; then
+              echo "Could not find $lib runtime dependency for flutter_soloud" >&2
+              exit 1
+            fi
+            cp -L "$path" "$bundle/lib/$(basename "$path")"
+          done
           mkdir -p dist
-          tar -C "$bundle" -czf "dist/Prism-${version}-linux-x64.tar.gz" .
-          (cd dist && sha256sum "Prism-${version}-linux-x64.tar.gz" > "Prism-${version}-linux-x64.tar.gz.sha256")
+          tar -C "$bundle" -czf "dist/Prism-${version}-linux-${{ matrix.arch }}.tar.gz" .
+          (cd dist && sha256sum "Prism-${version}-linux-${{ matrix.arch }}.tar.gz" > "Prism-${version}-linux-${{ matrix.arch }}.tar.gz.sha256")
           ls -la dist/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-x64
+          name: linux-${{ matrix.arch }}
           path: dist/*
           if-no-files-found: error
 
