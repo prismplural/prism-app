@@ -240,6 +240,7 @@ const String prismSyncSchema = '''
         "description": "String",
         "color_hex": "String",
         "emoji": "String",
+        "avatar_image_data": "Blob",
         "display_order": "Int",
         "parent_group_id": "String",
         "group_type": "Int",

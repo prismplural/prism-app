@@ -2744,6 +2744,9 @@ DriftSyncEntity _memberGroupsEntity(
         'description': r.description,
         'color_hex': r.colorHex,
         'emoji': r.emoji,
+        'avatar_image_data': r.avatarImageData != null
+            ? base64Encode(r.avatarImageData!)
+            : null,
         'display_order': r.displayOrder,
         'parent_group_id': r.parentGroupId,
         'group_type': r.groupType,
@@ -2825,6 +2828,9 @@ DriftSyncEntity _memberGroupsEntity(
         description: f.stringFieldNullable('description'),
         colorHex: f.stringFieldNullable('color_hex'),
         emoji: f.stringFieldNullable('emoji'),
+        avatarImageData: fields.containsKey('avatar_image_data')
+            ? f.blobFieldNullable('avatar_image_data')
+            : const Value.absent(),
         displayOrder: f.intField('display_order'),
         parentGroupId: f.stringFieldNullable('parent_group_id'),
         groupType: f.intField('group_type'),
@@ -2887,6 +2893,9 @@ DriftSyncEntity _memberGroupsEntity(
         'description': row.description,
         'color_hex': row.colorHex,
         'emoji': row.emoji,
+        'avatar_image_data': row.avatarImageData != null
+            ? base64Encode(row.avatarImageData!)
+            : null,
         'display_order': row.displayOrder,
         'parent_group_id': row.parentGroupId,
         'group_type': row.groupType,

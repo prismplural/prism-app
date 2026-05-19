@@ -72,6 +72,7 @@ void main() {
         'description',
         'color_hex',
         'emoji',
+        'avatar_image_data',
         'display_order',
         'parent_group_id',
         'group_type',

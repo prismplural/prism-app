@@ -193,6 +193,9 @@ class PkGroupSyncV2CatchupService {
       'description': row.description,
       'color_hex': row.colorHex,
       'emoji': row.emoji,
+      'avatar_image_data': row.avatarImageData != null
+          ? base64Encode(row.avatarImageData!)
+          : null,
       'display_order': row.displayOrder,
       'parent_group_id': row.parentGroupId,
       'group_type': row.groupType,
