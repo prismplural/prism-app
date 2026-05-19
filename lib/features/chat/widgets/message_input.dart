@@ -14,6 +14,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/core/services/media/media_service.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart' as media;
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
@@ -447,6 +448,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
 
   Future<void> _sendMessage() async {
     if (_isSending || !_canWriteToConversation) return;
+    final conversationId = widget.conversationId;
     final text = _controller.text.trim();
     final hasImage = _stagedImageBytes != null;
     if (text.isEmpty && !hasImage) return;
@@ -493,50 +495,22 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       // Capture reply state and staged image after confirmation. The composer is
       // read-only while _isSending is true, so the draft cannot drift underneath
       // the confirmation dialog.
-      final replyingTo = ref.read(replyingToProvider(widget.conversationId));
+      final replyingTo = ref.read(replyingToProvider(conversationId));
+      final clearReplyingTo = ref
+          .read(replyingToProvider(conversationId).notifier)
+          .clear;
+      final chatNotifier = ref.read(chatNotifierProvider.notifier);
       final imageBytes = _stagedImageBytes;
-
-      // Send the text message (or empty content placeholder if image-only).
-      final messageId = await ref
-          .read(chatNotifierProvider.notifier)
-          .sendMessage(
-            conversationId: widget.conversationId,
-            content: content,
-            authorId: authorId,
-            replyToId: replyingTo?.id,
-            replyToAuthorId: replyingTo?.authorId,
-            replyToContent: replyingTo?.content,
-          );
-
-      if (imageBytes != null) {
-        final mediaService = ref.read(mediaServiceProvider);
-        final repo = ref.read(mediaAttachmentRepositoryProvider);
-        final data = await mediaService.prepareImage(imageBytes);
-
-        await repo.create(
-          media.MediaAttachment(
-            id: const Uuid().v4(),
-            messageId: messageId,
-            mediaId: data.mediaId,
-            mediaType: 'image',
-            encryptionKeyB64: base64Encode(data.encryptionKey),
-            contentHash: data.contentHash,
-            plaintextHash: data.plaintextHash,
-            mimeType: data.mimeType,
-            sizeBytes: data.sizeBytes,
-            width: data.width,
-            height: data.height,
-            durationMs: 0,
-            blurhash: data.blurhash,
-            waveformB64: '',
-            thumbnailMediaId: data.thumbnailMediaId,
-            sourceUrl: '',
-            previewUrl: '',
-          ),
-        );
-
+      final mediaService = imageBytes != null
+          ? ref.read(mediaServiceProvider)
+          : null;
+      final mediaAttachmentRepository = imageBytes != null
+          ? ref.read(mediaAttachmentRepositoryProvider)
+          : null;
+      MediaAttachmentData? preparedImage;
+      if (imageBytes != null && mediaService != null) {
         try {
-          await mediaService.uploadPreparedOrThrow(data);
+          preparedImage = await mediaService.prepareImage(imageBytes);
         } catch (_) {
           if (mounted) {
             PrismToast.error(
@@ -544,28 +518,87 @@ class _MessageInputState extends ConsumerState<MessageInput> {
               message: context.l10n.chatImageUploadFailed,
             );
           }
+          if (content.isEmpty) return;
         }
       }
 
-      _controller.removeListener(_onTextChanged);
-      _controller.clear();
-      _controller.addListener(_onTextChanged);
-      _dismissMentionOverlay();
-      _focusNode.requestFocus();
-      ref.read(replyingToProvider(widget.conversationId).notifier).clear();
-      if (mounted) {
-        setState(() {
-          _stagedImageBytes = null;
-          _lastText = '';
-          _suppressedTag = null;
-          _effectiveMatch = null;
-        });
+      // Send the text message (or empty content placeholder if image-only).
+      final messageId = await chatNotifier.sendMessage(
+        conversationId: conversationId,
+        content: content,
+        authorId: authorId,
+        replyToId: replyingTo?.id,
+        replyToAuthorId: replyingTo?.authorId,
+        replyToContent: replyingTo?.content,
+      );
+
+      if (preparedImage != null &&
+          mediaService != null &&
+          mediaAttachmentRepository != null) {
+        await mediaAttachmentRepository.create(
+          media.MediaAttachment(
+            id: const Uuid().v4(),
+            messageId: messageId,
+            mediaId: preparedImage.mediaId,
+            mediaType: 'image',
+            encryptionKeyB64: base64Encode(preparedImage.encryptionKey),
+            contentHash: preparedImage.contentHash,
+            plaintextHash: preparedImage.plaintextHash,
+            mimeType: preparedImage.mimeType,
+            sizeBytes: preparedImage.sizeBytes,
+            width: preparedImage.width,
+            height: preparedImage.height,
+            durationMs: 0,
+            blurhash: preparedImage.blurhash,
+            waveformB64: '',
+            thumbnailMediaId: preparedImage.thumbnailMediaId,
+            sourceUrl: '',
+            previewUrl: '',
+          ),
+        );
+
+        unawaited(_uploadPreparedImage(mediaService, preparedImage));
       }
+
+      _clearComposerDraft(clearReplyingTo: clearReplyingTo);
     } finally {
       if (mounted) {
         setState(() => _isSending = false);
       }
     }
+  }
+
+  Future<void> _uploadPreparedImage(
+    MediaService mediaService,
+    MediaAttachmentData data,
+  ) async {
+    try {
+      await mediaService.uploadPreparedOrThrow(data);
+    } catch (_) {
+      if (!mounted) return;
+      PrismToast.error(context, message: context.l10n.chatImageUploadFailed);
+    }
+  }
+
+  void _clearComposerDraft({required VoidCallback clearReplyingTo}) {
+    try {
+      clearReplyingTo();
+    } catch (_) {
+      // The auto-disposed reply provider may already be gone if navigation
+      // wins the race against the send completion.
+    }
+    if (!mounted) return;
+    _controller.removeListener(_onTextChanged);
+    _controller.clear();
+    _controller.addListener(_onTextChanged);
+    _dismissMentionOverlay();
+    _focusNode.requestFocus();
+    setState(() {
+      _stagedImageBytes = null;
+      _lastText = '';
+      _suppressedTag = null;
+      _effectiveMatch = null;
+    });
   }
 
   Future<void> _sendVoiceNote(
