@@ -3208,10 +3208,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupDescriptionLabel => 'Description';
 
   @override
+  String get memberGroupDescriptionEmptyHint => 'Tap to write about this group';
+
+  @override
   String get memberGroupColorLabel => 'Color';
 
   @override
   String get memberGroupColorNone => 'No color';
+
+  @override
+  String get memberGroupRemovePhoto => 'Remove photo';
+
+  @override
+  String get memberGroupShowEmojiOnAvatar => 'Show emoji on avatar';
 
   @override
   String memberGroupErrorSaving(Object error) {

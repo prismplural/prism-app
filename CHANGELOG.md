@@ -2,6 +2,16 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Groups can now have a photo / avatar (mirrors the member avatar pattern).
+- Groups now use the same freeform color picker as member profiles.
+- Group descriptions now open a full-screen markdown editor (matches member bio).
+
+### Notes
+- Each group avatar is stored as a ~256KB JPEG locally. 50 groups with photos ≈ 13MB extra storage.
+
 ## [0.9.1] - 2026-05-18
 
 This patch release fixes sync restore edge cases found after 0.9.0.

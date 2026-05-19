@@ -4386,6 +4386,10 @@
   "@memberGroupDescriptionLabel": {
     "description": "Label for the group description text field"
   },
+  "memberGroupDescriptionEmptyHint": "Tap to write about this group",
+  "@memberGroupDescriptionEmptyHint": {
+    "description": "Empty-state hint shown on the group description row in the editor sheet when no description is set"
+  },
   "memberGroupColorLabel": "Color",
   "@memberGroupColorLabel": {
     "description": "Label for the group color hex text field"
@@ -4393,6 +4397,14 @@
   "memberGroupColorNone": "No color",
   "@memberGroupColorNone": {
     "description": "Option label when no color is selected for a group"
+  },
+  "memberGroupRemovePhoto": "Remove photo",
+  "@memberGroupRemovePhoto": {
+    "description": "Label on the remove-photo button below the group avatar tile in the editor sheet"
+  },
+  "memberGroupShowEmojiOnAvatar": "Show emoji on avatar",
+  "@memberGroupShowEmojiOnAvatar": {
+    "description": "Toggle label in the group editor sheet that controls whether the group emoji is rendered as a badge on the avatar photo"
   },
   "memberGroupErrorSaving": "Error saving group: {error}",
   "@memberGroupErrorSaving": {

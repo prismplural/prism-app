@@ -392,9 +392,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                             _emoji!.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           PrismSwitchRow(
-                            // TODO(task-13): replace with
-                            //   l10n.memberGroupShowEmojiOnAvatar
-                            title: 'Show emoji on avatar',
+                            title: l10n.memberGroupShowEmojiOnAvatar,
                             value: _showEmojiOnAvatar,
                             onChanged: (v) =>
                                 setState(() => _showEmojiOnAvatar = v),
@@ -521,8 +519,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                                           .trim()
                                           .isEmpty)
                                         Text(
-                                          // TODO(task-13): replace with l10n.memberGroupDescriptionEmptyHint
-                                          'Tap to write about this group',
+                                          l10n.memberGroupDescriptionEmptyHint,
                                           style: theme.textTheme.bodyMedium
                                               ?.copyWith(
                                                 color: theme

@@ -5584,6 +5584,12 @@ abstract class AppLocalizations {
   /// **'Description'**
   String get memberGroupDescriptionLabel;
 
+  /// Empty-state hint shown on the group description row in the editor sheet when no description is set
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to write about this group'**
+  String get memberGroupDescriptionEmptyHint;
+
   /// Label for the group color hex text field
   ///
   /// In en, this message translates to:
@@ -5595,6 +5601,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No color'**
   String get memberGroupColorNone;
+
+  /// Label on the remove-photo button below the group avatar tile in the editor sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Remove photo'**
+  String get memberGroupRemovePhoto;
+
+  /// Toggle label in the group editor sheet that controls whether the group emoji is rendered as a badge on the avatar photo
+  ///
+  /// In en, this message translates to:
+  /// **'Show emoji on avatar'**
+  String get memberGroupShowEmojiOnAvatar;
 
   /// Error toast when saving a group fails
   ///

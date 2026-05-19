@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -133,6 +134,7 @@ class GroupAvatarPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
 
     final tile = Semantics(
       button: true,
@@ -176,8 +178,7 @@ class GroupAvatarPicker extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    // TODO(task-13): replace with l10n.memberGroupRemovePhoto
-                    'Remove photo',
+                    l10n.memberGroupRemovePhoto,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.error,
                       fontWeight: FontWeight.w500,
