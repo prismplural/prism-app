@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -82,6 +83,9 @@ class _FakeMemberRepository implements MemberRepository {
 Widget _harness({required Member member, required _FakeMemberRepository repo}) {
   return ProviderScope(
     overrides: [
+      // §4 verifiedStartupKeyProvider throws by default; widget tests don't
+      // run the boot probe.
+      verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
       memberRepositoryProvider.overrideWithValue(repo),
       frontingSessionRepositoryProvider.overrideWithValue(
         FakeFrontingSessionRepository(),

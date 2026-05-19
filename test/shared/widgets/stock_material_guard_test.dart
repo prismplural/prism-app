@@ -101,6 +101,17 @@ final _allowlist = <String, Set<String>>{
   // ImageViewer is a standalone fullscreen overlay — AppBar is appropriate here
   // because PrismTopBar expects the Prism page scaffold context.
   'features/chat/widgets/media/image_viewer.dart': {r'\bAppBar\b'},
+  // §7 keychain-unreadable recovery screen and the §6 Windows-migration block
+  // both run BEFORE `runApp` and ProviderScope are wired. They cannot use
+  // Prism widgets (which depend on providers / theme extensions). Stock
+  // Material components are intentional pre-runApp fallbacks here. See
+  // docs/0.9.2-secure-storage-remediation.md §6/§7.
+  'core/reset/reset_recovery_app.dart': {
+    r'\bTextButton\b',
+    r'\bAlertDialog\b',
+    r'\bshowDialog\b',
+  },
+  'main.dart': {r'\bFilledButton\b'},
 };
 
 /// Strip regex anchors for human-readable output.

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
@@ -154,6 +155,12 @@ Widget _buildScreen({
 
   return ProviderScope(
     overrides: [
+      // §4/§5 boot providers throw by default. Widget tests don't run the
+      // boot probe, so we inject a fake 64-char hex key so any provider
+      // chain that touches `databaseProvider` can mount. Actual DB queries
+      // won't run because the widget tests stop at `pump()` without
+      // awaiting any DAO futures (the chain stays as a LazyDatabase).
+      verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
       systemSettingsRepositoryProvider.overrideWithValue(settingsRepository),
       systemSettingsProvider.overrideWith((ref) => settingsStream),
       pluralKitSyncProvider.overrideWith(

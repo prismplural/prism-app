@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
@@ -137,7 +138,13 @@ PKMember _pk(String uuid, String name, {String? id}) =>
 
 Widget _wrap(PkMappingController controller) {
   return ProviderScope(
-    overrides: [pkMappingControllerProvider.overrideWith(() => controller)],
+    overrides: [
+      // §4 verifiedStartupKeyProvider throws by default; widget tests don't
+      // run the boot probe. Inject a fake 64-char hex so DAO providers can
+      // mount without exploding.
+      verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+      pkMappingControllerProvider.overrideWith(() => controller),
+    ],
     child: const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: [Locale('en')],

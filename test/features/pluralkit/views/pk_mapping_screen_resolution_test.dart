@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
@@ -147,6 +148,9 @@ Widget _wrapWithRoute(
   final repo = memberRepo ?? _seededMemberRepo();
   return ProviderScope(
     overrides: [
+      // §4 verifiedStartupKeyProvider throws by default; widget tests don't
+      // run the boot probe.
+      verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
       pkMappingControllerProvider.overrideWith(() => controller),
       memberRepositoryProvider.overrideWithValue(repo),
       pluralKitSyncProvider.overrideWith(_FakeSyncNotifier.new),

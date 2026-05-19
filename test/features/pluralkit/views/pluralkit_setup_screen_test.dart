@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -163,6 +164,10 @@ Widget _buildScreen({
   PkSyncDirection syncDirection = PkSyncDirection.pullOnly,
 }) {
   final overrides = [
+    // §4/§5 boot providers throw by default. Widget tests don't run the
+    // boot probe, so we inject a fake 64-char hex key so any provider
+    // chain that touches `databaseProvider` can mount.
+    verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
     systemSettingsRepositoryProvider.overrideWithValue(settingsRepository),
     systemSettingsProvider.overrideWith((ref) => settingsStream),
     pluralKitSyncProvider.overrideWith(
