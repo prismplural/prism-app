@@ -58,7 +58,10 @@ class MemberGroupRow extends StatelessWidget {
   String _semanticLabel(BuildContext context) {
     final l10n = context.l10n;
     final subGroup = depth > 0 ? ', ${l10n.memberGroupSubGroupSemantic}' : '';
-    return '${group.name}$subGroup, '
+    final hasAvatar =
+        group.avatarImageData != null && group.avatarImageData!.isNotEmpty;
+    final visualHint = hasAvatar ? ', photo' : '';
+    return '${group.name}$subGroup$visualHint, '
         '${l10n.memberGroupMemberCountSemantic(memberCount)}, '
         '${l10n.memberGroupOpenSemantic}';
   }
@@ -188,15 +191,26 @@ class _GroupAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tint = accentColor ?? theme.colorScheme.primary;
+    final hasAvatar =
+        group.avatarImageData != null && group.avatarImageData!.isNotEmpty;
     final hasEmoji = group.emoji != null && group.emoji!.isNotEmpty;
 
     return TintedGlassSurface.circle(
       size: 44,
       tint: tint,
       child: Center(
-        child: hasEmoji
-            ? Text(group.emoji!, style: const TextStyle(fontSize: 22))
-            : Icon(AppIcons.folderOutlined, size: 22, color: tint),
+        child: hasAvatar
+            ? ClipOval(
+                child: Image.memory(
+                  group.avatarImageData!,
+                  fit: BoxFit.cover,
+                  width: 44,
+                  height: 44,
+                ),
+              )
+            : hasEmoji
+                ? Text(group.emoji!, style: const TextStyle(fontSize: 22))
+                : Icon(AppIcons.folderOutlined, size: 22, color: tint),
       ),
     );
   }
