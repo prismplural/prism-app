@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -5,16 +6,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/features/members/providers/group_display_prefs_provider.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
+import 'package:prism_plurality/features/members/widgets/group_avatar_picker.dart';
 import 'package:prism_plurality/features/members/widgets/group_parent_picker.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -81,18 +86,31 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
   Color? _selectedColor;
   String? _parentGroupId;
   bool _saving = false;
+  Uint8List? _avatarImageData;
+  bool _showEmojiOnAvatar = true;
   late final String _initialName;
   late final String _initialDescription;
   late final String? _initialEmoji;
   late final Color? _initialSelectedColor;
   late final String? _initialParentGroupId;
+  late final Uint8List? _initialAvatarImageData;
+  // Not late final — updated in the post-frame callback when loading the
+  // persisted show-emoji-on-avatar preference for an existing group.
+  bool _initialShowEmojiOnAvatar = true;
+
+  bool _bytesEqual(Uint8List? left, Uint8List? right) {
+    if (left == null || right == null) return left == right;
+    return listEquals(left, right);
+  }
 
   bool get _isDirty =>
       _nameController.text != _initialName ||
       _descriptionController.text != _initialDescription ||
       _emoji != _initialEmoji ||
       _selectedColor != _initialSelectedColor ||
-      _parentGroupId != _initialParentGroupId;
+      _parentGroupId != _initialParentGroupId ||
+      !_bytesEqual(_avatarImageData, _initialAvatarImageData) ||
+      _showEmojiOnAvatar != _initialShowEmojiOnAvatar;
 
   @override
   void initState() {
@@ -107,11 +125,29 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     }
     _emoji = g?.emoji;
     _parentGroupId = g?.parentGroupId ?? widget.initialParentGroupId;
+    _avatarImageData = g?.avatarImageData;
+    // _showEmojiOnAvatar defaults to true; if editing, we read the persisted
+    // preference asynchronously in a post-frame callback so Riverpod ref is
+    // available.
     _initialName = _nameController.text;
     _initialDescription = _descriptionController.text;
     _initialEmoji = _emoji;
     _initialSelectedColor = _selectedColor;
     _initialParentGroupId = _parentGroupId;
+    _initialAvatarImageData =
+        _avatarImageData == null ? null : Uint8List.fromList(_avatarImageData!);
+
+    if (g != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final asyncVal = ref.read(groupShowEmojiOnAvatarProvider(g.id));
+        final persisted = asyncVal.whenOrNull(data: (v) => v) ?? true;
+        setState(() {
+          _showEmojiOnAvatar = persisted;
+          _initialShowEmojiOnAvatar = persisted;
+        });
+      });
+    }
   }
 
   @override
@@ -185,6 +221,13 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     );
   }
 
+  Future<void> _pickAvatar() async {
+    final bytes = await AvatarImagePicker.pickCroppedAvatarBytes(context);
+    if (bytes != null && mounted) {
+      setState(() => _avatarImageData = bytes);
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -221,6 +264,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
 
       final notifier = ref.read(groupNotifierProvider.notifier);
 
+      String savedId;
       if (widget.isEditing) {
         // Use a rebuild via constructor to properly clear parentGroupId to null
         // when the user has removed the parent (copyWith cannot unset nullable
@@ -232,6 +276,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
           name: name,
           description: description.isNotEmpty ? description : null,
           emoji: _emoji,
+          avatarImageData: _avatarImageData,
           colorHex: colorHex,
           displayOrder: existing.displayOrder,
           parentGroupId: _parentGroupId,
@@ -240,17 +285,26 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
           createdAt: existing.createdAt,
         );
         await notifier.updateGroup(updated);
+        savedId = existing.id;
       } else {
+        savedId = _uuid.v4();
         final group = MemberGroup(
-          id: _uuid.v4(),
+          id: savedId,
           name: name,
           description: description.isNotEmpty ? description : null,
           emoji: _emoji,
+          avatarImageData: _avatarImageData,
           colorHex: colorHex,
           parentGroupId: _parentGroupId,
           createdAt: DateTime.now(),
         );
         await notifier.createGroup(group);
+      }
+
+      if (_showEmojiOnAvatar != _initialShowEmojiOnAvatar) {
+        await ref
+            .read(groupShowEmojiOnAvatarProvider(savedId).notifier)
+            .set(_showEmojiOnAvatar);
       }
 
       if (mounted) {
@@ -324,16 +378,46 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
                       ),
                       children: [
-                        // Emoji picker
+                        // Avatar tile (primary pick affordance).
+                        Center(
+                          child: GroupAvatarPicker(
+                            avatarImageData: _avatarImageData,
+                            emoji: _emoji,
+                            showEmojiOnAvatar: _showEmojiOnAvatar,
+                            accentColor: _selectedColor,
+                            onPickImage: _pickAvatar,
+                            onRemoveImage: () =>
+                                setState(() => _avatarImageData = null),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Emoji picker as a smaller secondary affordance below
+                        // the avatar tile.
                         Center(
                           child: PrismEmojiPicker(
                             emoji: _emoji,
-                            size: 64,
+                            size: 44,
                             onSelected: (emoji) {
                               setState(() => _emoji = emoji);
                             },
                           ),
                         ),
+                        // Emoji-on-avatar toggle only when BOTH avatar and emoji
+                        // are set.
+                        if (_avatarImageData != null &&
+                            _avatarImageData!.isNotEmpty &&
+                            _emoji != null &&
+                            _emoji!.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          PrismSwitchRow(
+                            // TODO(task-13): replace with
+                            //   l10n.memberGroupShowEmojiOnAvatar
+                            title: 'Show emoji on avatar',
+                            value: _showEmojiOnAvatar,
+                            onChanged: (v) =>
+                                setState(() => _showEmojiOnAvatar = v),
+                          ),
+                        ],
                         const SizedBox(height: 24),
 
                         // Name
@@ -350,64 +434,6 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                           },
                         ),
                         const SizedBox(height: 16),
-
-                        // Description
-                        PrismTextField(
-                          controller: _descriptionController,
-                          labelText: l10n.memberGroupDescriptionLabel,
-                          textCapitalization: TextCapitalization.sentences,
-                          minLines: 1,
-                          maxLines: 4,
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Parent group selector
-                        InkWell(
-                          onTap: _openParentPicker,
-                          borderRadius: BorderRadius.circular(
-                            PrismShapes.of(context).radius(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  AppIcons.folderOutlined,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        l10n.memberGroupParentLabel,
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color: theme
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                            ),
-                                      ),
-                                      Text(
-                                        parentDisplayName ??
-                                            l10n.memberGroupParentNone,
-                                        style: theme.textTheme.bodyLarge,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Icon(
-                                  AppIcons.chevronRight,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  size: 18,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
 
                         // Color picker row
                         InkWell(
@@ -472,6 +498,64 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                                     color: theme.colorScheme.onSurfaceVariant,
                                     size: 18,
                                   ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Description
+                        PrismTextField(
+                          controller: _descriptionController,
+                          labelText: l10n.memberGroupDescriptionLabel,
+                          textCapitalization: TextCapitalization.sentences,
+                          minLines: 1,
+                          maxLines: 4,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Parent group selector
+                        InkWell(
+                          onTap: _openParentPicker,
+                          borderRadius: BorderRadius.circular(
+                            PrismShapes.of(context).radius(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  AppIcons.folderOutlined,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l10n.memberGroupParentLabel,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                      ),
+                                      Text(
+                                        parentDisplayName ??
+                                            l10n.memberGroupParentNone,
+                                        style: theme.textTheme.bodyLarge,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  AppIcons.chevronRight,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  size: 18,
+                                ),
                               ],
                             ),
                           ),
