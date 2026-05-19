@@ -155,7 +155,7 @@ class FullResetService {
     }
     try {
       final mediaDir = await _mediaCacheDirectory();
-      if (await mediaDir.exists()) files.add(mediaDir.path);
+      if (await _directoryHasEntries(mediaDir)) files.add(mediaDir.path);
     } catch (e) {
       _log('Media-cache residue inspection failed; forcing wipe: $e');
       files.add('<media cache inspection failed>');
@@ -576,6 +576,11 @@ class FullResetService {
 
   bool _anyFileExistsSync(Iterable<String> paths) {
     return paths.any((path) => File(path).existsSync());
+  }
+
+  Future<bool> _directoryHasEntries(Directory directory) async {
+    if (!await directory.exists()) return false;
+    return _directoryLister(directory).isNotEmpty;
   }
 
   Future<void> _deleteFileIfExists(String path) async {

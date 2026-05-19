@@ -27,6 +27,7 @@ import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 // import 'package:prism_plurality/features/pluralkit/services/pluralkit_background_service.dart';
 import 'app.dart';
 
@@ -263,9 +264,10 @@ class _WindowsDataMigrationBlockedApp extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    const FilledButton(
+                    const PrismButton(
+                      label: 'Close Prism',
                       onPressed: SystemNavigator.pop,
-                      child: Text('Close Prism'),
+                      tone: PrismButtonTone.filled,
                     ),
                   ],
                 ),

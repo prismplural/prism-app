@@ -132,6 +132,87 @@ void main() {
   );
 
   test(
+    'fresh install guard ignores empty native-created media directory',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'prism-empty-media-test-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final mediaDir = Directory(p.join(tempDir.path, 'prism_media'));
+      await mediaDir.create(recursive: true);
+
+      final secureStore = _FakeFullResetSecureStore()
+        ..values['prism_sync.database_key'] = 'secret';
+      final nativeKeys = _FakeNativeResetKeys()..hasKeys = true;
+      final service = FullResetService(
+        secureStore: secureStore,
+        nativeResetKeys: nativeKeys,
+        appDataDirectory: () async => tempDir,
+        temporaryDirectory: () async => tempDir,
+        mediaCacheDirectory: () async => mediaDir,
+      );
+
+      final decision = await service.runFreshInstallResidueGuard();
+
+      expect(decision.mode, ResetStartupMode.normal);
+      expect(decision.report.files, isEmpty);
+      expect(secureStore.values, isEmpty);
+      expect(nativeKeys.deleteKnownKeysCalls, 1);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
+      expect(prefs.getBool(kFreshInstallAnomalyKey), isNull);
+    },
+  );
+
+  test(
+    'fresh install guard enters recovery when media directory has data',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'prism-media-residue-test-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final mediaDir = Directory(p.join(tempDir.path, 'prism_media'));
+      await mediaDir.create(recursive: true);
+      await File(
+        p.join(mediaDir.path, 'media.enc'),
+      ).writeAsString('ciphertext');
+
+      final secureStore = _FakeFullResetSecureStore()
+        ..values['prism_sync.database_key'] = 'secret';
+      final nativeKeys = _FakeNativeResetKeys()..hasKeys = true;
+      final service = FullResetService(
+        secureStore: secureStore,
+        nativeResetKeys: nativeKeys,
+        appDataDirectory: () async => tempDir,
+        temporaryDirectory: () async => tempDir,
+        mediaCacheDirectory: () async => mediaDir,
+      );
+
+      final decision = await service.runFreshInstallResidueGuard();
+
+      expect(decision.mode, ResetStartupMode.freshInstallRecoveryRequired);
+      expect(decision.report.files, contains(mediaDir.path));
+      expect(secureStore.values, isNotEmpty);
+      expect(nativeKeys.deleteKnownKeysCalls, 0);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kFreshInstallSentinelKey), isNull);
+      expect(prefs.getBool(kFreshInstallAnomalyKey), isTrue);
+    },
+  );
+
+  test(
     'fresh install guard allows startup and retries when native cleanup fails',
     () async {
       final tempDir = await Directory.systemTemp.createTemp(
