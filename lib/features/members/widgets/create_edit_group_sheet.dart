@@ -25,6 +25,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/features/members/widgets/full_screen_markdown_editor_sheet.dart';
 import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 const _uuid = Uuid();
@@ -187,6 +188,19 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
         ),
       ),
     );
+  }
+
+  Future<void> _openDescriptionEditor() async {
+    final l10n = context.l10n;
+    final result = await showFullScreenMarkdownEditor(
+      context: context,
+      title: l10n.memberGroupDescriptionLabel,
+      initialText: _descriptionController.text,
+      hintText: l10n.memberGroupDescriptionLabel,
+    );
+    if (result != null && mounted) {
+      setState(() => _descriptionController.text = result);
+    }
   }
 
   Future<void> _pickAvatar() async {
@@ -472,13 +486,68 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Description
-                        PrismTextField(
-                          controller: _descriptionController,
-                          labelText: l10n.memberGroupDescriptionLabel,
-                          textCapitalization: TextCapitalization.sentences,
-                          minLines: 1,
-                          maxLines: 4,
+                        // Description — tap to open full-screen markdown editor
+                        InkWell(
+                          onTap: _openDescriptionEditor,
+                          borderRadius: BorderRadius.circular(
+                            PrismShapes.of(context).radius(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  AppIcons.notesOutlined,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l10n.memberGroupDescriptionLabel,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      if (_descriptionController.text
+                                          .trim()
+                                          .isEmpty)
+                                        Text(
+                                          // TODO(task-13): replace with l10n.memberGroupDescriptionEmptyHint
+                                          'Tap to write about this group',
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                        )
+                                      else
+                                        Text(
+                                          _descriptionController.text,
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.bodyMedium,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  AppIcons.chevronRight,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 16),
 
