@@ -4,13 +4,31 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-05-20
+
+This patch release strengthens secure-storage recovery on Android and iOS, adds recovery diagnostics, and finishes the group customization work that missed the 0.9.1 patch.
+
 ### Added
 - Groups can now have a photo / avatar (mirrors the member avatar pattern).
 - Groups now use the same freeform color picker as member profiles.
 - Group descriptions now open a full-screen markdown editor (matches member bio).
+- Prism now probes database keys before opening encrypted databases, then injects a verified startup key into the database open path.
+- Recovery UI now offers retry, re-pairing when available, reset, and diagnostic report export when secure storage is unreadable.
+- Diagnostic reports capture secure-storage slot outcomes, database probe states, repair-pending transitions, runtime key state, and app build metadata.
 
 ### Notes
 - Each group avatar is stored as a ~256KB JPEG locally. 50 groups with photos ≈ 13MB extra storage.
+
+### Changed
+- Android biometric secure storage now uses an isolated storage namespace, and biometric cleanup clears that namespace without touching Prism's normal secure storage.
+- Full reset and fresh-install cleanup retry recoverable secure-storage repairs on each boot until write-back succeeds.
+- Sync pairing state now survives offline restarts while pairing is pending.
+
+### Fixed
+- Secure-storage cipher failures are classified as recoverable instead of surfacing raw platform exceptions to user-facing widgets.
+- App database and sync database startup can recover from readable fallback key slots, including older installs where app and sync keys had converged.
+- Secure-storage writers refuse divergent key values while repair is pending, and staging key rotation stays blocked until the repair flag clears.
+- Sync actions route through guarded recovery paths so unreadable stored keys fail into recovery instead of crashing the sync flow.
 
 ## [0.9.1] - 2026-05-18
 

@@ -20,6 +20,30 @@ end
 # by default and is required for internal/TestFlight lanes so beta testers
 # don't have to type it by hand.
 def build_info_defines
+  token = beta_registration_token
+
+  (build_metadata_defines + [
+    "--dart-define=PRISM_BETA_REGISTRATION_TOKEN=#{token}",
+  ]).join(" ")
+end
+
+def build_metadata_defines
+  app_version = File.read("../pubspec.yaml").match(/^version:\s*(\S+)/)&.captures&.first || "unknown"
+  git_rev = `git rev-parse --short HEAD`.strip
+  git_describe = `git describe --always --dirty`.strip
+  git_branch = `git rev-parse --abbrev-ref HEAD`.strip
+  built_at = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+  [
+    "--dart-define=APP_VERSION=#{app_version}",
+    "--dart-define=GIT_REV=#{git_rev}",
+    "--dart-define=GIT_DESCRIBE=#{git_describe}",
+    "--dart-define=GIT_BRANCH=#{git_branch}",
+    "--dart-define=BUILT_AT=#{built_at}",
+  ]
+end
+
+def beta_registration_token
   config_env_file = ENV["PRISM_TESTFLIGHT_ENV_FILE"] || File.expand_path("~/.config/prism/.env.testflight")
   legacy_env_file = File.expand_path("../../.env.testflight", __dir__)
   env_file = File.exist?(config_env_file) ? config_env_file : legacy_env_file
@@ -34,21 +58,11 @@ def build_info_defines
   end
   token = ENV["PRISM_BETA_REGISTRATION_TOKEN"]
   UI.user_error!("PRISM_BETA_REGISTRATION_TOKEN not set in #{env_file}") if token.nil? || token.empty?
+  token
+end
 
-  app_version = File.read("../pubspec.yaml").match(/^version:\s*(\S+)/)&.captures&.first || "unknown"
-  git_rev = `git rev-parse --short HEAD`.strip
-  git_describe = `git describe --always --dirty`.strip
-  git_branch = `git rev-parse --abbrev-ref HEAD`.strip
-  built_at = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-  [
-    "--dart-define=APP_VERSION=#{app_version}",
-    "--dart-define=GIT_REV=#{git_rev}",
-    "--dart-define=GIT_DESCRIBE=#{git_describe}",
-    "--dart-define=GIT_BRANCH=#{git_branch}",
-    "--dart-define=BUILT_AT=#{built_at}",
-    "--dart-define=PRISM_BETA_REGISTRATION_TOKEN=#{token}",
-  ].join(" ")
+def scrubbed_flutter_env
+  'env -u BUNDLE_GEMFILE -u BUNDLE_PATH -u BUNDLE_BIN_PATH -u RUBYOPT -u GEM_HOME -u GEM_PATH PATH="/opt/homebrew/bin:$PATH"'
 end
 
 def app_version
@@ -75,11 +89,23 @@ def latest_file(pattern)
   Dir[pattern].select { |path| File.file?(path) }.max_by { |path| File.mtime(path) }
 end
 
+def github_release_tag
+  tag = ENV["PRISM_GITHUB_RELEASE_TAG"].to_s.strip
+  return tag unless tag.empty?
+
+  exact_tag = `git describe --tags --exact-match 2>/dev/null`.strip
+  return exact_tag unless exact_tag.empty?
+
+  "v#{app_version.split("+").first}"
+end
+
 platform :ios do
   desc "Build and upload to TestFlight internal testing"
   lane :internal do
     defines = build_info_defines
-    sh("cd .. && flutter build ipa --release #{defines}")
+    # Unset bundler env vars fastlane injects — they break CocoaPods when
+    # flutter invokes pod install with the wrong Ruby gem environment.
+    sh("cd .. && #{scrubbed_flutter_env} flutter build ipa --release #{defines}")
 
     ipa_path = Dir[File.expand_path("../build/ios/ipa/*.ipa", __dir__)].first
     UI.user_error!("No IPA found in build/ios/ipa/") unless ipa_path
@@ -92,6 +118,25 @@ platform :ios do
       skip_waiting_for_build_processing: true,
     )
   end
+
+  desc "Build unsigned sideload IPA and upload it to the GitHub release"
+  lane :sideload do
+    defines = build_metadata_defines.join(" ")
+    version = app_version
+    git_rev = `git rev-parse --short HEAD`.strip
+    artifact_dir = File.expand_path("../build/mobile-artifacts/ios", __dir__)
+    ipa_path = File.join(artifact_dir, "Prism-#{version}-#{git_rev}-ios-unsigned.ipa")
+    checksum_path = "#{ipa_path}.sha256"
+
+    FileUtils.mkdir_p(artifact_dir)
+    sh("cd .. && #{scrubbed_flutter_env} flutter build ios --release --no-codesign #{defines}")
+    sh("cd .. && scripts/package_unsigned_ipa.sh #{Shellwords.escape(ipa_path)}")
+    sh("cd #{Shellwords.escape(artifact_dir)} && shasum -a 256 #{Shellwords.escape(File.basename(ipa_path))} > #{Shellwords.escape(File.basename(checksum_path))}")
+
+    tag = github_release_tag
+    sh("cd .. && gh release upload #{Shellwords.escape(tag)} #{Shellwords.escape(ipa_path)} #{Shellwords.escape(checksum_path)} --clobber")
+    UI.success("Uploaded iOS sideload IPA to GitHub release #{tag}")
+  end
 end
 
 platform :mac do
@@ -103,7 +148,7 @@ platform :mac do
     # so the subsequent xcodebuild archive picks them up without re-specifying them.
     # Unset bundler env vars fastlane injects — they break CocoaPods when
     # flutter invokes pod install with the wrong Ruby gem environment.
-    sh("cd .. && env -u BUNDLE_GEMFILE -u BUNDLE_PATH -u BUNDLE_BIN_PATH -u RUBYOPT -u GEM_HOME -u GEM_PATH PATH=\"/opt/homebrew/bin:$PATH\" flutter build macos --release #{defines}")
+    sh("cd .. && #{scrubbed_flutter_env} flutter build macos --release #{defines}")
 
     build_mac_app(
       workspace: "macos/Runner.xcworkspace",

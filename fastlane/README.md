@@ -23,6 +23,14 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 Build and upload to TestFlight internal testing
 
+### ios sideload
+
+```sh
+[bundle exec] fastlane ios sideload
+```
+
+Build unsigned sideload IPA and upload it to the GitHub release
+
 ----
 
 
