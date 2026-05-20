@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/services/biometric_service.dart';
 
 void main() {
   test('Android host activity satisfies local_auth biometric requirements', () {
@@ -47,6 +48,50 @@ void main() {
       reason:
           'The night launch theme must stay AppCompat-backed for the same '
           'local_auth_android biometric prompt requirement.',
+    );
+    expect(
+      activity,
+      contains(
+        'FSS_BIOMETRIC_STORAGE_NAMESPACE = '
+        '"${BiometricService.androidStorageNamespace}"',
+      ),
+      reason:
+          'The Android reset path must know the biometric secure-storage '
+          'namespace so full reset clears it.',
+    );
+    expect(
+      activity,
+      contains('FSS_BIOMETRIC_STORAGE_NAMESPACE,'),
+      reason:
+          'The biometric secure-storage preferences must be included in '
+          'native full-reset cleanup.',
+    );
+    expect(
+      activity,
+      contains(BiometricService.androidDeleteNamespaceMethod),
+      reason:
+          'Android biometric cleanup must have a narrow native path that '
+          'does not initialize flutter_secure_storage.',
+    );
+    expect(
+      activity,
+      contains('"FlutterSecureKeyStorage:\$FSS_BIOMETRIC_STORAGE_NAMESPACE"'),
+      reason: 'The narrow cleanup must clear the biometric wrapped-key prefs.',
+    );
+    expect(
+      activity,
+      contains(
+        '"FlutterSecureStorageConfiguration:'
+        '\$FSS_BIOMETRIC_STORAGE_NAMESPACE"',
+      ),
+      reason: 'The narrow cleanup must clear the biometric config prefs.',
+    );
+    expect(
+      activity,
+      contains('legacyDefaultBiometricDekPreferenceKey()'),
+      reason:
+          'The narrow cleanup must also remove the pre-namespace Android '
+          'biometric DEK item from default FSS data prefs.',
     );
   });
 }

@@ -66,8 +66,12 @@ class MainActivity : FlutterFragmentActivity() {
         private const val RUNTIME_DEK_KEY_ALIAS = "prism_runtime_dek_wrap_v1"
         private const val FSS_AES_OR_RSA_KEY_ALIAS_SUFFIX = ".FlutterSecureStoragePluginKey"
         private const val FSS_RSA_OAEP_KEY_ALIAS_SUFFIX = ".FlutterSecureStoragePluginKeyOAEP"
+        private const val FSS_DEFAULT_KEY_PREFIX =
+            "VGhpcyBpcyB0aGUgcHJlZml4IGZvciBhIHNlY3VyZSBzdG9yYWdlCg"
+        private const val FSS_BIOMETRIC_STORAGE_NAMESPACE = "prism_biometric_secure_storage"
         private const val ANDROIDX_SECURITY_MASTER_KEY_ALIAS = "_androidx_security_master_key_"
         private const val ANDROID_ATTESTATION_ALIAS_PREFIX = "prism_sync_attestation_"
+        private const val BIOMETRIC_DEK_STORAGE_KEY = "prism_sync.biometric_dek"
     }
 
     private data class PendingFileHandoff(
@@ -204,6 +208,10 @@ class MainActivity : FlutterFragmentActivity() {
                         requestApplicationUserDataClear(result)
                     "deleteAllPrismResetKeys" -> {
                         deleteAllPrismResetKeys()
+                        result.success(null)
+                    }
+                    "deleteBiometricSecureStorageNamespace" -> {
+                        deleteBiometricSecureStorageNamespace()
                         result.success(null)
                     }
                     "hasPrismResetKeys" ->
@@ -745,6 +753,60 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    private fun deleteBiometricSecureStorageNamespace() {
+        val failures = ArrayList<String>()
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+
+        for (alias in flutterSecureStorageBiometricKeyAliases()) {
+            try {
+                if (keyStore.containsAlias(alias)) {
+                    keyStore.deleteEntry(alias)
+                }
+            } catch (t: Throwable) {
+                failures.add("$alias: ${t::class.java.simpleName}: ${t.message ?: ""}")
+            }
+        }
+
+        for (name in flutterSecureStorageBiometricPreferenceNames()) {
+            try {
+                val ok = getSharedPreferences(name, Context.MODE_PRIVATE)
+                    .edit()
+                    .clear()
+                    .commit()
+                if (!ok) {
+                    failures.add("$name: SharedPreferences commit returned false")
+                }
+            } catch (t: Throwable) {
+                failures.add("$name: ${t::class.java.simpleName}: ${t.message ?: ""}")
+            }
+        }
+
+        try {
+            val ok = getSharedPreferences("FlutterSecureStorage", Context.MODE_PRIVATE)
+                .edit()
+                .remove(legacyDefaultBiometricDekPreferenceKey())
+                .commit()
+            if (!ok) {
+                failures.add(
+                    "FlutterSecureStorage:$BIOMETRIC_DEK_STORAGE_KEY: " +
+                        "SharedPreferences commit returned false"
+                )
+            }
+        } catch (t: Throwable) {
+            failures.add(
+                "FlutterSecureStorage:$BIOMETRIC_DEK_STORAGE_KEY: " +
+                    "${t::class.java.simpleName}: ${t.message ?: ""}"
+            )
+        }
+
+        if (failures.isNotEmpty()) {
+            throw IllegalStateException(
+                "Failed to clear biometric secure storage namespace: " +
+                    failures.joinToString("; ")
+            )
+        }
+    }
+
     private fun requestApplicationUserDataClear(result: MethodChannel.Result) {
         val activityManager =
             getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
@@ -883,9 +945,28 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    private fun flutterSecureStorageBiometricKeyAliases(): List<String> {
+        return flutterSecureStorageKeyAliases().map { known ->
+            "$known.$FSS_BIOMETRIC_STORAGE_NAMESPACE"
+        }
+    }
+
+    private fun flutterSecureStorageBiometricPreferenceNames(): List<String> {
+        return listOf(
+            FSS_BIOMETRIC_STORAGE_NAMESPACE,
+            "FlutterSecureKeyStorage:$FSS_BIOMETRIC_STORAGE_NAMESPACE",
+            "FlutterSecureStorageConfiguration:$FSS_BIOMETRIC_STORAGE_NAMESPACE",
+        )
+    }
+
+    private fun legacyDefaultBiometricDekPreferenceKey(): String {
+        return "${FSS_DEFAULT_KEY_PREFIX}_$BIOMETRIC_DEK_STORAGE_KEY"
+    }
+
     private fun flutterSecureStoragePreferenceNames(): List<String> {
         val names = linkedSetOf(
             "FlutterSecureStorage",
+            FSS_BIOMETRIC_STORAGE_NAMESPACE,
             "FlutterSecureKeyStorage",
             "FlutterSecureStorageConfiguration",
         )

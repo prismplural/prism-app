@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_auth_platform_interface/local_auth_platform_interface.dart';
@@ -29,8 +30,7 @@ class _FakeLocalAuthPlatform extends Fake
     required String localizedReason,
     required Iterable<AuthMessages> authMessages,
     AuthenticationOptions options = const AuthenticationOptions(),
-  }) async =>
-      true;
+  }) async => true;
 
   @override
   Future<bool> stopAuthentication() async => true;
@@ -42,46 +42,91 @@ class _FakeLocalAuthPlatform extends Fake
 
 class _SecureStorageStub {
   final _store = <String, String?>{};
+  Map<String, String>? lastOptions;
   bool throwOnRead = false;
+  int deleteCalls = 0;
 
   void setup() {
     TestWidgetsFlutterBinding.ensureInitialized();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      (MethodCall call) async {
-        switch (call.method) {
-          case 'write':
-            final key = call.arguments['key'] as String;
-            final value = call.arguments['value'] as String?;
-            _store[key] = value;
-            return null;
-          case 'read':
-            if (throwOnRead) throw PlatformException(code: 'AuthError');
-            final key = call.arguments['key'] as String;
-            return _store[key];
-          case 'delete':
-            final key = call.arguments['key'] as String;
-            _store.remove(key);
-            return null;
-          case 'containsKey':
-            final key = call.arguments['key'] as String;
-            return _store.containsKey(key);
-          default:
-            return null;
-        }
-      },
-    );
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          (MethodCall call) async {
+            final options = call.arguments['options'] as Map<Object?, Object?>?;
+            if (options != null) {
+              lastOptions = options.cast<String, String>();
+            }
+
+            switch (call.method) {
+              case 'write':
+                final key = call.arguments['key'] as String;
+                final value = call.arguments['value'] as String?;
+                _store[key] = value;
+                return null;
+              case 'read':
+                if (throwOnRead) throw PlatformException(code: 'AuthError');
+                final key = call.arguments['key'] as String;
+                return _store[key];
+              case 'delete':
+                deleteCalls++;
+                final key = call.arguments['key'] as String;
+                _store.remove(key);
+                return null;
+              case 'containsKey':
+                final key = call.arguments['key'] as String;
+                return _store.containsKey(key);
+              default:
+                return null;
+            }
+          },
+        );
   }
 
   void teardown() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      null,
-    );
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          null,
+        );
     _store.clear();
+    lastOptions = null;
     throwOnRead = false;
+    deleteCalls = 0;
+  }
+}
+
+class _NativeResetStub {
+  _NativeResetStub({required this.onDeleteBiometricNamespace});
+
+  final VoidCallback onDeleteBiometricNamespace;
+  bool missing = false;
+  int deleteBiometricNamespaceAttempts = 0;
+
+  void setup() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel(BiometricService.androidNativeChannelName),
+          (MethodCall call) async {
+            if (call.method != BiometricService.androidDeleteNamespaceMethod) {
+              throw MissingPluginException();
+            }
+            deleteBiometricNamespaceAttempts++;
+            if (missing) throw MissingPluginException();
+            onDeleteBiometricNamespace();
+            return null;
+          },
+        );
+  }
+
+  void teardown() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel(BiometricService.androidNativeChannelName),
+          null,
+        );
+    missing = false;
+    deleteBiometricNamespaceAttempts = 0;
   }
 }
 
@@ -94,16 +139,30 @@ void main() {
 
   late _FakeLocalAuthPlatform fakeAuth;
   final storageStub = _SecureStorageStub();
+  final legacyDefaultBiometricStore = <String, String>{};
+  late _NativeResetStub nativeResetStub;
   late BiometricService service;
 
   setUp(() {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
     fakeAuth = _FakeLocalAuthPlatform();
     LocalAuthPlatform.instance = fakeAuth;
     storageStub.setup();
+    nativeResetStub = _NativeResetStub(
+      onDeleteBiometricNamespace: () {
+        storageStub._store.remove('prism_sync.biometric_dek');
+        legacyDefaultBiometricStore.remove('prism_sync.biometric_dek');
+      },
+    )..setup();
     service = BiometricService();
   });
 
-  tearDown(storageStub.teardown);
+  tearDown(() {
+    nativeResetStub.teardown();
+    storageStub.teardown();
+    legacyDefaultBiometricStore.clear();
+    debugDefaultTargetPlatformOverride = null;
+  });
 
   // ── isAvailable ───────────────────────────────────────────────────────────
 
@@ -125,10 +184,19 @@ void main() {
     test('writes base64-encoded DEK bytes to storage', () async {
       final dek = Uint8List.fromList([1, 2, 3, 4, 5]);
       await service.enroll(dek);
+      expect(storageStub._store['prism_sync.biometric_dek'], base64Encode(dek));
+    });
+
+    test('uses an isolated Android storage namespace', () async {
+      await service.enroll(Uint8List.fromList([1, 2, 3]));
+
       expect(
-        storageStub._store['prism_sync.biometric_dek'],
-        base64Encode(dek),
+        storageStub.lastOptions?['storageNamespace'],
+        BiometricService.androidStorageNamespace,
       );
+      expect(storageStub.lastOptions?['resetOnError'], 'true');
+      expect(storageStub.lastOptions?['enforceBiometrics'], 'true');
+      expect(storageStub.lastOptions?['migrateWithBackup'], 'false');
     });
   });
 
@@ -149,8 +217,9 @@ void main() {
     });
 
     test('returns null on platform exception (biometric cancelled)', () async {
-      storageStub._store['prism_sync.biometric_dek'] =
-          base64Encode(Uint8List(4));
+      storageStub._store['prism_sync.biometric_dek'] = base64Encode(
+        Uint8List(4),
+      );
       storageStub.throwOnRead = true;
 
       final result = await service.authenticate();
@@ -161,11 +230,59 @@ void main() {
   // ── clear ─────────────────────────────────────────────────────────────────
 
   group('clear', () {
-    test('removes the biometric key from storage', () async {
-      storageStub._store['prism_sync.biometric_dek'] =
-          base64Encode(Uint8List.fromList([1, 2, 3]));
+    test('clears Android biometric namespace through native hook', () async {
+      storageStub._store['prism_sync.biometric_dek'] = base64Encode(
+        Uint8List.fromList([1, 2, 3]),
+      );
 
       await service.clear();
+      expect(nativeResetStub.deleteBiometricNamespaceAttempts, 1);
+      expect(storageStub.deleteCalls, 0);
+      expect(
+        storageStub._store.containsKey('prism_sync.biometric_dek'),
+        isFalse,
+      );
+    });
+
+    test('clears legacy default-namespace biometric value natively', () async {
+      legacyDefaultBiometricStore['prism_sync.biometric_dek'] = 'legacy';
+
+      await service.clear();
+      expect(nativeResetStub.deleteBiometricNamespaceAttempts, 1);
+      expect(
+        legacyDefaultBiometricStore.containsKey('prism_sync.biometric_dek'),
+        isFalse,
+      );
+      expect(storageStub.deleteCalls, 0);
+    });
+
+    test(
+      'falls back to storage delete when native hook is unavailable',
+      () async {
+        nativeResetStub.missing = true;
+        storageStub._store['prism_sync.biometric_dek'] = base64Encode(
+          Uint8List.fromList([1, 2, 3]),
+        );
+
+        await service.clear();
+        expect(nativeResetStub.deleteBiometricNamespaceAttempts, 1);
+        expect(storageStub.deleteCalls, 1);
+        expect(
+          storageStub._store.containsKey('prism_sync.biometric_dek'),
+          isFalse,
+        );
+      },
+    );
+
+    test('uses storage delete off Android', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      storageStub._store['prism_sync.biometric_dek'] = base64Encode(
+        Uint8List.fromList([1, 2, 3]),
+      );
+
+      await service.clear();
+      expect(nativeResetStub.deleteBiometricNamespaceAttempts, 0);
+      expect(storageStub.deleteCalls, 1);
       expect(
         storageStub._store.containsKey('prism_sync.biometric_dek'),
         isFalse,
@@ -177,8 +294,9 @@ void main() {
 
   group('isEnrolled', () {
     test('returns true when key is present', () async {
-      storageStub._store['prism_sync.biometric_dek'] =
-          base64Encode(Uint8List(32));
+      storageStub._store['prism_sync.biometric_dek'] = base64Encode(
+        Uint8List(32),
+      );
       expect(await service.isEnrolled(), isTrue);
     });
 

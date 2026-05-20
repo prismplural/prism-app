@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 
@@ -14,45 +16,59 @@ import 'package:local_auth/local_auth.dart';
 /// touch this code, read the long-form rationale below before changing
 /// platform options.
 class BiometricService {
+  static const androidStorageNamespace = 'prism_biometric_secure_storage';
+  @visibleForTesting
+  static const androidNativeChannelName =
+      'com.prism.prism_plurality/runtime_dek_wrap';
+  @visibleForTesting
+  static const androidDeleteNamespaceMethod =
+      'deleteBiometricSecureStorageNamespace';
+  static const MethodChannel _androidNativeChannel = MethodChannel(
+    androidNativeChannelName,
+  );
+
   BiometricService({
     LocalAuthentication? localAuth,
     FlutterSecureStorage? storage,
-  })  : _localAuth = localAuth ?? LocalAuthentication(),
-        _storage = storage ??
-            const FlutterSecureStorage(
-              // iOS: AccessControlFlag.biometryCurrentSet stores the item in
-              // the Secure Enclave with a biometric access control — the
-              // platform requires Face ID/Touch ID to READ the item. This is
-              // true hardware-enforced biometric binding, not merely an app-
-              // level prompt before a normal keychain write. The item is
-              // invalidated if biometric enrollment changes (correct security
-              // behaviour).
-              iOptions: IOSOptions(
-                accessibility: KeychainAccessibility.first_unlock_this_device,
-                accessControlFlags: [AccessControlFlag.biometryCurrentSet],
-              ),
-              // Android: AES-GCM key in Android Keystore with
-              // setUserAuthenticationRequired(true) — reading (and writing)
-              // the item requires a biometric/PIN prompt. This is the closest
-              // Android analog to iOS biometryCurrentSet. Requires API 28+.
-              //
-              // resetOnError: true — if the key is permanently invalidated
-              // (user enrolled a new fingerprint or removed all biometrics),
-              // the stored DEK is cleared and authenticate() returns null.
-              // The caller should fall back to PIN entry; the user can
-              // re-enroll biometrics in settings after unlocking with PIN.
-              //
-              // Note: enforceBiometrics: true throws if no biometric or device
-              // credential is enrolled. isAvailable() must be checked before
-              // calling enroll() or the write will fail.
-              aOptions: AndroidOptions.biometric(
-                enforceBiometrics: true,
-                resetOnError: true,
-                biometricPromptTitle: 'Unlock Prism',
-                biometricPromptSubtitle:
-                    'Use your fingerprint or face to continue',
-              ),
-            );
+  }) : _localAuth = localAuth ?? LocalAuthentication(),
+       _storage =
+           storage ??
+           const FlutterSecureStorage(
+             // iOS: AccessControlFlag.biometryCurrentSet stores the item in
+             // the Secure Enclave with a biometric access control — the
+             // platform requires Face ID/Touch ID to READ the item. This is
+             // true hardware-enforced biometric binding, not merely an app-
+             // level prompt before a normal keychain write. The item is
+             // invalidated if biometric enrollment changes (correct security
+             // behaviour).
+             iOptions: IOSOptions(
+               accessibility: KeychainAccessibility.first_unlock_this_device,
+               accessControlFlags: [AccessControlFlag.biometryCurrentSet],
+             ),
+             // Android: AES-GCM key in Android Keystore with
+             // setUserAuthenticationRequired(true) — reading (and writing)
+             // the item requires a biometric/PIN prompt. This is the closest
+             // Android analog to iOS biometryCurrentSet. Requires API 28+.
+             //
+             // resetOnError: true — if the key is permanently invalidated
+             // (user enrolled a new fingerprint or removed all biometrics),
+             // the stored DEK is cleared and authenticate() returns null.
+             // The caller should fall back to PIN entry; the user can
+             // re-enroll biometrics in settings after unlocking with PIN.
+             //
+             // Note: enforceBiometrics: true throws if no biometric or device
+             // credential is enrolled. isAvailable() must be checked before
+             // calling enroll() or the write will fail.
+             aOptions: AndroidOptions.biometric(
+               storageNamespace: androidStorageNamespace,
+               enforceBiometrics: true,
+               migrateWithBackup: false,
+               resetOnError: true,
+               biometricPromptTitle: 'Unlock Prism',
+               biometricPromptSubtitle:
+                   'Use your fingerprint or face to continue',
+             ),
+           );
 
   final LocalAuthentication _localAuth;
   final FlutterSecureStorage _storage;
@@ -92,7 +108,22 @@ class BiometricService {
   }
 
   Future<void> clear() async {
+    if (defaultTargetPlatform == TargetPlatform.android &&
+        await _clearAndroidNamespaceIfAvailable()) {
+      return;
+    }
     await _storage.delete(key: _bioKey);
+  }
+
+  Future<bool> _clearAndroidNamespaceIfAvailable() async {
+    try {
+      await _androidNativeChannel.invokeMethod<void>(
+        androidDeleteNamespaceMethod,
+      );
+      return true;
+    } on MissingPluginException {
+      return false;
+    }
   }
 
   /// Whether a biometric-protected DEK is stored.
