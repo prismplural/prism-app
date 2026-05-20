@@ -168,13 +168,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           );
         }
 
-        // Build permissions and participant set for this conversation.
         final permissions = ConversationPermissions(
           conversation: conversation,
           speakingAsMemberId: _lastSpeakingAs,
           speakingAsMember: speakingAsMember,
         );
-        final participantIds = conversation.participantIds.toSet();
 
         // Mark conversation as read when opened.
         _markAsReadIfNeeded();
@@ -316,7 +314,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                               group: item,
                               conversationId: widget.conversationId,
                               permissions: permissions,
-                              participantIds: participantIds,
                               authorMap: authorMap,
                               messageKeys: _messageKeys,
                               onScrollToMessage: _scrollToMessage,

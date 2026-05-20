@@ -31,8 +31,7 @@ Member? findCurrentChatViewer(List<Member>? members, String? speakingAs) {
 /// Callers must ensure `memberId` belongs to an active member; SpeakingAsNotifier
 /// already enforces that for `speakingAsProvider`.
 bool isImplicitParticipantOf(Conversation conversation, String memberId) {
-  if (conversation.participantIds.contains(memberId)) return true;
-  return conversation.includesAllMembers && !conversation.isDirectMessage;
+  return isConversationParticipant(conversation, memberId);
 }
 
 ConversationPermissions conversationPermissionsForViewer(
@@ -1205,15 +1204,22 @@ final conversationTileDataProvider = Provider.autoDispose
       final conversation = conversationMap[conversationId];
       if (conversation == null) return null;
 
-      // Participant map (batch loaded).
-      final participantMapAsync = ref.watch(
-        membersByIdsProvider(memberIdsKey(conversation.participantIds)),
-      );
-      final participantMap = participantMapAsync.value ?? const {};
-
       // Last message.
       final lastMessageAsync = ref.watch(lastMessageProvider(conversationId));
       final lastMessage = lastMessageAsync.value;
+
+      // Participant/author map (batch loaded). Everyone-group senders may be
+      // implicit participants, so include the latest author even when they are
+      // not in the explicit participantIds list.
+      final memberIdsForTile = <String>{...conversation.participantIds};
+      final lastMessageAuthorId = lastMessage?.authorId;
+      if (lastMessageAuthorId != null) {
+        memberIdsForTile.add(lastMessageAuthorId);
+      }
+      final participantMapAsync = ref.watch(
+        membersByIdsProvider(memberIdsKey(memberIdsForTile)),
+      );
+      final participantMap = participantMapAsync.value ?? const {};
 
       // Unread count (derived from batch provider).
       final unreadCount = ref.watch(unreadMessageCountProvider(conversationId));

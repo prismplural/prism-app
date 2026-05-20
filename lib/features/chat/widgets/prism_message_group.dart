@@ -145,8 +145,7 @@ class PrismMessageGroup extends StatelessWidget {
     super.key,
     required this.group,
     required this.conversationId,
-    this.permissions,
-    this.participantIds,
+    required this.permissions,
     this.authorMap,
     this.messageKeys,
     this.onScrollToMessage,
@@ -158,13 +157,7 @@ class PrismMessageGroup extends StatelessWidget {
   /// Conversation ID used to scope the highlight provider watch.
   final String conversationId;
 
-  /// Permission model for the current conversation. Forwarded to each
-  /// [MessageBubble] to control edit/delete visibility.
-  final ConversationPermissions? permissions;
-
-  /// Current participant IDs. Forwarded to each [MessageBubble] for departed
-  /// member avatar dimming.
-  final Set<String>? participantIds;
+  final ConversationPermissions permissions;
 
   /// Pre-loaded author map. When provided, [MessageBubble] can look up the
   /// author from this map instead of watching an individual provider.
@@ -194,7 +187,6 @@ class PrismMessageGroup extends StatelessWidget {
               conversationId: conversationId,
               showAuthorInfo: i == 0,
               permissions: permissions,
-              participantIds: participantIds,
               authorMap: authorMap,
               onScrollToReply: group.messages[i].replyToId != null
                   ? () => onScrollToMessage?.call(group.messages[i].replyToId!)
@@ -215,8 +207,7 @@ class _HighlightAwareMessageBubble extends ConsumerWidget {
     required this.message,
     required this.conversationId,
     required this.showAuthorInfo,
-    this.permissions,
-    this.participantIds,
+    required this.permissions,
     this.authorMap,
     this.onScrollToReply,
     this.onReply,
@@ -225,8 +216,7 @@ class _HighlightAwareMessageBubble extends ConsumerWidget {
   final ChatMessage message;
   final String conversationId;
   final bool showAuthorInfo;
-  final ConversationPermissions? permissions;
-  final Set<String>? participantIds;
+  final ConversationPermissions permissions;
   final Map<String, Member>? authorMap;
   final VoidCallback? onScrollToReply;
   final void Function(ChatMessage message)? onReply;
@@ -242,7 +232,6 @@ class _HighlightAwareMessageBubble extends ConsumerWidget {
       message: message,
       showAuthorInfo: showAuthorInfo,
       permissions: permissions,
-      participantIds: participantIds,
       authorMap: authorMap,
       onScrollToReply: onScrollToReply,
       onReply: onReply,

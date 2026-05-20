@@ -19,6 +19,43 @@ String? effectiveConversationOwnerId(Conversation conversation) =>
         ? conversation.participantIds.first
         : null);
 
+bool conversationIncludesImplicitMembers(Conversation conversation) =>
+    conversation.includesAllMembers &&
+    !isDirectMessageConversation(conversation);
+
+bool isConversationParticipant(
+  Conversation conversation,
+  String memberId, {
+  Member? member,
+  bool requireKnownImplicitMember = false,
+}) {
+  if (conversation.participantIds.contains(memberId)) return true;
+  if (!conversationIncludesImplicitMembers(conversation)) return false;
+  if (requireKnownImplicitMember && member == null) return false;
+  if (member == null) return true;
+  // Passed member rows must describe the member being checked.
+  return member.id == memberId && member.isActive && !member.isDeleted;
+}
+
+Set<String> broadcastMentionRecipientIds({
+  required Conversation conversation,
+  required Iterable<Member> activeMembers,
+  required String authorId,
+}) {
+  final ids = conversation.participantIds.toSet();
+  if (conversationIncludesImplicitMembers(conversation)) {
+    ids.addAll(
+      activeMembers
+          .where((member) => member.isActive && !member.isDeleted)
+          .map((member) => member.id),
+    );
+  }
+  ids
+    ..remove(unknownSentinelMemberId)
+    ..remove(authorId);
+  return ids;
+}
+
 class ConversationPermissions {
   final Conversation conversation;
   final String? speakingAsMemberId;
@@ -34,18 +71,14 @@ class ConversationPermissions {
 
   bool get isParticipant {
     if (speakingAsMemberId == null) return false;
-    if (conversation.participantIds.contains(speakingAsMemberId)) return true;
-    // "Everyone" groups: any active, non-deleted member is implicitly a
-    // participant. The flag short-circuits the explicit participantIds list
-    // so adding/removing members doesn't fan out into thousands of sync ops.
-    if (conversation.includesAllMembers && !isDirectMessage) {
-      final member = speakingAsMember;
-      if (member != null && member.isActive && !member.isDeleted) {
-        return true;
-      }
-    }
-    return false;
+    return isConversationParticipant(
+      conversation,
+      speakingAsMemberId!,
+      member: speakingAsMember,
+      requireKnownImplicitMember: true,
+    );
   }
+
   bool get isDirectMessage => isDirectMessageConversation(conversation);
   bool get isCreator =>
       speakingAsMemberId != null && speakingAsMemberId == _effectiveCreatorId;
@@ -68,8 +101,10 @@ class ConversationPermissions {
         member.isActive &&
         !member.isDeleted;
   }
+
   bool get _isOrphanedDirectMessage =>
       isDirectMessage && conversation.participantIds.length == 1;
+
   /// Admin viewing a group they aren't a member of. Admins get read +
   /// moderate access on these (delete messages/conversation, rename, add
   /// or remove members, transfer ownership) but cannot post or react —
@@ -80,8 +115,7 @@ class ConversationPermissions {
   bool get canView =>
       _isUnscopedDirectMessage || isParticipant || isAdminNonParticipantGroup;
   bool get canWrite =>
-      _isUnscopedDirectMessage ||
-      (isParticipant && !_isOrphanedDirectMessage);
+      _isUnscopedDirectMessage || (isParticipant && !_isOrphanedDirectMessage);
   bool get canManage {
     // DMs never get admin override — moderating in someone else's DM is a
     // privacy hole even with moderation framing.
@@ -118,6 +152,11 @@ class ConversationPermissions {
   bool canDeleteMessage(String? authorId) =>
       (canWrite && authorId == speakingAsMemberId) || canManage;
 
-  bool isMemberDeparted(String? memberId) =>
-      memberId != null && !conversation.participantIds.contains(memberId);
+  bool isMemberDeparted(String? memberId, {Member? member}) {
+    if (memberId == null) return false;
+    if (conversation.participantIds.contains(memberId)) return false;
+    if (!conversationIncludesImplicitMembers(conversation)) return true;
+    if (member == null) return true;
+    return member.id != memberId || !member.isActive || member.isDeleted;
+  }
 }

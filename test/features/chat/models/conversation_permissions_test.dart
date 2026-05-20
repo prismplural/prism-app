@@ -7,8 +7,19 @@ import 'package:prism_plurality/features/chat/models/conversation_permissions.da
 void main() {
   final now = DateTime(2026, 3, 15);
 
-  Member makeMember({required String id, bool isAdmin = false}) =>
-      Member(id: id, name: 'Member $id', createdAt: now, isAdmin: isAdmin);
+  Member makeMember({
+    required String id,
+    bool isAdmin = false,
+    bool isActive = true,
+    bool isDeleted = false,
+  }) => Member(
+    id: id,
+    name: 'Member $id',
+    createdAt: now,
+    isAdmin: isAdmin,
+    isActive: isActive,
+    isDeleted: isDeleted,
+  );
 
   Conversation makeGroupConversation({
     String? creatorId,
@@ -743,6 +754,129 @@ void main() {
       );
       expect(perms.isParticipant, isFalse);
       expect(perms.canView, isFalse);
+    });
+
+    test('implicit active member is not treated as departed', () {
+      final perms = ConversationPermissions(
+        conversation: makeEveryoneGroup(),
+        speakingAsMemberId: 'creator',
+        speakingAsMember: makeMember(id: 'creator'),
+      );
+      expect(
+        perms.isMemberDeparted('outsider', member: makeMember(id: 'outsider')),
+        isFalse,
+      );
+    });
+
+    test('implicit inactive or deleted member is treated as departed', () {
+      final perms = ConversationPermissions(
+        conversation: makeEveryoneGroup(),
+        speakingAsMemberId: 'creator',
+        speakingAsMember: makeMember(id: 'creator'),
+      );
+
+      expect(
+        perms.isMemberDeparted(
+          'paused',
+          member: makeMember(id: 'paused', isActive: false),
+        ),
+        isTrue,
+      );
+      expect(
+        perms.isMemberDeparted(
+          'deleted',
+          member: makeMember(id: 'deleted', isDeleted: true),
+        ),
+        isTrue,
+      );
+    });
+
+    test(
+      'known implicit participant helper requires active matching member',
+      () {
+        final conversation = makeEveryoneGroup();
+
+        expect(
+          isConversationParticipant(
+            conversation,
+            'outsider',
+            requireKnownImplicitMember: true,
+          ),
+          isFalse,
+        );
+        expect(
+          isConversationParticipant(
+            conversation,
+            'outsider',
+            member: makeMember(id: 'other'),
+            requireKnownImplicitMember: true,
+          ),
+          isFalse,
+        );
+        expect(
+          isConversationParticipant(
+            conversation,
+            'outsider',
+            member: makeMember(id: 'outsider', isActive: false),
+            requireKnownImplicitMember: true,
+          ),
+          isFalse,
+        );
+        expect(
+          isConversationParticipant(
+            conversation,
+            'outsider',
+            member: makeMember(id: 'outsider', isDeleted: true),
+            requireKnownImplicitMember: true,
+          ),
+          isFalse,
+        );
+        expect(
+          isConversationParticipant(
+            conversation,
+            'outsider',
+            member: makeMember(id: 'outsider'),
+            requireKnownImplicitMember: true,
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test('broadcast mention recipients include implicit active members', () {
+      final recipients = broadcastMentionRecipientIds(
+        conversation: makeEveryoneGroup(),
+        activeMembers: [
+          makeMember(id: 'creator'),
+          makeMember(id: 'outsider'),
+          makeMember(id: 'paused', isActive: false),
+          makeMember(id: 'deleted', isDeleted: true),
+          makeMember(id: unknownSentinelMemberId),
+        ],
+        authorId: 'creator',
+      );
+
+      expect(recipients, {'outsider'});
+    });
+
+    test('broadcast mention recipients ignore non-members in explicit groups', () {
+      final recipients = broadcastMentionRecipientIds(
+        conversation: makeGroupConversation(
+          participantIds: [
+            'creator',
+            'listed',
+            unknownSentinelMemberId,
+          ],
+        ),
+        activeMembers: [
+          makeMember(id: 'creator'),
+          makeMember(id: 'listed'),
+          makeMember(id: 'outsider'),
+        ],
+        authorId: 'creator',
+      );
+
+      expect(recipients, {'listed'});
     });
   });
 

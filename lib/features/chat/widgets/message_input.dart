@@ -17,6 +17,7 @@ import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/services/media/media_service.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart' as media;
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/voice_recording_provider.dart';
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
@@ -302,13 +303,29 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     final conversation = ref
         .read(conversationByIdProvider(widget.conversationId))
         .value;
-    final recipientCount =
-        conversation?.participantIds
-            .toSet()
-            .where((id) => id != authorId)
-            .length ??
-        0;
+    if (conversation == null) return true;
+
+    var activeMembers = const <Member>[];
+    if (conversationIncludesImplicitMembers(conversation)) {
+      try {
+        activeMembers = await ref.read(activeMembersProvider.future);
+      } catch (error) {
+        if (mounted) {
+          PrismToast.error(
+            context,
+            message: context.l10n.errorWithDetail(error),
+          );
+        }
+        return false;
+      }
+    }
+    final recipientCount = broadcastMentionRecipientIds(
+      conversation: conversation,
+      activeMembers: activeMembers,
+      authorId: authorId,
+    ).length;
     if (recipientCount < 5) return true;
+    if (!mounted) return false;
 
     return PrismDialog.confirm(
       context: context,

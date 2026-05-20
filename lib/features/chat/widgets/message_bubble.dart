@@ -61,9 +61,8 @@ class MessageBubble extends ConsumerStatefulWidget {
   const MessageBubble({
     super.key,
     required this.message,
+    required this.permissions,
     this.showAuthorInfo = true,
-    this.permissions,
-    this.participantIds,
     this.authorMap,
     this.onScrollToReply,
     this.onReply,
@@ -76,14 +75,8 @@ class MessageBubble extends ConsumerStatefulWidget {
   /// Set to false for grouped consecutive messages from the same author.
   final bool showAuthorInfo;
 
-  /// Permission model for the current conversation. When provided, controls
-  /// which context menu actions are shown (edit/delete). Falls back to
-  /// `isOwn`-based logic when null.
-  final ConversationPermissions? permissions;
-
-  /// Set of current participant IDs in the conversation. Used to dim the
-  /// avatar for members who have left the conversation.
-  final Set<String>? participantIds;
+  /// Permission model for the current conversation.
+  final ConversationPermissions permissions;
 
   /// Pre-loaded author map from batch loading. If provided and the author is
   /// found in the map, the individual [activeMemberByIdProvider] watch is skipped.
@@ -119,13 +112,13 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   // Context menu helpers
   // ---------------------------------------------------------------------------
 
-  int _contextMenuItemCount(bool isOwn) {
-    final baseCount = _buildActions(isOwn).length;
-    final canReact = widget.permissions?.canReact ?? true;
+  int _contextMenuItemCount() {
+    final baseCount = _buildActions().length;
+    final canReact = widget.permissions.canReact;
     return canReact ? baseCount + 1 : baseCount;
   }
 
-  List<_ContextAction> _buildActions(bool isOwn) {
+  List<_ContextAction> _buildActions() {
     final actions = <_ContextAction>[];
 
     if (!widget.message.isSystemMessage) {
@@ -155,57 +148,30 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     );
 
     final perms = widget.permissions;
-    if (perms != null) {
-      if (perms.canEditMessage(widget.message.authorId)) {
-        actions.add(
-          _ContextAction(
-            icon: AppIcons.editOutlined,
-            label: context.l10n.chatContextEditMessage,
-            onTap: (close) {
-              close();
-              _showEditDialog(context);
-            },
-          ),
-        );
-      }
-      if (perms.canDeleteMessage(widget.message.authorId)) {
-        actions.add(
-          _ContextAction(
-            icon: AppIcons.deleteOutline,
-            label: context.l10n.chatContextDelete,
-            isDestructive: true,
-            onTap: (close) {
-              close();
-              _confirmDelete(context);
-            },
-          ),
-        );
-      }
-    } else {
-      // Fallback: old behavior for backwards compatibility.
-      if (isOwn) {
-        actions.add(
-          _ContextAction(
-            icon: AppIcons.editOutlined,
-            label: context.l10n.chatContextEditMessage,
-            onTap: (close) {
-              close();
-              _showEditDialog(context);
-            },
-          ),
-        );
-        actions.add(
-          _ContextAction(
-            icon: AppIcons.deleteOutline,
-            label: context.l10n.chatContextDelete,
-            isDestructive: true,
-            onTap: (close) {
-              close();
-              _confirmDelete(context);
-            },
-          ),
-        );
-      }
+    if (perms.canEditMessage(widget.message.authorId)) {
+      actions.add(
+        _ContextAction(
+          icon: AppIcons.editOutlined,
+          label: context.l10n.chatContextEditMessage,
+          onTap: (close) {
+            close();
+            _showEditDialog(context);
+          },
+        ),
+      );
+    }
+    if (perms.canDeleteMessage(widget.message.authorId)) {
+      actions.add(
+        _ContextAction(
+          icon: AppIcons.deleteOutline,
+          label: context.l10n.chatContextDelete,
+          isDestructive: true,
+          onTap: (close) {
+            close();
+            _confirmDelete(context);
+          },
+        ),
+      );
     }
 
     return actions;
@@ -255,8 +221,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   }
 
   void _toggleReaction(String emoji) {
-    final permissions = widget.permissions;
-    if (permissions != null && !permissions.canReact) return;
+    if (!widget.permissions.canReact) return;
     final speakingAs = ref.read(speakingAsProvider);
     if (speakingAs == null) return;
     ref
@@ -388,10 +353,6 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     }
 
     final theme = Theme.of(context);
-    final speakingAs = ref.watch(speakingAsProvider);
-    final isOwnMessage =
-        speakingAs != null && widget.message.authorId == speakingAs;
-
     // Use batch-loaded author map if available, otherwise fall back to
     // individual provider watch.
     final batchAuthor =
@@ -400,12 +361,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         : null;
 
     if (batchAuthor != null) {
-      return _buildBubble(
-        context,
-        author: batchAuthor,
-        isOwn: isOwnMessage,
-        theme: theme,
-      );
+      return _buildBubble(context, author: batchAuthor, theme: theme);
     }
 
     final authorAsync = widget.message.authorId != null
@@ -413,60 +369,32 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         : const AsyncValue<Member?>.data(null);
 
     return authorAsync.when(
-      data: (author) => _buildBubble(
-        context,
-        author: author,
-        isOwn: isOwnMessage,
-        theme: theme,
-      ),
-      loading: () => _buildBubble(
-        context,
-        author: null,
-        isOwn: isOwnMessage,
-        theme: theme,
-      ),
-      error: (_, _) => _buildBubble(
-        context,
-        author: null,
-        isOwn: isOwnMessage,
-        theme: theme,
-      ),
+      data: (author) => _buildBubble(context, author: author, theme: theme),
+      loading: () => _buildBubble(context, author: null, theme: theme),
+      error: (_, _) => _buildBubble(context, author: null, theme: theme),
     );
   }
 
   Widget _buildAvatar(Member? author, double size) {
-    final isDeparted =
-        widget.participantIds != null &&
-        widget.message.authorId != null &&
-        !widget.participantIds!.contains(widget.message.authorId);
+    final authorId = widget.message.authorId;
+    final isDeparted = authorId != null
+        ? widget.permissions.isMemberDeparted(authorId, member: author)
+        : false;
 
-    final avatar = MemberAvatar(
+    return MemberAvatar(
       avatarImageData: author?.avatarImageData,
       memberName: author?.name,
       emoji: author?.emoji ?? '?',
       customColorEnabled: author?.customColorEnabled ?? false,
       customColorHex: author?.customColorHex,
       size: size,
+      opacity: isDeparted ? 0.5 : 1.0,
     );
-
-    if (isDeparted) {
-      return MemberAvatar(
-        avatarImageData: author?.avatarImageData,
-        memberName: author?.name,
-        emoji: author?.emoji ?? '?',
-        customColorEnabled: author?.customColorEnabled ?? false,
-        customColorHex: author?.customColorHex,
-        size: size,
-        opacity: 0.5,
-      );
-    }
-    return avatar;
   }
 
   Widget _buildBubble(
     BuildContext context, {
     required Member? author,
-    required bool isOwn,
     required ThemeData theme,
   }) {
     final disableAnimations = MediaQuery.of(context).disableAnimations;
@@ -488,7 +416,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     final topPadding = widget.showAuthorInfo ? 16.0 : 4.0;
     final bottomPadding = widget.message.reactions.isNotEmpty ? 7.0 : 2.0;
 
-    final actions = _buildActions(isOwn);
+    final actions = _buildActions();
 
     final slideWidget = TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: _appeared ? 1.0 : 0.0, end: 1.0),
@@ -509,9 +437,9 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       child: BlurPopupAnchor(
         trigger: BlurPopupTrigger.longPress,
         width: 260,
-        itemCount: _contextMenuItemCount(isOwn),
+        itemCount: _contextMenuItemCount(),
         itemBuilder: (context, index, close) {
-          final canReact = widget.permissions?.canReact ?? true;
+          final canReact = widget.permissions.canReact;
           if (canReact) {
             if (index == 0) return _buildQuickReactionRow(close);
           }
@@ -635,7 +563,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                             child: ReactionBar(
                               messageId: widget.message.id,
                               reactions: widget.message.reactions,
-                              canToggle: widget.permissions?.canReact ?? true,
+                              canToggle: widget.permissions.canReact,
                             ),
                           ),
                       ],
