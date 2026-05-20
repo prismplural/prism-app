@@ -8,6 +8,8 @@ All notable changes to Prism will be documented in this file.
 
 This patch release hardens Android secure-storage recovery after reports of Prism
 databases surviving while secure-storage slots and Keystore aliases disappeared.
+Build 9302 adds a follow-up fix for clean Android installs that import data
+before the first app restart.
 
 ### Changed
 - Android reset recovery now asks the OS to clear app data before clearing Prism's
@@ -16,6 +18,10 @@ databases surviving while secure-storage slots and Keystore aliases disappeared.
   keys.
 - Database-key writes are now durable and read-back verified before Prism trusts
   them for encrypted database startup.
+- Android fresh-install detection now treats native secure-storage residue as an
+  anomaly, but leaves secure storage untouched on clean installs.
+- Android secure-storage algorithm migration now fails closed instead of running
+  backup migration when current encrypted data is missing its algorithm markers.
 - The sync secure-store bridge and device-pairing fallback storage now route
   through Prism's classified secure-storage wrappers.
 - The in-app crypto storage diagnostic screen is now read-only; destructive
@@ -26,6 +32,11 @@ databases surviving while secure-storage slots and Keystore aliases disappeared.
   classified into recovery paths instead of leaking as raw platform errors.
 - Native reset key cleanup refuses to clear secure-storage keys while Prism
   database files still exist unless the caller explicitly forces it.
+- Clean Android installs no longer clear Flutter Secure Storage configuration
+  during onboarding, which could make the next launch delete imported database
+  keys as failed legacy migration entries.
+- Native key cleanup after a local wipe now waits for Flutter Secure Storage
+  cleanup to succeed so a later boot can still detect secure-storage residue.
 - Diagnostics now include native secure-storage and Keystore state to distinguish
   fully empty secure storage from per-slot key loss.
 - Everyone conversations now treat active implicit members consistently for
