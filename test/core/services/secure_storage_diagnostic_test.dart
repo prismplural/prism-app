@@ -34,6 +34,15 @@ void main() {
           'alias_present': true,
           'is_device_locked': false,
         },
+        secureStorageFullyEmpty: false,
+        nativeSecureStorageState: <String, dynamic>{
+          'flutter_secure_storage_preferences': <String, bool>{
+            'FlutterSecureStorage': true,
+          },
+          'android_keystore_aliases': <String, bool>{
+            'com.prism.FlutterSecureStoragePluginKey': true,
+          },
+        },
         appBuild: const <String, String>{
           'flavor': 'production',
           'mode': 'release',
@@ -56,10 +65,22 @@ void main() {
       expect(json['keychain_repair_pending_before_boot'], true);
       expect(json['keychain_repair_writeback_attempted_this_boot'], true);
       expect(json['keychain_repair_writeback_result'], 'ok');
-      expect(json['keychain_degraded_state_snapshot'], isA<Map<String, dynamic>>());
+      expect(
+        json['keychain_degraded_state_snapshot'],
+        isA<Map<String, dynamic>>(),
+      );
       expect(json['runtime_dek_device_state'], <String, dynamic>{
         'alias_present': true,
         'is_device_locked': false,
+      });
+      expect(json['secure_storage_fully_empty'], false);
+      expect(json['native_secure_storage_state'], <String, dynamic>{
+        'flutter_secure_storage_preferences': <String, bool>{
+          'FlutterSecureStorage': true,
+        },
+        'android_keystore_aliases': <String, bool>{
+          'com.prism.FlutterSecureStoragePluginKey': true,
+        },
       });
       expect(json['app_build'], <String, String>{
         'flavor': 'production',
@@ -97,29 +118,35 @@ void main() {
       expect(json['keychain_degraded_state_snapshot'], isNull);
       expect(json.containsKey('runtime_dek_device_state'), isTrue);
       expect(json['runtime_dek_device_state'], isNull);
+      expect(json.containsKey('secure_storage_fully_empty'), isTrue);
+      expect(json['secure_storage_fully_empty'], isNull);
+      expect(json.containsKey('native_secure_storage_state'), isTrue);
+      expect(json['native_secure_storage_state'], isNull);
       expect(json.containsKey('app_build'), isTrue);
       expect(json['app_build'], isNull);
     });
 
-    test('unrecoverable + null recoveredVia + all-failure slotOutcomes is valid',
-        () {
-      final diag = SecureStorageDiagnostic(
-        recoveredVia: null,
-        slotOutcomes: const <String, String>{
-          DiagnosticSlotIds.appDbPrimary: 'cipher',
-          DiagnosticSlotIds.appDbSync: 'cipher',
-          DiagnosticSlotIds.appDbSyncStaging: 'missing',
-        },
-        appDbState: DbStartupStateName.unrecoverable,
-      );
+    test(
+      'unrecoverable + null recoveredVia + all-failure slotOutcomes is valid',
+      () {
+        final diag = SecureStorageDiagnostic(
+          recoveredVia: null,
+          slotOutcomes: const <String, String>{
+            DiagnosticSlotIds.appDbPrimary: 'cipher',
+            DiagnosticSlotIds.appDbSync: 'cipher',
+            DiagnosticSlotIds.appDbSyncStaging: 'missing',
+          },
+          appDbState: DbStartupStateName.unrecoverable,
+        );
 
-      final json = diag.toJson();
-      expect(json['recovered_via'], isNull);
-      expect(json['app_db_state'], 'unrecoverable');
-      final outcomes = json['slot_outcomes'] as Map<String, dynamic>;
-      expect(outcomes.length, 3);
-      expect(outcomes[DiagnosticSlotIds.appDbPrimary], 'cipher');
-    });
+        final json = diag.toJson();
+        expect(json['recovered_via'], isNull);
+        expect(json['app_db_state'], 'unrecoverable');
+        final outcomes = json['slot_outcomes'] as Map<String, dynamic>;
+        expect(outcomes.length, 3);
+        expect(outcomes[DiagnosticSlotIds.appDbPrimary], 'cipher');
+      },
+    );
 
     test('pretty-printed JSON is deterministic across two encodes', () {
       final diag = SecureStorageDiagnostic(
@@ -168,35 +195,41 @@ void main() {
       final json = diag.toJson();
       final readBack = json['slot_outcomes'] as Map<String, dynamic>;
       for (final entry in outcomes.entries) {
-        expect(readBack[entry.key], entry.value,
-            reason: 'slot ${entry.key} should round-trip');
+        expect(
+          readBack[entry.key],
+          entry.value,
+          reason: 'slot ${entry.key} should round-trip',
+        );
       }
     });
 
-    test('slotOutcomeName + slotOutcomeThrewString produce expected strings',
-        () {
-      expect(slotOutcomeName(SlotOutcome.ok), 'ok');
-      expect(slotOutcomeName(SlotOutcome.cipher), 'cipher');
-      expect(slotOutcomeName(SlotOutcome.transient), 'transient');
-      expect(slotOutcomeName(SlotOutcome.unknown), 'unknown');
-      expect(slotOutcomeName(SlotOutcome.missing), 'missing');
-      expect(slotOutcomeName(SlotOutcome.invalidHex), 'invalid_hex');
-      expect(slotOutcomeName(SlotOutcome.threw), 'threw');
+    test(
+      'slotOutcomeName + slotOutcomeThrewString produce expected strings',
+      () {
+        expect(slotOutcomeName(SlotOutcome.ok), 'ok');
+        expect(slotOutcomeName(SlotOutcome.cipher), 'cipher');
+        expect(slotOutcomeName(SlotOutcome.transient), 'transient');
+        expect(slotOutcomeName(SlotOutcome.unknown), 'unknown');
+        expect(slotOutcomeName(SlotOutcome.missing), 'missing');
+        expect(slotOutcomeName(SlotOutcome.invalidHex), 'invalid_hex');
+        expect(slotOutcomeName(SlotOutcome.threw), 'threw');
 
-      expect(slotOutcomeThrewString(Exception('boom')),
-          startsWith('threw: Exception: boom'));
+        expect(
+          slotOutcomeThrewString(Exception('boom')),
+          startsWith('threw: Exception: boom'),
+        );
 
-      // Long messages are truncated so the diagnostic JSON stays readable.
-      final longMessage = 'x' * 1000;
-      final truncated = slotOutcomeThrewString(Exception(longMessage));
-      expect(truncated.length, lessThan(longMessage.length));
-      expect(truncated, endsWith('…'));
-    });
+        // Long messages are truncated so the diagnostic JSON stays readable.
+        final longMessage = 'x' * 1000;
+        final truncated = slotOutcomeThrewString(Exception(longMessage));
+        expect(truncated.length, lessThan(longMessage.length));
+        expect(truncated, endsWith('…'));
+      },
+    );
   });
 
   group('SecureStorageDiagnostic merge + copy', () {
-    test('mergeWith unions slotOutcomes and prefers `other` non-null fields',
-        () {
+    test('mergeWith unions slotOutcomes and preserves app recoveredVia', () {
       final appDiag = SecureStorageDiagnostic(
         recoveredVia: 'primary',
         slotOutcomes: const <String, String>{
@@ -214,18 +247,31 @@ void main() {
 
       final merged = appDiag.mergeWith(syncDiag);
       expect(merged.slotOutcomes.length, 2);
-      expect(
-        merged.slotOutcomes[DiagnosticSlotIds.appDbPrimary],
-        'ok',
-      );
-      expect(
-        merged.slotOutcomes[DiagnosticSlotIds.syncDbFresh],
-        'ok',
-      );
-      // `other`'s recoveredVia wins when non-null.
-      expect(merged.recoveredVia, 'fresh');
+      expect(merged.slotOutcomes[DiagnosticSlotIds.appDbPrimary], 'ok');
+      expect(merged.slotOutcomes[DiagnosticSlotIds.syncDbFresh], 'ok');
+      // The public diagnostic's recoveredVia represents the app DB probe;
+      // sync fresh/ready should not mask app DB recovery or failure.
+      expect(merged.recoveredVia, 'primary');
       // Both states are preserved.
       expect(merged.appDbState, DbStartupStateName.ready);
+      expect(merged.syncDbState, DbStartupStateName.ready);
+    });
+
+    test('mergeWith uses sync recoveredVia when no app probe ran', () {
+      final base = SecureStorageDiagnostic(
+        recoveredVia: null,
+        slotOutcomes: const <String, String>{},
+      );
+      final syncDiag = SecureStorageDiagnostic(
+        recoveredVia: 'fresh',
+        slotOutcomes: const <String, String>{
+          DiagnosticSlotIds.syncDbFresh: 'ok',
+        },
+        syncDbState: DbStartupStateName.ready,
+      );
+
+      final merged = base.mergeWith(syncDiag);
+      expect(merged.recoveredVia, 'fresh');
       expect(merged.syncDbState, DbStartupStateName.ready);
     });
 
@@ -258,9 +304,7 @@ void main() {
         appDbState: DbStartupStateName.ready,
       );
 
-      final copied = diag.copyWith(
-        keychainRepairPendingBeforeBoot: false,
-      );
+      final copied = diag.copyWith(keychainRepairPendingBeforeBoot: false);
       expect(copied.recoveredVia, 'primary');
       expect(copied.capturedAt, captured);
       expect(copied.appDbState, DbStartupStateName.ready);

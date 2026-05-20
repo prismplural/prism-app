@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'core/database/database_encryption.dart';
+import 'core/database/database_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/services/notification_providers.dart';
 import 'core/services/reminder_scheduler_service.dart';
@@ -35,6 +39,9 @@ class _PrismAppState extends ConsumerState<PrismApp> {
   void initState() {
     super.initState();
     _appLifecycleListener = AppLifecycleListener(onResume: _onResume);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _repairPrimaryDatabaseKeySlot();
+    });
   }
 
   @override
@@ -44,6 +51,7 @@ class _PrismAppState extends ConsumerState<PrismApp> {
   }
 
   void _onResume() {
+    _repairPrimaryDatabaseKeySlot();
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle != null) {
       // Re-establish the WebSocket if it dropped while backgrounded,
@@ -68,6 +76,35 @@ class _PrismAppState extends ConsumerState<PrismApp> {
         // See Appendix B.3 / Bucket 4A of the 2026-04-11 robustness plan.
         triggerSync(handle);
       }
+    }
+  }
+
+  void _repairPrimaryDatabaseKeySlot() {
+    String? verifiedStartupKey;
+    try {
+      verifiedStartupKey = ref.read(verifiedStartupKeyProvider);
+    } catch (_) {
+      return;
+    }
+    unawaited(_repairPrimaryDatabaseKeySlotAsync(verifiedStartupKey));
+  }
+
+  Future<void> _repairPrimaryDatabaseKeySlotAsync(
+    String? verifiedStartupKey,
+  ) async {
+    try {
+      await repairPrimaryDatabaseKeyFromVerifiedMemory(verifiedStartupKey);
+    } catch (e, st) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: e,
+          stack: st,
+          library: 'prism_plurality',
+          context: ErrorDescription(
+            'repairing primary database key slot from verified memory',
+          ),
+        ),
+      );
     }
   }
 

@@ -26,6 +26,10 @@ class _FakeSecureStorage {
   /// [throwOnEvery] is checked).
   PlatformException? throwOnRead;
 
+  /// Per-key read value override. Useful for write-verify tests where the
+  /// platform write reports success but read-back observes different state.
+  final Map<String, String?> readOverrideKey = <String, String?>{};
+
   /// Optional override: when set, readAll throws this exception (after
   /// [throwOnEvery] is checked).
   PlatformException? throwOnReadAll;
@@ -69,6 +73,9 @@ class _FakeSecureStorage {
                 final perKey = throwOnReadKey[key];
                 if (perKey != null) throw perKey;
                 if (throwOnRead != null) throw throwOnRead!;
+                if (readOverrideKey.containsKey(key)) {
+                  return readOverrideKey[key];
+                }
                 return store[key];
               case 'readAll':
                 if (throwOnReadAll != null) throw throwOnReadAll!;
@@ -99,6 +106,7 @@ class _FakeSecureStorage {
           null,
         );
     store.clear();
+    readOverrideKey.clear();
   }
 }
 
@@ -174,6 +182,64 @@ void main() {
         final ex = _fssCipherException(
           message: 'Invalid key, key type incompatible with cipher',
           stackTraceFqcn: 'java.security.InvalidKeyException',
+        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
+      });
+
+      test('Failed to unwrap key in message → cipher', () {
+        final ex = _fssCipherException(
+          message:
+              'Migration failed after algorithm change. '
+              'Caused by: java.security.InvalidKeyException: '
+              'Failed to unwrap key',
+          stackTraceFqcn:
+              'android.security.keystore2.AndroidKeyStoreCipherSpiBase',
+        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
+      });
+
+      test('IllegalBlockSizeException in details → cipher', () {
+        final ex = PlatformException(
+          code: 'Exception encountered',
+          message: 'Failed to unwrap key',
+          details:
+              'javax.crypto.IllegalBlockSizeException\n\tat '
+              'android.security.keystore2.AndroidKeyStoreCipherSpiBase.engineUnwrap',
+        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
+      });
+
+      test('migration failure message → cipher', () {
+        final ex = PlatformException(
+          code: 'Exception encountered',
+          message:
+              'Migration failed after algorithm change (Bad padding, wrong key for cipher algorithm). '
+              'Enable resetOnError=true or call deleteAll().',
+          details: 'java.lang.Exception',
+        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
+      });
+
+      test('unsupported algorithm message → cipher', () {
+        final ex = PlatformException(
+          code: 'Exception encountered',
+          message: 'Required cryptographic algorithm not supported by device.',
+          details: 'java.security.NoSuchAlgorithmException',
+        );
+        expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
+      });
+
+      test('null StorageCipher after failed initialization → cipher', () {
+        final ex = PlatformException(
+          code: 'Exception encountered',
+          message:
+              'Attempt to invoke virtual method '
+              "'java.lang.String "
+              'com.it_nomads.fluttersecurestorage.ciphers.StorageCipher.decrypt(String)\' '
+              'on a null object reference',
+          details:
+              'java.lang.NullPointerException\n\tat '
+              'com.it_nomads.fluttersecurestorage.FlutterSecureStorage.read(FlutterSecureStorage.java:216)',
         );
         expect(classifySecureStorageError(ex), SecureStorageFailure.cipher);
       });
@@ -437,6 +503,66 @@ void main() {
       );
       expect(result.failure, SecureStorageFailure.unknown);
     });
+  });
+
+  // ---------------------------------------------------------------------------
+  // safeSecureWriteVerified
+  // ---------------------------------------------------------------------------
+
+  group('safeSecureWriteVerified', () {
+    late _FakeSecureStorage fake;
+
+    setUp(() {
+      fake = _FakeSecureStorage();
+      fake.install();
+    });
+
+    tearDown(() => fake.uninstall());
+
+    test('returns ok when write read-back matches', () async {
+      final result = await safeSecureWriteVerified(
+        'db_key',
+        'abc123',
+        storage: const FlutterSecureStorage(),
+      );
+
+      expect(result.ok, isTrue);
+      expect(fake.store['db_key'], 'abc123');
+    });
+
+    test('returns unknown when write read-back mismatches', () async {
+      fake.readOverrideKey['db_key'] = 'old-value';
+
+      final result = await safeSecureWriteVerified(
+        'db_key',
+        'new-value',
+        storage: const FlutterSecureStorage(),
+      );
+
+      expect(result.ok, isFalse);
+      expect(result.failure, SecureStorageFailure.unknown);
+      expect(result.code, 'PrismSecureStorageVerifyMismatch');
+    });
+
+    test(
+      'returns classified read failure when verification read throws',
+      () async {
+        fake.throwOnReadKey['db_key'] = _fssCipherException(
+          message:
+              'error:1e000065:Cipher functions:OPENSSL_internal:BAD_DECRYPT',
+          stackTraceFqcn: 'javax.crypto.AEADBadTagException',
+        );
+
+        final result = await safeSecureWriteVerified(
+          'db_key',
+          'abc123',
+          storage: const FlutterSecureStorage(),
+        );
+
+        expect(result.ok, isFalse);
+        expect(result.failure, SecureStorageFailure.cipher);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------

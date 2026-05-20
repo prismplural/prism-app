@@ -54,12 +54,16 @@ const _bannedPatterns = <_BannedPattern>[
     'FlutterSecureStorage() constructor',
     r'FlutterSecureStorage\(',
   ),
+  // Aliasing the singleton defeats the call-shape checks above:
+  // `const storage = secureStorage; await storage.read(...)` used to bypass
+  // this audit even though it still hit the raw plugin.
+  _BannedPattern(
+    'secureStorage alias assignment',
+    r'\b(?:final|const|var)\s+\w+\s*=\s*secureStorage\b',
+  ),
   // PrismSecureStore is allowlisted in its own definition file. Other call
   // sites should go through the safe wrappers instead of constructing one.
-  _BannedPattern(
-    'PrismSecureStore constructor',
-    r'PrismSecureStore\b',
-  ),
+  _BannedPattern('PrismSecureStore constructor', r'PrismSecureStore\b'),
 ];
 
 /// Paths relative to the repo root (the worktree) where banned patterns are
@@ -87,7 +91,7 @@ void main() {
 
       final compiledPatterns = [
         for (final p in _bannedPatterns)
-          (label: p.label, regex: RegExp(p.pattern, caseSensitive: false))
+          (label: p.label, regex: RegExp(p.pattern, caseSensitive: false)),
       ];
 
       final violations = <String>[];

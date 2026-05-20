@@ -7,6 +7,7 @@ import android.app.KeyguardManager
 import android.content.ClipDescription
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.net.Uri
@@ -207,11 +208,16 @@ class MainActivity : FlutterFragmentActivity() {
                     "clearApplicationUserData" ->
                         requestApplicationUserDataClear(result)
                     "deleteAllPrismResetKeys" -> {
-                        deleteAllPrismResetKeys()
+                        val force = call.argument<Boolean>("force") ?: false
+                        deleteAllPrismResetKeys(force)
                         result.success(null)
                     }
                     "deleteBiometricSecureStorageNamespace" -> {
                         deleteBiometricSecureStorageNamespace()
+                        result.success(null)
+                    }
+                    "commitFlutterSecureStorage" -> {
+                        commitFlutterSecureStoragePreferences()
                         result.success(null)
                     }
                     "hasPrismResetKeys" ->
@@ -807,6 +813,54 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    private fun commitFlutterSecureStoragePreferences() {
+        val failures = ArrayList<String>()
+
+        for (name in flutterSecureStoragePreferenceNames()) {
+            try {
+                val prefs = getSharedPreferences(name, Context.MODE_PRIVATE)
+                val ok = rewriteSharedPreferencesWithCommit(prefs)
+                if (!ok) {
+                    failures.add("$name: SharedPreferences commit returned false")
+                }
+            } catch (t: Throwable) {
+                failures.add("$name: ${t::class.java.simpleName}: ${t.message ?: ""}")
+            }
+        }
+
+        if (failures.isNotEmpty()) {
+            throw IllegalStateException(
+                "Failed to commit FlutterSecureStorage preferences: " +
+                    failures.joinToString("; ")
+            )
+        }
+    }
+
+    private fun rewriteSharedPreferencesWithCommit(prefs: SharedPreferences): Boolean {
+        val snapshot = prefs.all
+        if (snapshot.isEmpty()) {
+            return prefs.edit().commit()
+        }
+
+        val editor = prefs.edit()
+        for ((key, value) in snapshot) {
+            when (value) {
+                is String -> editor.putString(key, value)
+                is Boolean -> editor.putBoolean(key, value)
+                is Int -> editor.putInt(key, value)
+                is Long -> editor.putLong(key, value)
+                is Float -> editor.putFloat(key, value)
+                is Set<*> -> {
+                    if (value.all { it is String }) {
+                        @Suppress("UNCHECKED_CAST")
+                        editor.putStringSet(key, LinkedHashSet(value as Set<String>))
+                    }
+                }
+            }
+        }
+        return editor.commit()
+    }
+
     private fun requestApplicationUserDataClear(result: MethodChannel.Result) {
         val activityManager =
             getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
@@ -843,7 +897,17 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
-    private fun deleteAllPrismResetKeys() {
+    private fun deleteAllPrismResetKeys(force: Boolean = false) {
+        if (!force) {
+            val remainingDatabases = prismDatabaseResidueFiles().filter { it.exists() }
+            if (remainingDatabases.isNotEmpty()) {
+                throw IllegalStateException(
+                    "Refusing to clear Prism secure-storage keys while database files remain: " +
+                        remainingDatabases.joinToString(", ") { it.name }
+                )
+            }
+        }
+
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         val aliasesToDelete = ArrayList<String>()
         val aliases = keyStore.aliases()
@@ -888,6 +952,17 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    private fun prismDatabaseResidueFiles(): List<File> {
+        val appFlutterDir = File(applicationInfo.dataDir, "app_flutter")
+        return listOf("prism.db", "prism_sync.db").flatMap { name ->
+            listOf(
+                File(appFlutterDir, name),
+                File(appFlutterDir, "$name-wal"),
+                File(appFlutterDir, "$name-shm"),
+            )
+        }
+    }
+
     private fun collectPrismResetKeyPresence(): Map<String, Any> {
         val out = HashMap<String, Any>()
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -918,12 +993,18 @@ class MainActivity : FlutterFragmentActivity() {
         out["android_keystore_aliases"] = aliases
 
         val prefs = HashMap<String, Boolean>()
+        val prefEntryCounts = HashMap<String, Int>()
+        val prefFiles = HashMap<String, Boolean>()
+        val prefsDir = File(applicationInfo.dataDir, "shared_prefs")
         for (name in flutterSecureStoragePreferenceNames()) {
-            prefs[name] = getSharedPreferences(name, Context.MODE_PRIVATE)
-                .all
-                .isNotEmpty()
+            val entries = getSharedPreferences(name, Context.MODE_PRIVATE).all
+            prefs[name] = entries.isNotEmpty()
+            prefEntryCounts[name] = entries.size
+            prefFiles[name] = File(prefsDir, "$name.xml").exists()
         }
         out["flutter_secure_storage_preferences"] = prefs
+        out["flutter_secure_storage_preference_entry_counts"] = prefEntryCounts
+        out["flutter_secure_storage_preference_files"] = prefFiles
         return out
     }
 

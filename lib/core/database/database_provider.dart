@@ -170,8 +170,7 @@ Future<DbStartupReport> probeAppDatabaseStartup({
     for (var i = 0; i < 32; i++) {
       bytes[i] = rng.nextInt(256);
     }
-    final newKey =
-        bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    final newKey = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
 
     // Fresh install: keychain_repair_pending should be false at this point,
     // so the guarded writer passes through. We supply no verifiedStartupKey
@@ -182,8 +181,7 @@ Future<DbStartupReport> probeAppDatabaseStartup({
     try {
       writeResult = await writeDatabaseKeyHex(newKey);
     } on StateError catch (e) {
-      slotOutcomes[DiagnosticSlotIds.appDbFresh] =
-          slotOutcomeThrewString(e);
+      slotOutcomes[DiagnosticSlotIds.appDbFresh] = slotOutcomeThrewString(e);
       await service.updateSlot('appDbKey', SlotState.unreadable);
       return DbStartupReport(
         state: DbStartupState.unrecoverable,
@@ -248,8 +246,9 @@ Future<DbStartupReport> probeAppDatabaseStartup({
       );
     }
   } else {
-    slotOutcomes[DiagnosticSlotIds.appDbPrimaryStaging] =
-        slotOutcomeName(stagingRead.outcome);
+    slotOutcomes[DiagnosticSlotIds.appDbPrimaryStaging] = slotOutcomeName(
+      stagingRead.outcome,
+    );
   }
 
   // ── 3. Primary slot ────────────────────────────────────────────────────
@@ -278,8 +277,9 @@ Future<DbStartupReport> probeAppDatabaseStartup({
       '— falling through to sync candidates',
     );
   } else {
-    slotOutcomes[DiagnosticSlotIds.appDbPrimary] =
-        slotOutcomeName(primaryRead.outcome);
+    slotOutcomes[DiagnosticSlotIds.appDbPrimary] = slotOutcomeName(
+      primaryRead.outcome,
+    );
   }
 
   // ── 4. Sync primary slot ───────────────────────────────────────────────
@@ -305,8 +305,9 @@ Future<DbStartupReport> probeAppDatabaseStartup({
     }
     slotOutcomes[DiagnosticSlotIds.appDbSync] = 'threw: present-but-stale';
   } else {
-    slotOutcomes[DiagnosticSlotIds.appDbSync] =
-        slotOutcomeName(syncRead.outcome);
+    slotOutcomes[DiagnosticSlotIds.appDbSync] = slotOutcomeName(
+      syncRead.outcome,
+    );
   }
 
   // ── 5. Sync staging slot ───────────────────────────────────────────────
@@ -335,8 +336,9 @@ Future<DbStartupReport> probeAppDatabaseStartup({
     slotOutcomes[DiagnosticSlotIds.appDbSyncStaging] =
         'threw: present-but-stale';
   } else {
-    slotOutcomes[DiagnosticSlotIds.appDbSyncStaging] =
-        slotOutcomeName(syncStagingRead.outcome);
+    slotOutcomes[DiagnosticSlotIds.appDbSyncStaging] = slotOutcomeName(
+      syncStagingRead.outcome,
+    );
   }
 
   // ── 6. Unrecoverable ───────────────────────────────────────────────────
@@ -365,9 +367,7 @@ Future<DbStartupReport> probeAppDatabaseStartup({
 ///
 /// On success: clears the flag.
 /// On failure: leaves the flag set so the next boot retries. Never throws.
-Future<void> attemptKeychainRepairWriteback(
-  String verifiedStartupKey,
-) async {
+Future<void> attemptKeychainRepairWriteback(String verifiedStartupKey) async {
   final pending = await isKeychainRepairPending();
   if (!pending) return;
 
@@ -394,6 +394,85 @@ Future<void> attemptKeychainRepairWriteback(
       'boot: $e\n$st',
     );
   }
+}
+
+/// Outcome of [repairPrimaryDatabaseKeyFromVerifiedMemory].
+enum PrimaryDatabaseKeyRepairOutcome {
+  alreadyHealthy,
+  repaired,
+  skippedNoVerifiedKey,
+  skippedInvalidVerifiedKey,
+  skippedNoDatabase,
+  skippedVerifiedKeyDoesNotOpenDb,
+  writeFailed,
+}
+
+/// Opportunistically repair the primary app-DB key slot from the key that
+/// already opened `prism.db` during this process.
+///
+/// This is intentionally conservative. It never generates a key and never
+/// trusts process memory by itself: before writing, it proves
+/// [verifiedStartupKey] still opens the on-disk database. That lets a live
+/// session heal a missing/stale secure-storage slot before a later cold start,
+/// without risking a divergent key write.
+Future<PrimaryDatabaseKeyRepairOutcome>
+repairPrimaryDatabaseKeyFromVerifiedMemory(
+  String? verifiedStartupKey, {
+  Directory? directory,
+  KeychainDegradedStateService? degradedStateService,
+}) async {
+  if (verifiedStartupKey == null) {
+    return PrimaryDatabaseKeyRepairOutcome.skippedNoVerifiedKey;
+  }
+  if (!validateHexKey(verifiedStartupKey)) {
+    return PrimaryDatabaseKeyRepairOutcome.skippedInvalidVerifiedKey;
+  }
+
+  final file = await getDatabaseFile(directory: directory);
+  if (!file.existsSync()) {
+    return PrimaryDatabaseKeyRepairOutcome.skippedNoDatabase;
+  }
+
+  final service = degradedStateService ?? KeychainDegradedStateService();
+  final primaryRead = await readSlotForDiagnostic(
+    kDatabaseKeyStorageKey,
+    slotLabel: 'primary DB key (in-session repair probe)',
+  );
+
+  if (primaryRead.hex == verifiedStartupKey &&
+      tryOpenEncryptedDb(file.path, primaryRead.hex!)) {
+    await service.updateSlot('appDbKey', SlotState.ok);
+    return PrimaryDatabaseKeyRepairOutcome.alreadyHealthy;
+  }
+
+  if (!tryOpenEncryptedDb(file.path, verifiedStartupKey)) {
+    debugPrint(
+      '[DB_PROVIDER] In-session DB-key repair skipped — verifiedStartupKey '
+      'does not open current prism.db',
+    );
+    return PrimaryDatabaseKeyRepairOutcome.skippedVerifiedKeyDoesNotOpenDb;
+  }
+
+  final write = await writeDatabaseKeyHex(
+    verifiedStartupKey,
+    verifiedStartupKey: verifiedStartupKey,
+  );
+  if (!write.ok) {
+    debugPrint(
+      '[DB_PROVIDER] In-session DB-key repair write failed '
+      '(failure=${write.failure?.name}, code=${write.code}, '
+      'message=${write.message})',
+    );
+    await service.updateSlot('appDbKey', SlotState.unreadable);
+    return PrimaryDatabaseKeyRepairOutcome.writeFailed;
+  }
+
+  await service.updateSlot('appDbKey', SlotState.ok);
+  if (await isKeychainRepairPending()) {
+    await setKeychainRepairPending(false);
+  }
+  debugPrint('[DB_PROVIDER] In-session DB-key repair wrote primary slot');
+  return PrimaryDatabaseKeyRepairOutcome.repaired;
 }
 
 // ---------------------------------------------------------------------------

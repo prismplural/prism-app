@@ -687,10 +687,19 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     if (ref.read(resetIsAndroidProvider)) {
       await _resetSyncSystem();
       await _clearFullResetFlowState();
+      final db = ref.read(databaseProvider);
       try {
-        await ref
+        final result = await ref
             .read(fullResetServiceProvider)
-            .startAndroidClearApplicationData();
+            .startAndroidClearApplicationData(openDatabase: db);
+        if (result ==
+            AndroidApplicationDataClearResult.manualFallbackCompleted) {
+          ref.invalidate(databaseProvider);
+          ref.invalidate(systemSettingsRepositoryProvider);
+          ref.invalidate(pluralKitSyncProvider);
+          ref.invalidate(quarantinedItemsProvider);
+          _log('Completed full app reset via Android local-wipe fallback');
+        }
       } catch (e) {
         _log(
           'Android OS app-data clear was rejected; falling back to local full reset: $e',

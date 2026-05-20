@@ -1009,9 +1009,6 @@ void main() {
           isAndroidOverride: true,
         );
         addTearDown(harness.dispose);
-        harness.nativeResetKeys.onDeleteKnownKeys = () {
-          orderLog.add('deleteKnownKeys');
-        };
         harness.nativeResetKeys.onClearApplicationUserData = () {
           orderLog.add('clearApplicationUserData');
         };
@@ -1033,7 +1030,7 @@ void main() {
         await harness.reset(ResetCategory.all);
 
         expect(recordingFfi.calls, contains('deregisterDevice'));
-        expect(harness.nativeResetKeys.deleteKnownKeysCalls, 1);
+        expect(harness.nativeResetKeys.deleteKnownKeysCalls, 0);
         expect(harness.nativeResetKeys.clearApplicationUserDataCalls, 1);
         expect(
           orderLog.indexOf('deregister'),
@@ -1044,10 +1041,6 @@ void main() {
         );
         expect(
           orderLog.indexOf('dispose'),
-          lessThan(orderLog.indexOf('clearApplicationUserData')),
-        );
-        expect(
-          orderLog.indexOf('deleteKnownKeys'),
           lessThan(orderLog.indexOf('clearApplicationUserData')),
         );
       },
@@ -1907,7 +1900,7 @@ class _FakeNativeResetKeys implements NativeResetKeys {
   void Function()? onClearApplicationUserData;
 
   @override
-  Future<void> deleteKnownKeys() async {
+  Future<void> deleteKnownKeys({bool force = false}) async {
     deleteKnownKeysCalls += 1;
     onDeleteKnownKeys?.call();
     hasKeys = false;

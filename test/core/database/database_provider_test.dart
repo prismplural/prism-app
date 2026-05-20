@@ -29,42 +29,42 @@ class _SecureStorageStub {
     TestWidgetsFlutterBinding.ensureInitialized();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      (MethodCall call) async {
-        switch (call.method) {
-          case 'write':
-            final key = call.arguments['key'] as String;
-            final value = call.arguments['value'] as String?;
-            store[key] = value;
-            return null;
-          case 'read':
-            final key = call.arguments['key'] as String;
-            readCalls[key] = (readCalls[key] ?? 0) + 1;
-            final queue = throwOnReadKeyQueue[key];
-            if (queue != null && queue.isNotEmpty) {
-              throw queue.removeAt(0);
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          (MethodCall call) async {
+            switch (call.method) {
+              case 'write':
+                final key = call.arguments['key'] as String;
+                final value = call.arguments['value'] as String?;
+                store[key] = value;
+                return null;
+              case 'read':
+                final key = call.arguments['key'] as String;
+                readCalls[key] = (readCalls[key] ?? 0) + 1;
+                final queue = throwOnReadKeyQueue[key];
+                if (queue != null && queue.isNotEmpty) {
+                  throw queue.removeAt(0);
+                }
+                return store[key];
+              case 'delete':
+                final key = call.arguments['key'] as String;
+                store.remove(key);
+                return null;
+              case 'containsKey':
+                final key = call.arguments['key'] as String;
+                return store.containsKey(key);
+              default:
+                return null;
             }
-            return store[key];
-          case 'delete':
-            final key = call.arguments['key'] as String;
-            store.remove(key);
-            return null;
-          case 'containsKey':
-            final key = call.arguments['key'] as String;
-            return store.containsKey(key);
-          default:
-            return null;
-        }
-      },
-    );
+          },
+        );
   }
 
   void teardown() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      null,
-    );
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          null,
+        );
     store.clear();
     readCalls.clear();
     throwOnReadKeyQueue.clear();
@@ -72,12 +72,12 @@ class _SecureStorageStub {
 }
 
 PlatformException _cipherException() => PlatformException(
-      code: 'Exception encountered',
-      message: 'error:1e000065:Cipher functions:OPENSSL_internal:BAD_DECRYPT',
-      details:
-          'javax.crypto.AEADBadTagException: Error while decrypting\n\tat '
-          'com.it_nomads.fluttersecurestorage.FlutterSecureStorage.read(FlutterSecureStorage.java:200)',
-    );
+  code: 'Exception encountered',
+  message: 'error:1e000065:Cipher functions:OPENSSL_internal:BAD_DECRYPT',
+  details:
+      'javax.crypto.AEADBadTagException: Error while decrypting\n\tat '
+      'com.it_nomads.fluttersecurestorage.FlutterSecureStorage.read(FlutterSecureStorage.java:200)',
+);
 
 /// Generate a deterministic 64-char lowercase hex key for tests.
 String _hexKeyForByte(int fill) => fill.toRadixString(16).padLeft(2, '0') * 32;
@@ -127,36 +127,63 @@ void main() {
       storageStub.teardown();
     });
 
-    test('fresh install — no prism.db on disk generates and persists a key',
-        () async {
-      final random = _SequentialRandom();
+    test(
+      'fresh install — no prism.db on disk generates and persists a key',
+      () async {
+        final random = _SequentialRandom();
 
-      final report = await probeAppDatabaseStartup(
-        directory: tempDir,
-        degradedStateService: degradedStateService,
-        random: random,
-      );
+        final report = await probeAppDatabaseStartup(
+          directory: tempDir,
+          degradedStateService: degradedStateService,
+          random: random,
+        );
 
-      expect(report.state, DbStartupState.ready);
-      expect(report.usedRecoverySlot, 'fresh');
-      expect(report.keyInMemory, isNotNull);
-      expect(report.keyInMemory!.length, 64);
-      // Validates lowercase hex format.
-      expect(RegExp(r'^[0-9a-f]{64}$').hasMatch(report.keyInMemory!), isTrue);
+        expect(report.state, DbStartupState.ready);
+        expect(report.usedRecoverySlot, 'fresh');
+        expect(report.keyInMemory, isNotNull);
+        expect(report.keyInMemory!.length, 64);
+        // Validates lowercase hex format.
+        expect(RegExp(r'^[0-9a-f]{64}$').hasMatch(report.keyInMemory!), isTrue);
 
-      // Key persisted via the guarded writer to the primary slot.
-      expect(
-        storageStub.store[kDatabaseKeyStorageKey],
-        equals(report.keyInMemory),
-      );
+        // Key persisted via the guarded writer to the primary slot.
+        expect(
+          storageStub.store[kDatabaseKeyStorageKey],
+          equals(report.keyInMemory),
+        );
 
-      // Repair flag is NOT set on fresh install.
-      expect(await isKeychainRepairPending(), isFalse);
+        // Repair flag is NOT set on fresh install.
+        expect(await isKeychainRepairPending(), isFalse);
 
-      // Degraded state reflects healthy app DB key slot.
-      final state = await degradedStateService.read();
-      expect(state.appDbKey, SlotState.ok);
-    });
+        // Degraded state reflects healthy app DB key slot.
+        final state = await degradedStateService.read();
+        expect(state.appDbKey, SlotState.ok);
+      },
+    );
+
+    test(
+      'fresh install refuses to continue when key write does not verify',
+      () async {
+        storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
+          _cipherException(),
+        ];
+
+        final report = await probeAppDatabaseStartup(
+          directory: tempDir,
+          degradedStateService: degradedStateService,
+          random: _SequentialRandom(),
+        );
+
+        expect(report.state, DbStartupState.unrecoverable);
+        expect(report.keyInMemory, isNull);
+        expect(report.usedRecoverySlot, isNull);
+        expect(
+          report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbFresh],
+          contains('write-failed (cipher)'),
+        );
+        final state = await degradedStateService.read();
+        expect(state.appDbKey, SlotState.unreadable);
+      },
+    );
 
     test('ready via primary slot — valid key opens the on-disk DB', () async {
       final hex = _hexKeyForByte(0xab);
@@ -299,10 +326,7 @@ void main() {
         report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbPrimary],
         'ok',
       );
-      expect(
-        report.diagnostic!.appDbState,
-        DbStartupStateName.ready,
-      );
+      expect(report.diagnostic!.appDbState, DbStartupStateName.ready);
 
       final json = report.diagnostic!.toJson();
       expect(json['recovered_via'], 'primary');
@@ -322,10 +346,7 @@ void main() {
         degradedStateService: degradedStateService,
       );
 
-      expect(
-        report.diagnostic!.keychainDegradedStateSnapshot,
-        isNotNull,
-      );
+      expect(report.diagnostic!.keychainDegradedStateSnapshot, isNotNull);
       // Probe set appDbKey to ok on success.
       expect(
         report.diagnostic!.keychainDegradedStateSnapshot!.appDbKey,
@@ -359,38 +380,150 @@ void main() {
       );
     });
 
-    test('diagnostic records missing outcomes on a fully empty keychain',
-        () async {
-      // DB file exists but no keys are present — every slot reads
-      // `missing`. The probe should land on unrecoverable with an
-      // unrecoverable app_db_state.
-      final hex = _hexKeyForByte(0x6c);
-      final dbPath = '${tempDir.path}/prism.db';
-      _createEncryptedDb(dbPath, hex);
+    test(
+      'diagnostic records missing outcomes on a fully empty keychain',
+      () async {
+        // DB file exists but no keys are present — every slot reads
+        // `missing`. The probe should land on unrecoverable with an
+        // unrecoverable app_db_state.
+        final hex = _hexKeyForByte(0x6c);
+        final dbPath = '${tempDir.path}/prism.db';
+        _createEncryptedDb(dbPath, hex);
 
-      final report = await probeAppDatabaseStartup(
+        final report = await probeAppDatabaseStartup(
+          directory: tempDir,
+          degradedStateService: degradedStateService,
+        );
+
+        expect(report.state, DbStartupState.unrecoverable);
+        expect(report.diagnostic!.recoveredVia, isNull);
+        expect(report.diagnostic!.appDbState, DbStartupStateName.unrecoverable);
+        expect(
+          report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbPrimary],
+          'missing',
+        );
+        expect(
+          report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbSync],
+          'missing',
+        );
+        expect(
+          report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbSyncStaging],
+          'missing',
+        );
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // repairPrimaryDatabaseKeyFromVerifiedMemory
+  // ---------------------------------------------------------------------------
+
+  group('repairPrimaryDatabaseKeyFromVerifiedMemory', () {
+    late Directory tempDir;
+    late _SecureStorageStub storageStub;
+    late KeychainDegradedStateService degradedStateService;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('prism_db_repair_test_');
+      storageStub = _SecureStorageStub()..setup();
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      degradedStateService = KeychainDegradedStateService();
+    });
+
+    tearDown(() {
+      if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      storageStub.teardown();
+    });
+
+    test(
+      'repairs a missing primary slot when verified key opens the DB',
+      () async {
+        final hex = _hexKeyForByte(0xa1);
+        _createEncryptedDb('${tempDir.path}/prism.db', hex);
+
+        final outcome = await repairPrimaryDatabaseKeyFromVerifiedMemory(
+          hex,
+          directory: tempDir,
+          degradedStateService: degradedStateService,
+        );
+
+        expect(outcome, PrimaryDatabaseKeyRepairOutcome.repaired);
+        expect(storageStub.store[kDatabaseKeyStorageKey], hex);
+        expect((await degradedStateService.read()).appDbKey, SlotState.ok);
+      },
+    );
+
+    test('repairs a stale primary slot only after DB verification', () async {
+      final hex = _hexKeyForByte(0xa2);
+      final staleHex = _hexKeyForByte(0xb2);
+      _createEncryptedDb('${tempDir.path}/prism.db', hex);
+      storageStub.store[kDatabaseKeyStorageKey] = staleHex;
+      await setKeychainRepairPending(true);
+
+      final outcome = await repairPrimaryDatabaseKeyFromVerifiedMemory(
+        hex,
         directory: tempDir,
         degradedStateService: degradedStateService,
       );
 
-      expect(report.state, DbStartupState.unrecoverable);
-      expect(report.diagnostic!.recoveredVia, isNull);
+      expect(outcome, PrimaryDatabaseKeyRepairOutcome.repaired);
+      expect(storageStub.store[kDatabaseKeyStorageKey], hex);
+      expect(await isKeychainRepairPending(), isFalse);
+    });
+
+    test('does not overwrite when verified key does not open the DB', () async {
+      final realHex = _hexKeyForByte(0xa3);
+      final wrongHex = _hexKeyForByte(0xb3);
+      final existingHex = _hexKeyForByte(0xc3);
+      _createEncryptedDb('${tempDir.path}/prism.db', realHex);
+      storageStub.store[kDatabaseKeyStorageKey] = existingHex;
+
+      final outcome = await repairPrimaryDatabaseKeyFromVerifiedMemory(
+        wrongHex,
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
       expect(
-        report.diagnostic!.appDbState,
-        DbStartupStateName.unrecoverable,
+        outcome,
+        PrimaryDatabaseKeyRepairOutcome.skippedVerifiedKeyDoesNotOpenDb,
+      );
+      expect(storageStub.store[kDatabaseKeyStorageKey], existingHex);
+    });
+
+    test('no-ops when primary slot is already healthy', () async {
+      final hex = _hexKeyForByte(0xa4);
+      _createEncryptedDb('${tempDir.path}/prism.db', hex);
+      storageStub.store[kDatabaseKeyStorageKey] = hex;
+
+      final outcome = await repairPrimaryDatabaseKeyFromVerifiedMemory(
+        hex,
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+      );
+
+      expect(outcome, PrimaryDatabaseKeyRepairOutcome.alreadyHealthy);
+      expect(storageStub.store[kDatabaseKeyStorageKey], hex);
+    });
+
+    test('skips invalid or absent inputs without writing', () async {
+      expect(
+        await repairPrimaryDatabaseKeyFromVerifiedMemory(
+          null,
+          directory: tempDir,
+          degradedStateService: degradedStateService,
+        ),
+        PrimaryDatabaseKeyRepairOutcome.skippedNoVerifiedKey,
       );
       expect(
-        report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbPrimary],
-        'missing',
+        await repairPrimaryDatabaseKeyFromVerifiedMemory(
+          'not-a-key',
+          directory: tempDir,
+          degradedStateService: degradedStateService,
+        ),
+        PrimaryDatabaseKeyRepairOutcome.skippedInvalidVerifiedKey,
       );
-      expect(
-        report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbSync],
-        'missing',
-      );
-      expect(
-        report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbSyncStaging],
-        'missing',
-      );
+      expect(storageStub.store.containsKey(kDatabaseKeyStorageKey), isFalse);
     });
   });
 
@@ -432,28 +565,30 @@ void main() {
       expect(await isKeychainRepairPending(), isFalse);
     });
 
-    test('keeps flag and does not throw when guard refuses divergent value',
-        () async {
-      final hex = _hexKeyForByte(0xde);
-      final otherHex = _hexKeyForByte(0xf0);
+    test(
+      'keeps flag and does not throw when guard refuses divergent value',
+      () async {
+        final hex = _hexKeyForByte(0xde);
+        final otherHex = _hexKeyForByte(0xf0);
 
-      await setKeychainRepairPending(true);
-      // Seed the primary slot with a divergent value the guarded writer
-      // would reject. Note that the writeback ALWAYS passes hex as both the
-      // value and verifiedStartupKey, so the guard accepts and writes —
-      // that's the intended self-heal contract. Force a failure by mocking
-      // the write to throw a PlatformException? We can't easily here; instead
-      // verify that even with divergent pre-existing data, the writeback
-      // does its job: hex == verifiedStartupKey → writes succeed.
-      storageStub.store[kDatabaseKeyStorageKey] = otherHex;
+        await setKeychainRepairPending(true);
+        // Seed the primary slot with a divergent value the guarded writer
+        // would reject. Note that the writeback ALWAYS passes hex as both the
+        // value and verifiedStartupKey, so the guard accepts and writes —
+        // that's the intended self-heal contract. Force a failure by mocking
+        // the write to throw a PlatformException? We can't easily here; instead
+        // verify that even with divergent pre-existing data, the writeback
+        // does its job: hex == verifiedStartupKey → writes succeed.
+        storageStub.store[kDatabaseKeyStorageKey] = otherHex;
 
-      await attemptKeychainRepairWriteback(hex);
+        await attemptKeychainRepairWriteback(hex);
 
-      // Write succeeded → flag cleared, primary slot now holds the verified
-      // key.
-      expect(storageStub.store[kDatabaseKeyStorageKey], equals(hex));
-      expect(await isKeychainRepairPending(), isFalse);
-    });
+        // Write succeeded → flag cleared, primary slot now holds the verified
+        // key.
+        expect(storageStub.store[kDatabaseKeyStorageKey], equals(hex));
+        expect(await isKeychainRepairPending(), isFalse);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -461,20 +596,22 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('databaseProvider', () {
-    test('throws StateError when verifiedStartupKeyProvider is not overridden',
-        () {
-      // The default provider declared in database_encryption.dart throws
-      // UnimplementedError; databaseProvider reading it surfaces that as a
-      // synchronous throw on first read.
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+    test(
+      'throws StateError when verifiedStartupKeyProvider is not overridden',
+      () {
+        // The default provider declared in database_encryption.dart throws
+        // UnimplementedError; databaseProvider reading it surfaces that as a
+        // synchronous throw on first read.
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
 
-      // Riverpod wraps the throw in a ProviderException; either an
-      // UnimplementedError or our StateError reaches the caller — both are
-      // acceptable "not wired up" signals. We just need to confirm reading
-      // does throw.
-      expect(() => container.read(databaseProvider), throwsA(anything));
-    });
+        // Riverpod wraps the throw in a ProviderException; either an
+        // UnimplementedError or our StateError reaches the caller — both are
+        // acceptable "not wired up" signals. We just need to confirm reading
+        // does throw.
+        expect(() => container.read(databaseProvider), throwsA(anything));
+      },
+    );
 
     // Note: We don't construct a real AppDatabase here because that would
     // require initializing sqlite3 + path_provider + Drift's worker isolate
@@ -485,9 +622,9 @@ void main() {
     // construction proceed without immediately throwing.
     test('reads from verifiedStartupKeyProvider when overridden', () {
       final hex = _hexKeyForByte(0x21);
-      final container = ProviderContainer(overrides: [
-        verifiedStartupKeyProvider.overrideWithValue(hex),
-      ]);
+      final container = ProviderContainer(
+        overrides: [verifiedStartupKeyProvider.overrideWithValue(hex)],
+      );
       addTearDown(container.dispose);
 
       // Construction is lazy inside LazyDatabase — the provider returns an
@@ -503,9 +640,9 @@ void main() {
       // throw the StateError. Riverpod wraps either as a
       // ProviderException — `throwsA(anything)` is sufficient here; the
       // contract is "loud failure, not silent null DB key".
-      final container = ProviderContainer(overrides: [
-        verifiedStartupKeyProvider.overrideWithValue(null),
-      ]);
+      final container = ProviderContainer(
+        overrides: [verifiedStartupKeyProvider.overrideWithValue(null)],
+      );
       addTearDown(container.dispose);
 
       expect(() => container.read(databaseProvider), throwsA(anything));

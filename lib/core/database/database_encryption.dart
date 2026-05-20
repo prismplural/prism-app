@@ -397,7 +397,7 @@ Future<SecureWriteResult> writeDatabaseKeyHex(
     hex: hex,
     verifiedStartupKey: verifiedStartupKey,
   );
-  return safeSecureWrite(kDatabaseKeyStorageKey, hex);
+  return safeSecureWriteVerified(kDatabaseKeyStorageKey, hex);
 }
 
 /// Write [hex] into the primary sync DB key slot, gated by the keychain
@@ -412,7 +412,7 @@ Future<SecureWriteResult> writeSyncDatabaseKeyHex(
     hex: hex,
     verifiedStartupKey: verifiedStartupKey,
   );
-  return safeSecureWrite(kSyncDatabaseKeyStorageKey, hex);
+  return safeSecureWriteVerified(kSyncDatabaseKeyStorageKey, hex);
 }
 
 /// Write [hex] into the staging Drift DB key slot. Refused entirely while
@@ -420,14 +420,14 @@ Future<SecureWriteResult> writeSyncDatabaseKeyHex(
 /// keys when the user's primary slot is suspect.
 Future<SecureWriteResult> writeStagingDatabaseKeyHex(String hex) async {
   await _guardStagingWrite('primary DB staging key');
-  return safeSecureWrite('${kDatabaseKeyStorageKey}_staging', hex);
+  return safeSecureWriteVerified('${kDatabaseKeyStorageKey}_staging', hex);
 }
 
 /// Write [hex] into the staging sync DB key slot. See
 /// [writeStagingDatabaseKeyHex].
 Future<SecureWriteResult> writeStagingSyncDatabaseKeyHex(String hex) async {
   await _guardStagingWrite('sync DB staging key');
-  return safeSecureWrite('${kSyncDatabaseKeyStorageKey}_staging', hex);
+  return safeSecureWriteVerified('${kSyncDatabaseKeyStorageKey}_staging', hex);
 }
 
 void _requireSecureWriteOk(SecureWriteResult result, String operation) {

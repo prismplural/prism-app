@@ -988,19 +988,32 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // persisting. The post-bootstrap catch-up below does drain again because
     // `syncNow` can recover a missed epoch key or refresh secure-store state.
     //
+    // From here on, the snapshot has been imported and applied locally. These
+    // finishing steps improve startup/sync continuity, but they must not turn
+    // a restored device back into snapshotFailure and strand it in onboarding.
+    var syncIncomplete = false;
+
     // Defensively ensure relay_url and sync_id are written under the keys
     // that relayUrlProvider / syncIdProvider read from. The post-ceremony
     // drainRustStore should already cover these; these writes are a
     // final fallback for older code paths.
-    const storage = secureStorage;
-    final syncId = await storage.read(key: kSyncIdKey);
-    final storedRelay = await storage.read(key: kSyncRelayUrlKey);
+    final syncId = (await safeSecureRead(kSyncIdKey)).value;
+    final storedRelay = (await safeSecureRead(kSyncRelayUrlKey)).value;
     final relayUrl = _pairingRelayUrl ?? AppConstants.defaultRelayUrl;
     if (storedRelay == null || storedRelay.isEmpty) {
-      await storage.write(
-        key: kSyncRelayUrlKey,
-        value: base64Encode(utf8.encode(relayUrl)),
+      final relayWrite = await safeSecureWrite(
+        kSyncRelayUrlKey,
+        base64Encode(utf8.encode(relayUrl)),
       );
+      if (!relayWrite.ok) {
+        syncIncomplete = true;
+        ErrorReportingService.instance.report(
+          'Fallback relay_url secure-storage write failed after pairing '
+          '(failure=${relayWrite.failure?.name ?? 'unknown'}, '
+          'code=${relayWrite.code}, message=${relayWrite.message})',
+          severity: ErrorSeverity.warning,
+        );
+      }
     }
     if (syncId == null || syncId.isEmpty) {
       // sync_id wasn't populated by drainRustStore — this shouldn't
@@ -1012,11 +1025,6 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     ref.invalidate(syncDeviceIdProvider);
     ref.invalidate(syncDeviceSecretPresentProvider);
     ref.invalidate(syncWrappedDekPresentProvider);
-
-    // From here on, the snapshot has been imported and applied locally. These
-    // finishing steps improve startup/sync continuity, but they must not turn
-    // a restored device back into snapshotFailure and strand it in onboarding.
-    var syncIncomplete = false;
 
     // Cache a device-bound wrapped DEK so launches bypass Argon2id. Non-fatal:
     // if the cache write fails, the next launch can still recover through the

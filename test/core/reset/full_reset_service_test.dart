@@ -430,6 +430,86 @@ void main() {
   });
 
   test(
+    'startAndroidClearApplicationData asks Android before clearing native keys',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'prism-android-clear-accepted-test-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final nativeKeys = _FakeNativeResetKeys()..hasKeys = true;
+      final service = FullResetService(
+        secureStore: _FakeFullResetSecureStore(),
+        nativeResetKeys: nativeKeys,
+        appDataDirectory: () async => tempDir,
+        temporaryDirectory: () async => tempDir,
+        mediaCacheDirectory: () async =>
+            Directory(p.join(tempDir.path, 'none')),
+      );
+
+      final result = await service.startAndroidClearApplicationData();
+
+      expect(result, AndroidApplicationDataClearResult.osAccepted);
+      expect(nativeKeys.clearApplicationUserDataCalls, 1);
+      expect(nativeKeys.deleteKnownKeysCalls, 0);
+      expect(nativeKeys.hasKeys, isTrue);
+    },
+  );
+
+  test(
+    'startAndroidClearApplicationData fallback deletes databases before native keys',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'prism-android-clear-fallback-test-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final appDb = File(p.join(tempDir.path, 'prism.db'));
+      final syncDb = File(p.join(tempDir.path, AppConstants.syncDatabaseName));
+      await appDb.writeAsString('db');
+      await syncDb.writeAsString('sync-db');
+
+      final secureStore = _FakeFullResetSecureStore()
+        ..values['prism_sync.database_key'] = 'secret';
+      final nativeKeys = _FakeNativeResetKeys()
+        ..hasKeys = true
+        ..clearApplicationUserDataResult = false
+        ..onDeleteKnownKeys = () {
+          expect(appDb.existsSync(), isFalse);
+          expect(syncDb.existsSync(), isFalse);
+        };
+      final service = FullResetService(
+        secureStore: secureStore,
+        nativeResetKeys: nativeKeys,
+        appDataDirectory: () async => tempDir,
+        temporaryDirectory: () async => tempDir,
+        mediaCacheDirectory: () async =>
+            Directory(p.join(tempDir.path, 'none')),
+        clearMediaCache: () async {},
+      );
+
+      final result = await service.startAndroidClearApplicationData();
+
+      expect(result, AndroidApplicationDataClearResult.manualFallbackCompleted);
+      expect(nativeKeys.clearApplicationUserDataCalls, 1);
+      expect(nativeKeys.deleteKnownKeysCalls, 1);
+      expect(secureStore.values, isEmpty);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
+      expect(prefs.getBool(kFullResetRestartRequiredKey), isTrue);
+    },
+  );
+
+  test(
     'fresh install guard clears restart-required flag on next launch',
     () async {
       SharedPreferences.setMockInitialValues({
@@ -713,8 +793,7 @@ void main() {
       expect(decision.report.hasResidue, isFalse);
     });
 
-    test('keychainUnreadable mode is reachable and carries the diagnostic',
-        () {
+    test('keychainUnreadable mode is reachable and carries the diagnostic', () {
       final diag = SecureStorageDiagnostic(
         recoveredVia: null,
         slotOutcomes: const <String, String>{'primary': 'cipher'},
@@ -785,12 +864,18 @@ class _FakeFullResetSecureStore implements FullResetSecureStore {
 
 class _FakeNativeResetKeys implements NativeResetKeys {
   int deleteKnownKeysCalls = 0;
+  int clearApplicationUserDataCalls = 0;
   bool hasKeys = false;
   bool throwOnDeleteKnownKeys = false;
+  bool clearApplicationUserDataResult = true;
+  bool throwOnClearApplicationUserData = false;
+  void Function()? onDeleteKnownKeys;
+  void Function()? onClearApplicationUserData;
 
   @override
-  Future<void> deleteKnownKeys() async {
+  Future<void> deleteKnownKeys({bool force = false}) async {
     deleteKnownKeysCalls += 1;
+    onDeleteKnownKeys?.call();
     if (throwOnDeleteKnownKeys) {
       throw StateError('native delete failed');
     }
@@ -801,7 +886,14 @@ class _FakeNativeResetKeys implements NativeResetKeys {
   Future<bool> hasKnownNativeKeys() async => hasKeys;
 
   @override
-  Future<bool> clearApplicationUserData() async => true;
+  Future<bool> clearApplicationUserData() async {
+    clearApplicationUserDataCalls += 1;
+    onClearApplicationUserData?.call();
+    if (throwOnClearApplicationUserData) {
+      throw StateError('clear data failed');
+    }
+    return clearApplicationUserDataResult;
+  }
 }
 
 class _ThrowingFullResetSecureStore implements FullResetSecureStore {
@@ -828,7 +920,7 @@ class _ThrowingNativeResetKeys implements NativeResetKeys {
   }
 
   @override
-  Future<void> deleteKnownKeys() async {
+  Future<void> deleteKnownKeys({bool force = false}) async {
     throw StateError('native delete failed');
   }
 

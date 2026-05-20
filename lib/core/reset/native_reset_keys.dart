@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 
 abstract interface class NativeResetKeys {
-  Future<void> deleteKnownKeys();
+  Future<void> deleteKnownKeys({bool force = false});
   Future<bool> hasKnownNativeKeys();
   Future<bool> clearApplicationUserData();
 }
@@ -19,9 +19,11 @@ class MethodChannelNativeResetKeys implements NativeResetKeys {
       Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
 
   @override
-  Future<void> deleteKnownKeys() async {
+  Future<void> deleteKnownKeys({bool force = false}) async {
     if (!_isSupported) return;
-    await _channel.invokeMethod<void>('deleteAllPrismResetKeys');
+    await _channel.invokeMethod<void>('deleteAllPrismResetKeys', {
+      'force': force,
+    });
   }
 
   @override

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -19,6 +20,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 ///   local database unrecoverable. (fss 10.0.0 flipped this default to
 ///   `true`; we explicitly opt back out.)
 ///
+/// - `migrateOnAlgorithmChange: true` — keep fss' explicit migration path
+///   enabled. FSS 10.2 treats missing algorithm markers as a legacy install;
+///   with migration disabled and `resetOnError: false`, a markerless fresh
+///   store can fail during initialization instead of writing current markers.
+///
 /// - `migrateWithBackup: true` — added in fss 10.1.0. When fss migrates
 ///   data between cipher algorithms (e.g. the deprecated
 ///   `AES_CBC_PKCS7Padding` → default `AES_GCM_NoPadding` path in 10.2.0),
@@ -30,7 +36,18 @@ const secureStorage = FlutterSecureStorage(
   iOptions: IOSOptions(
     accessibility: KeychainAccessibility.first_unlock_this_device,
   ),
-  aOptions: AndroidOptions(resetOnError: false, migrateWithBackup: true),
+  aOptions: AndroidOptions(
+    resetOnError: false,
+    migrateOnAlgorithmChange: true,
+    migrateWithBackup: true,
+    keyCipherAlgorithm:
+        KeyCipherAlgorithm.RSA_ECB_OAEPwithSHA_256andMGF1Padding,
+    storageCipherAlgorithm: StorageCipherAlgorithm.AES_GCM_NoPadding,
+  ),
+);
+
+const _nativeSecureStorageChannel = MethodChannel(
+  'com.prism.prism_plurality/runtime_dek_wrap',
 );
 
 // ---------------------------------------------------------------------------
@@ -152,13 +169,22 @@ class SecureStorageFaultInjector {
 /// `FlutterSecureStoragePlugin.java#handleException` — which forwards the
 /// underlying Java exception's `getMessage()` (and a full stack trace in
 /// `details`) for things like `javax.crypto.AEADBadTagException`,
-/// `BadPaddingException`, `InvalidKeyException`,
-/// `UnrecoverableKeyException`, and `KeyPermanentlyInvalidatedException`.
+/// `BadPaddingException`, `InvalidKeyException`, `IllegalBlockSizeException`,
+/// `UnrecoverableKeyException`, `NoSuchAlgorithmException`, and
+/// `KeyPermanentlyInvalidatedException`. Once fss initialization fails, later
+/// operations can also surface null-cipher `NullPointerException`s.
 const _kCipherSubstrings = <String>[
   'aeadbadtag',
   'badpadding',
   'bad_decrypt',
   'invalidkey',
+  'failed to unwrap key',
+  'illegalblocksize',
+  'migration failed after algorithm change',
+  'nosuchalgorithm',
+  'nullpointerexception',
+  'required cryptographic algorithm not supported',
+  'storagecipher',
   'unrecoverablekey',
   'keypermanentlyinvalidated',
 ];
@@ -382,6 +408,8 @@ Future<SecureWriteResult> safeSecureWrite(
     );
     if (injected != null) throw injected;
     await storage.write(key: key, value: value);
+    final commitFailure = await _commitAndroidSecureStoragePrefs();
+    if (commitFailure != null) return commitFailure;
     return const SecureWriteResult();
   } on PlatformException catch (e) {
     return SecureWriteResult(
@@ -389,6 +417,84 @@ Future<SecureWriteResult> safeSecureWrite(
       code: e.code,
       message: e.message,
     );
+  }
+}
+
+/// Write [value] and immediately verify the stored value can be read back.
+///
+/// This is used for DB encryption keys, where a write that only reaches
+/// Android's in-memory `SharedPreferences` cache can create an unrecoverable
+/// orphaned encrypted database if the process dies before the XML flush.
+Future<SecureWriteResult> safeSecureWriteVerified(
+  String key,
+  String value, {
+  FlutterSecureStorage storage = secureStorage,
+}) async {
+  final write = await safeSecureWrite(key, value, storage: storage);
+  if (!write.ok) return write;
+
+  final verify = await safeSecureRead(key, storage: storage);
+  if (!verify.ok) {
+    return SecureWriteResult(
+      failure: verify.failure,
+      code: verify.code,
+      message: verify.message,
+    );
+  }
+  if (verify.value != value) {
+    return const SecureWriteResult(
+      failure: SecureStorageFailure.unknown,
+      code: 'PrismSecureStorageVerifyMismatch',
+      message: 'Secure-storage write verification read back a different value',
+    );
+  }
+  return const SecureWriteResult();
+}
+
+Future<SecureWriteResult?> _commitAndroidSecureStoragePrefs() async {
+  if (kIsWeb || !Platform.isAndroid) return null;
+  try {
+    await _nativeSecureStorageChannel.invokeMethod<void>(
+      'commitFlutterSecureStorage',
+    );
+    return null;
+  } on PlatformException catch (e) {
+    return SecureWriteResult(
+      failure: classifySecureStorageError(e),
+      code: e.code,
+      message: e.message,
+    );
+  } on MissingPluginException catch (e) {
+    return SecureWriteResult(
+      failure: SecureStorageFailure.unknown,
+      code: 'MissingPluginException',
+      message: e.message,
+    );
+  }
+}
+
+/// Collect native secure-storage backend state for user-shareable diagnostics.
+///
+/// On Android this includes FlutterSecureStorage SharedPreferences namespace
+/// presence plus relevant Android Keystore aliases. On Apple platforms it
+/// reports the existing native reset-key presence map. Unsupported platforms
+/// return null so diagnostic JSON can distinguish "not available" from
+/// "probe failed".
+Future<Map<String, dynamic>?> collectNativeSecureStorageDiagnostics() async {
+  if (kIsWeb) return null;
+  final supported = Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+  if (!supported) return null;
+
+  try {
+    final raw = await _nativeSecureStorageChannel
+        .invokeMapMethod<String, dynamic>('hasPrismResetKeys');
+    return raw == null ? null : Map<String, dynamic>.from(raw);
+  } on MissingPluginException {
+    return null;
+  } on PlatformException catch (e) {
+    return <String, dynamic>{'error_code': e.code, 'error_message': e.message};
+  } catch (e) {
+    return <String, dynamic>{'error': e.toString()};
   }
 }
 

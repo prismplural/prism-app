@@ -44,15 +44,7 @@ import 'package:prism_plurality/core/services/keychain_degraded_state.dart';
 ///                   exception. The message is captured separately in
 ///                   [SecureStorageDiagnostic.slotOutcomes] via the
 ///                   serialized `threw: <message>` form.
-enum SlotOutcome {
-  ok,
-  cipher,
-  transient,
-  unknown,
-  missing,
-  invalidHex,
-  threw,
-}
+enum SlotOutcome { ok, cipher, transient, unknown, missing, invalidHex, threw }
 
 /// Canonical slot identifiers. The probe code populates these as
 /// strings in [SecureStorageDiagnostic.slotOutcomes]; consumers can
@@ -116,11 +108,13 @@ class SecureStorageDiagnostic {
     this.keychainRepairWritebackResult,
     this.keychainDegradedStateSnapshot,
     this.runtimeDekDeviceState,
+    this.secureStorageFullyEmpty,
+    this.nativeSecureStorageState,
     this.appBuild,
-  })  : capturedAt = capturedAt ?? DateTime.now().toUtc(),
-        slotOutcomes = Map<String, String>.unmodifiable(
-          slotOutcomes ?? const <String, String>{},
-        );
+  }) : capturedAt = capturedAt ?? DateTime.now().toUtc(),
+       slotOutcomes = Map<String, String>.unmodifiable(
+         slotOutcomes ?? const <String, String>{},
+       );
 
   /// Which slot ultimately produced the verified key, or null if the
   /// probe ran but did not recover. Values match the plan's enumeration:
@@ -167,6 +161,17 @@ class SecureStorageDiagnostic {
   /// missing.
   final Map<String, dynamic>? runtimeDekDeviceState;
 
+  /// True when a successful FlutterSecureStorage `readAll()` returned zero
+  /// entries at diagnostic capture time. False means at least one entry was
+  /// visible. Null means the `readAll()` probe itself failed.
+  final bool? secureStorageFullyEmpty;
+
+  /// Native secure-storage backend state. On Android this includes
+  /// FlutterSecureStorage SharedPreferences namespace presence and relevant
+  /// Android Keystore aliases. On Apple platforms this mirrors the native
+  /// reset-key presence probe.
+  final Map<String, dynamic>? nativeSecureStorageState;
+
   /// App build metadata. Keys (best-effort, all string values):
   ///   * `flavor`           — `'production'` for now; reserved for
   ///                          future flavor wiring.
@@ -192,6 +197,8 @@ class SecureStorageDiagnostic {
     KeychainRepairWritebackResult? keychainRepairWritebackResult,
     KeychainDegradedState? keychainDegradedStateSnapshot,
     Map<String, dynamic>? runtimeDekDeviceState,
+    bool? secureStorageFullyEmpty,
+    Map<String, dynamic>? nativeSecureStorageState,
     Map<String, String>? appBuild,
   }) {
     return SecureStorageDiagnostic(
@@ -200,17 +207,22 @@ class SecureStorageDiagnostic {
       slotOutcomes: slotOutcomes ?? this.slotOutcomes,
       appDbState: appDbState ?? this.appDbState,
       syncDbState: syncDbState ?? this.syncDbState,
-      keychainRepairPendingBeforeBoot: keychainRepairPendingBeforeBoot ??
+      keychainRepairPendingBeforeBoot:
+          keychainRepairPendingBeforeBoot ??
           this.keychainRepairPendingBeforeBoot,
       keychainRepairWritebackAttemptedThisBoot:
           keychainRepairWritebackAttemptedThisBoot ??
-              this.keychainRepairWritebackAttemptedThisBoot,
-      keychainRepairWritebackResult: keychainRepairWritebackResult ??
-          this.keychainRepairWritebackResult,
+          this.keychainRepairWritebackAttemptedThisBoot,
+      keychainRepairWritebackResult:
+          keychainRepairWritebackResult ?? this.keychainRepairWritebackResult,
       keychainDegradedStateSnapshot:
           keychainDegradedStateSnapshot ?? this.keychainDegradedStateSnapshot,
       runtimeDekDeviceState:
           runtimeDekDeviceState ?? this.runtimeDekDeviceState,
+      secureStorageFullyEmpty:
+          secureStorageFullyEmpty ?? this.secureStorageFullyEmpty,
+      nativeSecureStorageState:
+          nativeSecureStorageState ?? this.nativeSecureStorageState,
       appBuild: appBuild ?? this.appBuild,
     );
   }
@@ -219,29 +231,40 @@ class SecureStorageDiagnostic {
   /// the sync DB probe diagnostic. Slot outcomes are unioned; non-null
   /// fields from [other] take precedence; [other]'s [capturedAt] wins
   /// (we want the most recent capture point as the timestamp).
+  ///
+  /// [recoveredVia] is an app-DB recovery field in the user diagnostic.
+  /// When this diagnostic already contains an app DB probe result, preserve
+  /// that app value instead of letting a later sync probe's `'fresh'` mask
+  /// app DB data loss.
   SecureStorageDiagnostic mergeWith(SecureStorageDiagnostic other) {
     final merged = <String, String>{}
       ..addAll(slotOutcomes)
       ..addAll(other.slotOutcomes);
+    final mergedRecoveredVia = appDbState == null
+        ? (other.recoveredVia ?? recoveredVia)
+        : recoveredVia;
     return SecureStorageDiagnostic(
-      // recoveredVia is per-probe; preserve `other`'s value when it
-      // recovered, otherwise keep ours.
-      recoveredVia: other.recoveredVia ?? recoveredVia,
+      recoveredVia: mergedRecoveredVia,
       capturedAt: other.capturedAt,
       slotOutcomes: merged,
       appDbState: other.appDbState ?? appDbState,
       syncDbState: other.syncDbState ?? syncDbState,
-      keychainRepairPendingBeforeBoot: other.keychainRepairPendingBeforeBoot ??
+      keychainRepairPendingBeforeBoot:
+          other.keychainRepairPendingBeforeBoot ??
           keychainRepairPendingBeforeBoot,
       keychainRepairWritebackAttemptedThisBoot:
           other.keychainRepairWritebackAttemptedThisBoot ??
-              keychainRepairWritebackAttemptedThisBoot,
-      keychainRepairWritebackResult: other.keychainRepairWritebackResult ??
-          keychainRepairWritebackResult,
-      keychainDegradedStateSnapshot: other.keychainDegradedStateSnapshot ??
-          keychainDegradedStateSnapshot,
+          keychainRepairWritebackAttemptedThisBoot,
+      keychainRepairWritebackResult:
+          other.keychainRepairWritebackResult ?? keychainRepairWritebackResult,
+      keychainDegradedStateSnapshot:
+          other.keychainDegradedStateSnapshot ?? keychainDegradedStateSnapshot,
       runtimeDekDeviceState:
           other.runtimeDekDeviceState ?? runtimeDekDeviceState,
+      secureStorageFullyEmpty:
+          other.secureStorageFullyEmpty ?? secureStorageFullyEmpty,
+      nativeSecureStorageState:
+          other.nativeSecureStorageState ?? nativeSecureStorageState,
       appBuild: other.appBuild ?? appBuild,
     );
   }
@@ -250,22 +273,21 @@ class SecureStorageDiagnostic {
   /// Null fields are serialized explicitly as `null` so consumers can
   /// distinguish "field absent" from "field present but unknown".
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'recovered_via': recoveredVia,
-        'slot_outcomes': Map<String, String>.from(slotOutcomes),
-        'app_db_state': appDbState?.name,
-        'sync_db_state': syncDbState?.name,
-        'keychain_repair_pending_before_boot':
-            keychainRepairPendingBeforeBoot,
-        'keychain_repair_writeback_attempted_this_boot':
-            keychainRepairWritebackAttemptedThisBoot,
-        'keychain_repair_writeback_result':
-            keychainRepairWritebackResult?.name,
-        'keychain_degraded_state_snapshot':
-            keychainDegradedStateSnapshot?.toJson(),
-        'runtime_dek_device_state': runtimeDekDeviceState,
-        'app_build': appBuild,
-        'captured_at': capturedAt.toIso8601String(),
-      };
+    'recovered_via': recoveredVia,
+    'slot_outcomes': Map<String, String>.from(slotOutcomes),
+    'app_db_state': appDbState?.name,
+    'sync_db_state': syncDbState?.name,
+    'keychain_repair_pending_before_boot': keychainRepairPendingBeforeBoot,
+    'keychain_repair_writeback_attempted_this_boot':
+        keychainRepairWritebackAttemptedThisBoot,
+    'keychain_repair_writeback_result': keychainRepairWritebackResult?.name,
+    'keychain_degraded_state_snapshot': keychainDegradedStateSnapshot?.toJson(),
+    'runtime_dek_device_state': runtimeDekDeviceState,
+    'secure_storage_fully_empty': secureStorageFullyEmpty,
+    'native_secure_storage_state': nativeSecureStorageState,
+    'app_build': appBuild,
+    'captured_at': capturedAt.toIso8601String(),
+  };
 }
 
 /// Encode a [SlotOutcome] for use as the value in
@@ -303,5 +325,6 @@ String slotOutcomeThrewString(Object error) {
 /// boot. Overridden in `main.dart`'s `ProviderScope.overrides` with the
 /// real value. Default null — the recovery UI handles a null gracefully
 /// (serializes to `null` in the JSON file).
-final bootSecureStorageDiagnosticProvider =
-    Provider<SecureStorageDiagnostic?>((ref) => null);
+final bootSecureStorageDiagnosticProvider = Provider<SecureStorageDiagnostic?>(
+  (ref) => null,
+);

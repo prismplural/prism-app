@@ -156,10 +156,9 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
       ResetRecoveryScreenMode.keychainUnreadable => Icons.lock_outline,
       _ => Icons.check_circle_outline,
     };
-    final headerIconColor =
-        (isAnomaly || isKeychainUnreadable)
-            ? colorScheme.error
-            : colorScheme.primary;
+    final headerIconColor = (isAnomaly || isKeychainUnreadable)
+        ? colorScheme.error
+        : colorScheme.primary;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -369,9 +368,13 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
     if (_busy) return;
     await _run(() async {
       if (Platform.isAndroid) {
-        await _service.startAndroidClearApplicationData();
+        final result = await _service.startAndroidClearApplicationData();
         if (mounted) {
-          setState(() => _mode = ResetRecoveryScreenMode.androidClearing);
+          setState(() {
+            _mode = result == AndroidApplicationDataClearResult.osAccepted
+                ? ResetRecoveryScreenMode.androidClearing
+                : ResetRecoveryScreenMode.restartRequired;
+          });
         }
       } else {
         await _service.wipeLocalData();
@@ -422,8 +425,7 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
     if (_busy) return;
     final confirmed = await _confirmDialog(
       title: 'Reset local data?',
-      message:
-          'This will erase all local Prism data on this device. Continue?',
+      message: 'This will erase all local Prism data on this device. Continue?',
       confirmLabel: 'Erase',
       destructive: true,
     );
@@ -556,10 +558,7 @@ Future<bool> _shareDiagnosticDefault(String jsonPayload) async {
     final file = File(path);
     await file.writeAsString(jsonPayload, flush: true);
     final result = await SharePlus.instance.share(
-      ShareParams(
-        files: [XFile(path)],
-        subject: 'Prism diagnostic report',
-      ),
+      ShareParams(files: [XFile(path)], subject: 'Prism diagnostic report'),
     );
     return result.status == ShareResultStatus.success ||
         result.status == ShareResultStatus.dismissed;

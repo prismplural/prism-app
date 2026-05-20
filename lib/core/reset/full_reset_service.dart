@@ -155,6 +155,8 @@ class FullResetFailure implements Exception {
   String toString() => 'Full reset failed: ${failures.join('; ')}';
 }
 
+enum AndroidApplicationDataClearResult { osAccepted, manualFallbackCompleted }
+
 class FullResetService {
   FullResetService({
     FullResetSecureStore? secureStore,
@@ -383,14 +385,24 @@ class FullResetService {
     return prefs.getBool(kFullResetRestartRequiredKey) == true;
   }
 
-  Future<void> startAndroidClearApplicationData() async {
-    await clearNativeKeysBestEffort(reason: 'before Android app-data clear');
-    final accepted = await nativeResetKeys.clearApplicationUserData();
-    if (!accepted) {
-      throw FullResetFailure(const [
-        'Android clearApplicationUserData was rejected by the OS',
-      ]);
+  Future<AndroidApplicationDataClearResult> startAndroidClearApplicationData({
+    AppDatabase? openDatabase,
+  }) async {
+    Object? clearFailure;
+    try {
+      final accepted = await nativeResetKeys.clearApplicationUserData();
+      if (accepted) return AndroidApplicationDataClearResult.osAccepted;
+      clearFailure = 'Android clearApplicationUserData returned false';
+    } catch (e) {
+      clearFailure = e;
     }
+
+    _log(
+      'Android OS app-data clear did not complete; falling back to local '
+      'wipe before clearing native keys: $clearFailure',
+    );
+    await wipeLocalData(openDatabase: openDatabase);
+    return AndroidApplicationDataClearResult.manualFallbackCompleted;
   }
 
   Future<void> wipeLocalData({

@@ -10,6 +10,7 @@ import 'package:sqlite3/sqlite3.dart' as raw;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/services/secure_storage.dart';
 
 // ---------------------------------------------------------------------------
 // In-memory FlutterSecureStorage stub (same pattern as biometric_service_test)
@@ -807,6 +808,18 @@ void main() {
     test('passes through when repair-pending is false', () async {
       final result = await writeDatabaseKeyHex(hex);
       expect(result.ok, isTrue);
+      expect(storageStub._store[kDatabaseKeyStorageKey], equals(hex));
+    });
+
+    test('returns failure when write verification read throws', () async {
+      storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
+        _cipherException(),
+      ];
+
+      final result = await writeDatabaseKeyHex(hex);
+
+      expect(result.ok, isFalse);
+      expect(result.failure, SecureStorageFailure.cipher);
       expect(storageStub._store[kDatabaseKeyStorageKey], equals(hex));
     });
 

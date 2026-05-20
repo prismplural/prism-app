@@ -120,8 +120,9 @@ void main() async {
   KeychainRepairWritebackResult? writebackResult;
   if (appProbe.keyInMemory != null && keychainRepairPendingBeforeBoot == true) {
     writebackAttempted = true;
-    final pendingAfter =
-        await _safeAttemptKeychainRepairWriteback(appProbe.keyInMemory!);
+    final pendingAfter = await _safeAttemptKeychainRepairWriteback(
+      appProbe.keyInMemory!,
+    );
     if (pendingAfter == false) {
       writebackResult = KeychainRepairWritebackResult.ok;
     } else if (pendingAfter == null) {
@@ -282,8 +283,9 @@ void main() async {
         syncDatabaseStartupProvider.overrideWithValue(syncProbe),
         // §10 — make the captured per-boot diagnostic reachable by the
         // in-app banner / settings entry / recovery UI.
-        bootSecureStorageDiagnosticProvider
-            .overrideWithValue(combinedDiagnostic),
+        bootSecureStorageDiagnosticProvider.overrideWithValue(
+          combinedDiagnostic,
+        ),
         cachedThemeBrightnessProvider.overrideWith(
           () => CachedThemeBrightnessNotifier(cachedBrightness),
         ),
@@ -344,8 +346,10 @@ Future<DbStartupReport> _safeProbeAppDb() async {
   try {
     return await probeAppDatabaseStartup();
   } catch (e, st) {
-    debugPrint('[BOOT] probeAppDatabaseStartup threw — synthesising '
-        'unrecoverable report: $e\n$st');
+    debugPrint(
+      '[BOOT] probeAppDatabaseStartup threw — synthesising '
+      'unrecoverable report: $e\n$st',
+    );
     return DbStartupReport(
       state: DbStartupState.unrecoverable,
       keyInMemory: null,
@@ -361,12 +365,16 @@ Future<DbStartupReport> _safeProbeAppDb() async {
 /// Wraps [probeSyncDatabaseStartup] so any unexpected throw becomes a
 /// synthetic unrecoverable report. The probe itself already catches
 /// classified secure-storage failures; this is belt-and-braces.
-Future<DbStartupReport> _safeProbeSyncDb({required String? verifiedAppDbKey}) async {
+Future<DbStartupReport> _safeProbeSyncDb({
+  required String? verifiedAppDbKey,
+}) async {
   try {
     return await probeSyncDatabaseStartup(verifiedAppDbKey: verifiedAppDbKey);
   } catch (e, st) {
-    debugPrint('[BOOT] probeSyncDatabaseStartup threw — synthesising '
-        'unrecoverable report: $e\n$st');
+    debugPrint(
+      '[BOOT] probeSyncDatabaseStartup threw — synthesising '
+      'unrecoverable report: $e\n$st',
+    );
     return DbStartupReport(
       state: DbStartupState.unrecoverable,
       keyInMemory: null,
@@ -422,10 +430,27 @@ Future<SecureStorageDiagnostic> _buildBootDiagnostic({
   // with device-locked state.
   Map<String, dynamic>? runtimeDekDeviceState;
   try {
-    runtimeDekDeviceState =
-        await const DeviceBoundRuntimeDekStore().getDiagnostics();
+    runtimeDekDeviceState = await const DeviceBoundRuntimeDekStore()
+        .getDiagnostics();
   } catch (e) {
     debugPrint('[BOOT] runtime DEK diagnostics failed: $e');
+  }
+
+  Map<String, dynamic>? nativeSecureStorageState;
+  try {
+    nativeSecureStorageState = await collectNativeSecureStorageDiagnostics();
+  } catch (e) {
+    debugPrint('[BOOT] native secure-storage diagnostics failed: $e');
+  }
+
+  bool? secureStorageFullyEmpty;
+  try {
+    final readAll = await safeSecureReadAll();
+    if (readAll.ok) {
+      secureStorageFullyEmpty = readAll.entries.isEmpty;
+    }
+  } catch (e) {
+    debugPrint('[BOOT] secure-storage readAll diagnostic failed: $e');
   }
 
   // Pick the platform-version host-side; package_info_plus would round-trip
@@ -439,7 +464,8 @@ Future<SecureStorageDiagnostic> _buildBootDiagnostic({
     'platform_version': Platform.operatingSystemVersion,
   };
 
-  final base = appProbe.diagnostic ??
+  final base =
+      appProbe.diagnostic ??
       SecureStorageDiagnostic(
         recoveredVia: appProbe.usedRecoverySlot,
         slotOutcomes: const <String, String>{},
@@ -453,6 +479,8 @@ Future<SecureStorageDiagnostic> _buildBootDiagnostic({
     keychainRepairWritebackAttemptedThisBoot: writebackAttempted,
     keychainRepairWritebackResult: writebackResult,
     runtimeDekDeviceState: runtimeDekDeviceState,
+    secureStorageFullyEmpty: secureStorageFullyEmpty,
+    nativeSecureStorageState: nativeSecureStorageState,
     appBuild: appBuild,
     capturedAt: DateTime.now().toUtc(),
   );
