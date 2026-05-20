@@ -4,6 +4,33 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-05-20
+
+This patch release hardens Android secure-storage recovery after reports of Prism
+databases surviving while secure-storage slots and Keystore aliases disappeared.
+
+### Changed
+- Android reset recovery now asks the OS to clear app data before clearing Prism's
+  native secure-storage state. If the OS rejects the request, Prism falls back
+  through the normal local wipe path so database files are removed before native
+  keys.
+- Database-key writes are now durable and read-back verified before Prism trusts
+  them for encrypted database startup.
+- The sync secure-store bridge and device-pairing fallback storage now route
+  through Prism's classified secure-storage wrappers.
+- The in-app crypto storage diagnostic screen is now read-only; destructive
+  fault-injection controls were removed from app builds.
+
+### Fixed
+- Android secure-storage unwrap, migration, and null-cipher failures are
+  classified into recovery paths instead of leaking as raw platform errors.
+- Native reset key cleanup refuses to clear secure-storage keys while Prism
+  database files still exist unless the caller explicitly forces it.
+- Diagnostics now include native secure-storage and Keystore state to distinguish
+  fully empty secure storage from per-slot key loss.
+- Everyone conversations now treat active implicit members consistently for
+  message actions, departed-member state, and broad mention recipient counts.
+
 ## [0.9.2] - 2026-05-20
 
 This patch release strengthens secure-storage recovery on Android and iOS, adds recovery diagnostics, and finishes the group customization work that missed the 0.9.1 patch.

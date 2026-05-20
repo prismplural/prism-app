@@ -68,11 +68,10 @@ const _nativeSecureStorageChannel = MethodChannel(
 /// - [unknown]: everything else. Treat as failure but don't retry blindly.
 enum SecureStorageFailure { cipher, transient, unknown }
 
-/// Operations supported by the debug-only secure-storage fault injector.
+/// Operations supported by the test-only secure-storage fault injector.
 ///
-/// The injector is inactive in release builds. It exists so on-device QA can
-/// exercise wrapper classification and rollback paths without needing to
-/// induce a real Keychain / Keystore failure.
+/// The injector only throws synthetic wrapper exceptions. It never mutates
+/// secure storage, and app builds leave it disabled.
 enum SecureStorageFaultOperation { read, readAll, write, delete, deleteAll }
 
 class SecureStorageInjectedFault {
@@ -97,11 +96,23 @@ class SecureStorageFaultInjector {
 
   static final List<SecureStorageInjectedFault> _pending =
       <SecureStorageInjectedFault>[];
+  static bool _enabledForTesting = false;
 
-  static bool get enabled => !kReleaseMode;
+  static bool get enabled => !kReleaseMode && _enabledForTesting;
 
   static List<SecureStorageInjectedFault> get pending =>
       List.unmodifiable(_pending);
+
+  @visibleForTesting
+  static void enableForTesting() {
+    if (!kReleaseMode) _enabledForTesting = true;
+  }
+
+  @visibleForTesting
+  static void disableForTesting() {
+    _enabledForTesting = false;
+    _pending.clear();
+  }
 
   static void queueNext({
     required SecureStorageFaultOperation operation,

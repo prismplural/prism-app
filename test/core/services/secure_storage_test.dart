@@ -651,13 +651,14 @@ void main() {
     late _FakeSecureStorage fake;
 
     setUp(() {
+      SecureStorageFaultInjector.enableForTesting();
       SecureStorageFaultInjector.clear();
       fake = _FakeSecureStorage();
       fake.install();
     });
 
     tearDown(() {
-      SecureStorageFaultInjector.clear();
+      SecureStorageFaultInjector.disableForTesting();
       fake.uninstall();
     });
 
