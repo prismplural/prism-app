@@ -97,7 +97,7 @@ void main() {
   );
 
   test(
-    'fresh install guard clears secure residue when no app files exist',
+    'fresh install guard marks a clean fresh install without clearing keys',
     () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'prism-fresh-secure-test-',
@@ -108,9 +108,8 @@ void main() {
         }
       });
 
-      final secureStore = _FakeFullResetSecureStore()
-        ..values['prism_sync.database_key'] = 'secret';
-      final nativeKeys = _FakeNativeResetKeys()..hasKeys = true;
+      final secureStore = _FakeFullResetSecureStore();
+      final nativeKeys = _FakeNativeResetKeys();
       final service = FullResetService(
         secureStore: secureStore,
         nativeResetKeys: nativeKeys,
@@ -123,8 +122,9 @@ void main() {
       final decision = await service.runFreshInstallResidueGuard();
 
       expect(decision.mode, ResetStartupMode.normal);
+      expect(secureStore.deleteAllCalls, 0);
       expect(secureStore.values, isEmpty);
-      expect(nativeKeys.deleteKnownKeysCalls, 1);
+      expect(nativeKeys.deleteKnownKeysCalls, 0);
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
@@ -147,9 +147,8 @@ void main() {
       final mediaDir = Directory(p.join(tempDir.path, 'prism_media'));
       await mediaDir.create(recursive: true);
 
-      final secureStore = _FakeFullResetSecureStore()
-        ..values['prism_sync.database_key'] = 'secret';
-      final nativeKeys = _FakeNativeResetKeys()..hasKeys = true;
+      final secureStore = _FakeFullResetSecureStore();
+      final nativeKeys = _FakeNativeResetKeys();
       final service = FullResetService(
         secureStore: secureStore,
         nativeResetKeys: nativeKeys,
@@ -162,8 +161,9 @@ void main() {
 
       expect(decision.mode, ResetStartupMode.normal);
       expect(decision.report.files, isEmpty);
+      expect(secureStore.deleteAllCalls, 0);
       expect(secureStore.values, isEmpty);
-      expect(nativeKeys.deleteKnownKeysCalls, 1);
+      expect(nativeKeys.deleteKnownKeysCalls, 0);
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
@@ -214,7 +214,7 @@ void main() {
   );
 
   test(
-    'fresh install guard allows startup and retries when native cleanup fails',
+    'fresh install guard enters recovery when only native secure keys exist',
     () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'prism-fresh-native-failure-test-',
@@ -227,9 +227,7 @@ void main() {
 
       final secureStore = _FakeFullResetSecureStore()
         ..values['prism_sync.database_key'] = 'secret';
-      final nativeKeys = _FakeNativeResetKeys()
-        ..hasKeys = true
-        ..throwOnDeleteKnownKeys = true;
+      final nativeKeys = _FakeNativeResetKeys()..hasKeys = true;
       final service = FullResetService(
         secureStore: secureStore,
         nativeResetKeys: nativeKeys,
@@ -241,20 +239,14 @@ void main() {
 
       final decision = await service.runFreshInstallResidueGuard();
 
-      expect(decision.mode, ResetStartupMode.normal);
-      expect(secureStore.values, isEmpty);
-      expect(nativeKeys.deleteKnownKeysCalls, 1);
+      expect(decision.mode, ResetStartupMode.freshInstallRecoveryRequired);
+      expect(decision.report.hasSecureResidue, isTrue);
+      expect(secureStore.values, isNotEmpty);
+      expect(nativeKeys.deleteKnownKeysCalls, 0);
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
-      expect(prefs.getBool(kNativeResetKeyClearPendingKey), isTrue);
-
-      nativeKeys.throwOnDeleteKnownKeys = false;
-      final retryDecision = await service.runFreshInstallResidueGuard();
-
-      expect(retryDecision.mode, ResetStartupMode.normal);
-      expect(nativeKeys.deleteKnownKeysCalls, 2);
-      expect(prefs.getBool(kNativeResetKeyClearPendingKey), isNull);
+      expect(prefs.getBool(kFreshInstallSentinelKey), isNull);
+      expect(prefs.getBool(kFreshInstallAnomalyKey), isTrue);
     },
   );
 
@@ -674,7 +666,7 @@ void main() {
 
       expect(await File(dbPath).exists(), isFalse);
       expect(secureStore.values, isNotEmpty);
-      expect(nativeKeys.deleteKnownKeysCalls, 1);
+      expect(nativeKeys.deleteKnownKeysCalls, 0);
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool(kFreshInstallSentinelKey), isNull);
@@ -842,6 +834,7 @@ void main() {
 class _FakeFullResetSecureStore implements FullResetSecureStore {
   final values = <String, String>{};
   bool throwOnDeleteAll = false;
+  int deleteAllCalls = 0;
 
   @override
   Future<void> delete(String key) async {
@@ -850,6 +843,7 @@ class _FakeFullResetSecureStore implements FullResetSecureStore {
 
   @override
   Future<void> deleteAll() async {
+    deleteAllCalls += 1;
     if (throwOnDeleteAll) {
       throw StateError('deleteAll failed');
     }

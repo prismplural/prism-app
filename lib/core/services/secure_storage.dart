@@ -25,13 +25,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 ///   with migration disabled and `resetOnError: false`, a markerless fresh
 ///   store can fail during initialization instead of writing current markers.
 ///
-/// - `migrateWithBackup: true` — added in fss 10.1.0. When fss migrates
-///   data between cipher algorithms (e.g. the deprecated
-///   `AES_CBC_PKCS7Padding` → default `AES_GCM_NoPadding` path in 10.2.0),
-///   backup copies of encrypted entries are written before the migration
-///   starts so a mid-migration crash or interrupted write leaves the
-///   pre-migration data intact rather than corrupted. This is the exact
-///   class of failure that produced the original 0.9.1 BAD_DECRYPT bug.
+/// - `migrateWithBackup: false` — if fss ever sees markerless current data
+///   as legacy data, the backup migration path can delete the original
+///   entries after a failed decrypt. Failing closed keeps the data on disk.
 const secureStorage = FlutterSecureStorage(
   iOptions: IOSOptions(
     accessibility: KeychainAccessibility.first_unlock_this_device,
@@ -39,7 +35,7 @@ const secureStorage = FlutterSecureStorage(
   aOptions: AndroidOptions(
     resetOnError: false,
     migrateOnAlgorithmChange: true,
-    migrateWithBackup: true,
+    migrateWithBackup: false,
     keyCipherAlgorithm:
         KeyCipherAlgorithm.RSA_ECB_OAEPwithSHA_256andMGF1Padding,
     storageCipherAlgorithm: StorageCipherAlgorithm.AES_GCM_NoPadding,

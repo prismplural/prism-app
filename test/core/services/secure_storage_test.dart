@@ -139,6 +139,18 @@ PlatformException _fssCipherException({
 }
 
 void main() {
+  test('Android secure-storage options fail closed on migration errors', () {
+    final options = secureStorage.aOptions.toMap();
+    expect(options['resetOnError'], 'false');
+    expect(options['migrateOnAlgorithmChange'], 'true');
+    expect(options['migrateWithBackup'], 'false');
+    expect(
+      options['keyCipherAlgorithm'],
+      'RSA_ECB_OAEPwithSHA_256andMGF1Padding',
+    );
+    expect(options['storageCipherAlgorithm'], 'AES_GCM_NoPadding');
+  });
+
   // ---------------------------------------------------------------------------
   // classifySecureStorageError
   // ---------------------------------------------------------------------------

@@ -70,11 +70,9 @@ void main() async {
     return kReleaseMode; // In debug, let the error propagate to show the error overlay
   };
 
-  // iOS Keychain and platform key stores can survive app uninstall/reinstall.
-  // Before any providers or databases hydrate release app state, make a fresh
-  // install clear secure residue when the app-private SharedPreferences
-  // sentinel is missing. If app files still exist, boot a DB-free recovery
-  // shell instead of silently deleting data.
+  // Platform key stores can survive app uninstall/reinstall. Before any
+  // providers hydrate release app state, block startup if the install marker
+  // is missing but app or key-store residue exists.
   if (kReleaseMode) {
     final resetStartup = await runFreshInstallResidueGuard();
     switch (resetStartup.mode) {

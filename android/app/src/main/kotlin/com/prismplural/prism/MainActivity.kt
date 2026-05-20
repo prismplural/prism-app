@@ -838,11 +838,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     private fun rewriteSharedPreferencesWithCommit(prefs: SharedPreferences): Boolean {
         val snapshot = prefs.all
-        if (snapshot.isEmpty()) {
-            return prefs.edit().commit()
-        }
-
-        val editor = prefs.edit()
+        val editor = prefs.edit().clear()
         for ((key, value) in snapshot) {
             when (value) {
                 is String -> editor.putString(key, value)

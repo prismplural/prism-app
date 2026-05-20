@@ -281,8 +281,8 @@ class FullResetService {
       avoidFlutterSecureStorage: true,
     );
 
-    if (report.hasAppContainerResidue) {
-      _log('Fresh install marker missing while app data exists: $report');
+    if (report.hasResidue) {
+      _log('Fresh install marker missing while app residue exists: $report');
       await prefs.setBool(kFreshInstallAnomalyKey, true);
       return ResetStartupDecision(
         mode: ResetStartupMode.freshInstallRecoveryRequired,
@@ -290,14 +290,9 @@ class FullResetService {
       );
     }
 
-    _log(
-      'Fresh install marker missing with no app files; clearing secure residue',
-    );
-    await _clearFreshInstallSecureResidue(prefs);
-
-    final refreshedPrefs = await SharedPreferences.getInstance();
-    await refreshedPrefs.setBool(kFreshInstallSentinelKey, true);
-    await refreshedPrefs.remove(kFreshInstallAnomalyKey);
+    _log('Fresh install marker missing with no app residue');
+    await prefs.setBool(kFreshInstallSentinelKey, true);
+    await prefs.remove(kFreshInstallAnomalyKey);
     return ResetStartupDecision(mode: ResetStartupMode.normal, report: report);
   }
 
@@ -473,17 +468,24 @@ class FullResetService {
         'database encryption state clear',
         clearDatabaseEncryptionState,
       );
-      await attempt('secure store clear', secureStore.deleteAll);
-      try {
-        await nativeResetKeys.deleteKnownKeys();
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove(kNativeResetKeyClearPendingKey);
-      } catch (e) {
-        _log(
-          'Native key clear failed during full reset; will retry on startup: $e',
-        );
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool(kNativeResetKeyClearPendingKey, true);
+      final secureStoreCleared = await attempt(
+        'secure store clear',
+        secureStore.deleteAll,
+      );
+      if (secureStoreCleared) {
+        try {
+          await nativeResetKeys.deleteKnownKeys();
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove(kNativeResetKeyClearPendingKey);
+        } catch (e) {
+          _log(
+            'Native key clear failed during full reset; will retry on startup: $e',
+          );
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool(kNativeResetKeyClearPendingKey, true);
+        }
+      } else {
+        _log('Skipping native key clear because secure store clear failed');
       }
     }
 
@@ -505,14 +507,6 @@ class FullResetService {
       await _restoreRecoverySafePreferences(recoverySafePrefs);
       throw FullResetFailure(failures);
     }
-  }
-
-  Future<void> _clearFreshInstallSecureResidue(SharedPreferences prefs) async {
-    await secureStore.deleteAll();
-    await clearNativeKeysBestEffort(
-      prefs: prefs,
-      reason: 'during fresh install secure-residue clear',
-    );
   }
 
   Future<void> clearNativeKeysBestEffort({
