@@ -476,6 +476,15 @@ Future<void> migrateRelayUrl() async {
 /// `prism_sync.*` namespace without hardcoding the key list (which silently
 /// goes stale when new transient pairing keys are added).
 Future<Map<String, String>> readPrefixed(String prefix) async {
-  final all = await secureStorage.readAll();
-  return Map.fromEntries(all.entries.where((e) => e.key.startsWith(prefix)));
+  final result = await safeSecureReadAll();
+  if (!result.ok) {
+    throw StateError(
+      'secure storage readAll failed '
+      '(failure=${result.failure?.name ?? 'unknown'}, code=${result.code}, '
+      'message=${result.message})',
+    );
+  }
+  return Map.fromEntries(
+    result.entries.entries.where((e) => e.key.startsWith(prefix)),
+  );
 }

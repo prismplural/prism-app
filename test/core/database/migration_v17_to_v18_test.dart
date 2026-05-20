@@ -96,7 +96,7 @@ void main() {
         final settings = await upgraded.systemSettingsDao.getSettings();
         expect(settings.systemName, 'V17 System');
         expect(settings.accentColorHex, '#112233');
-        expect(settings.membersListViewMode, 0);
+        expect(settings.membersListViewMode, 1);
         expect(settings.membersGroupedDefaultState, 0);
         expect(settings.membersFolderMemberVisibility, 0);
         expect(settings.membersShowPronouns, isTrue);

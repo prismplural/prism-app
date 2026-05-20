@@ -713,4 +713,49 @@ void main() {
       expect(result.entries, isEmpty);
     });
   });
+
+  group('readPrefixed', () {
+    late _FakeSecureStorage fake;
+
+    setUp(() {
+      fake = _FakeSecureStorage();
+      fake.install();
+    });
+
+    tearDown(() => fake.uninstall());
+
+    test('returns only entries with the requested prefix', () async {
+      fake.store['prism_sync.device_id'] = 'device';
+      fake.store['prism_sync.sync_id'] = 'sync';
+      fake.store['other.key'] = 'other';
+
+      final result = await readPrefixed('prism_sync.');
+
+      expect(result, {
+        'prism_sync.device_id': 'device',
+        'prism_sync.sync_id': 'sync',
+      });
+    });
+
+    test(
+      'classifies readAll failure instead of leaking PlatformException',
+      () async {
+        fake.throwOnReadAll = _fssCipherException(
+          message: 'AEADBadTagException',
+          stackTraceFqcn: 'javax.crypto.AEADBadTagException',
+        );
+
+        await expectLater(
+          readPrefixed('prism_sync.'),
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              contains('failure=cipher'),
+            ),
+          ),
+        );
+      },
+    );
+  });
 }
