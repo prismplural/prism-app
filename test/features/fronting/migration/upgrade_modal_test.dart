@@ -912,7 +912,9 @@ void main() {
       },
     );
 
-    testWidgets('successful share auto-ticks the checkbox', (tester) async {
+    testWidgets('share handoff does not auto-tick the checkbox', (
+      tester,
+    ) async {
       final runner = _FakeRunner();
       await tester.pumpWidget(
         _buildSheetSubject(
@@ -927,12 +929,12 @@ void main() {
       await tester.pumpAndSettle();
 
       final cb = tester.widget<CheckboxListTile>(find.byType(CheckboxListTile));
-      expect(cb.value, isTrue);
-      // Continue is now enabled.
+      expect(cb.value, isFalse);
+      // Continue still requires save-as or a manual acknowledgment.
       final pb = tester.widget<PrismButton>(
         find.widgetWithText(PrismButton, 'Continue'),
       );
-      expect(pb.enabled, isTrue);
+      expect(pb.enabled, isFalse);
     });
 
     testWidgets('dismissed share does not auto-tick the checkbox', (

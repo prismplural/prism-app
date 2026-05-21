@@ -14948,7 +14948,7 @@ abstract class AppLocalizations {
   /// **'Share…'**
   String get frontingUpgradeBackupShare;
 
-  /// Manual checkbox on the backup-ready step — auto-ticks on a successful save or share
+  /// Manual checkbox on the backup-ready step — auto-ticks on a successful save
   ///
   /// In en, this message translates to:
   /// **'I have saved this backup somewhere I can find later'**

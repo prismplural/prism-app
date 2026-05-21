@@ -129,11 +129,10 @@ class FrontingUpgradeSheet extends ConsumerStatefulWidget {
   final bool isDismissible;
 
   /// Optional override for the share-sheet handoff used by the
-  /// `backupReady` step. Production wiring uses `share_plus` and
-  /// inspects `ShareResult.status`. Tests pass an in-process callback
-  /// to avoid platform-channel calls. Returns `true` if the user
-  /// completed the share (auto-ticks the acknowledgment checkbox);
-  /// `false` if dismissed.
+  /// `backupReady` step. Tests pass an in-process callback to avoid
+  /// platform-channel calls. The return value is intentionally not used
+  /// to acknowledge the durable-save gate because Android share targets
+  /// only report selection, not that the backup was written.
   final BackupHandoffCallback? shareBackup;
 
   /// Optional override for the `backupReady` save-as handoff.
@@ -171,9 +170,8 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   File? _backupFile;
 
   /// Tracks whether the user has confirmed they saved the backup
-  /// somewhere durable. Auto-ticked on a successful save-as or share;
-  /// also user-toggleable via the manual checkbox on the
-  /// `backupReady` step.
+  /// somewhere durable. Auto-ticked on a successful save-as and also
+  /// user-toggleable via the manual checkbox on the `backupReady` step.
   bool _backupAcknowledged = false;
 
   MigrationResult? _result;
@@ -187,6 +185,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   /// status string so the user knows why expected history did not return.
   int _pkImportTombstonePreserved = 0;
   int _pkImportZeroLengthSkipped = 0;
+  final _shareButtonKey = GlobalKey();
 
   @override
   void initState() {
@@ -369,21 +368,20 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     }
   }
 
-  /// Default share-sheet handoff. Inspects `ShareResult.status` so a
-  /// dismissed share doesn't auto-tick the acknowledgment checkbox.
+  /// Default share-sheet handoff. Opening the share sheet is allowed as a
+  /// convenience, but it cannot prove that the backup was durably written.
   /// Tests override via [FrontingUpgradeSheet.shareBackup].
   Future<bool> _defaultShareBackup(File file) async {
     try {
-      final result = await SharePlus.instance.share(
+      await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path)],
           subject: 'Prism Fronting Backup',
+          sharePositionOrigin: _sharePositionOrigin(),
         ),
       );
-      return result.status == ShareResultStatus.success;
-    } catch (_) {
-      return false;
-    }
+    } catch (_) {}
+    return false;
   }
 
   /// Copies the durable backup to a user-selected file.
@@ -409,11 +407,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     final file = _backupFile;
     if (file == null) return;
     final handler = widget.shareBackup ?? _defaultShareBackup;
-    final ok = await handler(file);
-    if (!mounted) return;
-    if (ok) {
-      setState(() => _backupAcknowledged = true);
-    }
+    await handler(file);
   }
 
   Future<void> _onSaveTapped() async {
@@ -425,6 +419,15 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     if (ok) {
       setState(() => _backupAcknowledged = true);
     }
+  }
+
+  Rect? _sharePositionOrigin() {
+    final anchorContext = _shareButtonKey.currentContext ?? context;
+    final renderObject = anchorContext.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      return null;
+    }
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
   }
 
   void _retry() {
@@ -1032,6 +1035,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
         ),
         const SizedBox(height: 8),
         PrismButton(
+          key: _shareButtonKey,
           onPressed: _onShareTapped,
           label: context.l10n.frontingUpgradeBackupShare,
           tone: PrismButtonTone.outlined,

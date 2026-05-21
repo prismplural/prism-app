@@ -52,6 +52,9 @@ registry fixes for imported or newly paired devices.
   database is healthy but older key slots or pairing state are stale.
 - Pairing additional devices after revokes or epoch rotations no longer leaves
   existing devices rejecting outbound changes from the new device.
+- Export sharing on iPad now opens from the tapped Share button, and Android
+  share targets no longer mark an export complete until the file has been saved
+  through the platform save picker.
 
 ## [0.9.2] - 2026-05-20
 

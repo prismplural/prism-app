@@ -10003,7 +10003,7 @@
   "frontingUpgradeBackupShare": "Share…",
   "@frontingUpgradeBackupShare": { "description": "Secondary action on the backup-ready step — opens the system share sheet" },
   "frontingUpgradeBackupAcknowledge": "I have saved this backup somewhere I can find later",
-  "@frontingUpgradeBackupAcknowledge": { "description": "Manual checkbox on the backup-ready step — auto-ticks on a successful save or share" },
+  "@frontingUpgradeBackupAcknowledge": { "description": "Manual checkbox on the backup-ready step — auto-ticks on a successful save" },
   "frontingUpgradeBackupContinue": "Continue",
   "@frontingUpgradeBackupContinue": { "description": "Continue button on the backup-ready step; disabled until the acknowledgment checkbox is ticked" },
 

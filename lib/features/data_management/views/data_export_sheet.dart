@@ -20,10 +20,24 @@ import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 enum _ExportState { idle, password, exporting, error, readyToSave, complete }
 
+typedef ExportShareHandler =
+    Future<void> Function(File file, Rect? sharePositionOrigin);
+
 class DataExportSheet extends ConsumerStatefulWidget {
-  const DataExportSheet({super.key, this.scrollController});
+  const DataExportSheet({
+    super.key,
+    this.scrollController,
+    this.initialExportedFile,
+    this.shareExport,
+  });
 
   final ScrollController? scrollController;
+
+  /// Test hook for rendering the sheet directly in its ready-to-save state.
+  /// The sheet takes ownership of this temporary file and deletes it on dispose
+  /// unless the save-as handoff has already consumed it.
+  final EncryptedExportFile? initialExportedFile;
+  final ExportShareHandler? shareExport;
 
   @override
   ConsumerState<DataExportSheet> createState() => _DataExportSheetState();
@@ -42,11 +56,22 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
   String? _passwordError;
   bool _isSaving = false;
   bool _isSharing = false;
+  final _shareButtonKey = GlobalKey();
 
   bool get _isDirty =>
       _state == _ExportState.password &&
       (_passwordController.text.isNotEmpty ||
           _confirmController.text.isNotEmpty);
+
+  @override
+  void initState() {
+    super.initState();
+    final initialFile = widget.initialExportedFile;
+    if (initialFile != null) {
+      _state = _ExportState.readyToSave;
+      _exportedFile = initialFile;
+    }
+  }
 
   @override
   void dispose() {
@@ -160,30 +185,37 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
     final export = _exportedFile;
     if (export == null || _isSharing) return;
     setState(() => _isSharing = true);
-    ShareResultStatus status = ShareResultStatus.dismissed;
     try {
-      final result = await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(export.file.path)],
-          subject: 'Prism Plurality Export',
-        ),
-      );
-      status = result.status;
-    } catch (_) {
-      status = ShareResultStatus.dismissed;
-    }
+      final handler = widget.shareExport ?? _shareExportWithPlatformSheet;
+      await handler(export.file, _sharePositionOrigin());
+    } catch (_) {}
     if (!mounted) return;
     setState(() => _isSharing = false);
-    if (status == ShareResultStatus.success) {
-      setState(() {
-        _state = _ExportState.complete;
-        _savedDisplayName = export.fileName;
-      });
-      await _deleteFile(export.file);
-      if (identical(_exportedFile, export)) {
-        _exportedFile = null;
-      }
+    // Android share_plus success only means a target app was selected, not that
+    // the target durably wrote the file. Keep the export available until the
+    // native save-as handoff reports a completed copy.
+  }
+
+  Future<void> _shareExportWithPlatformSheet(
+    File file,
+    Rect? sharePositionOrigin,
+  ) async {
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path)],
+        subject: 'Prism Plurality Export',
+        sharePositionOrigin: sharePositionOrigin,
+      ),
+    );
+  }
+
+  Rect? _sharePositionOrigin() {
+    final anchorContext = _shareButtonKey.currentContext ?? context;
+    final renderObject = anchorContext.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      return null;
     }
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
   }
 
   Future<void> _deleteFile(File? file) async {
@@ -469,6 +501,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
           children: [
             Expanded(
               child: PrismButton(
+                key: _shareButtonKey,
                 onPressed: _shareExportedFile,
                 enabled: !_isSharing,
                 icon: AppIcons.share,
