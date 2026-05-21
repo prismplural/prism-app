@@ -94,7 +94,7 @@ class _FakeMemberRepository implements MemberRepository {
 
   @override
   Future<({member_domain.Member member, bool wasCreated})>
-      ensureUnknownSentinelMember() => throw UnimplementedError();
+  ensureUnknownSentinelMember() => throw UnimplementedError();
 }
 
 class _RecordingMemberGroupsRepository extends DriftMemberGroupsRepository {
@@ -387,6 +387,7 @@ void main() {
         'description': 'Edited in Prism',
         'color_hex': '#ff00aa',
         'emoji': null,
+        'avatar_image_data': null,
         'display_order': 7,
         'parent_group_id': null,
         'group_type': 2,
@@ -394,8 +395,9 @@ void main() {
         'created_at': stored!.createdAt.toUtc().toIso8601String(),
         'pluralkit_id': 'abcde',
         'pluralkit_uuid': 'pk-group-1',
-        'last_seen_from_pk_at':
-            stored.lastSeenFromPkAt!.toUtc().toIso8601String(),
+        'last_seen_from_pk_at': stored.lastSeenFromPkAt!
+            .toUtc()
+            .toIso8601String(),
         // sort_state is part of _groupFields after Batch 3; default is
         // manual mode with empty order on a freshly seeded group.
         'sort_state': '{"mode":0,"order":[]}',
@@ -501,8 +503,10 @@ void main() {
     // sort_state.manualOrder. The seeded group defaults to manual + empty.
     expect(repo.updates, hasLength(1));
     expect(repo.updates.single['table'], 'member_groups');
-    expect(repo.updates.single['entityId'],
-        _canonicalPkGroupEntityId('pk-group-1'));
+    expect(
+      repo.updates.single['entityId'],
+      _canonicalPkGroupEntityId('pk-group-1'),
+    );
 
     final create = repo.creates.single;
     final expectedEntryId = _deterministicPkEntryId(

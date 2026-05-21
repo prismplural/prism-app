@@ -320,7 +320,7 @@ Future<bool> _encryptedDatabaseHasRows(
 ) async {
   final db = raw.sqlite3.open(dbPath);
   try {
-    db.execute("PRAGMA key = \"x'$hexKey'\";");
+    configurePrismSqliteConnection(db, hexKey: hexKey);
     db.select('SELECT count(*) FROM sqlite_master;');
     for (final table in tables) {
       final exists = db.select(

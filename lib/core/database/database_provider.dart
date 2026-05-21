@@ -559,7 +559,7 @@ bool _tryOpenEncrypted(String path, String hexKey) {
   try {
     final db = raw.sqlite3.open(path);
     try {
-      db.execute("PRAGMA key = \"x'$hexKey'\";");
+      configurePrismSqliteConnection(db, hexKey: hexKey);
       db.select('SELECT count(*) FROM sqlite_master;');
       return true;
     } finally {

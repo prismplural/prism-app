@@ -316,10 +316,12 @@ void main() {
 
   testWidgets('sends text when staged image preparation fails', (tester) async {
     final chatNotifier = _RecordingChatNotifier();
+    final mediaAttachmentRepository = _RecordingMediaAttachmentRepository();
 
     await tester.pumpWidget(
       buildSubject(
         chatNotifierFactory: () => chatNotifier,
+        mediaAttachmentRepository: mediaAttachmentRepository,
         mediaService: _FailingPrepareImageMediaService(),
       ),
     );
@@ -351,10 +353,12 @@ void main() {
     tester,
   ) async {
     final chatNotifier = _RecordingChatNotifier();
+    final mediaAttachmentRepository = _RecordingMediaAttachmentRepository();
 
     await tester.pumpWidget(
       buildSubject(
         chatNotifierFactory: () => chatNotifier,
+        mediaAttachmentRepository: mediaAttachmentRepository,
         mediaService: _FailingPrepareImageMediaService(),
       ),
     );

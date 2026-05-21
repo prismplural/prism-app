@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
@@ -6,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart' as raw;
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/database_encryption.dart';
 
 /// Seeds a v25 database.
 ///
@@ -130,21 +132,83 @@ void main() {
       expect(readBack, equals(avatarBytes));
     });
 
-    test('idempotent skip branch: column already exists → migration does not error',
-        () async {
+    test(
+      'idempotent skip branch: column already exists → migration does not error',
+      () async {
+        final tempDir = Directory.systemTemp.createTempSync(
+          'prism_migration_v25_to_v26_skip_',
+        );
+        addTearDown(() {
+          if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+        });
+
+        final dbFile = File('${tempDir.path}/skip_col.db');
+        await _seedV25Db(dbFile, withAvatarColumn: true);
+
+        final upgraded = AppDatabase(NativeDatabase(dbFile));
+        addTearDown(upgraded.close);
+        await upgraded.customSelect('SELECT 1').get();
+
+        final version = await upgraded
+            .customSelect('PRAGMA user_version')
+            .getSingle();
+        expect(version.read<int>('user_version'), 26);
+
+        final avatarBytes = Uint8List.fromList([0xFF, 0xD8, 0xFF]);
+        final rawDb = raw.sqlite3.open(dbFile.path);
+        try {
+          _insertGroup(rawDb, 'g_idempotent');
+          rawDb.execute(
+            'UPDATE member_groups SET avatar_image_data = ? WHERE id = ?',
+            [avatarBytes, 'g_idempotent'],
+          );
+        } finally {
+          rawDb.close();
+        }
+
+        final row = await upgraded
+            .customSelect(
+              'SELECT avatar_image_data FROM member_groups WHERE id = ?',
+              variables: [Variable.withString('g_idempotent')],
+            )
+            .getSingle();
+        expect(row.read<Uint8List?>('avatar_image_data'), equals(avatarBytes));
+      },
+    );
+
+    test('addColumn branch: waits out a transient database lock', () async {
       final tempDir = Directory.systemTemp.createTempSync(
-        'prism_migration_v25_to_v26_skip_',
+        'prism_migration_v25_to_v26_lock_',
       );
       addTearDown(() {
         if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
       });
 
-      final dbFile = File('${tempDir.path}/skip_col.db');
-      // Seed WITH the avatar column still present (skip the drop step).
-      await _seedV25Db(dbFile, withAvatarColumn: true);
+      final dbFile = File('${tempDir.path}/locked_add_col.db');
+      await _seedV25Db(dbFile);
 
-      // Re-open — the idempotent guard must skip addColumn without error.
-      final upgraded = AppDatabase(NativeDatabase(dbFile));
+      final lockDb = raw.sqlite3.open(dbFile.path);
+      var lockReleased = false;
+      addTearDown(() {
+        if (!lockReleased && !lockDb.autocommit) {
+          lockDb.execute('ROLLBACK;');
+        }
+        lockDb.close();
+      });
+      lockDb.execute('BEGIN EXCLUSIVE;');
+
+      final releaseLock = Timer(const Duration(milliseconds: 200), () {
+        lockDb.execute('ROLLBACK;');
+        lockReleased = true;
+      });
+      addTearDown(releaseLock.cancel);
+
+      final upgraded = AppDatabase(
+        NativeDatabase.createInBackground(
+          dbFile,
+          setup: configurePrismSqliteConnection,
+        ),
+      );
       addTearDown(upgraded.close);
       await upgraded.customSelect('SELECT 1').get();
 
@@ -153,26 +217,13 @@ void main() {
           .getSingle();
       expect(version.read<int>('user_version'), 26);
 
-      // Sanity round-trip: insert a row, read back.
-      final avatarBytes = Uint8List.fromList([0xFF, 0xD8, 0xFF]);
-      final rawDb = raw.sqlite3.open(dbFile.path);
-      try {
-        _insertGroup(rawDb, 'g_idempotent');
-        rawDb.execute(
-          'UPDATE member_groups SET avatar_image_data = ? WHERE id = ?',
-          [avatarBytes, 'g_idempotent'],
-        );
-      } finally {
-        rawDb.close();
-      }
-
-      final row = await upgraded
-          .customSelect(
-            'SELECT avatar_image_data FROM member_groups WHERE id = ?',
-            variables: [Variable.withString('g_idempotent')],
-          )
-          .getSingle();
-      expect(row.read<Uint8List?>('avatar_image_data'), equals(avatarBytes));
+      final cols = await upgraded
+          .customSelect('PRAGMA table_info(member_groups)')
+          .get();
+      expect(
+        cols.any((row) => row.read<String>('name') == 'avatar_image_data'),
+        isTrue,
+      );
     });
   });
 }

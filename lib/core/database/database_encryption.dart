@@ -31,6 +31,9 @@ const kDatabaseKeyStorageKey = 'prism_sync.database_key';
 /// the sync DB with the same key it was using before.
 const kSyncDatabaseKeyStorageKey = 'prism_sync.sync_database_key';
 
+@visibleForTesting
+const prismSqliteBusyTimeoutMs = 5000;
+
 // Internal cleanup-delete helper. Every delete in this file is a
 // best-effort cleanup of a DB-key slot (staging cleanup, full reset, etc.).
 // Cipher / unknown / transient failures during these deletes are not fatal —
@@ -716,7 +719,7 @@ bool tryOpenEncryptedDb(String path, String hexKey) {
   try {
     final db = raw.sqlite3.open(path);
     try {
-      db.execute("PRAGMA key = \"x'$hexKey'\";");
+      configurePrismSqliteConnection(db, hexKey: hexKey);
       db.select('SELECT count(*) FROM sqlite_master;');
       return true;
     } finally {
@@ -786,7 +789,18 @@ void Function(raw.Database) makeCipherSetup(String hexKey) {
     'Invalid hex key: expected 64 lowercase hex chars',
   );
   return (raw.Database db) {
+    configurePrismSqliteConnection(db, hexKey: hexKey);
+  };
+}
+
+void configurePrismSqliteConnection(raw.Database db, {String? hexKey}) {
+  if (hexKey != null) {
+    assert(
+      validateHexKey(hexKey),
+      'Invalid hex key: expected 64 lowercase hex chars',
+    );
     // x'...' hex syntax passes raw key bytes (avoids SQL string escaping issues).
     db.execute("PRAGMA key = \"x'$hexKey'\";");
-  };
+  }
+  db.execute('PRAGMA busy_timeout = $prismSqliteBusyTimeoutMs;');
 }
