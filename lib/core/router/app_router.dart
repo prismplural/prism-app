@@ -7,6 +7,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import '../../features/fronting/views/edit_front_session_screen.dart';
 import '../../features/fronting/views/fronting_screen.dart';
 import '../../features/fronting/views/period_detail_args.dart';
@@ -343,10 +344,29 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: ':id',
-                    builder: (context, state) => ConversationScreen(
-                      conversationId: state.pathParameters['id']!,
-                      initialMessageId: state.uri.queryParameters['messageId'],
-                    ),
+                    builder: (context, state) {
+                      final screen = ConversationScreen(
+                        conversationId: state.pathParameters['id']!,
+                        initialMessageId:
+                            state.uri.queryParameters['messageId'],
+                      );
+                      final mentionViewer =
+                          state.uri.queryParameters['mentionViewer'];
+                      if (mentionViewer == null || mentionViewer.isEmpty) {
+                        return screen;
+                      }
+                      return ProviderScope(
+                        overrides: [
+                          speakingAsProvider.overrideWithBuild(
+                            (ref, _) => validatedMentionViewerSpeakingAs(
+                              ref,
+                              mentionViewer,
+                            ),
+                          ),
+                        ],
+                        child: screen,
+                      );
+                    },
                   ),
                 ],
               ),

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/entity_mention_editing_controller.dart';
+import 'package:prism_plurality/shared/widgets/entity_mention_text_field.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -14,6 +16,8 @@ Future<String?> showFullScreenMarkdownEditor({
   required String title,
   required String initialText,
   required String hintText,
+  bool entityMentionsEnabled = false,
+  bool markdownEnabled = true,
 }) {
   return PrismSheet.showFullScreen<String>(
     context: context,
@@ -22,6 +26,8 @@ Future<String?> showFullScreenMarkdownEditor({
       initialText: initialText,
       hintText: hintText,
       scrollController: scrollController,
+      entityMentionsEnabled: entityMentionsEnabled,
+      markdownEnabled: markdownEnabled,
     ),
   );
 }
@@ -36,12 +42,16 @@ class FullScreenMarkdownEditorSheet extends StatefulWidget {
     required this.initialText,
     required this.hintText,
     required this.scrollController,
+    this.entityMentionsEnabled = false,
+    this.markdownEnabled = true,
   });
 
   final String title;
   final String initialText;
   final String hintText;
   final ScrollController scrollController;
+  final bool entityMentionsEnabled;
+  final bool markdownEnabled;
 
   @override
   State<FullScreenMarkdownEditorSheet> createState() =>
@@ -50,13 +60,15 @@ class FullScreenMarkdownEditorSheet extends StatefulWidget {
 
 class _FullScreenMarkdownEditorSheetState
     extends State<FullScreenMarkdownEditorSheet> {
-  late final MarkdownEditingController _controller;
+  late final TextEditingController _controller;
   late final FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
-    _controller = MarkdownEditingController(text: widget.initialText);
+    _controller = widget.entityMentionsEnabled
+        ? EntityMentionEditingController(text: widget.initialText)
+        : MarkdownEditingController(text: widget.initialText);
     _focusNode = FocusNode();
   }
 
@@ -92,7 +104,10 @@ class _FullScreenMarkdownEditorSheetState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    _controller.updateTheme(context);
+    final controller = _controller;
+    if (controller is MarkdownEditingController) {
+      controller.updateTheme(context);
+    }
 
     return ListenableBuilder(
       listenable: _controller,
@@ -126,22 +141,41 @@ class _FullScreenMarkdownEditorSheetState
                     vertical: 16,
                   ),
                   children: [
-                    PrismTextField(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      hintText: widget.hintText,
-                      fieldStyle: PrismTextFieldStyle.borderless,
-                      style: theme.textTheme.bodyLarge,
-                      hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.4,
+                    if (controller is EntityMentionEditingController)
+                      EntityMentionTextField(
+                        controller: controller,
+                        focusNode: _focusNode,
+                        hintText: widget.hintText,
+                        markdownEnabled: widget.markdownEnabled,
+                        fieldStyle: PrismTextFieldStyle.borderless,
+                        style: theme.textTheme.bodyLarge,
+                        hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.4,
+                          ),
                         ),
+                        minLines: 12,
+                        maxLines: null,
+                        textCapitalization: TextCapitalization.sentences,
+                        autofocus: true,
+                      )
+                    else
+                      PrismTextField(
+                        controller: controller,
+                        focusNode: _focusNode,
+                        hintText: widget.hintText,
+                        fieldStyle: PrismTextFieldStyle.borderless,
+                        style: theme.textTheme.bodyLarge,
+                        hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.4,
+                          ),
+                        ),
+                        minLines: 12,
+                        maxLines: null,
+                        textCapitalization: TextCapitalization.sentences,
+                        autofocus: true,
                       ),
-                      minLines: 12,
-                      maxLines: null,
-                      textCapitalization: TextCapitalization.sentences,
-                      autofocus: true,
-                    ),
                   ],
                 ),
               ),

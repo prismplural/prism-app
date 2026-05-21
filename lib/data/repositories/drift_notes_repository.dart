@@ -56,6 +56,28 @@ class DriftNotesRepository with SyncRecordMixin implements NotesRepository {
   }
 
   @override
+  Future<domain.Note?> getMentionNoteById(String id) async {
+    final row = await _dao.getMentionNoteById(id);
+    return row != null ? NoteMapper.toDomain(row) : null;
+  }
+
+  @override
+  Stream<List<domain.Note>> watchMentionNotesByIds(List<String> ids) {
+    return _dao
+        .watchMentionNotesByIds(ids)
+        .map((rows) => rows.map(NoteMapper.toDomain).toList());
+  }
+
+  @override
+  Future<List<domain.Note>> searchMentionCandidates(
+    String filter, {
+    int limit = 8,
+  }) async {
+    final rows = await _dao.searchMentionCandidates(filter, limit: limit);
+    return rows.map(NoteMapper.toDomain).toList();
+  }
+
+  @override
   Future<void> createNote(domain.Note note) async {
     final companion = NoteMapper.toCompanion(note);
     await _dao.createNote(companion);
@@ -85,10 +107,7 @@ class DriftNotesRepository with SyncRecordMixin implements NotesRepository {
 
   /// Field-map builder for note sync emissions.
   ///
-  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
-  /// construct byte-identical `fields` payloads when it bypasses
-  /// `createNote()` for the bulk insert. See
-  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  /// Public so bulk imports can reuse the same sync payload as writes.
   static Map<String, dynamic> noteFields(domain.Note n) {
     return {
       'title': n.title,

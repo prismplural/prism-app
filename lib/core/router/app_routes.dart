@@ -75,6 +75,8 @@ abstract final class AppRoutePaths {
 
   // Parameterized helpers
   static String chatConversation(String id) => '/chat/$id';
+  static String chatConversationAs(String id, String memberId) =>
+      '/chat/$id?mentionViewer=${Uri.encodeQueryComponent(memberId)}';
   static String session(String id) => '/session/$id';
   static String sessionEdit(String id) => '/session/$id/edit';
   static String sleepSession(String id) => '/sleep/session/$id';

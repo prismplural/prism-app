@@ -55,6 +55,15 @@ class _LimitedRepo implements MemberBoardPostsRepository {
   @override
   Stream<MemberBoardPost?> watchPostById(String id) => Stream.value(null);
   @override
+  Stream<List<MemberBoardPost>> watchMentionPostsByIds(List<String> ids) =>
+      Stream.value(const <MemberBoardPost>[]);
+  @override
+  Future<List<MemberBoardPost>> searchMentionCandidates(
+    String filter, {
+    int limit = 12,
+    List<String> activeFronterIds = const [],
+  }) async => const <MemberBoardPost>[];
+  @override
   Future<MemberBoardPost?> getPostById(String id) async => null;
   @override
   Future<void> createPost(MemberBoardPost post) async {}
@@ -131,7 +140,9 @@ void main() {
 
       // Grab the screen's controller off the CustomScrollView — find.byType
       // (Scrollable).first can resolve to a wrapping MaterialApp scrollable.
-      final csv = tester.widget<CustomScrollView>(find.byType(CustomScrollView));
+      final csv = tester.widget<CustomScrollView>(
+        find.byType(CustomScrollView),
+      );
       final controller = csv.controller!;
 
       final container = ProviderScope.containerOf(

@@ -6,10 +6,11 @@ import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
-import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/full_screen_markdown_editor_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/widgets/entity_mention_editing_controller.dart';
+import 'package:prism_plurality/shared/widgets/entity_mention_text_field.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -151,8 +152,8 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
     final initialValue = widget.existingValue?.value ?? '';
     _lastSavedValue = initialValue;
     _textController = switch (widget.field.fieldType) {
-      CustomFieldType.text => ChatMarkdownEditingController(text: initialValue),
-      CustomFieldType.longText => MarkdownEditingController(text: initialValue),
+      CustomFieldType.text || CustomFieldType.longText =>
+        EntityMentionEditingController(text: initialValue),
       CustomFieldType.color ||
       CustomFieldType.date => TextEditingController(text: initialValue),
     };
@@ -214,7 +215,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
   @override
   Widget build(BuildContext context) {
     final controller = _textController;
-    if (controller is ChatMarkdownEditingController) {
+    if (controller is EntityMentionEditingController) {
       controller.updateTheme(context);
     } else if (controller is MarkdownEditingController) {
       controller.updateTheme(context);
@@ -234,9 +235,9 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
       onFocusChange: (hasFocus) {
         if (!hasFocus) unawaited(savePendingValue());
       },
-      child: PrismTextField(
+      child: EntityMentionTextField(
         focusNode: _focusNode,
-        controller: _textController,
+        controller: _textController as EntityMentionEditingController,
         labelText: widget.field.name,
         hintText: l10n.memberCustomFieldEnterHint(
           widget.field.name.toLowerCase(),
@@ -276,9 +277,9 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
           onFocusChange: (hasFocus) {
             if (!hasFocus) unawaited(savePendingValue());
           },
-          child: PrismTextField(
+          child: EntityMentionTextField(
             focusNode: _focusNode,
-            controller: _textController,
+            controller: _textController as EntityMentionEditingController,
             hintText: l10n.memberCustomFieldEnterHint(
               widget.field.name.toLowerCase(),
             ),
@@ -301,6 +302,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
       hintText: context.l10n.memberCustomFieldEnterHint(
         widget.field.name.toLowerCase(),
       ),
+      entityMentionsEnabled: true,
     );
     if (result == null || !mounted) return;
 

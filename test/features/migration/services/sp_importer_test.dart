@@ -325,6 +325,48 @@ class _FakeConversationRepository implements ConversationRepository {
   }
 
   @override
+  Future<domain.Conversation?> getMentionConversationById(String id) =>
+      getConversationById(id);
+
+  @override
+  Stream<List<domain.Conversation>> watchMentionConversationsByIds(
+    List<String> ids,
+  ) {
+    if (ids.isEmpty) return Stream.value(const <domain.Conversation>[]);
+    final wanted = ids.toSet();
+    return Stream.value([
+      for (final c in conversations)
+        if (wanted.contains(c.id)) c,
+    ]);
+  }
+
+  @override
+  Future<List<domain.Conversation>> searchMentionCandidates(
+    String filter, {
+    int limit = 12,
+    List<String> activeFronterIds = const [],
+    bool includeAdminGroups = false,
+  }) async {
+    final lower = filter.trim().toLowerCase();
+    final activeIds = activeFronterIds.toSet();
+    return [
+      for (final conversation in conversations)
+        if ((activeIds.any(conversation.participantIds.contains) ||
+                (conversation.includesAllMembers &&
+                    !conversation.isDirectMessage) ||
+                (includeAdminGroups && !conversation.isDirectMessage) ||
+                (conversation.isDirectMessage &&
+                    conversation.participantIds.isEmpty &&
+                    activeIds.isNotEmpty)) &&
+            (lower.isEmpty ||
+                (conversation.title?.toLowerCase().contains(lower) ?? false) ||
+                (conversation.description?.toLowerCase().contains(lower) ??
+                    false)))
+          conversation,
+    ].take(limit).toList();
+  }
+
+  @override
   Future<List<domain.Conversation>> getConversationsForMember(
     String memberId,
   ) async =>
@@ -384,12 +426,7 @@ class _FakeConversationRepository implements ConversationRepository {
 /// Wraps a real [MemberRepository] and throws on the first existing-members
 /// read. Used by the rollback tests below to force a transaction failure.
 ///
-/// Phase 6's batch path bypasses every per-row `messageRepo.createMessage`
-/// call, so the pre-Phase-6 fault injection via `_FakeChatMessageRepository
-/// .throwOnCreate` no longer fires. The SP importer still calls
-/// `memberRepo.getAllMembersIncludingDeleted()` once at the top of its
-/// members loop (pre-resolve existing-member/tombstone detection), so that's
-/// the durable failure-injection point that survives later batching changes.
+/// Forces a failure at the first existing-member read, before batched writes.
 class _ThrowingMemberRepository implements MemberRepository {
   _ThrowingMemberRepository(this._inner);
   final MemberRepository _inner;
@@ -1424,11 +1461,8 @@ void main() {
       'avatar ZIP overwrites remote avatar bytes when both are present',
       () async {
         const avatarUrl = 'https://example.com/avatar.png';
-        // Phase 6 switched these tests to the real `DriftMemberRepository`
-        // (see comment below). Drift's avatar normalize step decodes the
-        // input bytes, so the fake byte buffer used pre-Phase-6 no longer
-        // round-trips. Use a real JPEG so normalize is a no-op and the
-        // bytes survive the round trip.
+        // Drift decodes avatar bytes during normalization; use real JPEGs so
+        // the bytes survive the round trip.
         final remoteBytes = _jpegBytes(10, 20, 30);
         final zipBytes = _jpegBytes(220, 20, 20);
         final zipPath = await _writeAvatarZip({'sp-a.jpg': zipBytes});
@@ -1455,10 +1489,7 @@ void main() {
 
         final db = _makeDb();
         addTearDown(db.close);
-        // Phase 6 batches member inserts through `db.membersDao` directly,
-        // so the fake-repo `_members` list is no longer populated by the
-        // importer. Use the real Drift-backed repo so `getAllMembers()`
-        // reads from the same DB the batch wrote to.
+        // Use the real repo so reads observe the batched member inserts.
         final memberRepo = DriftMemberRepository(db.membersDao, null);
         final importer = SpImporter(httpClient: client);
 
@@ -1676,8 +1707,7 @@ void main() {
       );
       final db = _makeDb();
       addTearDown(db.close);
-      // Phase 6 batches member inserts through `db.membersDao` directly;
-      // use the real Drift repo so `getAllMembers()` reads the same DB.
+      // Use the real repo so reads observe the batched member inserts.
       final memberRepo = DriftMemberRepository(db.membersDao, null);
 
       final result = await SpImporter(httpClient: _FakeHttpClient())
@@ -1823,9 +1853,7 @@ void main() {
       'retryAvatarDownloads uses SP id map and preserves member edits',
       () async {
         const avatarUrl = 'https://example.com/flaky.png';
-        // Phase 6 routes member writes through the real DriftMemberRepository
-        // (avatar normalize decodes the bytes). Use a real JPEG so the round
-        // trip preserves the buffer.
+        // Avatar normalization decodes bytes; real JPEGs survive the round trip.
         final fakeBytes = _jpegBytes(9, 8, 7);
 
         final db = _makeDb();
@@ -1843,9 +1871,7 @@ void main() {
           polls: [],
         );
 
-        // Phase 6 batches member inserts through `db.membersDao` directly;
-        // use the real Drift repo so the retry path observes the inserted
-        // member via the shared DB.
+        // Use the real repo so the retry path observes inserted members.
         final memberRepo = DriftMemberRepository(db.membersDao, null);
         final importer = SpImporter(httpClient: client);
 
@@ -1894,8 +1920,7 @@ void main() {
       () async {
         const avatarUrlA = 'https://example.com/a.png';
         const avatarUrlB = 'https://example.com/b.png';
-        // Phase 6 — see comment in earlier avatar test. Use real JPEGs so
-        // normalize doesn't truncate the round-trip.
+        // Avatar normalization decodes bytes; real JPEGs survive the round trip.
         final bytesA = _jpegBytes(1, 1, 1);
         final bytesB = _jpegBytes(2, 2, 2);
 
@@ -1925,8 +1950,7 @@ void main() {
           polls: [],
         );
 
-        // Phase 6 batches member inserts through `db.membersDao` directly;
-        // use the real Drift repo so the retry path observes inserted members.
+        // Use the real repo so the retry path observes inserted members.
         final memberRepo = DriftMemberRepository(db.membersDao, null);
         final importer = SpImporter(httpClient: client);
 
@@ -2032,11 +2056,7 @@ void main() {
       final db = _makeDb();
       addTearDown(db.close);
 
-      // Phase 6 batches every per-row write away from the repositories, so
-      // the old `_FakeChatMessageRepository.throwOnCreate` fault never
-      // fires. Inject the failure on `memberRepo.getAllMembers()` instead —
-      // it's the first transactional call the importer makes (pre-resolve
-      // existing-member detection) and survives every later batching pass.
+      // Inject the failure before any batched writes start.
       final memberRepoBase = DriftMemberRepository(db.membersDao, null);
       final memberRepo = _ThrowingMemberRepository(memberRepoBase);
       final sessionRepo = DriftFrontingSessionRepository(
@@ -2135,9 +2155,7 @@ void main() {
         final beforeImport = await db.membersDao.getAllMembers();
         expect(beforeImport.length, 1);
 
-        // Wrap the member repo so its first `getAllMembers()` call inside
-        // the import transaction throws — Phase 6 makes this the durable
-        // failure-injection point. See the comment on the test above.
+        // Fail before inserts so rollback behavior is deterministic.
         final memberRepo = _ThrowingMemberRepository(memberRepoBase);
         final messageRepo = _FakeChatMessageRepository();
 

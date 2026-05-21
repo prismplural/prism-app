@@ -121,7 +121,9 @@ void main() {
   });
 
   group('includesAllMembers round-trip', () {
-    Future<domain.Conversation> insert({required bool includesAllMembers}) async {
+    Future<domain.Conversation> insert({
+      required bool includesAllMembers,
+    }) async {
       final conversation = domain.Conversation(
         id: 'conv-1',
         createdAt: DateTime.utc(2026, 4, 27),
@@ -135,32 +137,40 @@ void main() {
       return conversation;
     }
 
-    test('createConversation persists the flag and read-back preserves it',
-        () async {
-      await insert(includesAllMembers: true);
+    test(
+      'createConversation persists the flag and read-back preserves it',
+      () async {
+        await insert(includesAllMembers: true);
 
-      final round = await repo.getConversationById('conv-1');
-      expect(round, isNotNull);
-      expect(round!.includesAllMembers, isTrue);
-      expect(
-        round.participantIds,
-        ['creator'],
-        reason: 'Everyone-groups still store the creator explicitly',
-      );
-    });
+        final round = await repo.getConversationById('conv-1');
+        expect(round, isNotNull);
+        expect(round!.includesAllMembers, isTrue);
+        expect(
+          round.participantIds,
+          ['creator'],
+          reason: 'Everyone-groups still store the creator explicitly',
+        );
+      },
+    );
 
     test('setIncludesAllMembers flips the flag in storage', () async {
       await insert(includesAllMembers: false);
-      expect((await repo.getConversationById('conv-1'))!.includesAllMembers,
-          isFalse);
+      expect(
+        (await repo.getConversationById('conv-1'))!.includesAllMembers,
+        isFalse,
+      );
 
       await repo.setIncludesAllMembers('conv-1', true);
-      expect((await repo.getConversationById('conv-1'))!.includesAllMembers,
-          isTrue);
+      expect(
+        (await repo.getConversationById('conv-1'))!.includesAllMembers,
+        isTrue,
+      );
 
       await repo.setIncludesAllMembers('conv-1', false);
-      expect((await repo.getConversationById('conv-1'))!.includesAllMembers,
-          isFalse);
+      expect(
+        (await repo.getConversationById('conv-1'))!.includesAllMembers,
+        isFalse,
+      );
     });
 
     test('setIncludesAllMembers leaves other fields untouched', () async {
@@ -172,6 +182,39 @@ void main() {
       expect(after!.title, 'Everyone');
       expect(after.creatorId, 'creator');
       expect(after.participantIds, ['creator']);
+    });
+  });
+
+  group('mention reads', () {
+    domain.Conversation conversation(String id, String title) =>
+        domain.Conversation(
+          id: id,
+          title: title,
+          createdAt: DateTime.utc(2026, 4, 27),
+          lastActivityAt: DateTime.utc(2026, 4, 27, 1),
+          participantIds: const ['alice'],
+        );
+
+    test('point fetch keeps legacy soft-delete semantics', () async {
+      await repo.createConversation(conversation('conv-1', 'Deleted chat'));
+      await repo.deleteConversation('conv-1');
+
+      expect(await repo.getConversationById('conv-1'), isNotNull);
+      expect(await repo.getMentionConversationById('conv-1'), isNull);
+    });
+
+    test('searchMentionCandidates treats LIKE wildcards literally', () async {
+      await repo.createConversation(conversation('literal-percent', '100%'));
+      await repo.createConversation(conversation('plain', 'plain'));
+
+      final percent = await repo.searchMentionCandidates(
+        '%',
+        activeFronterIds: const ['alice'],
+      );
+
+      expect(percent.map((conversation) => conversation.id), [
+        'literal-percent',
+      ]);
     });
   });
 }

@@ -6,9 +6,11 @@ import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/mentions/entity_mention.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/widgets/entity_mention_text.dart';
+import 'package:prism_plurality/shared/widgets/profile_entity_mention_navigation.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
@@ -143,9 +145,18 @@ class CustomFieldsDisplay extends ConsumerWidget {
     if (entry.field.fieldType == CustomFieldType.longText) return true;
     if (entry.value.value.contains('\n')) return true;
     if (entry.field.name.length > _compactNameLimit) return true;
-    if (entry.displayValue.length > _compactValueLimit) return true;
-    return entry.field.name.length + entry.displayValue.length >
+    final measuredValue = _measurementValue(entry.displayValue);
+    if (measuredValue.length > _compactValueLimit) return true;
+    return entry.field.name.length + measuredValue.length >
         _compactCombinedLimit;
+  }
+
+  static String _measurementValue(String raw) {
+    var measured = raw;
+    for (final match in extractEntityMentions(raw).reversed) {
+      measured = measured.replaceRange(match.start, match.end, 'Private');
+    }
+    return measured;
   }
 
   static String _formatDateValue(
@@ -326,10 +337,11 @@ class _FieldValueBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (entry.field.fieldType) {
-      CustomFieldType.text => _InlineMarkdownText(
-        entry.value.value,
+      CustomFieldType.text => EntityMentionInlineText(
+        data: entry.value.value,
         style: textStyle,
         textAlign: textAlign,
+        onTapMention: openProfileEntityMention,
       ),
       CustomFieldType.longText => _LongTextPreview(
         title: entry.field.name,
@@ -365,10 +377,11 @@ class _LongTextPreview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        MarkdownText(
+        EntityMentionMarkdownText(
           data: isTruncated ? '$preview...' : data,
           enabled: true,
           baseStyle: style ?? theme.textTheme.bodyMedium,
+          onTapMention: openProfileEntityMention,
         ),
         if (isTruncated) ...[
           const SizedBox(height: 10),
@@ -405,10 +418,16 @@ class _LongTextPreview extends StatelessWidget {
         : raw;
 
     if (preview.length > _previewCharacterLimit) {
-      preview = preview.substring(0, _previewCharacterLimit);
+      preview = _safeSubstringWithoutSplittingMention(
+        preview,
+        _previewCharacterLimit,
+      );
       final lastWhitespace = preview.lastIndexOf(RegExp(r'\s'));
       if (lastWhitespace > _previewCharacterLimit * 0.65) {
-        preview = preview.substring(0, lastWhitespace);
+        preview = _safeSubstringWithoutSplittingMention(
+          preview,
+          lastWhitespace,
+        );
       }
     }
 
@@ -439,13 +458,14 @@ class _CustomFieldDetailSheet extends StatelessWidget {
               controller: scrollController,
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
               children: [
-                MarkdownText(
+                EntityMentionMarkdownText(
                   data: data,
                   enabled: true,
                   baseStyle: theme.textTheme.bodyLarge?.copyWith(
                     color: theme.colorScheme.onSurface,
                     height: 1.55,
                   ),
+                  onTapMention: openProfileEntityMention,
                 ),
               ],
             ),
@@ -498,115 +518,14 @@ class _ColorDisplay extends StatelessWidget {
   }
 }
 
-class _InlineMarkdownText extends StatelessWidget {
-  const _InlineMarkdownText(
-    this.data, {
-    this.style,
-    this.textAlign = TextAlign.start,
-  });
-
-  final String data;
-  final TextStyle? style;
-  final TextAlign textAlign;
-
-  static final _boldStar = RegExp(r'\*\*(.+?)\*\*');
-  static final _boldUnderscore = RegExp(r'__(.+?)__');
-  static final _italicStar = RegExp(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)');
-  static final _italicUnderscore = RegExp(r'(?<!_)_(?!_)(.+?)(?<!_)_(?!_)');
-  static final _code = RegExp(r'`(.+?)`');
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final baseStyle = style ?? theme.textTheme.bodyMedium ?? const TextStyle();
-    final codeColor = theme.colorScheme.surfaceContainerHighest;
-
-    final segments = <_InlineMarkdownSegment>[];
-    final matched = List.filled(data.length, false);
-
-    void addMatches(
-      RegExp pattern,
-      TextStyle Function(TextStyle base) styleForMatch,
-    ) {
-      for (final match in pattern.allMatches(data)) {
-        if (_overlaps(matched, match.start, match.end)) continue;
-        for (var i = match.start; i < match.end; i++) {
-          matched[i] = true;
-        }
-        segments.add(
-          _InlineMarkdownSegment(
-            start: match.start,
-            end: match.end,
-            content: match.group(1)!,
-            style: styleForMatch(baseStyle),
-          ),
-        );
-      }
+String _safeSubstringWithoutSplittingMention(String value, int end) {
+  if (value.length <= end) return value;
+  var safeEnd = end;
+  for (final match in extractEntityMentions(value)) {
+    if (match.start < end && match.end > end) {
+      safeEnd = match.start;
+      break;
     }
-
-    addMatches(
-      _code,
-      (base) =>
-          base.copyWith(fontFamily: 'monospace', backgroundColor: codeColor),
-    );
-    addMatches(_boldStar, (base) => base.copyWith(fontWeight: FontWeight.bold));
-    addMatches(
-      _boldUnderscore,
-      (base) => base.copyWith(fontWeight: FontWeight.bold),
-    );
-    addMatches(
-      _italicStar,
-      (base) => base.copyWith(fontStyle: FontStyle.italic),
-    );
-    addMatches(
-      _italicUnderscore,
-      (base) => base.copyWith(fontStyle: FontStyle.italic),
-    );
-
-    if (segments.isEmpty) {
-      return Text(data, style: baseStyle, textAlign: textAlign);
-    }
-
-    segments.sort((a, b) => a.start.compareTo(b.start));
-    final spans = <InlineSpan>[];
-    var cursor = 0;
-
-    for (final segment in segments) {
-      if (cursor < segment.start) {
-        spans.add(TextSpan(text: data.substring(cursor, segment.start)));
-      }
-      spans.add(TextSpan(text: segment.content, style: segment.style));
-      cursor = segment.end;
-    }
-
-    if (cursor < data.length) {
-      spans.add(TextSpan(text: data.substring(cursor)));
-    }
-
-    return Text.rich(
-      TextSpan(style: baseStyle, children: spans),
-      textAlign: textAlign,
-    );
   }
-
-  bool _overlaps(List<bool> matched, int start, int end) {
-    for (var i = start; i < end; i++) {
-      if (matched[i]) return true;
-    }
-    return false;
-  }
-}
-
-class _InlineMarkdownSegment {
-  const _InlineMarkdownSegment({
-    required this.start,
-    required this.end,
-    required this.content,
-    required this.style,
-  });
-
-  final int start;
-  final int end;
-  final String content;
-  final TextStyle style;
+  return value.substring(0, safeEnd);
 }

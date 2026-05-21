@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/sql_like.dart';
 import 'package:prism_plurality/core/database/tables/member_board_posts_table.dart';
 
 part 'member_board_posts_dao.g.dart';
@@ -128,6 +129,44 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
     memberBoardPosts,
   )..where((p) => p.id.equals(id))).getSingleOrNull();
 
+  Stream<List<MemberBoardPostRow>> watchMentionPostsByIds(List<String> ids) {
+    if (ids.isEmpty) return Stream.value(const <MemberBoardPostRow>[]);
+    return (select(
+      memberBoardPosts,
+    )..where((p) => p.id.isIn(ids) & p.isDeleted.equals(false))).watch();
+  }
+
+  Future<List<MemberBoardPostRow>> searchMentionCandidates(
+    String filter, {
+    int limit = 12,
+    List<String> activeFronterIds = const [],
+  }) {
+    final trimmed = filter.trim();
+    final activeIds = activeFronterIds.toSet().toList(growable: false);
+    final q = select(memberBoardPosts)
+      ..where((p) {
+        final visible =
+            p.isDeleted.equals(false) &
+            (p.audience.equals('public') |
+                (p.audience.equals('private') &
+                    (activeIds.isEmpty
+                        ? const Constant<bool>(false)
+                        : (p.targetMemberId.isIn(activeIds) |
+                              p.authorId.isIn(activeIds)))));
+        if (trimmed.isEmpty) return visible;
+        final pattern = escapedSqlLikeContainsPattern(trimmed);
+        return visible &
+            (p.title.like(pattern, escapeChar: sqlLikeEscapeChar) |
+                p.body.like(pattern, escapeChar: sqlLikeEscapeChar));
+      })
+      ..orderBy([
+        (p) => OrderingTerm.desc(p.writtenAt),
+        (p) => OrderingTerm.desc(p.id),
+      ])
+      ..limit(limit);
+    return q.get();
+  }
+
   // ---------------------------------------------------------------------------
   // Badge / unread counts
   // ---------------------------------------------------------------------------
@@ -190,7 +229,6 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
       into(memberBoardPosts).insert(c);
 
   /// Batch-insert member board posts in a single Drift `batch()` round-trip.
-  /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
   Future<void> batchInsertPosts(List<MemberBoardPostsCompanion> rows) async {
     if (rows.isEmpty) return;
     await batch((b) => b.insertAll(memberBoardPosts, rows));

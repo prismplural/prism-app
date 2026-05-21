@@ -13,7 +13,9 @@ import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart'
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
     show speakingAsProvider;
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/providers/profile_entity_mentions_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/mentions/entity_mention_visibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -44,13 +46,26 @@ class PostDetailScreen extends ConsumerWidget {
         : const AsyncValue<Member?>.data(null);
     final viewerMember = viewerAsync.value;
 
-    final post = postAsync.value;
-    final perms = post == null
+    final rawPost = postAsync.value;
+    final perms = rawPost == null
         ? null
         : MemberBoardPostPermissions(
-            post: post,
+            post: rawPost,
             speakingAsMember: viewerMember,
           );
+    final activeFronters = ref.watch(profileMentionActiveFrontersProvider);
+    final activeFrontCanView = canActiveFrontViewBoardPost(
+      rawPost,
+      activeFronters: activeFronters,
+    );
+    final post = ((perms?.canView ?? false) || activeFrontCanView)
+        ? rawPost
+        : null;
+    final waitingForPrivateViewer =
+        rawPost?.audience == 'private' &&
+        speakingAsId != null &&
+        viewerAsync.isLoading &&
+        !activeFrontCanView;
 
     final actions = <Widget>[
       if (perms?.canEdit ?? false)
@@ -85,7 +100,12 @@ class PostDetailScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(24),
           child: Text('Error loading post: $e'),
         ),
-        data: (post) {
+        data: (_) {
+          if (waitingForPrivateViewer) {
+            return Center(
+              child: PrismSpinner(color: Theme.of(context).colorScheme.primary),
+            );
+          }
           if (post == null) {
             return Padding(
               padding: const EdgeInsets.all(32),

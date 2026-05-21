@@ -219,6 +219,18 @@ final speakingAsProvider = NotifierProvider<SpeakingAsNotifier, String?>(
   SpeakingAsNotifier.new,
 );
 
+String? validatedMentionViewerSpeakingAs(Ref ref, String memberId) {
+  if (memberId == unknownSentinelMemberId) return null;
+  final activeMembers = ref.watch(activeMembersProvider).value;
+  if (activeMembers == null) return null;
+  for (final member in activeMembers) {
+    if (member.id == memberId && member.isActive && !member.isDeleted) {
+      return memberId;
+    }
+  }
+  return null;
+}
+
 class SpeakingAsNotifier extends Notifier<String?> {
   String? _explicitSelection;
 
@@ -268,6 +280,10 @@ class SpeakingAsNotifier extends Notifier<String?> {
   }
 
   void setMember(String? memberId) {
+    _setMember(memberId, logFront: true);
+  }
+
+  void _setMember(String? memberId, {required bool logFront}) {
     final activeMemberIds = ref
         .read(activeMembersProvider)
         .value
@@ -284,12 +300,10 @@ class SpeakingAsNotifier extends Notifier<String?> {
     ref.invalidateSelf();
 
     // Optionally log a front when switching the speaking member.
-    if (selectedMemberId != null) {
+    if (logFront && selectedMemberId != null) {
       final chatLogsFront = ref.read(chatLogsFrontProvider);
       if (chatLogsFront) {
-        // TODO(spec §2.5): verify this matches user intent — old switchFronter
-        // implied replace semantics; startFronting is additive in the per-member
-        // model (does not end other active sessions).
+        // Author selection may also log a front, depending on chat settings.
         unawaited(
           ref
               .read(frontingNotifierProvider.notifier)

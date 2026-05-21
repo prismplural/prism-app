@@ -39,6 +39,14 @@ abstract class MemberBoardPostsRepository {
 
   Stream<MemberBoardPost?> watchPostById(String id);
 
+  Stream<List<MemberBoardPost>> watchMentionPostsByIds(List<String> ids);
+
+  Future<List<MemberBoardPost>> searchMentionCandidates(
+    String filter, {
+    int limit = 12,
+    List<String> activeFronterIds = const [],
+  });
+
   // ---------------------------------------------------------------------------
   // Point reads
   // ---------------------------------------------------------------------------

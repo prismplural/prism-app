@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:markdown/markdown.dart' as md;
 import 'package:url_launcher/url_launcher.dart';
 
 /// Renders text as Markdown when [enabled], otherwise as plain [Text].
@@ -14,6 +15,9 @@ class MarkdownText extends StatelessWidget {
     this.enabled = true,
     this.baseStyle,
     this.selectable = false,
+    this.builders,
+    this.inlineSyntaxes,
+    this.extensionSet,
   });
 
   /// The text content (plain or Markdown).
@@ -27,6 +31,12 @@ class MarkdownText extends StatelessWidget {
 
   /// Whether the rendered text is selectable.
   final bool selectable;
+
+  final Map<String, MarkdownElementBuilder>? builders;
+
+  final List<md.InlineSyntax>? inlineSyntaxes;
+
+  final md.ExtensionSet? extensionSet;
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +52,9 @@ class MarkdownText extends StatelessWidget {
       selectable: selectable,
       styleSheet: sheet,
       softLineBreak: true,
+      builders: builders ?? const <String, MarkdownElementBuilder>{},
+      inlineSyntaxes: inlineSyntaxes,
+      extensionSet: extensionSet,
       onTapLink: (_, href, _) => _launchSafeLink(href),
       imageBuilder: (uri, title, alt) => const SizedBox.shrink(),
       checkboxBuilder: (checked) => _buildTaskListCheckbox(

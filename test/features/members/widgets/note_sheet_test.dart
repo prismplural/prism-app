@@ -142,6 +142,9 @@ class _FakeNotesRepository implements NotesRepository {
   Future<Note?> getNoteById(String id) async => null;
 
   @override
+  Future<Note?> getMentionNoteById(String id) => getNoteById(id);
+
+  @override
   Future<void> updateNote(Note note) async {}
 
   @override
@@ -149,6 +152,31 @@ class _FakeNotesRepository implements NotesRepository {
 
   @override
   Stream<Note?> watchNoteById(String id) => Stream.value(null);
+
+  @override
+  Stream<List<Note>> watchMentionNotesByIds(List<String> ids) {
+    if (ids.isEmpty) return Stream.value(const <Note>[]);
+    final wanted = ids.toSet();
+    return Stream.value([
+      for (final note in created)
+        if (wanted.contains(note.id)) note,
+    ]);
+  }
+
+  @override
+  Future<List<Note>> searchMentionCandidates(
+    String filter, {
+    int limit = 8,
+  }) async {
+    final lower = filter.trim().toLowerCase();
+    return [
+      for (final note in created)
+        if (lower.isEmpty ||
+            note.title.toLowerCase().contains(lower) ||
+            note.body.toLowerCase().contains(lower))
+          note,
+    ].take(limit).toList();
+  }
 
   @override
   Stream<List<Note>> watchNotesForMember(String memberId) =>

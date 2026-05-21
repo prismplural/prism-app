@@ -99,6 +99,27 @@ class DriftMemberBoardPostsRepository
         .map((row) => row != null ? MemberBoardPostMapper.toDomain(row) : null);
   }
 
+  @override
+  Stream<List<MemberBoardPost>> watchMentionPostsByIds(List<String> ids) {
+    return _dao
+        .watchMentionPostsByIds(ids)
+        .map((rows) => rows.map(MemberBoardPostMapper.toDomain).toList());
+  }
+
+  @override
+  Future<List<MemberBoardPost>> searchMentionCandidates(
+    String filter, {
+    int limit = 12,
+    List<String> activeFronterIds = const [],
+  }) async {
+    final rows = await _dao.searchMentionCandidates(
+      filter,
+      limit: limit,
+      activeFronterIds: activeFronterIds,
+    );
+    return rows.map(MemberBoardPostMapper.toDomain).toList();
+  }
+
   // ---------------------------------------------------------------------------
   // Point reads
   // ---------------------------------------------------------------------------
@@ -194,10 +215,7 @@ class DriftMemberBoardPostsRepository
 
   /// Field-map builder for member-board-post sync emissions.
   ///
-  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
-  /// construct byte-identical `fields` payloads when it bypasses
-  /// `createPost()` for the bulk insert. See
-  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  /// Public so bulk imports can reuse the same sync payload as writes.
   static Map<String, dynamic> postFields(MemberBoardPost p) {
     return {
       'target_member_id': p.targetMemberId,

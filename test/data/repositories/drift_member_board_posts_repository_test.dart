@@ -54,13 +54,15 @@ MemberBoardPost _post({
 
 /// Insert a minimal member row so boardLastReadAt can be written.
 Future<void> _insertMember(AppDatabase db, String memberId) async {
-  await db.into(db.members).insert(
-    MembersCompanion.insert(
-      id: memberId,
-      name: memberId,
-      createdAt: DateTime.utc(2026, 1, 1),
-    ),
-  );
+  await db
+      .into(db.members)
+      .insert(
+        MembersCompanion.insert(
+          id: memberId,
+          name: memberId,
+          createdAt: DateTime.utc(2026, 1, 1),
+        ),
+      );
 }
 
 void main() {
@@ -202,6 +204,17 @@ void main() {
     });
   });
 
+  group('mention search', () {
+    test('searchMentionCandidates treats LIKE wildcards literally', () async {
+      await repo.createPost(_post(id: 'literal-percent', title: '100%'));
+      await repo.createPost(_post(id: 'plain', title: 'plain'));
+
+      final percent = await repo.searchMentionCandidates('%');
+
+      expect(percent.map((post) => post.id), ['literal-percent']);
+    });
+  });
+
   // -------------------------------------------------------------------------
   // updatePost
   // -------------------------------------------------------------------------
@@ -297,7 +310,9 @@ void main() {
 
     test('boardLastReadAt is recent (within 5s of now)', () async {
       await _insertMember(db, 'm1');
-      final before = DateTime.now().toUtc().subtract(const Duration(seconds: 1));
+      final before = DateTime.now().toUtc().subtract(
+        const Duration(seconds: 1),
+      );
       await repo.markInboxOpenedFor(['m1']);
       final after = DateTime.now().toUtc().add(const Duration(seconds: 5));
 
@@ -307,14 +322,17 @@ void main() {
       expect(ts.isBefore(after), isTrue);
     });
 
-    test('unknown member id does not throw (member not found is silently skipped)', () async {
-      // MembersDao.updateMember only writes if the member exists;
-      // no exception expected for missing member.
-      await expectLater(
-        repo.markInboxOpenedFor(['no-such-member']),
-        completes,
-      );
-    });
+    test(
+      'unknown member id does not throw (member not found is silently skipped)',
+      () async {
+        // MembersDao.updateMember only writes if the member exists;
+        // no exception expected for missing member.
+        await expectLater(
+          repo.markInboxOpenedFor(['no-such-member']),
+          completes,
+        );
+      },
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -445,94 +463,85 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('audience forward-compat fallback', () {
-    test(
-      'unknown audience value from peer applies as "public"',
-      () async {
-        final deviceB = _makeDb();
-        addTearDown(deviceB.close);
-        final adapterB = buildSyncAdapterWithCompletion(deviceB);
-        final entity = adapterB.adapter.entities.firstWhere(
-          (e) => e.tableName == 'member_board_posts',
-        );
+    test('unknown audience value from peer applies as "public"', () async {
+      final deviceB = _makeDb();
+      addTearDown(deviceB.close);
+      final adapterB = buildSyncAdapterWithCompletion(deviceB);
+      final entity = adapterB.adapter.entities.firstWhere(
+        (e) => e.tableName == 'member_board_posts',
+      );
 
-        // Simulate a future-version peer sending an unknown audience
-        await entity.applyFields('future-post', {
-          'target_member_id': null,
-          'author_id': 'a1',
-          'audience': 'something_new', // unknown value
-          'title': null,
-          'body': 'future body',
-          'created_at': '2026-01-01T00:00:00.000Z',
-          'written_at': '2026-01-01T00:00:00.000Z',
-          'edited_at': null,
-          'is_deleted': false,
-        });
+      // Simulate a future-version peer sending an unknown audience
+      await entity.applyFields('future-post', {
+        'target_member_id': null,
+        'author_id': 'a1',
+        'audience': 'something_new', // unknown value
+        'title': null,
+        'body': 'future body',
+        'created_at': '2026-01-01T00:00:00.000Z',
+        'written_at': '2026-01-01T00:00:00.000Z',
+        'edited_at': null,
+        'is_deleted': false,
+      });
 
-        final row = await deviceB.memberBoardPostsDao.getPostById('future-post');
-        expect(row, isNotNull);
-        // Unknown audience → treated as 'public' per locked forward-compat rule
-        expect(
-          row!.audience,
-          'public',
-          reason:
-              'Unknown audience from a future-version peer must be treated as "public"',
-        );
-      },
-    );
+      final row = await deviceB.memberBoardPostsDao.getPostById('future-post');
+      expect(row, isNotNull);
+      // Unknown audience → treated as 'public' per locked forward-compat rule
+      expect(
+        row!.audience,
+        'public',
+        reason:
+            'Unknown audience from a future-version peer must be treated as "public"',
+      );
+    });
 
-    test(
-      '"public" audience value passes through unchanged',
-      () async {
-        final deviceB = _makeDb();
-        addTearDown(deviceB.close);
-        final adapterB = buildSyncAdapterWithCompletion(deviceB);
-        final entity = adapterB.adapter.entities.firstWhere(
-          (e) => e.tableName == 'member_board_posts',
-        );
+    test('"public" audience value passes through unchanged', () async {
+      final deviceB = _makeDb();
+      addTearDown(deviceB.close);
+      final adapterB = buildSyncAdapterWithCompletion(deviceB);
+      final entity = adapterB.adapter.entities.firstWhere(
+        (e) => e.tableName == 'member_board_posts',
+      );
 
-        await entity.applyFields('pub-post', {
-          'target_member_id': null,
-          'author_id': null,
-          'audience': 'public',
-          'title': null,
-          'body': 'a public post',
-          'created_at': '2026-01-01T00:00:00.000Z',
-          'written_at': '2026-01-01T00:00:00.000Z',
-          'edited_at': null,
-          'is_deleted': false,
-        });
+      await entity.applyFields('pub-post', {
+        'target_member_id': null,
+        'author_id': null,
+        'audience': 'public',
+        'title': null,
+        'body': 'a public post',
+        'created_at': '2026-01-01T00:00:00.000Z',
+        'written_at': '2026-01-01T00:00:00.000Z',
+        'edited_at': null,
+        'is_deleted': false,
+      });
 
-        final row = await deviceB.memberBoardPostsDao.getPostById('pub-post');
-        expect(row!.audience, 'public');
-      },
-    );
+      final row = await deviceB.memberBoardPostsDao.getPostById('pub-post');
+      expect(row!.audience, 'public');
+    });
 
-    test(
-      '"private" audience value passes through unchanged',
-      () async {
-        final deviceB = _makeDb();
-        addTearDown(deviceB.close);
-        final adapterB = buildSyncAdapterWithCompletion(deviceB);
-        final entity = adapterB.adapter.entities.firstWhere(
-          (e) => e.tableName == 'member_board_posts',
-        );
+    test('"private" audience value passes through unchanged', () async {
+      final deviceB = _makeDb();
+      addTearDown(deviceB.close);
+      final adapterB = buildSyncAdapterWithCompletion(deviceB);
+      final entity = adapterB.adapter.entities.firstWhere(
+        (e) => e.tableName == 'member_board_posts',
+      );
 
-        await entity.applyFields('priv-post', {
-          'target_member_id': 'm1',
-          'author_id': 'a1',
-          'audience': 'private',
-          'title': null,
-          'body': 'a private post',
-          'created_at': '2026-01-01T00:00:00.000Z',
-          'written_at': '2026-01-01T00:00:00.000Z',
-          'edited_at': null,
-          'is_deleted': false,
-        });
+      await entity.applyFields('priv-post', {
+        'target_member_id': 'm1',
+        'author_id': 'a1',
+        'audience': 'private',
+        'title': null,
+        'body': 'a private post',
+        'created_at': '2026-01-01T00:00:00.000Z',
+        'written_at': '2026-01-01T00:00:00.000Z',
+        'edited_at': null,
+        'is_deleted': false,
+      });
 
-        final row = await deviceB.memberBoardPostsDao.getPostById('priv-post');
-        expect(row!.audience, 'private');
-      },
-    );
+      final row = await deviceB.memberBoardPostsDao.getPostById('priv-post');
+      expect(row!.audience, 'private');
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -551,7 +560,12 @@ void main() {
 
     test('watchInboxPaginated maps rows to domain MemberBoardPost', () async {
       await repo.createPost(
-        _post(id: 'p1', audience: 'private', body: 'inbox', targetMemberId: 'm1'),
+        _post(
+          id: 'p1',
+          audience: 'private',
+          body: 'inbox',
+          targetMemberId: 'm1',
+        ),
       );
       final posts = await repo.watchInboxPaginated(['m1']).first;
       expect(posts.length, 1);
@@ -559,14 +573,22 @@ void main() {
       expect(posts.first.id, 'p1');
     });
 
-    test('watchPublicForMemberPaginated maps rows to domain MemberBoardPost', () async {
-      await repo.createPost(
-        _post(id: 'p1', audience: 'public', body: 'member post', authorId: 'm1'),
-      );
-      final posts = await repo.watchPublicForMemberPaginated('m1').first;
-      expect(posts.length, 1);
-      expect(posts.first, isA<MemberBoardPost>());
-    });
+    test(
+      'watchPublicForMemberPaginated maps rows to domain MemberBoardPost',
+      () async {
+        await repo.createPost(
+          _post(
+            id: 'p1',
+            audience: 'public',
+            body: 'member post',
+            authorId: 'm1',
+          ),
+        );
+        final posts = await repo.watchPublicForMemberPaginated('m1').first;
+        expect(posts.length, 1);
+        expect(posts.first, isA<MemberBoardPost>());
+      },
+    );
 
     test('getPostById returns domain model', () async {
       await repo.createPost(_post(id: 'p1', body: 'fetch me'));

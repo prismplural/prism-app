@@ -18,6 +18,7 @@ void main() {
     required String audience, // 'public' | 'private'
     String authorId = 'author-id',
     String targetMemberId = 'owner-id',
+    bool isDeleted = false,
   }) => MemberBoardPost(
     id: 'post-1',
     authorId: authorId,
@@ -26,7 +27,7 @@ void main() {
     body: 'Hello headmates',
     createdAt: now,
     writtenAt: now,
-    isDeleted: false,
+    isDeleted: isDeleted,
   );
 
   /// Returns permissions for a given actor against a post.
@@ -64,6 +65,15 @@ void main() {
     required bool isAdmin,
   }) => isAuthor || isProfileOwner || isAdmin;
 
+  bool expectedCanView({
+    required String audience,
+    required bool isAuthor,
+    required bool isProfileOwner,
+    required bool isAdmin,
+  }) =>
+      audience == 'public' ||
+      (audience == 'private' && (isAuthor || isProfileOwner || isAdmin));
+
   // ── Matrix: 8 actor combos × 2 audiences = 16 cases ─────────────────────
 
   const audienceValues = ['public', 'private'];
@@ -82,7 +92,8 @@ void main() {
 
   for (final combo in actorCombos) {
     for (final audience in audienceValues) {
-      final label = 'isAuthor=${combo.isAuthor}, '
+      final label =
+          'isAuthor=${combo.isAuthor}, '
           'isProfileOwner=${combo.isProfileOwner}, '
           'isAdmin=${combo.isAdmin}, '
           'audience=$audience';
@@ -107,16 +118,25 @@ void main() {
         test('isAdmin', () => expect(perms.isAdmin, combo.isAdmin));
 
         test('canEdit', () {
-          expect(
-            perms.canEdit,
-            expectedCanEdit(isAuthor: combo.isAuthor),
-          );
+          expect(perms.canEdit, expectedCanEdit(isAuthor: combo.isAuthor));
         });
 
         test('canDelete', () {
           expect(
             perms.canDelete,
             expectedCanDelete(
+              isAuthor: combo.isAuthor,
+              isProfileOwner: combo.isProfileOwner,
+              isAdmin: combo.isAdmin,
+            ),
+          );
+        });
+
+        test('canView', () {
+          expect(
+            perms.canView,
+            expectedCanView(
+              audience: audience,
               isAuthor: combo.isAuthor,
               isProfileOwner: combo.isProfileOwner,
               isAdmin: combo.isAdmin,
@@ -140,9 +160,29 @@ void main() {
     });
 
     test('isAuthor is false', () => expect(perms.isAuthor, isFalse));
-    test('isProfileOwner is false', () => expect(perms.isProfileOwner, isFalse));
+    test(
+      'isProfileOwner is false',
+      () => expect(perms.isProfileOwner, isFalse),
+    );
     test('isAdmin is false', () => expect(perms.isAdmin, isFalse));
     test('canEdit is false', () => expect(perms.canEdit, isFalse));
     test('canDelete is false', () => expect(perms.canDelete, isFalse));
+    test('public canView is true', () => expect(perms.canView, isTrue));
+  });
+
+  group('MemberBoardPostPermissions — deleted post', () {
+    test('canView is false even for the author', () {
+      final post = makePost(
+        audience: 'private',
+        authorId: 'actor-id',
+        isDeleted: true,
+      );
+      final perms = MemberBoardPostPermissions(
+        post: post,
+        speakingAsMember: makeMember(id: 'actor-id'),
+      );
+
+      expect(perms.canView, isFalse);
+    });
   });
 }

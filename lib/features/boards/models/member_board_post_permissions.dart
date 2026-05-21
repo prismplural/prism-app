@@ -34,6 +34,14 @@ class MemberBoardPostPermissions {
   /// Only the author may edit their own post.
   bool get canEdit => isAuthor;
 
+  /// Public posts are readable by anyone; private posts require the author,
+  /// profile owner, or an admin member.
+  bool get canView =>
+      !post.isDeleted &&
+      (post.audience == 'public' ||
+          (post.audience == 'private' &&
+              (isAuthor || isProfileOwner || isAdmin)));
+
   /// Authors, profile-owners, and admins may delete a post.
   bool get canDelete => isAuthor || isProfileOwner || isAdmin;
 }

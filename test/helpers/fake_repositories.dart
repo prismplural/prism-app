@@ -451,6 +451,46 @@ class FakeConversationRepository implements ConversationRepository {
   }
 
   @override
+  Future<Conversation?> getMentionConversationById(String id) =>
+      getConversationById(id);
+
+  @override
+  Stream<List<Conversation>> watchMentionConversationsByIds(List<String> ids) {
+    if (ids.isEmpty) return Stream.value(const <Conversation>[]);
+    final wanted = ids.toSet();
+    return Stream.value([
+      for (final c in conversations)
+        if (wanted.contains(c.id)) c,
+    ]);
+  }
+
+  @override
+  Future<List<Conversation>> searchMentionCandidates(
+    String filter, {
+    int limit = 12,
+    List<String> activeFronterIds = const [],
+    bool includeAdminGroups = false,
+  }) async {
+    final lower = filter.trim().toLowerCase();
+    final activeIds = activeFronterIds.toSet();
+    return [
+      for (final conversation in conversations)
+        if ((activeIds.any(conversation.participantIds.contains) ||
+                (conversation.includesAllMembers &&
+                    !conversation.isDirectMessage) ||
+                (includeAdminGroups && !conversation.isDirectMessage) ||
+                (conversation.isDirectMessage &&
+                    conversation.participantIds.isEmpty &&
+                    activeIds.isNotEmpty)) &&
+            (lower.isEmpty ||
+                (conversation.title?.toLowerCase().contains(lower) ?? false) ||
+                (conversation.description?.toLowerCase().contains(lower) ??
+                    false)))
+          conversation,
+    ].take(limit).toList();
+  }
+
+  @override
   Future<List<Conversation>> getConversationsForMember(String memberId) async {
     return conversations
         .where(

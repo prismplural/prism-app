@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/sql_like.dart';
 import 'package:prism_plurality/core/database/tables/conversations_table.dart';
 
 part 'conversations_dao.g.dart';
@@ -29,6 +30,57 @@ class ConversationsDao extends DatabaseAccessor<AppDatabase>
     return (select(conversations)..where((c) => c.id.isIn(ids))).get();
   }
 
+  Future<Conversation?> getMentionConversationById(String id) =>
+      (select(conversations)
+            ..where((c) => c.id.equals(id) & c.isDeleted.equals(false)))
+          .getSingleOrNull();
+
+  Stream<List<Conversation>> watchMentionConversationsByIds(List<String> ids) {
+    if (ids.isEmpty) return Stream.value(const <Conversation>[]);
+    return (select(
+      conversations,
+    )..where((c) => c.id.isIn(ids) & c.isDeleted.equals(false))).watch();
+  }
+
+  Future<List<Conversation>> searchMentionCandidates(
+    String filter, {
+    int limit = 12,
+    List<String> activeFronterIds = const [],
+    bool includeAdminGroups = false,
+  }) {
+    final trimmed = filter.trim();
+    final activeIds = activeFronterIds.toSet().toList(growable: false);
+    final q = select(conversations)
+      ..where((c) {
+        final participantMatch = activeIds.isEmpty
+            ? const Constant<bool>(false)
+            : activeIds
+                  .map((id) => c.participantIds.like('%"$id"%'))
+                  .reduce((a, b) => a | b);
+        final visible =
+            c.isDeleted.equals(false) &
+            (participantMatch |
+                (c.includesAllMembers.equals(true) &
+                    c.isDirectMessage.equals(false)) |
+                (activeIds.isEmpty
+                    ? const Constant<bool>(false)
+                    : (c.isDirectMessage.equals(true) &
+                          c.participantIds.equals('[]'))) |
+                (includeAdminGroups
+                    ? c.isDirectMessage.equals(false)
+                    : const Constant<bool>(false)));
+        if (trimmed.isEmpty) return visible;
+        final pattern = escapedSqlLikeContainsPattern(trimmed);
+        return visible &
+            (c.title.like(pattern, escapeChar: sqlLikeEscapeChar) |
+                c.description.like(pattern, escapeChar: sqlLikeEscapeChar) |
+                c.emoji.like(pattern, escapeChar: sqlLikeEscapeChar));
+      })
+      ..orderBy([(c) => OrderingTerm.desc(c.lastActivityAt)])
+      ..limit(limit);
+    return q.get();
+  }
+
   Stream<Conversation?> watchConversationById(String id) => (select(
     conversations,
   )..where((c) => c.id.equals(id))).watchSingleOrNull();
@@ -38,8 +90,8 @@ class ConversationsDao extends DatabaseAccessor<AppDatabase>
             ..where(
               (c) =>
                   (c.participantIds.like('%"$memberId"%') |
-                          c.includesAllMembers.equals(true)) &
-                      c.isDeleted.equals(false),
+                      c.includesAllMembers.equals(true)) &
+                  c.isDeleted.equals(false),
             )
             ..orderBy([(c) => OrderingTerm.desc(c.lastActivityAt)]))
           .get();
@@ -48,7 +100,6 @@ class ConversationsDao extends DatabaseAccessor<AppDatabase>
       into(conversations).insert(conversation);
 
   /// Batch-insert conversations in a single Drift `batch()` round-trip.
-  /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
   Future<void> batchInsertConversations(
     List<ConversationsCompanion> rows,
   ) async {
@@ -69,8 +120,9 @@ class ConversationsDao extends DatabaseAccessor<AppDatabase>
       );
 
   Future<void> updateIncludesAllMembers(String id, bool value) =>
-      (update(conversations)..where((c) => c.id.equals(id)))
-          .write(ConversationsCompanion(includesAllMembers: Value(value)));
+      (update(conversations)..where((c) => c.id.equals(id))).write(
+        ConversationsCompanion(includesAllMembers: Value(value)),
+      );
 
   Future<void> updateArchivedByMemberIds(String id, String archivedByJson) =>
       (update(conversations)..where((c) => c.id.equals(id))).write(

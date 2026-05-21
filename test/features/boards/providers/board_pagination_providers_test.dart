@@ -100,11 +100,42 @@ class _FakeRepo implements MemberBoardPostsRepository {
   );
 
   @override
-  Future<MemberBoardPost?> getPostById(String id) async =>
-      _posts.cast<MemberBoardPost?>().firstWhere(
-        (p) => p?.id == id,
-        orElse: () => null,
-      );
+  Stream<List<MemberBoardPost>> watchMentionPostsByIds(List<String> ids) {
+    if (ids.isEmpty) return Stream.value(const <MemberBoardPost>[]);
+    final wanted = ids.toSet();
+    return Stream.value(
+      _posts
+          .where((post) => wanted.contains(post.id) && !post.isDeleted)
+          .toList(),
+    );
+  }
+
+  @override
+  Future<List<MemberBoardPost>> searchMentionCandidates(
+    String filter, {
+    int limit = 12,
+    List<String> activeFronterIds = const [],
+  }) async {
+    final lower = filter.trim().toLowerCase();
+    final activeIds = activeFronterIds.toSet();
+    return _slice(
+      (post) =>
+          !post.isDeleted &&
+          (post.audience == 'public' ||
+              (post.audience == 'private' &&
+                  (activeIds.contains(post.targetMemberId) ||
+                      activeIds.contains(post.authorId)))) &&
+          (lower.isEmpty ||
+              (post.title?.toLowerCase().contains(lower) ?? false) ||
+              post.body.toLowerCase().contains(lower)),
+      limit,
+    );
+  }
+
+  @override
+  Future<MemberBoardPost?> getPostById(String id) async => _posts
+      .cast<MemberBoardPost?>()
+      .firstWhere((p) => p?.id == id, orElse: () => null);
 
   @override
   Future<void> createPost(MemberBoardPost post) async {}
@@ -500,9 +531,7 @@ void main() {
         transitions.clear();
 
         for (var page = 2; page <= 3; page++) {
-          container
-              .read(memberBoardLimitProvider('alice').notifier)
-              .loadMore();
+          container.read(memberBoardLimitProvider('alice').notifier).loadMore();
           await _waitForCount(
             () => container.read(memberBoardFeedProvider('alice')),
             boardPostsPageSize * page,

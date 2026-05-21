@@ -51,6 +51,37 @@ class DriftConversationRepository
   }
 
   @override
+  Future<domain.Conversation?> getMentionConversationById(String id) async {
+    final row = await _dao.getMentionConversationById(id);
+    return row != null ? ConversationMapper.toDomain(row) : null;
+  }
+
+  @override
+  Stream<List<domain.Conversation>> watchMentionConversationsByIds(
+    List<String> ids,
+  ) {
+    return _dao
+        .watchMentionConversationsByIds(ids)
+        .map((rows) => rows.map(ConversationMapper.toDomain).toList());
+  }
+
+  @override
+  Future<List<domain.Conversation>> searchMentionCandidates(
+    String filter, {
+    int limit = 12,
+    List<String> activeFronterIds = const [],
+    bool includeAdminGroups = false,
+  }) async {
+    final rows = await _dao.searchMentionCandidates(
+      filter,
+      limit: limit,
+      activeFronterIds: activeFronterIds,
+      includeAdminGroups: includeAdminGroups,
+    );
+    return rows.map(ConversationMapper.toDomain).toList();
+  }
+
+  @override
   Stream<domain.Conversation?> watchConversationById(String id) {
     return _dao
         .watchConversationById(id)
@@ -203,12 +234,7 @@ class DriftConversationRepository
     }
   }
 
-  /// Visible-for-testing: builds the field map this repository hands to the
-  /// Rust sync engine for create/update. Exposed (with a leading `$` so it
-  /// stays clearly internal) so a regression test can assert that every
-  /// DateTime ends up Z-suffixed UTC — see drift_conversation_repository_test.
-  /// The TZ-drift bug Agent O caught in `setLastReadTimestamps` had
-  /// matching siblings here; the test pins the contract for all of them.
+  /// Visible-for-testing field map for UTC normalization coverage.
   @visibleForTesting
   Map<String, dynamic> debugConversationFields(domain.Conversation c) =>
       _conversationFields(c);
@@ -218,10 +244,7 @@ class DriftConversationRepository
 
   /// Field-map builder for conversation sync emissions.
   ///
-  /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
-  /// construct byte-identical `fields` payloads when it bypasses
-  /// `createConversation()` for the bulk insert. See
-  /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  /// Public so bulk imports can reuse the same sync payload as writes.
   static Map<String, dynamic> conversationFields(domain.Conversation c) {
     final lastReadTimestampsJson = jsonEncode(
       c.lastReadTimestamps.map((k, v) => MapEntry(k, toSyncUtc(v))),

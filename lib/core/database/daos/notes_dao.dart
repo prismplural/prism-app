@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/sql_like.dart';
 import 'package:prism_plurality/core/database/tables/notes_table.dart';
 
 part 'notes_dao.g.dart';
@@ -40,11 +41,40 @@ class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
   Stream<NoteRow?> watchNoteById(String id) =>
       (select(notes)..where((n) => n.id.equals(id))).watchSingleOrNull();
 
+  Future<NoteRow?> getMentionNoteById(String id) =>
+      (select(notes)..where((n) => n.id.equals(id) & n.isDeleted.equals(false)))
+          .getSingleOrNull();
+
+  Stream<List<NoteRow>> watchMentionNotesByIds(List<String> ids) {
+    if (ids.isEmpty) return Stream.value(const <NoteRow>[]);
+    return (select(
+      notes,
+    )..where((n) => n.id.isIn(ids) & n.isDeleted.equals(false))).watch();
+  }
+
+  Future<List<NoteRow>> searchMentionCandidates(
+    String filter, {
+    int limit = 8,
+  }) {
+    final trimmed = filter.trim();
+    final query = select(notes)
+      ..where((n) {
+        final visible = n.isDeleted.equals(false);
+        if (trimmed.isEmpty) return visible;
+        final pattern = escapedSqlLikeContainsPattern(trimmed);
+        return visible &
+            (n.title.like(pattern, escapeChar: sqlLikeEscapeChar) |
+                n.body.like(pattern, escapeChar: sqlLikeEscapeChar));
+      })
+      ..orderBy([(n) => OrderingTerm.desc(n.date)])
+      ..limit(limit);
+    return query.get();
+  }
+
   Future<int> createNote(NotesCompanion companion) =>
       into(notes).insert(companion);
 
   /// Batch-insert notes in a single Drift `batch()` round-trip.
-  /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
   Future<void> batchInsertNotes(List<NotesCompanion> rows) async {
     if (rows.isEmpty) return;
     await batch((b) => b.insertAll(notes, rows));

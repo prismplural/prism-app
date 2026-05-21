@@ -29,6 +29,8 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_picker_text_field_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
+import 'package:prism_plurality/shared/widgets/entity_mention_editing_controller.dart';
+import 'package:prism_plurality/shared/widgets/entity_mention_text_field.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_editor.dart';
 import 'package:prism_plurality/features/members/widgets/full_screen_markdown_editor_sheet.dart';
@@ -62,7 +64,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
 
   late final TextEditingController _nameController;
   late final TextEditingController _pronounsController;
-  late final TextEditingController _bioController;
+  late final EntityMentionEditingController _bioController;
   late final TextEditingController _emojiController;
   late final TextEditingController _ageController;
   late final TextEditingController _colorHexController;
@@ -175,7 +177,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     final m = widget.member;
     _nameController = TextEditingController(text: m?.name ?? '');
     _pronounsController = TextEditingController(text: m?.pronouns ?? '');
-    _bioController = TextEditingController(text: m?.bio ?? '');
+    _bioController = EntityMentionEditingController(text: m?.bio ?? '');
     _emojiController = TextEditingController(text: m?.emoji ?? '❔');
     _ageController = TextEditingController(
       text: m?.age != null ? '${m!.age}' : '',
@@ -499,6 +501,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       title: context.l10n.memberBioLabel,
       initialText: _bioController.text,
       hintText: context.l10n.memberBioHint,
+      entityMentionsEnabled: true,
+      markdownEnabled: _markdownEnabled,
     );
     if (result != null && mounted) {
       setState(() => _bioController.text = result);
@@ -621,8 +625,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
         final pkSyncState = ref.read(pluralKitSyncProvider);
         final pushEnabled = ref.read(pkSyncDirectionProvider).pushEnabled;
         final mode = ref.read(pkSyncModeProvider);
-        final pushDisabled =
-            !pushEnabled || mode == PkSyncMode.liveFrontsOnly;
+        final pushDisabled = !pushEnabled || mode == PkSyncMode.liveFrontsOnly;
         if (pkSyncState.canAutoSync && pushDisabled) {
           await showPkPushNewMemberDialog(
             context,
@@ -1148,9 +1151,10 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        PrismTextField(
+                        EntityMentionTextField(
                           controller: _bioController,
                           hintText: l10n.memberBioHint,
+                          markdownEnabled: _markdownEnabled,
                           maxLines: 6,
                           minLines: 3,
                           textCapitalization: TextCapitalization.sentences,

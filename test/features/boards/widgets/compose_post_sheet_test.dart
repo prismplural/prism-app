@@ -138,6 +138,38 @@ class _FakeRepository implements MemberBoardPostsRepository {
 
   @override
   Stream<MemberBoardPost?> watchPostById(String id) => Stream.value(_posts[id]);
+
+  @override
+  Stream<List<MemberBoardPost>> watchMentionPostsByIds(List<String> ids) {
+    if (ids.isEmpty) return Stream.value(const <MemberBoardPost>[]);
+    final wanted = ids.toSet();
+    return Stream.value([
+      for (final post in _posts.values)
+        if (wanted.contains(post.id) && !post.isDeleted) post,
+    ]);
+  }
+
+  @override
+  Future<List<MemberBoardPost>> searchMentionCandidates(
+    String filter, {
+    int limit = 12,
+    List<String> activeFronterIds = const [],
+  }) async {
+    final lower = filter.trim().toLowerCase();
+    final activeIds = activeFronterIds.toSet();
+    return [
+      for (final post in _posts.values)
+        if (!post.isDeleted &&
+            (post.audience == 'public' ||
+                (post.audience == 'private' &&
+                    (activeIds.contains(post.targetMemberId) ||
+                        activeIds.contains(post.authorId)))) &&
+            (lower.isEmpty ||
+                (post.title?.toLowerCase().contains(lower) ?? false) ||
+                post.body.toLowerCase().contains(lower)))
+          post,
+    ].take(limit).toList();
+  }
 }
 
 // ---------------------------------------------------------------------------

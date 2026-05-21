@@ -28,44 +28,69 @@ void main() {
   tearDown(() => db.close());
 
   group('debugNoteFields UTC normalization', () {
-    test(
-      'date, created_at, and modified_at emit Z-suffixed UTC even when '
-      'input is a local DateTime',
-      () {
-        final localDate = DateTime(2026, 4, 27, 9, 0);
-        final localCreated = DateTime(2026, 4, 27, 10, 0);
-        final localModified = DateTime(2026, 4, 27, 11, 30);
+    test('date, created_at, and modified_at emit Z-suffixed UTC even when '
+        'input is a local DateTime', () {
+      final localDate = DateTime(2026, 4, 27, 9, 0);
+      final localCreated = DateTime(2026, 4, 27, 10, 0);
+      final localModified = DateTime(2026, 4, 27, 11, 30);
 
-        final note = domain.Note(
-          id: 'n1',
-          title: 't',
-          body: 'b',
-          date: localDate,
-          createdAt: localCreated,
-          modifiedAt: localModified,
-        );
+      final note = domain.Note(
+        id: 'n1',
+        title: 't',
+        body: 'b',
+        date: localDate,
+        createdAt: localCreated,
+        modifiedAt: localModified,
+      );
 
-        final fields = repo.debugNoteFields(note);
-        final dateStr = fields['date'] as String;
-        final createdStr = fields['created_at'] as String;
-        final modifiedStr = fields['modified_at'] as String;
+      final fields = repo.debugNoteFields(note);
+      final dateStr = fields['date'] as String;
+      final createdStr = fields['created_at'] as String;
+      final modifiedStr = fields['modified_at'] as String;
 
-        expect(dateStr.endsWith('Z'), isTrue, reason: dateStr);
-        expect(createdStr.endsWith('Z'), isTrue, reason: createdStr);
-        expect(modifiedStr.endsWith('Z'), isTrue, reason: modifiedStr);
-        expect(
-          DateTime.parse(dateStr).isAtSameMomentAs(localDate.toUtc()),
-          isTrue,
-        );
-        expect(
-          DateTime.parse(createdStr).isAtSameMomentAs(localCreated.toUtc()),
-          isTrue,
-        );
-        expect(
-          DateTime.parse(modifiedStr).isAtSameMomentAs(localModified.toUtc()),
-          isTrue,
-        );
-      },
+      expect(dateStr.endsWith('Z'), isTrue, reason: dateStr);
+      expect(createdStr.endsWith('Z'), isTrue, reason: createdStr);
+      expect(modifiedStr.endsWith('Z'), isTrue, reason: modifiedStr);
+      expect(
+        DateTime.parse(dateStr).isAtSameMomentAs(localDate.toUtc()),
+        isTrue,
+      );
+      expect(
+        DateTime.parse(createdStr).isAtSameMomentAs(localCreated.toUtc()),
+        isTrue,
+      );
+      expect(
+        DateTime.parse(modifiedStr).isAtSameMomentAs(localModified.toUtc()),
+        isTrue,
+      );
+    });
+  });
+
+  group('mention reads', () {
+    domain.Note note(String id, String title) => domain.Note(
+      id: id,
+      title: title,
+      body: 'body for $title',
+      date: DateTime.utc(2026, 4, 27),
+      createdAt: DateTime.utc(2026, 4, 27),
+      modifiedAt: DateTime.utc(2026, 4, 27),
     );
+
+    test('point fetch keeps legacy soft-delete semantics', () async {
+      await repo.createNote(note('n1', 'Deleted note'));
+      await repo.deleteNote('n1');
+
+      expect(await repo.getNoteById('n1'), isNotNull);
+      expect(await repo.getMentionNoteById('n1'), isNull);
+    });
+
+    test('searchMentionCandidates treats LIKE wildcards literally', () async {
+      await repo.createNote(note('literal-percent', '100% present'));
+      await repo.createNote(note('plain', 'plain present'));
+
+      final percent = await repo.searchMentionCandidates('%');
+
+      expect(percent.map((note) => note.id), ['literal-percent']);
+    });
   });
 }

@@ -3095,5 +3095,15 @@
   "pkPushNewMemberDialogConfirm": "Enviar una vez",
   "pkPushNewMemberDialogKeepLocal": "Mantener local",
   "pkPushNewMemberDialogSuccess": "{name} se envió a PluralKit.",
-  "pkPushNewMemberDialogError": "No se pudo enviar a {name} a PluralKit: {error}"
+  "pkPushNewMemberDialogError": "No se pudo enviar a {name} a PluralKit: {error}",
+  "profileMentionCandidateMember": "Miembro",
+  "profileMentionCandidateGroup": "Grupo",
+  "profileMentionCandidateNote": "Nota",
+  "profileMentionCandidateBoard": "Mensaje del tablero",
+  "profileMentionCandidateConversation": "Conversación",
+  "profileMentionPrivate": "Privado",
+  "profileMentionOpenConversationTitle": "¿Abrir conversación?",
+  "profileMentionOpenConversationMessage": "Abrir esta conversación como {name} significa que los mensajes enviados allí se atribuirán a {name}.",
+  "profileMentionOpenConversationConfirm": "Abrir como {name}",
+  "profileMentionOpenConversationPickerMessage": "Elige con quién abrirla. Los mensajes enviados allí se atribuirán a ese miembro."
 }

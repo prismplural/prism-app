@@ -10941,5 +10941,55 @@
         "type": "String"
       }
     }
+  },
+  "profileMentionCandidateMember": "Member",
+  "@profileMentionCandidateMember": {
+    "description": "Type label for a member option in the profile mention picker."
+  },
+  "profileMentionCandidateGroup": "Group",
+  "@profileMentionCandidateGroup": {
+    "description": "Type label for a group option in the profile mention picker."
+  },
+  "profileMentionCandidateNote": "Note",
+  "@profileMentionCandidateNote": {
+    "description": "Type label for a note option in the profile mention picker."
+  },
+  "profileMentionCandidateBoard": "Board message",
+  "@profileMentionCandidateBoard": {
+    "description": "Type label for a board message option in the profile mention picker."
+  },
+  "profileMentionCandidateConversation": "Conversation",
+  "@profileMentionCandidateConversation": {
+    "description": "Type label for a chat conversation option in the profile mention picker."
+  },
+  "profileMentionPrivate": "Private",
+  "@profileMentionPrivate": {
+    "description": "Hidden fallback label for an entity mention the current active fronters cannot view."
+  },
+  "profileMentionOpenConversationTitle": "Open conversation?",
+  "@profileMentionOpenConversationTitle": {
+    "description": "Title for the confirmation shown before opening a conversation mention as another active fronter."
+  },
+  "profileMentionOpenConversationMessage": "Opening this conversation as {name} means messages sent there will be authored as {name}.",
+  "@profileMentionOpenConversationMessage": {
+    "description": "Warning shown before temporarily switching chat viewer for a conversation mention.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileMentionOpenConversationConfirm": "Open as {name}",
+  "@profileMentionOpenConversationConfirm": {
+    "description": "Confirm button for opening a conversation mention as the named member.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileMentionOpenConversationPickerMessage": "Choose who to open this as. Messages sent there will be authored as that member.",
+  "@profileMentionOpenConversationPickerMessage": {
+    "description": "Warning shown when multiple active fronters can open a conversation mention."
   }
 }

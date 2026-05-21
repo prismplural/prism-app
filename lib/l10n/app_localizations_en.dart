@@ -10156,4 +10156,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String pkPushNewMemberDialogError(String name, String error) {
     return 'Couldn\'t push $name to PluralKit: $error';
   }
+
+  @override
+  String get profileMentionCandidateMember => 'Member';
+
+  @override
+  String get profileMentionCandidateGroup => 'Group';
+
+  @override
+  String get profileMentionCandidateNote => 'Note';
+
+  @override
+  String get profileMentionCandidateBoard => 'Board message';
+
+  @override
+  String get profileMentionCandidateConversation => 'Conversation';
+
+  @override
+  String get profileMentionPrivate => 'Private';
+
+  @override
+  String get profileMentionOpenConversationTitle => 'Open conversation?';
+
+  @override
+  String profileMentionOpenConversationMessage(String name) {
+    return 'Opening this conversation as $name means messages sent there will be authored as $name.';
+  }
+
+  @override
+  String profileMentionOpenConversationConfirm(String name) {
+    return 'Open as $name';
+  }
+
+  @override
+  String get profileMentionOpenConversationPickerMessage =>
+      'Choose who to open this as. Messages sent there will be authored as that member.';
 }

@@ -95,6 +95,112 @@ void main() {
     },
   );
 
+  test(
+    'route-scoped speaking override does not mutate implicit parent state',
+    () {
+      final alice = Member(
+        id: 'alice',
+        name: 'Alice',
+        createdAt: DateTime(2026, 5, 7),
+        isActive: true,
+      );
+      final bob = Member(
+        id: 'bob',
+        name: 'Bob',
+        createdAt: DateTime(2026, 5, 7),
+        isActive: true,
+      );
+      final parent = ProviderContainer(
+        overrides: [
+          activeSessionsProvider.overrideWithValue(
+            AsyncValue.data([
+              FrontingSession(
+                id: 'session-alice',
+                memberId: 'alice',
+                startTime: DateTime(2026, 5, 7, 10),
+              ),
+            ]),
+          ),
+          activeMembersProvider.overrideWithValue(
+            AsyncValue.data([alice, bob]),
+          ),
+          chatLogsFrontProvider.overrideWithValue(false),
+        ],
+      );
+      addTearDown(parent.dispose);
+
+      final child = ProviderContainer(
+        parent: parent,
+        overrides: [
+          speakingAsProvider.overrideWithBuild(
+            (ref, _) => validatedMentionViewerSpeakingAs(ref, 'bob'),
+          ),
+        ],
+      );
+
+      expect(parent.read(speakingAsProvider), 'alice');
+      expect(child.read(speakingAsProvider), 'bob');
+
+      child.dispose();
+
+      expect(parent.read(speakingAsProvider), 'alice');
+    },
+  );
+
+  test('route-scoped mention viewer is denied while active members load', () {
+    final parent = ProviderContainer(
+      overrides: [
+        activeSessionsProvider.overrideWithValue(
+          const AsyncValue.data(<FrontingSession>[]),
+        ),
+        activeMembersProvider.overrideWithValue(const AsyncValue.loading()),
+        chatLogsFrontProvider.overrideWithValue(false),
+      ],
+    );
+    addTearDown(parent.dispose);
+
+    final child = ProviderContainer(
+      parent: parent,
+      overrides: [
+        speakingAsProvider.overrideWithBuild(
+          (ref, _) => validatedMentionViewerSpeakingAs(ref, 'bob'),
+        ),
+      ],
+    );
+
+    expect(child.read(speakingAsProvider), isNull);
+
+    child.dispose();
+  });
+
+  test('route-scoped mention viewer is denied when active members fail', () {
+    final parent = ProviderContainer(
+      overrides: [
+        activeSessionsProvider.overrideWithValue(
+          const AsyncValue.data(<FrontingSession>[]),
+        ),
+        activeMembersProvider.overrideWithValue(
+          AsyncValue.error(Exception('boom'), StackTrace.empty),
+        ),
+        chatLogsFrontProvider.overrideWithValue(false),
+      ],
+    );
+    addTearDown(parent.dispose);
+
+    final child = ProviderContainer(
+      parent: parent,
+      overrides: [
+        speakingAsProvider.overrideWithBuild(
+          (ref, _) => validatedMentionViewerSpeakingAs(ref, 'bob'),
+        ),
+      ],
+    );
+
+    expect(child.read(speakingAsProvider), isNull);
+
+    child.dispose();
+  });
+
   group('most-recent fronter default', () {
     Member member(String id) =>
         Member(id: id, name: id, createdAt: DateTime(2026, 5, 7));
@@ -160,8 +266,7 @@ void main() {
       expect(container.read(speakingAsProvider), 'alice');
     });
 
-    test('zero fronters -> null (chat screen renders pick-speaker banner)',
-        () {
+    test('zero fronters -> null (chat screen renders pick-speaker banner)', () {
       final container = makeContainer(
         sessions: const [],
         members: [member('alice')],
@@ -171,20 +276,17 @@ void main() {
       expect(container.read(speakingAsProvider), isNull);
     });
 
-    test(
-      'most-recent fronter is not active -> falls through, no default',
-      () {
-        final container = makeContainer(
-          sessions: [
-            session(memberId: 'paused', startTime: DateTime(2026, 5, 7, 11)),
-          ],
-          members: [member('alice')], // paused is not in active members
-        );
-        addTearDown(container.dispose);
+    test('most-recent fronter is not active -> falls through, no default', () {
+      final container = makeContainer(
+        sessions: [
+          session(memberId: 'paused', startTime: DateTime(2026, 5, 7, 11)),
+        ],
+        members: [member('alice')], // paused is not in active members
+      );
+      addTearDown(container.dispose);
 
-        expect(container.read(speakingAsProvider), isNull);
-      },
-    );
+      expect(container.read(speakingAsProvider), isNull);
+    });
 
     test('explicit selection overrides the most-recent default', () {
       final container = makeContainer(

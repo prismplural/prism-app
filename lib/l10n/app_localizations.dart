@@ -16312,6 +16312,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t push {name} to PluralKit: {error}'**
   String pkPushNewMemberDialogError(String name, String error);
+
+  /// Type label for a member option in the profile mention picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Member'**
+  String get profileMentionCandidateMember;
+
+  /// Type label for a group option in the profile mention picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Group'**
+  String get profileMentionCandidateGroup;
+
+  /// Type label for a note option in the profile mention picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get profileMentionCandidateNote;
+
+  /// Type label for a board message option in the profile mention picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Board message'**
+  String get profileMentionCandidateBoard;
+
+  /// Type label for a chat conversation option in the profile mention picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation'**
+  String get profileMentionCandidateConversation;
+
+  /// Hidden fallback label for an entity mention the current active fronters cannot view.
+  ///
+  /// In en, this message translates to:
+  /// **'Private'**
+  String get profileMentionPrivate;
+
+  /// Title for the confirmation shown before opening a conversation mention as another active fronter.
+  ///
+  /// In en, this message translates to:
+  /// **'Open conversation?'**
+  String get profileMentionOpenConversationTitle;
+
+  /// Warning shown before temporarily switching chat viewer for a conversation mention.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening this conversation as {name} means messages sent there will be authored as {name}.'**
+  String profileMentionOpenConversationMessage(String name);
+
+  /// Confirm button for opening a conversation mention as the named member.
+  ///
+  /// In en, this message translates to:
+  /// **'Open as {name}'**
+  String profileMentionOpenConversationConfirm(String name);
+
+  /// Warning shown when multiple active fronters can open a conversation mention.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose who to open this as. Messages sent there will be authored as that member.'**
+  String get profileMentionOpenConversationPickerMessage;
 }
 
 class _AppLocalizationsDelegate

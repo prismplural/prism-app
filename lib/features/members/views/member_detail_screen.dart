@@ -39,7 +39,8 @@ import 'package:prism_plurality/features/members/widgets/custom_fields_display.d
 import 'package:prism_plurality/features/boards/widgets/board_message_section.dart';
 import 'package:prism_plurality/features/members/widgets/notes_section.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header.dart';
-import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/widgets/entity_mention_text.dart';
+import 'package:prism_plurality/shared/widgets/profile_entity_mention_navigation.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
@@ -168,11 +169,12 @@ class _MemberDetailBody extends ConsumerWidget {
         MemberProfileHeader(member: member, isFronting: isFronting),
         if (member.bio != null && member.bio!.isNotEmpty) ...[
           const SizedBox(height: 12),
-          MarkdownText(
+          EntityMentionMarkdownText(
             data: member.bio!,
             // Global switch is the master off; per-member flag is the override.
             enabled: bioMarkdownEnabled && member.markdownEnabled,
             baseStyle: theme.textTheme.bodyLarge,
+            onTapMention: openProfileEntityMention,
           ),
         ],
         const SizedBox(height: 24),
@@ -547,7 +549,9 @@ class _ConversationTile extends ConsumerWidget {
       data: (members) {
         final others = members
             .where(
-              (m) => m.id != memberId && isImplicitParticipantOf(conversation, m.id),
+              (m) =>
+                  m.id != memberId &&
+                  isImplicitParticipantOf(conversation, m.id),
             )
             .toList();
         if (others.isEmpty) return '';
