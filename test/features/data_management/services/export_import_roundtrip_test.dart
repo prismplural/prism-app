@@ -5,7 +5,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
-    hide FrontingSession, Habit, HabitCompletion, Member;
+    hide Conversation, FrontingSession, Habit, HabitCompletion, Member;
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
@@ -20,10 +20,13 @@ import 'package:prism_plurality/data/repositories/drift_front_session_comments_r
 import 'package:prism_plurality/data/repositories/drift_conversation_categories_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_friends_repository.dart';
+import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
+import 'package:prism_plurality/domain/models/group_sort_mode.dart';
+import 'package:prism_plurality/domain/models/group_sort_state.dart';
 import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -167,6 +170,29 @@ void main() {
       await targetDb.close();
     });
 
+    test('everyone-group conversations survive export -> import', () async {
+      final now = DateTime(2026, 1, 15, 10, 0, 0).toUtc();
+      await exportService.conversationRepository.createConversation(
+        Conversation(
+          id: 'everyone-1',
+          createdAt: now,
+          lastActivityAt: now,
+          title: 'Everyone',
+          creatorId: 'alice',
+          participantIds: const ['alice'],
+          includesAllMembers: true,
+        ),
+      );
+
+      final result = await _roundtrip(exportService, importService);
+
+      expect(result.conversationsCreated, 1);
+      final conversations = await importService.conversationRepository
+          .getAllConversations();
+      expect(conversations, hasLength(1));
+      expect(conversations.single.includesAllMembers, isTrue);
+    });
+
     test('habits and completions survive export → import', () async {
       // Arrange: create a habit and two completions in the source DB
       final now = DateTime(2026, 1, 15, 10, 0, 0).toUtc();
@@ -281,6 +307,10 @@ void main() {
           themeBrightness: ThemeBrightness.dark,
           themeStyle: ThemeStyle.oled,
           cornerStyle: CornerStyle.angular,
+          paletteSource: PaletteSource.device,
+          paletteSeedColorHex: '#abcdef',
+          paletteMood: PaletteMood.vibrant,
+          paletteContrast: PaletteContrast.high,
           quickSwitchThresholdSeconds: 45,
           chatLogsFront: true,
           syncThemeEnabled: true,
@@ -311,6 +341,7 @@ void main() {
           membersShowPronouns: false,
           membersShowFrontButtons: true,
           membersFrontButtonBehavior: FrontStartBehavior.replace,
+          bioMarkdownEnabled: false,
         ),
       );
 
@@ -328,6 +359,10 @@ void main() {
       expect(imported.themeBrightness, ThemeBrightness.dark);
       expect(imported.themeStyle, ThemeStyle.oled);
       expect(imported.cornerStyle, CornerStyle.angular);
+      expect(imported.paletteSource, PaletteSource.device);
+      expect(imported.paletteSeedColorHex, '#abcdef');
+      expect(imported.paletteMood, PaletteMood.vibrant);
+      expect(imported.paletteContrast, PaletteContrast.high);
       expect(imported.quickSwitchThresholdSeconds, 45);
       expect(imported.chatLogsFront, true);
       expect(imported.syncThemeEnabled, true);
@@ -363,6 +398,7 @@ void main() {
       expect(imported.membersShowPronouns, false);
       expect(imported.membersShowFrontButtons, true);
       expect(imported.membersFrontButtonBehavior, FrontStartBehavior.replace);
+      expect(imported.bioMarkdownEnabled, false);
     });
 
     test('member board posts survive export -> import', () async {
@@ -713,6 +749,10 @@ void main() {
             groupType: 2,
             filterRules: '{"match":"fronting"}',
             createdAt: now,
+            sortState: const GroupSortState(
+              mode: GroupSortMode.nameAsc,
+              manualOrder: ['entry-1'],
+            ),
           ),
         );
         await sourceGroupsRepo.addMemberToGroup(
@@ -803,6 +843,8 @@ void main() {
         expect(importedGroups.single.description, 'A test group');
         expect(importedGroups.single.groupType, 2);
         expect(importedGroups.single.filterRules, '{"match":"fronting"}');
+        expect(importedGroups.single.sortState.mode, GroupSortMode.nameAsc);
+        expect(importedGroups.single.sortState.manualOrder, ['entry-1']);
 
         // Assert member group entry restored
         final importedEntries = await targetGroupsRepo.getAllGroupEntries();

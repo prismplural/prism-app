@@ -22,6 +22,7 @@ import 'package:prism_plurality/data/repositories/drift_conversation_categories_
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_friends_repository.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 
 AppDatabase _makeDb() => AppDatabase(NativeDatabase.memory());
@@ -308,6 +309,182 @@ void main() {
       expect(conversations, hasLength(1));
       expect(conversations.single.isDirectMessage, isTrue);
     });
+
+    test('import honors everyone-group conversation flag', () async {
+      final now = DateTime(2026, 1, 15, 10, 0, 0).toUtc().toIso8601String();
+      final json = jsonEncode({
+        'formatVersion': '1.0',
+        'version': '1.0',
+        'appName': 'Prism Plurality',
+        'exportDate': now,
+        'totalRecords': 1,
+        'headmates': [],
+        'frontSessions': [],
+        'sleepSessions': [],
+        'conversations': [
+          {
+            'id': 'everyone-1',
+            'createdAt': now,
+            'lastActivityAt': now,
+            'title': 'Everyone',
+            'type': 'group',
+            'isDirectMessage': false,
+            'participantIds': ['alice'],
+            'includesAllMembers': true,
+            'lastReadTimestamps': {},
+          },
+        ],
+        'messages': [],
+        'polls': [],
+        'pollOptions': [],
+        'systemSettings': [],
+        'habits': [],
+        'habitCompletions': [],
+      });
+
+      final result = await importService.importData(json);
+      expect(result.conversationsCreated, 1);
+
+      final conversations = await importService.conversationRepository
+          .getAllConversations();
+      expect(conversations, hasLength(1));
+      expect(conversations.single.includesAllMembers, isTrue);
+    });
+
+    test(
+      'import defaults missing everyone-group flag for old exports',
+      () async {
+        final now = DateTime(2026, 1, 15, 10, 0, 0).toUtc().toIso8601String();
+        final json = jsonEncode({
+          'formatVersion': '1.0',
+          'version': '1.0',
+          'appName': 'Prism Plurality',
+          'exportDate': now,
+          'totalRecords': 1,
+          'headmates': [],
+          'frontSessions': [],
+          'sleepSessions': [],
+          'conversations': [
+            {
+              'id': 'legacy-group-1',
+              'createdAt': now,
+              'lastActivityAt': now,
+              'title': 'Legacy Group',
+              'type': 'group',
+              'isDirectMessage': false,
+              'participantIds': ['alice'],
+              'lastReadTimestamps': {},
+            },
+          ],
+          'messages': [],
+          'polls': [],
+          'pollOptions': [],
+          'systemSettings': [],
+          'habits': [],
+          'habitCompletions': [],
+        });
+
+        final result = await importService.importData(json);
+        expect(result.conversationsCreated, 1);
+
+        final conversations = await importService.conversationRepository
+            .getAllConversations();
+        expect(conversations, hasLength(1));
+        expect(conversations.single.includesAllMembers, isFalse);
+      },
+    );
+
+    test(
+      'import preserves local values for missing legacy settings fields',
+      () async {
+        await importService.systemSettingsRepository.updateSettings(
+          const SystemSettings(
+            paletteSource: PaletteSource.device,
+            paletteSeedColorHex: '#112233',
+            paletteMood: PaletteMood.vibrant,
+            paletteContrast: PaletteContrast.high,
+            bioMarkdownEnabled: false,
+          ),
+        );
+
+        final now = DateTime(2026, 1, 15, 10, 0, 0).toUtc().toIso8601String();
+        final json = jsonEncode({
+          'formatVersion': '1.0',
+          'version': '1.0',
+          'appName': 'Prism Plurality',
+          'exportDate': now,
+          'totalRecords': 1,
+          'headmates': [],
+          'frontSessions': [],
+          'sleepSessions': [],
+          'conversations': [],
+          'messages': [],
+          'polls': [],
+          'pollOptions': [],
+          'systemSettings': [
+            {'systemName': 'Legacy Export', 'accentColorHex': '#445566'},
+          ],
+          'habits': [],
+          'habitCompletions': [],
+        });
+
+        final result = await importService.importData(json);
+        expect(result.settingsUpdated, isTrue);
+
+        final settings = await importService.systemSettingsRepository
+            .getSettings();
+        expect(settings.systemName, 'Legacy Export');
+        expect(settings.paletteSource, PaletteSource.device);
+        expect(settings.paletteSeedColorHex, '#112233');
+        expect(settings.paletteMood, PaletteMood.vibrant);
+        expect(settings.paletteContrast, PaletteContrast.high);
+        expect(settings.bioMarkdownEnabled, isFalse);
+      },
+    );
+
+    test(
+      'import tolerates malformed member group presentation fields',
+      () async {
+        final now = DateTime(2026, 1, 15, 10, 0, 0).toUtc().toIso8601String();
+        final json = jsonEncode({
+          'formatVersion': '1.0',
+          'version': '1.0',
+          'appName': 'Prism Plurality',
+          'exportDate': now,
+          'totalRecords': 1,
+          'headmates': [],
+          'frontSessions': [],
+          'sleepSessions': [],
+          'conversations': [],
+          'messages': [],
+          'polls': [],
+          'pollOptions': [],
+          'systemSettings': [],
+          'habits': [],
+          'habitCompletions': [],
+          'memberGroups': [
+            {
+              'id': 'group-bad-presentation',
+              'name': 'Group',
+              'avatarImageData': 'not-base64!',
+              'sortState': {'mode': true, 'manualOrder': 'bad'},
+              'createdAt': now,
+            },
+          ],
+        });
+
+        final result = await importService.importData(json);
+        expect(result.memberGroupsCreated, 1);
+
+        final groups = await importService.memberGroupsRepository
+            .watchAllGroups()
+            .first;
+        expect(groups, hasLength(1));
+        expect(groups.single.avatarImageData, isNull);
+        expect(groups.single.sortState.isManual, isTrue);
+        expect(groups.single.sortState.manualOrder, isEmpty);
+      },
+    );
 
     test(
       'can suppress imported onboarding completion for onboarding restore flow',

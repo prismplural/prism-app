@@ -1,14 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:prism_plurality/core/database/app_database.dart'
-    hide Conversation, FrontingSession, Habit, HabitCompletion;
+    show AppDatabase;
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_media_attachment_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_habit_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_poll_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
@@ -19,8 +23,8 @@ import 'package:prism_plurality/data/repositories/drift_front_session_comments_r
 import 'package:prism_plurality/data/repositories/drift_conversation_categories_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_friends_repository.dart';
-import 'package:prism_plurality/domain/models/conversation.dart';
-import 'package:prism_plurality/domain/models/fronting_session.dart';
+import 'package:prism_plurality/domain/models/member_board_post.dart';
+import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/data_management/models/export_models.dart';
 import 'package:prism_plurality/features/data_management/services/data_export_service.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
@@ -71,6 +75,51 @@ DataExportService _makeExport(
   cacheDirectoryProvider: () async => cacheDir,
   appSupportDirectoryProvider: () async => cacheDir,
 );
+
+class _ExportSchemaCoverageCase {
+  const _ExportSchemaCoverageCase(
+    this.name, {
+    required this.domainJson,
+    required this.exportJson,
+    this.aliases = const {},
+    this.ignoredDomainKeys = const {},
+  });
+
+  final String name;
+  final Map<String, dynamic> domainJson;
+  final Map<String, dynamic> exportJson;
+  final Map<String, String> aliases;
+  final Set<String> ignoredDomainKeys;
+}
+
+void _expectExportCoversDomainFields(List<_ExportSchemaCoverageCase> cases) {
+  final failures = <String>[];
+  for (final c in cases) {
+    final exportKeys = c.exportJson.keys.toSet();
+    final missing = <String>[];
+    for (final domainKey in c.domainJson.keys) {
+      if (c.ignoredDomainKeys.contains(domainKey)) continue;
+      final exportKey = c.aliases[domainKey] ?? domainKey;
+      if (!exportKeys.contains(exportKey)) {
+        missing.add('$domainKey -> $exportKey');
+      }
+    }
+    if (missing.isNotEmpty) {
+      failures.add('${c.name}: ${missing.join(', ')}');
+    }
+  }
+
+  expect(
+    failures,
+    isEmpty,
+    reason:
+        'Every persisted domain-model JSON key should be represented in the '
+        'backup export schema, unless this test names an explicit exception.',
+  );
+}
+
+Uint8List _tinyPng() =>
+    Uint8List.fromList(img.encodePng(img.Image(width: 1, height: 1)));
 
 void main() {
   group('DataExportService', () {
@@ -155,6 +204,554 @@ void main() {
       expect(conversation.isDirectMessage, isTrue);
       expect(json['type'], 'directmessage');
       expect(json['isDirectMessage'], isTrue);
+    });
+
+    test('buildExport preserves everyone-group conversations', () async {
+      await exportService.conversationRepository.createConversation(
+        Conversation(
+          id: 'everyone-group',
+          createdAt: DateTime(2026, 3, 18, 10),
+          lastActivityAt: DateTime(2026, 3, 18, 11),
+          title: 'Everyone',
+          participantIds: const ['creator'],
+          includesAllMembers: true,
+        ),
+      );
+
+      final export = await exportService.buildExport();
+      final json = export.conversations.single.toJson();
+
+      expect(json['includesAllMembers'], isTrue);
+    });
+
+    test('buildExport covers every exported domain model field', () async {
+      // Keep fixture values non-default so conditional V1 JSON keys are covered.
+      final avatarBytes = _tinyPng();
+      final now = DateTime.utc(2026, 3, 18, 10);
+      final later = now.add(const Duration(minutes: 30));
+
+      final member = Member(
+        id: 'coverage-member',
+        name: 'Coverage Member',
+        pronouns: 'they/them',
+        emoji: ':)',
+        age: 30,
+        bio: 'Bio',
+        avatarImageData: avatarBytes,
+        isActive: true,
+        createdAt: now,
+        displayOrder: 2,
+        isAdmin: true,
+        customColorEnabled: true,
+        customColorHex: '#123456',
+        parentSystemId: 'system-1',
+        pluralkitUuid: '11111111-1111-1111-1111-111111111111',
+        pluralkitId: 'abcde',
+        pluralkitDisplayName: 'PK Display',
+        markdownEnabled: false,
+        displayName: 'Display',
+        birthday: '2000-01-01',
+        proxyTagsJson: '[{"prefix":"A:","suffix":null}]',
+        pkBannerUrl: 'https://cdn.example/member/banner.png',
+        profileHeaderSource: MemberProfileHeaderSource.pluralKit,
+        profileHeaderLayout: MemberProfileHeaderLayout.classicOverlap,
+        profileHeaderVisible: false,
+        nameStyleFont: MemberNameFont.mono,
+        nameStyleBold: false,
+        nameStyleItalic: true,
+        nameStyleColorMode: MemberNameColorMode.custom,
+        nameStyleColorHex: '#654321',
+        profileHeaderImageData: avatarBytes,
+        pkBannerImageData: avatarBytes,
+        pkBannerCachedUrl: 'https://cdn.example/member/banner-cached.png',
+        pluralkitSyncIgnored: true,
+        isAlwaysFronting: true,
+      );
+      await exportService.memberRepository.createMember(member);
+
+      final session = FrontingSession(
+        id: 'coverage-session',
+        startTime: now,
+        endTime: later,
+        memberId: member.id,
+        notes: 'Session notes',
+        confidence: FrontConfidence.certain,
+        pluralkitUuid: '22222222-2222-2222-2222-222222222222',
+        pkImportSource: 'api',
+        pkFileSwitchId: 'switch-1',
+        sessionType: SessionType.normal,
+        quality: SleepQuality.good,
+        isHealthKitImport: true,
+      );
+      await exportService.frontingSessionRepository.createSession(session);
+
+      final conversation = Conversation(
+        id: 'coverage-group',
+        createdAt: now,
+        lastActivityAt: later,
+        title: 'Coverage',
+        emoji: ':sparkles:',
+        isDirectMessage: false,
+        creatorId: member.id,
+        participantIds: [member.id],
+        includesAllMembers: true,
+        archivedByMemberIds: const ['archived-member'],
+        mutedByMemberIds: const ['muted-member'],
+        lastReadTimestamps: {member.id: later},
+        description: 'Conversation export coverage',
+        categoryId: 'category-1',
+        displayOrder: 7,
+      );
+      await exportService.conversationRepository.createConversation(
+        conversation,
+      );
+
+      final reaction = MessageReaction(
+        id: 'coverage-reaction',
+        emoji: ':heart:',
+        memberId: member.id,
+        timestamp: now,
+      );
+      final message = ChatMessage(
+        id: 'coverage-message',
+        content: 'Message',
+        timestamp: now,
+        isSystemMessage: true,
+        editedAt: later,
+        authorId: member.id,
+        conversationId: conversation.id,
+        reactions: [reaction],
+        replyToId: 'reply-id',
+        replyToAuthorId: member.id,
+        replyToContent: 'Reply',
+      );
+      await exportService.chatMessageRepository.createMessage(message);
+
+      final pollVote = PollVote(
+        id: 'coverage-vote',
+        memberId: member.id,
+        votedAt: now,
+        responseText: 'Other response',
+      );
+      final pollOption = PollOption(
+        id: 'coverage-option',
+        text: 'Option',
+        sortOrder: 3,
+        isOtherOption: true,
+        colorHex: '#abcdef',
+        votes: [pollVote],
+      );
+      final poll = Poll(
+        id: 'coverage-poll',
+        question: 'Question?',
+        description: 'Description',
+        isAnonymous: true,
+        allowsMultipleVotes: true,
+        isClosed: true,
+        expiresAt: later,
+        createdAt: now,
+        options: [pollOption],
+      );
+      await exportService.pollRepository.createPoll(poll);
+      await exportService.pollRepository.castVote(pollVote, pollOption.id);
+
+      final settings = SystemSettings(
+        systemName: 'Coverage System',
+        sharingId: 'sharing-id',
+        showQuickFront: false,
+        accentColorHex: '#111111',
+        perMemberAccentColors: false,
+        terminology: SystemTerminology.parts,
+        customTerminology: 'part',
+        customPluralTerminology: 'parts',
+        frontingRemindersEnabled: true,
+        frontingReminderIntervalMinutes: 45,
+        themeMode: AppThemeMode.materialYou,
+        themeBrightness: ThemeBrightness.dark,
+        themeStyle: ThemeStyle.oled,
+        cornerStyle: CornerStyle.angular,
+        paletteSource: PaletteSource.device,
+        paletteSeedColorHex: '#222222',
+        paletteMood: PaletteMood.vibrant,
+        paletteContrast: PaletteContrast.high,
+        chatEnabled: false,
+        pollsEnabled: false,
+        habitsEnabled: false,
+        sleepTrackingEnabled: false,
+        gifSearchEnabled: false,
+        voiceNotesEnabled: false,
+        sleepSuggestionEnabled: true,
+        sleepSuggestionHour: 23,
+        sleepSuggestionMinute: 15,
+        wakeSuggestionEnabled: true,
+        wakeSuggestionAfterHours: 7.5,
+        quickSwitchThresholdSeconds: 55,
+        identityGeneration: 4,
+        chatLogsFront: true,
+        terminologyUseEnglish: true,
+        hasCompletedOnboarding: true,
+        syncThemeEnabled: true,
+        habitsBadgeEnabled: false,
+        timingMode: FrontingTimingMode.strict,
+        notesEnabled: false,
+        previousAccentColorHex: '#333333',
+        systemDescription: 'System description',
+        systemColor: '#444444',
+        pkGroupSyncV2Enabled: true,
+        systemTag: 'tag',
+        systemAvatarData: avatarBytes,
+        remindersEnabled: false,
+        localeOverride: 'en-US',
+        gifConsentState: GifConsentState.enabled,
+        fontScale: 1.2,
+        fontFamily: FontFamily.openDyslexic,
+        pinLockEnabled: true,
+        biometricLockEnabled: true,
+        autoLockDelaySeconds: 120,
+        displayFontInAppBar: false,
+        navBarItems: const ['fronting', 'members'],
+        navBarOverflowItems: const ['settings'],
+        syncNavigationEnabled: false,
+        chatBadgePreferences: {member.id: 'mentions_only'},
+        defaultSleepQuality: SleepQuality.excellent,
+        frontingListViewMode: FrontingListViewMode.perMemberRows,
+        addFrontDefaultBehavior: FrontStartBehavior.replace,
+        quickFrontDefaultBehavior: FrontStartBehavior.replace,
+        autoPromoteLongFrontingSessions: false,
+        boardsEnabled: true,
+        spBoardsBackfilledAt: later,
+        membersListViewMode: MembersListViewMode.groupedSections,
+        membersGroupedDefaultState: MembersGroupedDefaultState.closed,
+        membersFolderMemberVisibility:
+            MembersFolderMemberVisibility.ungroupedOnly,
+        membersShowPronouns: false,
+        membersShowFrontButtons: true,
+        membersFrontButtonBehavior: FrontStartBehavior.replace,
+        bioMarkdownEnabled: false,
+      );
+      await exportService.systemSettingsRepository.updateSettings(settings);
+
+      final habit = Habit(
+        id: 'coverage-habit',
+        name: 'Habit',
+        description: 'Habit description',
+        icon: 'star',
+        colorHex: '#777777',
+        isActive: false,
+        createdAt: now,
+        modifiedAt: later,
+        frequency: HabitFrequency.weekly,
+        weeklyDays: const [1, 3],
+        intervalDays: 2,
+        reminderTime: '09:30',
+        notificationsEnabled: true,
+        notificationMessage: 'Reminder',
+        assignedMemberId: member.id,
+        onlyNotifyWhenFronting: true,
+        isPrivate: true,
+        currentStreak: 4,
+        bestStreak: 8,
+        totalCompletions: 12,
+      );
+      await exportService.habitRepository.createHabit(habit);
+      final completion = HabitCompletion(
+        id: 'coverage-completion',
+        habitId: habit.id,
+        completedAt: now,
+        completedByMemberId: member.id,
+        notes: 'Completion notes',
+        wasFronting: true,
+        rating: 5,
+        createdAt: now,
+        modifiedAt: later,
+      );
+      await exportService.habitRepository.createCompletion(completion);
+
+      final memberGroup = MemberGroup(
+        id: 'coverage-member-group',
+        name: 'Group',
+        description: 'Group description',
+        colorHex: '#888888',
+        emoji: '#',
+        avatarImageData: avatarBytes,
+        displayOrder: 9,
+        parentGroupId: 'parent-group',
+        groupType: 2,
+        filterRules: '{"kind":"all"}',
+        createdAt: now,
+      );
+      await exportService.memberGroupsRepository.createGroup(memberGroup);
+      const groupEntry = MemberGroupEntry(
+        id: 'coverage-group-entry',
+        groupId: 'coverage-member-group',
+        memberId: 'coverage-member',
+      );
+      await exportService.memberGroupsRepository.addMemberToGroup(
+        groupEntry.groupId,
+        groupEntry.memberId,
+        groupEntry.id,
+      );
+
+      final customField = CustomField(
+        id: 'coverage-field',
+        name: 'Field',
+        fieldType: CustomFieldType.date,
+        datePrecision: DatePrecision.timestamp,
+        displayOrder: 5,
+        createdAt: now,
+      );
+      await exportService.customFieldsRepository.createField(customField);
+      const customFieldValue = CustomFieldValue(
+        id: 'coverage-field-value',
+        customFieldId: 'coverage-field',
+        memberId: 'coverage-member',
+        value: '2026-03-18T10:00:00.000Z',
+      );
+      await exportService.customFieldsRepository.upsertValue(customFieldValue);
+
+      final note = Note(
+        id: 'coverage-note',
+        title: 'Note',
+        body: 'Body',
+        colorHex: '#999999',
+        memberId: member.id,
+        date: now,
+        createdAt: now,
+        modifiedAt: later,
+      );
+      await exportService.notesRepository.createNote(note);
+
+      final comment = FrontSessionComment(
+        id: 'coverage-comment',
+        sessionId: session.id,
+        body: 'Comment',
+        timestamp: now,
+        createdAt: later,
+      );
+      await exportService.frontSessionCommentsRepository.createComment(comment);
+
+      final category = ConversationCategory(
+        id: 'category-1',
+        name: 'Category',
+        displayOrder: 6,
+        createdAt: now,
+        modifiedAt: later,
+      );
+      await exportService.conversationCategoriesRepository.create(category);
+
+      final reminder = Reminder(
+        id: 'coverage-reminder',
+        name: 'Reminder',
+        message: 'Reminder message',
+        trigger: ReminderTrigger.onFrontChange,
+        frequency: ReminderFrequency.weekly,
+        weeklyDays: const [2, 4],
+        intervalDays: 3,
+        timeOfDay: '08:15',
+        delayHours: 2,
+        targetMemberId: member.id,
+        isActive: false,
+        createdAt: now,
+        modifiedAt: later,
+      );
+      await exportService.remindersRepository.create(reminder);
+
+      final friend = FriendRecord(
+        id: 'coverage-friend',
+        displayName: 'Friend',
+        peerSharingId: 'peer-id',
+        pairwiseSecret: avatarBytes,
+        pinnedIdentity: avatarBytes,
+        offeredScopes: const ['fronting'],
+        publicKeyHex: 'public-key',
+        sharedSecretHex: 'shared-secret',
+        grantedScopes: const ['members'],
+        isVerified: true,
+        initId: 'init-id',
+        createdAt: now,
+        establishedAt: later,
+        lastSyncAt: later,
+      );
+      await exportService.friendsRepository.createFriend(friend);
+
+      final boardPost = MemberBoardPost(
+        id: 'coverage-board-post',
+        targetMemberId: member.id,
+        authorId: member.id,
+        audience: 'private',
+        title: 'Post',
+        body: 'Post body',
+        createdAt: now,
+        writtenAt: later,
+        editedAt: later,
+      );
+      await DriftMemberBoardPostsRepository(
+        db.memberBoardPostsDao,
+        db.membersDao,
+        null,
+      ).createPost(boardPost);
+
+      const mediaAttachment = MediaAttachment(
+        id: 'coverage-attachment',
+        messageId: 'coverage-message',
+        mediaId: 'media-id',
+        mediaType: 'image',
+        encryptionKeyB64: 'key',
+        contentHash: 'content-hash',
+        plaintextHash: 'plain-hash',
+        mimeType: 'image/png',
+        sizeBytes: 123,
+        width: 10,
+        height: 20,
+        durationMs: 30,
+        blurhash: 'blurhash',
+        waveformB64: 'waveform',
+        thumbnailMediaId: 'thumb-id',
+        sourceUrl: 'https://cdn.example/source.png',
+        previewUrl: 'https://cdn.example/preview.png',
+      );
+      await DriftMediaAttachmentRepository(
+        db.mediaAttachmentsDao,
+        null,
+      ).create(mediaAttachment);
+
+      final export = await exportService.buildExport();
+
+      _expectExportCoversDomainFields([
+        _ExportSchemaCoverageCase(
+          'Member',
+          domainJson: member.toJson(),
+          exportJson: export.headmates.single.toJson(),
+          aliases: const {
+            'bio': 'notes',
+            'avatarImageData': 'profilePhotoData',
+          },
+          ignoredDomainKeys: const {
+            'isDeleted',
+            'deleteIntentEpoch',
+            'deletePushStartedAt',
+          },
+        ),
+        _ExportSchemaCoverageCase(
+          'FrontingSession',
+          domainJson: session.toJson(),
+          exportJson: export.frontSessions.single.toJson(),
+          aliases: const {'memberId': 'headmateId'},
+          ignoredDomainKeys: const {
+            'isDeleted',
+            'deleteIntentEpoch',
+            'deletePushStartedAt',
+          },
+        ),
+        _ExportSchemaCoverageCase(
+          'Conversation',
+          domainJson: conversation.toJson(),
+          exportJson: export.conversations.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'ChatMessage',
+          domainJson: message.toJson(),
+          exportJson: export.messages.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'MessageReaction',
+          domainJson: reaction.toJson(),
+          exportJson: export.messages.single.reactions.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'Poll',
+          domainJson: poll.toJson(),
+          exportJson: export.polls.single.toJson(),
+          ignoredDomainKeys: const {'options'},
+        ),
+        _ExportSchemaCoverageCase(
+          'PollOption',
+          domainJson: pollOption.toJson(),
+          exportJson: export.pollOptions.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'PollVote',
+          domainJson: pollVote.toJson(),
+          exportJson: export.pollOptions.single.votes.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'SystemSettings',
+          domainJson: settings.toJson(),
+          exportJson: export.systemSettings.single.toJson(),
+          aliases: const {'cornerStyle': 'themeCornerStyle'},
+        ),
+        _ExportSchemaCoverageCase(
+          'Habit',
+          domainJson: habit.toJson(),
+          exportJson: export.habits.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'HabitCompletion',
+          domainJson: completion.toJson(),
+          exportJson: export.habitCompletions.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'MemberGroup',
+          domainJson: memberGroup.toJson(),
+          exportJson: export.memberGroups.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'MemberGroupEntry',
+          domainJson: groupEntry.toJson(),
+          exportJson: export.memberGroupEntries.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'CustomField',
+          domainJson: customField.toJson(),
+          exportJson: export.customFields.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'CustomFieldValue',
+          domainJson: customFieldValue.toJson(),
+          exportJson: export.customFieldValues.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'Note',
+          domainJson: note.toJson(),
+          exportJson: export.notes.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'FrontSessionComment',
+          domainJson: comment.toJson(),
+          exportJson: export.frontSessionComments.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'ConversationCategory',
+          domainJson: category.toJson(),
+          exportJson: export.conversationCategories.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'Reminder',
+          domainJson: reminder.toJson(),
+          exportJson: export.reminders.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'FriendRecord',
+          domainJson: friend.toJson(),
+          exportJson: export.friends.single.toJson(),
+          ignoredDomainKeys: const {
+            // Pairing secrets are intentionally omitted from plaintext backups.
+            'pairwiseSecret',
+            'pinnedIdentity',
+            'sharedSecretHex',
+          },
+        ),
+        _ExportSchemaCoverageCase(
+          'MemberBoardPost',
+          domainJson: boardPost.toJson(),
+          exportJson: export.memberBoardPosts.single.toJson(),
+        ),
+        _ExportSchemaCoverageCase(
+          'MediaAttachment',
+          domainJson: mediaAttachment.toJson(),
+          exportJson: export.mediaAttachments.single.toJson(),
+        ),
+      ]);
     });
 
     // Issue #40 (review-2026-04-30): legacy raw-SQL queries on dropped

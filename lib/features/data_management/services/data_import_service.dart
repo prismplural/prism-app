@@ -16,6 +16,8 @@ import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/domain/models/group_sort_mode.dart';
+import 'package:prism_plurality/domain/models/group_sort_state.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
@@ -1425,6 +1427,7 @@ class DataImportService {
               isDirectMessage: c.isDirectMessage,
               creatorId: c.creatorId,
               participantIds: c.participantIds,
+              includesAllMembers: c.includesAllMembers,
               archivedByMemberIds: c.archivedByMemberIds != null
                   ? (jsonDecode(c.archivedByMemberIds!) as List).cast<String>()
                   : [],
@@ -1538,6 +1541,7 @@ class DataImportService {
         var settingsUpdated = false;
         if (export.systemSettings.isNotEmpty) {
           final s = export.systemSettings.first;
+          final currentSettings = await systemSettingsRepository.getSettings();
           await systemSettingsRepository.updateSettings(
             SystemSettings(
               systemName: s.systemName,
@@ -1574,6 +1578,27 @@ class DataImportService {
                       s.themeCornerStyle < CornerStyle.values.length
                   ? CornerStyle.values[s.themeCornerStyle]
                   : CornerStyle.rounded,
+              paletteSource: s.hasPaletteSource
+                  ? (s.paletteSource >= 0 &&
+                            s.paletteSource < PaletteSource.values.length
+                        ? PaletteSource.values[s.paletteSource]
+                        : PaletteSource.custom)
+                  : currentSettings.paletteSource,
+              paletteSeedColorHex: s.hasPaletteSeedColorHex
+                  ? s.paletteSeedColorHex
+                  : currentSettings.paletteSeedColorHex,
+              paletteMood: s.hasPaletteMood
+                  ? (s.paletteMood >= 0 &&
+                            s.paletteMood < PaletteMood.values.length
+                        ? PaletteMood.values[s.paletteMood]
+                        : PaletteMood.tonal)
+                  : currentSettings.paletteMood,
+              paletteContrast: s.hasPaletteContrast
+                  ? (s.paletteContrast >= 0 &&
+                            s.paletteContrast < PaletteContrast.values.length
+                        ? PaletteContrast.values[s.paletteContrast]
+                        : PaletteContrast.standard)
+                  : currentSettings.paletteContrast,
               chatEnabled: s.chatEnabled,
               pollsEnabled: s.pollsEnabled,
               habitsEnabled: s.habitsEnabled,
@@ -1687,6 +1712,9 @@ class DataImportService {
                           FrontStartBehavior.values.length
                   ? FrontStartBehavior.values[s.membersFrontButtonBehavior]
                   : FrontStartBehavior.additive,
+              bioMarkdownEnabled: s.hasBioMarkdownEnabled
+                  ? s.bioMarkdownEnabled
+                  : currentSettings.bioMarkdownEnabled,
             ),
           );
           settingsUpdated = true;
@@ -1808,11 +1836,13 @@ class DataImportService {
               description: g.description,
               colorHex: g.colorHex,
               emoji: g.emoji,
+              avatarImageData: g.avatarImageBytes,
               displayOrder: g.displayOrder,
               parentGroupId: g.parentGroupId,
               groupType: g.groupType,
               filterRules: g.filterRules,
               createdAt: DateTime.parse(g.createdAt),
+              sortState: _memberGroupSortState(g),
             ),
           );
           memberGroupsCreated++;
@@ -2301,6 +2331,29 @@ class DataImportService {
         )
         .getSingleOrNull();
     return row?.read<String>('id') ?? sessionId;
+  }
+}
+
+GroupSortState _memberGroupSortState(V1MemberGroup group) {
+  final raw = group.sortState;
+  if (raw == null) return GroupSortState.manualEmpty;
+  try {
+    return GroupSortState.fromJson(raw);
+  } catch (_) {
+    final rawMode = raw['mode'];
+    final rawOrder = raw['manualOrder'] ?? raw['order'];
+    final mode = rawMode is String
+        ? GroupSortMode.values.firstWhere(
+            (m) => m.name == rawMode,
+            orElse: () => GroupSortMode.manual,
+          )
+        : GroupSortMode.fromInt(rawMode is int ? rawMode : null);
+    return GroupSortState(
+      mode: mode,
+      manualOrder: rawOrder is List
+          ? rawOrder.whereType<String>().toList()
+          : const [],
+    );
   }
 }
 

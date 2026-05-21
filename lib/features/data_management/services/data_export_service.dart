@@ -536,6 +536,7 @@ class DataExportService {
     ),
     creatorId: c.creatorId,
     participantIds: c.participantIds,
+    includesAllMembers: c.includesAllMembers,
     lastReadTimestamps: c.lastReadTimestamps.map(
       (k, v) => MapEntry(k, v.toUtc().toIso8601String()),
     ),
@@ -623,6 +624,10 @@ class DataExportService {
     themeBrightness: s.themeBrightness.index,
     themeStyle: s.themeStyle.index,
     themeCornerStyle: s.cornerStyle.index,
+    paletteSource: s.paletteSource.index,
+    paletteSeedColorHex: s.paletteSeedColorHex,
+    paletteMood: s.paletteMood.index,
+    paletteContrast: s.paletteContrast.index,
     chatEnabled: s.chatEnabled,
     pollsEnabled: s.pollsEnabled,
     habitsEnabled: s.habitsEnabled,
@@ -676,6 +681,7 @@ class DataExportService {
     membersShowPronouns: s.membersShowPronouns,
     membersShowFrontButtons: s.membersShowFrontButtons,
     membersFrontButtonBehavior: s.membersFrontButtonBehavior.index,
+    bioMarkdownEnabled: s.bioMarkdownEnabled,
   );
 
   V1Habit _mapHabit(Habit h) => V1Habit(
@@ -719,11 +725,15 @@ class DataExportService {
     description: g.description,
     colorHex: g.colorHex,
     emoji: g.emoji,
+    avatarImageData: g.avatarImageData != null
+        ? base64Encode(g.avatarImageData!)
+        : null,
     displayOrder: g.displayOrder,
     parentGroupId: g.parentGroupId,
     groupType: g.groupType,
     filterRules: g.filterRules,
     createdAt: g.createdAt.toUtc().toIso8601String(),
+    sortState: g.sortState.toJson(),
   );
 
   V1MemberGroupEntry _mapMemberGroupEntry(MemberGroupEntry e) =>

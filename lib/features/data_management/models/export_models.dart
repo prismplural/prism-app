@@ -822,6 +822,7 @@ class V1Conversation {
     this.isDirectMessage = false,
     this.creatorId,
     this.participantIds = const [],
+    this.includesAllMembers = false,
     this.lastReadTimestamps = const {},
     this.archivedByMemberIds,
     this.mutedByMemberIds,
@@ -838,6 +839,7 @@ class V1Conversation {
   final bool isDirectMessage;
   final String? creatorId;
   final List<String> participantIds;
+  final bool includesAllMembers;
   final Map<String, String> lastReadTimestamps;
   final String? archivedByMemberIds; // JSON-encoded string list
   final String? mutedByMemberIds; // JSON-encoded string list
@@ -868,6 +870,7 @@ class V1Conversation {
     ),
     if (creatorId != null) 'creatorId': creatorId,
     'participantIds': participantIds,
+    'includesAllMembers': includesAllMembers,
     'lastReadTimestamps': lastReadTimestamps,
     if (archivedByMemberIds != null) 'archivedByMemberIds': archivedByMemberIds,
     if (mutedByMemberIds != null) 'mutedByMemberIds': mutedByMemberIds,
@@ -899,6 +902,7 @@ class V1Conversation {
       ),
       creatorId: json['creatorId'] as String?,
       participantIds: participantIds,
+      includesAllMembers: json['includesAllMembers'] as bool? ?? false,
       lastReadTimestamps:
           (json['lastReadTimestamps'] as Map<String, dynamic>?)?.map(
             (k, v) => MapEntry(k, v.toString()),
@@ -1152,6 +1156,10 @@ class V1SystemSettings {
     this.themeBrightness = 0,
     this.themeStyle = 0,
     this.themeCornerStyle = 0,
+    this.paletteSource = 1,
+    this.paletteSeedColorHex = '#9070A0',
+    this.paletteMood = 0,
+    this.paletteContrast = 1,
     this.chatEnabled = true,
     this.pollsEnabled = true,
     this.habitsEnabled = true,
@@ -1203,6 +1211,12 @@ class V1SystemSettings {
     this.membersShowPronouns = true,
     this.membersShowFrontButtons = false,
     this.membersFrontButtonBehavior = 0,
+    this.bioMarkdownEnabled = true,
+    this.hasPaletteSource = true,
+    this.hasPaletteSeedColorHex = true,
+    this.hasPaletteMood = true,
+    this.hasPaletteContrast = true,
+    this.hasBioMarkdownEnabled = true,
   });
 
   final String? systemName;
@@ -1220,6 +1234,10 @@ class V1SystemSettings {
   final int themeBrightness; // ThemeBrightness enum index
   final int themeStyle; // ThemeStyle enum index
   final int themeCornerStyle; // CornerStyle enum index
+  final int paletteSource; // PaletteSource enum index
+  final String paletteSeedColorHex;
+  final int paletteMood; // PaletteMood enum index
+  final int paletteContrast; // PaletteContrast enum index
   final bool chatEnabled;
   final bool pollsEnabled;
   final bool habitsEnabled;
@@ -1272,6 +1290,12 @@ class V1SystemSettings {
   final bool membersShowPronouns;
   final bool membersShowFrontButtons;
   final int membersFrontButtonBehavior; // FrontStartBehavior enum index
+  final bool bioMarkdownEnabled;
+  final bool hasPaletteSource;
+  final bool hasPaletteSeedColorHex;
+  final bool hasPaletteMood;
+  final bool hasPaletteContrast;
+  final bool hasBioMarkdownEnabled;
 
   Map<String, dynamic> toJson() => {
     if (systemName != null) 'systemName': systemName,
@@ -1290,6 +1314,10 @@ class V1SystemSettings {
     'themeBrightness': themeBrightness,
     'themeStyle': themeStyle,
     'themeCornerStyle': themeCornerStyle,
+    'paletteSource': paletteSource,
+    'paletteSeedColorHex': paletteSeedColorHex,
+    'paletteMood': paletteMood,
+    'paletteContrast': paletteContrast,
     'chatEnabled': chatEnabled,
     'pollsEnabled': pollsEnabled,
     'habitsEnabled': habitsEnabled,
@@ -1344,6 +1372,7 @@ class V1SystemSettings {
     'membersShowPronouns': membersShowPronouns,
     'membersShowFrontButtons': membersShowFrontButtons,
     'membersFrontButtonBehavior': membersFrontButtonBehavior,
+    'bioMarkdownEnabled': bioMarkdownEnabled,
   };
 
   factory V1SystemSettings.fromJson(
@@ -1366,6 +1395,14 @@ class V1SystemSettings {
     themeBrightness: json['themeBrightness'] as int? ?? 0,
     themeStyle: json['themeStyle'] as int? ?? 0,
     themeCornerStyle: json['themeCornerStyle'] as int? ?? 0,
+    paletteSource: json['paletteSource'] as int? ?? 1,
+    hasPaletteSource: json.containsKey('paletteSource'),
+    paletteSeedColorHex: json['paletteSeedColorHex'] as String? ?? '#9070A0',
+    hasPaletteSeedColorHex: json.containsKey('paletteSeedColorHex'),
+    paletteMood: json['paletteMood'] as int? ?? 0,
+    hasPaletteMood: json.containsKey('paletteMood'),
+    paletteContrast: json['paletteContrast'] as int? ?? 1,
+    hasPaletteContrast: json.containsKey('paletteContrast'),
     chatEnabled: json['chatEnabled'] as bool? ?? true,
     pollsEnabled: json['pollsEnabled'] as bool? ?? true,
     habitsEnabled: json['habitsEnabled'] as bool? ?? true,
@@ -1426,6 +1463,8 @@ class V1SystemSettings {
     membersShowPronouns: json['membersShowPronouns'] as bool? ?? true,
     membersShowFrontButtons: json['membersShowFrontButtons'] as bool? ?? false,
     membersFrontButtonBehavior: json['membersFrontButtonBehavior'] as int? ?? 0,
+    bioMarkdownEnabled: json['bioMarkdownEnabled'] as bool? ?? true,
+    hasBioMarkdownEnabled: json.containsKey('bioMarkdownEnabled'),
   );
 }
 
@@ -1622,11 +1661,13 @@ class V1MemberGroup {
     this.description,
     this.colorHex,
     this.emoji,
+    this.avatarImageData,
     this.displayOrder = 0,
     this.parentGroupId,
     this.groupType = 0,
     this.filterRules,
     required this.createdAt,
+    this.sortState,
   });
 
   final String id;
@@ -1634,11 +1675,13 @@ class V1MemberGroup {
   final String? description;
   final String? colorHex;
   final String? emoji;
+  final String? avatarImageData; // base64
   final int displayOrder;
   final String? parentGroupId;
   final int groupType;
   final String? filterRules;
   final String createdAt;
+  final Map<String, dynamic>? sortState;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -1646,25 +1689,59 @@ class V1MemberGroup {
     if (description != null) 'description': description,
     if (colorHex != null) 'colorHex': colorHex,
     if (emoji != null) 'emoji': emoji,
+    if (avatarImageData != null) 'avatarImageData': avatarImageData,
     'displayOrder': displayOrder,
     if (parentGroupId != null) 'parentGroupId': parentGroupId,
     if (groupType != 0) 'groupType': groupType,
     if (filterRules != null) 'filterRules': filterRules,
     'createdAt': createdAt,
+    if (sortState != null) 'sortState': sortState,
   };
 
-  factory V1MemberGroup.fromJson(Map<String, dynamic> json) => V1MemberGroup(
-    id: json['id'] as String,
-    name: json['name'] as String,
-    description: json['description'] as String?,
-    colorHex: json['colorHex'] as String?,
-    emoji: json['emoji'] as String?,
-    displayOrder: json['displayOrder'] as int? ?? 0,
-    parentGroupId: json['parentGroupId'] as String?,
-    groupType: json['groupType'] as int? ?? 0,
-    filterRules: json['filterRules'] as String?,
-    createdAt: json['createdAt'] as String,
-  );
+  factory V1MemberGroup.fromJson(Map<String, dynamic> json) {
+    Map<String, dynamic>? sortState;
+    final rawSortState = json['sortState'];
+    if (rawSortState is Map<String, dynamic>) {
+      sortState = rawSortState;
+    } else if (rawSortState is Map) {
+      sortState = rawSortState.map((k, v) => MapEntry(k.toString(), v));
+    } else if (rawSortState is String) {
+      try {
+        final decoded = jsonDecode(rawSortState);
+        if (decoded is Map<String, dynamic>) {
+          sortState = decoded;
+        } else if (decoded is Map) {
+          sortState = decoded.map((k, v) => MapEntry(k.toString(), v));
+        }
+      } catch (_) {
+        sortState = null;
+      }
+    }
+
+    return V1MemberGroup(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      description: json['description'] as String?,
+      colorHex: json['colorHex'] as String?,
+      emoji: json['emoji'] as String?,
+      avatarImageData: json['avatarImageData'] as String?,
+      displayOrder: json['displayOrder'] as int? ?? 0,
+      parentGroupId: json['parentGroupId'] as String?,
+      groupType: json['groupType'] as int? ?? 0,
+      filterRules: json['filterRules'] as String?,
+      createdAt: json['createdAt'] as String,
+      sortState: sortState,
+    );
+  }
+
+  Uint8List? get avatarImageBytes {
+    if (avatarImageData == null) return null;
+    try {
+      return base64Decode(avatarImageData!);
+    } on FormatException {
+      return null;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
