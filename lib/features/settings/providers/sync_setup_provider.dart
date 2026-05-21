@@ -350,6 +350,7 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
         currentProgress: SyncSetupProgress.bootstrappingData,
       );
       await _bootstrapExistingData(handle);
+      await _finishSuccessfulSetup(handle);
 
       state = state.copyWith(isProcessing: false, currentProgress: null);
       return true;
@@ -486,6 +487,25 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   Future<void> runRelayRollbackForFailedSetupForTest(
     Object originalSetupError,
   ) => _runRelayRollbackForFailedSetup(originalSetupError);
+
+  @visibleForTesting
+  Future<void> finishSuccessfulSetupForTest({
+    required ffi.PrismSyncHandle handle,
+    Future<void> Function()? postHealthyCatchUp,
+  }) => _finishSuccessfulSetup(handle, postHealthyCatchUp: postHealthyCatchUp);
+
+  Future<void> _finishSuccessfulSetup(
+    ffi.PrismSyncHandle handle, {
+    Future<void> Function()? postHealthyCatchUp,
+  }) async {
+    ref.read(syncHealthProvider.notifier).setState(SyncHealthState.healthy);
+    await (postHealthyCatchUp ??
+        () => runPostHealthySyncCatchUp(
+          handle: handle,
+          db: ref.read(databaseProvider),
+          failureLabel: 'Post-setup catch-up sync failed',
+        ))();
+  }
 
   Future<void> _persistSyncIdentity({
     required String relayUrl,

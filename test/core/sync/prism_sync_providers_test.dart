@@ -13,6 +13,10 @@ import 'package:prism_plurality/core/sync/sync_pairing_phase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart' as raw;
 
+Future<bool> _dartSyncDatabaseOpenProbe(String dbPath, String hexKey) async {
+  return tryOpenEncryptedDb(dbPath, hexKey);
+}
+
 void main() {
   test('syncStatusAfterCompleted keeps last successful sync on sync error', () {
     final previousSyncAt = DateTime.utc(2026, 3, 18, 12, 0, 0);
@@ -352,6 +356,38 @@ void main() {
           hasDeviceSecret: false,
         ),
         isFalse,
+      );
+    });
+  });
+
+  group('classifyPersistentSyncIdentity', () {
+    test('distinguishes absent, partial, and complete identity state', () {
+      expect(
+        classifyPersistentSyncIdentity(
+          relayUrl: null,
+          syncId: null,
+          deviceId: null,
+          deviceSecret: null,
+        ),
+        PersistentSyncIdentityState.absent,
+      );
+      expect(
+        classifyPersistentSyncIdentity(
+          relayUrl: 'relay',
+          syncId: null,
+          deviceId: null,
+          deviceSecret: null,
+        ),
+        PersistentSyncIdentityState.partial,
+      );
+      expect(
+        classifyPersistentSyncIdentity(
+          relayUrl: 'relay',
+          syncId: 'sync',
+          deviceId: 'device',
+          deviceSecret: 'secret',
+        ),
+        PersistentSyncIdentityState.complete,
       );
     });
   });
@@ -2229,6 +2265,7 @@ void main() {
         verifiedAppDbKey: null,
         directory: tempDir,
         degradedStateService: degradedStateService,
+        syncDatabaseOpenProbe: _dartSyncDatabaseOpenProbe,
       );
 
       expect(report.state, DbStartupState.ready);
@@ -2249,6 +2286,7 @@ void main() {
         verifiedAppDbKey: null,
         directory: tempDir,
         degradedStateService: degradedStateService,
+        syncDatabaseOpenProbe: _dartSyncDatabaseOpenProbe,
       );
 
       expect(report.state, DbStartupState.ready);
@@ -2256,6 +2294,29 @@ void main() {
       expect(report.keyInMemory, hex);
       final state = await degradedStateService.read();
       expect(state.syncKey, SlotState.ok);
+    });
+
+    test('sync DB validation delegates to the injected opener', () async {
+      final hex = _hexKey(0xa1);
+      final dbPath = '${tempDir.path}/prism_sync.db';
+      File(dbPath).writeAsBytesSync(const [1, 2, 3, 4]);
+      storageStub.store[kSyncDatabaseKeyStorageKey] = hex;
+      final seen = <String>[];
+
+      final report = await probeSyncDatabaseStartup(
+        verifiedAppDbKey: null,
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+        syncDatabaseOpenProbe: (path, key) async {
+          seen.add('$path|$key');
+          return path == dbPath && key == hex;
+        },
+      );
+
+      expect(report.state, DbStartupState.ready);
+      expect(report.usedRecoverySlot, 'primary');
+      expect(report.keyInMemory, hex);
+      expect(seen, ['$dbPath|$hex']);
     });
 
     test('cipher-failing sync primary + valid sync staging that opens DB → '
@@ -2276,6 +2337,7 @@ void main() {
         verifiedAppDbKey: null,
         directory: tempDir,
         degradedStateService: degradedStateService,
+        syncDatabaseOpenProbe: _dartSyncDatabaseOpenProbe,
       );
 
       expect(report.state, DbStartupState.ready);
@@ -2307,6 +2369,7 @@ void main() {
         verifiedAppDbKey: null,
         directory: tempDir,
         degradedStateService: degradedStateService,
+        syncDatabaseOpenProbe: _dartSyncDatabaseOpenProbe,
       );
 
       expect(report.state, DbStartupState.ready);
@@ -2333,6 +2396,7 @@ void main() {
         verifiedAppDbKey: realHex,
         directory: tempDir,
         degradedStateService: degradedStateService,
+        syncDatabaseOpenProbe: _dartSyncDatabaseOpenProbe,
       );
 
       expect(report.state, DbStartupState.ready);
@@ -2359,6 +2423,7 @@ void main() {
         verifiedAppDbKey: hex,
         directory: tempDir,
         degradedStateService: degradedStateService,
+        syncDatabaseOpenProbe: _dartSyncDatabaseOpenProbe,
       );
 
       expect(report.state, DbStartupState.ready);
@@ -2372,6 +2437,16 @@ void main() {
       final hex = _hexKey(0xdd);
       final dbPath = '${tempDir.path}/prism_sync.db';
       _createEncryptedDb(dbPath, hex);
+      storageStub.store[kSyncRelayUrlKey] = base64Encode(
+        utf8.encode('https://relay.example.test'),
+      );
+      storageStub.store[kSyncIdKey] = base64Encode(utf8.encode('sync-id'));
+      storageStub.store[kSyncDeviceIdKey] = base64Encode(
+        utf8.encode('device-id'),
+      );
+      storageStub.store[kSyncDeviceSecretKey] = base64Encode(
+        utf8.encode('device-secret'),
+      );
 
       // Every read fails with cipher; verifiedAppDbKey is also null so the
       // cross-DB fallback can't help.
@@ -2391,6 +2466,7 @@ void main() {
         verifiedAppDbKey: null,
         directory: tempDir,
         degradedStateService: degradedStateService,
+        syncDatabaseOpenProbe: _dartSyncDatabaseOpenProbe,
       );
 
       expect(report.state, DbStartupState.unrecoverable);
@@ -2400,6 +2476,84 @@ void main() {
       expect(state.syncKey, SlotState.unreadable);
       expect(state.syncCredentials, SlotState.unreadable);
     });
+
+    test(
+      'unpaired stale sync DB is discarded instead of blocking setup',
+      () async {
+        final realHex = _hexKey(0xd1);
+        final staleHex = _hexKey(0xd2);
+        final dbPath = '${tempDir.path}/prism_sync.db';
+        _createEncryptedDb(dbPath, realHex);
+        File('$dbPath-wal').writeAsStringSync('wal-bytes');
+        File('$dbPath-shm').writeAsStringSync('shm-bytes');
+        storageStub.store[kSyncDatabaseKeyStorageKey] = staleHex;
+        storageStub.store['${kSyncDatabaseKeyStorageKey}_staging'] = staleHex;
+        storageStub.store['prism_sync.wrapped_dek'] = 'KEEP';
+
+        final report = await probeSyncDatabaseStartup(
+          verifiedAppDbKey: null,
+          directory: tempDir,
+          degradedStateService: degradedStateService,
+          syncDatabaseOpenProbe: _dartSyncDatabaseOpenProbe,
+        );
+
+        expect(report.state, DbStartupState.ready);
+        expect(report.usedRecoverySlot, 'discarded_unpaired');
+        expect(report.keyInMemory, isNull);
+        expect(File(dbPath).existsSync(), isFalse);
+        expect(File('$dbPath-wal').existsSync(), isFalse);
+        expect(File('$dbPath-shm').existsSync(), isFalse);
+        expect(
+          storageStub.store.containsKey(kSyncDatabaseKeyStorageKey),
+          isFalse,
+        );
+        expect(
+          storageStub.store.containsKey(
+            '${kSyncDatabaseKeyStorageKey}_staging',
+          ),
+          isFalse,
+        );
+        expect(
+          report.diagnostic?.slotOutcomes[DiagnosticSlotIds
+              .syncDbUnpairedDiscard],
+          'ok',
+        );
+        expect(storageStub.store['prism_sync.wrapped_dek'], 'KEEP');
+        final state = await degradedStateService.read();
+        expect(state.syncKey, SlotState.ok);
+        expect(state.syncCredentials, SlotState.ok);
+      },
+    );
+
+    test(
+      'partial sync identity does not trigger unpaired DB discard',
+      () async {
+        final realHex = _hexKey(0xd3);
+        final staleHex = _hexKey(0xd4);
+        final dbPath = '${tempDir.path}/prism_sync.db';
+        _createEncryptedDb(dbPath, realHex);
+        storageStub.store[kSyncDatabaseKeyStorageKey] = staleHex;
+        storageStub.store[kSyncDeviceSecretKey] = 'partial-secret';
+
+        final report = await probeSyncDatabaseStartup(
+          verifiedAppDbKey: null,
+          directory: tempDir,
+          degradedStateService: degradedStateService,
+          syncDatabaseOpenProbe: _dartSyncDatabaseOpenProbe,
+        );
+
+        expect(report.state, DbStartupState.unrecoverable);
+        expect(File(dbPath).existsSync(), isTrue);
+        expect(
+          report.diagnostic?.slotOutcomes[DiagnosticSlotIds
+              .syncDbUnpairedDiscard],
+          'skipped: partial-identity',
+        );
+        final state = await degradedStateService.read();
+        expect(state.syncKey, SlotState.unreadable);
+        expect(state.syncCredentials, SlotState.unreadable);
+      },
+    );
 
     test('stale sync primary that does NOT open the DB → falls through to '
         'app primary cross-DB recovery', () async {
@@ -2414,6 +2568,7 @@ void main() {
         verifiedAppDbKey: realHex,
         directory: tempDir,
         degradedStateService: degradedStateService,
+        syncDatabaseOpenProbe: _dartSyncDatabaseOpenProbe,
       );
 
       expect(report.state, DbStartupState.ready);
@@ -2437,6 +2592,7 @@ void main() {
           verifiedAppDbKey: hex,
           directory: tempDir,
           degradedStateService: degradedStateService,
+          syncDatabaseOpenProbe: _dartSyncDatabaseOpenProbe,
         );
 
         expect(report.state, DbStartupState.ready);

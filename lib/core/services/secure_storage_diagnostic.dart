@@ -69,6 +69,7 @@ class DiagnosticSlotIds {
       'sync_db_app_staging_candidate';
   static const String syncDbFresh = 'sync_db_fresh';
   static const String syncDbStagingPromote = 'sync_db_staging_promote';
+  static const String syncDbUnpairedDiscard = 'sync_db_unpaired_discard';
 }
 
 /// Stringification of [DbStartupState] (referenced by probe callers).

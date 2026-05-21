@@ -148,6 +148,31 @@ void main() {
 
   group('SyncSetupNotifier identity persistence', () {
     test(
+      'successful setup marks sync healthy and runs post-healthy settle',
+      () async {
+        final notifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(handleNotifier: notifier);
+        final setup = container.read(syncSetupProvider.notifier);
+        container
+            .read(syncHealthProvider.notifier)
+            .setState(SyncHealthState.unpaired);
+
+        var settleCalls = 0;
+        await setup.finishSuccessfulSetupForTest(
+          handle: const _FakePrismSyncHandle(),
+          postHealthyCatchUp: () async {
+            settleCalls++;
+          },
+        );
+
+        expect(container.read(syncHealthProvider), SyncHealthState.healthy);
+        expect(settleCalls, 1);
+      },
+    );
+
+    test(
       'writes relay_url and sync_id in the base64 format startup seeding expects',
       () async {
         final notifier = _FakePrismSyncHandleNotifier(
@@ -435,7 +460,13 @@ void main() {
 
       await expectLater(
         setup.snapshotPrismSyncKeychainForTest(),
-        throwsA(isA<PlatformException>()),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('secure storage readAll failed'),
+          ),
+        ),
       );
     });
 

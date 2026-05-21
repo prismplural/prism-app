@@ -12,6 +12,7 @@ import 'package:prism_plurality/core/database/database_provider.dart'
 import 'package:prism_plurality/core/reset/native_reset_keys.dart';
 import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/core/sync/sync_database_probe.dart';
 
 const kFreshInstallSentinelKey = 'has_launched_before';
 const kFullResetRestartRequiredKey = 'prism.reset.restart_required';
@@ -55,17 +56,38 @@ class PlatformFullResetSecureStore implements FullResetSecureStore {
   @override
   Future<Map<String, String>> readAll() async {
     final result = await safeSecureReadAll();
+    if (!result.ok) {
+      throw StateError(
+        'secure store readAll failed '
+        '(failure=${result.failure}, code=${result.code}, '
+        'message=${result.message})',
+      );
+    }
     return result.entries;
   }
 
   @override
   Future<void> deleteAll() async {
-    await safeSecureDeleteAll();
+    final result = await safeSecureDeleteAll();
+    if (!result.ok) {
+      throw StateError(
+        'secure store deleteAll failed '
+        '(failure=${result.failure}, code=${result.code}, '
+        'message=${result.message})',
+      );
+    }
   }
 
   @override
   Future<void> delete(String key) async {
-    await safeSecureDelete(key);
+    final result = await safeSecureDelete(key);
+    if (!result.ok) {
+      throw StateError(
+        'secure store delete failed for $key '
+        '(failure=${result.failure}, code=${result.code}, '
+        'message=${result.message})',
+      );
+    }
   }
 }
 
@@ -281,6 +303,23 @@ class FullResetService {
       avoidFlutterSecureStorage: true,
     );
 
+    if (!report.hasAppContainerResidue) {
+      final cleared = await _clearSecureResidueForFreshInstall();
+      if (cleared) {
+        final residueLabel = report.hasSecureResidue
+            ? 'only secure residue; cleared'
+            : 'no app residue';
+        _log('Fresh install marker missing with $residueLabel');
+        await prefs.setBool(kFreshInstallSentinelKey, true);
+        await prefs.remove(kFreshInstallAnomalyKey);
+        await prefs.remove(kNativeResetKeyClearPendingKey);
+        return ResetStartupDecision(
+          mode: ResetStartupMode.normal,
+          report: report,
+        );
+      }
+    }
+
     if (report.hasResidue) {
       _log('Fresh install marker missing while app residue exists: $report');
       await prefs.setBool(kFreshInstallAnomalyKey, true);
@@ -290,10 +329,31 @@ class FullResetService {
       );
     }
 
-    _log('Fresh install marker missing with no app residue');
-    await prefs.setBool(kFreshInstallSentinelKey, true);
-    await prefs.remove(kFreshInstallAnomalyKey);
-    return ResetStartupDecision(mode: ResetStartupMode.normal, report: report);
+    _log('Fresh install secure cleanup failed');
+    await prefs.setBool(kFreshInstallAnomalyKey, true);
+    return ResetStartupDecision(
+      mode: ResetStartupMode.freshInstallRecoveryRequired,
+      report: report,
+    );
+  }
+
+  Future<bool> _clearSecureResidueForFreshInstall() async {
+    try {
+      await nativeResetKeys.deleteKnownKeys();
+    } catch (e) {
+      _log('Fresh-install native-key cleanup failed: $e');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(kNativeResetKeyClearPendingKey, true);
+      return false;
+    }
+
+    try {
+      await secureStore.deleteAll();
+      return true;
+    } catch (e) {
+      _log('Fresh-install secure-store cleanup failed: $e');
+      return false;
+    }
   }
 
   Future<void> restoreInstallSentinelAfterAnomaly() async {
@@ -358,7 +418,10 @@ class FullResetService {
           );
           return false;
         }
-        final syncOpenable = tryOpenEncryptedDb(syncDbPath, syncKey);
+        final syncOpenable = await rustSyncDatabaseOpenProbe(
+          syncDbPath,
+          syncKey,
+        );
         if (!syncOpenable) {
           _log(
             'Cannot continue after reset anomaly: sync database does not open '

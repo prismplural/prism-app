@@ -426,6 +426,7 @@ class _SetupDeviceSheetContentState
     } catch (e) {
       _uploadEventSubscription?.close();
       _uploadEventSubscription = null;
+      debugPrint('[SYNC] Pairing initiator completion failed: $e');
       if (!mounted) return;
       setState(() {
         _error = e.toString();

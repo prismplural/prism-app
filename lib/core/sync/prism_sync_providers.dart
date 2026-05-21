@@ -33,6 +33,7 @@ import 'package:prism_plurality/core/sync/sync_pairing_phase.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
+import 'package:prism_plurality/core/sync/sync_database_probe.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/services/backup_exclusion.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
@@ -246,6 +247,7 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
   required String? verifiedAppDbKey,
   Directory? directory,
   KeychainDegradedStateService? degradedStateService,
+  SyncDatabaseOpenProbe syncDatabaseOpenProbe = rustSyncDatabaseOpenProbe,
 }) async {
   final service = degradedStateService ?? KeychainDegradedStateService();
   final slotOutcomes = <String, String>{};
@@ -298,7 +300,7 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
   try {
     final syncStagingKey = await readStagingSyncDatabaseKeyHex();
     if (syncStagingKey != null) {
-      if (tryOpenEncryptedDb(dbPath, syncStagingKey)) {
+      if (await syncDatabaseOpenProbe(dbPath, syncStagingKey)) {
         debugPrint(
           '[SYNC_PROBE] Crash-recovery: sync DB staging key verified — promoting',
         );
@@ -324,7 +326,7 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
     slotLabel: 'sync DB key',
   );
   if (syncPrimary.hex != null) {
-    if (tryOpenEncryptedDb(dbPath, syncPrimary.hex!)) {
+    if (await syncDatabaseOpenProbe(dbPath, syncPrimary.hex!)) {
       debugPrint('[SYNC_PROBE] Sync primary slot opened the sync DB');
       slotOutcomes[DiagnosticSlotIds.syncDbPrimary] = 'ok';
       await service.updateSlot('syncKey', SlotState.ok);
@@ -351,7 +353,7 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
     slotLabel: 'sync DB staging key',
   );
   if (syncStaging.hex != null) {
-    if (tryOpenEncryptedDb(dbPath, syncStaging.hex!)) {
+    if (await syncDatabaseOpenProbe(dbPath, syncStaging.hex!)) {
       debugPrint(
         '[SYNC_PROBE] Sync staging slot opened the sync DB — repair-pending',
       );
@@ -383,7 +385,7 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
   // upgrade. If the in-memory verified app DB key opens the sync DB, it's
   // the real sync key for this device.
   if (verifiedAppDbKey != null) {
-    if (tryOpenEncryptedDb(dbPath, verifiedAppDbKey)) {
+    if (await syncDatabaseOpenProbe(dbPath, verifiedAppDbKey)) {
       debugPrint(
         '[SYNC_PROBE] App primary slot opened the sync DB (cross-DB recovery)',
       );
@@ -412,7 +414,7 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
     slotLabel: 'app DB staging key',
   );
   if (appStaging.hex != null) {
-    if (tryOpenEncryptedDb(dbPath, appStaging.hex!)) {
+    if (await syncDatabaseOpenProbe(dbPath, appStaging.hex!)) {
       debugPrint(
         '[SYNC_PROBE] App staging slot opened the sync DB (cross-DB recovery)',
       );
@@ -436,7 +438,28 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
     );
   }
 
-  // ── 7. Unrecoverable ───────────────────────────────────────────────────
+  // ── 7. Unpaired stale DB ────────────────────────────────────────────────
+  final syncIdentityState = await _readPersistentSyncIdentityState();
+  if (syncIdentityState == PersistentSyncIdentityState.absent) {
+    await _discardUnpairedSyncDatabase(dbPath: dbPath);
+    slotOutcomes[DiagnosticSlotIds.syncDbUnpairedDiscard] = 'ok';
+    debugPrint('[SYNC_PROBE] Discarded unpaired stale sync DB');
+    await service.updateSlot('syncKey', SlotState.ok);
+    return DbStartupReport(
+      state: DbStartupState.ready,
+      keyInMemory: null,
+      usedRecoverySlot: 'discarded_unpaired',
+      diagnostic: await buildDiagnostic(
+        recoveredVia: 'discarded_unpaired',
+        syncDbState: DbStartupStateName.ready,
+      ),
+    );
+  } else if (syncIdentityState == PersistentSyncIdentityState.partial) {
+    slotOutcomes[DiagnosticSlotIds.syncDbUnpairedDiscard] =
+        'skipped: partial-identity';
+  }
+
+  // ── 8. Unrecoverable ───────────────────────────────────────────────────
   debugPrint(
     '[SYNC_PROBE] All recovery slots exhausted — sync DB unrecoverable. '
     'Outcomes: $slotOutcomes',
@@ -688,6 +711,21 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     final dir = await getAppDataDir();
     final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
     await excludeFromiCloudBackup(dbPath);
+    final syncIdentityState = await _readPersistentSyncIdentityState();
+    var discardedUnpairedDb = false;
+    if (syncIdentityState == PersistentSyncIdentityState.absent &&
+        File(dbPath).existsSync()) {
+      await _discardUnpairedSyncDatabase(
+        dbPath: dbPath,
+        currentHandle: previousHandle,
+      );
+      if (identical(_handle, previousHandle)) {
+        _handle = null;
+        state = const AsyncData(null);
+      }
+      discardedUnpairedDb = true;
+      debugPrint('[SYNC] Discarded unpaired sync DB before handle creation');
+    }
 
     // Startup already verified the sync DB key and handled staging recovery.
     // If the existing sync DB cannot be opened, surface degraded sync instead
@@ -696,7 +734,7 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     if (probeReport.state == DbStartupState.unrecoverable) {
       throw const SyncDbUnrecoverableException();
     }
-    final probeKeyHex = probeReport.keyInMemory;
+    final probeKeyHex = discardedUnpairedDb ? null : probeReport.keyInMemory;
     final String databaseKeyHex;
     if (probeKeyHex != null) {
       databaseKeyHex = probeKeyHex;
@@ -833,13 +871,8 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // Persist any Rust state changes from configureEngine (prevents credential
     // loss if the app crashes before an explicit drain happens).
     if (health == SyncHealthState.healthy) {
-      // Check and repair DB key mismatch from a prior crash between Drift and
-      // sync DB rotations. If the previous session crashed between the two
-      // rotations, the sync DB still has the old key. Now that runtime keys are
-      // restored we can derive localStorageKey() and retry the rotation.
-      //
-      // On normal startups both keys already match LSK so this is a fast no-op
-      // (two HKDF derivations + two keychain reads, no PRAGMA rekey).
+      // Refresh the runtime cache and app DB key now that runtime keys are
+      // restored.
       try {
         await cacheRuntimeKeys(handle, ref.read(databaseProvider));
       } catch (e, st) {
@@ -1343,6 +1376,65 @@ bool hasCompletePersistentSyncIdentity({
       deviceId != null &&
       deviceId.isNotEmpty &&
       hasDeviceSecret;
+}
+
+enum PersistentSyncIdentityState { complete, absent, partial, unreadable }
+
+PersistentSyncIdentityState classifyPersistentSyncIdentity({
+  required String? relayUrl,
+  required String? syncId,
+  required String? deviceId,
+  required String? deviceSecret,
+}) {
+  final presentCount = <String?>[
+    relayUrl,
+    syncId,
+    deviceId,
+    deviceSecret,
+  ].where((value) => value != null && value.isNotEmpty).length;
+  if (presentCount == 0) return PersistentSyncIdentityState.absent;
+  if (presentCount == 4) return PersistentSyncIdentityState.complete;
+  return PersistentSyncIdentityState.partial;
+}
+
+Future<PersistentSyncIdentityState> _readPersistentSyncIdentityState() async {
+  final relayUrl = await safeSecureRead(kSyncRelayUrlKey);
+  final syncId = await safeSecureRead(kSyncIdKey);
+  final deviceId = await safeSecureRead(kSyncDeviceIdKey);
+  final deviceSecret = await safeSecureRead(kSyncDeviceSecretKey);
+  if (!relayUrl.ok || !syncId.ok || !deviceId.ok || !deviceSecret.ok) {
+    return PersistentSyncIdentityState.unreadable;
+  }
+  return classifyPersistentSyncIdentity(
+    relayUrl: relayUrl.value,
+    syncId: syncId.value,
+    deviceId: deviceId.value,
+    deviceSecret: deviceSecret.value,
+  );
+}
+
+Future<void> _discardUnpairedSyncDatabase({
+  required String dbPath,
+  ffi.PrismSyncHandle? currentHandle,
+}) async {
+  try {
+    currentHandle?.dispose();
+  } catch (e) {
+    debugPrint('[SYNC] handle.dispose() before unpaired DB discard threw: $e');
+  }
+
+  for (final suffix in const <String>['', '-shm', '-wal', '-journal']) {
+    final file = File('$dbPath$suffix');
+    if (!file.existsSync()) continue;
+    try {
+      file.deleteSync();
+    } catch (e) {
+      debugPrint('[SYNC] Failed to delete unpaired sync DB$suffix: $e');
+    }
+  }
+
+  await _bestEffortDeleteKey(kSyncDatabaseKeyStorageKey);
+  await _bestEffortDeleteKey('${kSyncDatabaseKeyStorageKey}_staging');
 }
 
 String snapshotApplyCompleteMarkerValue({
@@ -2233,11 +2325,10 @@ Future<void> writeRuntimeDekCacheCore({
 /// `_autoConfigureIfReady` unwraps this cached DEK to restore the unlocked
 /// state without re-deriving via Argon2id.
 /// If the device does not have a sync_id/device_id yet (pre-sync onboarding),
-/// the runtime cache is skipped; database-key rotation still runs.
+/// the runtime cache is skipped; app DB rotation still runs.
 ///
-/// Also rotates both the Drift app DB and the Rust sync DB to the HKDF-derived
-/// local storage key (HKDF(DEK, DeviceSecret)) so the database is tied to
-/// both the sync group identity and the device identity.
+/// Rotates the Drift app DB to the HKDF-derived local storage key
+/// (HKDF(DEK, DeviceSecret)).
 Future<void> cacheRuntimeKeys(
   ffi.PrismSyncHandle handle,
   AppDatabase db,
@@ -2281,31 +2372,7 @@ Future<void> cacheRuntimeKeys(
     }
   }
 
-  // Rotate both DBs to the HKDF-derived local storage key.
-  //
-  // Each DB has its own dedicated keychain slot and staging slot for crash
-  // safety. The two databases are rotated independently:
-  //
-  //   1. Drift app DB (prism.db): uses rotateDatabaseToKey() which writes a
-  //      staging slot, issues PRAGMA rekey, updates the primary slot, and
-  //      deletes the staging slot. Crash recovery is handled in
-  //      database_provider.dart _openConnection() on the next startup.
-  //
-  //   2. Rust sync DB (prism_sync.db): uses the same staging protocol via
-  //      rotateSyncDatabaseKey(). Crash recovery is handled in createHandle()
-  //      on the next startup before createPrismSync() is called.
-  //
-  // Order: Drift first, Rust second.
-  //
-  // A crash between the two rotations leaves Drift on LSK (new key) and Rust
-  // on the old key. On the next launch:
-  //   - createHandle() opens the sync DB with the old key (primary sync slot
-  //     was not yet updated) — succeeds.
-  //   - _autoConfigureIfReady → cacheRuntimeKeys: reads both slots, sees
-  //     sync slot ≠ LSK, retries the sync DB rotation only.
-  //
-  // This ordering is safe because each DB's slot is updated atomically within
-  // its own staging protocol, and the mismatch check below covers BOTH slots.
+  // Rotate only prism.db. prism_sync.db keeps its original dedicated key.
   try {
     final lskBytes = Uint8List.fromList(
       await ffi.localStorageKey(handle: handle),
@@ -2314,83 +2381,18 @@ Future<void> cacheRuntimeKeys(
         .map((b) => b.toRadixString(16).padLeft(2, '0'))
         .join();
 
-    // Check Drift slot.
     final currentDriftKey = await readDatabaseKeyHex();
     if (currentDriftKey != newHexKey) {
       await rotateDatabaseToKey(db: db, newKey: lskBytes);
     }
 
-    // Check sync DB slot independently — it may lag if a previous rotation
-    // crashed between the Drift and Rust rotations.
-    final currentSyncKey = await readSyncDatabaseKeyHex();
-    if (currentSyncKey != newHexKey) {
-      await _rotateSyncDatabaseKey(handle: handle, newKey: lskBytes);
-    }
+    // Keep the Rust sync DB on its original dedicated key. Rekeying it under
+    // WAL has produced files that fail to reopen after Android process death.
   } catch (e) {
-    // Non-fatal: databases will retain their current keys. Rotation will be
-    // retried on the next unlock when cacheRuntimeKeys is called again.
+    // Non-fatal: the app DB keeps its current key and rotation retries on
+    // the next unlock.
     debugPrint('[SYNC] Failed to rotate database keys to derived key: $e');
   }
-}
-
-/// Rotate the Rust sync database to [newKey] using the same staging protocol
-/// as [rotateDatabaseToKey] for the Drift app database.
-///
-/// 1. Write staging slot — crash recovery on next startup if we die here or
-///    between rekeyDb() and the primary-slot write.
-/// 2. rekeyDb() — re-encrypts prism_sync.db in place.
-/// 3. Write primary slot.
-/// 4. Delete staging slot.
-///
-/// Crash recovery is handled in [PrismSyncHandleNotifier.createHandle] before
-/// [ffi.createPrismSync] is called, mirroring the Drift recovery in
-/// _openConnection() in database_provider.dart.
-///
-/// **§3 routing:** both writes go through the guarded
-/// [writeStagingSyncDatabaseKeyHex] / [writeSyncDatabaseKeyHex] helpers, so a
-/// rotation attempted while the keychain repair flag is set is rejected with
-/// a [StateError] (`"Cannot rotate keys while keychain repair is pending"`)
-/// — the keystore is suspect, key rotation must wait until the next boot's
-/// repair path clears the flag. The discard-staging delete after the primary
-/// write goes through [safeSecureDelete]; failure is non-fatal because the
-/// next best-effort cleanup call (or the §4 boot probe) sweeps it up.
-Future<void> _rotateSyncDatabaseKey({
-  required ffi.PrismSyncHandle handle,
-  required Uint8List newKey,
-  String? verifiedStartupKey,
-}) async {
-  if (newKey.length != 32) {
-    throw ArgumentError(
-      '_rotateSyncDatabaseKey: key must be exactly 32 bytes, got ${newKey.length}',
-    );
-  }
-  final newHexKey = newKey
-      .map((b) => b.toRadixString(16).padLeft(2, '0'))
-      .join();
-  // Write staging slot before rekeyDb — crash before rekeyDb means staging key
-  // ≠ DB key, so createHandle discards the staging slot on next startup.
-  final stagingWrite = await writeStagingSyncDatabaseKeyHex(newHexKey);
-  if (!stagingWrite.ok) {
-    throw StateError(
-      'Write sync DB staging key before rekey failed '
-      '(failure=${stagingWrite.failure?.name ?? 'unknown'}, '
-      'code=${stagingWrite.code}, message=${stagingWrite.message})',
-    );
-  }
-  await ffi.rekeyDb(handle: handle, newKey: newKey);
-  final primaryWrite = await writeSyncDatabaseKeyHex(
-    newHexKey,
-    verifiedStartupKey: verifiedStartupKey,
-  );
-  if (!primaryWrite.ok) {
-    throw StateError(
-      'Write sync DB primary key after rekey failed '
-      '(failure=${primaryWrite.failure?.name ?? 'unknown'}, '
-      'code=${primaryWrite.code}, message=${primaryWrite.message})',
-    );
-  }
-  await _bestEffortDeleteKey('${kSyncDatabaseKeyStorageKey}_staging');
-  debugPrint('[SYNC] Rust sync DB rotated to HKDF-derived local storage key');
 }
 
 /// Pure, testable core of the keychain-write phase of `drainRustStore`.

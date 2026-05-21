@@ -104,6 +104,10 @@ void main() async {
   // both "was set when boot started" and "was the write-back attempted".
   final keychainRepairPendingBeforeBoot = await _safeIsKeychainRepairPending();
 
+  // The sync DB probe opens prism_sync.db through the Rust FFI, so FRB must
+  // be ready before probes run.
+  await _initRustLib();
+
   final appProbe = await _safeProbeAppDb();
   final syncProbe = await _safeProbeSyncDb(
     verifiedAppDbKey: appProbe.keyInMemory,
@@ -172,7 +176,7 @@ void main() async {
   // The combined diagnostic is still threaded into the riverpod tree so
   // the in-app banner / settings entry can read it.
 
-  // ── Migrations and platform init (moved post-probe per §6) ──────────────
+  // ── Migrations and platform init ────────────────────────────────────────
 
   final windowsDataMigration =
       await migrateWindowsLegacyAppSupportDirIfNeeded();
@@ -200,17 +204,6 @@ void main() async {
     await _applyStartupScreenPrivacy(prefs);
   } catch (e) {
     debugPrint('[BOOT] Screen privacy init failed (non-fatal): $e');
-  }
-
-  // On iOS/macOS, the Rust library is statically linked via -force_load in the
-  // podspec. Use ExternalLibrary.process() to find symbols in the current process
-  // rather than trying to dlopen a .framework bundle.
-  if (Platform.isIOS || Platform.isMacOS) {
-    await RustLib.init(
-      externalLibrary: ExternalLibrary.process(iKnowHowToUseIt: true),
-    );
-  } else {
-    await RustLib.init();
   }
 
   // Show a plain error message instead of the red/yellow error screen in
@@ -335,6 +328,18 @@ void main() async {
   //     Workmanager().initialize(callbackDispatcher);
   //   });
   // }
+}
+
+Future<void> _initRustLib() async {
+  // On iOS/macOS, the Rust library is statically linked via -force_load in the
+  // podspec. Use ExternalLibrary.process() to find symbols in the current process.
+  if (Platform.isIOS || Platform.isMacOS) {
+    await RustLib.init(
+      externalLibrary: ExternalLibrary.process(iKnowHowToUseIt: true),
+    );
+  } else {
+    await RustLib.init();
+  }
 }
 
 /// Wraps [probeAppDatabaseStartup] so any unexpected throw becomes a
