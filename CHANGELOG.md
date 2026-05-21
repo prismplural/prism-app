@@ -9,7 +9,8 @@ All notable changes to Prism will be documented in this file.
 This patch release hardens Android secure-storage recovery after reports of Prism
 databases surviving while secure-storage slots and Keystore aliases disappeared.
 Build 9302 adds a follow-up fix for clean Android installs that import data
-before the first app restart.
+before the first app restart. Build 9303 adds sync database repair and pairing
+registry fixes for imported or newly paired devices.
 
 ### Changed
 - Android reset recovery now asks the OS to clear app data before clearing Prism's
@@ -26,6 +27,10 @@ before the first app restart.
   through Prism's classified secure-storage wrappers.
 - The in-app crypto storage diagnostic screen is now read-only; destructive
   fault-injection controls were removed from app builds.
+- Prism initializes the Rust sync layer before sync database probes so startup
+  verifies `prism_sync.db` with the same encrypted store used in the app.
+- Device pairing now advances signed registry snapshots with the relay registry
+  so existing devices trust newly paired devices after epoch changes.
 
 ### Fixed
 - Android secure-storage unwrap, migration, and null-cipher failures are
@@ -41,6 +46,12 @@ before the first app restart.
   fully empty secure storage from per-slot key loss.
 - Everyone conversations now treat active implicit members consistently for
   message actions, departed-member state, and broad mention recipient counts.
+- Sync setup now discards stale unpaired `prism_sync.db` files instead of
+  blocking setup with "Sync database needs repair" after import and restart.
+- Restarting after sync setup no longer loses paired state when the sync
+  database is healthy but older key slots or pairing state are stale.
+- Pairing additional devices after revokes or epoch rotations no longer leaves
+  existing devices rejecting outbound changes from the new device.
 
 ## [0.9.2] - 2026-05-20
 
