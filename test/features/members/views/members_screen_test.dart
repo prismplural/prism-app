@@ -12,6 +12,7 @@ import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/views/members_screen.dart';
@@ -54,8 +55,10 @@ Widget _buildSubject({
             routes: [
               GoRoute(
                 path: AppRoutePaths.members,
-                builder: (context, state) =>
-                    const MembersScreen(showBackButton: false),
+                builder: (context, state) => const MembersScreen(
+                  showBackButton: false,
+                  branch: MemberNavigationBranch.members,
+                ),
                 routes: [
                   GoRoute(
                     path: 'groups/:id',

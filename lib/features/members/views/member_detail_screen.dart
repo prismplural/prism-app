@@ -13,6 +13,7 @@ import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_accent_color.dart';
@@ -47,9 +48,16 @@ import 'package:prism_plurality/shared/utils/animations.dart';
 
 /// Detail screen for a single system member, pushed via go_router.
 class MemberDetailScreen extends ConsumerWidget {
-  const MemberDetailScreen({super.key, required this.memberId});
+  const MemberDetailScreen({
+    super.key,
+    required this.memberId,
+    this.branch = MemberNavigationBranch.settings,
+    this.groupId,
+  });
 
   final String memberId;
+  final MemberNavigationBranch branch;
+  final String? groupId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -79,16 +87,26 @@ class MemberDetailScreen extends ConsumerWidget {
             ),
           );
         }
-        return _MemberDetailBody(member: member);
+        return _MemberDetailBody(
+          member: member,
+          branch: branch,
+          groupId: groupId,
+        );
       },
     );
   }
 }
 
 class _MemberDetailBody extends ConsumerWidget {
-  const _MemberDetailBody({required this.member});
+  const _MemberDetailBody({
+    required this.member,
+    required this.branch,
+    required this.groupId,
+  });
 
   final Member member;
+  final MemberNavigationBranch branch;
+  final String? groupId;
 
   bool _isFronting(List<dynamic> sessions) {
     return sessions.any((s) => s.memberId == member.id);
@@ -178,11 +196,19 @@ class _MemberDetailBody extends ConsumerWidget {
         const SizedBox(height: 24),
         CustomFieldsDisplay(memberId: member.id),
         NotesSection(memberId: member.id),
-        MemberGroupsSection(memberId: member.id, memberName: member.name),
+        MemberGroupsSection(
+          memberId: member.id,
+          memberName: member.name,
+          branch: branch,
+        ),
         ProxyTagsSection(member: member),
         _FrontingStatsSection(memberId: member.id),
         const SizedBox(height: 8),
-        _RecentSessionsSection(memberId: member.id),
+        _RecentSessionsSection(
+          memberId: member.id,
+          branch: branch,
+          groupId: groupId,
+        ),
         const SizedBox(height: 8),
         _ConversationsSection(memberId: member.id),
         BoardMessageSection(memberId: member.id),
@@ -378,9 +404,15 @@ class _FrontingStatsSection extends ConsumerWidget {
 // ── Recent Sessions Section ─────────────────────────────────────────────────
 
 class _RecentSessionsSection extends ConsumerWidget {
-  const _RecentSessionsSection({required this.memberId});
+  const _RecentSessionsSection({
+    required this.memberId,
+    required this.branch,
+    required this.groupId,
+  });
 
   final String memberId;
+  final MemberNavigationBranch branch;
+  final String? groupId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -399,7 +431,7 @@ class _RecentSessionsSection extends ConsumerWidget {
           theme: theme,
           trailing: PrismButton(
             label: context.l10n.memberSectionFrontingSessionsViewAll,
-            onPressed: () => context.go(_frontingHistoryPath(context)),
+            onPressed: () => context.go(_frontingHistoryPath()),
             density: PrismControlDensity.compact,
           ),
           child: Column(
@@ -415,13 +447,8 @@ class _RecentSessionsSection extends ConsumerWidget {
     );
   }
 
-  String _frontingHistoryPath(BuildContext context) {
-    final path = GoRouterState.of(context).uri.path;
-    if (path.startsWith(AppRoutePaths.settingsMembers)) {
-      return AppRoutePaths.settingsMemberFrontingHistory(memberId);
-    }
-    return AppRoutePaths.memberFrontingHistory(memberId);
-  }
+  String _frontingHistoryPath() =>
+      branch.memberFrontingHistoryPath(memberId, groupId: groupId);
 }
 
 class _SessionTile extends StatelessWidget {
@@ -547,7 +574,9 @@ class _ConversationTile extends ConsumerWidget {
       data: (members) {
         final others = members
             .where(
-              (m) => m.id != memberId && isImplicitParticipantOf(conversation, m.id),
+              (m) =>
+                  m.id != memberId &&
+                  isImplicitParticipantOf(conversation, m.id),
             )
             .toList();
         if (others.isEmpty) return '';

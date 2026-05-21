@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/views/groups_screen.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -69,6 +71,21 @@ Widget _buildSubject({
 }
 
 void main() {
+  test('member navigation branch maps group routes explicitly', () {
+    expect(
+      MemberNavigationBranch.settings.groupPath('crew'),
+      AppRoutePaths.settingsGroup('crew'),
+    );
+    expect(
+      MemberNavigationBranch.members.groupPath('crew'),
+      AppRoutePaths.memberGroup('crew'),
+    );
+    expect(
+      MemberNavigationBranch.groups.groupPath('crew'),
+      AppRoutePaths.group('crew'),
+    );
+  });
+
   testWidgets('offers one-shot sorting for root groups and sub-groups', (
     tester,
   ) async {

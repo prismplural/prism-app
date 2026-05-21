@@ -87,12 +87,14 @@ void main() {
       routes: [
         GoRoute(
           path: '/habits',
-          builder: (context, state) => const HabitsListScreen(),
+          builder: (context, state) =>
+              const HabitsListScreen(branch: HabitsListBranch.habits),
         ),
         GoRoute(path: '/habits/:id', builder: detail),
         GoRoute(
           path: '/settings/habits',
-          builder: (context, state) => const HabitsListScreen(),
+          builder: (context, state) =>
+              const HabitsListScreen(branch: HabitsListBranch.settings),
         ),
         GoRoute(path: '/settings/habits/:id', builder: detail),
       ],

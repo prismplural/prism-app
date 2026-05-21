@@ -7,9 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
@@ -49,9 +49,14 @@ const _kMembersViewSettingsBannerSeenKey =
 
 /// Main member list screen.
 class MembersScreen extends ConsumerStatefulWidget {
-  const MembersScreen({super.key, this.showBackButton = true});
+  const MembersScreen({
+    super.key,
+    this.showBackButton = true,
+    this.branch = MemberNavigationBranch.settings,
+  });
 
   final bool showBackButton;
+  final MemberNavigationBranch branch;
 
   @override
   ConsumerState<MembersScreen> createState() => _MembersScreenState();
@@ -100,24 +105,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     }
   }
 
-  /// Whether we're inside the top-level /members branch or /settings/members.
-  bool get _isTopLevelBranch {
-    final location = GoRouterState.of(context).uri.path;
-    return location.startsWith(AppRoutePaths.members) &&
-        !location.startsWith(AppRoutePaths.settings);
-  }
+  String _memberPath(String id) => widget.branch.memberPath(id);
 
-  String _memberPath(BuildContext context, String id) {
-    return _isTopLevelBranch
-        ? AppRoutePaths.member(id)
-        : AppRoutePaths.settingsMember(id);
-  }
-
-  String _groupPath(BuildContext context, String id) {
-    return _isTopLevelBranch
-        ? AppRoutePaths.memberGroup(id)
-        : AppRoutePaths.settingsGroup(id);
-  }
+  String _groupPath(String id) => widget.branch.groupPath(id);
 
   Widget _buildOptionsMenuAction(List<Member>? members, Terminology terms) {
     final l10n = context.l10n;
@@ -317,7 +307,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     if (!mounted) return;
     switch (result) {
       case MemberSearchResultSelected(:final memberId):
-        unawaited(context.push(_memberPath(context, memberId)));
+        unawaited(context.push(_memberPath(memberId)));
       case MemberSearchResultDismissed():
       case MemberSearchResultCleared():
       case MemberSearchResultUnknown():
@@ -650,7 +640,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   key: ValueKey('folder_${group.id}'),
                   group: group,
                   memberCount: counts[group.id] ?? 0,
-                  onTap: () => context.push(_groupPath(context, group.id)),
+                  onTap: () => context.push(_groupPath(group.id)),
                 ),
               if (visibleMembers.isNotEmpty) ...[
                 const Divider(height: 24, indent: 16, endIndent: 16),
@@ -732,8 +722,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   hasDeeperDescendants:
                       item.depth >= kSectionsVisualDepthCap &&
                       (tree[item.group.id]?.isNotEmpty ?? false),
-                  onOpenDetail: () =>
-                      context.push(_groupPath(context, item.group.id)),
+                  onOpenDetail: () => context.push(_groupPath(item.group.id)),
                 );
                 if (item.depth == 0 && index > 0) {
                   return Column(
@@ -818,7 +807,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       child: MemberCard(
         member: member,
         showPronouns: showPronouns,
-        onTap: () => context.push(_memberPath(context, member.id)),
+        onTap: () => context.push(_memberPath(member.id)),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

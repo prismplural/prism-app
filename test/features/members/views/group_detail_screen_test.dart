@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/group_sort_mode.dart';
@@ -16,6 +17,7 @@ import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -220,6 +222,57 @@ Widget _buildSubject({
       builder: (context, child) =>
           PrismToastHost(child: child ?? const SizedBox.shrink()),
       home: GroupDetailScreen(groupId: group.id),
+    ),
+  );
+}
+
+Widget _buildRoutedSubject({
+  required MemberGroup group,
+  required List<MemberGroup> allGroups,
+  required List<MemberGroupEntry> allEntries,
+  required List<Member> activeMembers,
+  required _FakeGroupNotifier notifier,
+  required GoRouter router,
+}) {
+  return ProviderScope(
+    overrides: [
+      systemSettingsProvider.overrideWith(
+        (ref) => Stream.value(const SystemSettings()),
+      ),
+      activeMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
+      allMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
+      memberByIdProvider.overrideWith((ref, memberId) {
+        final matching = activeMembers.where((member) => member.id == memberId);
+        return Stream.value(matching.isEmpty ? null : matching.first);
+      }),
+      allGroupsProvider.overrideWith((ref) => Stream.value(allGroups)),
+      allGroupEntriesProvider.overrideWith((ref) => Stream.value(allEntries)),
+      groupByIdProvider.overrideWith(
+        (ref, groupId) => Stream.value(groupId == group.id ? group : null),
+      ),
+      groupEntriesProvider.overrideWith(
+        (ref, groupId) => Stream.value(
+          allEntries.where((entry) => entry.groupId == groupId).toList(),
+        ),
+      ),
+      groupTreeProvider.overrideWith(
+        (ref) => GroupTreeUtils.buildGroupTree(allGroups),
+      ),
+      groupNotifierProvider.overrideWith(() => notifier),
+      memberGroupsRepositoryProvider.overrideWithValue(
+        _FakeMemberGroupsRepository(),
+      ),
+      memberFrontingStatsProvider.overrideWith(
+        (ref, memberId) async => const MemberFrontingStats(
+          totalSessions: 0,
+          totalDuration: Duration.zero,
+        ),
+      ),
+    ],
+    child: MaterialApp.router(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: const [Locale('en')],
+      routerConfig: router,
     ),
   );
 }
@@ -437,6 +490,62 @@ void main() {
 
     expect(find.text('Front as Group'), findsOneWidget);
     expect(find.text('Start chat'), findsOneWidget);
+  });
+
+  testWidgets('member tap uses the route-provided branch', (tester) async {
+    final group = _group(id: 'group-target', name: 'Target Group');
+    final alice = _member(id: 'alice', name: 'Alice');
+    final notifier = _FakeGroupNotifier();
+    final router = GoRouter(
+      initialLocation: '/settings/members/groups/group-target',
+      routes: [
+        GoRoute(
+          path: '/settings/members/groups/:id',
+          builder: (context, state) => GroupDetailScreen(
+            groupId: state.pathParameters['id']!,
+            branch: MemberNavigationBranch.groups,
+          ),
+        ),
+        GoRoute(
+          path: '/groups/:groupId/member/:memberId',
+          builder: (context, state) => Text(
+            'groups:${state.pathParameters['groupId']}/'
+            '${state.pathParameters['memberId']}',
+          ),
+        ),
+        GoRoute(
+          path: '/settings/members/:id',
+          builder: (context, state) =>
+              Text('settings:${state.pathParameters['id']}'),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      _buildRoutedSubject(
+        group: group,
+        allGroups: [group],
+        allEntries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'group-target',
+            memberId: 'alice',
+          ),
+        ],
+        activeMembers: [alice],
+        notifier: notifier,
+        router: router,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.ancestor(of: find.text('Alice'), matching: find.byType(MemberCard)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('groups:group-target/alice'), findsOneWidget);
+    expect(find.text('settings:alice'), findsNothing);
   });
 
   testWidgets('uses one overflow menu for group actions and member sorting', (

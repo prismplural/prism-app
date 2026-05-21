@@ -30,11 +30,7 @@ void main() {
 
   Widget buildSubject({List<Note> notes = const []}) {
     return ProviderScope(
-      overrides: [
-        allNotesProvider.overrideWith(
-          (ref) => Stream.value(notes),
-        ),
-      ],
+      overrides: [allNotesProvider.overrideWith((ref) => Stream.value(notes))],
       child: const MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: [Locale('en')],
@@ -69,11 +65,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // The color bar is a ColoredBox with a red color.
-      final colored =
-          tester.widgetList<ColoredBox>(find.byType(ColoredBox));
-      final colorBar = colored.where(
-        (c) => c.color == const Color(0xFFFF0000),
-      );
+      final colored = tester.widgetList<ColoredBox>(find.byType(ColoredBox));
+      final colorBar = colored.where((c) => c.color == const Color(0xFFFF0000));
       expect(colorBar, isNotEmpty);
     });
 

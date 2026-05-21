@@ -10,8 +10,10 @@ import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
@@ -112,6 +114,7 @@ GoRouter _router({required String memberId}) {
                     path: ':id',
                     builder: (_, state) => MemberDetailScreen(
                       memberId: state.pathParameters['id']!,
+                      branch: MemberNavigationBranch.members,
                     ),
                   ),
                 ],
@@ -124,11 +127,44 @@ GoRouter _router({required String memberId}) {
   );
 }
 
+GoRouter _groupsRouter({required String groupId, required String memberId}) {
+  return GoRouter(
+    initialLocation: AppRoutePaths.groupMember(groupId, memberId),
+    routes: [
+      GoRoute(
+        path: '/groups/:groupId/member/:memberId',
+        builder: (_, state) => MemberDetailScreen(
+          memberId: state.pathParameters['memberId']!,
+          branch: MemberNavigationBranch.groups,
+          groupId: state.pathParameters['groupId']!,
+        ),
+        routes: [
+          GoRoute(
+            path: 'fronting',
+            builder: (context, state) => Scaffold(
+              body: Text(
+                'fronting-${state.pathParameters['groupId']}-'
+                '${state.pathParameters['memberId']}',
+              ),
+            ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/groups/:groupId',
+        builder: (context, state) =>
+            Text('group-${state.pathParameters['groupId']}'),
+      ),
+    ],
+  );
+}
+
 Widget _buildApp({
   required GoRouter router,
   required Member member,
   List<FrontingSession> recentSessions = const [],
   List<Conversation> conversations = const [],
+  List<MemberGroup> memberGroups = const [],
   SystemSettings settings = const SystemSettings(
     notesEnabled: false,
     boardsEnabled: false,
@@ -167,7 +203,11 @@ Widget _buildApp({
       ).overrideWith((ref) async => conversations),
       memberGroupsProvider(
         member.id,
-      ).overrideWith((ref) => Stream.value(const <MemberGroup>[])),
+      ).overrideWith((ref) => Stream.value(memberGroups)),
+      allGroupsProvider.overrideWith((ref) => Stream.value(memberGroups)),
+      allGroupEntriesProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroupEntry>[]),
+      ),
       customFieldsProvider.overrideWith(
         (ref) => Stream.value(const <CustomField>[]),
       ),
@@ -369,4 +409,37 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
+
+  testWidgets(
+    'groups member detail uses the route-provided group branch for fronting',
+    (tester) async {
+      final member = _member('alice', 'Alice');
+      final session = _session(
+        id: 's1',
+        memberId: member.id,
+        start: DateTime(2020, 1, 1, 10),
+        end: DateTime(2020, 1, 1, 11),
+      );
+      final router = _groupsRouter(groupId: 'crew', memberId: member.id);
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        _buildApp(router: router, member: member, recentSessions: [session]),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('View All'));
+      await tester.tap(find.text('View All'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('fronting-crew-alice'), findsOneWidget);
+      expect(
+        router.routerDelegate.currentConfiguration.uri.toString(),
+        AppRoutePaths.groupMemberFrontingHistory('crew', member.id),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
 }

@@ -25,19 +25,20 @@ import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
-class HabitsListScreen extends ConsumerWidget {
-  const HabitsListScreen({super.key});
+enum HabitsListBranch { settings, habits }
 
-  String _habitPath(BuildContext context, String id) {
-    final path = GoRouterState.of(context).uri.path;
-    if (path.startsWith(AppRoutePaths.settingsHabits)) {
-      return AppRoutePaths.settingsHabit(id);
-    }
-    return AppRoutePaths.habit(id);
-  }
+class HabitsListScreen extends ConsumerWidget {
+  const HabitsListScreen({super.key, this.branch = HabitsListBranch.habits});
+
+  final HabitsListBranch branch;
+
+  String _habitPath(String id) => switch (branch) {
+    HabitsListBranch.settings => AppRoutePaths.settingsHabit(id),
+    HabitsListBranch.habits => AppRoutePaths.habit(id),
+  };
 
   void _openHabit(BuildContext context, Habit habit) {
-    context.push(_habitPath(context, habit.id));
+    context.push(_habitPath(habit.id));
   }
 
   @override

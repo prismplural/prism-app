@@ -15,6 +15,7 @@ import '../../features/fronting/views/session_detail_screen.dart';
 import '../../features/fronting/views/sleep_screen.dart';
 import '../../features/fronting/views/timeline_screen.dart';
 import '../../features/members/views/members_screen.dart';
+import '../../features/members/navigation/member_navigation_branch.dart';
 import '../../features/members/views/member_detail_screen.dart';
 import '../../features/members/views/member_fronting_history_screen.dart';
 import '../../features/chat/views/chat_screen.dart';
@@ -363,7 +364,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                   final flags = ref.read(featureFlagsProvider);
                   return flags.habits ? null : AppRoutePaths.home;
                 },
-                builder: (context, state) => const HabitsListScreen(),
+                builder: (context, state) =>
+                    const HabitsListScreen(branch: HabitsListBranch.habits),
                 routes: [
                   GoRoute(
                     path: ':id',
@@ -408,7 +410,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                   // Members routes (under settings)
                   GoRoute(
                     path: 'members',
-                    builder: (context, state) => const MembersScreen(),
+                    builder: (context, state) => const MembersScreen(
+                      branch: MemberNavigationBranch.settings,
+                    ),
                     routes: [
                       GoRoute(
                         path: 'manage',
@@ -417,12 +421,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                       ),
                       GoRoute(
                         path: 'groups',
-                        builder: (context, state) => const GroupsScreen(),
+                        builder: (context, state) => const GroupsScreen(
+                          branch: MemberNavigationBranch.settings,
+                        ),
                         routes: [
                           GoRoute(
                             path: ':id',
                             builder: (context, state) => GroupDetailScreen(
                               groupId: state.pathParameters['id']!,
+                              branch: MemberNavigationBranch.settings,
                             ),
                           ),
                         ],
@@ -431,6 +438,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                         path: ':id',
                         builder: (context, state) => MemberDetailScreen(
                           memberId: state.pathParameters['id']!,
+                          branch: MemberNavigationBranch.settings,
                         ),
                         routes: [
                           GoRoute(
@@ -446,7 +454,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'habits',
-                    builder: (context, state) => const HabitsListScreen(),
+                    builder: (context, state) => const HabitsListScreen(
+                      branch: HabitsListBranch.settings,
+                    ),
                     routes: [
                       GoRoute(
                         path: ':id',
@@ -666,18 +676,23 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 name: AppRouteNames.members,
                 path: AppRoutePaths.members,
-                builder: (context, state) =>
-                    const MembersScreen(showBackButton: false),
+                builder: (context, state) => const MembersScreen(
+                  showBackButton: false,
+                  branch: MemberNavigationBranch.members,
+                ),
                 routes: [
                   GoRoute(
                     path: 'groups/:id',
-                    builder: (context, state) =>
-                        GroupDetailScreen(groupId: state.pathParameters['id']!),
+                    builder: (context, state) => GroupDetailScreen(
+                      groupId: state.pathParameters['id']!,
+                      branch: MemberNavigationBranch.members,
+                    ),
                   ),
                   GoRoute(
                     path: ':id',
                     builder: (context, state) => MemberDetailScreen(
                       memberId: state.pathParameters['id']!,
+                      branch: MemberNavigationBranch.members,
                     ),
                     routes: [
                       GoRoute(
@@ -720,8 +735,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                   final flags = ref.read(featureFlagsProvider);
                   return flags.notes ? null : AppRoutePaths.home;
                 },
-                builder: (context, state) =>
-                    const NotesListScreen(showBackButton: false),
+                builder: (context, state) => const NotesListScreen(
+                  showBackButton: false,
+                  branch: NotesListBranch.notes,
+                ),
                 routes: [
                   GoRoute(
                     path: ':id',
@@ -816,18 +833,24 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 name: AppRouteNames.groups,
                 path: AppRoutePaths.groups,
-                builder: (context, state) =>
-                    const GroupsScreen(showBackButton: false),
+                builder: (context, state) => const GroupsScreen(
+                  showBackButton: false,
+                  branch: MemberNavigationBranch.groups,
+                ),
                 routes: [
                   GoRoute(
                     path: ':id',
-                    builder: (context, state) =>
-                        GroupDetailScreen(groupId: state.pathParameters['id']!),
+                    builder: (context, state) => GroupDetailScreen(
+                      groupId: state.pathParameters['id']!,
+                      branch: MemberNavigationBranch.groups,
+                    ),
                     routes: [
                       GoRoute(
                         path: 'member/:memberId',
                         builder: (context, state) => MemberDetailScreen(
                           memberId: state.pathParameters['memberId']!,
+                          branch: MemberNavigationBranch.groups,
+                          groupId: state.pathParameters['id']!,
                         ),
                         routes: [
                           GoRoute(

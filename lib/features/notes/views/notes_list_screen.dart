@@ -21,10 +21,17 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
+enum NotesListBranch { settings, notes }
+
 class NotesListScreen extends ConsumerWidget {
-  const NotesListScreen({super.key, this.showBackButton = true});
+  const NotesListScreen({
+    super.key,
+    this.showBackButton = true,
+    this.branch = NotesListBranch.notes,
+  });
 
   final bool showBackButton;
+  final NotesListBranch branch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -72,7 +79,7 @@ class NotesListScreen extends ConsumerWidget {
               final note = notes[index];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: _NoteCard(note: note),
+                child: _NoteCard(note: note, branch: branch),
               );
             },
           );
@@ -91,9 +98,15 @@ class NotesListScreen extends ConsumerWidget {
 }
 
 class _NoteCard extends ConsumerWidget {
-  const _NoteCard({required this.note});
+  const _NoteCard({required this.note, required this.branch});
 
   final Note note;
+  final NotesListBranch branch;
+
+  String _notePath(String id) => switch (branch) {
+    NotesListBranch.settings => AppRoutePaths.settingsNote(id),
+    NotesListBranch.notes => AppRoutePaths.note(id),
+  };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -130,17 +143,7 @@ class _NoteCard extends ConsumerWidget {
 
     return PrismSectionCard(
       semanticLabel: semanticLabel,
-      onTap: () {
-        final location = GoRouterState.of(context).uri.path;
-        final isTopLevel =
-            location.startsWith(AppRoutePaths.notes) &&
-            !location.startsWith(AppRoutePaths.settings);
-        context.push(
-          isTopLevel
-              ? AppRoutePaths.note(note.id)
-              : '/settings/notes/${note.id}',
-        );
-      },
+      onTap: () => context.push(_notePath(note.id)),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,

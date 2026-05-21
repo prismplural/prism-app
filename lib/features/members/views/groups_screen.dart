@@ -5,8 +5,8 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
@@ -32,9 +32,14 @@ enum _GroupSortScope { topLevelOnly, allLevels }
 
 /// Screen listing all member groups with reordering support.
 class GroupsScreen extends ConsumerStatefulWidget {
-  const GroupsScreen({super.key, this.showBackButton = true});
+  const GroupsScreen({
+    super.key,
+    this.showBackButton = true,
+    this.branch = MemberNavigationBranch.settings,
+  });
 
   final bool showBackButton;
+  final MemberNavigationBranch branch;
 
   @override
   ConsumerState<GroupsScreen> createState() => _GroupsScreenState();
@@ -44,18 +49,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   final GlobalKey<BlurPopupAnchorState> _optionsPopupKey = GlobalKey();
   List<MemberGroup>? _optimisticGroups;
 
-  /// Path of the current location, used to derive which navigation branch
-  /// this screen is rendering in (settings, members, or groups tab).
-  String _groupPathFor(String id) {
-    final location = GoRouterState.of(context).uri.path;
-    if (location.startsWith(AppRoutePaths.groups)) {
-      return AppRoutePaths.group(id);
-    }
-    if (location.startsWith(AppRoutePaths.members)) {
-      return AppRoutePaths.memberGroup(id);
-    }
-    return AppRoutePaths.settingsGroup(id);
-  }
+  String _groupPathFor(String id) => widget.branch.groupPath(id);
 
   void _openCreateSheet() {
     PrismSheet.showFullScreen(

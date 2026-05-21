@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/widgets/manage_groups_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -24,20 +24,14 @@ class MemberGroupsSection extends ConsumerWidget {
     super.key,
     required this.memberId,
     required this.memberName,
+    this.branch = MemberNavigationBranch.settings,
   });
 
   final String memberId;
   final String memberName;
+  final MemberNavigationBranch branch;
 
-  String _groupPath(BuildContext context, String id) {
-    final location = GoRouterState.of(context).uri.path;
-    final topLevel =
-        location.startsWith(AppRoutePaths.members) &&
-        !location.startsWith(AppRoutePaths.settings);
-    return topLevel
-        ? AppRoutePaths.memberGroup(id)
-        : AppRoutePaths.settingsGroup(id);
-  }
+  String _groupPath(String id) => branch.groupPath(id);
 
   void _openManageGroupsSheet(BuildContext context) {
     PrismSheet.show(
@@ -138,8 +132,7 @@ class MemberGroupsSection extends ConsumerWidget {
                                     group.colorHex!.isNotEmpty
                                 ? AppColors.fromHex(group.colorHex!)
                                 : null,
-                            onTap: () =>
-                                context.push(_groupPath(context, group.id)),
+                            onTap: () => context.push(_groupPath(group.id)),
                           ),
                       ],
                     ),

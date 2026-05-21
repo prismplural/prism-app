@@ -106,14 +106,13 @@ class PrismToast {
   }
 
   static bool _isShellRoute(BuildContext context) {
-    try {
-      final location = GoRouterState.of(context).matchedLocation;
-      return location != AppRoutePaths.onboarding &&
-          location != AppRoutePaths.secretKeySetup &&
-          location != AppRoutePaths.syncSetup;
-    } catch (_) {
-      return false;
-    }
+    final location = GoRouter.maybeOf(
+      context,
+    )?.routeInformationProvider.value.uri.path;
+    if (location == null) return false;
+    return location != AppRoutePaths.onboarding &&
+        location != AppRoutePaths.secretKeySetup &&
+        location != AppRoutePaths.syncSetup;
   }
 }
 

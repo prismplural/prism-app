@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
-import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
@@ -14,6 +13,7 @@ import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 import 'package:prism_plurality/features/chat/views/create_conversation_sheet.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -46,43 +46,22 @@ import 'package:prism_plurality/features/members/providers/group_display_prefs_p
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
-/// Branch in which this screen is currently being rendered. Determines
-/// where subgroup taps and member taps should navigate so the user stays
-/// in their current top-level tab instead of jumping between branches.
-enum _GroupBranch { settings, members, groups }
-
-_GroupBranch _branchOf(BuildContext context) {
-  final location = GoRouterState.of(context).uri.path;
-  if (location.startsWith(AppRoutePaths.groups)) return _GroupBranch.groups;
-  if (location.startsWith(AppRoutePaths.members)) return _GroupBranch.members;
-  return _GroupBranch.settings;
-}
-
-String _subGroupPathFor(BuildContext context, String groupId) {
-  return switch (_branchOf(context)) {
-    _GroupBranch.groups => AppRoutePaths.group(groupId),
-    _GroupBranch.members => AppRoutePaths.memberGroup(groupId),
-    _GroupBranch.settings => AppRoutePaths.settingsGroup(groupId),
-  };
-}
-
 String _memberPathFor(
-  BuildContext context,
+  MemberNavigationBranch branch,
   String currentGroupId,
   String memberId,
-) {
-  return switch (_branchOf(context)) {
-    _GroupBranch.groups => AppRoutePaths.groupMember(currentGroupId, memberId),
-    _GroupBranch.members => AppRoutePaths.member(memberId),
-    _GroupBranch.settings => AppRoutePaths.settingsMember(memberId),
-  };
-}
+) => branch.memberPath(memberId, groupId: currentGroupId);
 
 /// Detail screen for a single member group.
 class GroupDetailScreen extends ConsumerWidget {
-  const GroupDetailScreen({super.key, required this.groupId});
+  const GroupDetailScreen({
+    super.key,
+    required this.groupId,
+    this.branch = MemberNavigationBranch.settings,
+  });
 
   final String groupId;
+  final MemberNavigationBranch branch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -105,16 +84,17 @@ class GroupDetailScreen extends ConsumerWidget {
             body: Center(child: Text(l10n.memberGroupNotFound)),
           );
         }
-        return _GroupDetailBody(group: group);
+        return _GroupDetailBody(group: group, branch: branch);
       },
     );
   }
 }
 
 class _GroupDetailBody extends ConsumerStatefulWidget {
-  const _GroupDetailBody({required this.group});
+  const _GroupDetailBody({required this.group, required this.branch});
 
   final MemberGroup group;
+  final MemberNavigationBranch branch;
 
   @override
   ConsumerState<_GroupDetailBody> createState() => _GroupDetailBodyState();
@@ -130,6 +110,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
   String? _pendingFocusEntryId;
 
   MemberGroup get group => widget.group;
+  MemberNavigationBranch get branch => widget.branch;
 
   FocusNode _focusNodeFor(String entryId) {
     return _entryFocusNodes.putIfAbsent(
@@ -220,6 +201,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
 
             _SubGroupsSection(
               groupId: group.id,
+              branch: branch,
               canAddSubGroup: canAddSubGroup,
               onAddSubGroup: () => _addSubGroup(context),
             ),
@@ -334,6 +316,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
                       entry: entry,
                       member: member,
                       groupId: group.id,
+                      branch: branch,
                       reorderIndex: index,
                       totalCount: visiblePairs.length,
                       sortMode: group.sortState.mode,
@@ -882,7 +865,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     if (!mounted) return;
     switch (result) {
       case MemberSearchResultSelected(:final memberId):
-        unawaited(context.push(_memberPathFor(context, group.id, memberId)));
+        unawaited(context.push(_memberPathFor(branch, group.id, memberId)));
       case MemberSearchResultDismissed():
       case MemberSearchResultCleared():
       case MemberSearchResultUnknown():
@@ -1249,7 +1232,11 @@ class _GroupInfoHeader extends ConsumerWidget {
             Expanded(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
-                    hasColor && !hasAvatar ? 12 : 16, 16, 16, 16),
+                  hasColor && !hasAvatar ? 12 : 16,
+                  16,
+                  16,
+                  16,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1300,11 +1287,13 @@ class _GroupInfoHeader extends ConsumerWidget {
 class _SubGroupsSection extends ConsumerWidget {
   const _SubGroupsSection({
     required this.groupId,
+    required this.branch,
     required this.canAddSubGroup,
     required this.onAddSubGroup,
   });
 
   final String groupId;
+  final MemberNavigationBranch branch;
   final bool canAddSubGroup;
   final VoidCallback onAddSubGroup;
 
@@ -1424,7 +1413,7 @@ class _SubGroupsSection extends ConsumerWidget {
       group: group,
       memberCount: count,
       reorderIndex: reorderIndex,
-      onTap: () => context.push(_subGroupPathFor(context, group.id)),
+      onTap: () => context.push(branch.groupPath(group.id)),
     );
   }
 }
@@ -1435,6 +1424,7 @@ class _GroupMemberTile extends ConsumerWidget {
     required this.entry,
     required this.member,
     required this.groupId,
+    required this.branch,
     required this.reorderIndex,
     required this.totalCount,
     required this.sortMode,
@@ -1445,6 +1435,7 @@ class _GroupMemberTile extends ConsumerWidget {
   final MemberGroupEntry entry;
   final Member member;
   final String groupId;
+  final MemberNavigationBranch branch;
   final int reorderIndex;
   final int totalCount;
   final GroupSortMode sortMode;
@@ -1502,7 +1493,7 @@ class _GroupMemberTile extends ConsumerWidget {
                 ? l10n.groupMemberDragHandleHintManual
                 : l10n.groupMemberDragHandleHintSorted,
             onTap: () =>
-                context.push(_memberPathFor(context, groupId, member.id)),
+                context.push(_memberPathFor(branch, groupId, member.id)),
           ),
         ),
       ),

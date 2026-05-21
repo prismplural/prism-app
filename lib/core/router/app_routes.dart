@@ -81,6 +81,7 @@ abstract final class AppRoutePaths {
   static String poll(String id) => '/polls/$id';
   static String habit(String id) => '/habits/$id';
   static String note(String id) => '/notes/$id';
+  static String settingsNote(String id) => '/settings/notes/$id';
   static String member(String id) => '/members/$id';
   static String memberFrontingHistory(String id) => '/members/$id/fronting';
   static String settingsMember(String id) => '/settings/members/$id';
