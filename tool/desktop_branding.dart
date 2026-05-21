@@ -126,6 +126,35 @@ void _check() {
     _fileContains('.github/workflows/desktop.yaml', 'packaging/linux/icons'),
     'Linux CI tarball must include packaged Prism icon assets.',
   );
+  expect(
+    _fileContains('.github/workflows/desktop.yaml', 'innosetup'),
+    'Windows CI must install Inno Setup for the installer artifact.',
+  );
+  expect(
+    _fileContains(
+      '.github/workflows/desktop.yaml',
+      'scripts\\package_windows_installer.ps1',
+    ),
+    'Windows CI must package the Inno Setup installer.',
+  );
+  expect(
+    _fileContains('packaging/windows/prism.iss', 'AppName={#AppName}'),
+    'Windows installer metadata must use the Prism app name.',
+  );
+  expect(
+    _fileContains(
+      'packaging/windows/prism.iss',
+      'AppPublisher={#AppPublisher}',
+    ),
+    'Windows installer metadata must use the Prism publisher.',
+  );
+  expect(
+    _fileContains(
+      'packaging/windows/prism.iss',
+      r'SetupIconFile=..\..\windows\runner\resources\app_icon.ico',
+    ),
+    'Windows installer must use the Prism icon.',
+  );
 
   if (failures.isNotEmpty) {
     stderr.writeln('Desktop branding check failed:');

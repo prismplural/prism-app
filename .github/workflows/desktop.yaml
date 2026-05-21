@@ -186,17 +186,13 @@ jobs:
             }
           }
 
-      - name: Package zip
+      - name: Install Inno Setup
         shell: pwsh
-        run: |
-          $version = (Select-String -Path pubspec.yaml -Pattern '^version:\s*(\S+)').Matches[0].Groups[1].Value
-          $bundle  = 'build\windows\x64\runner\Release'
-          New-Item -ItemType Directory -Force dist | Out-Null
-          $zip = "dist\Prism-$version-windows-x64.zip"
-          Compress-Archive -Path "$bundle\*" -DestinationPath $zip -CompressionLevel Optimal
-          $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
-          "$hash  $(Split-Path $zip -Leaf)" | Out-File -Encoding ascii "$zip.sha256"
-          Get-ChildItem dist
+        run: choco install innosetup --version=6.7.1 --yes --no-progress
+
+      - name: Package Windows artifacts
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File scripts\package_windows_installer.ps1
 
       - uses: actions/upload-artifact@v4
         with:
@@ -211,5 +207,6 @@ jobs:
           tag_name: ${{ github.event.inputs.attach_to_release || github.ref_name }}
           files: |
             dist/*.zip
+            dist/*.exe
             dist/*.sha256
           fail_on_unmatched_files: true

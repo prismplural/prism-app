@@ -1,0 +1,46 @@
+# Prism Windows installer
+
+Prism's Windows release installer is built with Inno Setup from the Flutter
+Windows release bundle.
+
+The installer is intentionally per-user:
+
+```text
+%LOCALAPPDATA%\Programs\Prism
+```
+
+This avoids a UAC prompt for normal installs and updates. Prism's user data,
+secure-storage file, and databases live outside the install directory in the
+Windows application support directory derived from the executable metadata
+(`CompanyName = Prism Plural`, `ProductName = Prism`). Over-the-top installer
+updates replace only the app bundle under `Programs\Prism`; they do not delete
+the user's Prism data or crypto material.
+
+## Local build
+
+From a Windows machine with Flutter, Rust, and Inno Setup installed:
+
+```powershell
+flutter pub get
+flutter build windows --release
+powershell -ExecutionPolicy Bypass -File scripts\package_windows_installer.ps1
+```
+
+Artifacts are written to `dist/`:
+
+- `Prism-<version>-windows-x64.zip`
+- `Prism-<version>-windows-x64.zip.sha256`
+- `Prism-<version>-windows-x64-setup.exe`
+- `Prism-<version>-windows-x64-setup.exe.sha256`
+
+## Code signing
+
+Unsigned installers are useful for CI smoke tests, but public release builds
+should be Authenticode signed. The first signing target should be the installer
+itself; the stronger setup is to sign the bundled `.exe` and `.dll` files
+before compiling the installer, then let Inno Setup sign the installer and
+generated uninstaller during compilation.
+
+For open-source distribution, the preferred path is SignPath Foundation. If
+Prism needs a paid managed certificate later, Azure Artifact Signing is the
+lowest-friction option where available.
