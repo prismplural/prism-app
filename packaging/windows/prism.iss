@@ -47,7 +47,7 @@ VersionInfoCompany={#AppPublisher}
 VersionInfoDescription={#AppName} installer
 VersionInfoVersion={#AppVersionInfo}
 VersionInfoProductName={#AppName}
-VersionInfoProductVersion={#AppVersion}
+VersionInfoProductVersion={#AppVersionInfo}
 VersionInfoCopyright=Copyright (C) 2026 {#AppPublisher}. All rights reserved.
 #ifdef SignToolName
 SignTool={#SignToolName}
