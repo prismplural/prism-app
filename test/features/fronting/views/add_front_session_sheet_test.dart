@@ -456,6 +456,59 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Member 12'), findsWidgets);
     });
+
+    testWidgets('Unknown is selectable from the compact search sheet', (
+      tester,
+    ) async {
+      final notifier = _FakeFrontingNotifier();
+      await tester.pumpWidget(
+        _buildSheetTrigger(members: _bigMemberList(), fakeNotifier: notifier),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('selectedMemberPickerSelectButton')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(MemberSearchSheet),
+          matching: find.byType(TextField),
+        ),
+        'unk',
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byType(MemberSearchSheet),
+          matching: find.text('Unknown'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Unknown'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MemberSearchSheet), findsNothing);
+      expect(find.text('Unknown'), findsOneWidget);
+      expect(
+        tester.widget<PrismGlassIconButton>(_saveButton()).onPressed,
+        isNotNull,
+      );
+
+      await tester.tap(_saveButton());
+      await tester.pumpAndSettle();
+
+      expect(
+        notifier.startFrontingCalls,
+        equals(<List<String>>[
+          <String>[unknownSentinelMemberId],
+        ]),
+      );
+    });
   });
 
   // ══════════════════════════════════════════════════════════════════════════

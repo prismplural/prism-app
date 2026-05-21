@@ -31,6 +31,7 @@ bool isConversationParticipant(
 }) {
   if (conversation.participantIds.contains(memberId)) return true;
   if (!conversationIncludesImplicitMembers(conversation)) return false;
+  if (memberId == unknownSentinelMemberId) return true;
   if (requireKnownImplicitMember && member == null) return false;
   if (member == null) return true;
   // Passed member rows must describe the member being checked.
@@ -156,6 +157,7 @@ class ConversationPermissions {
     if (memberId == null) return false;
     if (conversation.participantIds.contains(memberId)) return false;
     if (!conversationIncludesImplicitMembers(conversation)) return true;
+    if (memberId == unknownSentinelMemberId) return false;
     if (member == null) return true;
     return member.id != memberId || !member.isActive || member.isDeleted;
   }

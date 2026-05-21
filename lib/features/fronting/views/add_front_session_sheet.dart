@@ -676,18 +676,24 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
 
   Widget _buildCompactList(BuildContext context) {
     final searchGroups = watchMemberSearchGroups(ref, widget.members);
+    final unknownSelected = widget.selectedIds.contains(widget.unknownId);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SelectedMultiMemberPicker(
-          key: const Key('addFrontSessionSelectedMemberPicker'),
-          members: widget.members,
-          selectedMemberIds: widget.selectedIds
-              .where((id) => id != widget.unknownId)
-              .toSet(),
-          onPressed: () => _openSearch(context, widget.members, searchGroups),
-        ),
+        if (unknownSelected)
+          _CompactUnknownSelection(
+            onPressed: () => _openSearch(context, widget.members, searchGroups),
+          )
+        else
+          SelectedMultiMemberPicker(
+            key: const Key('addFrontSessionSelectedMemberPicker'),
+            members: widget.members,
+            selectedMemberIds: widget.selectedIds
+                .where((id) => id != widget.unknownId)
+                .toSet(),
+            onPressed: () => _openSearch(context, widget.members, searchGroups),
+          ),
       ],
     );
   }
@@ -703,6 +709,14 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
       members: candidates,
       termPlural: widget.pluralTerm,
       groups: groups,
+      specialRows: [
+        MemberSearchSpecialRow(
+          rowKey: 'fronting-unknown',
+          title: context.l10n.unknown,
+          leading: const MemberAvatar(emoji: '\u2754', size: 36),
+          onTap: () => Navigator.of(context).pop(<String>{widget.unknownId}),
+        ),
+      ],
       initialSelected: widget.selectedIds
           .where((id) => id != widget.unknownId)
           .toSet(),
@@ -724,6 +738,56 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
     for (final id in toToggle) {
       widget.onToggle(id);
     }
+  }
+}
+
+class _CompactUnknownSelection extends StatelessWidget {
+  const _CompactUnknownSelection({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final radius = BorderRadius.circular(PrismShapes.of(context).radius(16));
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.55,
+        ),
+        borderRadius: radius,
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                const MemberAvatar(emoji: '\u2754', size: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    context.l10n.unknown,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Icon(
+                  AppIcons.chevronRight,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

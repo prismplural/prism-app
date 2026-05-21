@@ -123,8 +123,10 @@ void main() {
     // View + moderate, no posting/reacting — the admin oversees the group
     // without participating in it. The DM rules below pin the opposite
     // behavior for DMs (admins never see DMs they aren't in).
-    test('canView is true (admin override)',
-        () => expect(perms.canView, isTrue));
+    test(
+      'canView is true (admin override)',
+      () => expect(perms.canView, isTrue),
+    );
     test(
       'canWrite is false (no posting)',
       () => expect(perms.canWrite, isFalse),
@@ -432,8 +434,7 @@ void main() {
       expect(perms.canWrite, isFalse);
     });
 
-    test('Unknown sentinel cannot view or write — falls through to picker',
-        () {
+    test('Unknown sentinel cannot view or write — falls through to picker', () {
       // The Unknown chat-author option is a valid speakingAs for messaging
       // ("anonymous narrator"), but it's not a real member and must not
       // open legacy DM content.
@@ -588,8 +589,7 @@ void main() {
   });
 
   group('ConversationPermissions — null speakingAsMemberId', () {
-    test('cannot view, write, or manage anything when no member is picked',
-        () {
+    test('cannot view, write, or manage anything when no member is picked', () {
       final conv = makeGroupConversation(creatorId: 'creator');
       final perms = ConversationPermissions(
         conversation: conv,
@@ -630,21 +630,18 @@ void main() {
       includesAllMembers: true,
     );
 
-    test(
-      'active non-listed member counts as participant (full access)',
-      () {
-        final perms = ConversationPermissions(
-          conversation: makeEveryoneGroup(),
-          speakingAsMemberId: 'outsider',
-          speakingAsMember: makeMember(id: 'outsider'),
-        );
-        expect(perms.isParticipant, isTrue);
-        expect(perms.canView, isTrue);
-        expect(perms.canWrite, isTrue);
-        expect(perms.canSendMessages, isTrue);
-        expect(perms.canReact, isTrue);
-      },
-    );
+    test('active non-listed member counts as participant (full access)', () {
+      final perms = ConversationPermissions(
+        conversation: makeEveryoneGroup(),
+        speakingAsMemberId: 'outsider',
+        speakingAsMember: makeMember(id: 'outsider'),
+      );
+      expect(perms.isParticipant, isTrue);
+      expect(perms.canView, isTrue);
+      expect(perms.canWrite, isTrue);
+      expect(perms.canSendMessages, isTrue);
+      expect(perms.canReact, isTrue);
+    });
 
     test(
       'implicit-only member cannot leave (would be a no-op on participantIds)',
@@ -661,21 +658,18 @@ void main() {
       },
     );
 
-    test(
-      'explicitly listed member of an everyone-group can still leave',
-      () {
-        // Three participants avoids the legacy two-person-no-title DM heuristic
-        // that would otherwise reclassify this as a DM.
-        final perms = ConversationPermissions(
-          conversation: makeEveryoneGroup(
-            participantIds: const ['creator', 'listed', 'other'],
-          ),
-          speakingAsMemberId: 'listed',
-          speakingAsMember: makeMember(id: 'listed'),
-        );
-        expect(perms.canLeave, isTrue);
-      },
-    );
+    test('explicitly listed member of an everyone-group can still leave', () {
+      // Three participants avoids the legacy two-person-no-title DM heuristic
+      // that would otherwise reclassify this as a DM.
+      final perms = ConversationPermissions(
+        conversation: makeEveryoneGroup(
+          participantIds: const ['creator', 'listed', 'other'],
+        ),
+        speakingAsMemberId: 'listed',
+        speakingAsMember: makeMember(id: 'listed'),
+      );
+      expect(perms.canLeave, isTrue);
+    });
 
     test('explicit creator is still a participant and remains creator', () {
       final perms = ConversationPermissions(
@@ -695,10 +689,12 @@ void main() {
         speakingAsMemberId: 'creator',
         speakingAsMember: makeMember(id: 'creator'),
       );
-      expect(perms.canAddMembers, isFalse,
-          reason: 'cannot add to "everyone"');
-      expect(perms.canRemoveMembers, isFalse,
-          reason: 'cannot remove from "everyone"');
+      expect(perms.canAddMembers, isFalse, reason: 'cannot add to "everyone"');
+      expect(
+        perms.canRemoveMembers,
+        isFalse,
+        reason: 'cannot remove from "everyone"',
+      );
     });
 
     test('deleted member does NOT count as everyone-participant', () {
@@ -734,6 +730,22 @@ void main() {
         speakingAsMember: null,
       );
       expect(perms.isParticipant, isFalse);
+    });
+
+    test('Unknown sentinel counts as an implicit everyone participant', () {
+      final perms = ConversationPermissions(
+        conversation: makeEveryoneGroup(),
+        speakingAsMemberId: unknownSentinelMemberId,
+        speakingAsMember: null,
+      );
+
+      expect(perms.isParticipant, isTrue);
+      expect(perms.canView, isTrue);
+      expect(perms.canWrite, isTrue);
+      expect(perms.canSendMessages, isTrue);
+      expect(perms.canManage, isFalse);
+      expect(perms.canLeave, isFalse);
+      expect(perms.isMemberDeparted(unknownSentinelMemberId), isFalse);
     });
 
     test('flag does NOT extend to DMs (isParticipant still gates DMs)', () {
@@ -859,25 +871,24 @@ void main() {
       expect(recipients, {'outsider'});
     });
 
-    test('broadcast mention recipients ignore non-members in explicit groups', () {
-      final recipients = broadcastMentionRecipientIds(
-        conversation: makeGroupConversation(
-          participantIds: [
-            'creator',
-            'listed',
-            unknownSentinelMemberId,
+    test(
+      'broadcast mention recipients ignore non-members in explicit groups',
+      () {
+        final recipients = broadcastMentionRecipientIds(
+          conversation: makeGroupConversation(
+            participantIds: ['creator', 'listed', unknownSentinelMemberId],
+          ),
+          activeMembers: [
+            makeMember(id: 'creator'),
+            makeMember(id: 'listed'),
+            makeMember(id: 'outsider'),
           ],
-        ),
-        activeMembers: [
-          makeMember(id: 'creator'),
-          makeMember(id: 'listed'),
-          makeMember(id: 'outsider'),
-        ],
-        authorId: 'creator',
-      );
+          authorId: 'creator',
+        );
 
-      expect(recipients, {'listed'});
-    });
+        expect(recipients, {'listed'});
+      },
+    );
   });
 
   group('ConversationPermissions — isMemberDeparted', () {

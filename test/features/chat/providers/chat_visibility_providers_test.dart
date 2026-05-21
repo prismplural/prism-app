@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -42,8 +43,19 @@ void main() {
     title: 'Everyone',
     participantIds: const ['alice', 'bob'],
   );
+  final everyoneConversation = Conversation(
+    id: 'everyone-1',
+    createdAt: now,
+    lastActivityAt: now,
+    title: 'All Members',
+    participantIds: const ['alice', 'bob'],
+    includesAllMembers: true,
+  );
 
-  ProviderContainer buildContainer(String? speakingAs) {
+  ProviderContainer buildContainer(
+    String? speakingAs, {
+    bool includeEveryoneConversation = false,
+  }) {
     final seededMembers = [
       Member(id: 'alice', name: 'Alice', createdAt: now),
       Member(id: 'bob', name: 'Bob', createdAt: now),
@@ -58,6 +70,7 @@ void main() {
         dmConversation,
         legacyDmConversation,
         groupConversation,
+        if (includeEveryoneConversation) everyoneConversation,
       ]);
     final currentViewer = seededMembers
         .where((member) => member.id == speakingAs)
@@ -124,18 +137,38 @@ void main() {
     expect(conversations.map((c) => c.id).toSet(), {'dm-1', 'group-1'});
   });
 
-  test('null speakingAs sees nothing — chat screen shows pick-speaker banner',
-      () async {
-    final container = buildContainer(null);
-    addTearDown(container.dispose);
-    final sub = container.listen(conversationsProvider, (_, _) {});
-    addTearDown(sub.close);
+  test(
+    'Unknown sees all-member chats but not unrelated explicit chats',
+    () async {
+      final container = buildContainer(
+        unknownSentinelMemberId,
+        includeEveryoneConversation: true,
+      );
+      addTearDown(container.dispose);
+      final sub = container.listen(conversationsProvider, (_, _) {});
+      addTearDown(sub.close);
 
-    await Future<void>.delayed(Duration.zero);
-    final conversations = sub.read().value!;
+      await Future<void>.delayed(Duration.zero);
+      final conversations = sub.read().value!;
 
-    expect(conversations, isEmpty);
-  });
+      expect(conversations.map((c) => c.id), ['everyone-1']);
+    },
+  );
+
+  test(
+    'null speakingAs sees nothing — chat screen shows pick-speaker banner',
+    () async {
+      final container = buildContainer(null);
+      addTearDown(container.dispose);
+      final sub = container.listen(conversationsProvider, (_, _) {});
+      addTearDown(sub.close);
+
+      await Future<void>.delayed(Duration.zero);
+      final conversations = sub.read().value!;
+
+      expect(conversations, isEmpty);
+    },
+  );
 
   test('non-participant cannot open DM by id', () async {
     final container = buildContainer('carol');
@@ -176,21 +209,23 @@ void main() {
     expect(conversation, isNull);
   });
 
-  test('admin non-participant CAN open group chat by id (moderation view)',
-      () async {
-    final container = buildContainer('admin');
-    addTearDown(container.dispose);
-    final sub = container.listen(
-      conversationByIdProvider('group-1'),
-      (_, _) {},
-    );
-    addTearDown(sub.close);
+  test(
+    'admin non-participant CAN open group chat by id (moderation view)',
+    () async {
+      final container = buildContainer('admin');
+      addTearDown(container.dispose);
+      final sub = container.listen(
+        conversationByIdProvider('group-1'),
+        (_, _) {},
+      );
+      addTearDown(sub.close);
 
-    await Future<void>.delayed(Duration.zero);
-    final conversation = sub.read().value;
+      await Future<void>.delayed(Duration.zero);
+      final conversation = sub.read().value;
 
-    expect(conversation?.id, 'group-1');
-  });
+      expect(conversation?.id, 'group-1');
+    },
+  );
 
   test('non-participant cannot open legacy DM by id', () async {
     final container = buildContainer('carol');
