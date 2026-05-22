@@ -24,10 +24,20 @@ void main() {
   );
 
   group('resolveMemberAccentColor', () {
-    test('global setting off suppresses member accent colors', () {
+    test('automatic setting off still uses a custom profile color', () {
       final color = resolveMemberAccentColor(
         theme,
         _member(customColorEnabled: true, customColorHex: '#FF0000'),
+        perMemberAccentColors: false,
+      );
+
+      expect(color, AppColors.fromHex('#FF0000'));
+    });
+
+    test('automatic setting off suppresses generated accents', () {
+      final color = resolveMemberAccentColor(
+        theme,
+        _member(),
         perMemberAccentColors: false,
       );
 

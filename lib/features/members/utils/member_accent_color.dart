@@ -8,12 +8,12 @@ Color? resolveMemberAccentColor(
   Member member, {
   required bool perMemberAccentColors,
 }) {
-  if (!perMemberAccentColors) return null;
-
   final customHex = member.customColorHex?.trim();
   if (member.customColorEnabled && customHex != null && customHex.isNotEmpty) {
     return AppColors.fromHex(customHex);
   }
+
+  if (!perMemberAccentColors) return null;
 
   return generatedMemberAccentColor(theme, member);
 }
