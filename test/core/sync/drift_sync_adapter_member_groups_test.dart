@@ -1179,8 +1179,8 @@ void main() {
     expect(deferredRows, isEmpty);
   });
 
-  test('sync batch completion quarantines permanently unresolved deferred PK '
-      'entries after max retries', () async {
+  test('sync batch completion keeps recent max-retry deferred PK entries '
+      'recoverable', () async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     await _ensurePkGroupPhase1RuntimeSchema(db);
@@ -1190,27 +1190,303 @@ void main() {
       db,
       quarantine: quarantine,
     );
-    final now = DateTime.utc(2026, 4, 18, 12);
+    final groupsEntity = _entityFor(db, 'member_groups');
+    final membersEntity = _entityFor(db, 'members');
+    final now = DateTime.now();
 
-    await db.customStatement(
-      '''
-        INSERT INTO pk_group_entry_deferred_sync_ops
-          (id, entity_type, entity_id, fields_json, reason, created_at, retry_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''',
-      [
-        'member_group_entries:entry-terminal',
-        'member_group_entries',
-        'entry-terminal',
-        jsonEncode({
+    await groupsEntity.applyFields('pk-group:pk-group-1', {
+      'name': 'Imported',
+      'display_order': 0,
+      'group_type': 0,
+      'created_at': now.toUtc().toIso8601String(),
+      'pluralkit_uuid': 'pk-group-1',
+      'is_deleted': false,
+    });
+    await db.pkGroupEntryDeferredSyncOpsDao.upsert(
+      PkGroupEntryDeferredSyncOpsCompanion.insert(
+        id: 'member_group_entries:entry-recent',
+        entityType: 'member_group_entries',
+        entityId: 'entry-recent',
+        fieldsJson: jsonEncode({
+          'pk_group_uuid': 'pk-group-1',
+          'pk_member_uuid': 'pk-member-1',
+          'is_deleted': false,
+        }),
+        reason: 'seeded_for_test',
+        createdAt: now,
+        retryCount: const Value(9),
+      ),
+    );
+
+    adapterWithCompletion.beginSyncBatch();
+    await adapterWithCompletion.completeSyncBatch();
+
+    final stillDeferred = await db.pkGroupEntryDeferredSyncOpsDao.getById(
+      'member_group_entries:entry-recent',
+    );
+    expect(stillDeferred, isNotNull);
+    expect(stillDeferred!.retryCount, 10);
+    expect(await db.syncQuarantineDao.getAll(), isEmpty);
+
+    await membersEntity.applyFields('member-local-1', {
+      'name': 'Alice',
+      'emoji': '❔',
+      'is_active': true,
+      'created_at': now.toUtc().toIso8601String(),
+      'display_order': 0,
+      'is_admin': false,
+      'custom_color_enabled': false,
+      'markdown_enabled': false,
+      'pluralkit_sync_ignored': false,
+      'pluralkit_uuid': 'pk-member-1',
+      'is_deleted': false,
+    });
+
+    final applied = await (db.select(
+      db.memberGroupEntries,
+    )..where((t) => t.id.equals('entry-recent'))).getSingle();
+    expect(applied.memberId, 'member-local-1');
+    expect(
+      await db.pkGroupEntryDeferredSyncOpsDao.getById(
+        'member_group_entries:entry-recent',
+      ),
+      isNull,
+    );
+    expect(await db.syncQuarantineDao.getAll(), isEmpty);
+  });
+
+  test(
+    'sync batch completion tolerates missing sync_quarantine table',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await _ensurePkGroupPhase1RuntimeSchema(db);
+
+      final adapterWithCompletion = buildSyncAdapterWithCompletion(db);
+      await db.customStatement('DROP TABLE sync_quarantine');
+
+      adapterWithCompletion.beginSyncBatch();
+      await adapterWithCompletion.completeSyncBatch();
+    },
+  );
+
+  test('sync batch completion replays recoverable quarantined deferred PK '
+      'entries', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await _ensurePkGroupPhase1RuntimeSchema(db);
+
+    final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+    final adapterWithCompletion = buildSyncAdapterWithCompletion(
+      db,
+      quarantine: quarantine,
+    );
+    final groupsEntity = _entityFor(db, 'member_groups');
+    final now = DateTime.now();
+
+    await groupsEntity.applyFields('pk-group:pk-group-1', {
+      'name': 'Imported',
+      'display_order': 0,
+      'group_type': 0,
+      'created_at': now.toUtc().toIso8601String(),
+      'pluralkit_uuid': 'pk-group-1',
+      'is_deleted': false,
+    });
+    await db
+        .into(db.members)
+        .insert(
+          MembersCompanion.insert(
+            id: 'member-local-1',
+            name: 'Alice',
+            createdAt: now,
+            pluralkitUuid: const Value('pk-member-1'),
+          ),
+        );
+
+    await quarantine.quarantineField(
+      entityType: 'member_group_entries',
+      entityId: 'entry-quarantined',
+      expectedType: 'Resolvable PK group/member references',
+      receivedType: 'DeferredPkEntryUnresolved',
+      receivedValue: jsonEncode({
+        'pk_group_uuid': 'pk-group-1',
+        'pk_member_uuid': 'pk-member-1',
+        'is_deleted': false,
+      }),
+      errorMessage:
+          'Deferred PK-backed entry exceeded max retries (10): '
+          'unresolved_pk_refs:member:pk-member-1',
+    );
+    expect(await db.syncQuarantineDao.getAll(), hasLength(1));
+
+    adapterWithCompletion.beginSyncBatch();
+    await adapterWithCompletion.completeSyncBatch();
+
+    final applied = await (db.select(
+      db.memberGroupEntries,
+    )..where((t) => t.id.equals('entry-quarantined'))).getSingle();
+    expect(applied.groupId, 'pk-group:pk-group-1');
+    expect(applied.memberId, 'member-local-1');
+    expect(await db.syncQuarantineDao.getAll(), isEmpty);
+  });
+
+  test('sync batch completion leaves unresolved quarantined deferred PK '
+      'entries in quarantine', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await _ensurePkGroupPhase1RuntimeSchema(db);
+
+    final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+    final adapterWithCompletion = buildSyncAdapterWithCompletion(
+      db,
+      quarantine: quarantine,
+    );
+
+    await quarantine.quarantineField(
+      entityType: 'member_group_entries',
+      entityId: 'entry-still-missing',
+      expectedType: 'Resolvable PK group/member references',
+      receivedType: 'DeferredPkEntryUnresolved',
+      receivedValue: jsonEncode({
+        'pk_group_uuid': 'missing-group',
+        'pk_member_uuid': 'missing-member',
+        'is_deleted': false,
+      }),
+      errorMessage:
+          'Deferred PK-backed entry exceeded max retries (10): '
+          'unresolved_pk_refs:member:missing-member',
+    );
+
+    adapterWithCompletion.beginSyncBatch();
+    await adapterWithCompletion.completeSyncBatch();
+
+    expect(await db.syncQuarantineDao.getAll(), hasLength(1));
+    expect(
+      await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals('entry-still-missing'))).getSingleOrNull(),
+      isNull,
+    );
+  });
+
+  test(
+    'sync batch completion ignores malformed quarantined deferred PK JSON',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await _ensurePkGroupPhase1RuntimeSchema(db);
+
+      final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+      final adapterWithCompletion = buildSyncAdapterWithCompletion(
+        db,
+        quarantine: quarantine,
+      );
+
+      await quarantine.quarantineField(
+        entityType: 'member_group_entries',
+        entityId: 'entry-malformed',
+        expectedType: 'Resolvable PK group/member references',
+        receivedType: 'DeferredPkEntryUnresolved',
+        receivedValue: 'not json',
+        errorMessage: 'Deferred PK-backed entry exceeded max retries (10)',
+      );
+
+      adapterWithCompletion.beginSyncBatch();
+      await adapterWithCompletion.completeSyncBatch();
+
+      final rows = await db.syncQuarantineDao.getAll();
+      expect(rows, hasLength(1));
+      expect(rows.single.entityId, 'entry-malformed');
+    },
+  );
+
+  test('sync batch completion ignores unrelated quarantined member group '
+      'entries', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await _ensurePkGroupPhase1RuntimeSchema(db);
+
+    final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+    final adapterWithCompletion = buildSyncAdapterWithCompletion(
+      db,
+      quarantine: quarantine,
+    );
+    final groupsEntity = _entityFor(db, 'member_groups');
+    final now = DateTime.now();
+
+    await groupsEntity.applyFields('pk-group:pk-group-1', {
+      'name': 'Imported',
+      'display_order': 0,
+      'group_type': 0,
+      'created_at': now.toUtc().toIso8601String(),
+      'pluralkit_uuid': 'pk-group-1',
+      'is_deleted': false,
+    });
+    await db
+        .into(db.members)
+        .insert(
+          MembersCompanion.insert(
+            id: 'member-local-1',
+            name: 'Alice',
+            createdAt: now,
+            pluralkitUuid: const Value('pk-member-1'),
+          ),
+        );
+
+    await quarantine.quarantineField(
+      entityType: 'member_group_entries',
+      entityId: 'entry-unrelated',
+      expectedType: 'String',
+      receivedType: 'SomeOtherQuarantineType',
+      receivedValue: jsonEncode({
+        'pk_group_uuid': 'pk-group-1',
+        'pk_member_uuid': 'pk-member-1',
+        'is_deleted': false,
+      }),
+      errorMessage: 'Unrelated quarantine row',
+    );
+
+    adapterWithCompletion.beginSyncBatch();
+    await adapterWithCompletion.completeSyncBatch();
+
+    final rows = await db.syncQuarantineDao.getAll();
+    expect(rows, hasLength(1));
+    expect(rows.single.entityId, 'entry-unrelated');
+    expect(
+      await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals('entry-unrelated'))).getSingleOrNull(),
+      isNull,
+    );
+  });
+
+  test('sync batch completion quarantines stale permanently unresolved '
+      'deferred PK entries after max retries', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await _ensurePkGroupPhase1RuntimeSchema(db);
+
+    final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+    final adapterWithCompletion = buildSyncAdapterWithCompletion(
+      db,
+      quarantine: quarantine,
+    );
+    final staleCreatedAt = DateTime.now().subtract(const Duration(minutes: 11));
+
+    await db.pkGroupEntryDeferredSyncOpsDao.upsert(
+      PkGroupEntryDeferredSyncOpsCompanion.insert(
+        id: 'member_group_entries:entry-terminal',
+        entityType: 'member_group_entries',
+        entityId: 'entry-terminal',
+        fieldsJson: jsonEncode({
           'pk_group_uuid': 'missing-group',
           'pk_member_uuid': 'missing-member',
           'is_deleted': false,
         }),
-        'seeded_for_test',
-        now.millisecondsSinceEpoch,
-        9,
-      ],
+        reason: 'seeded_for_test',
+        createdAt: staleCreatedAt,
+        retryCount: const Value(9),
+      ),
     );
 
     adapterWithCompletion.beginSyncBatch();
@@ -1238,6 +1514,49 @@ void main() {
       quarantineRows.single.errorMessage,
       contains('Deferred PK-backed entry exceeded max retries'),
     );
+  });
+
+  test('sync batch completion quarantines future-dated max-retry deferred PK '
+      'entries', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await _ensurePkGroupPhase1RuntimeSchema(db);
+
+    final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+    final adapterWithCompletion = buildSyncAdapterWithCompletion(
+      db,
+      quarantine: quarantine,
+    );
+    final futureCreatedAt = DateTime.now().add(const Duration(hours: 1));
+
+    await db.pkGroupEntryDeferredSyncOpsDao.upsert(
+      PkGroupEntryDeferredSyncOpsCompanion.insert(
+        id: 'member_group_entries:entry-future',
+        entityType: 'member_group_entries',
+        entityId: 'entry-future',
+        fieldsJson: jsonEncode({
+          'pk_group_uuid': 'missing-group',
+          'pk_member_uuid': 'missing-member',
+          'is_deleted': false,
+        }),
+        reason: 'seeded_for_test',
+        createdAt: futureCreatedAt,
+        retryCount: const Value(9),
+      ),
+    );
+
+    adapterWithCompletion.beginSyncBatch();
+    await adapterWithCompletion.completeSyncBatch();
+
+    expect(
+      await db.pkGroupEntryDeferredSyncOpsDao.getById(
+        'member_group_entries:entry-future',
+      ),
+      isNull,
+    );
+    final quarantineRows = await db.syncQuarantineDao.getAll();
+    expect(quarantineRows, hasLength(1));
+    expect(quarantineRows.single.entityId, 'entry-future');
   });
 
   test('member_groups: duplicate PK-linked rows do not crash canonical sync '

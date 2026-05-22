@@ -283,6 +283,10 @@ const String _pkGroupSyncAliasesTableName = 'pk_group_sync_aliases';
 const String _pkGroupEntryDeferredOpsTableName =
     'pk_group_entry_deferred_sync_ops';
 const int _maxDeferredPkEntryReplayRetries = 10;
+// Retry count is driven by sync batch completions, which can happen in a
+// burst before the matching PK member/group op arrives. Require real elapsed
+// time too before turning a recoverable deferred edge into a user-visible issue.
+const Duration _deferredPkEntryReplayTerminalGrace = Duration(minutes: 10);
 
 final Expando<Map<String, Set<String>>> _tableColumnsCache = Expando();
 final Expando<Map<String, bool>> _tableExistsCache = Expando();
@@ -593,15 +597,20 @@ _PkMemberGroupEntryLogicalEdge? _pkMemberGroupEntryLogicalEdgeFromFields(
 _PkMemberGroupEntryLogicalEdge? _pkMemberGroupEntryLogicalEdgeFromFieldsJson(
   String fieldsJson,
 ) {
+  final decoded = _decodeDeferredPkEntryFieldsJson(fieldsJson);
+  return decoded == null
+      ? null
+      : _pkMemberGroupEntryLogicalEdgeFromFields(decoded);
+}
+
+Map<String, dynamic>? _decodeDeferredPkEntryFieldsJson(String fieldsJson) {
   try {
     final decoded = jsonDecode(fieldsJson);
     if (decoded is Map<String, dynamic>) {
-      return _pkMemberGroupEntryLogicalEdgeFromFields(decoded);
+      return decoded;
     }
     if (decoded is Map) {
-      return _pkMemberGroupEntryLogicalEdgeFromFields(
-        decoded.map((key, value) => MapEntry(key.toString(), value)),
-      );
+      return decoded.map((key, value) => MapEntry(key.toString(), value));
     }
   } catch (_) {
     return null;
@@ -1031,20 +1040,7 @@ Future<void> _retryDeferredPkBackedMemberGroupEntryOps(
     final fieldsJson = row.fieldsJson;
     final reason = row.reason;
     final retryCount = row.retryCount;
-    final decodedFields = (() {
-      try {
-        final decoded = jsonDecode(fieldsJson);
-        if (decoded is Map<String, dynamic>) {
-          return decoded;
-        }
-        if (decoded is Map) {
-          return decoded.map((key, value) => MapEntry(key.toString(), value));
-        }
-      } catch (_) {
-        return null;
-      }
-      return null;
-    })();
+    final decodedFields = _decodeDeferredPkEntryFieldsJson(fieldsJson);
 
     if (decodedFields == null) {
       await db.pkGroupEntryDeferredSyncOpsDao.deleteById(deferredId);
@@ -1076,7 +1072,12 @@ Future<void> _retryDeferredPkBackedMemberGroupEntryOps(
       }
     } else {
       final nextRetryCount = retryCount + 1;
-      if (nextRetryCount >= _maxDeferredPkEntryReplayRetries) {
+      final now = DateTime.now();
+      final terminalGraceElapsed =
+          row.createdAt.isAfter(now) ||
+          now.difference(row.createdAt) >= _deferredPkEntryReplayTerminalGrace;
+      if (nextRetryCount >= _maxDeferredPkEntryReplayRetries &&
+          terminalGraceElapsed) {
         if (quarantine != null) {
           await quarantine.quarantineField(
             entityType: 'member_group_entries',
@@ -1094,6 +1095,47 @@ Future<void> _retryDeferredPkBackedMemberGroupEntryOps(
       } else {
         await db.pkGroupEntryDeferredSyncOpsDao.markRetried(deferredId);
       }
+    }
+  }
+
+  await _retryQuarantinedPkBackedMemberGroupEntryOps(
+    db,
+    quarantine: quarantine,
+    trackQuarantineWrite: trackQuarantineWrite,
+  );
+}
+
+Future<void> _retryQuarantinedPkBackedMemberGroupEntryOps(
+  AppDatabase db, {
+  required SyncQuarantineService? quarantine,
+  required void Function(Future<void> write) trackQuarantineWrite,
+}) async {
+  if (!await _tableExists(db, 'sync_quarantine')) {
+    return;
+  }
+
+  final rows = await db.syncQuarantineDao.getDeferredPkEntryUnresolved();
+  for (final row in rows) {
+    final fieldsJson = row.receivedValue;
+    if (fieldsJson == null) continue;
+
+    final decodedFields = _decodeDeferredPkEntryFieldsJson(fieldsJson);
+    if (decodedFields == null ||
+        _pkMemberGroupEntryLogicalEdgeFromFields(decodedFields) == null) {
+      continue;
+    }
+
+    final applied = await _applyMemberGroupEntryFields(
+      db,
+      id: row.entityId,
+      fields: decodedFields,
+      quarantine: quarantine,
+      trackQuarantineWrite: trackQuarantineWrite,
+      allowDeferral: false,
+      throwOnUnresolved: false,
+    );
+    if (applied) {
+      await db.syncQuarantineDao.deleteById(row.id);
     }
   }
 }

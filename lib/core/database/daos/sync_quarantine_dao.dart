@@ -40,6 +40,15 @@ class SyncQuarantineDao extends DatabaseAccessor<AppDatabase>
   Future<List<SyncQuarantineData>> getAll() =>
       select(syncQuarantineTable).get();
 
+  Future<List<SyncQuarantineData>> getDeferredPkEntryUnresolved() {
+    return (select(syncQuarantineTable)..where(
+          (t) =>
+              t.entityType.equals('member_group_entries') &
+              t.receivedType.equals('DeferredPkEntryUnresolved'),
+        ))
+        .get();
+  }
+
   Future<int> count() async {
     final result = await customSelect(
       'SELECT COUNT(*) AS c FROM sync_quarantine',
@@ -48,14 +57,16 @@ class SyncQuarantineDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> clearForEntity(String entityType, String entityId) async {
-    await (delete(syncQuarantineTable)
-          ..where(
-            (t) => t.entityType.equals(entityType) & t.entityId.equals(entityId),
-          ))
+    await (delete(syncQuarantineTable)..where(
+          (t) => t.entityType.equals(entityType) & t.entityId.equals(entityId),
+        ))
         .go();
   }
 
   Future<void> clearAll() => delete(syncQuarantineTable).go();
+
+  Future<void> deleteById(String id) =>
+      (delete(syncQuarantineTable)..where((t) => t.id.equals(id))).go();
 
   Future<void> incrementRetry(String id) async {
     await customStatement(
