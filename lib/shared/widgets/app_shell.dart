@@ -937,9 +937,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
       // Mobile layout: stack with floating bottom bar.
       // Hide the nav bar on sub-routes (detail screens) — only show on root tabs.
-      final location =
-          GoRouter.maybeOf(context)?.routeInformationProvider.value.uri.path ??
-          '';
+      final location = GoRouterState.of(context).uri.path;
       final isRootTab = appShellTabs.any((t) => t.rootLocation == location);
 
       final mediaQuery = MediaQuery.of(context);
