@@ -29,7 +29,7 @@ if (-not (Test-Path -LiteralPath $exePath)) {
 
 New-Item -ItemType Directory -Force $outputPath | Out-Null
 
-$zip = Join-Path $outputPath "Prism-$version-windows-x64.zip"
+$zip = Join-Path $outputPath "Prism-$version-windows-x64-portable.zip"
 if (Test-Path -LiteralPath $zip) {
   Remove-Item -LiteralPath $zip -Force
 }
@@ -83,7 +83,7 @@ if ($LASTEXITCODE -ne 0) {
   throw "Inno Setup compiler failed with exit code $LASTEXITCODE"
 }
 
-$setup = Join-Path $outputPath "Prism-$version-windows-x64-setup.exe"
+$setup = Join-Path $outputPath "Prism-$version-windows-x64-install.exe"
 if (-not (Test-Path -LiteralPath $setup)) {
   throw "Expected installer was not created: $setup"
 }

@@ -28,10 +28,10 @@ powershell -ExecutionPolicy Bypass -File scripts\package_windows_installer.ps1
 
 Artifacts are written to `dist/`:
 
-- `Prism-<version>-windows-x64.zip`
-- `Prism-<version>-windows-x64.zip.sha256`
-- `Prism-<version>-windows-x64-setup.exe`
-- `Prism-<version>-windows-x64-setup.exe.sha256`
+- `Prism-<version>-windows-x64-portable.zip`
+- `Prism-<version>-windows-x64-portable.zip.sha256`
+- `Prism-<version>-windows-x64-install.exe`
+- `Prism-<version>-windows-x64-install.exe.sha256`
 
 ## Code signing
 
