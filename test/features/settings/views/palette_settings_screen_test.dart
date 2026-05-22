@@ -30,6 +30,32 @@ void main() {
   }
 
   group('PaletteSettingsScreen', () {
+    test('palette previews keep neutral custom colors monochrome', () {
+      for (final seed in const [
+        Color(0xFFFFFFFF),
+        Color(0xFF808080),
+        Color(0xFF000000),
+      ]) {
+        for (final mood in PaletteMood.values) {
+          final preview = PalettePreview.from(
+            seedColor: seed,
+            mood: mood,
+            contrast: PaletteContrast.standard,
+            brightness: Brightness.light,
+          );
+
+          for (final dot in preview.dots) {
+            expect(
+              _hslSaturation(dot),
+              lessThan(0.01),
+              reason:
+                  'preview dots should stay monochrome for ${seed.toARGB32().toRadixString(16)} in ${mood.name}',
+            );
+          }
+        }
+      }
+    });
+
     testWidgets('hides source section when device colors are unsupported', (
       tester,
     ) async {
@@ -59,3 +85,5 @@ void main() {
     });
   });
 }
+
+double _hslSaturation(Color color) => HSLColor.fromColor(color).saturation;

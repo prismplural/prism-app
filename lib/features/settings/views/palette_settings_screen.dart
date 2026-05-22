@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/settings/views/accent_color_picker.dart
 import 'package:prism_plurality/features/settings/views/accent_color_presets.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/app_theme.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -275,7 +276,10 @@ class PalettePreview {
     final scheme = ColorScheme.fromSeed(
       seedColor: seedColor,
       brightness: brightness,
-      dynamicSchemeVariant: _variantForMood(mood),
+      dynamicSchemeVariant: AppTheme.dynamicSchemeVariantForPalette(
+        mood,
+        seedColor: seedColor,
+      ),
       contrastLevel: _contrastLevel(contrast),
     );
 
@@ -307,16 +311,6 @@ class PalettePreview {
   final ColorScheme scheme;
   final Color primary;
   final List<Color> dots;
-}
-
-DynamicSchemeVariant _variantForMood(PaletteMood mood) {
-  return switch (mood) {
-    PaletteMood.tonal => DynamicSchemeVariant.tonalSpot,
-    PaletteMood.vibrant => DynamicSchemeVariant.vibrant,
-    PaletteMood.expressive => DynamicSchemeVariant.expressive,
-    PaletteMood.fidelity => DynamicSchemeVariant.fidelity,
-    PaletteMood.monochrome => DynamicSchemeVariant.monochrome,
-  };
 }
 
 double _contrastLevel(PaletteContrast contrast) {

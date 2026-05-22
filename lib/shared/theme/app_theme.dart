@@ -249,7 +249,18 @@ class AppTheme {
     );
   }
 
-  static DynamicSchemeVariant _dynamicSchemeVariantFor(PaletteMood mood) {
+  static bool _isMonochromePaletteSeed(Color seedColor) {
+    return HSLColor.fromColor(seedColor).saturation <= 0.05;
+  }
+
+  static DynamicSchemeVariant dynamicSchemeVariantForPalette(
+    PaletteMood mood, {
+    Color? seedColor,
+  }) {
+    if (seedColor != null && _isMonochromePaletteSeed(seedColor)) {
+      return DynamicSchemeVariant.monochrome;
+    }
+
     return switch (mood) {
       PaletteMood.tonal => DynamicSchemeVariant.tonalSpot,
       PaletteMood.vibrant => DynamicSchemeVariant.vibrant,
@@ -282,14 +293,21 @@ class AppTheme {
       return ColorScheme.fromSeed(
         seedColor: dynamicScheme.primary,
         brightness: brightness,
-        dynamicSchemeVariant: _dynamicSchemeVariantFor(mood),
+        dynamicSchemeVariant: dynamicSchemeVariantForPalette(
+          mood,
+          seedColor: dynamicScheme.primary,
+        ),
         contrastLevel: _contrastLevelFor(contrast),
       );
     }
+    final seedColor = AppColors.fromHex(seedColorHex);
     return ColorScheme.fromSeed(
-      seedColor: AppColors.fromHex(seedColorHex),
+      seedColor: seedColor,
       brightness: brightness,
-      dynamicSchemeVariant: _dynamicSchemeVariantFor(mood),
+      dynamicSchemeVariant: dynamicSchemeVariantForPalette(
+        mood,
+        seedColor: seedColor,
+      ),
       contrastLevel: _contrastLevelFor(contrast),
     );
   }
@@ -393,6 +411,7 @@ class AppTheme {
 
   static ThemeData _paletteThemeFromScheme({
     required ColorScheme baseColorScheme,
+    Color? surfaceTintColor,
     required bool isDark,
     required PrismShapes shapes,
   }) {
@@ -402,12 +421,13 @@ class AppTheme {
           ? baseColorScheme.surfaceContainerLow
           : baseColorScheme.surfaceContainerLowest,
     );
+    final surfaceTint = surfaceTintColor ?? baseColorScheme.primary;
     final colorScheme = _paletteSurfaceTintedScheme(
       baseColorScheme.copyWith(
         primary: accent,
         onPrimary: highContrastForeground(accent),
       ),
-      accent,
+      surfaceTint,
       isDark: isDark,
     );
 
@@ -436,9 +456,13 @@ class AppTheme {
       baseColorScheme: ColorScheme.fromSeed(
         seedColor: seedColor,
         brightness: isDark ? Brightness.dark : Brightness.light,
-        dynamicSchemeVariant: _dynamicSchemeVariantFor(paletteMood),
+        dynamicSchemeVariant: dynamicSchemeVariantForPalette(
+          paletteMood,
+          seedColor: seedColor,
+        ),
         contrastLevel: _contrastLevelFor(paletteContrast),
       ),
+      surfaceTintColor: seedColor,
       isDark: isDark,
       shapes: shapes,
     );
@@ -838,6 +862,7 @@ class AppTheme {
     PaletteMood paletteMood = PaletteMood.tonal,
     PaletteContrast paletteContrast = PaletteContrast.standard,
   }) {
+    final seedColor = AppColors.fromHex(paletteSeedColorHex);
     final baseColorScheme = _paletteColorScheme(
       dynamicScheme: dynamicScheme,
       brightness: Brightness.light,
@@ -849,6 +874,10 @@ class AppTheme {
 
     return _paletteThemeFromScheme(
       baseColorScheme: baseColorScheme,
+      surfaceTintColor:
+          paletteSource == PaletteSource.custom || dynamicScheme == null
+          ? seedColor
+          : null,
       isDark: false,
       shapes: PrismShapes(cornerStyle: cornerStyle),
     );
@@ -862,6 +891,7 @@ class AppTheme {
     PaletteMood paletteMood = PaletteMood.tonal,
     PaletteContrast paletteContrast = PaletteContrast.standard,
   }) {
+    final seedColor = AppColors.fromHex(paletteSeedColorHex);
     final baseColorScheme = _paletteColorScheme(
       dynamicScheme: dynamicScheme,
       brightness: Brightness.dark,
@@ -873,6 +903,10 @@ class AppTheme {
 
     return _paletteThemeFromScheme(
       baseColorScheme: baseColorScheme,
+      surfaceTintColor:
+          paletteSource == PaletteSource.custom || dynamicScheme == null
+          ? seedColor
+          : null,
       isDark: true,
       shapes: PrismShapes(cornerStyle: cornerStyle),
     );

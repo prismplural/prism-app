@@ -37,7 +37,7 @@ void main() {
         expect(
           theme.scaffoldBackgroundColor,
           Color.alphaBlend(
-            theme.colorScheme.primary.withValues(alpha: 0.11),
+            const Color(0xFF16A34A).withValues(alpha: 0.11),
             untintedScheme.surfaceContainerLowest,
           ),
         );
@@ -76,7 +76,7 @@ void main() {
       expect(
         theme.scaffoldBackgroundColor,
         Color.alphaBlend(
-          theme.colorScheme.primary.withValues(alpha: 0.11),
+          const Color(0xFF2563EB).withValues(alpha: 0.11),
           untintedScheme.surfaceContainerLow,
         ),
       );
@@ -86,7 +86,88 @@ void main() {
       );
     });
 
-    test('light palette surfaces are tinted toward the accent color', () {
+    test('local palette theme keeps neutral member colors monochrome', () {
+      final base = AppTheme.light(accentColor: const Color(0xFF9070A0));
+
+      for (final seed in const [
+        Color(0xFFFFFFFF),
+        Color(0xFF808080),
+        Color(0xFF000000),
+      ]) {
+        for (final mood in PaletteMood.values) {
+          final theme = AppTheme.localPaletteTheme(
+            base,
+            seedColor: seed,
+            paletteMood: mood,
+          );
+
+          for (final entry in _paletteAccentRoles(theme.colorScheme).entries) {
+            expect(
+              _hslSaturation(entry.value),
+              lessThan(0.01),
+              reason:
+                  '${entry.key} should stay monochrome for ${seed.toARGB32().toRadixString(16)} in ${mood.name}',
+            );
+          }
+        }
+      }
+    });
+
+    test('custom palette themes keep neutral colors monochrome', () {
+      for (final entry in const {
+        '#FFFFFF': Color(0xFFFFFFFF),
+        '#808080': Color(0xFF808080),
+        '#000000': Color(0xFF000000),
+      }.entries) {
+        for (final mood in PaletteMood.values) {
+          final theme = AppTheme.materialYouLight(
+            null,
+            paletteSource: PaletteSource.custom,
+            paletteSeedColorHex: entry.key,
+            paletteMood: mood,
+          );
+
+          for (final role in _paletteAccentRoles(theme.colorScheme).entries) {
+            expect(
+              _hslSaturation(role.value),
+              lessThan(0.01),
+              reason:
+                  '${role.key} should stay monochrome for ${entry.key} in ${mood.name}',
+            );
+          }
+        }
+      }
+    });
+
+    test('local palette surfaces tint from bright member colors', () {
+      final base = AppTheme.light(accentColor: const Color(0xFF9070A0));
+      const yellow = Color(0xFFFFD000);
+      final yellowTheme = AppTheme.localPaletteTheme(
+        base,
+        seedColor: yellow,
+        paletteMood: PaletteMood.fidelity,
+      );
+      final untintedScheme = ColorScheme.fromSeed(
+        seedColor: yellow,
+        brightness: Brightness.light,
+        dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+      );
+
+      expect(
+        HSLColor.fromColor(yellowTheme.colorScheme.primary).hue,
+        closeTo(HSLColor.fromColor(yellow).hue, 10),
+      );
+      expect(
+        yellowTheme.scaffoldBackgroundColor,
+        Color.alphaBlend(
+          yellow.withValues(alpha: 0.11),
+          untintedScheme.surfaceContainerLowest,
+        ),
+      );
+    });
+
+    test('light palette surfaces are tinted toward the custom seed color', () {
+      const seed = Color(0xFF16A34A);
       final theme = AppTheme.materialYouLight(
         null,
         paletteSource: PaletteSource.custom,
@@ -94,7 +175,7 @@ void main() {
         paletteMood: PaletteMood.vibrant,
       );
       final untintedScheme = ColorScheme.fromSeed(
-        seedColor: const Color(0xFF16A34A),
+        seedColor: seed,
         brightness: Brightness.light,
         dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
       );
@@ -112,41 +193,31 @@ void main() {
       expect(
         theme.scaffoldBackgroundColor,
         Color.alphaBlend(
-          theme.colorScheme.primary.withValues(alpha: 0.11),
+          seed.withValues(alpha: 0.11),
           untintedScheme.surfaceContainerLowest,
         ),
       );
       expect(
         theme.cardColor,
         Color.alphaBlend(
-          theme.colorScheme.primary.withValues(alpha: 0.15),
+          seed.withValues(alpha: 0.15),
           untintedScheme.surfaceContainerLow,
         ),
       );
       expect(
         theme.colorScheme.surfaceContainerHighest,
         Color.alphaBlend(
-          theme.colorScheme.primary.withValues(alpha: 0.24),
+          seed.withValues(alpha: 0.24),
           untintedScheme.surfaceContainerHighest,
         ),
       );
       expect(
-        _rgbDistance(theme.scaffoldBackgroundColor, theme.colorScheme.primary),
-        lessThan(
-          _rgbDistance(
-            untintedScheme.surfaceContainerLowest,
-            theme.colorScheme.primary,
-          ),
-        ),
+        _rgbDistance(theme.scaffoldBackgroundColor, seed),
+        lessThan(_rgbDistance(untintedScheme.surfaceContainerLowest, seed)),
       );
       expect(
-        _rgbDistance(theme.cardColor, theme.colorScheme.primary),
-        lessThan(
-          _rgbDistance(
-            untintedScheme.surfaceContainerLow,
-            theme.colorScheme.primary,
-          ),
-        ),
+        _rgbDistance(theme.cardColor, seed),
+        lessThan(_rgbDistance(untintedScheme.surfaceContainerLow, seed)),
       );
     });
 
@@ -226,8 +297,9 @@ void main() {
     );
 
     test(
-      'dark palette surfaces are lifted and tinted toward the accent color',
+      'dark palette surfaces are lifted and tinted toward the custom seed color',
       () {
+        const seed = Color(0xFF2563EB);
         final theme = AppTheme.materialYouDark(
           null,
           paletteSource: PaletteSource.custom,
@@ -235,7 +307,7 @@ void main() {
           paletteMood: PaletteMood.expressive,
         );
         final untintedScheme = ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2563EB),
+          seedColor: seed,
           brightness: Brightness.dark,
           dynamicSchemeVariant: DynamicSchemeVariant.expressive,
         );
@@ -253,44 +325,31 @@ void main() {
         expect(
           theme.scaffoldBackgroundColor,
           Color.alphaBlend(
-            theme.colorScheme.primary.withValues(alpha: 0.11),
+            seed.withValues(alpha: 0.11),
             untintedScheme.surfaceContainerLow,
           ),
         );
         expect(
           theme.cardColor,
           Color.alphaBlend(
-            theme.colorScheme.primary.withValues(alpha: 0.14),
+            seed.withValues(alpha: 0.14),
             untintedScheme.surfaceContainer,
           ),
         );
         expect(
           theme.colorScheme.surfaceContainerHighest,
           Color.alphaBlend(
-            theme.colorScheme.primary.withValues(alpha: 0.20),
+            seed.withValues(alpha: 0.20),
             untintedScheme.surfaceContainerHighest,
           ),
         );
         expect(
-          _rgbDistance(
-            theme.scaffoldBackgroundColor,
-            theme.colorScheme.primary,
-          ),
-          lessThan(
-            _rgbDistance(
-              untintedScheme.surfaceContainerLow,
-              theme.colorScheme.primary,
-            ),
-          ),
+          _rgbDistance(theme.scaffoldBackgroundColor, seed),
+          lessThan(_rgbDistance(untintedScheme.surfaceContainerLow, seed)),
         );
         expect(
-          _rgbDistance(theme.cardColor, theme.colorScheme.primary),
-          lessThan(
-            _rgbDistance(
-              untintedScheme.surfaceContainer,
-              theme.colorScheme.primary,
-            ),
-          ),
+          _rgbDistance(theme.cardColor, seed),
+          lessThan(_rgbDistance(untintedScheme.surfaceContainer, seed)),
         );
         expect(
           relativeLuminance(theme.scaffoldBackgroundColor),
@@ -303,9 +362,20 @@ void main() {
   });
 }
 
+Map<String, Color> _paletteAccentRoles(ColorScheme scheme) => {
+  'primary': scheme.primary,
+  'primaryContainer': scheme.primaryContainer,
+  'secondary': scheme.secondary,
+  'secondaryContainer': scheme.secondaryContainer,
+  'tertiary': scheme.tertiary,
+  'tertiaryContainer': scheme.tertiaryContainer,
+};
+
 double _rgbDistance(Color a, Color b) {
   final red = a.r - b.r;
   final green = a.g - b.g;
   final blue = a.b - b.b;
   return (red * red) + (green * green) + (blue * blue);
 }
+
+double _hslSaturation(Color color) => HSLColor.fromColor(color).saturation;
