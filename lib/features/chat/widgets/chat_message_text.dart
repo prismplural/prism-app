@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -60,6 +62,24 @@ class _ChatMessageTextState extends State<ChatMessageText> {
     final renderKey = ValueKey(
       _mentionRenderSignature(widget.content, widget.authorMap),
     );
+    final stickerFontSize = emojiStickerFontSize(
+      widget.content,
+      widget.baseStyle,
+    );
+
+    if (stickerFontSize != null) {
+      return KeyedSubtree(
+        key: renderKey,
+        child: Text(
+          widget.content.trim(),
+          style: widget.baseStyle.copyWith(
+            color: widget.defaultColor,
+            fontSize: stickerFontSize,
+            height: 1.0,
+          ),
+        ),
+      );
+    }
 
     // Fast path: skips the markdown parser. `redactSpoilers` runs before
     // rendering so a >2000-char message with `||secret||` can't leak the
@@ -131,6 +151,76 @@ class _ChatMessageTextState extends State<ChatMessageText> {
     return Object.hashAll(values);
   }
 }
+
+/// Returns a sticker font size for emoji-only chat messages.
+double? emojiStickerFontSize(String content, TextStyle baseStyle) {
+  final trimmed = content.trim();
+  if (trimmed.isEmpty) return null;
+
+  final count = _emojiGraphemeCount(trimmed);
+  if (count == null || count > _emojiStickerMaxGraphemes) return null;
+
+  final normalSize = baseStyle.fontSize ?? 14;
+  return math.max(normalSize, switch (count) {
+    1 => 48.0,
+    <= 3 => 40.0,
+    _ => 32.0,
+  });
+}
+
+int? _emojiGraphemeCount(String content) {
+  var count = 0;
+  for (final cluster in content.characters) {
+    if (cluster.trim().isEmpty) continue;
+    if (!_isEmojiCluster(cluster)) return null;
+    count++;
+    if (count > _emojiStickerMaxGraphemes) return count;
+  }
+  return count == 0 ? null : count;
+}
+
+bool _isEmojiCluster(String cluster) {
+  if (_keycapEmojiRegex.hasMatch(cluster) ||
+      _flagEmojiRegex.hasMatch(cluster)) {
+    return true;
+  }
+
+  final segments = cluster.split('\u200D');
+  if (segments.isEmpty) return false;
+  return segments.every(_isEmojiSegment);
+}
+
+bool _isEmojiSegment(String segment) {
+  final hasEmojiVariation = segment.contains('\uFE0F');
+  final normalized = segment
+      .replaceAll(RegExp('[\uFE0E\uFE0F]'), '')
+      .replaceAll(_emojiModifierRegex, '');
+
+  if (normalized.isEmpty) return false;
+  if (_emojiPresentationRegex.hasMatch(normalized) ||
+      _extendedPictographicRegex.hasMatch(normalized)) {
+    return true;
+  }
+
+  return hasEmojiVariation &&
+      _emojiRegex.hasMatch(normalized) &&
+      !_emojiKeycapBaseRegex.hasMatch(normalized);
+}
+
+final _emojiRegex = RegExp(r'^\p{Emoji}$', unicode: true);
+const _emojiStickerMaxGraphemes = 6;
+final _emojiPresentationRegex = RegExp(
+  r'^\p{Emoji_Presentation}$',
+  unicode: true,
+);
+final _extendedPictographicRegex = RegExp(
+  r'^\p{Extended_Pictographic}$',
+  unicode: true,
+);
+final _emojiModifierRegex = RegExp(r'[\u{1F3FB}-\u{1F3FF}]', unicode: true);
+final _keycapEmojiRegex = RegExp(r'^[0-9#*]\uFE0F?\u20E3$', unicode: true);
+final _emojiKeycapBaseRegex = RegExp(r'^[0-9#*]$', unicode: true);
+final _flagEmojiRegex = RegExp(r'^[\u{1F1E6}-\u{1F1FF}]{2}$', unicode: true);
 
 /// Build a [TextSpan] for plain-text messages with colored mentions.
 ///

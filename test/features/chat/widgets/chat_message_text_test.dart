@@ -41,6 +41,19 @@ Widget _widget({required String content, Map<String, Member>? authorMap}) {
   );
 }
 
+double? _renderedFontSize(WidgetTester tester, String text) {
+  final widget = tester.widget<Text>(find.text(text));
+  final span = widget.textSpan;
+  return widget.style?.fontSize ??
+      (span is TextSpan ? span.style?.fontSize : null);
+}
+
+double? _renderedLineHeight(WidgetTester tester, String text) {
+  final widget = tester.widget<Text>(find.text(text));
+  final span = widget.textSpan;
+  return widget.style?.height ?? (span is TextSpan ? span.style?.height : null);
+}
+
 void main() {
   // Reset the stylesheet cache between tests to avoid cross-test pollution.
   setUp(debugResetChatStylesheetCache);
@@ -244,6 +257,73 @@ void main() {
         );
       },
     );
+
+    testWidgets('13. single emoji-only message renders sticker-sized', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_widget(content: '🥴'));
+      expect(find.byType(MarkdownBody), findsNothing);
+
+      expect(_renderedFontSize(tester, '🥴'), 48);
+      expect(_renderedLineHeight(tester, '🥴'), 1.0);
+    });
+
+    testWidgets('14. emoji-only message with whitespace is enlarged', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_widget(content: '  ✨ ✨  '));
+
+      expect(_renderedFontSize(tester, '✨ ✨'), 40);
+      expect(_renderedLineHeight(tester, '✨ ✨'), 1.0);
+    });
+
+    testWidgets('15. mixed text with emoji stays normal chat size', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_widget(content: 'hey 🥴'));
+
+      expect(_renderedFontSize(tester, 'hey 🥴'), _kBaseStyle.fontSize);
+    });
+
+    testWidgets('16. seven emoji falls back to normal chat size', (
+      tester,
+    ) async {
+      const content = '✨✨✨✨✨✨✨';
+      await tester.pumpWidget(_widget(content: content));
+
+      expect(_renderedFontSize(tester, content), _kBaseStyle.fontSize);
+    });
+  });
+
+  group('emojiStickerFontSize', () {
+    test('classifies emoji-only content by grapheme count', () {
+      expect(emojiStickerFontSize('🥴', _kBaseStyle), 48);
+      expect(emojiStickerFontSize('✨✨', _kBaseStyle), 40);
+      expect(emojiStickerFontSize('🌸🌙✨', _kBaseStyle), 40);
+      expect(emojiStickerFontSize('🌸🌙✨💫', _kBaseStyle), 32);
+      expect(emojiStickerFontSize('🌸🌙✨💫⭐️🫧', _kBaseStyle), 32);
+    });
+
+    test('handles composed emoji as one displayed emoji', () {
+      expect(emojiStickerFontSize('👍🏽', _kBaseStyle), 48);
+      expect(emojiStickerFontSize('👨‍👩‍👧‍👦', _kBaseStyle), 48);
+      expect(emojiStickerFontSize('🇨🇷', _kBaseStyle), 48);
+      expect(emojiStickerFontSize('1️⃣', _kBaseStyle), 48);
+    });
+
+    test('rejects non-emoji and long emoji runs', () {
+      expect(emojiStickerFontSize('', _kBaseStyle), isNull);
+      expect(emojiStickerFontSize('   ', _kBaseStyle), isNull);
+      expect(emojiStickerFontSize('hey 🥴', _kBaseStyle), isNull);
+      expect(emojiStickerFontSize('🥴!', _kBaseStyle), isNull);
+      expect(emojiStickerFontSize('||🥴||', _kBaseStyle), isNull);
+      expect(emojiStickerFontSize('✨✨✨✨✨✨✨', _kBaseStyle), isNull);
+    });
+
+    test('allows whitespace between emoji', () {
+      expect(emojiStickerFontSize('✨ ✨', _kBaseStyle), 40);
+      expect(emojiStickerFontSize('🌸\n🌙\t✨', _kBaseStyle), 40);
+    });
   });
 
   group('buildMentionSpan unit tests', () {
