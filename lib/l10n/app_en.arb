@@ -164,6 +164,10 @@
   "@searchEmoji": {
     "description": "Hint text in emoji search field"
   },
+  "clearEmoji": "Clear emoji",
+  "@clearEmoji": {
+    "description": "Tooltip and semantics label for removing an emoji from a record"
+  },
   "dismiss": "Dismiss",
   "@dismiss": {
     "description": "Accessibility barrier label for dismissing dialogs"

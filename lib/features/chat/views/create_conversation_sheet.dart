@@ -404,6 +404,9 @@ class _CreateConversationSheetState
                     _emojiController.text = emoji;
                   });
                 },
+                onCleared: () {
+                  setState(_emojiController.clear);
+                },
                 size: 48,
               ),
               field: PrismTextField(

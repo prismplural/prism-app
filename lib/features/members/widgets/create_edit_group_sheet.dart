@@ -427,6 +427,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                             size: 48,
                             onSelected: (emoji) =>
                                 setState(() => _emoji = emoji),
+                            onCleared: () => setState(() => _emoji = null),
                           ),
                           field: PrismTextField(
                             controller: _nameController,

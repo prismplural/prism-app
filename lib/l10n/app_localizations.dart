@@ -290,6 +290,12 @@ abstract class AppLocalizations {
   /// **'Search emoji...'**
   String get searchEmoji;
 
+  /// Tooltip and semantics label for removing an emoji from a record
+  ///
+  /// In en, this message translates to:
+  /// **'Clear emoji'**
+  String get clearEmoji;
+
   /// Accessibility barrier label for dismissing dialogs
   ///
   /// In en, this message translates to:

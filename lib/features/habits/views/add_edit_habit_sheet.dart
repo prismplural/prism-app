@@ -204,6 +204,9 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                             _iconController.text = emoji;
                           });
                         },
+                        onCleared: () {
+                          setState(_iconController.clear);
+                        },
                         size: 48,
                       ),
                       field: PrismTextField(

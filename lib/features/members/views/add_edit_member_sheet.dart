@@ -311,13 +311,13 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
             Member(
               id: _memberId,
               name: name.isNotEmpty ? name : '',
-              emoji: emoji.isNotEmpty ? emoji : '❔',
+              emoji: emoji,
               createdAt: DateTime.now(),
             ))
         .copyWith(
           name: name.isNotEmpty ? name : (widget.member?.name ?? ''),
           pronouns: pronouns.isNotEmpty ? pronouns : null,
-          emoji: emoji.isNotEmpty ? emoji : '❔',
+          emoji: emoji,
           age: age,
           birthday: birthdayWire,
           proxyTagsJson: _proxyTagsJson(),
@@ -543,7 +543,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
         final updated = widget.member!.copyWith(
           name: name,
           pronouns: pronouns.isNotEmpty ? pronouns : null,
-          emoji: emoji.isNotEmpty ? emoji : '❔',
+          emoji: emoji,
           age: age,
           bio: bio.isNotEmpty ? bio : null,
           avatarImageData: _avatarImageData,
@@ -574,7 +574,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           id: _memberId,
           name: name,
           pronouns: pronouns.isNotEmpty ? pronouns : null,
-          emoji: emoji.isNotEmpty ? emoji : '❔',
+          emoji: emoji,
           age: age,
           bio: bio.isNotEmpty ? bio : null,
           avatarImageData: _avatarImageData,
@@ -1040,6 +1040,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                               setState(() {
                                 _emojiController.text = emoji;
                               });
+                            },
+                            onCleared: () {
+                              setState(_emojiController.clear);
                             },
                             size: 48,
                           ),

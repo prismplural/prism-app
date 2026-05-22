@@ -119,6 +119,34 @@ void _useTallViewport(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets('clearing emoji persists a blank member emoji on save', (
+    tester,
+  ) async {
+    _useTallViewport(tester);
+
+    final member = Member(
+      id: 'm-1',
+      name: 'Alice',
+      emoji: '🌸',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final repo = _FakeMemberRepository(member);
+
+    await tester.pumpWidget(_harness(member: member, repo: repo));
+    await tester.pumpAndSettle();
+
+    final clearEmoji = find.byTooltip('Clear emoji');
+    expect(clearEmoji, findsOneWidget);
+
+    await tester.tap(clearEmoji);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Save member'));
+    await tester.pumpAndSettle();
+
+    expect(repo.updated?.emoji, isEmpty);
+  });
+
   testWidgets('toggling off persists isAlwaysFronting=false on save', (
     tester,
   ) async {

@@ -117,6 +117,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchEmoji => 'Search emoji...';
 
   @override
+  String get clearEmoji => 'Clear emoji';
+
+  @override
   String get dismiss => 'Dismiss';
 
   @override

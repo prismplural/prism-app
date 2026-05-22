@@ -26,6 +26,7 @@ class PrismEmojiPicker extends StatelessWidget {
     super.key,
     this.emoji,
     required this.onSelected,
+    this.onCleared,
     this.size = 48,
   });
 
@@ -34,6 +35,9 @@ class PrismEmojiPicker extends StatelessWidget {
 
   /// Called when the user picks an emoji from the picker.
   final ValueChanged<String> onSelected;
+
+  /// Called when the current emoji is cleared.
+  final VoidCallback? onCleared;
 
   /// Diameter of the glass circle.
   final double size;
@@ -145,23 +149,63 @@ class PrismEmojiPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final hasEmoji = emoji != null && emoji!.isNotEmpty;
+    final canClear = hasEmoji && onCleared != null;
 
-    return Semantics(
-      button: true,
-      label: context.l10n.onboardingAddMemberFieldEmoji,
-      child: GestureDetector(
-        onTap: () => _openPicker(context),
-        child: TintedGlassSurface.circle(
-          size: size,
-          child: hasEmoji
-              ? MemberAvatar.centeredEmoji(emoji!, fontSize: size * 0.5)
-              : Icon(
-                  AppIcons.add,
-                  size: size * 0.45,
-                  color: theme.colorScheme.onSurfaceVariant,
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Semantics(
+            button: true,
+            label: l10n.onboardingAddMemberFieldEmoji,
+            child: GestureDetector(
+              onTap: () => _openPicker(context),
+              child: TintedGlassSurface.circle(
+                size: size,
+                child: hasEmoji
+                    ? MemberAvatar.centeredEmoji(emoji!, fontSize: size * 0.5)
+                    : Icon(
+                        AppIcons.add,
+                        size: size * 0.45,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+              ),
+            ),
+          ),
+          if (canClear)
+            Positioned(
+              right: -4,
+              top: -4,
+              child: Tooltip(
+                message: l10n.clearEmoji,
+                child: Semantics(
+                  button: true,
+                  label: l10n.clearEmoji,
+                  child: Material(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: onCleared,
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: Icon(
+                          AppIcons.close,
+                          size: 16,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }

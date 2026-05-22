@@ -585,6 +585,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
             picker: PrismEmojiPicker(
               emoji: _emoji.isEmpty ? null : _emoji,
               onSelected: (e) => setState(() => _emoji = e),
+              onCleared: () => setState(() => _emoji = ''),
             ),
             field: const PrismTextField(
               initialValue: 'Group chat',

@@ -32,6 +32,7 @@
   "segmentedControl": "Control segmentado",
   "dismissNotification": "Descartar notificación",
   "searchEmoji": "Buscar emoji...",
+  "clearEmoji": "Borrar emoji",
   "dismiss": "Descartar",
   "destructiveAction": "Acción destructiva",
   "noMembersFound": "No se encontraron {termPlural}",
