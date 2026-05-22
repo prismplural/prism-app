@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 final _spBase64Pattern = RegExp(r'^[A-Za-z0-9+/]+={0,2}$');
+final _shortPlainChatTokenPattern = RegExp(r'^[A-Za-z0-9]{1,16}$');
 
 /// Parse an SP timestamp string to a UTC [DateTime].
 ///
@@ -101,6 +102,10 @@ bool _looksLikeEncryptedSpMessage(String content, dynamic rawIv) {
   final iv = rawIv.toString();
   final ivBytes = _decodeStrictSpBase64(iv);
   if (ivBytes == null || ivBytes.length != 16) return false;
+
+  // SP exports can leave `iv` after decrypting `message`.
+  // Short plaintext like "test" is also valid base64.
+  if (_shortPlainChatTokenPattern.hasMatch(content)) return false;
 
   final contentBytes = _decodeStrictSpBase64(content);
   if (contentBytes == null || contentBytes.isEmpty) return false;

@@ -130,6 +130,42 @@ void main() {
       },
     );
 
+    test(
+      'does not flag short plaintext messages that look like base64 tokens',
+      () {
+        final json = jsonEncode({
+          'members': [],
+          'frontHistory': [],
+          'channels': [
+            {'_id': 'ch1', 'name': 'General'},
+          ],
+          'chatMessages': [
+            {
+              '_id': 'msg1',
+              'message': 'test',
+              'iv': 'YWJjZGVmZ2hpamtsbW5vcA==',
+              'channel': 'ch1',
+              'writer': 'mem1',
+              'writtenAt': 1774242087364,
+            },
+            {
+              '_id': 'msg2',
+              'message': 'yeah',
+              'iv': 'YWJjZGVmZ2hpamtsbW5vcA==',
+              'channel': 'ch1',
+              'writer': 'mem1',
+              'writtenAt': 1774242090000,
+            },
+          ],
+        });
+
+        final data = SpParser.parse(json);
+        expect(data.hasEncryptedChatMessages, isFalse);
+        expect(data.encryptedChatMessageCount, 0);
+        expect(data.messages.map((m) => m.content), ['test', 'yeah']);
+      },
+    );
+
     test('parses chat messages from messages map (backward compat)', () {
       final json = jsonEncode({
         'members': [],
