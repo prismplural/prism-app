@@ -20,6 +20,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -191,6 +192,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
     // System info shows member count + avatar cluster — exclude the Unknown
     // sentinel so it doesn't appear as a manageable headmate.
     final membersAsync = ref.watch(userVisibleMembersProvider);
+    final hideTotalMemberCountAsync = ref.watch(hideTotalMemberCountProvider);
     final terms = watchTerminology(context, ref);
 
     return PrismPageScaffold(
@@ -212,6 +214,14 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
           }
 
           final members = membersAsync.whenOrNull(data: (m) => m) ?? [];
+          final hideTotalMemberCount =
+              hideTotalMemberCountAsync.whenOrNull(data: (value) => value) ??
+              true;
+          final hideTotalMemberCountSwitchValue =
+              hideTotalMemberCountAsync.whenOrNull(data: (value) => value) ??
+              false;
+          final hideTotalMemberCountSwitchEnabled =
+              hideTotalMemberCountAsync.hasValue;
           final Uint8List? avatarData = settings.systemAvatarData;
           final String? colorHex = settings.systemColor;
           final Color? systemColor = colorHex != null
@@ -277,7 +287,10 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                             backgroundImage: MemoryImage(avatarData),
                           )
                         : members.isNotEmpty
-                        ? _AvatarCluster(members: members)
+                        ? _AvatarCluster(
+                            members: members,
+                            hideOverflowCount: hideTotalMemberCount,
+                          )
                         : CircleAvatar(
                             radius: 56,
                             backgroundColor:
@@ -426,8 +439,28 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
 
               const SizedBox(height: 16),
 
+              PrismSectionCard(
+                child: PrismSwitchRow(
+                  icon: AppIcons.visibilityOff,
+                  iconColor: Colors.indigo,
+                  title: l10n.systemInfoHideTotalMemberCountTitle,
+                  subtitle: l10n.systemInfoHideTotalMemberCountSubtitle,
+                  value: hideTotalMemberCountSwitchValue,
+                  enabled: hideTotalMemberCountSwitchEnabled,
+                  onChanged: (value) {
+                    unawaited(
+                      ref
+                          .read(hideTotalMemberCountProvider.notifier)
+                          .set(value),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               // Member count caption
-              if (members.isNotEmpty)
+              if (!hideTotalMemberCount && members.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
@@ -447,9 +480,13 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
 
 /// Circular cluster of member avatars arranged in a ring pattern.
 class _AvatarCluster extends StatelessWidget {
-  const _AvatarCluster({required this.members});
+  const _AvatarCluster({
+    required this.members,
+    required this.hideOverflowCount,
+  });
 
   final List<dynamic> members;
+  final bool hideOverflowCount;
 
   static const double _clusterSize = 112;
   static const double _avatarSize = 32;
@@ -492,7 +529,7 @@ class _AvatarCluster extends StatelessWidget {
           ),
           for (int i = 0; i < ring.length; i++)
             _positionedAvatar(ring[i], i, ring.length, theme),
-          if (overflow > 0)
+          if (!hideOverflowCount && overflow > 0)
             Positioned(
               right: 0,
               bottom: 0,

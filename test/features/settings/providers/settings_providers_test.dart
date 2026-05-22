@@ -75,6 +75,36 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  group('hideTotalMemberCountProvider', () {
+    test('defaults to false', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(await container.read(hideTotalMemberCountProvider.future), false);
+    });
+
+    test('reads the saved preference', () async {
+      SharedPreferences.setMockInitialValues({
+        'prism.pref.hide_total_member_count': true,
+      });
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(await container.read(hideTotalMemberCountProvider.future), true);
+    });
+
+    test('persists changes locally', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container.read(hideTotalMemberCountProvider.notifier).set(true);
+
+      expect(container.read(hideTotalMemberCountProvider).value, true);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('prism.pref.hide_total_member_count'), true);
+    });
+  });
+
   // ---------------------------------------------------------------------------
   // cornerStyleProvider
   // ---------------------------------------------------------------------------

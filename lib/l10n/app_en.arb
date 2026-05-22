@@ -1988,6 +1988,14 @@
   "@systemInfoColorNoneSet": {
     "description": "Shown when no system color has been chosen"
   },
+  "systemInfoHideTotalMemberCountTitle": "Hide total member count",
+  "@systemInfoHideTotalMemberCountTitle": {
+    "description": "Switch label for hiding global member count totals"
+  },
+  "systemInfoHideTotalMemberCountSubtitle": "Hides total counts in Settings, System Information, Statistics, and diagnostics. Group counts stay visible.",
+  "@systemInfoHideTotalMemberCountSubtitle": {
+    "description": "Helper text for hiding total member count displays"
+  },
   "devicesTitle": "Manage Devices",
   "@devicesTitle": {
     "description": "Device management screen title"

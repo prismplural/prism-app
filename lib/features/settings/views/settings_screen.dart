@@ -37,6 +37,11 @@ class SettingsScreen extends ConsumerWidget {
     // System card displays member count + avatar stack — exclude the Unknown
     // sentinel so it doesn't inflate the count or appear in the stack.
     final membersAsync = ref.watch(userVisibleMembersProvider);
+    final hideTotalMemberCount =
+        ref
+            .watch(hideTotalMemberCountProvider)
+            .whenOrNull(data: (value) => value) ??
+        true;
     final syncStatus = ref.watch(syncStatusProvider);
     final theme = Theme.of(context);
     final topInset = MediaQuery.of(context).padding.top;
@@ -47,7 +52,8 @@ class SettingsScreen extends ConsumerWidget {
         children: [
           settingsAsync.when(
             loading: () => const PrismLoadingState(),
-            error: (e, _) => Center(child: Text(context.l10n.errorWithDetail(e))),
+            error: (e, _) =>
+                Center(child: Text(context.l10n.errorWithDetail(e))),
             data: (settings) => ListView(
               padding: EdgeInsets.only(
                 top: topInset + 32,
@@ -55,7 +61,13 @@ class SettingsScreen extends ConsumerWidget {
               ),
               children: [
                 // System identity card (read-only, taps to System Information)
-                _buildSystemCard(context, settings, membersAsync, terms),
+                _buildSystemCard(
+                  context,
+                  settings,
+                  membersAsync,
+                  terms,
+                  hideTotalMemberCount: hideTotalMemberCount,
+                ),
                 const SizedBox(height: 8),
                 _buildSection(
                   title: context.l10n.settingsSectionSystem,
@@ -122,8 +134,7 @@ class SettingsScreen extends ConsumerWidget {
                       icon: AppIcons.lockOutline,
                       iconColor: Colors.indigo,
                       title: context.l10n.settingsPrivacySecurity,
-                      onTap: () =>
-                          context.push(AppRoutePaths.settingsPinLock),
+                      onTap: () => context.push(AppRoutePaths.settingsPinLock),
                     ),
                     _SettingsLink(
                       icon: AppIcons.notificationsOutlined,
@@ -144,10 +155,13 @@ class SettingsScreen extends ConsumerWidget {
                       statusIcon: syncStatus.lastError != null
                           ? (icon: AppIcons.errorOutline, color: Colors.red)
                           : syncStatus.hasQuarantinedItems
-                              ? (icon: AppIcons.warningAmber, color: Colors.amber.shade700)
-                              : syncStatus.lastSyncAt != null
-                                  ? (icon: AppIcons.cloudDone, color: Colors.green)
-                                  : null,
+                          ? (
+                              icon: AppIcons.warningAmber,
+                              color: Colors.amber.shade700,
+                            )
+                          : syncStatus.lastSyncAt != null
+                          ? (icon: AppIcons.cloudDone, color: Colors.green)
+                          : null,
                       onTap: () => context.push(AppRoutePaths.settingsSync),
                     ),
                     // Sharing is gated until friend state is persisted to the database.
@@ -234,18 +248,20 @@ class SettingsScreen extends ConsumerWidget {
             ),
             alignment: Alignment.center,
             child: Image.asset(
-                    'assets/icon_layers/Prism-Logo-Foreground.png',
-                    width: 28,
-                    height: 28,
-                  ),
+              'assets/icon_layers/Prism-Logo-Foreground.png',
+              width: 28,
+              height: 28,
+            ),
           ),
         ),
       ),
     );
   }
 
-  static Widget _buildSection(
-      {required String title, required List<Widget> rows}) {
+  static Widget _buildSection({
+    required String title,
+    required List<Widget> rows,
+  }) {
     final children = <Widget>[];
     for (var index = 0; index < rows.length; index++) {
       children.add(rows[index]);
@@ -266,8 +282,9 @@ class SettingsScreen extends ConsumerWidget {
     BuildContext context,
     dynamic settings,
     AsyncValue<List<dynamic>> membersAsync,
-    dynamic terms,
-  ) {
+    dynamic terms, {
+    required bool hideTotalMemberCount,
+  }) {
     final theme = Theme.of(context);
     final members = membersAsync.whenOrNull(data: (m) => m) ?? [];
     final Uint8List? avatarData = settings.systemAvatarData;
@@ -282,75 +299,85 @@ class SettingsScreen extends ConsumerWidget {
           onTap: () => context.push(AppRoutePaths.settingsSystemInfo),
           behavior: HitTestBehavior.opaque,
           child: PrismSectionCard(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  // System avatar or member avatar cluster
-                  Padding(
-                    padding: const EdgeInsets.only(right: 20),
-                    child: avatarData != null
-                        ? CircleAvatar(
-                            radius: members.length > 1 ? 58 : 40,
-                            backgroundImage: MemoryImage(avatarData),
-                          )
-                        : members.isNotEmpty
-                            ? _AvatarCluster(members: members)
-                            : CircleAvatar(
-                                radius: 40,
-                                backgroundColor:
-                                    theme.colorScheme.surfaceContainerHighest,
-                                child: Icon(
-                                  AppIcons.group,
-                                  size: 28,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    // System avatar or member avatar cluster
+                    Padding(
+                      padding: const EdgeInsets.only(right: 20),
+                      child: avatarData != null
+                          ? CircleAvatar(
+                              radius: members.length > 1 ? 58 : 40,
+                              backgroundImage: MemoryImage(avatarData),
+                            )
+                          : members.isNotEmpty
+                          ? _AvatarCluster(
+                              members: members,
+                              hideOverflowCount: hideTotalMemberCount,
+                            )
+                          : CircleAvatar(
+                              radius: 40,
+                              backgroundColor:
+                                  theme.colorScheme.surfaceContainerHighest,
+                              child: Icon(
+                                AppIcons.group,
+                                size: 28,
+                                color: theme.colorScheme.onSurfaceVariant,
                               ),
-                  ),
+                            ),
+                    ),
 
-                  // System name + member count
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          settings.systemName ?? context.l10n.settingsFallbackSystemName,
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontFamily: theme.textTheme.headlineLarge?.fontFamily,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: theme.textTheme.headlineLarge?.letterSpacing ?? 0,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        if (members.isNotEmpty)
+                    // System name + member count
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            '${members.length} ${members.length == 1 ? terms.singular.toLowerCase() : terms.plural.toLowerCase()}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                            settings.systemName ??
+                                context.l10n.settingsFallbackSystemName,
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              fontFamily:
+                                  theme.textTheme.headlineLarge?.fontFamily,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing:
+                                  theme
+                                      .textTheme
+                                      .headlineLarge
+                                      ?.letterSpacing ??
+                                  0,
                             ),
                           ),
-                      ],
+                          const SizedBox(height: 2),
+                          if (!hideTotalMemberCount && members.isNotEmpty)
+                            Text(
+                              '${members.length} ${members.length == 1 ? terms.singular.toLowerCase() : terms.plural.toLowerCase()}',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                // System description
+                if (description != null && description.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    description,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                 ],
-              ),
-
-              // System description
-              if (description != null && description.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  description,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
               ],
-            ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -386,11 +413,7 @@ class _SettingsLink extends StatelessWidget {
           ? Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  statusIcon!.icon,
-                  size: 16,
-                  color: statusIcon!.color,
-                ),
+                Icon(statusIcon!.icon, size: 16, color: statusIcon!.color),
                 const SizedBox(width: 8),
                 Icon(
                   AppIcons.chevronRightRounded,
@@ -408,9 +431,13 @@ class _SettingsLink extends StatelessWidget {
 /// Circular cluster of member avatars arranged in a ring pattern.
 /// Shows up to 7 avatars in a circle layout, with a "+N" indicator for overflow.
 class _AvatarCluster extends StatelessWidget {
-  const _AvatarCluster({required this.members});
+  const _AvatarCluster({
+    required this.members,
+    required this.hideOverflowCount,
+  });
 
   final List<dynamic> members;
+  final bool hideOverflowCount;
 
   static const double _clusterSize = 116;
   static const double _avatarSize = 32;
@@ -456,7 +483,7 @@ class _AvatarCluster extends StatelessWidget {
           // Ring avatars
           for (int i = 0; i < ring.length; i++)
             _positionedAvatar(ring[i], i, ring.length, theme),
-          if (overflow > 0)
+          if (!hideOverflowCount && overflow > 0)
             Positioned(
               right: 0,
               bottom: 0,

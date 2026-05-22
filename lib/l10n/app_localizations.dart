@@ -2774,6 +2774,18 @@ abstract class AppLocalizations {
   /// **'No color set'**
   String get systemInfoColorNoneSet;
 
+  /// Switch label for hiding global member count totals
+  ///
+  /// In en, this message translates to:
+  /// **'Hide total member count'**
+  String get systemInfoHideTotalMemberCountTitle;
+
+  /// Helper text for hiding total member count displays
+  ///
+  /// In en, this message translates to:
+  /// **'Hides total counts in Settings, System Information, Statistics, and diagnostics. Group counts stay visible.'**
+  String get systemInfoHideTotalMemberCountSubtitle;
+
   /// Device management screen title
   ///
   /// In en, this message translates to:

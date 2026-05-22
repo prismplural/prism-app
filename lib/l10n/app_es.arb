@@ -461,6 +461,8 @@
   "systemInfoColorPickAction": "Elegir color",
   "systemInfoColorClearAction": "Borrar color",
   "systemInfoColorNoneSet": "Sin color",
+  "systemInfoHideTotalMemberCountTitle": "Ocultar el total de integrantes",
+  "systemInfoHideTotalMemberCountSubtitle": "Oculta los totales en Ajustes, Información del sistema, Estadísticas y diagnósticos. Los conteos de grupos siguen visibles.",
   "devicesTitle": "Administrar dispositivos",
   "devicesThisDevice": "Este dispositivo",
   "devicesOtherDevices": "Otros dispositivos",

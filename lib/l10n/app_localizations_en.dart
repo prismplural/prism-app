@@ -1483,6 +1483,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get systemInfoColorNoneSet => 'No color set';
 
   @override
+  String get systemInfoHideTotalMemberCountTitle => 'Hide total member count';
+
+  @override
+  String get systemInfoHideTotalMemberCountSubtitle =>
+      'Hides total counts in Settings, System Information, Statistics, and diagnostics. Group counts stay visible.';
+
+  @override
   String get devicesTitle => 'Manage Devices';
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/statistics_providers.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -20,9 +21,18 @@ class StatisticsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final memberCountAsync = ref.watch(memberCountStatProvider);
+    final hideTotalMemberCount =
+        ref
+            .watch(hideTotalMemberCountProvider)
+            .whenOrNull(data: (value) => value) ??
+        true;
+    final memberCountAsync = hideTotalMemberCount
+        ? null
+        : ref.watch(memberCountStatProvider);
     final sessionCountAsync = ref.watch(sessionCountStatProvider);
-    final membersAsync = ref.watch(allMembersStatProvider);
+    final membersAsync = hideTotalMemberCount
+        ? null
+        : ref.watch(allMembersStatProvider);
     final sessionsAsync = ref.watch(allSessionsStatProvider);
     final conversationsAsync = ref.watch(allConversationsCountProvider);
     final pollsAsync = ref.watch(allPollsCountProvider);
@@ -30,7 +40,10 @@ class StatisticsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: context.l10n.statisticsTitle, showBackButton: true),
+      topBar: PrismTopBar(
+        title: context.l10n.statisticsTitle,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.fromLTRB(16, 16, 16, NavBarInset.of(context)),
@@ -48,28 +61,35 @@ class StatisticsScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _StatRow(
-                  label: context.l10n.statisticsTotalMembers(watchTerminology(context, ref).pluralLower),
-                  valueAsync: memberCountAsync.whenData((c) => '$c'),
-                ),
-                membersAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, _) => const SizedBox.shrink(),
-                  data: (members) {
-                    final active = members.where((m) => m.isActive).length;
-                    final inactive = members.length - active;
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 16),
-                      child: Text(
-                        context.l10n.statisticsActiveMembersBreakdown(active, inactive),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                if (!hideTotalMemberCount) ...[
+                  _StatRow(
+                    label: context.l10n.statisticsTotalMembers(
+                      watchTerminology(context, ref).pluralLower,
+                    ),
+                    valueAsync: memberCountAsync!.whenData((c) => '$c'),
+                  ),
+                  membersAsync!.when(
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
+                    data: (members) {
+                      final active = members.where((m) => m.isActive).length;
+                      final inactive = members.length - active;
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 16),
+                        child: Text(
+                          context.l10n.statisticsActiveMembersBreakdown(
+                            active,
+                            inactive,
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-                const Divider(height: 16),
+                      );
+                    },
+                  ),
+                  const Divider(height: 16),
+                ],
                 _StatRow(
                   label: context.l10n.statisticsTotalSessions,
                   valueAsync: sessionCountAsync.whenData((c) => '$c'),
@@ -77,8 +97,7 @@ class StatisticsScreen extends ConsumerWidget {
                 const Divider(height: 16),
                 _StatRow(
                   label: context.l10n.statisticsConversations,
-                  valueAsync:
-                      conversationsAsync.whenData((c) => '$c'),
+                  valueAsync: conversationsAsync.whenData((c) => '$c'),
                 ),
                 const Divider(height: 16),
                 _StatRow(
@@ -128,8 +147,9 @@ class StatisticsScreen extends ConsumerWidget {
                   loading: () => const PrismLoadingState(),
                   error: (e, _) => Text('Error: $e'),
                   data: (sessions) {
-                    final completed =
-                        sessions.where((s) => s.endTime != null).toList();
+                    final completed = sessions
+                        .where((s) => s.endTime != null)
+                        .toList();
                     if (completed.isEmpty) {
                       return Text(
                         context.l10n.statisticsNoCompletedSessions,
@@ -213,10 +233,8 @@ class _StatRow extends StatelessWidget {
       children: [
         Text(label, style: theme.textTheme.bodyMedium),
         valueAsync.when(
-          loading: () => PrismSpinner(
-            color: theme.colorScheme.primary,
-            size: 16,
-          ),
+          loading: () =>
+              PrismSpinner(color: theme.colorScheme.primary, size: 16),
           error: (_, _) => Text(
             'Error',
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -276,9 +294,7 @@ class _TopFronterRow extends StatelessWidget {
             size: 36,
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(name, style: theme.textTheme.bodyMedium),
-          ),
+          Expanded(child: Text(name, style: theme.textTheme.bodyMedium)),
           Text(
             context.l10n.statisticsSessions(sessionCount),
             style: theme.textTheme.bodySmall?.copyWith(

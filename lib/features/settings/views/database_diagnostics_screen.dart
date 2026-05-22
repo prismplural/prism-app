@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/services/database_health_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/database_diagnostics_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
@@ -29,6 +30,11 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
     final hlcAsync = ref.watch(crdtLatestHlcProvider);
     final dbPathAsync = ref.watch(dbPathProvider);
     final terms = watchTerminology(context, ref);
+    final hideTotalMemberCount =
+        ref
+            .watch(hideTotalMemberCountProvider)
+            .whenOrNull(data: (value) => value) ??
+        true;
 
     return PrismPageScaffold(
       topBar: const PrismTopBar(
@@ -52,11 +58,13 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _CountRow(
-                  label: terms.plural,
-                  countAsync: ref.watch(memberCountProvider),
-                ),
-                const Divider(height: 16),
+                if (!hideTotalMemberCount) ...[
+                  _CountRow(
+                    label: terms.plural,
+                    countAsync: ref.watch(memberCountProvider),
+                  ),
+                  const Divider(height: 16),
+                ],
                 _CountRow(
                   label: 'Fronting Sessions',
                   countAsync: ref.watch(sessionCountProvider),

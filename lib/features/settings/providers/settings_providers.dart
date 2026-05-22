@@ -24,6 +24,7 @@ const _kIgnoreSyncedAppearance = 'prism.pref.ignore_synced_appearance';
 const _kUseProxyTagsForAuthoring = 'prism.pref.use_proxy_tags_for_authoring';
 const _kHardLockSyncOnAppLock = 'prism.pref.hard_lock_sync_on_app_lock';
 const _kScreenPrivacyEnabled = 'prism.pref.screen_privacy_enabled';
+const _kHideTotalMemberCount = 'prism.pref.hide_total_member_count';
 
 ThemeStyle effectiveThemeStyleForPlatform(
   ThemeStyle style,
@@ -1325,6 +1326,26 @@ class ScreenPrivacyEnabledNotifier extends AsyncNotifier<bool> {
         'Failed to persist screen privacy preference to SharedPreferences',
       );
     }
+    state = AsyncValue.data(value);
+  }
+}
+
+/// Local-only preference for hiding global member-count totals.
+final hideTotalMemberCountProvider =
+    AsyncNotifierProvider<HideTotalMemberCountNotifier, bool>(
+      HideTotalMemberCountNotifier.new,
+    );
+
+class HideTotalMemberCountNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kHideTotalMemberCount) ?? false;
+  }
+
+  Future<void> set(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kHideTotalMemberCount, value);
     state = AsyncValue.data(value);
   }
 }
