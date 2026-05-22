@@ -14,6 +14,8 @@ import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 enum MemberAvatarShape { circle, square }
 
+const String _fallbackEmoji = '❔';
+
 /// Reusable avatar widget for system members.
 ///
 /// Displays the member's avatar image if available, otherwise falls back
@@ -25,7 +27,7 @@ class MemberAvatar extends ConsumerWidget {
     super.key,
     this.avatarImageData,
     this.memberName,
-    this.emoji = '❔',
+    this.emoji = _fallbackEmoji,
     this.customColorEnabled = false,
     this.customColorHex,
     this.size = 40,
@@ -41,6 +43,7 @@ class MemberAvatar extends ConsumerWidget {
   /// Optional member name used as the semantic label for the avatar image.
   final String? memberName;
 
+  /// Empty or whitespace values render with the fallback placeholder.
   final String emoji;
   final bool customColorEnabled;
   final String? customColorHex;
@@ -228,12 +231,13 @@ class MemberAvatar extends ConsumerWidget {
   /// sizes and fades by ~23 pt; the vertical shift is small but consistent
   /// across all sizes on Apple.
   static Widget centeredEmoji(String emoji, {required double fontSize}) {
+    final displayEmoji = emoji.trim().isEmpty ? _fallbackEmoji : emoji;
     final isApple =
         defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS;
 
     Widget text = Text(
-      emoji,
+      displayEmoji,
       strutStyle: StrutStyle.disabled,
       style: TextStyle(
         fontSize: fontSize,

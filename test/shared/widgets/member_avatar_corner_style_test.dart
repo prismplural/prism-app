@@ -141,6 +141,32 @@ void main() {
       );
     });
 
+    testWidgets('blank emoji falls back to visible placeholder glyph', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const MemberAvatar(emoji: '', size: 40),
+          shapes: PrismShapes.rounded,
+        ),
+      );
+
+      expect(find.text('❔'), findsOneWidget);
+    });
+
+    testWidgets('whitespace emoji falls back to visible placeholder glyph', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const MemberAvatar(emoji: '   ', size: 40),
+          shapes: PrismShapes.rounded,
+        ),
+      );
+
+      expect(find.text('❔'), findsOneWidget);
+    });
+
     testWidgets('angular mode squares circular tinted glass surfaces', (
       tester,
     ) async {
