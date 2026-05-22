@@ -157,7 +157,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(source, MemberProfileHeaderSource.pluralKit);
 
-      await tester.tap(find.text('Hide profile header'));
+      await tester.tap(find.text('Hide profile banner'));
       await tester.pumpAndSettle();
       expect(visible, isFalse);
 
@@ -166,14 +166,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(layout, MemberProfileHeaderLayout.classicOverlap);
 
-      await tester.ensureVisible(find.text('Change photo'));
-      await tester.tap(find.text('Change photo'));
+      await tester.ensureVisible(find.text('Change banner'));
+      await tester.tap(find.text('Change banner'));
       await tester.pumpAndSettle();
       expect(source, MemberProfileHeaderSource.prism);
       expect(prismHeaderImageData, Uint8List.fromList([9, 8, 7]));
 
-      await tester.ensureVisible(find.text('Remove'));
-      await tester.tap(find.text('Remove'));
+      await tester.ensureVisible(find.text('Remove banner'));
+      await tester.tap(find.text('Remove banner'));
       await tester.pumpAndSettle();
       expect(prismHeaderImageData, isNull);
       expect(removed, isTrue);

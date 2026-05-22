@@ -2483,19 +2483,19 @@ abstract class AppLocalizations {
   /// Section title for member profile header settings
   ///
   /// In en, this message translates to:
-  /// **'Profile header'**
+  /// **'Profile banner'**
   String get memberProfileHeaderSectionTitle;
 
   /// Short description for member profile header settings
   ///
   /// In en, this message translates to:
-  /// **'Choose the image source and layout for this profile.'**
+  /// **'Choose the banner image source and layout for this profile.'**
   String get memberProfileHeaderSectionDescription;
 
   /// Toggle label controlling whether a member profile header banner is visible
   ///
   /// In en, this message translates to:
-  /// **'Show profile header'**
+  /// **'Show profile banner'**
   String get memberProfileHeaderVisibleTitle;
 
   /// Helper text for the member profile header visibility toggle
@@ -2537,25 +2537,25 @@ abstract class AppLocalizations {
   /// Button label to add a Prism-owned profile header image when none is set
   ///
   /// In en, this message translates to:
-  /// **'Add photo'**
+  /// **'Add banner'**
   String get memberProfileHeaderAddImage;
 
   /// Button label to replace a Prism-owned profile header image
   ///
   /// In en, this message translates to:
-  /// **'Change photo'**
+  /// **'Change banner'**
   String get memberProfileHeaderChangeImage;
 
   /// Button label to remove a Prism-owned profile header image
   ///
   /// In en, this message translates to:
-  /// **'Remove'**
+  /// **'Remove banner'**
   String get memberProfileHeaderRemoveImage;
 
   /// Switch label for hiding the profile header banner
   ///
   /// In en, this message translates to:
-  /// **'Hide profile header'**
+  /// **'Hide profile banner'**
   String get memberProfileHeaderHideTitle;
 
   /// Label for the member profile header layout selector
@@ -2579,7 +2579,7 @@ abstract class AppLocalizations {
   /// Title for the profile header cropper
   ///
   /// In en, this message translates to:
-  /// **'Crop profile header'**
+  /// **'Crop profile banner'**
   String get memberProfileHeaderCropTitle;
 
   /// Toast message shown when profile header image processing fails

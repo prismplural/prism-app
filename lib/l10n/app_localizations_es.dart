@@ -1361,18 +1361,18 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberRemoveAvatar => 'Eliminar foto';
 
   @override
-  String get memberProfileHeaderSectionTitle => 'Encabezado del perfil';
+  String get memberProfileHeaderSectionTitle => 'Banner del perfil';
 
   @override
   String get memberProfileHeaderSectionDescription =>
-      'Elige el origen de la imagen y el diseño de este perfil.';
+      'Elige el origen de la imagen del banner y el diseño de este perfil.';
 
   @override
-  String get memberProfileHeaderVisibleTitle => 'Mostrar encabezado del perfil';
+  String get memberProfileHeaderVisibleTitle => 'Mostrar banner del perfil';
 
   @override
   String get memberProfileHeaderVisibleSubtitle =>
-      'Conserva la imagen y el origen guardados mientras oculta el encabezado.';
+      'Conserva la imagen y el origen guardados mientras oculta el banner.';
 
   @override
   String get memberProfileHeaderSourcePluralKit => 'PluralKit';
@@ -1390,19 +1390,19 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get memberProfileHeaderPluralKitUnavailable =>
-      'PluralKit aparece cuando este miembro tiene un encabezado vinculado o guardado en cache.';
+      'PluralKit aparece cuando este miembro tiene un banner vinculado o guardado en cache.';
 
   @override
-  String get memberProfileHeaderAddImage => 'Añadir foto';
+  String get memberProfileHeaderAddImage => 'Añadir banner';
 
   @override
-  String get memberProfileHeaderChangeImage => 'Cambiar foto';
+  String get memberProfileHeaderChangeImage => 'Cambiar banner';
 
   @override
-  String get memberProfileHeaderRemoveImage => 'Eliminar';
+  String get memberProfileHeaderRemoveImage => 'Eliminar banner';
 
   @override
-  String get memberProfileHeaderHideTitle => 'Ocultar encabezado del perfil';
+  String get memberProfileHeaderHideTitle => 'Ocultar banner del perfil';
 
   @override
   String get memberProfileHeaderLayoutLabel => 'Diseño';
@@ -1414,7 +1414,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberProfileHeaderLayoutClassic => 'Clásico';
 
   @override
-  String get memberProfileHeaderCropTitle => 'Recortar encabezado del perfil';
+  String get memberProfileHeaderCropTitle => 'Recortar banner del perfil';
 
   @override
   String get memberProfileHeaderProcessingError =>

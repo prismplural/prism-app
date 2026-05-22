@@ -126,7 +126,9 @@ class MemberProfileHeaderEditor extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               PrismButton(
                 icon: AppIcons.imageOutlined,
@@ -137,8 +139,7 @@ class MemberProfileHeaderEditor extends StatelessWidget {
                 onPressed: () => _changePrismHeader(context),
                 density: PrismControlDensity.compact,
               ),
-              if (canRemovePrismImage) ...[
-                const SizedBox(width: 8),
+              if (canRemovePrismImage)
                 PrismButton(
                   icon: AppIcons.deleteOutline,
                   label: context.l10n.memberProfileHeaderRemoveImage,
@@ -149,7 +150,6 @@ class MemberProfileHeaderEditor extends StatelessWidget {
                     onPrismHeaderImageRemoved?.call();
                   },
                 ),
-              ],
             ],
           ),
           if (resolvedPluralKitEligible) ...[

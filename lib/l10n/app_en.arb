@@ -1792,15 +1792,15 @@
   "@memberRemoveAvatar": {
     "description": "Button label to clear the saved member profile photo and revert to emoji"
   },
-  "memberProfileHeaderSectionTitle": "Profile header",
+  "memberProfileHeaderSectionTitle": "Profile banner",
   "@memberProfileHeaderSectionTitle": {
     "description": "Section title for member profile header settings"
   },
-  "memberProfileHeaderSectionDescription": "Choose the image source and layout for this profile.",
+  "memberProfileHeaderSectionDescription": "Choose the banner image source and layout for this profile.",
   "@memberProfileHeaderSectionDescription": {
     "description": "Short description for member profile header settings"
   },
-  "memberProfileHeaderVisibleTitle": "Show profile header",
+  "memberProfileHeaderVisibleTitle": "Show profile banner",
   "@memberProfileHeaderVisibleTitle": {
     "description": "Toggle label controlling whether a member profile header banner is visible"
   },
@@ -1828,19 +1828,19 @@
   "@memberProfileHeaderPluralKitUnavailable": {
     "description": "Explanation shown when PluralKit cannot be selected as a profile header source"
   },
-  "memberProfileHeaderAddImage": "Add photo",
+  "memberProfileHeaderAddImage": "Add banner",
   "@memberProfileHeaderAddImage": {
     "description": "Button label to add a Prism-owned profile header image when none is set"
   },
-  "memberProfileHeaderChangeImage": "Change photo",
+  "memberProfileHeaderChangeImage": "Change banner",
   "@memberProfileHeaderChangeImage": {
     "description": "Button label to replace a Prism-owned profile header image"
   },
-  "memberProfileHeaderRemoveImage": "Remove",
+  "memberProfileHeaderRemoveImage": "Remove banner",
   "@memberProfileHeaderRemoveImage": {
     "description": "Button label to remove a Prism-owned profile header image"
   },
-  "memberProfileHeaderHideTitle": "Hide profile header",
+  "memberProfileHeaderHideTitle": "Hide profile banner",
   "@memberProfileHeaderHideTitle": {
     "description": "Switch label for hiding the profile header banner"
   },
@@ -1856,7 +1856,7 @@
   "@memberProfileHeaderLayoutClassic": {
     "description": "Profile header layout option with a wide banner and overlapping avatar"
   },
-  "memberProfileHeaderCropTitle": "Crop profile header",
+  "memberProfileHeaderCropTitle": "Crop profile banner",
   "@memberProfileHeaderCropTitle": {
     "description": "Title for the profile header cropper"
   },

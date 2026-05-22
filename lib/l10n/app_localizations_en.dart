@@ -1330,14 +1330,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberRemoveAvatar => 'Remove photo';
 
   @override
-  String get memberProfileHeaderSectionTitle => 'Profile header';
+  String get memberProfileHeaderSectionTitle => 'Profile banner';
 
   @override
   String get memberProfileHeaderSectionDescription =>
-      'Choose the image source and layout for this profile.';
+      'Choose the banner image source and layout for this profile.';
 
   @override
-  String get memberProfileHeaderVisibleTitle => 'Show profile header';
+  String get memberProfileHeaderVisibleTitle => 'Show profile banner';
 
   @override
   String get memberProfileHeaderVisibleSubtitle =>
@@ -1362,16 +1362,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'PluralKit appears after this member has a linked or cached banner.';
 
   @override
-  String get memberProfileHeaderAddImage => 'Add photo';
+  String get memberProfileHeaderAddImage => 'Add banner';
 
   @override
-  String get memberProfileHeaderChangeImage => 'Change photo';
+  String get memberProfileHeaderChangeImage => 'Change banner';
 
   @override
-  String get memberProfileHeaderRemoveImage => 'Remove';
+  String get memberProfileHeaderRemoveImage => 'Remove banner';
 
   @override
-  String get memberProfileHeaderHideTitle => 'Hide profile header';
+  String get memberProfileHeaderHideTitle => 'Hide profile banner';
 
   @override
   String get memberProfileHeaderLayoutLabel => 'Layout';
@@ -1383,7 +1383,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberProfileHeaderLayoutClassic => 'Classic';
 
   @override
-  String get memberProfileHeaderCropTitle => 'Crop profile header';
+  String get memberProfileHeaderCropTitle => 'Crop profile banner';
 
   @override
   String get memberProfileHeaderProcessingError =>
