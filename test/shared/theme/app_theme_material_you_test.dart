@@ -37,7 +37,7 @@ void main() {
         expect(
           theme.scaffoldBackgroundColor,
           Color.alphaBlend(
-            const Color(0xFF16A34A).withValues(alpha: 0.11),
+            const Color(0xFF16A34A).withValues(alpha: 0.16),
             untintedScheme.surfaceContainerLowest,
           ),
         );
@@ -76,7 +76,7 @@ void main() {
       expect(
         theme.scaffoldBackgroundColor,
         Color.alphaBlend(
-          const Color(0xFF2563EB).withValues(alpha: 0.11),
+          const Color(0xFF2563EB).withValues(alpha: 0.14),
           untintedScheme.surfaceContainerLow,
         ),
       );
@@ -160,7 +160,7 @@ void main() {
       expect(
         yellowTheme.scaffoldBackgroundColor,
         Color.alphaBlend(
-          yellow.withValues(alpha: 0.11),
+          yellow.withValues(alpha: 0.16),
           untintedScheme.surfaceContainerLowest,
         ),
       );
@@ -193,21 +193,21 @@ void main() {
       expect(
         theme.scaffoldBackgroundColor,
         Color.alphaBlend(
-          seed.withValues(alpha: 0.11),
+          seed.withValues(alpha: 0.16),
           untintedScheme.surfaceContainerLowest,
         ),
       );
       expect(
         theme.cardColor,
         Color.alphaBlend(
-          seed.withValues(alpha: 0.15),
+          seed.withValues(alpha: 0.21),
           untintedScheme.surfaceContainerLow,
         ),
       );
       expect(
         theme.colorScheme.surfaceContainerHighest,
         Color.alphaBlend(
-          seed.withValues(alpha: 0.24),
+          seed.withValues(alpha: 0.33),
           untintedScheme.surfaceContainerHighest,
         ),
       );
@@ -325,21 +325,21 @@ void main() {
         expect(
           theme.scaffoldBackgroundColor,
           Color.alphaBlend(
-            seed.withValues(alpha: 0.11),
+            seed.withValues(alpha: 0.14),
             untintedScheme.surfaceContainerLow,
           ),
         );
         expect(
           theme.cardColor,
           Color.alphaBlend(
-            seed.withValues(alpha: 0.14),
+            seed.withValues(alpha: 0.18),
             untintedScheme.surfaceContainer,
           ),
         );
         expect(
           theme.colorScheme.surfaceContainerHighest,
           Color.alphaBlend(
-            seed.withValues(alpha: 0.20),
+            seed.withValues(alpha: 0.26),
             untintedScheme.surfaceContainerHighest,
           ),
         );

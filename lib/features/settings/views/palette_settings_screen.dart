@@ -273,15 +273,23 @@ class PalettePreview {
     required PaletteContrast contrast,
     required Brightness brightness,
   }) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: seedColor,
-      brightness: brightness,
-      dynamicSchemeVariant: AppTheme.dynamicSchemeVariantForPalette(
-        mood,
-        seedColor: seedColor,
-      ),
-      contrastLevel: _contrastLevel(contrast),
-    );
+    final seedHex = _previewSeedHex(seedColor);
+    final scheme = switch (brightness) {
+      Brightness.light => AppTheme.materialYouLight(
+        null,
+        paletteSource: PaletteSource.custom,
+        paletteSeedColorHex: seedHex,
+        paletteMood: mood,
+        paletteContrast: contrast,
+      ).colorScheme,
+      Brightness.dark => AppTheme.materialYouDark(
+        null,
+        paletteSource: PaletteSource.custom,
+        paletteSeedColorHex: seedHex,
+        paletteMood: mood,
+        paletteContrast: contrast,
+      ).colorScheme,
+    };
 
     return PalettePreview(
       scheme: scheme,
@@ -313,12 +321,9 @@ class PalettePreview {
   final List<Color> dots;
 }
 
-double _contrastLevel(PaletteContrast contrast) {
-  return switch (contrast) {
-    PaletteContrast.soft => -0.25,
-    PaletteContrast.standard => 0.0,
-    PaletteContrast.high => 0.5,
-  };
+String _previewSeedHex(Color color) {
+  final rgb = color.toARGB32() & 0x00FFFFFF;
+  return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
 }
 
 Future<void> _resetPaletteSettings(SettingsNotifier notifier) async {

@@ -5,6 +5,7 @@ import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/palette_settings_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -54,6 +55,30 @@ void main() {
           }
         }
       }
+    });
+
+    test('custom palette preview matches applied app theme colors', () {
+      const seed = Color(0xFF16A34A);
+      const contrast = PaletteContrast.high;
+      final preview = PalettePreview.from(
+        seedColor: seed,
+        mood: PaletteMood.vibrant,
+        contrast: contrast,
+        brightness: Brightness.light,
+      );
+      final theme = AppTheme.materialYouLight(
+        null,
+        paletteSource: PaletteSource.custom,
+        paletteSeedColorHex: '#16A34A',
+        paletteMood: PaletteMood.vibrant,
+        paletteContrast: contrast,
+      );
+
+      expect(preview.scheme.primary, theme.colorScheme.primary);
+      expect(
+        preview.scheme.surfaceContainerHighest,
+        theme.colorScheme.surfaceContainerHighest,
+      );
     });
 
     testWidgets('hides source section when device colors are unsupported', (

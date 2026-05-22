@@ -68,7 +68,7 @@ class PrismSegmentedControlColors {
             pillBase,
           )
         : Color.alphaBlend(
-            Colors.white.withValues(alpha: highContrast ? 0.78 : 0.58),
+            Colors.white.withValues(alpha: highContrast ? 0.78 : 0.68),
             pillBase,
           );
     final pillBorderColor = colors.outline.withValues(

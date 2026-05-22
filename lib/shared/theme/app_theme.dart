@@ -50,6 +50,22 @@ class _ThemeColors {
   final bool isDark;
 }
 
+class _PaletteSurfaceTintAlphas {
+  const _PaletteSurfaceTintAlphas({
+    required this.lowest,
+    required this.low,
+    required this.container,
+    required this.high,
+    required this.highest,
+  });
+
+  final double lowest;
+  final double low;
+  final double container;
+  final double high;
+  final double highest;
+}
+
 class AppTheme {
   AppTheme._();
 
@@ -320,45 +336,91 @@ class AppTheme {
     ColorScheme colorScheme,
     Color accent, {
     required bool isDark,
+    required PaletteMood mood,
   }) {
-    final lowestAlpha = isDark ? 0.08 : 0.11;
-    final lowAlpha = isDark ? 0.11 : 0.15;
-    final containerAlpha = isDark ? 0.14 : 0.18;
-    final highAlpha = isDark ? 0.17 : 0.21;
-    final highestAlpha = isDark ? 0.20 : 0.24;
+    final alphas = _paletteSurfaceTintAlphas(
+      mood: _isMonochromePaletteSeed(accent) ? PaletteMood.monochrome : mood,
+      isDark: isDark,
+    );
 
     return colorScheme.copyWith(
       surface: _tintPaletteSurface(
         colorScheme.surface,
         accent,
-        isDark ? lowAlpha : lowestAlpha,
+        isDark ? alphas.low : alphas.lowest,
       ),
       surfaceContainerLowest: _tintPaletteSurface(
         colorScheme.surfaceContainerLowest,
         accent,
-        lowestAlpha,
+        alphas.lowest,
       ),
       surfaceContainerLow: _tintPaletteSurface(
         colorScheme.surfaceContainerLow,
         accent,
-        lowAlpha,
+        alphas.low,
       ),
       surfaceContainer: _tintPaletteSurface(
         colorScheme.surfaceContainer,
         accent,
-        containerAlpha,
+        alphas.container,
       ),
       surfaceContainerHigh: _tintPaletteSurface(
         colorScheme.surfaceContainerHigh,
         accent,
-        highAlpha,
+        alphas.high,
       ),
       surfaceContainerHighest: _tintPaletteSurface(
         colorScheme.surfaceContainerHighest,
         accent,
-        highestAlpha,
+        alphas.highest,
       ),
     );
+  }
+
+  static _PaletteSurfaceTintAlphas _paletteSurfaceTintAlphas({
+    required PaletteMood mood,
+    required bool isDark,
+  }) {
+    final expressive = switch (mood) {
+      PaletteMood.vibrant ||
+      PaletteMood.expressive ||
+      PaletteMood.fidelity => true,
+      PaletteMood.tonal || PaletteMood.monochrome => false,
+    };
+
+    if (isDark) {
+      return expressive
+          ? const _PaletteSurfaceTintAlphas(
+              lowest: 0.10,
+              low: 0.14,
+              container: 0.18,
+              high: 0.22,
+              highest: 0.26,
+            )
+          : const _PaletteSurfaceTintAlphas(
+              lowest: 0.08,
+              low: 0.11,
+              container: 0.14,
+              high: 0.17,
+              highest: 0.20,
+            );
+    }
+
+    return expressive
+        ? const _PaletteSurfaceTintAlphas(
+            lowest: 0.16,
+            low: 0.21,
+            container: 0.25,
+            high: 0.29,
+            highest: 0.33,
+          )
+        : const _PaletteSurfaceTintAlphas(
+            lowest: 0.11,
+            low: 0.15,
+            container: 0.18,
+            high: 0.21,
+            highest: 0.24,
+          );
   }
 
   static _ThemeColors _paletteThemeColors(
@@ -412,6 +474,7 @@ class AppTheme {
   static ThemeData _paletteThemeFromScheme({
     required ColorScheme baseColorScheme,
     Color? surfaceTintColor,
+    required PaletteMood paletteMood,
     required bool isDark,
     required PrismShapes shapes,
   }) {
@@ -429,6 +492,7 @@ class AppTheme {
       ),
       surfaceTint,
       isDark: isDark,
+      mood: paletteMood,
     );
 
     return _buildTheme(
@@ -463,6 +527,7 @@ class AppTheme {
         contrastLevel: _contrastLevelFor(paletteContrast),
       ),
       surfaceTintColor: seedColor,
+      paletteMood: paletteMood,
       isDark: isDark,
       shapes: shapes,
     );
@@ -878,6 +943,7 @@ class AppTheme {
           paletteSource == PaletteSource.custom || dynamicScheme == null
           ? seedColor
           : null,
+      paletteMood: paletteMood,
       isDark: false,
       shapes: PrismShapes(cornerStyle: cornerStyle),
     );
@@ -907,6 +973,7 @@ class AppTheme {
           paletteSource == PaletteSource.custom || dynamicScheme == null
           ? seedColor
           : null,
+      paletteMood: paletteMood,
       isDark: true,
       shapes: PrismShapes(cornerStyle: cornerStyle),
     );

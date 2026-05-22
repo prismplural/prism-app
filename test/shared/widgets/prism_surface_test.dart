@@ -1,28 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/shared/theme/app_theme.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 import '../../helpers/widget_test_helpers.dart';
 
 void main() {
-
   group('PrismSurface', () {
     testWidgets('renders child', (tester) async {
-      await tester.pumpWidget(testApp(center: false,
-        const PrismSurface(child: Text('Hello')),
-      ));
+      await tester.pumpWidget(
+        testApp(center: false, const PrismSurface(child: Text('Hello'))),
+      );
 
       expect(find.text('Hello'), findsOneWidget);
     });
 
     testWidgets('fires onTap callback', (tester) async {
       var tapped = false;
-      await tester.pumpWidget(testApp(center: false,
-        PrismSurface(
-          onTap: () => tapped = true,
-          child: const Text('Tap me'),
+      await tester.pumpWidget(
+        testApp(
+          center: false,
+          PrismSurface(onTap: () => tapped = true, child: const Text('Tap me')),
         ),
-      ));
+      );
 
       await tester.tap(find.text('Tap me'));
       expect(tapped, isTrue);
@@ -30,22 +31,27 @@ void main() {
 
     testWidgets('fires onLongPress callback', (tester) async {
       var longPressed = false;
-      await tester.pumpWidget(testApp(center: false,
-        PrismSurface(
-          onTap: () {},
-          onLongPress: () => longPressed = true,
-          child: const Text('Hold me'),
+      await tester.pumpWidget(
+        testApp(
+          center: false,
+          PrismSurface(
+            onTap: () {},
+            onLongPress: () => longPressed = true,
+            child: const Text('Hold me'),
+          ),
         ),
-      ));
+      );
 
       await tester.longPress(find.text('Hold me'));
       expect(longPressed, isTrue);
     });
 
-    testWidgets('wraps content in ClipRRect for child clipping', (tester) async {
-      await tester.pumpWidget(testApp(center: false,
-        const PrismSurface(child: Text('Clipped')),
-      ));
+    testWidgets('wraps content in ClipRRect for child clipping', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        testApp(center: false, const PrismSurface(child: Text('Clipped'))),
+      );
 
       expect(find.byType(ClipRRect), findsOneWidget);
       final clipRRect = tester.widget<ClipRRect>(find.byType(ClipRRect));
@@ -53,28 +59,34 @@ void main() {
     });
 
     testWidgets('does not wrap in InkWell when no onTap', (tester) async {
-      await tester.pumpWidget(testApp(center: false,
-        const PrismSurface(child: Text('Static')),
-      ));
+      await tester.pumpWidget(
+        testApp(center: false, const PrismSurface(child: Text('Static'))),
+      );
 
       expect(find.byType(InkWell), findsNothing);
     });
 
     testWidgets('wraps in InkWell when onTap is provided', (tester) async {
-      await tester.pumpWidget(testApp(center: false,
-        PrismSurface(onTap: () {}, child: const Text('Tappable')),
-      ));
+      await tester.pumpWidget(
+        testApp(
+          center: false,
+          PrismSurface(onTap: () {}, child: const Text('Tappable')),
+        ),
+      );
 
       expect(find.byType(InkWell), findsOneWidget);
     });
 
     testWidgets('applies margin as outer Padding', (tester) async {
-      await tester.pumpWidget(testApp(center: false,
-        const PrismSurface(
-          margin: EdgeInsets.all(20),
-          child: Text('Margined'),
+      await tester.pumpWidget(
+        testApp(
+          center: false,
+          const PrismSurface(
+            margin: EdgeInsets.all(20),
+            child: Text('Margined'),
+          ),
         ),
-      ));
+      );
 
       // The outermost Padding is the margin
       final padding = tester.widget<Padding>(find.byType(Padding).first);
@@ -83,28 +95,56 @@ void main() {
 
     for (final tone in PrismSurfaceTone.values) {
       testWidgets('renders with $tone tone', (tester) async {
-        await tester.pumpWidget(testApp(center: false,
-          PrismSurface(tone: tone, child: Text(tone.name)),
-        ));
+        await tester.pumpWidget(
+          testApp(
+            center: false,
+            PrismSurface(tone: tone, child: Text(tone.name)),
+          ),
+        );
 
         expect(find.text(tone.name), findsOneWidget);
       });
     }
 
     testWidgets('sets semantic label when tappable', (tester) async {
-      await tester.pumpWidget(testApp(center: false,
-        PrismSurface(
-          onTap: () {},
-          semanticLabel: 'Card action',
-          child: const Text('Content'),
+      await tester.pumpWidget(
+        testApp(
+          center: false,
+          PrismSurface(
+            onTap: () {},
+            semanticLabel: 'Card action',
+            child: const Text('Content'),
+          ),
         ),
-      ));
+      );
 
       // Verify the Semantics widget is present with the label
-      expect(
-        find.bySemanticsLabel(RegExp('Card action')),
-        findsOneWidget,
+      expect(find.bySemanticsLabel(RegExp('Card action')), findsOneWidget);
+    });
+
+    testWidgets('uses palette surface roles for default fills', (tester) async {
+      final theme = AppTheme.materialYouLight(
+        null,
+        paletteSource: PaletteSource.custom,
+        paletteSeedColorHex: '#16A34A',
+        paletteMood: PaletteMood.vibrant,
       );
+
+      await tester.pumpWidget(
+        testApp(
+          center: false,
+          theme: theme,
+          const PrismSurface(child: Text('Palette surface')),
+        ),
+      );
+
+      final decoration =
+          tester
+                  .widget<AnimatedContainer>(find.byType(AnimatedContainer))
+                  .decoration!
+              as BoxDecoration;
+
+      expect(decoration.color, theme.cardColor);
     });
   });
 }
