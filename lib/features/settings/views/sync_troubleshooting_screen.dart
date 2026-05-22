@@ -493,7 +493,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
             context,
             message: context.l10n.syncTroubleshootingCredentialsCleared,
           );
-          context.go(AppRoutePaths.syncSetup);
+          context.go(AppRoutePaths.settingsSync);
         } catch (e) {
           if (!context.mounted) return;
           PrismToast.error(

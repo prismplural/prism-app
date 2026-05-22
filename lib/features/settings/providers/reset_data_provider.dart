@@ -21,6 +21,7 @@ import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/relay_cleanup.dart';
+import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_file_import_provider.dart';
@@ -28,6 +29,7 @@ import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 import 'package:prism_plurality/features/migration/services/group_chat_visibility_sync_reemit_service.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Re-export so tests in `test/features/settings/providers/` can import
@@ -92,6 +94,10 @@ final resetNativeKeysProvider = Provider<NativeResetKeys>((ref) {
 });
 
 final resetIsAndroidProvider = Provider<bool>((ref) => Platform.isAndroid);
+
+final resetRequiresRestartAfterLocalPairingWipeProvider = Provider<bool>(
+  (ref) => Platform.isIOS,
+);
 
 final resetDocumentsDirectoryProvider = FutureProvider<Directory>((ref) async {
   return getAppDataDir();
@@ -257,8 +263,8 @@ enum ResetCategory {
   habits('Habits', 'Deletes all habits and completion records.'),
   sleep('Sleep Sessions', 'Deletes all sleep tracking data.'),
   sync(
-    'Sync System',
-    'Clears sync keys, credentials, and history on this device while keeping app data.',
+    'Disconnect Sync',
+    'Stops syncing on this device while keeping local Prism data.',
   ),
   all('All Data', 'Permanently deletes everything and resets the app.');
 
@@ -347,6 +353,15 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     }
   }
 
+  Future<_SyncIdentitySnapshot> _snapshotSyncIdentity(String prefix) async {
+    return _SyncIdentitySnapshot(
+      syncId: await _readDecodedSecureValue('${prefix}sync_id'),
+      deviceId: await _readDecodedSecureValue('${prefix}device_id'),
+      sessionToken: await _readDecodedSecureValue('${prefix}session_token'),
+      relayUrl: await _readDecodedSecureValue('${prefix}relay_url'),
+    );
+  }
+
   /// Reset a specific category of data.
   Future<void> reset(ResetCategory category) async {
     final result = await AsyncValue.guard(() async {
@@ -364,10 +379,41 @@ class ResetDataNotifier extends AsyncNotifier<void> {
         case ResetCategory.sleep:
           await _resetSleep();
         case ResetCategory.sync:
-          await _resetSyncSystem();
+          await _resetSyncSystem(
+            reason: SyncDisconnectReason.userDisconnect,
+            cleanupPolicy: SyncRelayCleanupPolicy.conservative,
+            localAppDataOutcome: LocalAppDataOutcome.preserved,
+            nextSetupConstraint: SyncSetupConstraint.localOnly,
+          );
         case ResetCategory.all:
           await _resetAll();
       }
+    });
+    state = result;
+    if (result.hasError) {
+      Error.throwWithStackTrace(
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+      );
+    }
+  }
+
+  Future<void> replaceLocalDataAndPrepareForPairing() async {
+    final result = await AsyncValue.guard(() async {
+      await _resetSyncSystem(
+        reason: SyncDisconnectReason.replaceByPairing,
+        cleanupPolicy: SyncRelayCleanupPolicy.conservative,
+        localAppDataOutcome: LocalAppDataOutcome.preserved,
+        nextSetupConstraint: SyncSetupConstraint.localOnly,
+      );
+      await _clearFullResetFlowState();
+      await _wipeLocalDataAfterSyncTeardown(
+        requireRestart: ref.read(
+          resetRequiresRestartAfterLocalPairingWipeProvider,
+        ),
+        completionLog: 'Prepared device for sync pairing after local wipe',
+      );
+      await _markReplacePairingLocalWipeCompleted();
     });
     state = result;
     if (result.hasError) {
@@ -505,12 +551,18 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     ]);
   }
 
-  Future<void> _resetSyncSystem() async {
+  Future<void> _resetSyncSystem({
+    required SyncDisconnectReason reason,
+    required SyncRelayCleanupPolicy cleanupPolicy,
+    required LocalAppDataOutcome localAppDataOutcome,
+    required SyncSetupConstraint nextSetupConstraint,
+  }) async {
     _log('Resetting sync system');
     const prefix = 'prism_sync.';
 
     final handle = ref.read(resetSyncHandleProvider);
     final syncFfi = ref.read(resetSyncFfiProvider);
+    final markerStore = ref.read(syncDisconnectMarkerStoreProvider);
 
     // Stop any queued event-driven keychain drain before deleting credentials.
     // Otherwise a SyncCompleted drain that was scheduled just before reset
@@ -541,22 +593,39 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       }
     }
 
+    final identity = await _snapshotSyncIdentity(prefix);
+    SyncDisconnectMarker? marker;
+    try {
+      marker = await markerStore.writeInitial(
+        reason: reason,
+        previousSyncId: identity.syncId,
+        previousDeviceId: identity.deviceId,
+        relayUrl: identity.relayUrl,
+        localAppDataOutcome: localAppDataOutcome,
+        nextSetupConstraint: nextSetupConstraint,
+      );
+      ref.invalidate(syncDisconnectMarkerProvider);
+    } catch (e) {
+      _log('Sync disconnect marker write failed (non-fatal): $e');
+    }
+
+    var relayCleanupOutcome = handle == null
+        ? RelayCleanupMarkerOutcome.skippedNoHandle
+        : RelayCleanupMarkerOutcome.skippedMissingCredentials;
+
     // 1. Try to deregister from relay (best-effort — may fail if offline).
     //    If this is the last active device the relay rejects deregister with a
     //    403 and tells us to delete the sync group instead — fall through to
     //    `deleteSyncGroup` via the shared helper so the relay drops all
-    //    encrypted data. The same helper is called from the setup-failure
-    //    rollback in `sync_setup_provider.dart` after the new FFI rollback
-    //    runs, so both paths agree on last-device fallback semantics.
+    //    encrypted data. User-facing disconnect keeps the conservative
+    //    fallback policy; full app reset opts into the aggressive fallback.
     if (handle != null) {
       try {
-        final syncId = await _readDecodedSecureValue('${prefix}sync_id');
-        final deviceId = await _readDecodedSecureValue('${prefix}device_id');
-        final sessionToken = await _readDecodedSecureValue(
-          '${prefix}session_token',
-        );
+        final syncId = identity.syncId;
+        final deviceId = identity.deviceId;
+        final sessionToken = identity.sessionToken;
         if (syncId != null && deviceId != null && sessionToken != null) {
-          await cleanupRelayRegistration(
+          final outcome = await cleanupRelayRegistration(
             handle: handle,
             syncId: syncId,
             deviceId: deviceId,
@@ -564,18 +633,14 @@ class ResetDataNotifier extends AsyncNotifier<void> {
             deregister: syncFfi.deregisterDevice,
             deleteSyncGroup: syncFfi.deleteSyncGroup,
             log: _log,
-            // Reset path: the user is wiping the device, so any
-            // deregister failure (network 5xx, auth, last-active) must
-            // still attempt the destructive `deleteSyncGroup` so the
-            // relay-side group does not linger. The setup-failure
-            // rollback in `sync_setup_provider.dart` keeps the default
-            // (false) — a transient blip during setup must not nuke
-            // the whole group.
-            fallbackOnAnyDeregisterFailure: true,
+            fallbackOnAnyDeregisterFailure:
+                cleanupPolicy == SyncRelayCleanupPolicy.aggressive,
           );
+          relayCleanupOutcome = _markerOutcomeForRelayCleanup(outcome);
         }
       } catch (e) {
         _log('Relay cleanup failed (non-fatal): $e');
+        relayCleanupOutcome = RelayCleanupMarkerOutcome.failed;
       }
     }
 
@@ -666,6 +731,22 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     // catch-up/migration passes for the new group.
     await _clearSyncOneTimeFlags();
 
+    try {
+      if (marker != null) {
+        await markerStore.write(
+          marker.copyWith(
+            relayCleanupOutcome: relayCleanupOutcome,
+            completedAt: DateTime.now().toUtc(),
+            localAppDataOutcome: localAppDataOutcome,
+            nextSetupConstraint: nextSetupConstraint,
+          ),
+        );
+        ref.invalidate(syncDisconnectMarkerProvider);
+      }
+    } catch (e) {
+      _log('Sync disconnect marker update failed (non-fatal): $e');
+    }
+
     // 9. Reset providers so UI reverts to setup state
     ref.invalidate(prismSyncHandleProvider);
     ref.invalidate(relayUrlProvider);
@@ -685,7 +766,13 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     // it kills the process after acceptance. Do best-effort remote sync teardown
     // first so reset does not leave relay/device records behind.
     if (ref.read(resetIsAndroidProvider)) {
-      await _resetSyncSystem();
+      await _resetSyncSystem(
+        reason: SyncDisconnectReason.fullReset,
+        cleanupPolicy: SyncRelayCleanupPolicy.aggressive,
+        localAppDataOutcome: LocalAppDataOutcome.wiped,
+        nextSetupConstraint: SyncSetupConstraint.freshSetupChoice,
+      );
+      await _deleteSyncDisconnectMarkerForFullReset();
       await _clearFullResetFlowState();
       final db = ref.read(databaseProvider);
       try {
@@ -711,24 +798,93 @@ class ResetDataNotifier extends AsyncNotifier<void> {
 
     // Full reset must sever sync before deleting app tables, otherwise a
     // relaunch can immediately restore stale remote state back into the app.
-    await _resetSyncSystem();
+    await _resetSyncSystem(
+      reason: SyncDisconnectReason.fullReset,
+      cleanupPolicy: SyncRelayCleanupPolicy.aggressive,
+      localAppDataOutcome: LocalAppDataOutcome.wiped,
+      nextSetupConstraint: SyncSetupConstraint.freshSetupChoice,
+    );
+    await _deleteSyncDisconnectMarkerForFullReset();
     await _clearFullResetFlowState();
     await _wipeLocalDataAfterSyncTeardown();
   }
 
-  Future<void> _wipeLocalDataAfterSyncTeardown() async {
+  Future<void> _markReplacePairingLocalWipeCompleted() async {
+    try {
+      final markerStore = ref.read(syncDisconnectMarkerStoreProvider);
+      final marker = await markerStore.readForCurrentInstall();
+      if (marker == null ||
+          marker.reason != SyncDisconnectReason.replaceByPairing) {
+        return;
+      }
+      await markerStore.write(
+        marker.copyWith(
+          completedAt: DateTime.now().toUtc(),
+          localAppDataOutcome: LocalAppDataOutcome.wiped,
+          nextSetupConstraint: SyncSetupConstraint.joinOnlyReplaceLocalData,
+        ),
+      );
+      ref.invalidate(syncDisconnectMarkerProvider);
+    } catch (e) {
+      _log('Replace-by-pairing marker promotion failed (non-fatal): $e');
+    }
+  }
+
+  Future<void> _deleteSyncDisconnectMarkerForFullReset() async {
+    try {
+      await ref.read(syncDisconnectMarkerStoreProvider).delete();
+      ref.invalidate(syncDisconnectMarkerProvider);
+    } catch (e) {
+      _log('Full reset marker cleanup failed (non-fatal): $e');
+    }
+  }
+
+  Future<void> _wipeLocalDataAfterSyncTeardown({
+    bool requireRestart = true,
+    String completionLog = 'Completed full app reset',
+  }) async {
     final db = ref.read(databaseProvider);
     try {
-      await ref.read(fullResetServiceProvider).wipeLocalData(openDatabase: db);
+      await ref
+          .read(fullResetServiceProvider)
+          .wipeLocalData(openDatabase: db, requireRestart: requireRestart);
     } finally {
       ref.invalidate(databaseProvider);
       ref.invalidate(systemSettingsRepositoryProvider);
+      ref.invalidate(systemSettingsProvider);
+      ref.invalidate(hasCompletedOnboardingProvider);
     }
     ref.invalidate(pluralKitSyncProvider);
     ref.invalidate(quarantinedItemsProvider);
-    _log('Completed full app reset');
+    _log(completionLog);
   }
 }
 
 final resetDataNotifierProvider =
     AsyncNotifierProvider<ResetDataNotifier, void>(ResetDataNotifier.new);
+
+class _SyncIdentitySnapshot {
+  const _SyncIdentitySnapshot({
+    required this.syncId,
+    required this.deviceId,
+    required this.sessionToken,
+    required this.relayUrl,
+  });
+
+  final String? syncId;
+  final String? deviceId;
+  final String? sessionToken;
+  final String? relayUrl;
+}
+
+RelayCleanupMarkerOutcome _markerOutcomeForRelayCleanup(
+  RelayCleanupOutcome outcome,
+) {
+  return switch (outcome) {
+    RelayCleanupOutcome.deregistered => RelayCleanupMarkerOutcome.deregistered,
+    RelayCleanupOutcome.groupDeleted => RelayCleanupMarkerOutcome.groupDeleted,
+    RelayCleanupOutcome.fallbackFailed =>
+      RelayCleanupMarkerOutcome.fallbackFailed,
+    RelayCleanupOutcome.failed => RelayCleanupMarkerOutcome.failed,
+  };
+}

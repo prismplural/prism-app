@@ -13,6 +13,7 @@ import 'package:prism_plurality/core/sync/drift_sync_adapter_bootstrap.dart';
 import 'package:prism_plurality/core/sync/first_device_admission_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/relay_cleanup.dart';
+import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
@@ -505,6 +506,16 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
           db: ref.read(databaseProvider),
           failureLabel: 'Post-setup catch-up sync failed',
         ))();
+    try {
+      await ref.read(syncDisconnectMarkerStoreProvider).delete();
+      ref.invalidate(syncDisconnectMarkerProvider);
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Sync disconnect marker cleanup failed after setup: $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
   }
 
   Future<void> _persistSyncIdentity({

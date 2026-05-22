@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
+import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -95,6 +100,21 @@ bool canSetUpAnotherDeviceRow({
     return false;
   }
   return hasWrappedDek;
+}
+
+@visibleForTesting
+bool shouldShowLocalDisconnectState(SyncDisconnectMarker? marker) {
+  return marker != null &&
+      marker.localAppDataOutcome == LocalAppDataOutcome.preserved &&
+      marker.nextSetupConstraint == SyncSetupConstraint.localOnly;
+}
+
+@visibleForTesting
+bool shouldShowJoinOnlyReplaceState(SyncDisconnectMarker? marker) {
+  return marker != null &&
+      marker.localAppDataOutcome == LocalAppDataOutcome.wiped &&
+      marker.nextSetupConstraint ==
+          SyncSetupConstraint.joinOnlyReplaceLocalData;
 }
 
 class SyncEntityCounts {
@@ -293,12 +313,24 @@ class SyncSettingsScreen extends ConsumerWidget {
   }
 }
 
-class _SetupView extends StatelessWidget {
+class _SetupView extends ConsumerWidget {
   const _SetupView();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final markerAsync = ref.watch(syncDisconnectMarkerProvider);
+    if (markerAsync.isLoading && !markerAsync.hasValue) {
+      return const PrismLoadingState();
+    }
+    final marker = markerAsync.whenOrNull(data: (value) => value);
+
+    if (shouldShowLocalDisconnectState(marker)) {
+      return _LocalDisconnectSetupView(marker: marker!);
+    }
+    if (shouldShowJoinOnlyReplaceState(marker)) {
+      return const _JoinOnlyReplaceSetupView();
+    }
 
     return Center(
       child: Padding(
@@ -337,6 +369,195 @@ class _SetupView extends StatelessWidget {
       ),
     );
   }
+}
+
+class _JoinOnlyReplaceSetupView extends ConsumerWidget {
+  const _JoinOnlyReplaceSetupView();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              AppIcons.devices,
+              size: 64,
+              color: theme.colorScheme.primary.withValues(alpha: 0.72),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Ready to pair this device',
+              style: theme.textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'This device was wiped so it can replace its local data by joining an existing sync group.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            PrismButton(
+              label: 'Continue Pairing',
+              icon: AppIcons.devices,
+              tone: PrismButtonTone.filled,
+              expanded: true,
+              onPressed: () {
+                ref
+                    .read(onboardingProvider.notifier)
+                    .enterSyncDeviceFlowFromWelcome();
+                context.go(AppRoutePaths.onboarding);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LocalDisconnectSetupView extends ConsumerWidget {
+  const _LocalDisconnectSetupView({required this.marker});
+
+  final SyncDisconnectMarker marker;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final previousSyncId = marker.hasPreviousSyncId
+        ? _shortSyncId(marker.previousSyncId!)
+        : null;
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              AppIcons.syncDisabled,
+              size: 64,
+              color: theme.colorScheme.error.withValues(alpha: 0.72),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Sync is off on this device',
+              style: theme.textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              previousSyncId == null
+                  ? 'Your data is still here, but it is no longer syncing with other devices.'
+                  : 'Your data is still here, but it is no longer syncing with the previous group $previousSyncId.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            PrismButton(
+              label: 'Start a New Sync Group',
+              icon: AppIcons.addCircle,
+              tone: PrismButtonTone.filled,
+              expanded: true,
+              onPressed: () => _confirmCreateNewGroup(context),
+            ),
+            const SizedBox(height: 12),
+            PrismButton(
+              label: 'Replace Local Data and Pair',
+              icon: AppIcons.devices,
+              tone: PrismButtonTone.destructive,
+              expanded: true,
+              onPressed: () => _confirmReplaceAndPair(context, ref),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Pairing with another device replaces this device. It does not merge local-only changes into the other group.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmCreateNewGroup(BuildContext context) async {
+    final previousSyncId = marker.hasPreviousSyncId
+        ? ' Devices still using ${_shortSyncId(marker.previousSyncId!)} will not join automatically.'
+        : '';
+    final confirmed = await PrismDialog.confirm(
+      context: context,
+      title: 'Start a new sync group?',
+      message:
+          'This creates a brand-new sync group from the data on this device.'
+          '$previousSyncId To join an existing group, replace local data and pair instead.',
+      confirmLabel: 'Start New Group',
+      destructive: false,
+    );
+    if (confirmed && context.mounted) {
+      await context.push(AppRoutePaths.syncSetup);
+    }
+  }
+
+  Future<void> _confirmReplaceAndPair(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confirmed = await PrismDialog.confirm(
+      context: context,
+      title: 'Replace this device by pairing?',
+      message:
+          'This permanently wipes the data stored on this device, then opens the pairing flow. '
+          'Make sure another device has the data you want. Prism will not merge this device into the other group.',
+      confirmLabel: 'Wipe This Device and Pair',
+      destructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+
+    try {
+      await ref
+          .read(resetDataNotifierProvider.notifier)
+          .replaceLocalDataAndPrepareForPairing();
+      if (!context.mounted) return;
+      final restartRequired = await ref
+          .read(fullResetServiceProvider)
+          .isRestartRequired();
+      if (!context.mounted) return;
+      if (restartRequired) {
+        await Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+          MaterialPageRoute<void>(
+            builder: (_) => const ResetRecoveryScreen(
+              mode: ResetRecoveryScreenMode.restartRequired,
+            ),
+          ),
+          (_) => false,
+        );
+        return;
+      }
+      ref.read(onboardingProvider.notifier).enterSyncDeviceFlowFromWelcome();
+      context.go(AppRoutePaths.onboarding);
+    } catch (e) {
+      if (!context.mounted) return;
+      PrismToast.error(context, message: 'Could not prepare pairing: $e');
+    }
+  }
+}
+
+String _shortSyncId(String syncId) {
+  final compact = syncId.replaceAll(RegExp(r'\s+'), '');
+  if (compact.length <= 12) return compact;
+  return '${compact.substring(0, 6)}...${compact.substring(compact.length - 6)}';
 }
 
 class _StateMessageView extends StatelessWidget {

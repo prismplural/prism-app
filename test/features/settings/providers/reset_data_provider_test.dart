@@ -16,6 +16,7 @@ import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart' as sync;
+import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart'
@@ -298,6 +299,29 @@ void main() {
       expect(await harness.syncDbFile.exists(), isFalse);
       expect(await harness.syncWalFile.exists(), isFalse);
       expect(await harness.syncShmFile.exists(), isFalse);
+    });
+
+    test('sync reset records a local-only disconnect marker', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      await harness.seedAllData();
+      await harness.reset(ResetCategory.sync);
+
+      final marker = await const SyncDisconnectMarkerStore()
+          .readForCurrentInstall();
+      expect(marker, isNotNull);
+      expect(marker!.reason, SyncDisconnectReason.userDisconnect);
+      expect(marker.previousSyncId, 'sync-123');
+      expect(marker.previousDeviceId, 'device-123');
+      expect(marker.localAppDataOutcome, LocalAppDataOutcome.preserved);
+      expect(marker.nextSetupConstraint, SyncSetupConstraint.localOnly);
+      expect(marker.setupMode, SyncSetupMode.localOnlyAfterDisconnect);
+      expect(marker.completedAt, isNotNull);
+      expect(
+        marker.relayCleanupOutcome,
+        RelayCleanupMarkerOutcome.skippedNoHandle,
+      );
     });
 
     test('sync reset leaves sync state ready for fresh setup', () async {
@@ -744,57 +768,51 @@ void main() {
       );
     });
 
-    test('reset_calls_deleteSyncGroup_after_any_deregister_failure', () async {
-      // Reset path passes `fallbackOnAnyDeregisterFailure: true` to
-      // `cleanupRelayRegistration`, so even a transient/non-403
-      // deregister failure must still attempt `deleteSyncGroup`. The
-      // user is wiping the device — leaving the relay-side group
-      // behind is the worse outcome here.
-      final fakeHandle = _FakeSyncHandle();
-      final recordingFfi = _RecordingResetSyncFfi()
-        // Generic non-403 failure — pre-fix this would have skipped
-        // the deleteSyncGroup fallback entirely.
-        ..throwOnDeregister = Exception('Network unreachable');
+    test(
+      'sync reset does not delete group after generic deregister failure',
+      () async {
+        // User-facing sync disconnect uses the conservative policy: only the
+        // relay's last-active-device 403 should fall through to deleteSyncGroup.
+        final fakeHandle = _FakeSyncHandle();
+        final recordingFfi = _RecordingResetSyncFfi()
+          ..throwOnDeregister = Exception('Network unreachable');
 
-      final harness = await _ResetHarness.create(
-        handleOverride: fakeHandle,
-        ffiOverride: recordingFfi,
-      );
-      addTearDown(harness.dispose);
-
-      harness.secureStore
-        ..seedSyncValue(
-          'prism_sync.sync_id',
-          base64Encode(utf8.encode('sync-abc')),
-        )
-        ..seedSyncValue(
-          'prism_sync.device_id',
-          base64Encode(utf8.encode('device-abc')),
-        )
-        ..seedSyncValue(
-          'prism_sync.session_token',
-          base64Encode(utf8.encode('session-abc')),
+        final harness = await _ResetHarness.create(
+          handleOverride: fakeHandle,
+          ffiOverride: recordingFfi,
         );
+        addTearDown(harness.dispose);
 
-      await harness.reset(ResetCategory.sync);
+        harness.secureStore
+          ..seedSyncValue(
+            'prism_sync.sync_id',
+            base64Encode(utf8.encode('sync-abc')),
+          )
+          ..seedSyncValue(
+            'prism_sync.device_id',
+            base64Encode(utf8.encode('device-abc')),
+          )
+          ..seedSyncValue(
+            'prism_sync.session_token',
+            base64Encode(utf8.encode('session-abc')),
+          );
 
-      expect(
-        recordingFfi.calls,
-        contains('deregisterDevice'),
-        reason: 'reset must always attempt deregister first',
-      );
-      expect(
-        recordingFfi.calls,
-        contains('deleteSyncGroup'),
-        reason:
-            'reset must fall back to deleteSyncGroup after a generic '
-            'deregister failure (fallbackOnAnyDeregisterFailure: true)',
-      );
-      expect(
-        recordingFfi.calls.indexOf('deregisterDevice'),
-        lessThan(recordingFfi.calls.indexOf('deleteSyncGroup')),
-      );
-    });
+        await harness.reset(ResetCategory.sync);
+
+        expect(
+          recordingFfi.calls,
+          contains('deregisterDevice'),
+          reason: 'reset must always attempt deregister first',
+        );
+        expect(
+          recordingFfi.calls,
+          isNot(contains('deleteSyncGroup')),
+          reason:
+              'sync-only disconnect must not attempt deleteSyncGroup after a '
+              'generic deregister failure',
+        );
+      },
+    );
 
     test('reset_disposes_handle_before_deleting_db', () async {
       final fakeHandle = _FakeSyncHandle();
@@ -992,6 +1010,113 @@ void main() {
       expect(prefs.getBool('unrelated_flag'), isTrue);
     });
 
+    test(
+      'replace-by-pairing wipes local data and preserves a join-only marker',
+      () async {
+        final fakeHandle = _FakeSyncHandle();
+        final recordingFfi = _RecordingResetSyncFfi()
+          ..throwOnDeregister = Exception('Network unreachable');
+        final harness = await _ResetHarness.create(
+          handleOverride: fakeHandle,
+          ffiOverride: recordingFfi,
+          requiresRestartAfterPairingWipeOverride: false,
+        );
+        addTearDown(harness.dispose);
+
+        await harness.seedAllData();
+        await harness.replaceLocalDataAndPrepareForPairing();
+
+        expect(recordingFfi.calls, contains('deregisterDevice'));
+        expect(
+          recordingFfi.calls,
+          isNot(contains('deleteSyncGroup')),
+          reason:
+              'replace-by-pairing uses the same conservative relay cleanup as '
+              'sync-only disconnect',
+        );
+        expect(await harness.appDbFile.exists(), isFalse);
+        expect(await harness.syncDbFile.exists(), isFalse);
+        expect(
+          harness.secureStore.readSyncValue('prism_pluralkit_token'),
+          isNull,
+        );
+
+        final marker = await const SyncDisconnectMarkerStore()
+            .readForCurrentInstall();
+        expect(marker, isNotNull);
+        expect(marker!.reason, SyncDisconnectReason.replaceByPairing);
+        expect(marker.previousSyncId, 'sync-123');
+        expect(marker.localAppDataOutcome, LocalAppDataOutcome.wiped);
+        expect(
+          marker.nextSetupConstraint,
+          SyncSetupConstraint.joinOnlyReplaceLocalData,
+        );
+        expect(marker.setupMode, SyncSetupMode.joinOnlyReplaceLocalData);
+        expect(marker.completedAt, isNotNull);
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
+        expect(prefs.getBool(kFullResetRestartRequiredKey), isNull);
+      },
+    );
+
+    test(
+      'replace-by-pairing can require restart while preserving marker',
+      () async {
+        final harness = await _ResetHarness.create(
+          requiresRestartAfterPairingWipeOverride: true,
+        );
+        addTearDown(harness.dispose);
+
+        await harness.seedAllData();
+        await harness.replaceLocalDataAndPrepareForPairing();
+
+        final marker = await const SyncDisconnectMarkerStore()
+            .readForCurrentInstall();
+        expect(marker, isNotNull);
+        expect(marker!.reason, SyncDisconnectReason.replaceByPairing);
+        expect(
+          marker.nextSetupConstraint,
+          SyncSetupConstraint.joinOnlyReplaceLocalData,
+        );
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
+        expect(prefs.getBool(kFullResetRestartRequiredKey), isTrue);
+        expect(prefs.getString(kFullResetCompletedAtKey), isNotNull);
+      },
+    );
+
+    test(
+      'replace-by-pairing keeps a local-only marker if local wipe fails',
+      () async {
+        final harness = await _ResetHarness.create(
+          deleteObserver: (path) {
+            if (p.basename(path) == 'prism.db') {
+              throw const FileSystemException('blocked by test');
+            }
+          },
+          requiresRestartAfterPairingWipeOverride: false,
+        );
+        addTearDown(harness.dispose);
+
+        await harness.seedAllData();
+
+        await expectLater(
+          harness.replaceLocalDataAndPrepareForPairing(),
+          throwsA(isA<FullResetFailure>()),
+        );
+
+        final marker = await const SyncDisconnectMarkerStore()
+            .readForCurrentInstall();
+        expect(marker, isNotNull);
+        expect(marker!.reason, SyncDisconnectReason.replaceByPairing);
+        expect(marker.localAppDataOutcome, LocalAppDataOutcome.preserved);
+        expect(marker.nextSetupConstraint, SyncSetupConstraint.localOnly);
+        expect(marker.setupMode, SyncSetupMode.localOnlyAfterDisconnect);
+      },
+    );
+
     // ── Full reset ──────────────────────────────────────────────────
 
     test(
@@ -1045,6 +1170,66 @@ void main() {
         );
       },
     );
+
+    test('full reset keeps aggressive deleteSyncGroup fallback', () async {
+      final fakeHandle = _FakeSyncHandle();
+      final recordingFfi = _RecordingResetSyncFfi()
+        ..throwOnDeregister = Exception('Network unreachable');
+
+      final harness = await _ResetHarness.create(
+        handleOverride: fakeHandle,
+        ffiOverride: recordingFfi,
+        isAndroidOverride: true,
+      );
+      addTearDown(harness.dispose);
+      harness.nativeResetKeys.clearApplicationUserDataResult = false;
+
+      harness.secureStore
+        ..seedSyncValue(
+          'prism_sync.sync_id',
+          base64Encode(utf8.encode('sync-abc')),
+        )
+        ..seedSyncValue(
+          'prism_sync.device_id',
+          base64Encode(utf8.encode('device-abc')),
+        )
+        ..seedSyncValue(
+          'prism_sync.session_token',
+          base64Encode(utf8.encode('session-abc')),
+        );
+
+      await harness.reset(ResetCategory.all);
+
+      expect(recordingFfi.calls, contains('deregisterDevice'));
+      expect(
+        recordingFfi.calls,
+        contains('deleteSyncGroup'),
+        reason:
+            'full reset may use the aggressive cleanup fallback after a '
+            'generic deregister failure',
+      );
+    });
+
+    test('full reset removes any sync disconnect marker', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      await harness.seedAllData();
+      await harness.reset(ResetCategory.sync);
+      expect(
+        await const SyncDisconnectMarkerStore().readForCurrentInstall(),
+        isNotNull,
+      );
+
+      await harness.reset(ResetCategory.all);
+
+      expect(
+        await const SyncDisconnectMarkerStore().readForCurrentInstall(),
+        isNull,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(kSyncDisconnectMarkerKey), isNull);
+    });
 
     test(
       'android full reset falls back to local wipe when OS app-data clear is rejected',
@@ -1328,6 +1513,7 @@ class _ResetHarness {
     ResetFileDeleteObserver? deleteObserver,
     bool dynamicDatabaseProvider = false,
     bool? isAndroidOverride,
+    bool? requiresRestartAfterPairingWipeOverride,
   }) async {
     final tempDir = await Directory.systemTemp.createTemp('prism-reset-test-');
     final appDbFile = File(p.join(tempDir.path, 'prism.db'));
@@ -1375,6 +1561,10 @@ class _ResetHarness {
         resetSyncHandleProvider.overrideWithValue(handleOverride),
         if (isAndroidOverride != null)
           resetIsAndroidProvider.overrideWithValue(isAndroidOverride),
+        if (requiresRestartAfterPairingWipeOverride != null)
+          resetRequiresRestartAfterLocalPairingWipeProvider.overrideWithValue(
+            requiresRestartAfterPairingWipeOverride,
+          ),
         downloadManagerProvider.overrideWithValue(downloadManager),
         if (ffiOverride != null)
           resetSyncFfiProvider.overrideWithValue(ffiOverride),
@@ -1833,6 +2023,16 @@ class _ResetHarness {
 
   Future<void> reset(ResetCategory category) async {
     await container.read(resetDataNotifierProvider.notifier).reset(category);
+    final resetState = container.read(resetDataNotifierProvider);
+    if (resetState.hasError) {
+      Error.throwWithStackTrace(resetState.error!, resetState.stackTrace!);
+    }
+  }
+
+  Future<void> replaceLocalDataAndPrepareForPairing() async {
+    await container
+        .read(resetDataNotifierProvider.notifier)
+        .replaceLocalDataAndPrepareForPairing();
     final resetState = container.read(resetDataNotifierProvider);
     if (resetState.hasError) {
       Error.throwWithStackTrace(resetState.error!, resetState.stackTrace!);

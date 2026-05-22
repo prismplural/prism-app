@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/reset/native_reset_keys.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -566,6 +567,89 @@ void main() {
     expect(prefs.getBool('prism.pref.screen_privacy_enabled'), isTrue);
     expect(prefs.getString('prism.cache.theme_style'), 'dreamy');
     expect(prefs.getBool('pk.auto_poll_enabled'), isNull);
+  });
+
+  test(
+    'wipeLocalData preserves sync disconnect marker for pairing handoff',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'prism-reset-marker-test-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final writtenMarker = await const SyncDisconnectMarkerStore()
+          .writeInitial(
+            reason: SyncDisconnectReason.replaceByPairing,
+            previousSyncId: 'sync-abc',
+            previousDeviceId: 'device-abc',
+            localAppDataOutcome: LocalAppDataOutcome.wiped,
+            nextSetupConstraint: SyncSetupConstraint.joinOnlyReplaceLocalData,
+          );
+      final service = FullResetService(
+        secureStore: _FakeFullResetSecureStore(),
+        nativeResetKeys: _FakeNativeResetKeys(),
+        appDataDirectory: () async => tempDir,
+        temporaryDirectory: () async => tempDir,
+        mediaCacheDirectory: () async =>
+            Directory(p.join(tempDir.path, 'none')),
+        clearMediaCache: () async {},
+      );
+
+      await service.wipeLocalData(requireRestart: false);
+
+      final marker = await const SyncDisconnectMarkerStore()
+          .readForCurrentInstall();
+      expect(marker, isNotNull);
+      expect(marker!.markerId, writtenMarker.markerId);
+      expect(marker.deviceInstallId, writtenMarker.deviceInstallId);
+      expect(
+        marker.nextSetupConstraint,
+        SyncSetupConstraint.joinOnlyReplaceLocalData,
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
+      expect(prefs.getBool(kFullResetRestartRequiredKey), isNull);
+    },
+  );
+
+  test('fresh install guard ignores sync disconnect marker residue', () async {
+    final tempDir = await Directory.systemTemp.createTemp(
+      'prism-marker-residue-test-',
+    );
+    addTearDown(() async {
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    await const SyncDisconnectMarkerStore().writeInitial(
+      reason: SyncDisconnectReason.replaceByPairing,
+      previousSyncId: 'sync-abc',
+      localAppDataOutcome: LocalAppDataOutcome.wiped,
+      nextSetupConstraint: SyncSetupConstraint.joinOnlyReplaceLocalData,
+    );
+    final service = FullResetService(
+      secureStore: _FakeFullResetSecureStore(),
+      nativeResetKeys: _FakeNativeResetKeys(),
+      appDataDirectory: () async => tempDir,
+      temporaryDirectory: () async => tempDir,
+      mediaCacheDirectory: () async => Directory(p.join(tempDir.path, 'none')),
+      clearMediaCache: () async {},
+    );
+
+    final decision = await service.runFreshInstallResidueGuard();
+
+    expect(decision.mode, ResetStartupMode.normal);
+    expect(decision.report.preferenceKeys, isEmpty);
+    expect(
+      await const SyncDisconnectMarkerStore().readForCurrentInstall(),
+      isNotNull,
+    );
   });
 
   test(

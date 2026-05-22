@@ -6,6 +6,7 @@ import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/onboarding/widgets/welcome_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/import_data_step.dart';
@@ -45,6 +46,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   static const _prismLogoAsset = 'assets/icon_layers/Prism-Logo-Foreground.png';
 
   bool _isCompleting = false;
+  bool _replacePairingRedirectScheduled = false;
 
   /// Steps that have progress capsules (all except complete and full-screen steps).
   static const _progressSteps = [
@@ -87,6 +89,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         step == OnboardingStep.recoveryPhrase;
 
     final hasExistingData = ref.watch(hasCompletedOnboardingProvider);
+    final disconnectMarker = ref
+        .watch(syncDisconnectMarkerProvider)
+        .whenOrNull(data: (marker) => marker);
+    if (step == OnboardingStep.syncDevice) {
+      _replacePairingRedirectScheduled = false;
+    }
+    if (!_replacePairingRedirectScheduled &&
+        !hasExistingData &&
+        disconnectMarker?.nextSetupConstraint ==
+            SyncSetupConstraint.joinOnlyReplaceLocalData &&
+        step != OnboardingStep.syncDevice) {
+      _replacePairingRedirectScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(onboardingProvider.notifier).enterSyncDeviceFlowFromWelcome();
+      });
+    }
 
     return PopScope(
       canPop: hasExistingData,

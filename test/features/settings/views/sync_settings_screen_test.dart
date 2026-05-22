@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
 import 'package:prism_plurality/features/settings/views/sync_settings_screen.dart';
 
 class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
@@ -302,6 +303,70 @@ void main() {
         ),
         isTrue,
       );
+    });
+  });
+
+  group('shouldShowLocalDisconnectState', () {
+    test('shows the local-only state after preserved-data disconnect', () {
+      final marker = SyncDisconnectMarker(
+        markerId: 'marker-1',
+        deviceInstallId: 'install-1',
+        reason: SyncDisconnectReason.userDisconnect,
+        startedAt: DateTime.utc(2026, 5, 22),
+        relayCleanupOutcome: RelayCleanupMarkerOutcome.deregistered,
+        localAppDataOutcome: LocalAppDataOutcome.preserved,
+        nextSetupConstraint: SyncSetupConstraint.localOnly,
+        previousSyncId: 'sync-123',
+      );
+
+      expect(shouldShowLocalDisconnectState(marker), isTrue);
+    });
+
+    test('does not show local-only state for replace-by-pairing marker', () {
+      final marker = SyncDisconnectMarker(
+        markerId: 'marker-1',
+        deviceInstallId: 'install-1',
+        reason: SyncDisconnectReason.replaceByPairing,
+        startedAt: DateTime.utc(2026, 5, 22),
+        relayCleanupOutcome: RelayCleanupMarkerOutcome.deregistered,
+        localAppDataOutcome: LocalAppDataOutcome.wiped,
+        nextSetupConstraint: SyncSetupConstraint.joinOnlyReplaceLocalData,
+      );
+
+      expect(shouldShowLocalDisconnectState(marker), isFalse);
+    });
+  });
+
+  group('shouldShowJoinOnlyReplaceState', () {
+    test(
+      'shows the join-only state after local data was wiped for pairing',
+      () {
+        final marker = SyncDisconnectMarker(
+          markerId: 'marker-1',
+          deviceInstallId: 'install-1',
+          reason: SyncDisconnectReason.replaceByPairing,
+          startedAt: DateTime.utc(2026, 5, 22),
+          relayCleanupOutcome: RelayCleanupMarkerOutcome.deregistered,
+          localAppDataOutcome: LocalAppDataOutcome.wiped,
+          nextSetupConstraint: SyncSetupConstraint.joinOnlyReplaceLocalData,
+        );
+
+        expect(shouldShowJoinOnlyReplaceState(marker), isTrue);
+      },
+    );
+
+    test('does not treat a preserved local-only marker as join-only', () {
+      final marker = SyncDisconnectMarker(
+        markerId: 'marker-1',
+        deviceInstallId: 'install-1',
+        reason: SyncDisconnectReason.userDisconnect,
+        startedAt: DateTime.utc(2026, 5, 22),
+        relayCleanupOutcome: RelayCleanupMarkerOutcome.deregistered,
+        localAppDataOutcome: LocalAppDataOutcome.preserved,
+        nextSetupConstraint: SyncSetupConstraint.localOnly,
+      );
+
+      expect(shouldShowJoinOnlyReplaceState(marker), isFalse);
     });
   });
 

@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/services/build_info.dart';
+import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
+import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/settings/providers/sync_setup_provider.dart';
 import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -61,6 +64,9 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final setupState = ref.watch(syncSetupProvider);
+    final disconnectMarker = ref
+        .watch(syncDisconnectMarkerProvider)
+        .whenOrNull(data: (marker) => marker);
 
     final title = switch (setupState.step) {
       SyncSetupStep.intro => context.l10n.syncSetupIntroTitle,
@@ -90,10 +96,17 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
                   .isNotEmpty,
               relayUrlController: _relayUrlController,
               registrationTokenController: _registrationTokenController,
+              disconnectMarker: disconnectMarker,
               relayUrlError: _relayUrlError,
               setupError: setupState.error,
               onToggleRelay: () =>
                   setState(() => _showRelayField = !_showRelayField),
+              onJoinInstead: () {
+                ref
+                    .read(onboardingProvider.notifier)
+                    .enterSyncDeviceFlowFromWelcome();
+                context.go(AppRoutePaths.onboarding);
+              },
               onContinue: () {
                 if (_showRelayField) {
                   final url = _relayUrlController.text.trim();
@@ -163,9 +176,11 @@ class _IntroStep extends StatelessWidget {
     required this.showRegistrationTokenField,
     required this.relayUrlController,
     required this.registrationTokenController,
+    required this.disconnectMarker,
     required this.relayUrlError,
     required this.setupError,
     required this.onToggleRelay,
+    required this.onJoinInstead,
     required this.onContinue,
   });
 
@@ -173,14 +188,19 @@ class _IntroStep extends StatelessWidget {
   final bool showRegistrationTokenField;
   final TextEditingController relayUrlController;
   final TextEditingController registrationTokenController;
+  final SyncDisconnectMarker? disconnectMarker;
   final String? relayUrlError;
   final String? setupError;
   final VoidCallback onToggleRelay;
+  final VoidCallback onJoinInstead;
   final VoidCallback onContinue;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final setupConstraint = disconnectMarker?.nextSetupConstraint;
+    final isJoinOnly =
+        setupConstraint == SyncSetupConstraint.joinOnlyReplaceLocalData;
 
     return SafeArea(
       top: false,
@@ -207,6 +227,41 @@ class _IntroStep extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
+          if (setupConstraint == SyncSetupConstraint.localOnly ||
+              isJoinOnly) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.errorContainer.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: theme.colorScheme.error.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    AppIcons.warningAmberRounded,
+                    size: 20,
+                    color: theme.colorScheme.error,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      isJoinOnly
+                          ? 'This device was wiped to pair with another device. Continue pairing instead of starting a brand-new sync group.'
+                          : 'This starts a brand-new sync group from this device. It will not reconnect other devices that are still on the old group.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 48),
           Semantics(
             button: true,
@@ -278,10 +333,12 @@ class _IntroStep extends StatelessWidget {
             const SizedBox(height: 12),
           ],
           PrismButton(
-            label: context.l10n.syncSetupButton,
-            icon: AppIcons.arrowForward,
+            label: isJoinOnly
+                ? 'Continue Pairing'
+                : context.l10n.syncSetupButton,
+            icon: isJoinOnly ? AppIcons.devices : AppIcons.arrowForward,
             tone: PrismButtonTone.filled,
-            onPressed: onContinue,
+            onPressed: isJoinOnly ? onJoinInstead : onContinue,
           ),
         ],
       ),

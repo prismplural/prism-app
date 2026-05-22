@@ -111,16 +111,21 @@ class ResetDataScreen extends ConsumerWidget {
     final label = _categoryLabel(category, terms);
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: context.l10n.resetDataConfirmTitle(label),
+      title: isSync
+          ? 'Disconnect sync from this device?'
+          : context.l10n.resetDataConfirmTitle(label),
       message: isAll
           ? context.l10n.resetDataConfirmAll(terms.pluralLower)
           : isSync
-          ? context.l10n.resetDataConfirmSync
+          ? 'Prism will keep all local data on this device and stop syncing it. '
+                'This also makes a best-effort attempt to remove this device '
+                'from the relay, or delete the relay group only when the relay '
+                'says this was the last device.'
           : context.l10n.resetDataConfirmCategory(label.toLowerCase()),
       confirmLabel: isAll
           ? context.l10n.resetDataConfirmEverything
           : isSync
-          ? context.l10n.resetDataConfirmSync2
+          ? 'Disconnect Sync, Keep Data'
           : context.l10n.delete,
       destructive: true,
     );
@@ -166,7 +171,12 @@ class ResetDataScreen extends ConsumerWidget {
         );
         return;
       }
-      PrismToast.show(context, message: context.l10n.resetDataSuccess(label));
+      PrismToast.show(
+        context,
+        message: isSync
+            ? 'Sync disconnected. This device is staying local.'
+            : context.l10n.resetDataSuccess(label),
+      );
     } catch (e) {
       if (!context.mounted) return;
       PrismToast.error(context, message: context.l10n.resetDataFailed(e));

@@ -13,6 +13,7 @@ import 'package:prism_plurality/core/reset/native_reset_keys.dart';
 import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/sync_database_probe.dart';
+import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
 
 const kFreshInstallSentinelKey = 'has_launched_before';
 const kFullResetRestartRequiredKey = 'prism.reset.restart_required';
@@ -222,7 +223,9 @@ class FullResetService {
           key != kFullResetCompletedAtKey &&
           key != kFreshInstallAnomalyKey &&
           key != kNativeResetKeyClearPendingKey &&
-          key != kMediaCacheClearPendingKey;
+          key != kMediaCacheClearPendingKey &&
+          key != kSyncDisconnectMarkerKey &&
+          key != kDeviceInstallIdKey;
     }).toSet();
 
     final files = <String>[];
@@ -624,7 +627,9 @@ class FullResetService {
     final values = <String, Object>{};
     for (final key in prefs.getKeys()) {
       if (key == 'prism.pref.screen_privacy_enabled' ||
-          key.startsWith('prism.cache.')) {
+          key.startsWith('prism.cache.') ||
+          key == kSyncDisconnectMarkerKey ||
+          key == kDeviceInstallIdKey) {
         final value = prefs.get(key);
         if (value is Object) values[key] = value;
       }

@@ -15,6 +15,7 @@ import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/pairing_sas_display.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
+import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
 import 'package:prism_plurality/features/onboarding/providers/sync_setup_progress_provider.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -1448,6 +1449,16 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     if (!current.hasCompletedOnboarding) {
       await settingsRepo.updateSettings(
         current.copyWith(hasCompletedOnboarding: true),
+      );
+    }
+    try {
+      await ref.read(syncDisconnectMarkerStoreProvider).delete();
+      ref.invalidate(syncDisconnectMarkerProvider);
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Sync disconnect marker cleanup failed after pairing: $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
       );
     }
   }
