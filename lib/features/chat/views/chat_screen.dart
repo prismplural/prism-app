@@ -19,6 +19,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -55,6 +56,7 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _seeded = false;
+  bool _seedAttemptInFlight = false;
   bool? _groupChatVisibilityNudgeDismissed;
   _ChatSubTab _activeTab = _ChatSubTab.groupChats;
 
@@ -128,8 +130,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   /// Create a default "All [Members]" conversation if none exist yet.
   void _seedDefaultConversation(List<Conversation> conversations) {
-    if (_seeded || conversations.isNotEmpty) return;
-    _seeded = true;
+    if (_seeded || _seedAttemptInFlight || conversations.isNotEmpty) return;
 
     // Don't seed the default conversation creator as the Unknown sentinel —
     // pick from real, user-visible members only.
@@ -137,16 +138,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (members == null || members.isEmpty) return;
 
     final terms = readTerminology(context, ref);
+    _seedAttemptInFlight = true;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(chatNotifierProvider.notifier)
-          .createGroupConversation(
-            title: 'All ${terms.plural}',
-            emoji: '💬',
-            creatorId: members.first.id,
-            participantIds: members.map((m) => m.id).toList(),
-          );
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        _seedAttemptInFlight = false;
+        return;
+      }
+      try {
+        await ref
+            .read(chatNotifierProvider.notifier)
+            .seedDefaultConversationIfNeeded(
+              title: 'All ${terms.plural}',
+              emoji: '💬',
+              members: members,
+            );
+      } catch (error) {
+        if (!mounted) return;
+        PrismToast.error(
+          context,
+          message: context.l10n.chatCreateFailed(error),
+        );
+      } finally {
+        _seeded = true;
+        _seedAttemptInFlight = false;
+      }
     });
   }
 

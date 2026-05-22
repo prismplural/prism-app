@@ -403,6 +403,36 @@ class ChatNotifier extends AsyncNotifier<void> {
     return conversation;
   }
 
+  Future<Conversation?> seedDefaultConversationIfNeeded({
+    required String title,
+    required String emoji,
+    required List<Member> members,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      Conversation? seeded;
+      if (members.isNotEmpty) {
+        final repo = ref.read(conversationRepositoryProvider);
+        final existingConversations = await repo.getAllConversations();
+        if (existingConversations.isEmpty) {
+          final creatorId = members.first.id;
+          seeded = await createGroupConversation(
+            title: title,
+            emoji: emoji,
+            creatorId: creatorId,
+            participantIds: [creatorId],
+            includesAllMembers: true,
+          );
+        }
+      }
+      state = const AsyncData(null);
+      return seeded;
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      rethrow;
+    }
+  }
+
   Future<void> setIncludesAllMembers(String conversationId, bool value) async {
     state = await AsyncValue.guard(() async {
       await _requireConversationAction(conversationId, (p) => p.canManage);

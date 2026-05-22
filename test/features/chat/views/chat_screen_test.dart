@@ -118,6 +118,16 @@ class _EmptyChatMessageRepository implements ChatMessageRepository {
   ) => Stream.value(0);
 }
 
+class _CountingConversationRepository extends FakeConversationRepository {
+  int getAllConversationsCallCount = 0;
+
+  @override
+  Future<List<Conversation>> getAllConversations() async {
+    getAllConversationsCallCount += 1;
+    return super.getAllConversations();
+  }
+}
+
 Member _member(String id, String name) =>
     Member(id: id, name: name, createdAt: DateTime(2026, 5, 8));
 
@@ -341,6 +351,71 @@ void main() {
     expect(find.byType(MemberSearchSheet), findsOneWidget);
     expect(find.text('Unknown'), findsOneWidget);
   });
+
+  testWidgets(
+    'default seed no-op latches after checking hidden conversations',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final now = DateTime(2026, 5, 8, 12);
+      final alice = _member('alice', 'Alice');
+      final bob = _member('bob', 'Bob');
+      final members = FakeMemberRepository()..seed([alice, bob]);
+      final conversations = _CountingConversationRepository()
+        ..conversations.add(
+          _conversation(
+            id: 'hidden-existing',
+            at: now,
+            participantIds: const ['alice', 'bob'],
+            title: 'All Members',
+          ),
+        );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            memberRepositoryProvider.overrideWithValue(members),
+            conversationRepositoryProvider.overrideWithValue(conversations),
+            chatMessageRepositoryProvider.overrideWithValue(
+              _EmptyChatMessageRepository(),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+            currentChatViewerProvider.overrideWithValue(null),
+            speakingAsProvider.overrideWith(
+              () => _TestSpeakingAsNotifier(null),
+            ),
+            conversationCategoriesProvider.overrideWith(
+              (ref) => Stream.value([]),
+            ),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
+            ),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: [Locale('en')],
+            home: ChatScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(conversations.conversations, hasLength(1));
+      expect(conversations.getAllConversationsCallCount, 1);
+
+      await tester.tap(find.text('Direct Messages'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(conversations.conversations, hasLength(1));
+      expect(conversations.getAllConversationsCallCount, 1);
+    },
+  );
 
   group('admin moderation section', () {
     Widget buildAdminSubject() {
