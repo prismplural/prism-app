@@ -4,6 +4,32 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-05-22
+
+This patch release fixes Simply Plural import handling for current exports,
+preserves export compatibility, and includes the post-0.9.3 chat, navigation,
+database, theme, member color, and Windows packaging fixes.
+
+### Added
+- Windows release builds now include installer packaging with clearer artifact
+  names.
+
+### Changed
+- Windows installer metadata now carries the correct app version.
+
+### Fixed
+- Prism exports preserve backup model fields needed for reliable restore
+  compatibility.
+- Navigation now passes explicit branch targets so shell-route jumps land in the
+  intended tab.
+- Database writes tolerate transient SQLite locks instead of failing immediately.
+- Everyone chats allow Unknown where legacy all-member conversations need it.
+- Chat setup no longer creates duplicate default conversations.
+- Neutral theme palettes keep their accent colors monochrome.
+- Member profiles honor manually chosen accent colors.
+- Simply Plural chat imports no longer warn about encrypted chats when short
+  plaintext messages such as "test" happen to look like base64 tokens.
+
 ## [0.9.3] - 2026-05-20
 
 This patch release hardens Android secure-storage recovery after reports of Prism
