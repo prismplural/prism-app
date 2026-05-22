@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/birthday.dart';
@@ -38,6 +39,21 @@ import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 import 'package:uuid/uuid.dart';
 
 enum _MemberEditTab { edit, style }
+
+enum _AlwaysFrontingSessionAction { keepFronting, endFronting }
+
+class _AlwaysFrontingSessionChoice {
+  const _AlwaysFrontingSessionChoice({
+    required this.action,
+    this.sessionIdsToEnd,
+  });
+
+  final _AlwaysFrontingSessionAction action;
+  final Set<String>? sessionIdsToEnd;
+
+  bool get shouldEndFronting =>
+      action == _AlwaysFrontingSessionAction.endFronting;
+}
 
 /// A modal sheet for creating or editing a system member.
 class AddEditMemberSheet extends ConsumerStatefulWidget {
@@ -505,11 +521,102 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     }
   }
 
+  Future<_AlwaysFrontingSessionChoice?> _showAlwaysFrontingSessionChoiceDialog(
+    Member member, {
+    required Set<String> sessionIdsToEnd,
+  }) {
+    final l10n = context.l10n;
+    return PrismDialog.show<_AlwaysFrontingSessionChoice>(
+      context: context,
+      title: l10n.memberAlwaysFrontingEndPromptTitle,
+      message: l10n.memberAlwaysFrontingEndPromptMessage(member.name),
+      builder: (ctx) => Wrap(
+        alignment: WrapAlignment.end,
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          PrismButton(
+            label: l10n.cancel,
+            tone: PrismButtonTone.outlined,
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+          PrismButton(
+            label: l10n.memberAlwaysFrontingKeepFronting,
+            tone: PrismButtonTone.filled,
+            onPressed: () => Navigator.of(ctx).pop(
+              const _AlwaysFrontingSessionChoice(
+                action: _AlwaysFrontingSessionAction.keepFronting,
+              ),
+            ),
+          ),
+          PrismButton(
+            label: l10n.memberAlwaysFrontingEndFront,
+            tone: PrismButtonTone.destructive,
+            onPressed: () => Navigator.of(ctx).pop(
+              _AlwaysFrontingSessionChoice(
+                action: _AlwaysFrontingSessionAction.endFronting,
+                sessionIdsToEnd: sessionIdsToEnd,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<Set<String>> _activeNormalSessionIdsForMember(String memberId) async {
+    final active = await ref
+        .read(frontingSessionRepositoryProvider)
+        .getAllActiveSessionsUnfiltered();
+    return {
+      for (final session in active)
+        if (session.memberId == memberId && !session.isSleep) session.id,
+    };
+  }
+
+  Future<_AlwaysFrontingSessionChoice?> _maybeAskAlwaysFrontingSessionChoice(
+    Member updated,
+  ) async {
+    final previous = widget.member;
+    if (previous == null) {
+      return const _AlwaysFrontingSessionChoice(
+        action: _AlwaysFrontingSessionAction.endFronting,
+      );
+    }
+    if (!previous.isActive || previous.isDeleted) {
+      return const _AlwaysFrontingSessionChoice(
+        action: _AlwaysFrontingSessionAction.endFronting,
+      );
+    }
+    if (!previous.isAlwaysFronting || updated.isAlwaysFronting) {
+      return const _AlwaysFrontingSessionChoice(
+        action: _AlwaysFrontingSessionAction.endFronting,
+      );
+    }
+    if (!updated.isActive || updated.isDeleted) {
+      return const _AlwaysFrontingSessionChoice(
+        action: _AlwaysFrontingSessionAction.endFronting,
+      );
+    }
+    final sessionIdsToEnd = await _activeNormalSessionIdsForMember(updated.id);
+    if (sessionIdsToEnd.isEmpty) {
+      return const _AlwaysFrontingSessionChoice(
+        action: _AlwaysFrontingSessionAction.endFronting,
+        sessionIdsToEnd: <String>{},
+      );
+    }
+    if (!mounted) return null;
+    return _showAlwaysFrontingSessionChoiceDialog(
+      updated,
+      sessionIdsToEnd: sessionIdsToEnd,
+    );
+  }
+
   Future<void> _save() async {
+    if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _saving = true);
-    await _customFieldsEditorController.savePendingValues();
 
     final name = _nameController.text.trim();
     final pronouns = _pronounsController.text.trim();
@@ -568,8 +675,20 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           nameStyleColorHex: nameStyleColorHex,
           profileHeaderImageData: _profileHeaderImageData,
         );
-        await notifier.updateMember(updated);
+        final alwaysFrontingSessionChoice =
+            await _maybeAskAlwaysFrontingSessionChoice(updated);
+        if (!mounted || alwaysFrontingSessionChoice == null) return;
+
+        await _customFieldsEditorController.savePendingValues();
+        await notifier.updateMember(
+          updated,
+          endPreviousAlwaysFrontingSessions:
+              alwaysFrontingSessionChoice.shouldEndFronting,
+          previousAlwaysFrontingSessionIdsToEnd:
+              alwaysFrontingSessionChoice.sessionIdsToEnd,
+        );
       } else {
+        await _customFieldsEditorController.savePendingValues();
         await notifier.createMember(
           id: _memberId,
           name: name,
@@ -621,8 +740,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
         final pkSyncState = ref.read(pluralKitSyncProvider);
         final pushEnabled = ref.read(pkSyncDirectionProvider).pushEnabled;
         final mode = ref.read(pkSyncModeProvider);
-        final pushDisabled =
-            !pushEnabled || mode == PkSyncMode.liveFrontsOnly;
+        final pushDisabled = !pushEnabled || mode == PkSyncMode.liveFrontsOnly;
         if (pkSyncState.canAutoSync && pushDisabled) {
           await showPkPushNewMemberDialog(
             context,

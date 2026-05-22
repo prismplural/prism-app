@@ -6107,6 +6107,30 @@ abstract class AppLocalizations {
   /// **'Keep an ongoing fronting session for this {termSingularLower}. They stay pinned separately and do not appear in regular fronting stacks.'**
   String memberAlwaysFrontingSubtitle(String termSingularLower);
 
+  /// Dialog title shown when turning off Always fronting while the member has an active fronting session
+  ///
+  /// In en, this message translates to:
+  /// **'End current front?'**
+  String get memberAlwaysFrontingEndPromptTitle;
+
+  /// Dialog body shown when turning off Always fronting while the member has an active fronting session
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off Always fronting for {memberName} and keep their current front active, or end it now?'**
+  String memberAlwaysFrontingEndPromptMessage(String memberName);
+
+  /// Dialog action: turn off Always fronting but leave the current fronting session active
+  ///
+  /// In en, this message translates to:
+  /// **'Keep fronting'**
+  String get memberAlwaysFrontingKeepFronting;
+
+  /// Dialog action: turn off Always fronting and end the current fronting session
+  ///
+  /// In en, this message translates to:
+  /// **'End front'**
+  String get memberAlwaysFrontingEndFront;
+
   /// Section heading for the member accent color controls
   ///
   /// In en, this message translates to:

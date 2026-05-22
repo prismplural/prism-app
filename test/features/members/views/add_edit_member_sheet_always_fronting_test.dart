@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
@@ -80,7 +81,11 @@ class _FakeMemberRepository implements MemberRepository {
   ensureUnknownSentinelMember() async => (member: member, wasCreated: false);
 }
 
-Widget _harness({required Member member, required _FakeMemberRepository repo}) {
+Widget _harness({
+  required Member member,
+  required _FakeMemberRepository repo,
+  FakeFrontingSessionRepository? frontingRepo,
+}) {
   return ProviderScope(
     overrides: [
       // §4 verifiedStartupKeyProvider throws by default; widget tests don't
@@ -88,7 +93,7 @@ Widget _harness({required Member member, required _FakeMemberRepository repo}) {
       verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
       memberRepositoryProvider.overrideWithValue(repo),
       frontingSessionRepositoryProvider.overrideWithValue(
-        FakeFrontingSessionRepository(),
+        frontingRepo ?? FakeFrontingSessionRepository(),
       ),
       customFieldsProvider.overrideWithValue(const AsyncValue.data([])),
       terminologySettingProvider.overrideWithValue((
@@ -116,6 +121,24 @@ void _useTallViewport(WidgetTester tester) {
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+}
+
+Future<void> _pumpUntil(
+  WidgetTester tester,
+  bool Function() condition, {
+  Duration timeout = const Duration(seconds: 2),
+  Duration step = const Duration(milliseconds: 50),
+}) async {
+  final deadline = tester.binding.clock.now().add(timeout);
+  while (tester.binding.clock.now().isBefore(deadline)) {
+    if (condition()) return;
+    await tester.pump(step);
+  }
+  expect(condition(), isTrue);
+}
+
+Future<void> _pumpUntilFound(WidgetTester tester, Finder finder) {
+  return _pumpUntil(tester, () => finder.evaluate().isNotEmpty);
 }
 
 void main() {
@@ -186,6 +209,245 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repo.updated?.isAlwaysFronting, isFalse);
+  });
+
+  testWidgets(
+    'asks before ending the active front when always fronting is turned off',
+    (tester) async {
+      _useTallViewport(tester);
+
+      final member = Member(
+        id: 'm-1',
+        name: 'Alice',
+        isAlwaysFronting: true,
+        createdAt: DateTime(2026, 1, 1),
+      );
+      final repo = _FakeMemberRepository(member);
+      final frontingRepo = FakeFrontingSessionRepository();
+      await frontingRepo.createSession(
+        FrontingSession(
+          id: 'front-1',
+          startTime: DateTime(2026, 1, 1, 12),
+          memberId: 'm-1',
+        ),
+      );
+
+      await tester.pumpWidget(
+        _harness(member: member, repo: repo, frontingRepo: frontingRepo),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('Always fronting'),
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.widgetWithText(PrismSwitchRow, 'Always fronting'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Save member'));
+      await _pumpUntilFound(tester, find.text('End current front?'));
+
+      expect(find.text('End current front?'), findsOneWidget);
+
+      await tester.tap(find.text('Keep fronting'));
+      await _pumpUntil(tester, () => repo.updated != null);
+
+      expect(repo.updated?.isAlwaysFronting, isFalse);
+      expect((await frontingRepo.getSessionById('front-1'))?.endTime, isNull);
+    },
+  );
+
+  testWidgets(
+    'canceling the always-fronting prompt leaves the front unchanged',
+    (tester) async {
+      _useTallViewport(tester);
+
+      final member = Member(
+        id: 'm-1',
+        name: 'Alice',
+        isAlwaysFronting: true,
+        createdAt: DateTime(2026, 1, 1),
+      );
+      final repo = _FakeMemberRepository(member);
+      final frontingRepo = FakeFrontingSessionRepository();
+      await frontingRepo.createSession(
+        FrontingSession(
+          id: 'front-1',
+          startTime: DateTime(2026, 1, 1, 12),
+          memberId: 'm-1',
+        ),
+      );
+
+      await tester.pumpWidget(
+        _harness(member: member, repo: repo, frontingRepo: frontingRepo),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('Always fronting'),
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.widgetWithText(PrismSwitchRow, 'Always fronting'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Save member'));
+      await _pumpUntilFound(tester, find.text('End current front?'));
+
+      await tester.tap(find.text('Cancel'));
+      await _pumpUntil(
+        tester,
+        () => find.text('End current front?').evaluate().isEmpty,
+      );
+
+      expect(repo.updated, isNull);
+      expect((await frontingRepo.getSessionById('front-1'))?.endTime, isNull);
+    },
+  );
+
+  testWidgets('double-tapping save only opens one always-fronting prompt', (
+    tester,
+  ) async {
+    _useTallViewport(tester);
+
+    final member = Member(
+      id: 'm-1',
+      name: 'Alice',
+      isAlwaysFronting: true,
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final repo = _FakeMemberRepository(member);
+    final frontingRepo = FakeFrontingSessionRepository();
+    await frontingRepo.createSession(
+      FrontingSession(
+        id: 'front-1',
+        startTime: DateTime(2026, 1, 1, 12),
+        memberId: 'm-1',
+      ),
+    );
+
+    await tester.pumpWidget(
+      _harness(member: member, repo: repo, frontingRepo: frontingRepo),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Always fronting'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.widgetWithText(PrismSwitchRow, 'Always fronting'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Save member'));
+    await tester.tap(find.byTooltip('Save member'));
+    await _pumpUntilFound(tester, find.text('End current front?'));
+
+    expect(find.text('End current front?'), findsOneWidget);
+
+    await tester.tap(find.text('Keep fronting'));
+    await _pumpUntil(tester, () => repo.updated != null);
+
+    expect(repo.updated?.isAlwaysFronting, isFalse);
+    expect((await frontingRepo.getSessionById('front-1'))?.endTime, isNull);
+  });
+
+  testWidgets('can end the active front from the always-fronting prompt', (
+    tester,
+  ) async {
+    _useTallViewport(tester);
+
+    final member = Member(
+      id: 'm-1',
+      name: 'Alice',
+      isAlwaysFronting: true,
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final repo = _FakeMemberRepository(member);
+    final frontingRepo = FakeFrontingSessionRepository();
+    await frontingRepo.createSession(
+      FrontingSession(
+        id: 'front-1',
+        startTime: DateTime(2026, 1, 1, 12),
+        memberId: 'm-1',
+      ),
+    );
+
+    await tester.pumpWidget(
+      _harness(member: member, repo: repo, frontingRepo: frontingRepo),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Always fronting'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.widgetWithText(PrismSwitchRow, 'Always fronting'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Save member'));
+    await _pumpUntilFound(tester, find.text('End current front?'));
+
+    await tester.tap(find.text('End front'));
+    await _pumpUntil(tester, () => repo.updated != null);
+
+    expect(repo.updated?.isAlwaysFronting, isFalse);
+    expect((await frontingRepo.getSessionById('front-1'))?.endTime, isNotNull);
+  });
+
+  testWidgets('end prompt only ends the front that triggered the prompt', (
+    tester,
+  ) async {
+    _useTallViewport(tester);
+
+    final member = Member(
+      id: 'm-1',
+      name: 'Alice',
+      isAlwaysFronting: true,
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final repo = _FakeMemberRepository(member);
+    final frontingRepo = FakeFrontingSessionRepository();
+    await frontingRepo.createSession(
+      FrontingSession(
+        id: 'front-1',
+        startTime: DateTime(2026, 1, 1, 12),
+        memberId: 'm-1',
+      ),
+    );
+
+    await tester.pumpWidget(
+      _harness(member: member, repo: repo, frontingRepo: frontingRepo),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Always fronting'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.widgetWithText(PrismSwitchRow, 'Always fronting'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Save member'));
+    await _pumpUntilFound(tester, find.text('End current front?'));
+
+    await frontingRepo.createSession(
+      FrontingSession(
+        id: 'front-2',
+        startTime: DateTime(2026, 1, 1, 12, 30),
+        memberId: 'm-1',
+      ),
+    );
+
+    await tester.tap(find.text('End front'));
+    await _pumpUntil(tester, () => repo.updated != null);
+
+    expect(repo.updated?.isAlwaysFronting, isFalse);
+    expect((await frontingRepo.getSessionById('front-1'))?.endTime, isNotNull);
+    expect((await frontingRepo.getSessionById('front-2'))?.endTime, isNull);
   });
 
   testWidgets('toggling on persists isAlwaysFronting=true on save', (

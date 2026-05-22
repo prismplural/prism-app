@@ -4780,6 +4780,27 @@
       }
     }
   },
+  "memberAlwaysFrontingEndPromptTitle": "End current front?",
+  "@memberAlwaysFrontingEndPromptTitle": {
+    "description": "Dialog title shown when turning off Always fronting while the member has an active fronting session"
+  },
+  "memberAlwaysFrontingEndPromptMessage": "Turn off Always fronting for {memberName} and keep their current front active, or end it now?",
+  "@memberAlwaysFrontingEndPromptMessage": {
+    "description": "Dialog body shown when turning off Always fronting while the member has an active fronting session",
+    "placeholders": {
+      "memberName": {
+        "type": "String"
+      }
+    }
+  },
+  "memberAlwaysFrontingKeepFronting": "Keep fronting",
+  "@memberAlwaysFrontingKeepFronting": {
+    "description": "Dialog action: turn off Always fronting but leave the current fronting session active"
+  },
+  "memberAlwaysFrontingEndFront": "End front",
+  "@memberAlwaysFrontingEndFront": {
+    "description": "Dialog action: turn off Always fronting and end the current fronting session"
+  },
   "memberAccentColorSectionTitle": "Accent color",
   "@memberAccentColorSectionTitle": {
     "description": "Section heading for the member accent color controls"

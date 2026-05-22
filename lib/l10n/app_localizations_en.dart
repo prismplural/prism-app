@@ -3514,6 +3514,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get memberAlwaysFrontingEndPromptTitle => 'End current front?';
+
+  @override
+  String memberAlwaysFrontingEndPromptMessage(String memberName) {
+    return 'Turn off Always fronting for $memberName and keep their current front active, or end it now?';
+  }
+
+  @override
+  String get memberAlwaysFrontingKeepFronting => 'Keep fronting';
+
+  @override
+  String get memberAlwaysFrontingEndFront => 'End front';
+
+  @override
   String get memberAccentColorSectionTitle => 'Accent color';
 
   @override

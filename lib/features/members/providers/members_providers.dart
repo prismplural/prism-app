@@ -162,15 +162,24 @@ class MembersNotifier extends AsyncNotifier<void> {
     });
   }
 
-  Future<void> updateMember(Member member) async {
+  Future<void> updateMember(
+    Member member, {
+    bool endPreviousAlwaysFrontingSessions = true,
+    Set<String>? previousAlwaysFrontingSessionIdsToEnd,
+  }) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(memberRepositoryProvider);
       final previous = await repo.getMemberById(member.id);
       await repo.updateMember(member);
       if (_isActiveAlwaysFronting(member)) {
         await _ensureAlwaysFrontingSession(member.id);
-      } else if (previous != null && _isActiveAlwaysFronting(previous)) {
-        await _endAlwaysFrontingSessions(member.id);
+      } else if (endPreviousAlwaysFrontingSessions &&
+          previous != null &&
+          _isActiveAlwaysFronting(previous)) {
+        await _endAlwaysFrontingSessions(
+          member.id,
+          sessionIdsToEnd: previousAlwaysFrontingSessionIdsToEnd,
+        );
       }
     });
   }
@@ -214,12 +223,19 @@ class MembersNotifier extends AsyncNotifier<void> {
     );
   }
 
-  Future<void> _endAlwaysFrontingSessions(String memberId) async {
+  Future<void> _endAlwaysFrontingSessions(
+    String memberId, {
+    Set<String>? sessionIdsToEnd,
+  }) async {
     final repo = ref.read(frontingSessionRepositoryProvider);
     final now = DateTime.now();
     final active = await repo.getAllActiveSessionsUnfiltered();
     for (final session in active) {
-      if (session.memberId == memberId && !session.isSleep) {
+      final shouldEnd =
+          session.memberId == memberId &&
+          !session.isSleep &&
+          (sessionIdsToEnd == null || sessionIdsToEnd.contains(session.id));
+      if (shouldEnd) {
         await repo.endSession(session.id, now);
       }
     }
