@@ -133,6 +133,47 @@ Map<String, dynamic> coerceSpInfoMap(dynamic raw) {
   return out;
 }
 
+/// Build [SpCustomFieldDef] entries from a pre-v3 `users[0].fields` map.
+///
+/// Pre-update300 SP stored custom-field definitions on the user document
+/// rather than as a separate collection. Sorts by numeric order with id
+/// as tiebreak. Returns empty for non-Map / empty input.
+List<SpCustomFieldDef> synthesizeSpCustomFieldsFromUserFields(
+  dynamic rawFields,
+) {
+  if (rawFields is! Map || rawFields.isEmpty) return const [];
+  final result = <SpCustomFieldDef>[];
+  rawFields.forEach((key, value) {
+    if (key == null || value is! Map) return;
+    final id = key.toString();
+    if (id.isEmpty) return;
+    final name = (value['name'] ?? 'Field').toString();
+    final rawType = value['type'];
+    final type = rawType is int
+        ? rawType
+        : int.tryParse(rawType?.toString() ?? '') ?? 0;
+    final order = value['order']?.toString();
+    final supportMarkdown = value['supportMarkdown'] == true ||
+        value['supportDescMarkdown'] == true;
+    result.add(SpCustomFieldDef(
+      id: id,
+      name: name,
+      type: type,
+      order: order,
+      supportMarkdown: supportMarkdown,
+    ));
+  });
+  result.sort((a, b) {
+    final ao = int.tryParse(a.order ?? '');
+    final bo = int.tryParse(b.order ?? '');
+    if (ao != null && bo != null) return ao.compareTo(bo);
+    if (ao != null) return -1;
+    if (bo != null) return 1;
+    return a.id.compareTo(b.id);
+  });
+  return result;
+}
+
 Map<String, String> extractSpCustomFieldValueKeyMap(dynamic rawFields) {
   if (rawFields is! Map) return const {};
 
@@ -1022,14 +1063,16 @@ class SpParser {
     // Try to get system info from users collection.
     final users = json['users'];
     var customFieldValueKeyMap = const <String, String>{};
+    dynamic userFieldsMap;
     if (users is List && users.isNotEmpty) {
       final user = users.first;
       if (user is Map<String, dynamic>) {
         systemName ??= user['username'] as String?;
         systemColor ??= user['color'] as String?;
         systemDescription ??= user['desc'] as String?;
+        userFieldsMap = user['fields'];
         customFieldValueKeyMap = extractSpCustomFieldValueKeyMap(
-          user['fields'],
+          userFieldsMap,
         );
 
         // System-level avatar: prefer direct URL, else construct the
@@ -1078,7 +1121,15 @@ class SpParser {
         json['comments'],
         (m) => SpComment.fromJson(m, now: clock),
       ),
-      customFields: _parseList(json['customFields'], SpCustomFieldDef.fromJson),
+      customFields: () {
+        final fromCollection = _parseList(
+          json['customFields'],
+          SpCustomFieldDef.fromJson,
+        );
+        if (fromCollection.isNotEmpty) return fromCollection;
+        // Pre-v3 fallback: defs lived on users[0].fields.
+        return synthesizeSpCustomFieldsFromUserFields(userFieldsMap);
+      }(),
       boardMessages: _parseList(
         json['boardMessages'],
         (m) => SpBoardMessage.fromJson(m, now: clock),

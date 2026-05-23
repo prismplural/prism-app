@@ -625,6 +625,101 @@ void main() {
     });
   });
 
+  group('synthesizeSpCustomFieldsFromUserFields', () {
+    test('null or empty input returns empty list', () {
+      expect(synthesizeSpCustomFieldsFromUserFields(null), isEmpty);
+      expect(synthesizeSpCustomFieldsFromUserFields(<String, dynamic>{}),
+          isEmpty);
+      expect(synthesizeSpCustomFieldsFromUserFields('not a map'), isEmpty);
+    });
+
+    test('builds defs from pre-v3 users.fields map', () {
+      final out = synthesizeSpCustomFieldsFromUserFields({
+        'abc123': {'name': 'Age', 'order': 0, 'type': 0},
+        'def456': {'name': 'Pronouns', 'order': 1, 'type': 0},
+      });
+      expect(out, hasLength(2));
+      final age = out.firstWhere((f) => f.name == 'Age');
+      expect(age.id, 'abc123');
+      expect(age.type, 0);
+      expect(age.order, '0');
+    });
+
+    test('sorts by numeric order then by id', () {
+      final out = synthesizeSpCustomFieldsFromUserFields({
+        'z': {'name': 'Z', 'order': 2, 'type': 0},
+        'a': {'name': 'A', 'order': 0, 'type': 0},
+        'm': {'name': 'M', 'order': 1, 'type': 0},
+      });
+      expect(out.map((f) => f.id).toList(), ['a', 'm', 'z']);
+    });
+
+    test('handles non-Map entry values by skipping them', () {
+      final out = synthesizeSpCustomFieldsFromUserFields({
+        'good': {'name': 'Good', 'type': 0},
+        'bad': 'not-an-object',
+        'good2': {'name': 'Good2', 'type': 0},
+      });
+      expect(out.map((f) => f.id).toSet(), {'good', 'good2'});
+    });
+
+    test('defaults type to 0 when missing or non-int', () {
+      final out = synthesizeSpCustomFieldsFromUserFields({
+        'a': {'name': 'A'},
+        'b': {'name': 'B', 'type': '2'},
+        'c': {'name': 'C', 'type': 'not-a-number'},
+      });
+      expect(out.firstWhere((f) => f.id == 'a').type, 0);
+      expect(out.firstWhere((f) => f.id == 'b').type, 2);
+      expect(out.firstWhere((f) => f.id == 'c').type, 0);
+    });
+
+    test('SpParser uses synthesized defs when customFields collection is absent',
+        () {
+      final json = jsonEncode({
+        'users': [
+          {
+            '_id': 'u1',
+            'username': 'system',
+            'fields': {
+              'fld1': {'name': 'Likes', 'order': 0, 'type': 0},
+              'fld2': {'name': 'Dislikes', 'order': 1, 'type': 0},
+            },
+          },
+        ],
+        'members': [],
+        'frontHistory': [],
+      });
+      final data = SpParser.parse(json);
+      expect(data.customFields, hasLength(2));
+      expect(
+        data.customFields.map((f) => f.name).toSet(),
+        {'Likes', 'Dislikes'},
+      );
+    });
+
+    test('Top-level customFields collection wins when both present', () {
+      final json = jsonEncode({
+        'users': [
+          {
+            'fields': {
+              'old-id': {'name': 'Legacy', 'order': 0, 'type': 0},
+            },
+          },
+        ],
+        'members': [],
+        'frontHistory': [],
+        'customFields': [
+          {'_id': 'new-id', 'name': 'Modern', 'type': 0},
+        ],
+      });
+      final data = SpParser.parse(json);
+      expect(data.customFields, hasLength(1));
+      expect(data.customFields.first.name, 'Modern');
+      expect(data.customFields.first.id, 'new-id');
+    });
+  });
+
   group('coerceSpInfoMap', () {
     test('null returns empty map', () {
       expect(coerceSpInfoMap(null), isEmpty);
