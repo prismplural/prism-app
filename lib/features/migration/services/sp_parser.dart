@@ -502,6 +502,40 @@ class SpFrontHistory {
       isCustomFront: json['custom'] == true || json['customFront'] == true,
     );
   }
+
+  /// Build a live [SpFrontHistory] from a pre-v1.50 `fronters` entry,
+  /// which carries only `_id` (member id) and `startTime`. SP's
+  /// update150 normally merges these into `frontHistory`.
+  factory SpFrontHistory.fromFrontersEntry(
+    Map<String, dynamic> json, {
+    DateTime Function()? now,
+  }) {
+    final clock = now ?? DateTime.now;
+    // The `_id` on a fronters entry is the member's id (per the SP
+    // migration code). Accept `member` as an explicit alternate field
+    // for hand-built/edited exports.
+    final rawMember = json['member'] ?? json['_id'] ?? json['id'];
+    final memberId = rawMember?.toString();
+    final start = _parseSpTimeOr(
+      json['startTime'] ?? json['createdAt'],
+      clock,
+    );
+    // Stable synthetic id so re-imports produce identical session IDs.
+    // Two fronters entries for the same member+startTime collapse to
+    // one frontHistory row, which is the same semantics as the SP
+    // server would have applied during update150.
+    final synthId =
+        'fronters:${memberId ?? ''}:${start.millisecondsSinceEpoch}';
+    return SpFrontHistory(
+      id: synthId,
+      memberId: (memberId == null || memberId.isEmpty) ? null : memberId,
+      coFronters: const [],
+      startTime: start,
+      endTime: null,
+      live: true,
+      isCustomFront: false,
+    );
+  }
 }
 
 /// SP group structure.
@@ -1100,10 +1134,18 @@ class SpParser {
         json['frontStatuses'] ?? json['customFronts'],
         SpCustomFront.fromJson,
       ),
-      frontHistory: _parseList(
-        json['frontHistory'],
-        (m) => SpFrontHistory.fromJson(m, now: clock),
-      ),
+      frontHistory: () {
+        final parsed = _parseList(
+          json['frontHistory'],
+          (m) => SpFrontHistory.fromJson(m, now: clock),
+        );
+        if (parsed.isNotEmpty) return parsed;
+        // Pre-v1.50 fallback: live fronts lived in `fronters`.
+        return _parseList(
+          json['fronters'],
+          (m) => SpFrontHistory.fromFrontersEntry(m, now: clock),
+        );
+      }(),
       groups: _parseList(json['groups'], SpGroup.fromJson),
       channels: _parseList(json['channels'], SpChannel.fromJson),
       channelCategories: _parseList(

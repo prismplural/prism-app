@@ -720,6 +720,83 @@ void main() {
     });
   });
 
+  group('Legacy fronters collection fallback', () {
+    test('SpFrontHistory.fromFrontersEntry builds a live entry', () {
+      final fh = SpFrontHistory.fromFrontersEntry({
+        '_id': 'mem-abc',
+        'startTime': 1684858400000,
+      });
+      expect(fh.memberId, 'mem-abc');
+      expect(fh.live, isTrue);
+      expect(fh.endTime, isNull);
+      expect(fh.startTime.millisecondsSinceEpoch, 1684858400000);
+      expect(fh.isCustomFront, isFalse);
+    });
+
+    test('falls back through `member` then `_id` for the member ref', () {
+      final fh = SpFrontHistory.fromFrontersEntry({
+        '_id': 'doc-1',
+        'member': 'mem-real',
+        'startTime': 1684858400000,
+      });
+      expect(fh.memberId, 'mem-real');
+    });
+
+    test('synthesizes a stable id keyed by member+startTime', () {
+      final a = SpFrontHistory.fromFrontersEntry({
+        '_id': 'mem-1',
+        'startTime': 1000,
+      });
+      final b = SpFrontHistory.fromFrontersEntry({
+        '_id': 'mem-1',
+        'startTime': 1000,
+      });
+      final c = SpFrontHistory.fromFrontersEntry({
+        '_id': 'mem-1',
+        'startTime': 2000,
+      });
+      expect(a.id, b.id, reason: 'same member+startTime → same id');
+      expect(a.id, isNot(c.id),
+          reason: 'different startTime → different id');
+    });
+
+    test('SpParser uses fronters fallback when frontHistory is empty', () {
+      final json = jsonEncode({
+        'members': [
+          {'_id': 'mem-1', 'name': 'Alpha'},
+        ],
+        'fronters': [
+          {'_id': 'mem-1', 'startTime': 1684858400000},
+        ],
+      });
+      final data = SpParser.parse(json);
+      expect(data.frontHistory, hasLength(1));
+      expect(data.frontHistory.first.memberId, 'mem-1');
+      expect(data.frontHistory.first.live, isTrue);
+      expect(data.frontHistory.first.endTime, isNull);
+    });
+
+    test('SpParser prefers frontHistory when both are present', () {
+      final json = jsonEncode({
+        'members': [],
+        'frontHistory': [
+          {
+            '_id': 'fh-1',
+            'member': 'mem-1',
+            'startTime': 1000,
+            'endTime': 2000,
+          },
+        ],
+        'fronters': [
+          {'_id': 'mem-stale', 'startTime': 500},
+        ],
+      });
+      final data = SpParser.parse(json);
+      expect(data.frontHistory, hasLength(1));
+      expect(data.frontHistory.first.id, 'fh-1');
+    });
+  });
+
   group('coerceSpInfoMap', () {
     test('null returns empty map', () {
       expect(coerceSpInfoMap(null), isEmpty);
