@@ -252,15 +252,34 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
   }
 
   void _rebuildSearchIndexes() {
-    _allMembersIndex = MemberSearchIndex(widget.members);
+    final groupNamesByMemberId = _buildGroupNamesByMemberId(widget.groups);
+    _allMembersIndex = MemberSearchIndex(
+      widget.members,
+      additionalSearchTermsByMemberId: groupNamesByMemberId,
+    );
     _groupMemberIndexes = [
       for (final group in widget.groups)
         MemberSearchIndex(
           widget.members
               .where((member) => group.memberIds.contains(member.id))
               .toList(growable: false),
+          additionalSearchTermsByMemberId: groupNamesByMemberId,
         ),
     ];
+  }
+
+  Map<String, List<String>> _buildGroupNamesByMemberId(
+    List<MemberSearchGroup> groups,
+  ) {
+    final termsByMemberId = <String, List<String>>{};
+    for (final group in groups) {
+      final groupName = group.name.trim();
+      if (groupName.isEmpty) continue;
+      for (final memberId in group.memberIds) {
+        termsByMemberId.putIfAbsent(memberId, () => []).add(groupName);
+      }
+    }
+    return termsByMemberId;
   }
 
   List<Member> get _filteredMembers {
@@ -482,9 +501,7 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
         size: 36,
       ),
       title: Text(member.name),
-      subtitle: member.pronouns != null && member.pronouns!.isNotEmpty
-          ? Text(member.pronouns!)
-          : null,
+      subtitle: _buildMemberSubtitle(member),
       trailing: trailing,
       onTap: () {
         if (widget.multiSelect) {
@@ -493,6 +510,29 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
           _popSingle(MemberSearchResultSelected(member.id));
         }
       },
+    );
+  }
+
+  Widget? _buildMemberSubtitle(Member member) {
+    final parts = <String>[];
+    final fullName = member.displayName?.trim();
+    if (fullName != null &&
+        fullName.isNotEmpty &&
+        normalizeMemberSearchText(fullName) !=
+            normalizeMemberSearchText(member.name.trim())) {
+      parts.add(fullName);
+    }
+
+    final pronouns = member.pronouns?.trim();
+    if (pronouns != null && pronouns.isNotEmpty) {
+      parts.add(pronouns);
+    }
+
+    if (parts.isEmpty) return null;
+    return Text(
+      parts.join(' - '),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 

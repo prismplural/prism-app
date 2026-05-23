@@ -13,8 +13,18 @@ import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
-Member _member({required String id, required String name, String? pronouns}) =>
-    Member(id: id, name: name, pronouns: pronouns, createdAt: DateTime(2024));
+Member _member({
+  required String id,
+  required String name,
+  String? pronouns,
+  String? displayName,
+}) => Member(
+  id: id,
+  name: name,
+  pronouns: pronouns,
+  displayName: displayName,
+  createdAt: DateTime(2024),
+);
 
 /// Wraps [MemberSearchSheet] with the minimal l10n scaffold for widget tests.
 Widget _buildSheet({
@@ -168,6 +178,38 @@ void main() {
       expect(carolY, lessThan(aliceY));
       expect(aliceY, lessThan(bobY));
     });
+
+    testWidgets('shows distinct full name in member rows', (tester) async {
+      await tester.pumpWidget(
+        _buildSheet(
+          members: [
+            _member(
+              id: 'reverie',
+              name: 'Reverie',
+              displayName: 'Reverie Loaf',
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Reverie'), findsOneWidget);
+      expect(find.text('Reverie Loaf'), findsOneWidget);
+    });
+
+    testWidgets('hides full name subtitle when it only differs by case', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildSheet(
+          members: [_member(id: 'alice', name: 'alice', displayName: 'Alice')],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('alice'), findsOneWidget);
+      expect(find.text('Alice'), findsNothing);
+    });
   });
 
   group('group chip filtering', () {
@@ -211,6 +253,58 @@ void main() {
       // Bob is in the group but doesn't match "ali"
       expect(find.text('Bob'), findsNothing);
       // Carol is not in the group at all
+      expect(find.text('Carol'), findsNothing);
+    });
+
+    testWidgets('text search can match group names from all members', (
+      tester,
+    ) async {
+      final groups = [
+        const MemberSearchGroup(id: 'day', name: 'Day Crew', memberIds: {'a'}),
+        const MemberSearchGroup(
+          id: 'night',
+          name: 'Night Crew',
+          memberIds: {'b', 'c'},
+        ),
+      ];
+
+      await tester.pumpWidget(_buildSheet(members: members, groups: groups));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'night crew');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alice'), findsNothing);
+      expect(find.text('Bob'), findsOneWidget);
+      expect(find.text('Carol'), findsOneWidget);
+    });
+
+    testWidgets('group-name search remains scoped to selected group', (
+      tester,
+    ) async {
+      final groups = [
+        const MemberSearchGroup(
+          id: 'day',
+          name: 'Day Crew',
+          memberIds: {'a', 'b'},
+        ),
+        const MemberSearchGroup(
+          id: 'night',
+          name: 'Night Crew',
+          memberIds: {'b', 'c'},
+        ),
+      ];
+
+      await tester.pumpWidget(_buildSheet(members: members, groups: groups));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Day Crew'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'night crew');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alice'), findsNothing);
+      expect(find.text('Bob'), findsOneWidget);
       expect(find.text('Carol'), findsNothing);
     });
 

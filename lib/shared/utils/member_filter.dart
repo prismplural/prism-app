@@ -2,14 +2,14 @@ import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
 import 'package:prism_plurality/domain/models/member.dart';
 
-/// Normalises [text] to a stable search key: NFKC → lowercase.
+/// Normalises [text] to a stable search key: NFKC then lowercase.
 ///
 /// NFKC maps compatibility variants (fullwidth Latin, mathematical alphabets,
 /// etc.) to their base ASCII equivalents before lowercasing, so queries like
 /// "alice" match members whose names use decorative Unicode characters.
-/// Stored names are never modified — only the ephemeral search key is built
+/// Stored names are never modified; only the ephemeral search key is built
 /// from this function.
-String _normalizeForSearch(String text) => unorm.nfkc(text).toLowerCase();
+String normalizeMemberSearchText(String text) => unorm.nfkc(text).toLowerCase();
 
 class MemberSearchIndex {
   MemberSearchIndex(
@@ -32,7 +32,7 @@ class MemberSearchIndex {
 
   List<Member> filter(String query) {
     if (query.isEmpty) return _members;
-    final normalizedQuery = _normalizeForSearch(query);
+    final normalizedQuery = normalizeMemberSearchText(query);
     return [
       for (final entry in _entries)
         if (entry.searchKey.contains(normalizedQuery)) entry.member,
@@ -68,7 +68,7 @@ String _searchKey(Member member, Iterable<String> additionalSearchTerms) {
   void writeTerm(String? term) {
     final trimmed = term?.trim();
     if (trimmed == null || trimmed.isEmpty) return;
-    final normalized = _normalizeForSearch(trimmed);
+    final normalized = normalizeMemberSearchText(trimmed);
     if (!seen.add(normalized)) return;
     if (buffer.isNotEmpty) buffer.write(' ');
     buffer.write(normalized);
