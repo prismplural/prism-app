@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 
 part 'custom_field.freezed.dart';
 part 'custom_field.g.dart';
@@ -10,16 +11,23 @@ enum CustomFieldType {
   longText; // 3
 
   String get label => switch (this) {
-        CustomFieldType.text => 'Short Text',
-        CustomFieldType.color => 'Color',
-        CustomFieldType.date => 'Date',
-        CustomFieldType.longText => 'Long Text',
-      };
+    CustomFieldType.text => 'Short Text',
+    CustomFieldType.color => 'Color',
+    CustomFieldType.date => 'Date',
+    CustomFieldType.longText => 'Long Text',
+  };
+
+  String localizedLabel(AppLocalizations l10n) => switch (this) {
+    CustomFieldType.text => l10n.customFieldTypeShortText,
+    CustomFieldType.color => l10n.customFieldTypeColor,
+    CustomFieldType.date => l10n.customFieldTypeDate,
+    CustomFieldType.longText => l10n.customFieldTypeLongText,
+  };
 
   bool get isTextual => switch (this) {
-        CustomFieldType.text || CustomFieldType.longText => true,
-        CustomFieldType.color || CustomFieldType.date => false,
-      };
+    CustomFieldType.text || CustomFieldType.longText => true,
+    CustomFieldType.color || CustomFieldType.date => false,
+  };
 }
 
 enum DatePrecision {
@@ -31,13 +39,22 @@ enum DatePrecision {
   timestamp; // 5 - date + time
 
   String get label => switch (this) {
-        DatePrecision.full => 'Full Date',
-        DatePrecision.monthYear => 'Month & Year',
-        DatePrecision.monthDay => 'Month & Day',
-        DatePrecision.month => 'Month',
-        DatePrecision.year => 'Year',
-        DatePrecision.timestamp => 'Date & Time',
-      };
+    DatePrecision.full => 'Full Date',
+    DatePrecision.monthYear => 'Month & Year',
+    DatePrecision.monthDay => 'Month & Day',
+    DatePrecision.month => 'Month',
+    DatePrecision.year => 'Year',
+    DatePrecision.timestamp => 'Date & Time',
+  };
+
+  String localizedLabel(AppLocalizations l10n) => switch (this) {
+    DatePrecision.full => l10n.customFieldDatePrecisionFull,
+    DatePrecision.monthYear => l10n.customFieldDatePrecisionMonthYear,
+    DatePrecision.monthDay => l10n.customFieldDatePrecisionMonthDay,
+    DatePrecision.month => l10n.customFieldDatePrecisionMonth,
+    DatePrecision.year => l10n.customFieldDatePrecisionYear,
+    DatePrecision.timestamp => l10n.customFieldDatePrecisionTimestamp,
+  };
 }
 
 @freezed

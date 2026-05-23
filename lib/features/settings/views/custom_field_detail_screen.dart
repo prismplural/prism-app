@@ -24,6 +24,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
@@ -127,7 +128,7 @@ class _CustomFieldDetailBody extends ConsumerWidget {
                 children: [
                   _MetadataRow(
                     label: context.l10n.settingsCreateEditFieldTypeHeading,
-                    value: field.fieldType.label,
+                    value: field.fieldType.localizedLabel(context.l10n),
                   ),
                   if (field.fieldType == CustomFieldType.date &&
                       field.datePrecision != null) ...[
@@ -136,7 +137,7 @@ class _CustomFieldDetailBody extends ConsumerWidget {
                       label: context
                           .l10n
                           .settingsCreateEditFieldDatePrecisionHeading,
-                      value: field.datePrecision!.label,
+                      value: field.datePrecision!.localizedLabel(context.l10n),
                     ),
                   ],
                 ],
@@ -270,6 +271,10 @@ class _FilledInContent extends ConsumerWidget {
   final List<CustomFieldValue> values;
   final List<Member> members;
 
+  static const _longShortTextValueLength = 80;
+  static const _longShortTextValueCount = 2;
+  static const _longShortTextValueRatio = 0.5;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -280,6 +285,7 @@ class _FilledInContent extends ConsumerWidget {
         if (value.value.trim().isNotEmpty && memberById[value.memberId] != null)
           _FilledValueEntry(member: memberById[value.memberId]!, value: value),
     ];
+    final showLengthHint = _shouldShowLongTextHint(entries);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,6 +319,10 @@ class _FilledInContent extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
+        if (showLengthHint) ...[
+          const _ShortTextLengthHint(),
+          const SizedBox(height: 12),
+        ],
         if (entries.isEmpty)
           EmptyState(
             icon: Icon(AppIcons.tuneOutlined),
@@ -333,6 +343,56 @@ class _FilledInContent extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+
+  bool _shouldShowLongTextHint(List<_FilledValueEntry> entries) {
+    if (field.fieldType != CustomFieldType.text || entries.isEmpty) {
+      return false;
+    }
+
+    final longValueCount = entries
+        .where((entry) => _looksLongForShortText(entry.value.value))
+        .length;
+    return longValueCount >= _longShortTextValueCount &&
+        longValueCount / entries.length >= _longShortTextValueRatio;
+  }
+
+  bool _looksLongForShortText(String raw) {
+    final value = raw.trim();
+    return value.contains('\n') || value.length >= _longShortTextValueLength;
+  }
+}
+
+class _ShortTextLengthHint extends StatelessWidget {
+  const _ShortTextLengthHint();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return PrismSurface(
+      tone: PrismSurfaceTone.subtle,
+      accentColor: AppColors.warning,
+      borderRadius: 8,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(AppIcons.infoOutline, color: AppColors.warning, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              context.l10n.settingsCustomFieldLongShortTextHint(
+                CustomFieldType.longText.localizedLabel(context.l10n),
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -196,10 +196,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         children: [
                           for (final type in _fieldTypeOptions)
                             PrismChip(
-                              label: type.label,
+                              label: type.localizedLabel(context.l10n),
                               selected: type == _selectedType,
-                              onTap:
-                                  (_selectedType.isTextual && type.isTextual)
+                              onTap: (_selectedType.isTextual && type.isTextual)
                                   ? () {
                                       setState(() => _selectedType = type);
                                       Haptics.selection();
@@ -225,7 +224,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         children: [
                           for (final type in _fieldTypeOptions)
                             PrismChip(
-                              label: type.label,
+                              label: type.localizedLabel(context.l10n),
                               selected: type == _selectedType,
                               onTap: () {
                                 setState(() => _selectedType = type);
@@ -255,7 +254,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         children: [
                           for (final precision in DatePrecision.values)
                             PrismChip(
-                              label: precision.label,
+                              label: precision.localizedLabel(context.l10n),
                               selected: precision == _selectedPrecision,
                               onTap: () {
                                 setState(() => _selectedPrecision = precision);

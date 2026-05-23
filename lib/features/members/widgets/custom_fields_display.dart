@@ -64,34 +64,11 @@ class CustomFieldsDisplay extends ConsumerWidget {
 
     if (entries.isEmpty) return const SizedBox.shrink();
 
-    final theme = Theme.of(context);
-    final l10n = context.l10n;
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                AppIcons.tuneOutlined,
-                size: 18,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                l10n.memberSectionCustomFields,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ..._buildEntryWidgets(entries),
-        ],
+        children: _buildEntryWidgets(entries),
       ),
     );
   }
@@ -141,6 +118,7 @@ class CustomFieldsDisplay extends ConsumerWidget {
 
   static bool _shouldUseCard(_FieldValueEntry entry) {
     if (entry.field.fieldType == CustomFieldType.longText) return true;
+    if (entry.field.fieldType == CustomFieldType.text) return false;
     if (entry.value.value.contains('\n')) return true;
     if (entry.field.name.length > _compactNameLimit) return true;
     if (entry.displayValue.length > _compactValueLimit) return true;
@@ -218,22 +196,28 @@ class _FieldValueRow extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
+          Flexible(
+            flex: 2,
+            fit: FlexFit.tight,
             child: Text(
               entry.field.name,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
+                height: 1.35,
               ),
             ),
           ),
           const SizedBox(width: 12),
           Flexible(
+            flex: 3,
+            fit: FlexFit.tight,
             child: _FieldValueBody(
               entry: entry,
-              textStyle: theme.textTheme.bodyMedium,
+              textStyle: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
               textAlign: TextAlign.end,
             ),
           ),

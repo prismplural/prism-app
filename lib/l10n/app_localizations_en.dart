@@ -7771,6 +7771,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String settingsCustomFieldLongShortTextHint(String fieldType) {
+    return 'This field is collecting longer answers. $fieldType may be easier to read and edit.';
+  }
+
+  @override
   String settingsCustomFieldValueSemantics(
     String fieldName,
     String memberName,
@@ -8014,6 +8019,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String settingsCreateEditFieldSaveError(String error) {
     return 'Error saving field: $error';
   }
+
+  @override
+  String get customFieldTypeShortText => 'Short Text';
+
+  @override
+  String get customFieldTypeLongText => 'Long Text';
+
+  @override
+  String get customFieldTypeColor => 'Color';
+
+  @override
+  String get customFieldTypeDate => 'Date';
+
+  @override
+  String get customFieldDatePrecisionFull => 'Full Date';
+
+  @override
+  String get customFieldDatePrecisionMonthYear => 'Month & Year';
+
+  @override
+  String get customFieldDatePrecisionMonthDay => 'Month & Day';
+
+  @override
+  String get customFieldDatePrecisionMonth => 'Month';
+
+  @override
+  String get customFieldDatePrecisionYear => 'Year';
+
+  @override
+  String get customFieldDatePrecisionTimestamp => 'Date & Time';
 
   @override
   String get settingsDataBrowserTitle => 'Data Browser';

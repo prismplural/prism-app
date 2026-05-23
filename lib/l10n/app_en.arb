@@ -8849,6 +8849,11 @@
     "description": "Empty state subtitle when no members have a custom field value",
     "placeholders": { "termPluralLower": { "type": "String" } }
   },
+  "settingsCustomFieldLongShortTextHint": "This field is collecting longer answers. {fieldType} may be easier to read and edit.",
+  "@settingsCustomFieldLongShortTextHint": {
+    "description": "Friendly warning shown on short text custom fields when several saved values are long",
+    "placeholders": { "fieldType": { "type": "String" } }
+  },
   "settingsCustomFieldValueSemantics": "{fieldName} for {memberName}: {value}",
   "@settingsCustomFieldValueSemantics": {
     "description": "Screen reader label for a member custom field value row",
@@ -9012,6 +9017,26 @@
     "description": "Toast shown when saving a field fails",
     "placeholders": { "error": { "type": "String" } }
   },
+  "customFieldTypeShortText": "Short Text",
+  "@customFieldTypeShortText": { "description": "Label for the short text custom field type" },
+  "customFieldTypeLongText": "Long Text",
+  "@customFieldTypeLongText": { "description": "Label for the long text custom field type" },
+  "customFieldTypeColor": "Color",
+  "@customFieldTypeColor": { "description": "Label for the color custom field type" },
+  "customFieldTypeDate": "Date",
+  "@customFieldTypeDate": { "description": "Label for the date custom field type" },
+  "customFieldDatePrecisionFull": "Full Date",
+  "@customFieldDatePrecisionFull": { "description": "Label for full date custom field precision" },
+  "customFieldDatePrecisionMonthYear": "Month & Year",
+  "@customFieldDatePrecisionMonthYear": { "description": "Label for month and year custom field precision" },
+  "customFieldDatePrecisionMonthDay": "Month & Day",
+  "@customFieldDatePrecisionMonthDay": { "description": "Label for month and day custom field precision" },
+  "customFieldDatePrecisionMonth": "Month",
+  "@customFieldDatePrecisionMonth": { "description": "Label for month custom field precision" },
+  "customFieldDatePrecisionYear": "Year",
+  "@customFieldDatePrecisionYear": { "description": "Label for year custom field precision" },
+  "customFieldDatePrecisionTimestamp": "Date & Time",
+  "@customFieldDatePrecisionTimestamp": { "description": "Label for date and time custom field precision" },
   "settingsDataBrowserTitle": "Data Browser",
   "@settingsDataBrowserTitle": { "description": "Title of the data browser debug screen" },
   "settingsDataBrowserReloadTooltip": "Reload data",

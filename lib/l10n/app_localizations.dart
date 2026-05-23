@@ -12659,6 +12659,12 @@ abstract class AppLocalizations {
   /// **'When {termPluralLower} fill in this field, they’ll appear here.'**
   String settingsCustomFieldNoValuesSubtitle(String termPluralLower);
 
+  /// Friendly warning shown on short text custom fields when several saved values are long
+  ///
+  /// In en, this message translates to:
+  /// **'This field is collecting longer answers. {fieldType} may be easier to read and edit.'**
+  String settingsCustomFieldLongShortTextHint(String fieldType);
+
   /// Screen reader label for a member custom field value row
   ///
   /// In en, this message translates to:
@@ -13094,6 +13100,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error saving field: {error}'**
   String settingsCreateEditFieldSaveError(String error);
+
+  /// Label for the short text custom field type
+  ///
+  /// In en, this message translates to:
+  /// **'Short Text'**
+  String get customFieldTypeShortText;
+
+  /// Label for the long text custom field type
+  ///
+  /// In en, this message translates to:
+  /// **'Long Text'**
+  String get customFieldTypeLongText;
+
+  /// Label for the color custom field type
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get customFieldTypeColor;
+
+  /// Label for the date custom field type
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get customFieldTypeDate;
+
+  /// Label for full date custom field precision
+  ///
+  /// In en, this message translates to:
+  /// **'Full Date'**
+  String get customFieldDatePrecisionFull;
+
+  /// Label for month and year custom field precision
+  ///
+  /// In en, this message translates to:
+  /// **'Month & Year'**
+  String get customFieldDatePrecisionMonthYear;
+
+  /// Label for month and day custom field precision
+  ///
+  /// In en, this message translates to:
+  /// **'Month & Day'**
+  String get customFieldDatePrecisionMonthDay;
+
+  /// Label for month custom field precision
+  ///
+  /// In en, this message translates to:
+  /// **'Month'**
+  String get customFieldDatePrecisionMonth;
+
+  /// Label for year custom field precision
+  ///
+  /// In en, this message translates to:
+  /// **'Year'**
+  String get customFieldDatePrecisionYear;
+
+  /// Label for date and time custom field precision
+  ///
+  /// In en, this message translates to:
+  /// **'Date & Time'**
+  String get customFieldDatePrecisionTimestamp;
 
   /// Title of the data browser debug screen
   ///

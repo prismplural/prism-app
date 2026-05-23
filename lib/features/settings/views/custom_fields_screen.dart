@@ -87,12 +87,13 @@ class _FieldsList extends ConsumerWidget {
     CustomFieldType.date => AppIcons.calendarToday,
   };
 
-  String _subtitleForField(CustomField field) {
+  String _subtitleForField(BuildContext context, CustomField field) {
     if (field.fieldType == CustomFieldType.date &&
         field.datePrecision != null) {
-      return '${field.fieldType.label} \u2022 ${field.datePrecision!.label}';
+      return '${field.fieldType.localizedLabel(context.l10n)} \u2022 '
+          '${field.datePrecision!.localizedLabel(context.l10n)}';
     }
-    return field.fieldType.label;
+    return field.fieldType.localizedLabel(context.l10n);
   }
 
   void _onReorder(WidgetRef ref, int oldIndex, int newIndex) {
@@ -135,7 +136,7 @@ class _FieldsList extends ConsumerWidget {
           ),
           title: Text(field.name),
           subtitle: Text(
-            _subtitleForField(field),
+            _subtitleForField(context, field),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

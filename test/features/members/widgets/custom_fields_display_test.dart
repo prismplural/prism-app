@@ -80,7 +80,7 @@ void main() {
     expect(find.text('Field long'), findsOneWidget);
   });
 
-  testWidgets('medium fields render as cards while short fields stay grouped', (
+  testWidgets('short text stays grouped even with long names and values', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -105,9 +105,23 @@ void main() {
     await tester.pump();
 
     expect(find.byType(PrismSectionCard), findsOneWidget);
-    expect(find.byType(PrismSurface), findsNWidgets(2));
+    expect(find.byType(PrismSurface), findsOneWidget);
     expect(find.text('Role'), findsOneWidget);
     expect(find.text('Detailed internal relationship context'), findsOneWidget);
+  });
+
+  testWidgets('profile custom fields omit the section header', (tester) async {
+    await tester.pumpWidget(
+      subject(
+        fields: [field('short', CustomFieldType.text)],
+        values: [value('short', 'Protector')],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Custom Fields'), findsNothing);
+    expect(find.text('Field short'), findsOneWidget);
+    expect(find.text('Protector'), findsOneWidget);
   });
 
   testWidgets('long text truncates and opens full detail sheet', (

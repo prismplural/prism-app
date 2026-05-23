@@ -20,7 +20,11 @@ void _useTallViewport(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Widget _testApp(db.AppDatabase database, Widget child) {
+Widget _testApp(
+  db.AppDatabase database,
+  Widget child, {
+  Locale locale = const Locale('en'),
+}) {
   return ProviderScope(
     overrides: [
       databaseProvider.overrideWithValue(database),
@@ -34,6 +38,7 @@ Widget _testApp(db.AppDatabase database, Widget child) {
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      locale: locale,
       home: child,
     ),
   );
@@ -183,6 +188,225 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Filled in for 1 headmate'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('suggests long text when multiple short text values are long', (
+    tester,
+  ) async {
+    _useTallViewport(tester);
+    final database = db.AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    for (final member in [('m-1', 'Alice'), ('m-2', 'Bea'), ('m-3', 'Cam')]) {
+      await database.membersDao.insertMember(
+        db.MembersCompanion.insert(
+          id: member.$1,
+          name: member.$2,
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      );
+    }
+    await database.customFieldsDao.createField(
+      db.CustomFieldsCompanion.insert(
+        id: 'role-notes',
+        name: 'Role notes',
+        fieldType: 0,
+        createdAt: DateTime(2026, 1, 3),
+      ),
+    );
+    for (final value in [
+      (
+        'v-1',
+        'm-1',
+        'Usually prefers careful check-ins after stressful days. '
+            'They appreciate context, a little quiet, and enough room to explain.',
+      ),
+      (
+        'v-2',
+        'm-2',
+        'Keeps a detailed list of grounding preferences, support '
+            'signals, and things that should be handled gently.',
+      ),
+      ('v-3', 'm-3', 'Short'),
+    ]) {
+      await database.customFieldsDao.upsertValue(
+        db.CustomFieldValuesCompanion.insert(
+          id: value.$1,
+          customFieldId: 'role-notes',
+          memberId: value.$2,
+          value: value.$3,
+        ),
+      );
+    }
+
+    await tester.pumpWidget(
+      _testApp(database, const CustomFieldDetailScreen(fieldId: 'role-notes')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'This field is collecting longer answers. Long Text may be easier to read and edit.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('localizes custom field type labels in Spanish', (tester) async {
+    _useTallViewport(tester);
+    final database = db.AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    for (final member in [('m-1', 'Alicia'), ('m-2', 'Bea')]) {
+      await database.membersDao.insertMember(
+        db.MembersCompanion.insert(
+          id: member.$1,
+          name: member.$2,
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      );
+    }
+    await database.customFieldsDao.createField(
+      db.CustomFieldsCompanion.insert(
+        id: 'role-notes',
+        name: 'Notas de rol',
+        fieldType: 0,
+        createdAt: DateTime(2026, 1, 3),
+      ),
+    );
+    for (final value in [
+      (
+        'v-1',
+        'm-1',
+        'Prefiere check-ins tranquilos después de días largos, con contexto suficiente para explicar lo que necesita.',
+      ),
+      (
+        'v-2',
+        'm-2',
+        'Mantiene una lista detallada de preferencias de apoyo, señales y temas que conviene manejar con cuidado.',
+      ),
+    ]) {
+      await database.customFieldsDao.upsertValue(
+        db.CustomFieldValuesCompanion.insert(
+          id: value.$1,
+          customFieldId: 'role-notes',
+          memberId: value.$2,
+          value: value.$3,
+        ),
+      );
+    }
+
+    await tester.pumpWidget(
+      _testApp(
+        database,
+        const CustomFieldDetailScreen(fieldId: 'role-notes'),
+        locale: const Locale('es'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Texto corto'), findsOneWidget);
+    expect(
+      find.textContaining('Texto largo puede ser más fácil'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Long Text'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('does not suggest long text for a single long short text value', (
+    tester,
+  ) async {
+    _useTallViewport(tester);
+    final database = db.AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    await database.membersDao.insertMember(
+      db.MembersCompanion.insert(
+        id: 'm-1',
+        name: 'Alice',
+        createdAt: DateTime(2026, 1, 1),
+      ),
+    );
+    await database.customFieldsDao.createField(
+      db.CustomFieldsCompanion.insert(
+        id: 'role-notes',
+        name: 'Role notes',
+        fieldType: 0,
+        createdAt: DateTime(2026, 1, 3),
+      ),
+    );
+    await database.customFieldsDao.upsertValue(
+      db.CustomFieldValuesCompanion.insert(
+        id: 'v-1',
+        customFieldId: 'role-notes',
+        memberId: 'm-1',
+        value:
+            'Usually prefers careful check-ins after stressful days. They appreciate context, quiet, and enough room to explain.',
+      ),
+    );
+
+    await tester.pumpWidget(
+      _testApp(database, const CustomFieldDetailScreen(fieldId: 'role-notes')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Long Text may be easier'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('does not suggest long text for long text fields', (
+    tester,
+  ) async {
+    _useTallViewport(tester);
+    final database = db.AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    for (final member in [('m-1', 'Alice'), ('m-2', 'Bea')]) {
+      await database.membersDao.insertMember(
+        db.MembersCompanion.insert(
+          id: member.$1,
+          name: member.$2,
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      );
+    }
+    await database.customFieldsDao.createField(
+      db.CustomFieldsCompanion.insert(
+        id: 'backstory',
+        name: 'Backstory',
+        fieldType: 3,
+        createdAt: DateTime(2026, 1, 3),
+      ),
+    );
+    for (final value in [('v-1', 'm-1'), ('v-2', 'm-2')]) {
+      await database.customFieldsDao.upsertValue(
+        db.CustomFieldValuesCompanion.insert(
+          id: value.$1,
+          customFieldId: 'backstory',
+          memberId: value.$2,
+          value:
+              'A very long value that already belongs to a long text field, so no conversion nudge should appear.',
+        ),
+      );
+    }
+
+    await tester.pumpWidget(
+      _testApp(database, const CustomFieldDetailScreen(fieldId: 'backstory')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Long Text may be easier'), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
