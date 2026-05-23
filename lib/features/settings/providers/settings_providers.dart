@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
 const _kThemeBrightnessCache = 'prism.cache.theme_brightness';
@@ -24,7 +25,6 @@ const _kIgnoreSyncedAppearance = 'prism.pref.ignore_synced_appearance';
 const _kUseProxyTagsForAuthoring = 'prism.pref.use_proxy_tags_for_authoring';
 const _kHardLockSyncOnAppLock = 'prism.pref.hard_lock_sync_on_app_lock';
 const _kScreenPrivacyEnabled = 'prism.pref.screen_privacy_enabled';
-const _kHideTotalMemberCount = 'prism.pref.hide_total_member_count';
 
 ThemeStyle effectiveThemeStyleForPlatform(
   ThemeStyle style,
@@ -1330,7 +1330,7 @@ class ScreenPrivacyEnabledNotifier extends AsyncNotifier<bool> {
   }
 }
 
-/// Local-only preference for hiding global member-count totals.
+/// Synced app preference for hiding global member-count totals.
 final hideTotalMemberCountProvider =
     AsyncNotifierProvider<HideTotalMemberCountNotifier, bool>(
       HideTotalMemberCountNotifier.new,
@@ -1339,13 +1339,25 @@ final hideTotalMemberCountProvider =
 class HideTotalMemberCountNotifier extends AsyncNotifier<bool> {
   @override
   Future<bool> build() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_kHideTotalMemberCount) ?? false;
+    final repo = ref.watch(appPreferenceRepositoryProvider);
+    final subscription = repo
+        .watch(hideTotalMemberCountPreference)
+        .listen(
+          (value) {
+            state = AsyncValue.data(value);
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            state = AsyncValue.error(error, stackTrace);
+          },
+        );
+    ref.onDispose(subscription.cancel);
+    return repo.get(hideTotalMemberCountPreference);
   }
 
   Future<void> set(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kHideTotalMemberCount, value);
+    await ref
+        .read(appPreferenceRepositoryProvider)
+        .set(hideTotalMemberCountPreference, value);
     state = AsyncValue.data(value);
   }
 }

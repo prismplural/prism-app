@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/settings_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 class _IdleSyncStatusNotifier extends SyncStatusNotifier {
   @override
@@ -30,13 +33,19 @@ void main() {
     ),
   );
 
-  setUp(() {
-    SharedPreferences.setMockInitialValues({});
-  });
+  Widget buildSubject({
+    List<Member>? subjectMembers,
+    bool hideTotalMemberCount = false,
+  }) {
+    final appPrefs = FakeAppPreferenceRepository();
+    if (hideTotalMemberCount) {
+      appPrefs.seed(hideTotalMemberCountPreference, true);
+    }
+    addTearDown(appPrefs.close);
 
-  Widget buildSubject({List<Member>? subjectMembers}) {
     return ProviderScope(
       overrides: [
+        appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
         systemSettingsProvider.overrideWith(
           (ref) =>
               Stream.value(const SystemSettings(systemName: 'Test System')),
@@ -70,14 +79,15 @@ void main() {
       expect(find.text('+1'), findsOneWidget);
     });
 
-    testWidgets('hides total member count when local preference is enabled', (
+    testWidgets('hides total member count when synced preference is enabled', (
       tester,
     ) async {
-      SharedPreferences.setMockInitialValues({
-        'prism.pref.hide_total_member_count': true,
-      });
-
-      await tester.pumpWidget(buildSubject(subjectMembers: overflowMembers));
+      await tester.pumpWidget(
+        buildSubject(
+          subjectMembers: overflowMembers,
+          hideTotalMemberCount: true,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('9 headmates'), findsNothing);

@@ -202,6 +202,31 @@ void main() {
       expect(groupCalls.single.fields['is_deleted'], isTrue);
     });
 
+    test('emits preference reset tombstones', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      await db
+          .into(db.appPreferenceValues)
+          .insert(
+            AppPreferenceValuesCompanion.insert(
+              key: 'appearance.test',
+              valueType: 'string',
+              valueJson: const Value(null),
+              isDeleted: const Value(true),
+            ),
+          );
+
+      final calls = await _runBootstrap(db);
+
+      final prefCalls = calls
+          .where((c) => c.table == 'app_preference_values')
+          .toList();
+      expect(prefCalls, hasLength(1));
+      expect(prefCalls.single.entityId, 'appearance.test');
+      expect(prefCalls.single.fields['is_deleted'], isTrue);
+    });
+
     test('filters system_settings to id=singleton', () async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);

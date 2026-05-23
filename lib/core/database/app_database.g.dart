@@ -24593,6 +24593,744 @@ class PkMappingStateCompanion extends UpdateCompanion<PkMappingStateData> {
   }
 }
 
+class $AppPreferenceValuesTable extends AppPreferenceValues
+    with TableInfo<$AppPreferenceValuesTable, AppPreferenceValueRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppPreferenceValuesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueTypeMeta = const VerificationMeta(
+    'valueType',
+  );
+  @override
+  late final GeneratedColumn<String> valueType = GeneratedColumn<String>(
+    'value_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueJsonMeta = const VerificationMeta(
+    'valueJson',
+  );
+  @override
+  late final GeneratedColumn<String> valueJson = GeneratedColumn<String>(
+    'value_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [key, valueType, valueJson, isDeleted];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'app_preference_values';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppPreferenceValueRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('value_type')) {
+      context.handle(
+        _valueTypeMeta,
+        valueType.isAcceptableOrUnknown(data['value_type']!, _valueTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueTypeMeta);
+    }
+    if (data.containsKey('value_json')) {
+      context.handle(
+        _valueJsonMeta,
+        valueJson.isAcceptableOrUnknown(data['value_json']!, _valueJsonMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  AppPreferenceValueRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppPreferenceValueRow(
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      valueType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value_type'],
+      )!,
+      valueJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value_json'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $AppPreferenceValuesTable createAlias(String alias) {
+    return $AppPreferenceValuesTable(attachedDatabase, alias);
+  }
+}
+
+class AppPreferenceValueRow extends DataClass
+    implements Insertable<AppPreferenceValueRow> {
+  final String key;
+  final String valueType;
+  final String? valueJson;
+  final bool isDeleted;
+  const AppPreferenceValueRow({
+    required this.key,
+    required this.valueType,
+    this.valueJson,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['value_type'] = Variable<String>(valueType);
+    if (!nullToAbsent || valueJson != null) {
+      map['value_json'] = Variable<String>(valueJson);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  AppPreferenceValuesCompanion toCompanion(bool nullToAbsent) {
+    return AppPreferenceValuesCompanion(
+      key: Value(key),
+      valueType: Value(valueType),
+      valueJson: valueJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(valueJson),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory AppPreferenceValueRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppPreferenceValueRow(
+      key: serializer.fromJson<String>(json['key']),
+      valueType: serializer.fromJson<String>(json['valueType']),
+      valueJson: serializer.fromJson<String?>(json['valueJson']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'valueType': serializer.toJson<String>(valueType),
+      'valueJson': serializer.toJson<String?>(valueJson),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  AppPreferenceValueRow copyWith({
+    String? key,
+    String? valueType,
+    Value<String?> valueJson = const Value.absent(),
+    bool? isDeleted,
+  }) => AppPreferenceValueRow(
+    key: key ?? this.key,
+    valueType: valueType ?? this.valueType,
+    valueJson: valueJson.present ? valueJson.value : this.valueJson,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  AppPreferenceValueRow copyWithCompanion(AppPreferenceValuesCompanion data) {
+    return AppPreferenceValueRow(
+      key: data.key.present ? data.key.value : this.key,
+      valueType: data.valueType.present ? data.valueType.value : this.valueType,
+      valueJson: data.valueJson.present ? data.valueJson.value : this.valueJson,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppPreferenceValueRow(')
+          ..write('key: $key, ')
+          ..write('valueType: $valueType, ')
+          ..write('valueJson: $valueJson, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, valueType, valueJson, isDeleted);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppPreferenceValueRow &&
+          other.key == this.key &&
+          other.valueType == this.valueType &&
+          other.valueJson == this.valueJson &&
+          other.isDeleted == this.isDeleted);
+}
+
+class AppPreferenceValuesCompanion
+    extends UpdateCompanion<AppPreferenceValueRow> {
+  final Value<String> key;
+  final Value<String> valueType;
+  final Value<String?> valueJson;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const AppPreferenceValuesCompanion({
+    this.key = const Value.absent(),
+    this.valueType = const Value.absent(),
+    this.valueJson = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppPreferenceValuesCompanion.insert({
+    required String key,
+    required String valueType,
+    this.valueJson = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : key = Value(key),
+       valueType = Value(valueType);
+  static Insertable<AppPreferenceValueRow> custom({
+    Expression<String>? key,
+    Expression<String>? valueType,
+    Expression<String>? valueJson,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (valueType != null) 'value_type': valueType,
+      if (valueJson != null) 'value_json': valueJson,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppPreferenceValuesCompanion copyWith({
+    Value<String>? key,
+    Value<String>? valueType,
+    Value<String?>? valueJson,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return AppPreferenceValuesCompanion(
+      key: key ?? this.key,
+      valueType: valueType ?? this.valueType,
+      valueJson: valueJson ?? this.valueJson,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (valueType.present) {
+      map['value_type'] = Variable<String>(valueType.value);
+    }
+    if (valueJson.present) {
+      map['value_json'] = Variable<String>(valueJson.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppPreferenceValuesCompanion(')
+          ..write('key: $key, ')
+          ..write('valueType: $valueType, ')
+          ..write('valueJson: $valueJson, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MemberProfilePreferenceValuesTable extends MemberProfilePreferenceValues
+    with
+        TableInfo<
+          $MemberProfilePreferenceValuesTable,
+          MemberProfilePreferenceValueRow
+        > {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MemberProfilePreferenceValuesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _memberIdMeta = const VerificationMeta(
+    'memberId',
+  );
+  @override
+  late final GeneratedColumn<String> memberId = GeneratedColumn<String>(
+    'member_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueTypeMeta = const VerificationMeta(
+    'valueType',
+  );
+  @override
+  late final GeneratedColumn<String> valueType = GeneratedColumn<String>(
+    'value_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueJsonMeta = const VerificationMeta(
+    'valueJson',
+  );
+  @override
+  late final GeneratedColumn<String> valueJson = GeneratedColumn<String>(
+    'value_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    memberId,
+    key,
+    valueType,
+    valueJson,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'member_profile_preference_values';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MemberProfilePreferenceValueRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('member_id')) {
+      context.handle(
+        _memberIdMeta,
+        memberId.isAcceptableOrUnknown(data['member_id']!, _memberIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_memberIdMeta);
+    }
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('value_type')) {
+      context.handle(
+        _valueTypeMeta,
+        valueType.isAcceptableOrUnknown(data['value_type']!, _valueTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueTypeMeta);
+    }
+    if (data.containsKey('value_json')) {
+      context.handle(
+        _valueJsonMeta,
+        valueJson.isAcceptableOrUnknown(data['value_json']!, _valueJsonMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MemberProfilePreferenceValueRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MemberProfilePreferenceValueRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      memberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}member_id'],
+      )!,
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      valueType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value_type'],
+      )!,
+      valueJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value_json'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $MemberProfilePreferenceValuesTable createAlias(String alias) {
+    return $MemberProfilePreferenceValuesTable(attachedDatabase, alias);
+  }
+}
+
+class MemberProfilePreferenceValueRow extends DataClass
+    implements Insertable<MemberProfilePreferenceValueRow> {
+  final String id;
+  final String memberId;
+  final String key;
+  final String valueType;
+  final String? valueJson;
+  final bool isDeleted;
+  const MemberProfilePreferenceValueRow({
+    required this.id,
+    required this.memberId,
+    required this.key,
+    required this.valueType,
+    this.valueJson,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['member_id'] = Variable<String>(memberId);
+    map['key'] = Variable<String>(key);
+    map['value_type'] = Variable<String>(valueType);
+    if (!nullToAbsent || valueJson != null) {
+      map['value_json'] = Variable<String>(valueJson);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  MemberProfilePreferenceValuesCompanion toCompanion(bool nullToAbsent) {
+    return MemberProfilePreferenceValuesCompanion(
+      id: Value(id),
+      memberId: Value(memberId),
+      key: Value(key),
+      valueType: Value(valueType),
+      valueJson: valueJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(valueJson),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory MemberProfilePreferenceValueRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MemberProfilePreferenceValueRow(
+      id: serializer.fromJson<String>(json['id']),
+      memberId: serializer.fromJson<String>(json['memberId']),
+      key: serializer.fromJson<String>(json['key']),
+      valueType: serializer.fromJson<String>(json['valueType']),
+      valueJson: serializer.fromJson<String?>(json['valueJson']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'memberId': serializer.toJson<String>(memberId),
+      'key': serializer.toJson<String>(key),
+      'valueType': serializer.toJson<String>(valueType),
+      'valueJson': serializer.toJson<String?>(valueJson),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  MemberProfilePreferenceValueRow copyWith({
+    String? id,
+    String? memberId,
+    String? key,
+    String? valueType,
+    Value<String?> valueJson = const Value.absent(),
+    bool? isDeleted,
+  }) => MemberProfilePreferenceValueRow(
+    id: id ?? this.id,
+    memberId: memberId ?? this.memberId,
+    key: key ?? this.key,
+    valueType: valueType ?? this.valueType,
+    valueJson: valueJson.present ? valueJson.value : this.valueJson,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  MemberProfilePreferenceValueRow copyWithCompanion(
+    MemberProfilePreferenceValuesCompanion data,
+  ) {
+    return MemberProfilePreferenceValueRow(
+      id: data.id.present ? data.id.value : this.id,
+      memberId: data.memberId.present ? data.memberId.value : this.memberId,
+      key: data.key.present ? data.key.value : this.key,
+      valueType: data.valueType.present ? data.valueType.value : this.valueType,
+      valueJson: data.valueJson.present ? data.valueJson.value : this.valueJson,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MemberProfilePreferenceValueRow(')
+          ..write('id: $id, ')
+          ..write('memberId: $memberId, ')
+          ..write('key: $key, ')
+          ..write('valueType: $valueType, ')
+          ..write('valueJson: $valueJson, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, memberId, key, valueType, valueJson, isDeleted);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MemberProfilePreferenceValueRow &&
+          other.id == this.id &&
+          other.memberId == this.memberId &&
+          other.key == this.key &&
+          other.valueType == this.valueType &&
+          other.valueJson == this.valueJson &&
+          other.isDeleted == this.isDeleted);
+}
+
+class MemberProfilePreferenceValuesCompanion
+    extends UpdateCompanion<MemberProfilePreferenceValueRow> {
+  final Value<String> id;
+  final Value<String> memberId;
+  final Value<String> key;
+  final Value<String> valueType;
+  final Value<String?> valueJson;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const MemberProfilePreferenceValuesCompanion({
+    this.id = const Value.absent(),
+    this.memberId = const Value.absent(),
+    this.key = const Value.absent(),
+    this.valueType = const Value.absent(),
+    this.valueJson = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MemberProfilePreferenceValuesCompanion.insert({
+    required String id,
+    required String memberId,
+    required String key,
+    required String valueType,
+    this.valueJson = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       memberId = Value(memberId),
+       key = Value(key),
+       valueType = Value(valueType);
+  static Insertable<MemberProfilePreferenceValueRow> custom({
+    Expression<String>? id,
+    Expression<String>? memberId,
+    Expression<String>? key,
+    Expression<String>? valueType,
+    Expression<String>? valueJson,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (memberId != null) 'member_id': memberId,
+      if (key != null) 'key': key,
+      if (valueType != null) 'value_type': valueType,
+      if (valueJson != null) 'value_json': valueJson,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MemberProfilePreferenceValuesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? memberId,
+    Value<String>? key,
+    Value<String>? valueType,
+    Value<String?>? valueJson,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return MemberProfilePreferenceValuesCompanion(
+      id: id ?? this.id,
+      memberId: memberId ?? this.memberId,
+      key: key ?? this.key,
+      valueType: valueType ?? this.valueType,
+      valueJson: valueJson ?? this.valueJson,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (memberId.present) {
+      map['member_id'] = Variable<String>(memberId.value);
+    }
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (valueType.present) {
+      map['value_type'] = Variable<String>(valueType.value);
+    }
+    if (valueJson.present) {
+      map['value_json'] = Variable<String>(valueJson.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MemberProfilePreferenceValuesCompanion(')
+          ..write('id: $id, ')
+          ..write('memberId: $memberId, ')
+          ..write('key: $key, ')
+          ..write('valueType: $valueType, ')
+          ..write('valueJson: $valueJson, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -24647,6 +25385,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $SpIdMapTableTable spIdMapTable = $SpIdMapTableTable(this);
   late final $PkMappingStateTable pkMappingState = $PkMappingStateTable(this);
+  late final $AppPreferenceValuesTable appPreferenceValues =
+      $AppPreferenceValuesTable(this);
+  late final $MemberProfilePreferenceValuesTable memberProfilePreferenceValues =
+      $MemberProfilePreferenceValuesTable(this);
   late final MembersDao membersDao = MembersDao(this as AppDatabase);
   late final FrontingSessionsDao frontingSessionsDao = FrontingSessionsDao(
     this as AppDatabase,
@@ -24702,6 +25444,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final PkMappingStateDao pkMappingStateDao = PkMappingStateDao(
     this as AppDatabase,
   );
+  late final PreferenceValuesDao preferenceValuesDao = PreferenceValuesDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -24737,6 +25482,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     spSyncStateTable,
     spIdMapTable,
     pkMappingState,
+    appPreferenceValues,
+    memberProfilePreferenceValues,
   ];
 }
 
@@ -36063,6 +36810,441 @@ typedef $$PkMappingStateTableProcessedTableManager =
       PkMappingStateData,
       PrefetchHooks Function()
     >;
+typedef $$AppPreferenceValuesTableCreateCompanionBuilder =
+    AppPreferenceValuesCompanion Function({
+      required String key,
+      required String valueType,
+      Value<String?> valueJson,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$AppPreferenceValuesTableUpdateCompanionBuilder =
+    AppPreferenceValuesCompanion Function({
+      Value<String> key,
+      Value<String> valueType,
+      Value<String?> valueJson,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$AppPreferenceValuesTableFilterComposer
+    extends Composer<_$AppDatabase, $AppPreferenceValuesTable> {
+  $$AppPreferenceValuesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get valueType => $composableBuilder(
+    column: $table.valueType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get valueJson => $composableBuilder(
+    column: $table.valueJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppPreferenceValuesTableOrderingComposer
+    extends Composer<_$AppDatabase, $AppPreferenceValuesTable> {
+  $$AppPreferenceValuesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get valueType => $composableBuilder(
+    column: $table.valueType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get valueJson => $composableBuilder(
+    column: $table.valueJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppPreferenceValuesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AppPreferenceValuesTable> {
+  $$AppPreferenceValuesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<String> get valueType =>
+      $composableBuilder(column: $table.valueType, builder: (column) => column);
+
+  GeneratedColumn<String> get valueJson =>
+      $composableBuilder(column: $table.valueJson, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$AppPreferenceValuesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AppPreferenceValuesTable,
+          AppPreferenceValueRow,
+          $$AppPreferenceValuesTableFilterComposer,
+          $$AppPreferenceValuesTableOrderingComposer,
+          $$AppPreferenceValuesTableAnnotationComposer,
+          $$AppPreferenceValuesTableCreateCompanionBuilder,
+          $$AppPreferenceValuesTableUpdateCompanionBuilder,
+          (
+            AppPreferenceValueRow,
+            BaseReferences<
+              _$AppDatabase,
+              $AppPreferenceValuesTable,
+              AppPreferenceValueRow
+            >,
+          ),
+          AppPreferenceValueRow,
+          PrefetchHooks Function()
+        > {
+  $$AppPreferenceValuesTableTableManager(
+    _$AppDatabase db,
+    $AppPreferenceValuesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppPreferenceValuesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppPreferenceValuesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$AppPreferenceValuesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> key = const Value.absent(),
+                Value<String> valueType = const Value.absent(),
+                Value<String?> valueJson = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppPreferenceValuesCompanion(
+                key: key,
+                valueType: valueType,
+                valueJson: valueJson,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String key,
+                required String valueType,
+                Value<String?> valueJson = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppPreferenceValuesCompanion.insert(
+                key: key,
+                valueType: valueType,
+                valueJson: valueJson,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppPreferenceValuesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AppPreferenceValuesTable,
+      AppPreferenceValueRow,
+      $$AppPreferenceValuesTableFilterComposer,
+      $$AppPreferenceValuesTableOrderingComposer,
+      $$AppPreferenceValuesTableAnnotationComposer,
+      $$AppPreferenceValuesTableCreateCompanionBuilder,
+      $$AppPreferenceValuesTableUpdateCompanionBuilder,
+      (
+        AppPreferenceValueRow,
+        BaseReferences<
+          _$AppDatabase,
+          $AppPreferenceValuesTable,
+          AppPreferenceValueRow
+        >,
+      ),
+      AppPreferenceValueRow,
+      PrefetchHooks Function()
+    >;
+typedef $$MemberProfilePreferenceValuesTableCreateCompanionBuilder =
+    MemberProfilePreferenceValuesCompanion Function({
+      required String id,
+      required String memberId,
+      required String key,
+      required String valueType,
+      Value<String?> valueJson,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$MemberProfilePreferenceValuesTableUpdateCompanionBuilder =
+    MemberProfilePreferenceValuesCompanion Function({
+      Value<String> id,
+      Value<String> memberId,
+      Value<String> key,
+      Value<String> valueType,
+      Value<String?> valueJson,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$MemberProfilePreferenceValuesTableFilterComposer
+    extends Composer<_$AppDatabase, $MemberProfilePreferenceValuesTable> {
+  $$MemberProfilePreferenceValuesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get valueType => $composableBuilder(
+    column: $table.valueType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get valueJson => $composableBuilder(
+    column: $table.valueJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MemberProfilePreferenceValuesTableOrderingComposer
+    extends Composer<_$AppDatabase, $MemberProfilePreferenceValuesTable> {
+  $$MemberProfilePreferenceValuesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get valueType => $composableBuilder(
+    column: $table.valueType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get valueJson => $composableBuilder(
+    column: $table.valueJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MemberProfilePreferenceValuesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MemberProfilePreferenceValuesTable> {
+  $$MemberProfilePreferenceValuesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get memberId =>
+      $composableBuilder(column: $table.memberId, builder: (column) => column);
+
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<String> get valueType =>
+      $composableBuilder(column: $table.valueType, builder: (column) => column);
+
+  GeneratedColumn<String> get valueJson =>
+      $composableBuilder(column: $table.valueJson, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$MemberProfilePreferenceValuesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MemberProfilePreferenceValuesTable,
+          MemberProfilePreferenceValueRow,
+          $$MemberProfilePreferenceValuesTableFilterComposer,
+          $$MemberProfilePreferenceValuesTableOrderingComposer,
+          $$MemberProfilePreferenceValuesTableAnnotationComposer,
+          $$MemberProfilePreferenceValuesTableCreateCompanionBuilder,
+          $$MemberProfilePreferenceValuesTableUpdateCompanionBuilder,
+          (
+            MemberProfilePreferenceValueRow,
+            BaseReferences<
+              _$AppDatabase,
+              $MemberProfilePreferenceValuesTable,
+              MemberProfilePreferenceValueRow
+            >,
+          ),
+          MemberProfilePreferenceValueRow,
+          PrefetchHooks Function()
+        > {
+  $$MemberProfilePreferenceValuesTableTableManager(
+    _$AppDatabase db,
+    $MemberProfilePreferenceValuesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MemberProfilePreferenceValuesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$MemberProfilePreferenceValuesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$MemberProfilePreferenceValuesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> memberId = const Value.absent(),
+                Value<String> key = const Value.absent(),
+                Value<String> valueType = const Value.absent(),
+                Value<String?> valueJson = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MemberProfilePreferenceValuesCompanion(
+                id: id,
+                memberId: memberId,
+                key: key,
+                valueType: valueType,
+                valueJson: valueJson,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String memberId,
+                required String key,
+                required String valueType,
+                Value<String?> valueJson = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MemberProfilePreferenceValuesCompanion.insert(
+                id: id,
+                memberId: memberId,
+                key: key,
+                valueType: valueType,
+                valueJson: valueJson,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MemberProfilePreferenceValuesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MemberProfilePreferenceValuesTable,
+      MemberProfilePreferenceValueRow,
+      $$MemberProfilePreferenceValuesTableFilterComposer,
+      $$MemberProfilePreferenceValuesTableOrderingComposer,
+      $$MemberProfilePreferenceValuesTableAnnotationComposer,
+      $$MemberProfilePreferenceValuesTableCreateCompanionBuilder,
+      $$MemberProfilePreferenceValuesTableUpdateCompanionBuilder,
+      (
+        MemberProfilePreferenceValueRow,
+        BaseReferences<
+          _$AppDatabase,
+          $MemberProfilePreferenceValuesTable,
+          MemberProfilePreferenceValueRow
+        >,
+      ),
+      MemberProfilePreferenceValueRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -36134,4 +37316,12 @@ class $AppDatabaseManager {
       $$SpIdMapTableTableTableManager(_db, _db.spIdMapTable);
   $$PkMappingStateTableTableManager get pkMappingState =>
       $$PkMappingStateTableTableManager(_db, _db.pkMappingState);
+  $$AppPreferenceValuesTableTableManager get appPreferenceValues =>
+      $$AppPreferenceValuesTableTableManager(_db, _db.appPreferenceValues);
+  $$MemberProfilePreferenceValuesTableTableManager
+  get memberProfilePreferenceValues =>
+      $$MemberProfilePreferenceValuesTableTableManager(
+        _db,
+        _db.memberProfilePreferenceValues,
+      );
 }

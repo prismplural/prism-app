@@ -12,6 +12,7 @@ import 'package:prism_plurality/core/database/daos/members_dao.dart';
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/chat_message.dart'
     as chat_message_domain;
 import 'package:prism_plurality/domain/models/conversation.dart'
@@ -331,6 +332,49 @@ void main() {
       final deleted = await repoWithConversations.getMemberById('deleted');
       expect(deleted, isNotNull);
       expect(deleted!.isDeleted, isTrue);
+    });
+
+    test('tombstones member profile preferences for deleted members', () async {
+      final now = DateTime(2026, 5, 23, 12);
+      final repoWithPreferences = DriftMemberRepository(
+        dao,
+        null,
+        preferenceValuesDao: db.preferenceValuesDao,
+      );
+      await repoWithPreferences.createMember(
+        domain.Member(id: 'member-with-prefs', name: 'Prefs', createdAt: now),
+      );
+      await db
+          .into(db.memberProfilePreferenceValues)
+          .insert(
+            MemberProfilePreferenceValuesCompanion.insert(
+              id: 'bWVtYmVyLXdpdGgtcHJlZnM:profile.example',
+              memberId: 'member-with-prefs',
+              key: 'profile.example',
+              valueType: 'bool',
+              valueJson: const Value('true'),
+            ),
+          );
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repoWithPreferences.deleteMember('member-with-prefs');
+
+      final row =
+          await (db.select(db.memberProfilePreferenceValues)..where(
+                (p) => p.id.equals('bWVtYmVyLXdpdGgtcHJlZnM:profile.example'),
+              ))
+              .getSingle();
+      expect(row.isDeleted, isTrue);
+      expect(row.valueJson, null);
+      expect(
+        captured
+            .where((op) => op.table == 'member_profile_preference_values')
+            .single
+            .opType,
+        SyncRecordOpType.delete,
+      );
     });
   });
 

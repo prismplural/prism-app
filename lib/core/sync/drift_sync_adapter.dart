@@ -166,6 +166,12 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
       _conversationsEntity(db, quarantine, pendingQuarantineWrites.add),
       _chatMessagesEntity(db, quarantine, pendingQuarantineWrites.add),
       _systemSettingsEntity(db, quarantine, pendingQuarantineWrites.add),
+      _appPreferenceValuesEntity(db, quarantine, pendingQuarantineWrites.add),
+      _memberProfilePreferenceValuesEntity(
+        db,
+        quarantine,
+        pendingQuarantineWrites.add,
+      ),
       _pollsEntity(db, quarantine, pendingQuarantineWrites.add),
       _pollOptionsEntity(db, quarantine, pendingQuarantineWrites.add),
       _pollVotesEntity(db, quarantine, pendingQuarantineWrites.add),
@@ -2174,6 +2180,143 @@ DriftSyncEntity _systemSettingsEntity(
     isDeleted: (String id) async {
       final row = await (db.select(
         db.systemSettingsTable,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      return row?.isDeleted ?? true;
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// app_preference_values
+// ---------------------------------------------------------------------------
+
+DriftSyncEntity _appPreferenceValuesEntity(
+  AppDatabase db,
+  SyncQuarantineService? quarantine,
+  void Function(Future<void> write) trackQuarantineWrite,
+) {
+  return DriftSyncEntity(
+    tableName: 'app_preference_values',
+    entityIdFor: (dynamic row) => (row as AppPreferenceValueRow).key,
+    toSyncFields: (dynamic row) {
+      final r = row as AppPreferenceValueRow;
+      return {
+        'value_type': r.valueType,
+        'value_json': r.valueJson,
+        'is_deleted': r.isDeleted,
+      };
+    },
+    applyFields: (String id, Map<String, dynamic> fields) async {
+      final f = _FieldContext(
+        entityType: 'app_preference_values',
+        entityId: id,
+        fields: fields,
+        quarantine: quarantine,
+        trackQuarantineWrite: trackQuarantineWrite,
+      );
+      final companion = AppPreferenceValuesCompanion(
+        key: Value(id),
+        valueType: f.stringField('value_type'),
+        valueJson: f.stringFieldNullable('value_json'),
+        isDeleted: f.boolField('is_deleted'),
+      );
+      await _insertOrUpdateById(
+        db,
+        db.appPreferenceValues,
+        companion,
+        (t) => t.key.equals(id),
+      );
+    },
+    hardDelete: (String id) async {
+      await (db.delete(
+        db.appPreferenceValues,
+      )..where((t) => t.key.equals(id))).go();
+    },
+    readRow: (String id) async {
+      final row = await (db.select(
+        db.appPreferenceValues,
+      )..where((t) => t.key.equals(id))).getSingleOrNull();
+      if (row == null) return null;
+      return {
+        'value_type': row.valueType,
+        'value_json': row.valueJson,
+        'is_deleted': row.isDeleted,
+      };
+    },
+    isDeleted: (String id) async {
+      final row = await (db.select(
+        db.appPreferenceValues,
+      )..where((t) => t.key.equals(id))).getSingleOrNull();
+      return row?.isDeleted ?? true;
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// member_profile_preference_values
+// ---------------------------------------------------------------------------
+
+DriftSyncEntity _memberProfilePreferenceValuesEntity(
+  AppDatabase db,
+  SyncQuarantineService? quarantine,
+  void Function(Future<void> write) trackQuarantineWrite,
+) {
+  return DriftSyncEntity(
+    tableName: 'member_profile_preference_values',
+    toSyncFields: (dynamic row) {
+      final r = row as MemberProfilePreferenceValueRow;
+      return {
+        'member_id': r.memberId,
+        'key': r.key,
+        'value_type': r.valueType,
+        'value_json': r.valueJson,
+        'is_deleted': r.isDeleted,
+      };
+    },
+    applyFields: (String id, Map<String, dynamic> fields) async {
+      final f = _FieldContext(
+        entityType: 'member_profile_preference_values',
+        entityId: id,
+        fields: fields,
+        quarantine: quarantine,
+        trackQuarantineWrite: trackQuarantineWrite,
+      );
+      final companion = MemberProfilePreferenceValuesCompanion(
+        id: Value(id),
+        memberId: f.stringField('member_id'),
+        key: f.stringField('key'),
+        valueType: f.stringField('value_type'),
+        valueJson: f.stringFieldNullable('value_json'),
+        isDeleted: f.boolField('is_deleted'),
+      );
+      await _insertOrUpdateById(
+        db,
+        db.memberProfilePreferenceValues,
+        companion,
+        (t) => t.id.equals(id),
+      );
+    },
+    hardDelete: (String id) async {
+      await (db.delete(
+        db.memberProfilePreferenceValues,
+      )..where((t) => t.id.equals(id))).go();
+    },
+    readRow: (String id) async {
+      final row = await (db.select(
+        db.memberProfilePreferenceValues,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      if (row == null) return null;
+      return {
+        'member_id': row.memberId,
+        'key': row.key,
+        'value_type': row.valueType,
+        'value_json': row.valueJson,
+        'is_deleted': row.isDeleted,
+      };
+    },
+    isDeleted: (String id) async {
+      final row = await (db.select(
+        db.memberProfilePreferenceValues,
       )..where((t) => t.id.equals(id))).getSingleOrNull();
       return row?.isDeleted ?? true;
     },

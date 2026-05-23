@@ -166,6 +166,22 @@ const String prismSyncSchema = '''
         "bio_markdown_enabled": "Bool"
       }
     },
+    "app_preference_values": {
+      "fields": {
+        "value_type": "String",
+        "value_json": "String",
+        "is_deleted": "Bool"
+      }
+    },
+    "member_profile_preference_values": {
+      "fields": {
+        "member_id": "String",
+        "key": "String",
+        "value_type": "String",
+        "value_json": "String",
+        "is_deleted": "Bool"
+      }
+    },
     "polls": {
       "fields": {
         "question": "String",

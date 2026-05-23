@@ -28,6 +28,7 @@ import 'package:prism_plurality/core/database/daos/sharing_requests_dao.dart';
 import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
 import 'package:prism_plurality/core/database/daos/sp_import_dao.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
+import 'package:prism_plurality/core/database/daos/preference_values_dao.dart';
 import 'package:prism_plurality/core/services/fronting_migration_breadcrumb_log.dart';
 import 'package:prism_plurality/core/database/tables/tables.dart';
 
@@ -65,6 +66,8 @@ part 'app_database.g.dart';
     SpSyncStateTable,
     SpIdMapTable,
     PkMappingState,
+    AppPreferenceValues,
+    MemberProfilePreferenceValues,
   ],
   daos: [
     MembersDao,
@@ -92,6 +95,7 @@ part 'app_database.g.dart';
     MediaAttachmentsDao,
     SpImportDao,
     PkMappingStateDao,
+    PreferenceValuesDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -738,22 +742,27 @@ class AppDatabase extends _$AppDatabase {
         final cols = await customSelect(
           'PRAGMA table_info(member_groups)',
         ).get();
-        final hasAvatar = cols
-            .any((row) => row.read<String>('name') == 'avatar_image_data');
+        final hasAvatar = cols.any(
+          (row) => row.read<String>('name') == 'avatar_image_data',
+        );
         if (!hasAvatar) {
           await migrator.addColumn(memberGroups, memberGroups.avatarImageData);
         }
         current = 26;
       }
       if (current == 26 && to >= 27) {
-        // chat_messages.timestamp flips from Unix seconds to ms-since-epoch
-        // (ChatTimestampConverter). Same INTEGER column, only the unit changes.
-        // `< 1e11` guard is idempotent: seconds always below, ms always above
-        // (since 1973), so reruns after a crash or dev reseed are safe.
+        // Timestamp storage moves from seconds to milliseconds.
         await customStatement(
           'UPDATE chat_messages SET timestamp = timestamp * 1000 '
           'WHERE timestamp < 100000000000',
         );
+        if (!await _tableExists('app_preference_values')) {
+          await migrator.createTable(appPreferenceValues);
+        }
+        if (!await _tableExists('member_profile_preference_values')) {
+          await migrator.createTable(memberProfilePreferenceValues);
+        }
+        await _createPreferenceValueIndexes();
         current = 27;
       }
       if (current != to) {
@@ -774,6 +783,7 @@ class AppDatabase extends _$AppDatabase {
       await _createPkFrontingCompositeIndex();
       await _createPkFrontingOrphanIndex();
       await _createPkGroupSyncIndexes();
+      await _createPreferenceValueIndexes();
       await _createChatMessagesFtsArtifacts();
     },
     beforeOpen: (details) async {
@@ -1289,6 +1299,34 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_member_groups_parent_id '
       'ON member_groups (parent_group_id) WHERE parent_group_id IS NOT NULL',
     );
+  }
+
+  Future<void> _createPreferenceValueIndexes() async {
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_app_preference_values_deleted '
+      'ON app_preference_values (is_deleted)',
+    );
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_member_profile_pref_member_key '
+      'ON member_profile_preference_values (member_id, key)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_member_profile_pref_member_deleted_key '
+      'ON member_profile_preference_values (member_id, is_deleted, key)',
+    );
+  }
+
+  Future<bool> _tableExists(String tableName) async {
+    final rows = await customSelect(
+      '''
+      SELECT 1
+      FROM sqlite_master
+      WHERE type = 'table' AND name = ?
+      LIMIT 1
+      ''',
+      variables: [Variable<String>(tableName)],
+    ).get();
+    return rows.isNotEmpty;
   }
 
   Future<void> _createMemberBoardPostIndexes() async {

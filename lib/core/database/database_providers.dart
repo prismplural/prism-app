@@ -8,6 +8,7 @@ import 'package:prism_plurality/core/database/daos/poll_options_dao.dart';
 import 'package:prism_plurality/core/database/daos/poll_votes_dao.dart';
 import 'package:prism_plurality/core/database/daos/polls_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
+import 'package:prism_plurality/core/database/daos/preference_values_dao.dart';
 import 'package:prism_plurality/core/database/daos/system_settings_dao.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -16,11 +17,15 @@ import 'package:prism_plurality/data/repositories/drift_conversation_repository.
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_poll_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_app_preference_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_member_profile_preference_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
+import 'package:prism_plurality/domain/repositories/app_preference_repository.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
+import 'package:prism_plurality/domain/repositories/member_profile_preference_repository.dart';
 import 'package:prism_plurality/domain/repositories/poll_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 import 'package:prism_plurality/core/database/daos/habits_dao.dart';
@@ -92,6 +97,10 @@ final pluralKitSyncDaoProvider = Provider<PluralKitSyncDao>(
   (ref) => ref.watch(databaseProvider).pluralKitSyncDao,
 );
 
+final preferenceValuesDaoProvider = Provider<PreferenceValuesDao>(
+  (ref) => ref.watch(databaseProvider).preferenceValuesDao,
+);
+
 // Helper: resolve the currently configured sync handle synchronously.
 ffi.PrismSyncHandle? _resolveSyncHandle(Ref ref) {
   return ref.watch(prismSyncHandleProvider).value;
@@ -105,6 +114,7 @@ final memberRepositoryProvider = Provider<MemberRepository>(
     pkSyncDao: ref.watch(pluralKitSyncDaoProvider),
     conversationsDao: ref.watch(conversationsDaoProvider),
     memberGroupsDao: ref.watch(memberGroupsDaoProvider),
+    preferenceValuesDao: ref.watch(preferenceValuesDaoProvider),
   ),
 );
 
@@ -137,6 +147,21 @@ final systemSettingsRepositoryProvider = Provider<SystemSettingsRepository>(
     _resolveSyncHandle(ref),
   ),
 );
+
+final appPreferenceRepositoryProvider = Provider<AppPreferenceRepository>(
+  (ref) => DriftAppPreferenceRepository(
+    ref.watch(preferenceValuesDaoProvider),
+    _resolveSyncHandle(ref),
+  ),
+);
+
+final memberProfilePreferenceRepositoryProvider =
+    Provider<MemberProfilePreferenceRepository>(
+      (ref) => DriftMemberProfilePreferenceRepository(
+        ref.watch(preferenceValuesDaoProvider),
+        _resolveSyncHandle(ref),
+      ),
+    );
 
 final pollRepositoryProvider = Provider<PollRepository>(
   (ref) => DriftPollRepository(

@@ -1,24 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/database_health_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/features/settings/providers/database_diagnostics_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/database_diagnostics_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
-void main() {
-  setUp(() {
-    SharedPreferences.setMockInitialValues({});
-  });
+import '../../../helpers/fake_repositories.dart';
 
-  Widget buildSubject() {
+void main() {
+  Widget buildSubject({bool hideTotalMemberCount = false}) {
+    final appPrefs = FakeAppPreferenceRepository();
+    if (hideTotalMemberCount) {
+      appPrefs.seed(hideTotalMemberCountPreference, true);
+    }
+    addTearDown(appPrefs.close);
+
     return ProviderScope(
       overrides: [
+        appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
         systemSettingsProvider.overrideWith(
           (ref) => Stream.value(const SystemSettings()),
         ),
@@ -51,14 +57,10 @@ void main() {
       expect(find.text('Fronting Sessions'), findsOneWidget);
     });
 
-    testWidgets('hides total member count when local preference is enabled', (
+    testWidgets('hides total member count when synced preference is enabled', (
       tester,
     ) async {
-      SharedPreferences.setMockInitialValues({
-        'prism.pref.hide_total_member_count': true,
-      });
-
-      await tester.pumpWidget(buildSubject());
+      await tester.pumpWidget(buildSubject(hideTotalMemberCount: true));
       await tester.pumpAndSettle();
 
       expect(find.text('Headmates'), findsNothing);

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
@@ -6,6 +7,8 @@ import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/preference_definition.dart';
+import 'package:prism_plurality/domain/repositories/app_preference_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
 import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
@@ -406,6 +409,59 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   @override
   Future<void> updateDefaultSleepQuality(SleepQuality? value) async =>
       updateSettings(settings.copyWith(defaultSleepQuality: value));
+}
+
+// =============================================================================
+// FakeAppPreferenceRepository
+// =============================================================================
+
+class FakeAppPreferenceRepository implements AppPreferenceRepository {
+  final Map<String, Object?> _values = {};
+  final Map<String, StreamController<Object?>> _controllers = {};
+
+  void seed<T>(PreferenceDefinition<T> definition, T value) {
+    definition.validate(value);
+    _values[definition.key] = value;
+  }
+
+  @override
+  Future<T> get<T>(PreferenceDefinition<T> definition) async {
+    final value = _values[definition.key];
+    if (value is T) return value;
+    return definition.defaultValue;
+  }
+
+  @override
+  Stream<T> watch<T>(PreferenceDefinition<T> definition) async* {
+    yield await get(definition);
+    yield* _controllerFor(definition.key).stream.map((value) {
+      if (value is T) return value;
+      return definition.defaultValue;
+    });
+  }
+
+  @override
+  Future<void> set<T>(PreferenceDefinition<T> definition, T value) async {
+    definition.validate(value);
+    _values[definition.key] = value;
+    _controllerFor(definition.key).add(value);
+  }
+
+  @override
+  Future<void> reset<T>(PreferenceDefinition<T> definition) async {
+    _values.remove(definition.key);
+    _controllerFor(definition.key).add(definition.defaultValue);
+  }
+
+  StreamController<Object?> _controllerFor(String key) {
+    return _controllers.putIfAbsent(key, StreamController<Object?>.broadcast);
+  }
+
+  Future<void> close() async {
+    for (final controller in _controllers.values) {
+      await controller.close();
+    }
+  }
 }
 
 // =============================================================================

@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/views/system_info_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
-
-import 'package:prism_plurality/core/database/database_providers.dart';
 
 import '../../../helpers/fake_repositories.dart';
 
@@ -34,18 +33,24 @@ void main() {
     ),
   );
 
-  setUp(() {
-    SharedPreferences.setMockInitialValues({});
-  });
-
   Widget buildSubject({
     SystemSettings settings = seedSettings,
     List<Member> members = const [],
+    bool hideTotalMemberCount = false,
+    FakeAppPreferenceRepository? appPrefs,
   }) {
     final fakeRepo = FakeSystemSettingsRepository()..settings = settings;
+    final effectivePrefs = appPrefs ?? FakeAppPreferenceRepository();
+    if (hideTotalMemberCount) {
+      effectivePrefs.seed(hideTotalMemberCountPreference, true);
+    }
+    if (appPrefs == null) {
+      addTearDown(effectivePrefs.close);
+    }
 
     return ProviderScope(
       overrides: [
+        appPreferenceRepositoryProvider.overrideWithValue(effectivePrefs),
         systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
         activeMembersProvider.overrideWith(
           (ref) => Stream<List<Member>>.value(members),
@@ -75,9 +80,12 @@ void main() {
       (tester) async {
         final fakeRepo = FakeSystemSettingsRepository()
           ..settings = seedSettings;
+        final appPrefs = FakeAppPreferenceRepository();
+        addTearDown(appPrefs.close);
 
         final subject = ProviderScope(
           overrides: [
+            appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
             systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
             activeMembersProvider.overrideWith(
               (ref) => Stream<List<Member>>.value(const []),
@@ -116,14 +124,12 @@ void main() {
       expect(find.text('Hide total member count'), findsOneWidget);
     });
 
-    testWidgets('hides total member count when local preference is enabled', (
+    testWidgets('hides total member count when synced preference is enabled', (
       tester,
     ) async {
-      SharedPreferences.setMockInitialValues({
-        'prism.pref.hide_total_member_count': true,
-      });
-
-      await tester.pumpWidget(buildSubject(members: overflowMembers));
+      await tester.pumpWidget(
+        buildSubject(members: overflowMembers, hideTotalMemberCount: true),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('+1'), findsNothing);
@@ -138,8 +144,15 @@ void main() {
       expect(find.text('Hide total member count'), findsOneWidget);
     });
 
-    testWidgets('toggling hide count persists locally', (tester) async {
-      await tester.pumpWidget(buildSubject(members: seedMembers));
+    testWidgets('toggling hide count persists as a synced app preference', (
+      tester,
+    ) async {
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(
+        buildSubject(members: seedMembers, appPrefs: appPrefs),
+      );
       await tester.pumpAndSettle();
 
       await tester.scrollUntilVisible(
@@ -151,8 +164,7 @@ void main() {
       await tester.tap(find.text('Hide total member count'));
       await tester.pumpAndSettle();
 
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('prism.pref.hide_total_member_count'), true);
+      expect(await appPrefs.get(hideTotalMemberCountPreference), true);
       expect(find.text('2 headmates'), findsNothing);
     });
   });

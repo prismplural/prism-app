@@ -451,6 +451,17 @@ const _repositoryFieldSources = <_RepoFieldSource>[
     helperName: '_settingsFields',
   ),
   _RepoFieldSource(
+    tableName: 'app_preference_values',
+    file: 'lib/data/repositories/drift_app_preference_repository.dart',
+    helperName: '_appPreferenceValueFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'member_profile_preference_values',
+    file:
+        'lib/data/repositories/drift_member_profile_preference_repository.dart',
+    helperName: '_memberProfilePreferenceValueFields',
+  ),
+  _RepoFieldSource(
     tableName: 'member_board_posts',
     file: 'lib/data/repositories/drift_member_board_posts_repository.dart',
     helperName: '_postFields',
@@ -655,6 +666,28 @@ Future<void> _seedDummyRows(AppDatabase db) async {
       );
 
   await db
+      .into(db.appPreferenceValues)
+      .insert(
+        AppPreferenceValuesCompanion.insert(
+          key: 'appearance.test',
+          valueType: 'string',
+          valueJson: const Value('"compact"'),
+        ),
+      );
+
+  await db
+      .into(db.memberProfilePreferenceValues)
+      .insert(
+        MemberProfilePreferenceValuesCompanion.insert(
+          id: 'bTE:profile.test',
+          memberId: 'm1',
+          key: 'profile.test',
+          valueType: 'bool',
+          valueJson: const Value('true'),
+        ),
+      );
+
+  await db
       .into(db.polls)
       .insert(PollsCompanion.insert(id: 'p1', question: 'q?', createdAt: now));
 
@@ -831,6 +864,12 @@ Future<dynamic> _readDummyRow(AppDatabase db, String tableName) async {
       return (db.select(db.chatMessages)..limit(1)).getSingle();
     case 'system_settings':
       return (db.select(db.systemSettingsTable)..limit(1)).getSingle();
+    case 'app_preference_values':
+      return (db.select(db.appPreferenceValues)..limit(1)).getSingle();
+    case 'member_profile_preference_values':
+      return (db.select(
+        db.memberProfilePreferenceValues,
+      )..limit(1)).getSingle();
     case 'polls':
       return (db.select(db.polls)..limit(1)).getSingle();
     case 'poll_options':

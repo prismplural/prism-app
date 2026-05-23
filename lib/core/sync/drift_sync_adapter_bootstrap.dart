@@ -74,6 +74,14 @@ Map<String, BootstrapFetcher> bootstrapFetchersFor(
       'system_settings',
       () => db.select(db.systemSettingsTable).get(),
     ),
+    'app_preference_values': build(
+      'app_preference_values',
+      () => db.select(db.appPreferenceValues).get(),
+    ),
+    'member_profile_preference_values': build(
+      'member_profile_preference_values',
+      () => db.select(db.memberProfilePreferenceValues).get(),
+    ),
     'polls': build('polls', () => db.select(db.polls).get()),
     'poll_options': build(
       'poll_options',

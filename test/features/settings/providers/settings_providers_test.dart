@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
@@ -77,32 +78,44 @@ void main() {
 
   group('hideTotalMemberCountProvider', () {
     test('defaults to false', () async {
-      final container = ProviderContainer();
+      final prefs = FakeAppPreferenceRepository();
+      addTearDown(prefs.close);
+      final container = ProviderContainer(
+        overrides: [appPreferenceRepositoryProvider.overrideWithValue(prefs)],
+      );
       addTearDown(container.dispose);
 
       expect(await container.read(hideTotalMemberCountProvider.future), false);
     });
 
-    test('reads the saved preference', () async {
-      SharedPreferences.setMockInitialValues({
-        'prism.pref.hide_total_member_count': true,
-      });
-      final container = ProviderContainer();
+    test('reads the synced app preference', () async {
+      final prefs = FakeAppPreferenceRepository()
+        ..seed(hideTotalMemberCountPreference, true);
+      addTearDown(prefs.close);
+      final container = ProviderContainer(
+        overrides: [appPreferenceRepositoryProvider.overrideWithValue(prefs)],
+      );
       addTearDown(container.dispose);
 
       expect(await container.read(hideTotalMemberCountProvider.future), true);
     });
 
-    test('persists changes locally', () async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+    test(
+      'persists changes through the synced app preference repository',
+      () async {
+        final prefs = FakeAppPreferenceRepository();
+        addTearDown(prefs.close);
+        final container = ProviderContainer(
+          overrides: [appPreferenceRepositoryProvider.overrideWithValue(prefs)],
+        );
+        addTearDown(container.dispose);
 
-      await container.read(hideTotalMemberCountProvider.notifier).set(true);
+        await container.read(hideTotalMemberCountProvider.notifier).set(true);
 
-      expect(container.read(hideTotalMemberCountProvider).value, true);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('prism.pref.hide_total_member_count'), true);
-    });
+        expect(container.read(hideTotalMemberCountProvider).value, true);
+        expect(await prefs.get(hideTotalMemberCountPreference), true);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------

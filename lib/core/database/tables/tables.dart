@@ -28,3 +28,5 @@ export 'sp_sync_state_table.dart';
 export 'sp_id_map_table.dart';
 export 'pk_mapping_state_table.dart';
 export 'member_board_posts_table.dart';
+export 'app_preference_values_table.dart';
+export 'member_profile_preference_values_table.dart';

@@ -7,9 +7,11 @@ import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
+import 'package:prism_plurality/core/database/daos/preference_values_dao.dart';
 import 'package:prism_plurality/data/mappers/conversation_mapper.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_member_profile_preference_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_groups_repository.dart';
 import 'package:prism_plurality/data/mappers/member_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
@@ -27,6 +29,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   final PluralKitSyncDao? _pkSyncDao;
   final ConversationsDao? _conversationsDao;
   final MemberGroupsDao? _memberGroupsDao;
+  final PreferenceValuesDao? _preferenceValuesDao;
 
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
@@ -39,9 +42,11 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     PluralKitSyncDao? pkSyncDao,
     ConversationsDao? conversationsDao,
     MemberGroupsDao? memberGroupsDao,
+    PreferenceValuesDao? preferenceValuesDao,
   }) : _pkSyncDao = pkSyncDao,
        _conversationsDao = conversationsDao,
-       _memberGroupsDao = memberGroupsDao;
+       _memberGroupsDao = memberGroupsDao,
+       _preferenceValuesDao = preferenceValuesDao;
 
   @override
   Future<List<domain.Member>> getAllMembers() async {
@@ -199,8 +204,20 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     if (epoch != null) {
       await _dao.stampDeleteIntent(id, epoch);
     }
+    await _resetDeletedMemberProfilePreferences(id);
     await _removeDeletedMemberFromConversations(id);
     await syncRecordDelete(_table, id);
+  }
+
+  Future<void> _resetDeletedMemberProfilePreferences(String memberId) async {
+    final preferenceValuesDao = _preferenceValuesDao;
+    if (preferenceValuesDao == null) return;
+
+    final preferenceRepo = DriftMemberProfilePreferenceRepository(
+      preferenceValuesDao,
+      _syncHandle,
+    );
+    await preferenceRepo.resetAllForMember(memberId);
   }
 
   Future<void> _removeDeletedMemberFromGroups(String memberId) async {
