@@ -34,7 +34,10 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
         (m) =>
             m.conversationId.equals(conversationId) & m.isDeleted.equals(false),
       )
-      ..orderBy([(m) => OrderingTerm.desc(m.timestamp)]);
+      ..orderBy([
+              (m) => OrderingTerm.desc(m.timestamp),
+              (m) => OrderingTerm.asc(m.id),
+            ]);
     if (limit != null) {
       query.limit(limit, offset: offset);
     }
@@ -50,7 +53,10 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
                   m.conversationId.equals(conversationId) &
                   m.isDeleted.equals(false),
             )
-            ..orderBy([(m) => OrderingTerm.desc(m.timestamp)]))
+            ..orderBy([
+              (m) => OrderingTerm.desc(m.timestamp),
+              (m) => OrderingTerm.asc(m.id),
+            ]))
           .watch();
 
   /// Watch messages with a limit — used for paginated display.
@@ -64,14 +70,20 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
                   m.conversationId.equals(conversationId) &
                   m.isDeleted.equals(false),
             )
-            ..orderBy([(m) => OrderingTerm.desc(m.timestamp)])
+            ..orderBy([
+              (m) => OrderingTerm.desc(m.timestamp),
+              (m) => OrderingTerm.asc(m.id),
+            ])
             ..limit(limit))
           .watch();
 
   Future<List<ChatMessage>> getAllMessages() =>
       (select(chatMessages)
             ..where((m) => m.isDeleted.equals(false))
-            ..orderBy([(m) => OrderingTerm.desc(m.timestamp)]))
+            ..orderBy([
+              (m) => OrderingTerm.desc(m.timestamp),
+              (m) => OrderingTerm.asc(m.id),
+            ]))
           .get();
 
   Future<ChatMessage?> getMessageById(String id) =>
@@ -111,7 +123,10 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
                   m.conversationId.equals(conversationId) &
                   m.isDeleted.equals(false),
             )
-            ..orderBy([(m) => OrderingTerm.desc(m.timestamp)])
+            ..orderBy([
+              (m) => OrderingTerm.desc(m.timestamp),
+              (m) => OrderingTerm.asc(m.id),
+            ])
             ..limit(1))
           .getSingleOrNull();
 
@@ -122,7 +137,10 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
                   m.conversationId.equals(conversationId) &
                   m.isDeleted.equals(false),
             )
-            ..orderBy([(m) => OrderingTerm.desc(m.timestamp)])
+            ..orderBy([
+              (m) => OrderingTerm.desc(m.timestamp),
+              (m) => OrderingTerm.asc(m.id),
+            ])
             ..limit(1))
           .watchSingleOrNull();
 
@@ -134,7 +152,7 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
       'AND is_deleted = 0 AND is_system_message = 0',
       variables: [
         Variable.withString(conversationId),
-        Variable.withDateTime(since),
+        Variable.withInt(since.toUtc().millisecondsSinceEpoch),
       ],
       readsFrom: {chatMessages},
     ).watch().map((rows) => rows.isEmpty ? 0 : rows.first.read<int>('c'));
@@ -158,10 +176,10 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
       'AND (${_broadcastMentionCandidateWhereSql()})',
       variables: [
         Variable.withString(conversationId),
-        Variable.withDateTime(since),
+        Variable.withInt(since.toUtc().millisecondsSinceEpoch),
         _directMentionVariable(memberId),
         Variable.withString(conversationId),
-        Variable.withDateTime(since),
+        Variable.withInt(since.toUtc().millisecondsSinceEpoch),
         ..._broadcastMentionCandidateVariables(),
       ],
       readsFrom: {chatMessages},
@@ -225,7 +243,7 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
       );
       vars.add(Variable.withString(entry.key));
       vars.add(Variable.withString(entry.key));
-      vars.add(Variable.withDateTime(entry.value));
+      vars.add(Variable.withInt(entry.value.toUtc().millisecondsSinceEpoch));
     }
 
     return customSelect(
@@ -302,11 +320,11 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
       );
       vars.add(Variable.withString(entry.key));
       vars.add(Variable.withString(entry.key));
-      vars.add(Variable.withDateTime(entry.value));
+      vars.add(Variable.withInt(entry.value.toUtc().millisecondsSinceEpoch));
       vars.add(_directMentionVariable(memberId));
       vars.add(Variable.withString(entry.key));
       vars.add(Variable.withString(entry.key));
-      vars.add(Variable.withDateTime(entry.value));
+      vars.add(Variable.withInt(entry.value.toUtc().millisecondsSinceEpoch));
       vars.addAll(_broadcastMentionCandidateVariables());
     }
 
@@ -428,7 +446,7 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
       'FROM chat_messages_fts fts '
       'JOIN chat_messages m ON m.id = fts.message_id '
       'WHERE chat_messages_fts MATCH ? '
-      'ORDER BY m.timestamp DESC '
+      'ORDER BY m.timestamp DESC, fts.message_id ASC '
       'LIMIT ?',
       variables: [Variable.withString(escaped), Variable.withInt(limit)],
     ).get();
@@ -440,7 +458,7 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
         conversationId: row.read<String>('conversation_id'),
         snippet: _buildSafeSnippet(content, rawTokens),
         timestamp: DateTime.fromMillisecondsSinceEpoch(
-          row.read<int>('timestamp') * 1000,
+          row.read<int>('timestamp'),
         ),
         authorId: row.readNullable<String>('author_id'),
       );

@@ -98,7 +98,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 26;
+  int get schemaVersion => 27;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -744,6 +744,17 @@ class AppDatabase extends _$AppDatabase {
           await migrator.addColumn(memberGroups, memberGroups.avatarImageData);
         }
         current = 26;
+      }
+      if (current == 26 && to >= 27) {
+        // chat_messages.timestamp flips from Unix seconds to ms-since-epoch
+        // (ChatTimestampConverter). Same INTEGER column, only the unit changes.
+        // `< 1e11` guard is idempotent: seconds always below, ms always above
+        // (since 1973), so reruns after a crash or dev reseed are safe.
+        await customStatement(
+          'UPDATE chat_messages SET timestamp = timestamp * 1000 '
+          'WHERE timestamp < 100000000000',
+        );
+        current = 27;
       }
       if (current != to) {
         throw UnsupportedError(

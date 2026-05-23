@@ -184,9 +184,12 @@ class SpBoardsBackfillService {
           for (final msg in batch) {
             final rawContent = msg.read<String>('content');
             final authorId = msg.readNullable<String>('author_id');
-            // Drift stores DateTimeColumn as Unix SECONDS by default; reading via
-            // `read<DateTime>` lets the typeMapping do the conversion correctly.
-            final writtenAt = msg.read<DateTime>('timestamp');
+            // chat_messages.timestamp is ms-since-epoch as of v27; Drift's
+            // global typeMapping still assumes seconds, so `read<DateTime>`
+            // would misdate every row by 1000x.
+            final writtenAt = DateTime.fromMillisecondsSinceEpoch(
+              msg.read<int>('timestamp'),
+            );
 
             // Determine targetMemberId: the participant who is NOT the author.
             // Fall back to the first participant when author is unknown or

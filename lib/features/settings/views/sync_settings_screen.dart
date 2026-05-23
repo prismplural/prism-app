@@ -181,16 +181,16 @@ final syncEntityCountsProvider = FutureProvider.autoDispose<SyncEntityCounts>((
   final total = totalResult.read<int>('total');
 
   // Build a single SQL query: count of entities with a recent date.
-  final cutoff =
-      DateTime.now()
-          .subtract(const Duration(hours: 24))
-          .millisecondsSinceEpoch ~/
-      1000;
-  final recentParts = dateColumns.entries.map(
-    (e) =>
-        'SELECT COUNT(*) AS c FROM ${e.key} '
-        'WHERE is_deleted = 0 AND ${e.value} >= $cutoff',
-  );
+  // chat_messages.timestamp is ms-since-epoch (v27); others are seconds.
+  final cutoffMs = DateTime.now()
+      .subtract(const Duration(hours: 24))
+      .millisecondsSinceEpoch;
+  final cutoffSec = cutoffMs ~/ 1000;
+  final recentParts = dateColumns.entries.map((e) {
+    final tableCutoff = e.key == 'chat_messages' ? cutoffMs : cutoffSec;
+    return 'SELECT COUNT(*) AS c FROM ${e.key} '
+        'WHERE is_deleted = 0 AND ${e.value} >= $tableCutoff';
+  });
   final recentSql =
       'SELECT SUM(c) AS total FROM (${recentParts.join(' UNION ALL ')})';
 

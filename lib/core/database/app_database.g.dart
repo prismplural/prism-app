@@ -4209,17 +4209,15 @@ class $ChatMessagesTable extends ChatMessages
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _timestampMeta = const VerificationMeta(
-    'timestamp',
-  );
   @override
-  late final GeneratedColumn<DateTime> timestamp = GeneratedColumn<DateTime>(
-    'timestamp',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
+  late final GeneratedColumnWithTypeConverter<DateTime, int> timestamp =
+      GeneratedColumn<int>(
+        'timestamp',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($ChatMessagesTable.$convertertimestamp);
   static const VerificationMeta _isSystemMessageMeta = const VerificationMeta(
     'isSystemMessage',
   );
@@ -4368,14 +4366,6 @@ class $ChatMessagesTable extends ChatMessages
     } else if (isInserting) {
       context.missing(_contentMeta);
     }
-    if (data.containsKey('timestamp')) {
-      context.handle(
-        _timestampMeta,
-        timestamp.isAcceptableOrUnknown(data['timestamp']!, _timestampMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_timestampMeta);
-    }
     if (data.containsKey('is_system_message')) {
       context.handle(
         _isSystemMessageMeta,
@@ -4461,10 +4451,12 @@ class $ChatMessagesTable extends ChatMessages
         DriftSqlType.string,
         data['${effectivePrefix}content'],
       )!,
-      timestamp: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}timestamp'],
-      )!,
+      timestamp: $ChatMessagesTable.$convertertimestamp.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}timestamp'],
+        )!,
+      ),
       isSystemMessage: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_system_message'],
@@ -4508,6 +4500,9 @@ class $ChatMessagesTable extends ChatMessages
   $ChatMessagesTable createAlias(String alias) {
     return $ChatMessagesTable(attachedDatabase, alias);
   }
+
+  static TypeConverter<DateTime, int> $convertertimestamp =
+      const ChatTimestampConverter();
 }
 
 class ChatMessage extends DataClass implements Insertable<ChatMessage> {
@@ -4542,7 +4537,11 @@ class ChatMessage extends DataClass implements Insertable<ChatMessage> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['content'] = Variable<String>(content);
-    map['timestamp'] = Variable<DateTime>(timestamp);
+    {
+      map['timestamp'] = Variable<int>(
+        $ChatMessagesTable.$convertertimestamp.toSql(timestamp),
+      );
+    }
     map['is_system_message'] = Variable<bool>(isSystemMessage);
     if (!nullToAbsent || editedAt != null) {
       map['edited_at'] = Variable<DateTime>(editedAt);
@@ -4789,7 +4788,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
   static Insertable<ChatMessage> custom({
     Expression<String>? id,
     Expression<String>? content,
-    Expression<DateTime>? timestamp,
+    Expression<int>? timestamp,
     Expression<bool>? isSystemMessage,
     Expression<DateTime>? editedAt,
     Expression<String>? authorId,
@@ -4860,7 +4859,9 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
       map['content'] = Variable<String>(content.value);
     }
     if (timestamp.present) {
-      map['timestamp'] = Variable<DateTime>(timestamp.value);
+      map['timestamp'] = Variable<int>(
+        $ChatMessagesTable.$convertertimestamp.toSql(timestamp.value),
+      );
     }
     if (isSystemMessage.present) {
       map['is_system_message'] = Variable<bool>(isSystemMessage.value);
@@ -26570,10 +26571,11 @@ class $$ChatMessagesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<DateTime> get timestamp => $composableBuilder(
-    column: $table.timestamp,
-    builder: (column) => ColumnFilters(column),
-  );
+  ColumnWithTypeConverterFilters<DateTime, DateTime, int> get timestamp =>
+      $composableBuilder(
+        column: $table.timestamp,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   ColumnFilters<bool> get isSystemMessage => $composableBuilder(
     column: $table.isSystemMessage,
@@ -26640,7 +26642,7 @@ class $$ChatMessagesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<DateTime> get timestamp => $composableBuilder(
+  ColumnOrderings<int> get timestamp => $composableBuilder(
     column: $table.timestamp,
     builder: (column) => ColumnOrderings(column),
   );
@@ -26706,7 +26708,7 @@ class $$ChatMessagesTableAnnotationComposer
   GeneratedColumn<String> get content =>
       $composableBuilder(column: $table.content, builder: (column) => column);
 
-  GeneratedColumn<DateTime> get timestamp =>
+  GeneratedColumnWithTypeConverter<DateTime, int> get timestamp =>
       $composableBuilder(column: $table.timestamp, builder: (column) => column);
 
   GeneratedColumn<bool> get isSystemMessage => $composableBuilder(
