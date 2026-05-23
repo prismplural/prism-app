@@ -353,12 +353,7 @@ class SpMapper {
             'https://serve.apparyllis.com/avatars/${sp.uid}/${sp.avatarUuid}';
       }
 
-      // Normalize SP color to hex without '#'.
-      String? colorHex = sp.color;
-      if (colorHex != null) {
-        colorHex = colorHex.replaceFirst('#', '');
-        if (colorHex.isEmpty) colorHex = null;
-      }
+      final colorHex = normalizeSpColorHex(sp.color);
 
       members.add(
         domain.Member(
@@ -392,11 +387,7 @@ class SpMapper {
         avatarUrls[prismId] = cf.avatarUrl!;
       }
 
-      String? colorHex = cf.color;
-      if (colorHex != null) {
-        colorHex = colorHex.replaceFirst('#', '');
-        if (colorHex.isEmpty) colorHex = null;
-      }
+      final colorHex = normalizeSpColorHex(cf.color);
 
       members.add(
         domain.Member(
@@ -1019,11 +1010,8 @@ class SpMapper {
         }
       }
 
-      String? colorHex = sp.color;
-      if (colorHex != null) {
-        if (!colorHex.startsWith('#')) colorHex = '#$colorHex';
-        if (colorHex == '#') colorHex = null;
-      }
+      final normalized = normalizeSpColorHex(sp.color);
+      final colorHex = normalized == null ? null : '#$normalized';
 
       notes.add(
         domain.Note(
@@ -1168,11 +1156,8 @@ class SpMapper {
       final prismId = _groupIdMap[sp.id] ?? _newId();
       _groupIdMap[sp.id] = prismId;
 
-      String? colorHex = sp.color;
-      if (colorHex != null) {
-        if (!colorHex.startsWith('#')) colorHex = '#$colorHex';
-        if (colorHex == '#') colorHex = null;
-      }
+      final normalized = normalizeSpColorHex(sp.color);
+      final colorHex = normalized == null ? null : '#$normalized';
 
       // Resolve parent if already mapped; "root" means top-level.
       String? parentGroupId;
@@ -1520,11 +1505,7 @@ class SpMapper {
       final options = <domain.PollOption>[];
       for (var i = 0; i < sourceOptions.length; i++) {
         final spOption = sourceOptions[i];
-        String? colorHex = spOption.color;
-        if (colorHex != null) {
-          colorHex = colorHex.replaceFirst('#', '');
-          if (colorHex.isEmpty) colorHex = null;
-        }
+        final colorHex = normalizeSpColorHex(spOption.color);
 
         options.add(
           domain.PollOption(

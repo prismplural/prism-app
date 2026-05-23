@@ -534,4 +534,46 @@ void main() {
       expect(data.polls.length, 1);
     });
   });
+
+  group('normalizeSpColorHex', () {
+    test('null and empty are null', () {
+      expect(normalizeSpColorHex(null), isNull);
+      expect(normalizeSpColorHex(''), isNull);
+      expect(normalizeSpColorHex('   '), isNull);
+    });
+
+    test('canonical 6-hex passes through (with or without #)', () {
+      expect(normalizeSpColorHex('#ff5733'), 'ff5733');
+      expect(normalizeSpColorHex('ff5733'), 'ff5733');
+      expect(normalizeSpColorHex('  FF5733  '), 'FF5733');
+    });
+
+    test('ARGB 8-hex strips alpha prefix', () {
+      expect(normalizeSpColorHex('#80FF5733'), 'FF5733');
+      expect(normalizeSpColorHex('80FF5733'), 'FF5733');
+      expect(normalizeSpColorHex('#FFAA0000'), 'AA0000');
+    });
+
+    test('3-char shorthand expands to 6-char', () {
+      expect(normalizeSpColorHex('#abc'), 'aabbcc');
+      expect(normalizeSpColorHex('abc'), 'aabbcc');
+      expect(normalizeSpColorHex('#F00'), 'FF0000');
+    });
+
+    test('rejects non-hex content', () {
+      expect(normalizeSpColorHex('#zzzzzz'), isNull);
+      expect(normalizeSpColorHex('rgba(0,0,0,1)'), isNull);
+      expect(normalizeSpColorHex('#'), isNull);
+    });
+
+    test('rejects unsupported lengths', () {
+      expect(normalizeSpColorHex('#12345'), isNull);
+      expect(normalizeSpColorHex('#1234567'), isNull);
+      expect(normalizeSpColorHex('#123456789'), isNull);
+    });
+
+    test('preserves case', () {
+      expect(normalizeSpColorHex('#aBcDeF'), 'aBcDeF');
+    });
+  });
 }

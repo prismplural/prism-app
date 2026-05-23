@@ -63,6 +63,27 @@ DateTime _parseSpTimeOr(dynamic value, DateTime Function() clock) {
   return _parseSpTime(value) ?? clock().toUtc();
 }
 
+/// Normalize a raw SP color string to a 6-char RGB hex body (no `#`).
+///
+/// Accepts 6-char hex, 8-char ARGB (alpha stripped), and 3-char shorthand,
+/// with or without a leading `#`. Returns null on null/empty/non-hex input.
+/// Integer pre-v1.50 note color indices are out of scope.
+String? normalizeSpColorHex(String? raw) {
+  if (raw == null) return null;
+  var s = raw.trim();
+  if (s.isEmpty) return null;
+  if (s.startsWith('#')) s = s.substring(1);
+  if (s.length == 3) {
+    s = '${s[0]}${s[0]}${s[1]}${s[1]}${s[2]}${s[2]}';
+  } else if (s.length == 8) {
+    // ARGB → RGB.
+    s = s.substring(2);
+  }
+  if (s.length != 6) return null;
+  if (!RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(s)) return null;
+  return s;
+}
+
 Map<String, String> extractSpCustomFieldValueKeyMap(dynamic rawFields) {
   if (rawFields is! Map) return const {};
 
