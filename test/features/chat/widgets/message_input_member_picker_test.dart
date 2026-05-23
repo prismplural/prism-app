@@ -62,6 +62,7 @@ void main() {
     createdAt: DateTime(2025, 1, 1),
     lastActivityAt: DateTime(2025, 1, 1),
     isDirectMessage: false,
+    title: 'Test Group',
   );
   final cluster = MemberGroup(
     id: 'group-1',

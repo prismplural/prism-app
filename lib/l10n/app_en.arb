@@ -5253,6 +5253,14 @@
   "@chatMessageEdited": {
     "description": "Label shown on edited messages"
   },
+  "chatMessageChangeAuthor": "Change author",
+  "@chatMessageChangeAuthor": {
+    "description": "Long-press menu label for re-attributing a chat message to a different member."
+  },
+  "chatMessageSetAuthorPickerTitle": "Set author",
+  "@chatMessageSetAuthorPickerTitle": {
+    "description": "Title for the member picker shown after tapping Change author in the message menu."
+  },
   "chatInfoTitle": "Info",
   "@chatInfoTitle": {
     "description": "Sheet title for conversation info when no title is set"

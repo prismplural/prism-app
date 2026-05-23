@@ -147,6 +147,7 @@ class PrismMessageGroup extends StatelessWidget {
     required this.conversationId,
     required this.permissions,
     this.authorMap,
+    this.messageAuthorMap,
     this.messageKeys,
     this.onScrollToMessage,
     this.onReply,
@@ -162,6 +163,11 @@ class PrismMessageGroup extends StatelessWidget {
   /// Pre-loaded author map. When provided, [MessageBubble] can look up the
   /// author from this map instead of watching an individual provider.
   final Map<String, Member>? authorMap;
+
+  /// Flat map from message ID to its current authorId, derived from the full
+  /// visible message list. Passed through to [MessageBubble] so the reply chip
+  /// can resolve the parent message's live author.
+  final Map<String, String?>? messageAuthorMap;
 
   /// GlobalKey map keyed by message ID, used to locate messages for
   /// scroll-to-reply.
@@ -188,6 +194,7 @@ class PrismMessageGroup extends StatelessWidget {
               showAuthorInfo: i == 0,
               permissions: permissions,
               authorMap: authorMap,
+              messageAuthorMap: messageAuthorMap,
               onScrollToReply: group.messages[i].replyToId != null
                   ? () => onScrollToMessage?.call(group.messages[i].replyToId!)
                   : null,
@@ -209,6 +216,7 @@ class _HighlightAwareMessageBubble extends ConsumerWidget {
     required this.showAuthorInfo,
     required this.permissions,
     this.authorMap,
+    this.messageAuthorMap,
     this.onScrollToReply,
     this.onReply,
   });
@@ -218,6 +226,7 @@ class _HighlightAwareMessageBubble extends ConsumerWidget {
   final bool showAuthorInfo;
   final ConversationPermissions permissions;
   final Map<String, Member>? authorMap;
+  final Map<String, String?>? messageAuthorMap;
   final VoidCallback? onScrollToReply;
   final void Function(ChatMessage message)? onReply;
 
@@ -233,6 +242,7 @@ class _HighlightAwareMessageBubble extends ConsumerWidget {
       showAuthorInfo: showAuthorInfo,
       permissions: permissions,
       authorMap: authorMap,
+      messageAuthorMap: messageAuthorMap,
       onScrollToReply: onScrollToReply,
       onReply: onReply,
       isHighlighted: isHighlighted,

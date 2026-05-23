@@ -891,6 +891,78 @@ void main() {
     );
   });
 
+  group('ConversationPermissions — canChangeMessageAuthor', () {
+    test(
+      'returns false when authorId is null (system message proxy) even with canWrite',
+      () {
+        final conv = makeGroupConversation(creatorId: 'creator');
+        final member = makeMember(id: 'member1');
+        final perms = ConversationPermissions(
+          conversation: conv,
+          speakingAsMemberId: 'member1',
+          speakingAsMember: member,
+        );
+        expect(perms.canWrite, isTrue);
+        expect(perms.canChangeMessageAuthor(null), isFalse);
+      },
+    );
+
+    test(
+      'returns true for any non-null authorId when canWrite, regardless of speakingAsMemberId',
+      () {
+        final conv = makeGroupConversation(creatorId: 'creator');
+        final member = makeMember(id: 'member1');
+        final perms = ConversationPermissions(
+          conversation: conv,
+          speakingAsMemberId: 'member1',
+          speakingAsMember: member,
+        );
+        expect(perms.canWrite, isTrue);
+        // own message
+        expect(perms.canChangeMessageAuthor('member1'), isTrue);
+        // someone else's message — writers can re-attribute any message
+        expect(perms.canChangeMessageAuthor('member2'), isTrue);
+        expect(perms.canChangeMessageAuthor('creator'), isTrue);
+      },
+    );
+
+    test(
+      'returns true under canManage regardless of canWrite',
+      () {
+        // Admin non-participant: canManage is true, canWrite is false.
+        final conv = makeGroupConversation(creatorId: 'creator');
+        final admin = makeMember(id: 'admin1', isAdmin: true);
+        final perms = ConversationPermissions(
+          conversation: conv,
+          speakingAsMemberId: 'admin1',
+          speakingAsMember: admin,
+        );
+        expect(perms.canWrite, isFalse);
+        expect(perms.canManage, isTrue);
+        expect(perms.canChangeMessageAuthor('member1'), isTrue);
+        expect(perms.canChangeMessageAuthor('creator'), isTrue);
+      },
+    );
+
+    test(
+      'returns false when both canWrite and canManage are false (read-only)',
+      () {
+        // Outsider: not a participant, not an admin.
+        final conv = makeGroupConversation(creatorId: 'creator');
+        final outsider = makeMember(id: 'outsider');
+        final perms = ConversationPermissions(
+          conversation: conv,
+          speakingAsMemberId: 'outsider',
+          speakingAsMember: outsider,
+        );
+        expect(perms.canWrite, isFalse);
+        expect(perms.canManage, isFalse);
+        expect(perms.canChangeMessageAuthor('member1'), isFalse);
+        expect(perms.canChangeMessageAuthor(null), isFalse);
+      },
+    );
+  });
+
   group('ConversationPermissions — isMemberDeparted', () {
     late ConversationPermissions perms;
 

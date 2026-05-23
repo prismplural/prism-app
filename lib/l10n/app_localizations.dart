@@ -6671,6 +6671,18 @@ abstract class AppLocalizations {
   /// **'edited'**
   String get chatMessageEdited;
 
+  /// Long-press menu label for re-attributing a chat message to a different member.
+  ///
+  /// In en, this message translates to:
+  /// **'Change author'**
+  String get chatMessageChangeAuthor;
+
+  /// Title for the member picker shown after tapping Change author in the message menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Set author'**
+  String get chatMessageSetAuthorPickerTitle;
+
   /// Sheet title for conversation info when no title is set
   ///
   /// In en, this message translates to:

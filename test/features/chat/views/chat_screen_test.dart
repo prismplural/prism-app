@@ -57,6 +57,9 @@ class _EmptyChatMessageRepository implements ChatMessageRepository {
   Future<domain.ChatMessage?> getMessageById(String id) async => null;
 
   @override
+  Future<bool> isMessageDeleted(String messageId) async => false;
+
+  @override
   Future<List<domain.ChatMessage>> getMessagesForConversation(
     String conversationId, {
     int? limit,

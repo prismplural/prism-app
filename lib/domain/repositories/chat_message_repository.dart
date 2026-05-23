@@ -22,4 +22,5 @@ abstract class ChatMessageRepository {
   Stream<int> watchUnreadMentionCount(String conversationId, DateTime since, String memberId);
   Stream<Map<String, int>> watchAllUnreadCounts(Map<String, DateTime> conversationSince);
   Stream<Set<String>> watchConversationsWithMentions(Map<String, DateTime> conversationSince, String memberId);
+  Future<bool> isMessageDeleted(String messageId);
 }

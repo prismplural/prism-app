@@ -493,6 +493,9 @@ class _FakeChatMessageRepository implements ChatMessageRepository {
   Future<ChatMessage?> getMessageById(String id) async => null;
 
   @override
+  Future<bool> isMessageDeleted(String messageId) async => false;
+
+  @override
   Future<List<ChatMessage>> getMessagesForConversation(
     String conversationId, {
     int? limit,

@@ -3860,6 +3860,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatMessageEdited => 'edited';
 
   @override
+  String get chatMessageChangeAuthor => 'Change author';
+
+  @override
+  String get chatMessageSetAuthorPickerTitle => 'Set author';
+
+  @override
   String get chatInfoTitle => 'Info';
 
   @override

@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/chat/providers/media_attachment_provide
 import 'package:prism_plurality/features/chat/providers/media_state_providers.dart';
 import 'package:prism_plurality/features/chat/providers/voice_playback_provider.dart';
 import 'package:prism_plurality/features/chat/services/voice/voice_models.dart';
+import 'package:prism_plurality/features/chat/utils/chat_author_options.dart';
 import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/utils/markdown_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
@@ -30,6 +31,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/widgets/member_selector_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -41,6 +43,7 @@ import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 
 // Spoiler plaintext must not reach the accessibility label; keeping this as a
 // named helper lets the screen-reader redaction test call the production path
@@ -64,6 +67,7 @@ class MessageBubble extends ConsumerStatefulWidget {
     required this.permissions,
     this.showAuthorInfo = true,
     this.authorMap,
+    this.messageAuthorMap,
     this.onScrollToReply,
     this.onReply,
     this.isHighlighted = false,
@@ -81,6 +85,11 @@ class MessageBubble extends ConsumerStatefulWidget {
   /// Pre-loaded author map from batch loading. If provided and the author is
   /// found in the map, the individual [activeMemberByIdProvider] watch is skipped.
   final Map<String, Member>? authorMap;
+
+  /// Live messageId → current authorId map. The reply chip reads this so a
+  /// later changeMessageAuthor on the parent is reflected immediately,
+  /// bypassing the denormalized [ChatMessage.replyToAuthorId].
+  final Map<String, String?>? messageAuthorMap;
 
   /// Called when the user taps the reply quote chip to scroll to the original message.
   final VoidCallback? onScrollToReply;
@@ -100,6 +109,10 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   bool _showAbsoluteTime = false;
 
   bool _appeared = false;
+
+  /// Anchors the offstage author picker so it can be shown programmatically
+  /// after the long-press context menu dismisses.
+  final _authorPickerKey = GlobalKey<BlurPopupAnchorState>();
 
   void _toggleTimeFormat() {
     Haptics.light();
@@ -148,6 +161,29 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     );
 
     final perms = widget.permissions;
+    final authorId = widget.message.authorId;
+    if (perms.canChangeMessageAuthor(authorId) &&
+        !widget.message.isSystemMessage) {
+      final activeMembers = ref.watch(activeMembersProvider).value ?? const [];
+      // Pass currentAuthor so a departed-author DM still surfaces the action.
+      final currentAuthor =
+          (authorId != null) ? (widget.authorMap?[authorId]) : null;
+      final candidateIds = chatAuthorCandidateIds(
+        perms.conversation,
+        activeMembers,
+        currentAuthorId: authorId,
+        currentAuthor: currentAuthor,
+      );
+      if (candidateIds.length >= 2) {
+        actions.add(
+          _ContextAction(
+            icon: Icons.swap_horiz,
+            label: context.l10n.chatMessageChangeAuthor,
+            onTap: _showAuthorPicker,
+          ),
+        );
+      }
+    }
     if (perms.canEditMessage(widget.message.authorId)) {
       actions.add(
         _ContextAction(
@@ -333,6 +369,16 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     }
   }
 
+  void _showAuthorPicker(VoidCallback close) {
+    close();
+    // Wait a frame so the context menu overlay dismisses before the picker
+    // overlay opens.
+    Future<void>.delayed(Duration.zero, () {
+      if (!mounted) return;
+      _authorPickerKey.currentState?.show();
+    });
+  }
+
   Color _replyAuthorColor(String? authorId, ThemeData theme) {
     if (authorId == null || widget.authorMap == null) {
       return theme.colorScheme.primary;
@@ -473,23 +519,42 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                         if (widget.message.replyToId != null)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 4),
-                            child: _ReplyQuote(
-                              authorName:
-                                  widget
-                                      .authorMap?[widget
-                                          .message
-                                          .replyToAuthorId]
-                                      ?.name ??
-                                  widget.message.replyToAuthorId ??
-                                  context.l10n.unknown,
-                              content: widget.message.replyToContent ?? '',
-                              authorColor: _replyAuthorColor(
-                                widget.message.replyToAuthorId,
-                                theme,
-                              ),
-                              isDeleted: widget.message.replyToContent == null,
-                              onTap: widget.onScrollToReply,
-                              authorMap: widget.authorMap,
+                            child: Builder(
+                              builder: (context) {
+                                // Prefer the parent's live authorId so a later
+                                // re-attribution shows here too; fall back to
+                                // the denormalized replyToAuthorId when the
+                                // parent is unknown or a system message.
+                                final replyToId = widget.message.replyToId!;
+                                final bool parentKnown = widget
+                                        .messageAuthorMap
+                                        ?.containsKey(replyToId) ??
+                                    false;
+                                final String? liveAuthorId = parentKnown
+                                    ? widget.messageAuthorMap![replyToId]
+                                    : null;
+                                final String? effectiveAuthorId =
+                                    liveAuthorId ??
+                                    widget.message.replyToAuthorId;
+
+                                return _ReplyQuote(
+                                  authorName:
+                                      widget
+                                          .authorMap?[effectiveAuthorId]
+                                          ?.name ??
+                                      effectiveAuthorId ??
+                                      context.l10n.unknown,
+                                  content: widget.message.replyToContent ?? '',
+                                  authorColor: _replyAuthorColor(
+                                    effectiveAuthorId,
+                                    theme,
+                                  ),
+                                  isDeleted:
+                                      widget.message.replyToContent == null,
+                                  onTap: widget.onScrollToReply,
+                                  authorMap: widget.authorMap,
+                                );
+                              },
                             ),
                           ),
                         if (widget.showAuthorInfo)
@@ -577,9 +642,68 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       ),
     );
 
+    // Build the invisible author-picker anchor only for bubbles where the
+    // picker can actually be shown. Cheap gate first (no provider reads), then
+    // watch activeMembers only if the cheap gate passes.
+    final perms = widget.permissions;
+    final authorId = widget.message.authorId;
+    final cheapGate =
+        perms.canChangeMessageAuthor(authorId) && !widget.message.isSystemMessage;
+
+    Widget buildFinalWidget(Widget content) {
+      if (!cheapGate) return content;
+
+      // Only read activeMembers / terminology once the cheap gate passes —
+      // avoids per-bubble subscriptions in chats where the action can't run.
+      final activeMembers = ref.watch(activeMembersProvider).value ?? const [];
+      final currentAuthor =
+          (authorId != null) ? (widget.authorMap?[authorId]) : null;
+      final candidateIds = chatAuthorCandidateIds(
+        perms.conversation,
+        activeMembers,
+        currentAuthorId: authorId,
+        currentAuthor: currentAuthor,
+      );
+      if (candidateIds.length < 2) return content;
+
+      // Offstage keeps the picker anchor in the layout/overlay system without
+      // painting — BlurPopupAnchor needs it mounted to measure position.
+      final terms = watchTerminology(context, ref);
+      final authorPickerAnchor = Offstage(
+        child: MemberSelectorPopup(
+          manualAnchorKey: _authorPickerKey,
+          anchorChild: const SizedBox.shrink(),
+          members: chatAuthorCandidates(
+            perms.conversation,
+            activeMembers,
+            context.l10n,
+            currentAuthorId: authorId,
+            currentAuthor: currentAuthor,
+          ),
+          termPlural: terms.plural,
+          selectedMemberId: authorId,
+          searchTitle: context.l10n.chatMessageSetAuthorPickerTitle,
+          searchLabel: context.l10n.chatMessageSetAuthorPickerTitle,
+          onMemberSelected: (id) => unawaited(
+            ref
+                .read(chatNotifierProvider.notifier)
+                .changeMessageAuthor(widget.message.id, id),
+          ),
+          child: const SizedBox.shrink(),
+        ),
+      );
+
+      return Stack(
+        children: [
+          content,
+          Positioned(top: 0, left: 0, child: authorPickerAnchor),
+        ],
+      );
+    }
+
     if (disableAnimations) {
       if (widget.isHighlighted) {
-        return Stack(
+        return buildFinalWidget(Stack(
           children: [
             Positioned.fill(
               child: ColoredBox(
@@ -588,14 +712,14 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
             ),
             slideWidget,
           ],
-        );
+        ));
       }
-      return slideWidget;
+      return buildFinalWidget(slideWidget);
     }
 
-    if (!widget.isHighlighted) return slideWidget;
+    if (!widget.isHighlighted) return buildFinalWidget(slideWidget);
 
-    return Stack(
+    return buildFinalWidget(Stack(
       children: [
         Positioned.fill(
           child: TweenAnimationBuilder<double>(
@@ -611,7 +735,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         ),
         slideWidget,
       ],
-    );
+    ));
   }
 
   /// Build media attachment widgets for this message.

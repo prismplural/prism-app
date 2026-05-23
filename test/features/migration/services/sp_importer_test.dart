@@ -490,6 +490,9 @@ class _FakeChatMessageRepository implements ChatMessageRepository {
       .firstWhere((m) => m?.id == id, orElse: () => null);
 
   @override
+  Future<bool> isMessageDeleted(String messageId) async => false;
+
+  @override
   Future<domain.ChatMessage?> getLatestMessage(String conversationId) async =>
       null;
 

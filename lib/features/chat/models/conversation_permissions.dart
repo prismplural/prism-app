@@ -153,6 +153,10 @@ class ConversationPermissions {
   bool canDeleteMessage(String? authorId) =>
       (canWrite && authorId == speakingAsMemberId) || canManage;
 
+  /// Re-attribute a message. System messages (null authorId) are never eligible.
+  bool canChangeMessageAuthor(String? authorId) =>
+      (canWrite && authorId != null) || canManage;
+
   bool isMemberDeparted(String? memberId, {Member? member}) {
     if (memberId == null) return false;
     if (conversation.participantIds.contains(memberId)) return false;

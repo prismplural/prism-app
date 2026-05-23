@@ -9,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
@@ -205,24 +204,24 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   List<Member> _getSpeakingAsCandidates(
     BuildContext context,
     List<Member> members,
-    Conversation? conversation,
-  ) {
-    final userVisibleMembers = members
-        .where((member) => member.id != unknownSentinelMemberId)
-        .toList(growable: false);
-    if (conversation == null || !conversation.isDirectMessage) {
-      return withUnknownChatAuthorOption(context, userVisibleMembers);
-    }
-    final participantIds = conversation.participantIds.toSet();
-    if (participantIds.isEmpty) {
-      return withUnknownChatAuthorOption(context, userVisibleMembers);
-    }
-    final participantMembers = userVisibleMembers
-        .where((member) => participantIds.contains(member.id))
-        .toList(growable: false);
-    return participantIds.contains(unknownSentinelMemberId)
-        ? withUnknownChatAuthorOption(context, participantMembers)
-        : participantMembers;
+    Conversation? conversation, {
+    String? speakingAsMemberId,
+  }) {
+    // When there is no conversation yet, treat it as a non-DM so all members
+    // are candidates (matches the prior behavior of the inlined logic).
+    final conv =
+        conversation ??
+        Conversation(
+          id: '',
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+          lastActivityAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+        );
+    return chatAuthorCandidates(
+      conv,
+      members,
+      context.l10n,
+      currentAuthorId: speakingAsMemberId,
+    );
   }
 
   void _syncMentionOverlayPortal(bool shouldShow) {
@@ -721,6 +720,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       context,
       members,
       conversation,
+      speakingAsMemberId: speakingAs,
     );
     final showMentionOverlay =
         _mentionMenuVisible &&

@@ -462,6 +462,9 @@ class _NullChatMessageRepo implements ChatMessageRepository {
   Future<domain.ChatMessage?> getMessageById(String id) async => null;
 
   @override
+  Future<bool> isMessageDeleted(String messageId) async => false;
+
+  @override
   Stream<List<domain.ChatMessage>> watchMessagesForConversation(
           String conversationId) =>
       const Stream.empty();

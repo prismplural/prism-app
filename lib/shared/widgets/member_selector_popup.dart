@@ -46,6 +46,8 @@ class MemberSelectorPopup extends StatelessWidget {
     this.enabled = true,
     this.semanticLabel,
     this.onBeforeShow,
+    this.manualAnchorKey,
+    this.anchorChild,
   });
 
   final Widget child;
@@ -65,9 +67,19 @@ class MemberSelectorPopup extends StatelessWidget {
   final String? semanticLabel;
   final VoidCallback? onBeforeShow;
 
+  /// When non-null, switches the anchor to [BlurPopupTrigger.manual] and
+  /// exposes its state so callers can call `.show()` programmatically.
+  final GlobalKey<BlurPopupAnchorState>? manualAnchorKey;
+
+  /// Placeholder child for the anchor when in manual mode (typically an
+  /// [Offstage] / [SizedBox.shrink]). Falls back to [child] when null.
+  final Widget? anchorChild;
+
   @override
   Widget build(BuildContext context) {
     if (!enabled) return child;
+
+    final isManual = manualAnchorKey != null;
 
     final visibleRows = <_MemberSelectorPopupRow>[
       _SearchPopupRow(),
@@ -79,6 +91,8 @@ class MemberSelectorPopup extends StatelessWidget {
         : visibleRows;
 
     return BlurPopupAnchor(
+      key: manualAnchorKey,
+      trigger: isManual ? BlurPopupTrigger.manual : BlurPopupTrigger.tap,
       preferredDirection: preferredDirection,
       width: width,
       maxHeight: maxHeight,
@@ -87,7 +101,7 @@ class MemberSelectorPopup extends StatelessWidget {
       itemCount: logicalRows.length,
       itemBuilder: (popupContext, index, close) =>
           _buildRow(context, popupContext, logicalRows[index], close),
-      child: child,
+      child: isManual ? (anchorChild ?? child) : child,
     );
   }
 

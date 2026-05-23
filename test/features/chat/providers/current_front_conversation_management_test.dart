@@ -510,4 +510,7 @@ class _FakeChatMessageRepository implements ChatMessageRepository {
     DateTime since,
     String memberId,
   ) => Stream.value(0);
+
+  @override
+  Future<bool> isMessageDeleted(String messageId) async => false;
 }

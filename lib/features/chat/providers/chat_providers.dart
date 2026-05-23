@@ -673,6 +673,44 @@ class ChatNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> changeMessageAuthor(
+    String messageId,
+    String newAuthorId,
+  ) async {
+    state = await AsyncValue.guard(() async {
+      await _mutationPool.withResource(() async {
+        final repo = ref.read(chatMessageRepositoryProvider);
+        final message = await repo.getMessageById(messageId);
+        if (message == null || message.isSystemMessage) return;
+        if (message.authorId == newAuthorId) return;
+        if (await repo.isMessageDeleted(messageId)) return;
+
+        await _requireConversationAction(
+          message.conversationId,
+          (perms) => perms.canChangeMessageAuthor(message.authorId),
+          speakingAsMemberId: ref.read(speakingAsProvider),
+        );
+
+        final conversation = await ref
+            .read(conversationRepositoryProvider)
+            .getConversationById(message.conversationId);
+        if (conversation == null) return;
+        final activeMembers = await ref.read(activeMembersProvider.future);
+        final validIds = chatAuthorCandidateIds(
+          conversation,
+          activeMembers,
+          currentAuthorId: message.authorId,
+        );
+        if (!validIds.contains(newAuthorId)) {
+          throw StateError('Invalid author candidate for re-attribution.');
+        }
+
+        // Re-attribution is a correction, not an edit — leave editedAt alone.
+        await repo.updateMessage(message.copyWith(authorId: newAuthorId));
+      });
+    });
+  }
+
   Future<void> deleteMessage(String messageId) async {
     state = await AsyncValue.guard(() async {
       await _mutationPool.withResource(() async {

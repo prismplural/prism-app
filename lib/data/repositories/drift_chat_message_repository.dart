@@ -66,6 +66,12 @@ class DriftChatMessageRepository
   }
 
   @override
+  Future<bool> isMessageDeleted(String messageId) async {
+    final row = await _dao.getMessageById(messageId);
+    return row?.isDeleted ?? true;
+  }
+
+  @override
   Future<void> createMessage(domain.ChatMessage message) async {
     final companion = ChatMessageMapper.toCompanion(message);
     await _dao.insertMessage(companion);

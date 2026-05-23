@@ -252,6 +252,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         ).select((s) => s.value ?? {}),
                       );
 
+                      final messageAuthorMap = {
+                        for (final m in messages) m.id: m.authorId,
+                      };
+
                       // Group messages by author / time, inserting date
                       // separators between days.
                       final groupItems = _groupBuilder.build(messages);
@@ -315,6 +319,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                               conversationId: widget.conversationId,
                               permissions: permissions,
                               authorMap: authorMap,
+                              messageAuthorMap: messageAuthorMap,
                               messageKeys: _messageKeys,
                               onScrollToMessage: _scrollToMessage,
                               onReply: (msg) => ref

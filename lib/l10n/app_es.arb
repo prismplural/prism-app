@@ -1090,6 +1090,14 @@
   "chatReplyQuoteSemantics": "Respondiendo a {authorName}: {content}. Toca dos veces para ir al mensaje.",
   "chatReplyQuoteDeletedSemantics": "Mensaje original eliminado",
   "chatMessageEdited": "editado",
+  "chatMessageChangeAuthor": "Cambiar autor",
+  "@chatMessageChangeAuthor": {
+    "description": "Long-press menu label for re-attributing a chat message to a different member."
+  },
+  "chatMessageSetAuthorPickerTitle": "Establecer autor",
+  "@chatMessageSetAuthorPickerTitle": {
+    "description": "Title for the member picker shown after tapping Change author in the message menu."
+  },
   "chatInfoTitle": "Información",
   "chatInfoConversationTitle": "Título de la conversación",
   "chatInfoCreatedAt": "Creado el {date}",
