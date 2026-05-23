@@ -24,6 +24,45 @@ DateTime? _parseUtc(String s) {
   return DateTime.tryParse(normalized)?.toUtc();
 }
 
+/// Parse a Simply Plural timestamp value to a UTC [DateTime].
+///
+/// Accepts int / num / numeric string epoch ms, ISO-8601 strings, and the
+/// Firebase Timestamp `{_seconds, _nanoseconds}` map shape that leaks
+/// through from pre-v1.50 frontHistory comments. Returns null when the
+/// value can't be interpreted.
+DateTime? _parseSpTime(dynamic value) {
+  if (value == null) return null;
+  if (value is int) {
+    return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
+  }
+  if (value is num) {
+    return DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: true);
+  }
+  if (value is String) {
+    if (value.isEmpty) return null;
+    final parsed = int.tryParse(value);
+    if (parsed != null) {
+      return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
+    }
+    return _parseUtc(value);
+  }
+  if (value is Map) {
+    final seconds = value['_seconds'] ?? value['seconds'];
+    if (seconds is num) {
+      final rawNanos = value['_nanoseconds'] ?? value['nanoseconds'];
+      final nanos = rawNanos is num ? rawNanos : 0;
+      final ms = (seconds * 1000).toInt() + (nanos ~/ 1000000).toInt();
+      return DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true);
+    }
+  }
+  return null;
+}
+
+/// Like [_parseSpTime] but falls back to `clock()` (as UTC) on null/unparseable.
+DateTime _parseSpTimeOr(dynamic value, DateTime Function() clock) {
+  return _parseSpTime(value) ?? clock().toUtc();
+}
+
 Map<String, String> extractSpCustomFieldValueKeyMap(dynamic rawFields) {
   if (rawFields is! Map) return const {};
 
@@ -332,20 +371,6 @@ class SpFrontHistory {
     final startMs = json['startTime'];
     final endMs = json['endTime'];
 
-    DateTime parseTime(dynamic value) {
-      if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
-      }
-      if (value is String) {
-        final parsed = int.tryParse(value);
-        if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
-        }
-        return _parseUtc(value) ?? clock().toUtc();
-      }
-      return clock().toUtc();
-    }
-
     // SP `live` flag: true means the session is currently active. When live,
     // endTime must be treated as NULL in the Prism row regardless of the
     // snapshot value SP stores.
@@ -360,8 +385,8 @@ class SpFrontHistory {
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       memberId: json['member']?.toString(),
       coFronters: const [],
-      startTime: parseTime(startMs),
-      endTime: endMs != null ? parseTime(endMs) : null,
+      startTime: _parseSpTimeOr(startMs, clock),
+      endTime: endMs != null ? _parseSpTimeOr(endMs, clock) : null,
       live: live,
       comment: json['comment'] as String?,
       customStatus: json['customStatus'] as String?,
@@ -441,9 +466,7 @@ class SpChannel {
       name: json['name'] as String?,
       desc: json['desc'] as String?,
       memberIds: memberList,
-      createdAt: json['createdAt'] != null
-          ? _parseUtc(json['createdAt'].toString())
-          : null,
+      createdAt: _parseSpTime(json['createdAt']),
     );
   }
 }
@@ -482,34 +505,6 @@ class SpMessage {
     DateTime Function()? now,
   }) {
     final clock = now ?? DateTime.now;
-    DateTime parseTime(dynamic value) {
-      if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
-      }
-      if (value is String) {
-        final parsed = int.tryParse(value);
-        if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
-        }
-        return _parseUtc(value) ?? clock().toUtc();
-      }
-      return clock().toUtc();
-    }
-
-    DateTime? parseOptionalTime(dynamic value) {
-      if (value == null) return null;
-      if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
-      }
-      if (value is String) {
-        final parsed = int.tryParse(value);
-        if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
-        }
-        return _parseUtc(value);
-      }
-      return null;
-    }
 
     final replyTo = json['replyTo'] as String?;
     final content = (json['message'] ?? json['content'] ?? '').toString();
@@ -522,12 +517,13 @@ class SpMessage {
           json['writer']?.toString() ??
           json['member']?.toString(),
       content: content,
-      timestamp: parseTime(
+      timestamp: _parseSpTimeOr(
         json['timestamp'] ?? json['writtenAt'] ?? json['createdAt'],
+        clock,
       ),
       // Only store replyTo if it's a non-empty string (SP uses "" to mean no reply).
       replyTo: (replyTo != null && replyTo.isNotEmpty) ? replyTo : null,
-      updatedAt: parseOptionalTime(json['updatedAt'] ?? json['lastUpdated']),
+      updatedAt: _parseSpTime(json['updatedAt'] ?? json['lastUpdated']),
       looksEncrypted: _looksLikeEncryptedSpMessage(content, json['iv']),
     );
   }
@@ -585,22 +581,6 @@ class SpPoll {
     DateTime Function()? now,
   }) {
     final clock = now ?? DateTime.now;
-    DateTime parseTime(dynamic value) {
-      if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
-      }
-      if (value is num) {
-        return DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: true);
-      }
-      if (value is String) {
-        final parsed = int.tryParse(value);
-        if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
-        }
-        return _parseUtc(value) ?? clock().toUtc();
-      }
-      return clock().toUtc();
-    }
 
     final optionList = <SpPollOption>[];
     final rawOptions = json['options'];
@@ -652,7 +632,7 @@ class SpPoll {
       allowMultiple: json['allowMultiple'] == true,
       allowAbstain: json['allowAbstain'] == true,
       allowVeto: json['allowVeto'] == true,
-      endDate: rawEndTime != null ? parseTime(rawEndTime) : null,
+      endDate: rawEndTime != null ? _parseSpTimeOr(rawEndTime, clock) : null,
     );
   }
 }
@@ -680,19 +660,6 @@ class SpNote {
     DateTime Function()? now,
   }) {
     final clock = now ?? DateTime.now;
-    DateTime parseTime(dynamic value) {
-      if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
-      }
-      if (value is String) {
-        final parsed = int.tryParse(value);
-        if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
-        }
-        return _parseUtc(value) ?? clock().toUtc();
-      }
-      return clock().toUtc();
-    }
 
     return SpNote(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
@@ -700,7 +667,7 @@ class SpNote {
       body: (json['note'] ?? json['body'] ?? '').toString(),
       color: json['color'] as String?,
       memberId: json['member']?.toString(),
-      date: parseTime(json['date'] ?? json['createdAt']),
+      date: _parseSpTimeOr(json['date'] ?? json['createdAt'], clock),
     );
   }
 }
@@ -726,26 +693,13 @@ class SpComment {
     DateTime Function()? now,
   }) {
     final clock = now ?? DateTime.now;
-    DateTime parseTime(dynamic value) {
-      if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
-      }
-      if (value is String) {
-        final parsed = int.tryParse(value);
-        if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
-        }
-        return _parseUtc(value) ?? clock().toUtc();
-      }
-      return clock().toUtc();
-    }
 
     return SpComment(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       documentId: (json['documentId'] ?? '').toString(),
       collection: (json['collection'] ?? '').toString(),
       text: (json['text'] ?? json['comment'] ?? '').toString(),
-      time: parseTime(json['time'] ?? json['createdAt']),
+      time: _parseSpTimeOr(json['time'] ?? json['createdAt'], clock),
     );
   }
 }
@@ -810,19 +764,6 @@ class SpBoardMessage {
     DateTime Function()? now,
   }) {
     final clock = now ?? DateTime.now;
-    DateTime parseTime(dynamic value) {
-      if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
-      }
-      if (value is String) {
-        final parsed = int.tryParse(value);
-        if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed, isUtc: true);
-        }
-        return _parseUtc(value) ?? clock().toUtc();
-      }
-      return clock().toUtc();
-    }
 
     return SpBoardMessage(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
@@ -830,7 +771,10 @@ class SpBoardMessage {
       writtenFor: json['writtenFor']?.toString(),
       title: json['title'] as String?,
       message: (json['message'] ?? '').toString(),
-      writtenAt: parseTime(json['writtenAt'] ?? json['createdAt']),
+      writtenAt: _parseSpTimeOr(
+        json['writtenAt'] ?? json['createdAt'],
+        clock,
+      ),
       read: json['read'] == true,
     );
   }

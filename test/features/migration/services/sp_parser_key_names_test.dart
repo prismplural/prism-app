@@ -345,6 +345,108 @@ void main() {
     });
   });
 
+  group('Firebase Timestamp tolerance', () {
+    test('SpFrontHistory accepts Firebase Timestamp startTime', () {
+      final fh = SpFrontHistory.fromJson({
+        '_id': 'fh1',
+        'member': 'mem1',
+        'startTime': {'_seconds': 1684858400, '_nanoseconds': 123000000},
+      });
+      expect(fh.startTime.millisecondsSinceEpoch, 1684858400123);
+    });
+
+    test('SpFrontHistory accepts unprefixed seconds/nanoseconds', () {
+      final fh = SpFrontHistory.fromJson({
+        '_id': 'fh1',
+        'member': 'mem1',
+        'startTime': {'seconds': 1684858400, 'nanoseconds': 500000000},
+      });
+      expect(fh.startTime.millisecondsSinceEpoch, 1684858400500);
+    });
+
+    test('SpComment accepts Firebase Timestamp time', () {
+      final c = SpComment.fromJson({
+        '_id': 'cm1',
+        'documentId': 'fh1',
+        'collection': 'frontHistory',
+        'text': 'old comment',
+        'time': {'_seconds': 1500000000, '_nanoseconds': 0},
+      });
+      expect(c.time.millisecondsSinceEpoch, 1500000000000);
+    });
+
+    test('SpNote accepts Firebase Timestamp date', () {
+      final n = SpNote.fromJson({
+        '_id': 'n1',
+        'title': 'Old note',
+        'note': 'body',
+        'member': 'mem1',
+        'date': {'_seconds': 1600000000, '_nanoseconds': 0},
+      });
+      expect(n.date.millisecondsSinceEpoch, 1600000000000);
+    });
+
+    test('SpBoardMessage accepts Firebase Timestamp writtenAt', () {
+      final bm = SpBoardMessage.fromJson({
+        '_id': 'bm1',
+        'writtenBy': 'mem1',
+        'writtenFor': 'mem2',
+        'message': 'old board post',
+        'writtenAt': {'_seconds': 1700000000, '_nanoseconds': 0},
+      });
+      expect(bm.writtenAt.millisecondsSinceEpoch, 1700000000000);
+    });
+
+    test('SpMessage accepts Firebase Timestamp timestamp', () {
+      final msg = SpMessage.fromJson({
+        '_id': 'msg1',
+        'message': 'Hello',
+        'writer': 'mem1',
+        'writtenAt': {'_seconds': 1684858400, '_nanoseconds': 250000000},
+      }, 'ch1');
+      expect(msg.timestamp.millisecondsSinceEpoch, 1684858400250);
+    });
+
+    test('SpPoll accepts double endTime', () {
+      final p = SpPoll.fromJson({
+        '_id': 'p1',
+        'name': 'Test',
+        'endTime': 1684858400123.0,
+      });
+      expect(p.endDate?.millisecondsSinceEpoch, 1684858400123);
+    });
+
+    test('SpChannel accepts int createdAt (modern shape)', () {
+      final c = SpChannel.fromJson({
+        '_id': 'ch1',
+        'name': 'General',
+        'createdAt': 1684858400000,
+      });
+      expect(c.createdAt?.millisecondsSinceEpoch, 1684858400000);
+    });
+
+    test('Malformed Map without _seconds returns null / falls back', () {
+      final fixedNow = DateTime.utc(2024, 1, 1);
+      final fh = SpFrontHistory.fromJson(
+        {'_id': 'fh1', 'member': 'mem1', 'startTime': <String, dynamic>{}},
+        now: () => fixedNow,
+      );
+      expect(fh.startTime, fixedNow);
+
+      final msg = SpMessage.fromJson(
+        {
+          '_id': 'msg1',
+          'message': 'x',
+          'writer': 'mem1',
+          'writtenAt': 1700000000000,
+          'updatedAt': <String, dynamic>{},
+        },
+        'ch1',
+      );
+      expect(msg.updatedAt, isNull);
+    });
+  });
+
   group('Full export parsing', () {
     test('parses empty export gracefully', () {
       final json = jsonEncode({'members': [], 'frontHistory': []});
