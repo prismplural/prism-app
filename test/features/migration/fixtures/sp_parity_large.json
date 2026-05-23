@@ -92287,400 +92287,400 @@
   "boardMessages": [
     {
       "_id": "sp-board-00",
-      "for": "sp-mem-00",
-      "by": "sp-mem-01",
+      "writtenFor": "sp-mem-00",
+      "writtenBy": "sp-mem-01",
       "message": "Board 0 body",
       "writtenAt": 1700000000000,
       "read": true
     },
     {
       "_id": "sp-board-01",
-      "for": "sp-mem-01",
-      "by": "sp-mem-02",
+      "writtenFor": "sp-mem-01",
+      "writtenBy": "sp-mem-02",
       "message": "Board 1 body",
       "writtenAt": 1700000060000,
       "read": false
     },
     {
       "_id": "sp-board-02",
-      "for": "sp-mem-02",
-      "by": "sp-mem-03",
+      "writtenFor": "sp-mem-02",
+      "writtenBy": "sp-mem-03",
       "message": "Board 2 body",
       "writtenAt": 1700000120000,
       "read": true
     },
     {
       "_id": "sp-board-03",
-      "for": "sp-mem-03",
-      "by": "sp-mem-04",
+      "writtenFor": "sp-mem-03",
+      "writtenBy": "sp-mem-04",
       "message": "Board 3 body",
       "writtenAt": 1700000180000,
       "read": false
     },
     {
       "_id": "sp-board-04",
-      "for": "sp-mem-04",
-      "by": "sp-mem-05",
+      "writtenFor": "sp-mem-04",
+      "writtenBy": "sp-mem-05",
       "message": "Board 4 body",
       "writtenAt": 1700000240000,
       "read": true
     },
     {
       "_id": "sp-board-05",
-      "for": "sp-mem-05",
-      "by": "sp-mem-06",
+      "writtenFor": "sp-mem-05",
+      "writtenBy": "sp-mem-06",
       "message": "Board 5 body",
       "writtenAt": 1700000300000,
       "read": false
     },
     {
       "_id": "sp-board-06",
-      "for": "sp-mem-06",
-      "by": "sp-mem-07",
+      "writtenFor": "sp-mem-06",
+      "writtenBy": "sp-mem-07",
       "message": "Board 6 body",
       "writtenAt": 1700000360000,
       "read": true
     },
     {
       "_id": "sp-board-07",
-      "for": "sp-mem-07",
-      "by": "sp-mem-08",
+      "writtenFor": "sp-mem-07",
+      "writtenBy": "sp-mem-08",
       "message": "Board 7 body",
       "writtenAt": 1700000420000,
       "read": false
     },
     {
       "_id": "sp-board-08",
-      "for": "sp-mem-08",
-      "by": "sp-mem-09",
+      "writtenFor": "sp-mem-08",
+      "writtenBy": "sp-mem-09",
       "message": "Board 8 body",
       "writtenAt": 1700000480000,
       "read": true
     },
     {
       "_id": "sp-board-09",
-      "for": "sp-mem-09",
-      "by": "sp-mem-10",
+      "writtenFor": "sp-mem-09",
+      "writtenBy": "sp-mem-10",
       "message": "Board 9 body",
       "writtenAt": 1700000540000,
       "read": false
     },
     {
       "_id": "sp-board-10",
-      "for": "sp-mem-10",
-      "by": "sp-mem-11",
+      "writtenFor": "sp-mem-10",
+      "writtenBy": "sp-mem-11",
       "message": "Board 10 body",
       "writtenAt": 1700000600000,
       "read": true
     },
     {
       "_id": "sp-board-11",
-      "for": "sp-mem-11",
-      "by": "sp-mem-12",
+      "writtenFor": "sp-mem-11",
+      "writtenBy": "sp-mem-12",
       "message": "Board 11 body",
       "writtenAt": 1700000660000,
       "read": false
     },
     {
       "_id": "sp-board-12",
-      "for": "sp-mem-12",
-      "by": "sp-mem-13",
+      "writtenFor": "sp-mem-12",
+      "writtenBy": "sp-mem-13",
       "message": "Board 12 body",
       "writtenAt": 1700000720000,
       "read": true
     },
     {
       "_id": "sp-board-13",
-      "for": "sp-mem-13",
-      "by": "sp-mem-14",
+      "writtenFor": "sp-mem-13",
+      "writtenBy": "sp-mem-14",
       "message": "Board 13 body",
       "writtenAt": 1700000780000,
       "read": false
     },
     {
       "_id": "sp-board-14",
-      "for": "sp-mem-14",
-      "by": "sp-mem-15",
+      "writtenFor": "sp-mem-14",
+      "writtenBy": "sp-mem-15",
       "message": "Board 14 body",
       "writtenAt": 1700000840000,
       "read": true
     },
     {
       "_id": "sp-board-15",
-      "for": "sp-mem-15",
-      "by": "sp-mem-16",
+      "writtenFor": "sp-mem-15",
+      "writtenBy": "sp-mem-16",
       "message": "Board 15 body",
       "writtenAt": 1700000900000,
       "read": false
     },
     {
       "_id": "sp-board-16",
-      "for": "sp-mem-16",
-      "by": "sp-mem-17",
+      "writtenFor": "sp-mem-16",
+      "writtenBy": "sp-mem-17",
       "message": "Board 16 body",
       "writtenAt": 1700000960000,
       "read": true
     },
     {
       "_id": "sp-board-17",
-      "for": "sp-mem-17",
-      "by": "sp-mem-18",
+      "writtenFor": "sp-mem-17",
+      "writtenBy": "sp-mem-18",
       "message": "Board 17 body",
       "writtenAt": 1700001020000,
       "read": false
     },
     {
       "_id": "sp-board-18",
-      "for": "sp-mem-18",
-      "by": "sp-mem-19",
+      "writtenFor": "sp-mem-18",
+      "writtenBy": "sp-mem-19",
       "message": "Board 18 body",
       "writtenAt": 1700001080000,
       "read": true
     },
     {
       "_id": "sp-board-19",
-      "for": "sp-mem-19",
-      "by": "sp-mem-20",
+      "writtenFor": "sp-mem-19",
+      "writtenBy": "sp-mem-20",
       "message": "Board 19 body",
       "writtenAt": 1700001140000,
       "read": false
     },
     {
       "_id": "sp-board-20",
-      "for": "sp-mem-20",
-      "by": "sp-mem-21",
+      "writtenFor": "sp-mem-20",
+      "writtenBy": "sp-mem-21",
       "message": "Board 20 body",
       "writtenAt": 1700001200000,
       "read": true
     },
     {
       "_id": "sp-board-21",
-      "for": "sp-mem-21",
-      "by": "sp-mem-22",
+      "writtenFor": "sp-mem-21",
+      "writtenBy": "sp-mem-22",
       "message": "Board 21 body",
       "writtenAt": 1700001260000,
       "read": false
     },
     {
       "_id": "sp-board-22",
-      "for": "sp-mem-22",
-      "by": "sp-mem-23",
+      "writtenFor": "sp-mem-22",
+      "writtenBy": "sp-mem-23",
       "message": "Board 22 body",
       "writtenAt": 1700001320000,
       "read": true
     },
     {
       "_id": "sp-board-23",
-      "for": "sp-mem-23",
-      "by": "sp-mem-24",
+      "writtenFor": "sp-mem-23",
+      "writtenBy": "sp-mem-24",
       "message": "Board 23 body",
       "writtenAt": 1700001380000,
       "read": false
     },
     {
       "_id": "sp-board-24",
-      "for": "sp-mem-24",
-      "by": "sp-mem-25",
+      "writtenFor": "sp-mem-24",
+      "writtenBy": "sp-mem-25",
       "message": "Board 24 body",
       "writtenAt": 1700001440000,
       "read": true
     },
     {
       "_id": "sp-board-25",
-      "for": "sp-mem-25",
-      "by": "sp-mem-26",
+      "writtenFor": "sp-mem-25",
+      "writtenBy": "sp-mem-26",
       "message": "Board 25 body",
       "writtenAt": 1700001500000,
       "read": false
     },
     {
       "_id": "sp-board-26",
-      "for": "sp-mem-26",
-      "by": "sp-mem-27",
+      "writtenFor": "sp-mem-26",
+      "writtenBy": "sp-mem-27",
       "message": "Board 26 body",
       "writtenAt": 1700001560000,
       "read": true
     },
     {
       "_id": "sp-board-27",
-      "for": "sp-mem-27",
-      "by": "sp-mem-28",
+      "writtenFor": "sp-mem-27",
+      "writtenBy": "sp-mem-28",
       "message": "Board 27 body",
       "writtenAt": 1700001620000,
       "read": false
     },
     {
       "_id": "sp-board-28",
-      "for": "sp-mem-28",
-      "by": "sp-mem-29",
+      "writtenFor": "sp-mem-28",
+      "writtenBy": "sp-mem-29",
       "message": "Board 28 body",
       "writtenAt": 1700001680000,
       "read": true
     },
     {
       "_id": "sp-board-29",
-      "for": "sp-mem-29",
-      "by": "sp-mem-30",
+      "writtenFor": "sp-mem-29",
+      "writtenBy": "sp-mem-30",
       "message": "Board 29 body",
       "writtenAt": 1700001740000,
       "read": false
     },
     {
       "_id": "sp-board-30",
-      "for": "sp-mem-30",
-      "by": "sp-mem-31",
+      "writtenFor": "sp-mem-30",
+      "writtenBy": "sp-mem-31",
       "message": "Board 30 body",
       "writtenAt": 1700001800000,
       "read": true
     },
     {
       "_id": "sp-board-31",
-      "for": "sp-mem-31",
-      "by": "sp-mem-32",
+      "writtenFor": "sp-mem-31",
+      "writtenBy": "sp-mem-32",
       "message": "Board 31 body",
       "writtenAt": 1700001860000,
       "read": false
     },
     {
       "_id": "sp-board-32",
-      "for": "sp-mem-32",
-      "by": "sp-mem-33",
+      "writtenFor": "sp-mem-32",
+      "writtenBy": "sp-mem-33",
       "message": "Board 32 body",
       "writtenAt": 1700001920000,
       "read": true
     },
     {
       "_id": "sp-board-33",
-      "for": "sp-mem-33",
-      "by": "sp-mem-34",
+      "writtenFor": "sp-mem-33",
+      "writtenBy": "sp-mem-34",
       "message": "Board 33 body",
       "writtenAt": 1700001980000,
       "read": false
     },
     {
       "_id": "sp-board-34",
-      "for": "sp-mem-34",
-      "by": "sp-mem-35",
+      "writtenFor": "sp-mem-34",
+      "writtenBy": "sp-mem-35",
       "message": "Board 34 body",
       "writtenAt": 1700002040000,
       "read": true
     },
     {
       "_id": "sp-board-35",
-      "for": "sp-mem-35",
-      "by": "sp-mem-36",
+      "writtenFor": "sp-mem-35",
+      "writtenBy": "sp-mem-36",
       "message": "Board 35 body",
       "writtenAt": 1700002100000,
       "read": false
     },
     {
       "_id": "sp-board-36",
-      "for": "sp-mem-36",
-      "by": "sp-mem-37",
+      "writtenFor": "sp-mem-36",
+      "writtenBy": "sp-mem-37",
       "message": "Board 36 body",
       "writtenAt": 1700002160000,
       "read": true
     },
     {
       "_id": "sp-board-37",
-      "for": "sp-mem-37",
-      "by": "sp-mem-38",
+      "writtenFor": "sp-mem-37",
+      "writtenBy": "sp-mem-38",
       "message": "Board 37 body",
       "writtenAt": 1700002220000,
       "read": false
     },
     {
       "_id": "sp-board-38",
-      "for": "sp-mem-38",
-      "by": "sp-mem-39",
+      "writtenFor": "sp-mem-38",
+      "writtenBy": "sp-mem-39",
       "message": "Board 38 body",
       "writtenAt": 1700002280000,
       "read": true
     },
     {
       "_id": "sp-board-39",
-      "for": "sp-mem-39",
-      "by": "sp-mem-40",
+      "writtenFor": "sp-mem-39",
+      "writtenBy": "sp-mem-40",
       "message": "Board 39 body",
       "writtenAt": 1700002340000,
       "read": false
     },
     {
       "_id": "sp-board-40",
-      "for": "sp-mem-40",
-      "by": "sp-mem-41",
+      "writtenFor": "sp-mem-40",
+      "writtenBy": "sp-mem-41",
       "message": "Board 40 body",
       "writtenAt": 1700002400000,
       "read": true
     },
     {
       "_id": "sp-board-41",
-      "for": "sp-mem-41",
-      "by": "sp-mem-42",
+      "writtenFor": "sp-mem-41",
+      "writtenBy": "sp-mem-42",
       "message": "Board 41 body",
       "writtenAt": 1700002460000,
       "read": false
     },
     {
       "_id": "sp-board-42",
-      "for": "sp-mem-42",
-      "by": "sp-mem-43",
+      "writtenFor": "sp-mem-42",
+      "writtenBy": "sp-mem-43",
       "message": "Board 42 body",
       "writtenAt": 1700002520000,
       "read": true
     },
     {
       "_id": "sp-board-43",
-      "for": "sp-mem-43",
-      "by": "sp-mem-44",
+      "writtenFor": "sp-mem-43",
+      "writtenBy": "sp-mem-44",
       "message": "Board 43 body",
       "writtenAt": 1700002580000,
       "read": false
     },
     {
       "_id": "sp-board-44",
-      "for": "sp-mem-44",
-      "by": "sp-mem-45",
+      "writtenFor": "sp-mem-44",
+      "writtenBy": "sp-mem-45",
       "message": "Board 44 body",
       "writtenAt": 1700002640000,
       "read": true
     },
     {
       "_id": "sp-board-45",
-      "for": "sp-mem-45",
-      "by": "sp-mem-46",
+      "writtenFor": "sp-mem-45",
+      "writtenBy": "sp-mem-46",
       "message": "Board 45 body",
       "writtenAt": 1700002700000,
       "read": false
     },
     {
       "_id": "sp-board-46",
-      "for": "sp-mem-46",
-      "by": "sp-mem-47",
+      "writtenFor": "sp-mem-46",
+      "writtenBy": "sp-mem-47",
       "message": "Board 46 body",
       "writtenAt": 1700002760000,
       "read": true
     },
     {
       "_id": "sp-board-47",
-      "for": "sp-mem-47",
-      "by": "sp-mem-48",
+      "writtenFor": "sp-mem-47",
+      "writtenBy": "sp-mem-48",
       "message": "Board 47 body",
       "writtenAt": 1700002820000,
       "read": false
     },
     {
       "_id": "sp-board-48",
-      "for": "sp-mem-48",
-      "by": "sp-mem-49",
+      "writtenFor": "sp-mem-48",
+      "writtenBy": "sp-mem-49",
       "message": "Board 48 body",
       "writtenAt": 1700002880000,
       "read": true
     },
     {
       "_id": "sp-board-49",
-      "for": "sp-mem-49",
-      "by": "sp-mem-50",
+      "writtenFor": "sp-mem-49",
+      "writtenBy": "sp-mem-50",
       "message": "Board 49 body",
       "writtenAt": 1700002940000,
       "read": false

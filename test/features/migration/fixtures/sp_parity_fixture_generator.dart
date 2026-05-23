@@ -473,8 +473,8 @@ Map<String, dynamic> _makeLarge() {
     50,
     (i) => {
       '_id': 'sp-board-${_pad(i)}',
-      'for': 'sp-mem-${_pad(i % 100)}',
-      'by': 'sp-mem-${_pad((i + 1) % 100)}',
+      'writtenFor': 'sp-mem-${_pad(i % 100)}',
+      'writtenBy': 'sp-mem-${_pad((i + 1) % 100)}',
       'message': 'Board $i body',
       'writtenAt': baseStart + i * 1000 * 60,
       'read': i.isEven,
@@ -753,8 +753,8 @@ Map<String, dynamic> _makePowerUser() {
     200,
     (i) => {
       '_id': 'sp-board-${_pad(i, width: 3)}',
-      'for': 'sp-mem-${_pad(i % 5000, width: 4)}',
-      'by': 'sp-mem-${_pad((i * 17 + 3) % 5000, width: 4)}',
+      'writtenFor': 'sp-mem-${_pad(i % 5000, width: 4)}',
+      'writtenBy': 'sp-mem-${_pad((i * 17 + 3) % 5000, width: 4)}',
       'message':
           'Board post $i body — a short note from one member to another.',
       'writtenAt': baseStart + i * 60 * 60 * 1000,
