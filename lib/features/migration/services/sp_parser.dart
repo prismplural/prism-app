@@ -117,6 +117,22 @@ String? rewriteSpMentionsNullable(
   return rewriteSpMentions(text, resolveMemberId);
 }
 
+/// Coerce a raw `member.info` value into a `Map<String, dynamic>`.
+///
+/// Accepts any Map subtype (live API responses may produce
+/// `Map<dynamic, dynamic>`); returns empty for null, list, or scalar
+/// input. Keys are stringified; null keys are dropped.
+Map<String, dynamic> coerceSpInfoMap(dynamic raw) {
+  if (raw is! Map) return const {};
+  if (raw.isEmpty) return const {};
+  final out = <String, dynamic>{};
+  raw.forEach((k, v) {
+    if (k == null) return;
+    out[k.toString()] = v;
+  });
+  return out;
+}
+
 Map<String, String> extractSpCustomFieldValueKeyMap(dynamic rawFields) {
   if (rawFields is! Map) return const {};
 
@@ -340,9 +356,7 @@ class SpMember {
       pkId: json['pkId'] != null && json['pkId'].toString().isNotEmpty
           ? json['pkId'].toString()
           : null,
-      info: json['info'] is Map<String, dynamic>
-          ? json['info'] as Map<String, dynamic>
-          : const {},
+      info: coerceSpInfoMap(json['info']),
     );
   }
 }

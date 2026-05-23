@@ -625,6 +625,70 @@ void main() {
     });
   });
 
+  group('coerceSpInfoMap', () {
+    test('null returns empty map', () {
+      expect(coerceSpInfoMap(null), isEmpty);
+    });
+
+    test('non-map types return empty map (sheaf-style guard)', () {
+      expect(coerceSpInfoMap('a string'), isEmpty);
+      expect(coerceSpInfoMap(42), isEmpty);
+      expect(coerceSpInfoMap(<dynamic>[]), isEmpty);
+      expect(coerceSpInfoMap(<int>[1, 2]), isEmpty);
+    });
+
+    test('Map<String, dynamic> passes through', () {
+      final m = <String, dynamic>{'cf1': 'val', 'cf2': 42};
+      expect(coerceSpInfoMap(m), equals(m));
+    });
+
+    test('Map<String, String> is accepted and coerced', () {
+      // Some test/tooling paths build typed maps that previously fell to
+      // an empty map because of the strict Map<String, dynamic> check.
+      final m = <String, String>{'cf1': 'val'};
+      final out = coerceSpInfoMap(m);
+      expect(out, isA<Map<String, dynamic>>());
+      expect(out['cf1'], 'val');
+    });
+
+    test('Map<dynamic, dynamic> with non-string keys coerces keys to string', () {
+      final m = <dynamic, dynamic>{42: 'forty-two', 'cf1': 'val'};
+      final out = coerceSpInfoMap(m);
+      expect(out['42'], 'forty-two');
+      expect(out['cf1'], 'val');
+    });
+
+    test('null keys are dropped silently', () {
+      final m = <dynamic, dynamic>{null: 'orphan', 'cf1': 'val'};
+      final out = coerceSpInfoMap(m);
+      expect(out, hasLength(1));
+      expect(out['cf1'], 'val');
+    });
+
+    test('SpMember.fromJson tolerates non-Map info without throwing', () {
+      final m = SpMember.fromJson({
+        '_id': 'm1',
+        'name': 'X',
+        'info': null,
+      });
+      expect(m.info, isEmpty);
+
+      final m2 = SpMember.fromJson({
+        '_id': 'm2',
+        'name': 'Y',
+        'info': <dynamic>[],
+      });
+      expect(m2.info, isEmpty);
+
+      final m3 = SpMember.fromJson({
+        '_id': 'm3',
+        'name': 'Z',
+        'info': 'oops',
+      });
+      expect(m3.info, isEmpty);
+    });
+  });
+
   group('rewriteSpMentions', () {
     String? Function(String) resolveTo(String prismId) => (_) => prismId;
 
