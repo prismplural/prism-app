@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/quick_front_hint_provider.dart';
+import 'package:prism_plurality/features/fronting/utils/current_fronters_order.dart';
 import 'package:prism_plurality/features/fronting/utils/member_frequency_sort.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -18,7 +19,15 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
-/// Top 4 most-frequently-fronting members as quick-switch buttons.
+/// Horizontal strip of member tiles for quick-switching the front.
+///
+/// Composition: `[current fronters] + [frequent non-fronters]`. Current
+/// fronters first (startTime-DESC, [Member.displayOrder] breaking ties so
+/// simultaneous co-fronts don't read as database-rowid order).
+///
+/// Packs into [_slotCountForWidth] tiles when current fronters leave at
+/// least [_frequentPadWhenNotScrolling] slots free; otherwise scrolls
+/// horizontally so every fronter still has a quick-remove tile.
 class QuickFrontSection extends ConsumerWidget {
   const QuickFrontSection({super.key});
 
@@ -32,82 +41,141 @@ class QuickFrontSection extends ConsumerWidget {
       loading: () => const SizedBox(height: 100, child: PrismLoadingState()),
       error: (_, _) => Text(context.l10n.error),
       data: (members) {
-        final activeSessions = sessionsAsync.value ?? [];
-        // Collect all member IDs with an open session — each session is one
-        // member's continuous presence; co-fronting is emergent overlap.
-        final frontingIds = <String>{};
-        for (final s in activeSessions) {
-          if (s.memberId != null) frontingIds.add(s.memberId!);
-        }
-        final counts = countsAsync.value ?? <String, int>{};
+        final activeSessions = sessionsAsync.value ?? const <FrontingSession>[];
+        final counts = countsAsync.value ?? const <String, int>{};
 
-        // Pin the most-recently-started fronter at the head of quick tiles.
-        final currentMemberId = activeSessions.isNotEmpty
-            ? activeSessions
-                  .reduce((a, b) => a.startTime.isAfter(b.startTime) ? a : b)
-                  .memberId
-            : null;
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final slotCount = _slotCountForWidth(constraints.maxWidth);
+            final currentFronters = orderCurrentFronters(
+              activeSessions,
+              members,
+            );
+            final currentFronterIds = <String>{
+              for (final m in currentFronters) m.id,
+            };
 
-        final top = sortMembersByFrequency(
-          members,
-          counts,
-          pinnedMemberId: currentMemberId,
-          take: 4,
+            final nonFronters = [
+              for (final m in members)
+                if (!currentFronterIds.contains(m.id)) m,
+            ];
+
+            final List<Member> tiles;
+            final bool scrolls;
+            if (currentFronters.length <=
+                slotCount - _frequentPadWhenNotScrolling) {
+              final frequentSlots = slotCount - currentFronters.length;
+              final frequent = sortMembersByFrequency(
+                nonFronters,
+                counts,
+                take: frequentSlots,
+              );
+              tiles = [...currentFronters, ...frequent];
+              scrolls = false;
+            } else {
+              // Show every current fronter so co-fronts always have a
+              // quick-remove tile.
+              final frequent = sortMembersByFrequency(
+                nonFronters,
+                counts,
+                take: _frequentTilesWhenScrolling,
+              );
+              tiles = [...currentFronters, ...frequent];
+              scrolls = true;
+            }
+
+            return _AnimatedQuickFrontRow(
+              members: tiles,
+              frontingIds: currentFronterIds,
+              slotCount: slotCount,
+              scrolls: scrolls,
+              maxWidth: constraints.maxWidth,
+            );
+          },
         );
-
-        return _AnimatedQuickFrontRow(members: top, frontingIds: frontingIds);
       },
     );
   }
 }
 
-/// Animates members sliding into new positions when the order changes.
+/// Packed mode uses [AnimatedPositioned] for a smooth slide on reorder.
+/// Scroll mode uses a plain `Row` — animating inside a scroll view isn't
+/// worth the complexity.
 class _AnimatedQuickFrontRow extends StatelessWidget {
   const _AnimatedQuickFrontRow({
     required this.members,
     required this.frontingIds,
+    required this.slotCount,
+    required this.scrolls,
+    required this.maxWidth,
   });
 
   final List<Member> members;
   final Set<String> frontingIds;
+  final int slotCount;
+  final bool scrolls;
+  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final slotWidth = constraints.maxWidth / 4;
-        final ringSize = slotWidth < quickFrontRingSize
-            ? slotWidth
-            : quickFrontRingSize;
-        final labelHeight = _measureQuickFrontLabelHeight(
-          context,
-          members: members,
-          maxWidth: slotWidth,
-        );
-        return SizedBox(
-          height: ringSize + _kQuickFrontLabelGap + labelHeight,
-          child: Stack(
+    final slotWidth = maxWidth / slotCount;
+    final ringSize = slotWidth < quickFrontRingSize
+        ? slotWidth
+        : quickFrontRingSize;
+    final labelHeight = _measureQuickFrontLabelHeight(
+      context,
+      members: members,
+      maxWidth: slotWidth,
+    );
+    final rowHeight = ringSize + _kQuickFrontLabelGap + labelHeight;
+
+    if (scrolls) {
+      return SizedBox(
+        height: rowHeight,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              for (int i = 0; i < members.length; i++)
-                AnimatedPositioned(
-                  key: ValueKey(members[i].id),
-                  duration: Anim.md,
-                  curve: Anim.standard,
-                  left: i * slotWidth,
-                  top: 0,
-                  child: SizedBox(
-                    width: slotWidth,
-                    child: _QuickFrontButton(
-                      member: members[i],
-                      isFronting: frontingIds.contains(members[i].id),
-                      ringSize: ringSize,
-                    ),
+              for (final member in members)
+                SizedBox(
+                  key: ValueKey(member.id),
+                  width: slotWidth,
+                  child: _QuickFrontButton(
+                    member: member,
+                    isFronting: frontingIds.contains(member.id),
+                    ringSize: ringSize,
                   ),
                 ),
             ],
           ),
-        );
-      },
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: rowHeight,
+      child: Stack(
+        children: [
+          for (int i = 0; i < members.length; i++)
+            AnimatedPositioned(
+              key: ValueKey(members[i].id),
+              duration: Anim.md,
+              curve: Anim.standard,
+              left: i * slotWidth,
+              top: 0,
+              child: SizedBox(
+                width: slotWidth,
+                child: _QuickFrontButton(
+                  member: members[i],
+                  isFronting: frontingIds.contains(members[i].id),
+                  ringSize: ringSize,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -119,6 +187,32 @@ const _kQuickFrontLabelGap = 6.0;
 const _kQuickFrontLabelMaxLines = 2;
 const _kRingWidth = 3.5;
 const _kHoldDuration = Duration(milliseconds: 800);
+
+/// Target tile width. At 88px a 360-wide phone gets 4 slots, a 600-wide
+/// foldable gets 6.
+const _kTargetTileWidth = 88.0;
+
+/// Mobile baseline.
+const _kMinSlotCount = 4;
+
+/// Hard cap so ultra-wide windows don't sprout a wall of tiles.
+const _kMaxSlotCount = 10;
+
+/// Minimum frequent-pick slots in packed mode. Scroll mode kicks in once
+/// `currentFronters > slotCount - _frequentPadWhenNotScrolling`.
+const _frequentPadWhenNotScrolling = 2;
+
+/// Frequent tiles appended after fronters in scroll mode — fixed, not
+/// scaled to slot count.
+const _frequentTilesWhenScrolling = 4;
+
+int _slotCountForWidth(double width) {
+  if (width <= 0) return _kMinSlotCount;
+  final raw = (width / _kTargetTileWidth).floor();
+  if (raw < _kMinSlotCount) return _kMinSlotCount;
+  if (raw > _kMaxSlotCount) return _kMaxSlotCount;
+  return raw;
+}
 
 double _measureQuickFrontLabelHeight(
   BuildContext context, {

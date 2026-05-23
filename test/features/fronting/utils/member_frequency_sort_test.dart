@@ -42,20 +42,6 @@ void main() {
       expect(result.map((m) => m.id).toList(), ['alice', 'bob', 'charlie']);
     });
 
-    test('pinnedMemberId always appears first regardless of count', () {
-      final members = [_member('a'), _member('b'), _member('c')];
-      final counts = {'a': 10, 'b': 1, 'c': 5};
-
-      final result = sortMembersByFrequency(
-        members,
-        counts,
-        pinnedMemberId: 'b',
-      );
-
-      expect(result.first.id, 'b');
-      expect(result.map((m) => m.id).toList(), ['b', 'a', 'c']);
-    });
-
     test('take truncates the result list', () {
       final members = [
         _member('a'),

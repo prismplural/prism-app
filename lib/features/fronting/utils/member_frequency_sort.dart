@@ -1,20 +1,17 @@
 import 'package:prism_plurality/domain/models/models.dart';
 
-/// Sorts members by fronting frequency (descending), with optional pinning.
+/// Sorts members by fronting frequency (descending). Ties resolve by
+/// [Member.displayOrder] ascending, then by id for full determinism.
 ///
-/// Used by QuickFrontSection (pins current fronter) and the wake-up sheet
-/// (no pinning, morning-weighted counts).
+/// Callers that want a currently-fronting group on top should filter those
+/// members out of [members] first and concatenate their own ordered list in
+/// front (see [QuickFrontSection]).
 List<Member> sortMembersByFrequency(
   List<Member> members,
   Map<String, int> counts, {
-  String? pinnedMemberId,
   int take = 4,
 }) {
   final sorted = [...members]..sort((a, b) {
-    if (pinnedMemberId != null) {
-      if (a.id == pinnedMemberId) return -1;
-      if (b.id == pinnedMemberId) return 1;
-    }
     final countDiff = (counts[b.id] ?? 0).compareTo(counts[a.id] ?? 0);
     if (countDiff != 0) return countDiff;
     final orderDiff = a.displayOrder.compareTo(b.displayOrder);
