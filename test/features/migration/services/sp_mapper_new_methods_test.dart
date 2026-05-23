@@ -930,6 +930,93 @@ void main() {
     });
   });
 
+  group('Front history corruption skips', () {
+    test('skips entries with missing startTime and adds a warning', () {
+      final data = _makeExportData(
+        members: [_memberA],
+        frontHistory: [
+          SpFrontHistory.fromJson({'_id': 'fh1', 'member': 'sp-a'}),
+        ],
+      );
+      final result = SpMapper().mapAll(data);
+      expect(result.sessions, isEmpty);
+      expect(
+        result.warnings.any((w) => w.contains('no startTime')),
+        isTrue,
+      );
+    });
+
+    test('keeps live=false with no endTime as an open-ended session', () {
+      final data = _makeExportData(
+        members: [_memberA],
+        frontHistory: [
+          SpFrontHistory.fromJson({
+            '_id': 'fh1',
+            'member': 'sp-a',
+            'startTime': 1000,
+          }),
+        ],
+      );
+      final result = SpMapper().mapAll(data);
+      expect(result.sessions, hasLength(1));
+      expect(result.sessions.single.endTime, isNull);
+    });
+
+    test('keeps live=true with no endTime (active front)', () {
+      final data = _makeExportData(
+        members: [_memberA],
+        frontHistory: [
+          SpFrontHistory.fromJson({
+            '_id': 'fh1',
+            'member': 'sp-a',
+            'startTime': 1000,
+            'live': true,
+          }),
+        ],
+      );
+      final result = SpMapper().mapAll(data);
+      expect(result.sessions, hasLength(1));
+      expect(result.sessions.single.endTime, isNull);
+    });
+
+    test('keeps live=false with explicit endTime (ended front)', () {
+      final data = _makeExportData(
+        members: [_memberA],
+        frontHistory: [
+          SpFrontHistory.fromJson({
+            '_id': 'fh1',
+            'member': 'sp-a',
+            'startTime': 1000,
+            'endTime': 2000,
+          }),
+        ],
+      );
+      final result = SpMapper().mapAll(data);
+      expect(result.sessions, hasLength(1));
+      expect(
+        result.sessions.single.endTime?.millisecondsSinceEpoch,
+        2000,
+      );
+    });
+
+    test('aggregates multiple missing-startTime drops into one warning', () {
+      final data = _makeExportData(
+        members: [_memberA],
+        frontHistory: [
+          SpFrontHistory.fromJson({'_id': 'fh1', 'member': 'sp-a'}),
+          SpFrontHistory.fromJson({'_id': 'fh2', 'member': 'sp-a'}),
+        ],
+      );
+      final result = SpMapper().mapAll(data);
+      expect(result.sessions, isEmpty);
+      final missingWarnings = result.warnings
+          .where((w) => w.contains('no startTime'))
+          .toList();
+      expect(missingWarnings, hasLength(1));
+      expect(missingWarnings.single, contains('2 front history entries'));
+    });
+  });
+
   group('SP mention token rewriting (end-to-end)', () {
     String mentionMatcher(String prismMemberId) => '@[$prismMemberId]';
 

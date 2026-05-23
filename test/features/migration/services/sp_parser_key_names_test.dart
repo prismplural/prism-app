@@ -720,6 +720,49 @@ void main() {
     });
   });
 
+  group('SpFrontHistory wasStartTimeExplicit flag', () {
+    test('true when startTime is present', () {
+      final fh = SpFrontHistory.fromJson({
+        '_id': 'fh1',
+        'member': 'm1',
+        'startTime': 1000,
+      });
+      expect(fh.wasStartTimeExplicit, isTrue);
+    });
+
+    test('false when startTime is missing', () {
+      final fh = SpFrontHistory.fromJson({
+        '_id': 'fh1',
+        'member': 'm1',
+      });
+      expect(fh.wasStartTimeExplicit, isFalse);
+    });
+
+    test('false when startTime is an unparseable garbage shape', () {
+      final fh = SpFrontHistory.fromJson({
+        '_id': 'fh1',
+        'member': 'm1',
+        'startTime': true, // bools are not a valid timestamp shape
+      });
+      expect(fh.wasStartTimeExplicit, isFalse);
+    });
+
+    test('true for fronters fallback entry with startTime', () {
+      final fh = SpFrontHistory.fromFrontersEntry({
+        '_id': 'mem-1',
+        'startTime': 1000,
+      });
+      expect(fh.wasStartTimeExplicit, isTrue);
+    });
+
+    test('false for fronters fallback entry without startTime', () {
+      final fh = SpFrontHistory.fromFrontersEntry({
+        '_id': 'mem-1',
+      });
+      expect(fh.wasStartTimeExplicit, isFalse);
+    });
+  });
+
   group('Legacy fronters collection fallback', () {
     test('SpFrontHistory.fromFrontersEntry builds a live entry', () {
       final fh = SpFrontHistory.fromFrontersEntry({

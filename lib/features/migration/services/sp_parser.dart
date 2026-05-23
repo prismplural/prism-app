@@ -459,6 +459,11 @@ class SpFrontHistory {
   final String? customStatus;
   final bool isCustomFront;
 
+  /// False when the source JSON had no usable `startTime` and the
+  /// parser fell back to the import clock. Mapper uses this to drop
+  /// the row instead of persisting a fabricated session.
+  final bool wasStartTimeExplicit;
+
   const SpFrontHistory({
     required this.id,
     this.memberId,
@@ -469,6 +474,7 @@ class SpFrontHistory {
     this.comment,
     this.customStatus,
     this.isCustomFront = false,
+    this.wasStartTimeExplicit = true,
   });
 
   factory SpFrontHistory.fromJson(
@@ -500,6 +506,7 @@ class SpFrontHistory {
       comment: json['comment'] as String?,
       customStatus: json['customStatus'] as String?,
       isCustomFront: json['custom'] == true || json['customFront'] == true,
+      wasStartTimeExplicit: _parseSpTime(startMs) != null,
     );
   }
 
@@ -511,19 +518,10 @@ class SpFrontHistory {
     DateTime Function()? now,
   }) {
     final clock = now ?? DateTime.now;
-    // The `_id` on a fronters entry is the member's id (per the SP
-    // migration code). Accept `member` as an explicit alternate field
-    // for hand-built/edited exports.
     final rawMember = json['member'] ?? json['_id'] ?? json['id'];
     final memberId = rawMember?.toString();
-    final start = _parseSpTimeOr(
-      json['startTime'] ?? json['createdAt'],
-      clock,
-    );
-    // Stable synthetic id so re-imports produce identical session IDs.
-    // Two fronters entries for the same member+startTime collapse to
-    // one frontHistory row, which is the same semantics as the SP
-    // server would have applied during update150.
+    final rawStart = json['startTime'] ?? json['createdAt'];
+    final start = _parseSpTimeOr(rawStart, clock);
     final synthId =
         'fronters:${memberId ?? ''}:${start.millisecondsSinceEpoch}';
     return SpFrontHistory(
@@ -534,6 +532,7 @@ class SpFrontHistory {
       endTime: null,
       live: true,
       isCustomFront: false,
+      wasStartTimeExplicit: _parseSpTime(rawStart) != null,
     );
   }
 }

@@ -450,7 +450,14 @@ class SpMapper {
     // Track emitted sleep sessions by start-time for the 60s same-start dedup.
     final sleepStarts = <int>[];
 
+    var missingStartTimeDrops = 0;
+
     for (final entry in history) {
+      if (!entry.wasStartTimeExplicit) {
+        missingStartTimeDrops++;
+        continue;
+      }
+
       final rawMain = entry.memberId;
 
       // If the entry is flagged isCustomFront but the CF id isn't in the
@@ -625,6 +632,14 @@ class SpMapper {
           memberId: primaryMemberId,
           notes: notes,
         ),
+      );
+    }
+
+    if (missingStartTimeDrops > 0) {
+      warnings.add(
+        'Skipped $missingStartTimeDrops front history entr'
+        '${missingStartTimeDrops == 1 ? 'y' : 'ies'} with no startTime '
+        '— the SP export was missing this field for these rows.',
       );
     }
 
