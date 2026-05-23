@@ -929,4 +929,161 @@ void main() {
       expect(result.conversations.first.includesAllMembers, isTrue);
     });
   });
+
+  group('SP mention token rewriting (end-to-end)', () {
+    String mentionMatcher(String prismMemberId) => '@[$prismMemberId]';
+
+    test('member bios rewrite mentions with forward references', () {
+      final data = _makeExportData(
+        members: [
+          const SpMember(
+            id: 'sp-a',
+            name: 'Alice',
+            desc: 'Best friends with <###@sp-b###>!',
+          ),
+          const SpMember(id: 'sp-b', name: 'Bob'),
+        ],
+      );
+
+      final result = SpMapper().mapAll(data);
+      final alice = result.members.firstWhere((m) => m.name == 'Alice');
+      final bob = result.members.firstWhere((m) => m.name == 'Bob');
+      expect(alice.bio, 'Best friends with ${mentionMatcher(bob.id)}!');
+    });
+
+    test('note body rewrites mentions', () {
+      final data = _makeExportData(
+        members: [_memberA, _memberB],
+        notes: [
+          SpNote(
+            id: 'n1',
+            title: 'Memory',
+            body: 'Today <###@sp-a###> and <###@sp-b###> went hiking.',
+            memberId: 'sp-a',
+            date: DateTime.utc(2024, 1, 1),
+          ),
+        ],
+      );
+
+      final result = SpMapper().mapAll(data);
+      final a = result.members.firstWhere((m) => m.name == 'Alice');
+      final b = result.members.firstWhere((m) => m.name == 'Bob');
+      expect(
+        result.notes.single.body,
+        'Today ${mentionMatcher(a.id)} and ${mentionMatcher(b.id)} went hiking.',
+      );
+    });
+
+    test('board message body rewrites mentions', () {
+      final data = _makeExportData(
+        members: [_memberA, _memberB],
+        boardMessages: [
+          SpBoardMessage(
+            id: 'bm1',
+            writtenBy: 'sp-a',
+            writtenFor: 'sp-b',
+            message: 'Hey <###@sp-b###>, miss you!',
+            writtenAt: DateTime.utc(2024, 6, 1),
+          ),
+        ],
+      );
+
+      final result = SpMapper().mapAll(data);
+      final b = result.members.firstWhere((m) => m.name == 'Bob');
+      expect(result.boardPosts, hasLength(1));
+      expect(
+        result.boardPosts.single.body,
+        'Hey ${mentionMatcher(b.id)}, miss you!',
+      );
+    });
+
+    test('unresolved mention is preserved verbatim', () {
+      final data = _makeExportData(
+        members: [_memberA],
+        notes: [
+          SpNote(
+            id: 'n1',
+            title: 'X',
+            body: 'Hi <###@sp-ghost###>',
+            memberId: 'sp-a',
+            date: DateTime.utc(2024, 1, 1),
+          ),
+        ],
+      );
+
+      final result = SpMapper().mapAll(data);
+      expect(result.notes.single.body, 'Hi <###@sp-ghost###>');
+    });
+
+    test('chat message content rewrites mentions', () {
+      final data = _makeExportData(
+        members: [_memberA, _memberB],
+        channels: [
+          const SpChannel(id: 'ch1', name: 'general', memberIds: []),
+        ],
+        messages: [
+          SpMessage(
+            id: 'msg1',
+            channelId: 'ch1',
+            senderId: 'sp-a',
+            content: 'Yo <###@sp-b###> ping',
+            timestamp: DateTime.utc(2024, 6, 1),
+          ),
+        ],
+      );
+
+      final result = SpMapper().mapAll(data);
+      final b = result.members.firstWhere((m) => m.name == 'Bob');
+      expect(
+        result.messages.single.content,
+        'Yo ${mentionMatcher(b.id)} ping',
+      );
+    });
+
+    test('group description rewrites mentions', () {
+      final data = _makeExportData(
+        members: [_memberA, _memberB],
+        groups: [
+          const SpGroup(
+            id: 'g1',
+            name: 'Adventurers',
+            desc: 'Founded by <###@sp-a###>',
+          ),
+        ],
+      );
+
+      final result = SpMapper().mapAll(data);
+      final a = result.members.firstWhere((m) => m.name == 'Alice');
+      expect(
+        result.groups.single.description,
+        'Founded by ${mentionMatcher(a.id)}',
+      );
+    });
+
+    test('custom field value rewrites mentions', () {
+      final data = _makeExportData(
+        members: [
+          SpMember(
+            id: 'sp-a',
+            name: 'Alice',
+            info: const <String, dynamic>{
+              'cf-pair': 'paired with <###@sp-b###>',
+            },
+          ),
+          _memberB,
+        ],
+        customFields: [
+          const SpCustomFieldDef(id: 'cf-pair', name: 'Pair', type: 0),
+        ],
+      );
+
+      final result = SpMapper().mapAll(data);
+      final b = result.members.firstWhere((m) => m.name == 'Bob');
+      expect(result.customFieldValues, hasLength(1));
+      expect(
+        result.customFieldValues.single.value,
+        'paired with ${mentionMatcher(b.id)}',
+      );
+    });
+  });
 }

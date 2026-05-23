@@ -333,12 +333,22 @@ class SpMapper {
     List<SpCustomFront> customFronts,
     Map<String, String> avatarUrls,
   ) {
+    // Pre-assign Prism IDs so mention rewriting can resolve forward refs.
+    for (final sp in spMembers) {
+      _memberIdMap[sp.id] = _memberIdMap[sp.id] ?? _newId();
+    }
+    for (final cf in customFronts) {
+      final disposition =
+          _cfDispositionById[cf.id] ?? CfDisposition.importAsMember;
+      if (disposition != CfDisposition.importAsMember) continue;
+      _memberIdMap[cf.id] = _memberIdMap[cf.id] ?? _newId();
+    }
+
     final members = <domain.Member>[];
 
     for (var i = 0; i < spMembers.length; i++) {
       final sp = spMembers[i];
-      final prismId = _memberIdMap[sp.id] ?? _newId();
-      _memberIdMap[sp.id] = prismId;
+      final prismId = _memberIdMap[sp.id]!;
 
       // Track avatar URL for later download.
       // Prefer legacy avatarUrl; fall back to constructing URL from avatarUuid
@@ -361,7 +371,7 @@ class SpMapper {
           name: sp.name,
           pronouns: sp.pronouns,
           emoji: '\u2754', // SP doesn't use emoji identifiers
-          bio: sp.desc,
+          bio: rewriteSpMentionsNullable(sp.desc, resolveMemberId),
           isActive: !sp.archived,
           createdAt: _now(),
           displayOrder: i,
@@ -380,8 +390,7 @@ class SpMapper {
       final disposition =
           _cfDispositionById[cf.id] ?? CfDisposition.importAsMember;
       if (disposition != CfDisposition.importAsMember) continue;
-      final prismId = _memberIdMap[cf.id] ?? _newId();
-      _memberIdMap[cf.id] = prismId;
+      final prismId = _memberIdMap[cf.id]!;
 
       if (cf.avatarUrl != null && cf.avatarUrl!.isNotEmpty) {
         avatarUrls[prismId] = cf.avatarUrl!;
@@ -394,7 +403,7 @@ class SpMapper {
           id: prismId,
           name: cf.name,
           emoji: '\u{1F3F7}\uFE0F', // tag emoji to indicate custom front
-          bio: cf.desc,
+          bio: rewriteSpMentionsNullable(cf.desc, resolveMemberId),
           isActive: true,
           createdAt: _now(),
           displayOrder: spMembers.length + i,
@@ -951,7 +960,7 @@ class SpMapper {
 
       final mappedMessage = domain.ChatMessage(
         id: prismId,
-        content: msg.content,
+        content: rewriteSpMentions(msg.content, resolveMemberId),
         timestamp: msg.timestamp,
         editedAt: editedAt,
         authorId: authorId,
@@ -1017,7 +1026,7 @@ class SpMapper {
         domain.Note(
           id: _newId(),
           title: sp.title.isEmpty ? 'Untitled' : sp.title,
-          body: sp.body,
+          body: rewriteSpMentions(sp.body, resolveMemberId),
           colorHex: colorHex,
           memberId: prismMemberId,
           date: sp.date,
@@ -1060,7 +1069,7 @@ class SpMapper {
         domain.FrontSessionComment(
           id: deriveSpFrontCommentId(sp.id),
           sessionId: sessionId,
-          body: sp.text,
+          body: rewriteSpMentions(sp.text, resolveMemberId),
           timestamp: sp.time,
           createdAt: sp.time,
         ),
@@ -1130,8 +1139,10 @@ class SpMapper {
         final rawValue = entry.value;
         if (rawValue == null) continue;
 
-        final value = rawValue.toString();
-        if (value.isEmpty) continue;
+        final stringified = rawValue.toString();
+        if (stringified.isEmpty) continue;
+
+        final value = rewriteSpMentions(stringified, resolveMemberId);
 
         values.add(
           domain.CustomFieldValue(
@@ -1169,7 +1180,7 @@ class SpMapper {
         domain.MemberGroup(
           id: prismId,
           name: sp.name,
-          description: sp.desc,
+          description: rewriteSpMentionsNullable(sp.desc, resolveMemberId),
           colorHex: colorHex,
           emoji: sp.emoji,
           displayOrder: i,
@@ -1282,6 +1293,7 @@ class SpMapper {
       final byId = bm.writtenBy != null ? _memberIdMap[bm.writtenBy!] : null;
       // writtenBy may be null (anonymous posts) — allowed; authorId will be null.
 
+      // Hash the raw body so already-imported posts keep their ID.
       final body = bm.message;
 
       // Compute deterministic UUID v5 so two-device imports produce identical
@@ -1310,7 +1322,7 @@ class SpMapper {
           authorId: byId,
           audience: 'private',
           title: (bm.title?.isEmpty ?? true) ? null : bm.title,
-          body: body,
+          body: rewriteSpMentions(body, resolveMemberId),
           createdAt: bm.writtenAt,
           writtenAt: bm.writtenAt,
           isDeleted: false,

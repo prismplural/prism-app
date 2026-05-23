@@ -84,6 +84,39 @@ String? normalizeSpColorHex(String? raw) {
   return s;
 }
 
+/// Matches SP inline mention placeholders `<###@spMemberId###>`. Group 1
+/// is the raw SP member id (Mongo ObjectId or 5-char PluralKit id).
+final spMentionTokenRegex = RegExp(r'<###@([^>#]+?)###>');
+
+/// Rewrite SP `<###@id###>` mention placeholders to Prism's `@[uuid]`
+/// chat-mention format. Tokens whose resolver returns null are left
+/// in place so partial-data exports aren't silently truncated.
+String rewriteSpMentions(
+  String? text,
+  String? Function(String spMemberId) resolveMemberId,
+) {
+  if (text == null || text.isEmpty) return text ?? '';
+  if (!text.contains('<###@')) return text;
+  return text.replaceAllMapped(spMentionTokenRegex, (match) {
+    final spId = match.group(1) ?? '';
+    if (spId.isEmpty) return match.group(0)!;
+    final prismId = resolveMemberId(spId);
+    if (prismId == null) return match.group(0)!;
+    return '@[$prismId]';
+  });
+}
+
+/// Nullable variant of [rewriteSpMentions].
+String? rewriteSpMentionsNullable(
+  String? text,
+  String? Function(String spMemberId) resolveMemberId,
+) {
+  if (text == null) return null;
+  if (text.isEmpty) return text;
+  if (!text.contains('<###@')) return text;
+  return rewriteSpMentions(text, resolveMemberId);
+}
+
 Map<String, String> extractSpCustomFieldValueKeyMap(dynamic rawFields) {
   if (rawFields is! Map) return const {};
 

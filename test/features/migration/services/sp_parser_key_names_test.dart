@@ -576,4 +576,78 @@ void main() {
       expect(normalizeSpColorHex('#aBcDeF'), 'aBcDeF');
     });
   });
+
+  group('rewriteSpMentions', () {
+    String? Function(String) resolveTo(String prismId) => (_) => prismId;
+
+    test('empty/null input returns empty/null', () {
+      expect(rewriteSpMentions('', (_) => 'p1'), '');
+      expect(rewriteSpMentions(null, (_) => 'p1'), '');
+      expect(rewriteSpMentionsNullable(null, (_) => 'p1'), isNull);
+      expect(rewriteSpMentionsNullable('', (_) => 'p1'), '');
+    });
+
+    test('text without tokens returns unchanged', () {
+      expect(rewriteSpMentions('hi there', (_) => 'p1'), 'hi there');
+      expect(rewriteSpMentions('looks @like a mention', (_) => 'p1'),
+          'looks @like a mention');
+    });
+
+    test('single resolvable token is rewritten', () {
+      final out = rewriteSpMentions(
+        'hi <###@sp1###>',
+        resolveTo('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'),
+      );
+      expect(out, 'hi @[aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee]');
+    });
+
+    test('unresolvable token is left in place', () {
+      final out = rewriteSpMentions('hi <###@unknown###>', (_) => null);
+      expect(out, 'hi <###@unknown###>');
+    });
+
+    test('mixed resolvable + unresolvable', () {
+      final out = rewriteSpMentions(
+        'good <###@sp1###> and bad <###@sp2###>',
+        (id) => id == 'sp1' ? 'prism-1' : null,
+      );
+      expect(out, 'good @[prism-1] and bad <###@sp2###>');
+    });
+
+    test('multiple resolvable tokens', () {
+      final out = rewriteSpMentions(
+        '<###@a###> <###@b###> <###@a###>',
+        (id) => 'p-$id',
+      );
+      expect(out, '@[p-a] @[p-b] @[p-a]');
+    });
+
+    test('handles short PluralKit-style IDs', () {
+      // Pre-v1.50 SP migrated PluralKit-imported members with 5-char `_id`.
+      final out = rewriteSpMentions('hi <###@abcde###>', (_) => 'prism-x');
+      expect(out, 'hi @[prism-x]');
+    });
+
+    test('handles 24-char Mongo ObjectId tokens', () {
+      final out = rewriteSpMentions(
+        '<###@5f7b9c1d8e3a4b2f1c6d7e8a###>',
+        (_) => 'prism-x',
+      );
+      expect(out, '@[prism-x]');
+    });
+
+    test('skips empty token body without rewriting', () {
+      // Malformed `<###@###>` (empty body) is left untouched rather than
+      // crashing or producing `@[]`.
+      final out = rewriteSpMentions('a <###@###> b', (_) => 'p1');
+      expect(out, 'a <###@###> b');
+    });
+
+    test('does not match unrelated angle-bracket text', () {
+      expect(rewriteSpMentions('<#general> hi', (_) => 'p1'),
+          '<#general> hi');
+      expect(rewriteSpMentions('<@123>', (_) => 'p1'), '<@123>');
+      expect(rewriteSpMentions('## @ ##', (_) => 'p1'), '## @ ##');
+    });
+  });
 }
