@@ -9,6 +9,8 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 /// Matches `||spoiler text||` spans — non-greedy, no nesting, inner ≥ 1 char.
 final spoilerRegex = RegExp(r'\|\|(.+?)\|\|');
 
+final chatSmallTextLineRegex = RegExp(r'^-#\s+(.+)$', multiLine: true);
+
 /// Replace each `||text||` span with ▮ block characters (clamped 1–8)
 /// so spoilers don't leak through previews, reply quotes, or search snippets.
 String redactSpoilers(String input) {
@@ -91,6 +93,8 @@ String escapeLeadingHeadings(String input) {
 /// Fast check: does the string contain any char that could trigger markdown
 /// or a mention? Used by the widget's fast path to skip parsing entirely.
 bool hasMarkdownChars(String input) {
+  if (chatSmallTextLineRegex.hasMatch(input)) return true;
+
   for (var i = 0; i < input.length; i++) {
     switch (input[i]) {
       case '*':
@@ -370,6 +374,7 @@ class _CacheKey {
     this.mutedBg,
     this.mutedFg,
     this.radius,
+    this.bodyStyle,
   );
   final Brightness brightness;
   final Color primary;
@@ -377,6 +382,7 @@ class _CacheKey {
   final Color mutedBg;
   final Color mutedFg;
   final double radius;
+  final TextStyle bodyStyle;
 
   @override
   bool operator ==(Object other) =>
@@ -386,11 +392,19 @@ class _CacheKey {
       other.codeBg == codeBg &&
       other.mutedBg == mutedBg &&
       other.mutedFg == mutedFg &&
-      other.radius == radius;
+      other.radius == radius &&
+      other.bodyStyle == bodyStyle;
 
   @override
-  int get hashCode =>
-      Object.hash(brightness, primary, codeBg, mutedBg, mutedFg, radius);
+  int get hashCode => Object.hash(
+    brightness,
+    primary,
+    codeBg,
+    mutedBg,
+    mutedFg,
+    radius,
+    bodyStyle,
+  );
 }
 
 /// Returns a [MarkdownStyleSheet] suited for chat bubbles.
@@ -404,6 +418,10 @@ MarkdownStyleSheet chatStylesheet(BuildContext context, TextStyle bodyStyle) {
   final mutedBg = theme.colorScheme.surfaceContainerHighest;
   final mutedFg = theme.colorScheme.onSurfaceVariant;
   final radius = PrismShapes.of(context).radius(8);
+  final base = MarkdownStyleSheet.fromTheme(theme);
+  TextStyle strip(TextStyle? s) =>
+      (s ?? const TextStyle()).copyWith(letterSpacing: 0);
+  final flat = strip(bodyStyle);
   final key = _CacheKey(
     theme.brightness,
     theme.colorScheme.primary,
@@ -411,12 +429,9 @@ MarkdownStyleSheet chatStylesheet(BuildContext context, TextStyle bodyStyle) {
     mutedBg,
     mutedFg,
     radius,
+    flat,
   );
   if (_cachedKey == key && _cachedSheet != null) return _cachedSheet!;
-  final base = MarkdownStyleSheet.fromTheme(theme);
-  TextStyle strip(TextStyle? s) =>
-      (s ?? const TextStyle()).copyWith(letterSpacing: 0);
-  final flat = strip(bodyStyle);
   _cachedSheet = base.copyWith(
     p: flat,
     em: flat.copyWith(fontStyle: FontStyle.italic),

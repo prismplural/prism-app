@@ -32,6 +32,15 @@ void main() {
       expect(stripChatMarkdown('[link text](https://x)', null), 'link text');
     });
 
+    test('strips small text marker at line start', () {
+      expect(stripChatMarkdown('-# im smol', null), 'im smol');
+      expect(stripChatMarkdown('hi\n-# im smol', null), 'hi\nim smol');
+    });
+
+    test('leaves small text marker inside a line', () {
+      expect(stripChatMarkdown('hi -# im smol', null), 'hi -# im smol');
+    });
+
     test('leaves unclosed bold as-is', () {
       expect(stripChatMarkdown('**un', null), '**un');
     });

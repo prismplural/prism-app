@@ -155,6 +155,15 @@ void main() {
     test('returns true for blockquote marker', () {
       expect(hasMarkdownChars('> quoted'), isTrue);
     });
+
+    test('returns true for small text marker at line start', () {
+      expect(hasMarkdownChars('-# im smol'), isTrue);
+      expect(hasMarkdownChars('hello\n-# im smol'), isTrue);
+    });
+
+    test('returns false for small text marker inside a line', () {
+      expect(hasMarkdownChars('hello -# im smol'), isFalse);
+    });
   });
 
   // -------------------------------------------------------------------------

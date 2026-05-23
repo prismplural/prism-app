@@ -12,6 +12,7 @@ final _italicStar = RegExp(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)');
 final _italicUnderscore = RegExp(r'(?<!_)_(?!_)(.+?)(?<!_)_(?!_)');
 final _inlineCode = RegExp(r'`([^`]+)`');
 final _link = RegExp(r'\[([^\]]+)\]\([^)]+\)');
+final _smallText = RegExp(r'(^|\n)-#\s+(.+)');
 
 /// Strip chat markdown syntax to plain text. Used for reply-quote previews.
 ///
@@ -25,6 +26,7 @@ String stripChatMarkdown(String raw, Map<String, Member>? authorMap) {
   out = out.replaceAllMapped(_italicUnderscore, (m) => m.group(1)!);
   out = out.replaceAllMapped(_inlineCode, (m) => m.group(1)!);
   out = out.replaceAllMapped(_link, (m) => m.group(1)!);
+  out = out.replaceAllMapped(_smallText, (m) => '${m.group(1)}${m.group(2)}');
   final nameMap = <String, String>{
     if (authorMap != null)
       for (final e in authorMap.entries) e.key: e.value.name,

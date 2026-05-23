@@ -39,10 +39,12 @@ class _ChatMessageTextState extends State<ChatMessageText> {
   static const int _fastPathThreshold = 2000;
 
   final _revealController = SpoilerRevealController();
+  final _segmentRevealControllers = <int, SpoilerRevealController>{};
 
   @override
   void dispose() {
     _revealController.dispose();
+    _disposeSegmentRevealControllers();
     super.dispose();
   }
 
@@ -51,29 +53,78 @@ class _ChatMessageTextState extends State<ChatMessageText> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.content != widget.content) {
       _revealController.clear();
+      _clearSegmentRevealControllers();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.content.isEmpty) return const SizedBox.shrink();
+    return _buildContent(
+      context,
+      content: widget.content,
+      baseStyle: widget.baseStyle,
+      defaultColor: widget.defaultColor,
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context, {
+    required String content,
+    required TextStyle baseStyle,
+    required Color defaultColor,
+    bool allowSmallText = true,
+    bool allowEmojiSticker = true,
+    Object? keySalt,
+    SpoilerRevealController? revealController,
+  }) {
+    if (content.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
     final renderKey = ValueKey(
-      _mentionRenderSignature(widget.content, widget.authorMap),
+      Object.hash(_mentionRenderSignature(content, widget.authorMap), keySalt),
     );
-    final stickerFontSize = emojiStickerFontSize(
-      widget.content,
-      widget.baseStyle,
-    );
+
+    final smallTextSegments = allowSmallText
+        ? _smallTextSegments(content)
+        : null;
+    if (smallTextSegments != null) {
+      return KeyedSubtree(
+        key: renderKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final (index, segment) in smallTextSegments.indexed)
+              _buildContent(
+                context,
+                content: segment.content,
+                baseStyle: segment.isSmall
+                    ? _smallTextStyle(baseStyle)
+                    : baseStyle,
+                defaultColor: segment.isSmall
+                    ? theme.colorScheme.onSurfaceVariant
+                    : defaultColor,
+                allowSmallText: false,
+                allowEmojiSticker: !segment.isSmall,
+                keySalt: index,
+                revealController: _revealControllerForSegment(index),
+              ),
+          ],
+        ),
+      );
+    }
+
+    final stickerFontSize = allowEmojiSticker
+        ? emojiStickerFontSize(content, baseStyle)
+        : null;
 
     if (stickerFontSize != null) {
       return KeyedSubtree(
         key: renderKey,
         child: Text(
-          widget.content.trim(),
-          style: widget.baseStyle.copyWith(
-            color: widget.defaultColor,
+          content.trim(),
+          style: baseStyle.copyWith(
+            color: defaultColor,
             fontSize: stickerFontSize,
             height: 1.0,
           ),
@@ -85,31 +136,30 @@ class _ChatMessageTextState extends State<ChatMessageText> {
     // rendering so a >2000-char message with `||secret||` can't leak the
     // plaintext — we trade tap-to-reveal for a no-plaintext guarantee on
     // oversize messages.
-    if (widget.content.length > _fastPathThreshold ||
-        !hasMarkdownChars(widget.content)) {
+    if (content.length > _fastPathThreshold || !hasMarkdownChars(content)) {
       return KeyedSubtree(
         key: renderKey,
         child: Text.rich(
           buildMentionSpan(
-            content: redactSpoilers(widget.content),
+            content: redactSpoilers(content),
             authorMap: widget.authorMap,
             theme: theme,
-            defaultColor: widget.defaultColor,
-            baseStyle: widget.baseStyle,
+            defaultColor: defaultColor,
+            baseStyle: baseStyle,
           ),
         ),
       );
     }
 
-    final preprocessed = escapeLeadingHeadings(widget.content);
+    final preprocessed = escapeLeadingHeadings(content);
 
     return SpoilerRevealScope(
-      notifier: _revealController,
+      notifier: revealController ?? _revealController,
       child: MergeSemantics(
         child: MarkdownBody(
           key: renderKey,
           data: preprocessed,
-          styleSheet: chatStylesheet(context, widget.baseStyle),
+          styleSheet: chatStylesheet(context, baseStyle),
           extensionSet: chatExtensionSet,
           selectable: false,
           softLineBreak: true,
@@ -125,6 +175,26 @@ class _ChatMessageTextState extends State<ChatMessageText> {
         ),
       ),
     );
+  }
+
+  SpoilerRevealController _revealControllerForSegment(int index) {
+    return _segmentRevealControllers.putIfAbsent(
+      index,
+      SpoilerRevealController.new,
+    );
+  }
+
+  void _disposeSegmentRevealControllers() {
+    for (final controller in _segmentRevealControllers.values) {
+      controller.dispose();
+    }
+    _segmentRevealControllers.clear();
+  }
+
+  void _clearSegmentRevealControllers() {
+    for (final controller in _segmentRevealControllers.values) {
+      controller.clear();
+    }
   }
 
   Future<void> _openExternal(String href) async {
@@ -150,6 +220,43 @@ class _ChatMessageTextState extends State<ChatMessageText> {
     }
     return Object.hashAll(values);
   }
+}
+
+class _SmallTextSegment {
+  const _SmallTextSegment(this.content, this.isSmall);
+
+  final String content;
+  final bool isSmall;
+}
+
+List<_SmallTextSegment>? _smallTextSegments(String content) {
+  if (!chatSmallTextLineRegex.hasMatch(content)) return null;
+
+  final segments = <_SmallTextSegment>[];
+  final normalLines = <String>[];
+
+  void flushNormalLines() {
+    if (normalLines.isEmpty) return;
+    segments.add(_SmallTextSegment(normalLines.join('\n'), false));
+    normalLines.clear();
+  }
+
+  for (final line in content.split('\n')) {
+    final match = chatSmallTextLineRegex.firstMatch(line);
+    if (match == null) {
+      normalLines.add(line);
+      continue;
+    }
+    flushNormalLines();
+    segments.add(_SmallTextSegment(match.group(1)!, true));
+  }
+
+  flushNormalLines();
+  return segments;
+}
+
+TextStyle _smallTextStyle(TextStyle baseStyle) {
+  return baseStyle.copyWith(fontSize: (baseStyle.fontSize ?? 14) * 0.85);
 }
 
 /// Returns a sticker font size for emoji-only chat messages.

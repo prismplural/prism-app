@@ -142,6 +142,20 @@ void main() {
       expect(spoilerOpacities(tester), [0.0, 1.0, 1.0, 0.0]);
     });
 
+    testWidgets('small text spoilers have independent reveal state', (
+      tester,
+    ) async {
+      await tester.pumpWidget(mount('-# ||a||\n-# ||b||'));
+      final gestures = find.byWidgetPredicate(
+        (w) => w is GestureDetector && w.behavior == HitTestBehavior.opaque,
+      );
+      expect(gestures, findsNWidgets(2));
+
+      await tester.tap(gestures.first);
+      await tester.pump();
+      expect(spoilerOpacities(tester), [0.0, 1.0, 1.0, 0.0]);
+    });
+
     testWidgets('reveal state resets when content prop changes', (
       tester,
     ) async {

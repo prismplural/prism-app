@@ -44,6 +44,10 @@ Widget _widget({required String content, Map<String, Member>? authorMap}) {
 double? _renderedFontSize(WidgetTester tester, String text) {
   final widget = tester.widget<Text>(find.text(text));
   final span = widget.textSpan;
+  if (span is TextSpan) {
+    final spanSize = _fontSizeForText(span, text);
+    if (spanSize != null) return spanSize;
+  }
   return widget.style?.fontSize ??
       (span is TextSpan ? span.style?.fontSize : null);
 }
@@ -52,6 +56,24 @@ double? _renderedLineHeight(WidgetTester tester, String text) {
   final widget = tester.widget<Text>(find.text(text));
   final span = widget.textSpan;
   return widget.style?.height ?? (span is TextSpan ? span.style?.height : null);
+}
+
+double? _fontSizeForText(
+  TextSpan span,
+  String text, [
+  TextStyle? inheritedStyle,
+]) {
+  final style =
+      inheritedStyle?.merge(span.style) ?? span.style ?? inheritedStyle;
+  if (span.text == text) return style?.fontSize;
+
+  for (final child in span.children ?? const <InlineSpan>[]) {
+    if (child is TextSpan) {
+      final result = _fontSizeForText(child, text, style);
+      if (result != null) return result;
+    }
+  }
+  return null;
 }
 
 void main() {
@@ -125,6 +147,39 @@ void main() {
     testWidgets('5. italic text uses slow path', (tester) async {
       await tester.pumpWidget(_widget(content: '*hi*'));
       expect(find.byType(MarkdownBody), findsOneWidget);
+    });
+
+    testWidgets(
+      '5b. small text marker renders without marker at smaller size',
+      (tester) async {
+        await tester.pumpWidget(_widget(content: '-# im smol'));
+
+        expect(find.textContaining('-#'), findsNothing);
+        expect(find.text('im smol'), findsOneWidget);
+        expect(_renderedFontSize(tester, 'im smol'), lessThan(15.5));
+      },
+    );
+
+    testWidgets('5c. small text keeps markdown small after normal markdown', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_widget(content: '**normal**\n-# **smol**'));
+
+      expect(find.text('normal'), findsOneWidget);
+      expect(find.text('smol'), findsOneWidget);
+      expect(_renderedFontSize(tester, 'smol'), lessThan(15.5));
+    });
+
+    testWidgets('5d. repeated small text lines do not duplicate keys', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_widget(content: '-# foo\n-# foo'));
+      expect(tester.takeException(), isNull);
+      expect(find.text('foo'), findsNWidgets(2));
+
+      await tester.pumpWidget(_widget(content: '-# foo\n-# foo'));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('6. bold + mention uses slow path and shows @Alice', (
