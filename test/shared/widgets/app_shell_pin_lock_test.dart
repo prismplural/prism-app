@@ -58,16 +58,19 @@ void main() {
       expect(result.locked, isTrue);
     });
 
-    test('locked when pinLockEnabled is true and isPinSet is null (error — fail closed)', () {
-      final result = initialLockDecision(
-        settingsLoading: false,
-        isPinSetLoading: false,
-        pinLockEnabled: true,
-        isPinSet: null,
-      );
-      expect(result.resolved, isTrue);
-      expect(result.locked, isTrue);
-    });
+    test(
+      'locked when pinLockEnabled is true and isPinSet is null (error — fail closed)',
+      () {
+        final result = initialLockDecision(
+          settingsLoading: false,
+          isPinSetLoading: false,
+          pinLockEnabled: true,
+          isPinSet: null,
+        );
+        expect(result.resolved, isTrue);
+        expect(result.locked, isTrue);
+      },
+    );
 
     test('no lock when pinLockEnabled is true but isPinSet is false', () {
       final result = initialLockDecision(
@@ -139,7 +142,7 @@ void main() {
       expect(result, isFalse);
     });
 
-    test('returns true when backgroundedAt is null', () {
+    test('returns false when backgroundedAt is null', () {
       final result = resumeLockDecision(
         alreadyLocked: false,
         pinLockEnabled: true,
@@ -147,8 +150,22 @@ void main() {
         backgroundedAt: null,
         autoLockDelaySeconds: 60,
       );
-      expect(result, isTrue);
+      expect(result, isFalse);
     });
+
+    test(
+      'does not relock after an auth dialog resumes without backgrounding',
+      () {
+        final result = resumeLockDecision(
+          alreadyLocked: false,
+          pinLockEnabled: true,
+          isPinSet: true,
+          backgroundedAt: null,
+          autoLockDelaySeconds: 0,
+        );
+        expect(result, isFalse);
+      },
+    );
 
     test('returns true when elapsed time exceeds autoLockDelaySeconds', () {
       final result = resumeLockDecision(
@@ -177,7 +194,9 @@ void main() {
         alreadyLocked: false,
         pinLockEnabled: true,
         isPinSet: true,
-        backgroundedAt: DateTime.now().subtract(const Duration(milliseconds: 1)),
+        backgroundedAt: DateTime.now().subtract(
+          const Duration(milliseconds: 1),
+        ),
         autoLockDelaySeconds: 0,
       );
       expect(result, isTrue);

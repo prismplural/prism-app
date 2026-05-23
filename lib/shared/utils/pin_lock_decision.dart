@@ -51,10 +51,10 @@ bool resumeLockDecision({
   if (pinLockEnabled == null || !pinLockEnabled) return false;
 
   // If isPinSet errored (null), default to locked for safety.
-  final pinExists = isPinSet ?? true;
-  if (!pinExists) return false;
+  if (isPinSet == null) return true;
+  if (!isPinSet) return false;
 
-  if (backgroundedAt == null) return true;
+  if (backgroundedAt == null) return false;
 
   final elapsed = DateTime.now().difference(backgroundedAt).inSeconds;
   return elapsed >= autoLockDelaySeconds;

@@ -655,12 +655,17 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.inactive ||
+    // Face ID can report `inactive` without leaving the foreground.
+    // Only hidden/paused states arm auto-lock.
+    if (state == AppLifecycleState.hidden ||
         state == AppLifecycleState.paused) {
-      _backgroundedAt = DateTime.now();
+      _backgroundedAt ??= DateTime.now();
+      ref.read(pkAutoPollProvider.notifier).markForegrounded(false);
+    } else if (state == AppLifecycleState.inactive) {
       ref.read(pkAutoPollProvider.notifier).markForegrounded(false);
     } else if (state == AppLifecycleState.resumed) {
       _checkLockOnResume();
+      _backgroundedAt = null;
       ref.invalidate(currentDateProvider);
       ref.read(pkAutoPollProvider.notifier).markForegrounded(true);
       _retryDeferredSyncConfigure();

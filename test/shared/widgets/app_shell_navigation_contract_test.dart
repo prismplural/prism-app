@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -148,11 +150,11 @@ void main() {
     (tester) async {
       final router = await _pumpContractApp(tester);
 
-      final cases = [
+      const cases = [
         _StackContract(
           name: 'home period to session',
           rootLocation: AppRoutePaths.home,
-          steps: const [
+          steps: [
             _StackStep(
               actionLabel: _openHomePeriod,
               expectedTitle: _homePeriodTitle,
@@ -166,7 +168,7 @@ void main() {
         _StackContract(
           name: 'settings features to fronting',
           rootLocation: AppRoutePaths.settings,
-          steps: const [
+          steps: [
             _StackStep(
               actionLabel: _openSettingsFeatures,
               expectedTitle: _settingsFeaturesTitle,
@@ -180,7 +182,7 @@ void main() {
         _StackContract(
           name: 'members detail to fronting history',
           rootLocation: AppRoutePaths.members,
-          steps: const [
+          steps: [
             _StackStep(
               actionLabel: _openMemberDetail,
               expectedTitle: _memberDetailTitle,
@@ -194,7 +196,7 @@ void main() {
         _StackContract(
           name: 'member board to post',
           rootLocation: AppRoutePaths.boards,
-          steps: const [
+          steps: [
             _StackStep(
               actionLabel: _openMemberBoard,
               expectedTitle: _memberBoardTitle,
@@ -208,7 +210,7 @@ void main() {
         _StackContract(
           name: 'group detail to member fronting history',
           rootLocation: AppRoutePaths.groups,
-          steps: const [
+          steps: [
             _StackStep(
               actionLabel: _openGroupDetail,
               expectedTitle: _groupDetailTitle,
@@ -269,11 +271,67 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  testWidgets('auth-dialog lifecycle does not relock the shell', (
+    tester,
+  ) async {
+    final settings = StreamController<SystemSettings>();
+    addTearDown(settings.close);
+    settings.add(const SystemSettings());
+
+    await _pumpContractApp(
+      tester,
+      settingsStream: settings.stream,
+      isPinSet: true,
+    );
+
+    settings.add(
+      const SystemSettings(pinLockEnabled: true, autoLockDelaySeconds: 0),
+    );
+    await tester.pump();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    expect(find.text('Enter PIN'), findsNothing);
+  });
+
+  testWidgets('hidden lifecycle relocks the shell after PIN lock is enabled', (
+    tester,
+  ) async {
+    final settings = StreamController<SystemSettings>();
+    addTearDown(settings.close);
+    settings.add(const SystemSettings());
+
+    await _pumpContractApp(
+      tester,
+      settingsStream: settings.stream,
+      isPinSet: true,
+    );
+
+    settings.add(
+      const SystemSettings(pinLockEnabled: true, autoLockDelaySeconds: 0),
+    );
+    await tester.pump();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    expect(find.text('Enter PIN'), findsOneWidget);
+  });
 }
 
 Future<GoRouter> _pumpContractApp(
   WidgetTester tester, {
   String initialLocation = AppRoutePaths.home,
+  Stream<SystemSettings>? settingsStream,
+  bool isPinSet = false,
 }) async {
   tester.view.physicalSize = const Size(400, 800);
   tester.view.devicePixelRatio = 1.0;
@@ -303,9 +361,9 @@ Future<GoRouter> _pumpContractApp(
           appShellTabs.skip(5).toList(),
         ),
         systemSettingsProvider.overrideWith(
-          (ref) => Stream.value(const SystemSettings()),
+          (ref) => settingsStream ?? Stream.value(const SystemSettings()),
         ),
-        isPinSetProvider.overrideWith((ref) async => false),
+        isPinSetProvider.overrideWith((ref) async => isPinSet),
         syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
         pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
         pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
@@ -381,7 +439,7 @@ List<StatefulShellBranch> _contractBranches() {
                 _openChatConversation,
                 AppRoutePaths.chatConversation('c1'),
               ),
-              _ProbeAction.push(
+              const _ProbeAction.push(
                 _openChatSearch,
                 '${AppRoutePaths.chat}/search',
               ),
@@ -446,7 +504,7 @@ List<StatefulShellBranch> _contractBranches() {
       routes: [
         GoRoute(
           path: AppRoutePaths.settings,
-          builder: (context, state) => _ProbePage(
+          builder: (context, state) => const _ProbePage(
             title: _settingsRootTitle,
             actions: [
               _ProbeAction.push(
@@ -458,7 +516,7 @@ List<StatefulShellBranch> _contractBranches() {
           routes: [
             GoRoute(
               path: 'features',
-              builder: (context, state) => _ProbePage(
+              builder: (context, state) => const _ProbePage(
                 title: _settingsFeaturesTitle,
                 actions: [
                   _ProbeAction.go(
