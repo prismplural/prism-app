@@ -721,7 +721,10 @@ class SpNote {
       body: (json['note'] ?? json['body'] ?? '').toString(),
       color: json['color'] as String?,
       memberId: json['member']?.toString(),
-      date: _parseSpTimeOr(json['date'] ?? json['createdAt'], clock),
+      date: _parseSpTimeOr(
+        json['date'] ?? json['lastOperationTime'] ?? json['createdAt'],
+        clock,
+      ),
     );
   }
 }

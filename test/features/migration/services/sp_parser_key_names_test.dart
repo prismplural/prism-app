@@ -386,6 +386,54 @@ void main() {
       expect(n.date.millisecondsSinceEpoch, 1600000000000);
     });
 
+    test('SpNote date cascades: date → lastOperationTime → createdAt → now', () {
+      // date present: wins.
+      expect(
+        SpNote.fromJson({
+          '_id': 'n1',
+          'title': 'x',
+          'note': 'y',
+          'member': 'm1',
+          'date': 100,
+          'lastOperationTime': 200,
+          'createdAt': 300,
+        }).date.millisecondsSinceEpoch,
+        100,
+      );
+      // date missing: lastOperationTime wins.
+      expect(
+        SpNote.fromJson({
+          '_id': 'n1',
+          'title': 'x',
+          'note': 'y',
+          'member': 'm1',
+          'lastOperationTime': 200,
+          'createdAt': 300,
+        }).date.millisecondsSinceEpoch,
+        200,
+      );
+      // date + lastOperationTime missing: createdAt wins.
+      expect(
+        SpNote.fromJson({
+          '_id': 'n1',
+          'title': 'x',
+          'note': 'y',
+          'member': 'm1',
+          'createdAt': 300,
+        }).date.millisecondsSinceEpoch,
+        300,
+      );
+      // All three missing: falls back to the injected clock.
+      final fixedNow = DateTime.utc(2024, 5, 1);
+      expect(
+        SpNote.fromJson(
+          {'_id': 'n1', 'title': 'x', 'note': 'y', 'member': 'm1'},
+          now: () => fixedNow,
+        ).date,
+        fixedNow,
+      );
+    });
+
     test('SpBoardMessage accepts Firebase Timestamp writtenAt', () {
       final bm = SpBoardMessage.fromJson({
         '_id': 'bm1',
