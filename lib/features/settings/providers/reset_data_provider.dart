@@ -495,6 +495,14 @@ class ResetDataNotifier extends AsyncNotifier<void> {
   Future<void> _resetChat() async {
     final db = ref.read(databaseProvider);
     _log('Resetting chat data');
+
+    // Collect media_id values before the transaction so we can delete the
+    // on-disk encrypted files after the DB rows are gone.
+    final mediaIds = await db
+        .customSelect('SELECT media_id FROM media_attachments')
+        .get()
+        .then((rows) => rows.map((r) => r.read<String>('media_id')).toList());
+
     await db.transaction(() async {
       // FTS first — the chat_messages_fts_delete trigger does a full FTS
       // table scan per deleted row. Wiping FTS up front makes the trigger
@@ -504,12 +512,36 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       await db.customStatement('DELETE FROM chat_messages');
       await db.customStatement('DELETE FROM conversation_categories');
       await db.customStatement('DELETE FROM conversations');
+      await db.customStatement('DELETE FROM media_attachments');
     });
     _notifyTableChanges([
       'chat_messages',
       'conversation_categories',
       'conversations',
+      'media_attachments',
     ]);
+
+    // Delete orphaned on-disk encrypted media files. Best-effort: log failures,
+    // never throw (matches _deleteFileIfExists posture in full_reset_service).
+    if (mediaIds.isNotEmpty) {
+      try {
+        final supportDir = await getApplicationSupportDirectory();
+        final mediaDir = p.join(supportDir.path, 'prism_media');
+        for (final mediaId in mediaIds) {
+          if (mediaId.isEmpty) continue;
+          final file = File(p.join(mediaDir, '$mediaId.enc'));
+          try {
+            if (await file.exists()) {
+              await file.delete();
+            }
+          } catch (e) {
+            _log('Failed to delete orphaned media file $mediaId.enc: $e');
+          }
+        }
+      } catch (e) {
+        _log('Failed to resolve media directory during chat reset: $e');
+      }
+    }
   }
 
   Future<void> _resetPolls() async {

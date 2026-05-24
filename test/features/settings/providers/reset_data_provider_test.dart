@@ -284,6 +284,68 @@ void main() {
       expect(await _countRows(reopened, 'polls'), 1);
     });
 
+    test('chat reset clears media_attachments', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      final db = harness.db;
+      final now = DateTime.utc(2026, 3, 18, 12);
+
+      // Seed a conversation + message so foreign-key-like references are
+      // satisfied (no actual FK enforcement, but mirrors production shape).
+      await db
+          .into(db.conversations)
+          .insert(
+            ConversationsCompanion(
+              id: const Value('conv-media-1'),
+              createdAt: Value(now),
+              lastActivityAt: Value(now),
+              title: const Value('Media Conv'),
+              creatorId: const Value('member-media-1'),
+              participantIds: const Value('[]'),
+            ),
+          );
+      await db
+          .into(db.chatMessages)
+          .insert(
+            ChatMessagesCompanion(
+              id: const Value('msg-media-1'),
+              content: const Value('has attachment'),
+              timestamp: Value(now),
+              authorId: const Value('member-media-1'),
+              conversationId: const Value('conv-media-1'),
+            ),
+          );
+      await db
+          .into(db.mediaAttachments)
+          .insert(
+            const MediaAttachmentsCompanion(
+              id: Value('att-1'),
+              messageId: Value('msg-media-1'),
+              mediaId: Value('media-file-abc'),
+              mediaType: Value('image'),
+            ),
+          );
+
+      expect(await _countRows(db, 'media_attachments'), 1);
+
+      await harness.reset(ResetCategory.chat);
+
+      final reopened = await harness.reopenDatabase();
+      addTearDown(reopened.close);
+
+      expect(await _countRows(reopened, 'media_attachments'), 0,
+          reason: 'chat reset must delete all media_attachments rows');
+      expect(await _countRows(reopened, 'chat_messages'), 0);
+      expect(await _countRows(reopened, 'conversations'), 0);
+
+      // On-disk file deletion is exercised by the existing full-reset tests via
+      // the mediaCacheDir seed in seedAllData(); path_provider's
+      // getApplicationSupportDirectory() is not available in unit tests, so the
+      // file-side-effect cannot be directly asserted here without a full
+      // platform-channel mock.
+    });
+
     test('polls reset clears polls, options, and votes', () async {
       final harness = await _ResetHarness.create();
       addTearDown(harness.dispose);
