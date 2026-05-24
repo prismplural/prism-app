@@ -446,6 +446,21 @@ class ResetDataNotifier extends AsyncNotifier<void> {
         'UPDATE fronting_sessions SET member_id = ? WHERE session_type = 0',
         [unknownSentinelMemberId],
       );
+      // Scalar member references: null out so the rows survive (these features
+      // don't require a member to be valid) but stop pointing at deleted ones.
+      await db.customStatement('UPDATE chat_messages SET author_id = NULL');
+      await db.customStatement(
+        'UPDATE conversations SET creator_id = NULL',
+      );
+      await db.customStatement(
+        "UPDATE conversations SET participant_ids = '[]', "
+        "archived_by_member_ids = '[]', muted_by_member_ids = '[]', "
+        "last_read_timestamps = '{}'",
+      );
+      await db.customStatement('UPDATE habits SET assigned_member_id = NULL');
+      await db.customStatement(
+        'UPDATE reminders SET target_member_id = NULL',
+      );
       // Delete child data that references members
       await db.customStatement('DELETE FROM custom_field_values');
       await db.customStatement('DELETE FROM habit_completions');
@@ -463,15 +478,19 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       ]);
     });
     _notifyTableChanges([
-      'fronting_sessions',
+      'chat_messages',
+      'conversations',
       'custom_field_values',
+      'fronting_sessions',
       'habit_completions',
+      'habits',
       'member_board_posts',
       'member_group_entries',
       'member_profile_preference_values',
+      'members',
       'notes',
       'poll_votes',
-      'members',
+      'reminders',
     ]);
   }
 

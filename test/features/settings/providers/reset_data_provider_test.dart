@@ -251,6 +251,131 @@ void main() {
       },
     );
 
+    test('members reset nulls out dangling member references', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      final db = harness.db;
+      final now = DateTime.utc(2026, 3, 18, 12);
+
+      // Seed members
+      await db.into(db.members).insert(
+        MembersCompanion(
+          id: const Value('member-1'),
+          name: const Value('Alpha'),
+          emoji: const Value('A'),
+          createdAt: Value(now),
+        ),
+      );
+      await db.into(db.members).insert(
+        MembersCompanion(
+          id: const Value('member-2'),
+          name: const Value('Beta'),
+          emoji: const Value('B'),
+          createdAt: Value(now),
+        ),
+      );
+
+      // Seed a reminder with target_member_id
+      await db.into(db.reminders).insert(
+        RemindersCompanion(
+          id: const Value('reminder-ref-1'),
+          name: const Value('Switch reminder'),
+          message: const Value('Hey'),
+          trigger: const Value(0),
+          targetMemberId: const Value('member-1'),
+          createdAt: Value(now),
+          modifiedAt: Value(now),
+        ),
+      );
+
+      // Seed a habit with assigned_member_id
+      await db.into(db.habits).insert(
+        HabitsCompanion(
+          id: const Value('habit-ref-1'),
+          name: const Value('Drink water'),
+          assignedMemberId: const Value('member-2'),
+          createdAt: Value(now),
+          modifiedAt: Value(now),
+        ),
+      );
+
+      // Seed a conversation with creator_id and all JSON member-list columns
+      await db.into(db.conversations).insert(
+        ConversationsCompanion(
+          id: const Value('conv-ref-1'),
+          createdAt: Value(now),
+          lastActivityAt: Value(now),
+          creatorId: const Value('member-1'),
+          participantIds: const Value('["member-1","member-2"]'),
+          archivedByMemberIds: const Value('["member-1"]'),
+          mutedByMemberIds: const Value('["member-2"]'),
+          lastReadTimestamps: const Value('{"member-1":1000,"member-2":2000}'),
+        ),
+      );
+
+      // Seed a chat message with author_id
+      await db.into(db.chatMessages).insert(
+        ChatMessagesCompanion(
+          id: const Value('msg-ref-1'),
+          content: const Value('hello'),
+          timestamp: Value(now),
+          authorId: const Value('member-1'),
+          conversationId: const Value('conv-ref-1'),
+        ),
+      );
+
+      await harness.reset(ResetCategory.members);
+
+      final reopened = await harness.reopenDatabase();
+      addTearDown(reopened.close);
+
+      // Scalar columns must be NULL
+      final reminderRow = await reopened
+          .customSelect(
+            'SELECT target_member_id FROM reminders WHERE id = ?',
+            variables: [Variable.withString('reminder-ref-1')],
+          )
+          .getSingle();
+      expect(reminderRow.data['target_member_id'], isNull);
+
+      final habitRow = await reopened
+          .customSelect(
+            'SELECT assigned_member_id FROM habits WHERE id = ?',
+            variables: [Variable.withString('habit-ref-1')],
+          )
+          .getSingle();
+      expect(habitRow.data['assigned_member_id'], isNull);
+
+      final msgRow = await reopened
+          .customSelect(
+            'SELECT author_id FROM chat_messages WHERE id = ?',
+            variables: [Variable.withString('msg-ref-1')],
+          )
+          .getSingle();
+      expect(msgRow.data['author_id'], isNull);
+
+      final convRow = await reopened
+          .customSelect(
+            'SELECT creator_id, participant_ids, archived_by_member_ids, '
+            'muted_by_member_ids, last_read_timestamps '
+            'FROM conversations WHERE id = ?',
+            variables: [Variable.withString('conv-ref-1')],
+          )
+          .getSingle();
+      expect(convRow.data['creator_id'], isNull);
+      expect(convRow.data['participant_ids'], '[]');
+      expect(convRow.data['archived_by_member_ids'], '[]');
+      expect(convRow.data['muted_by_member_ids'], '[]');
+      expect(convRow.data['last_read_timestamps'], '{}');
+
+      // Rows themselves must still exist (UPDATE not DELETE)
+      expect(await _countRows(reopened, 'reminders'), 1);
+      expect(await _countRows(reopened, 'habits'), 1);
+      expect(await _countRows(reopened, 'chat_messages'), 1);
+      expect(await _countRows(reopened, 'conversations'), 1);
+    });
+
     test('fronting reset clears sessions and comments', () async {
       final harness = await _ResetHarness.create();
       addTearDown(harness.dispose);
