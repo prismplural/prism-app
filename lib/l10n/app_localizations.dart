@@ -7499,6 +7499,78 @@ abstract class AppLocalizations {
   /// **'Waiting for the other device to finish setting up.'**
   String get syncSetupPairingReadyWaiting;
 
+  /// Title on the pre-flight PIN verification screen before scanning the joiner QR
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your PIN'**
+  String get syncSetupVerifyPinTitle;
+
+  /// Default subtitle on the pre-flight PIN verification screen
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll check it matches this device before scanning.'**
+  String get syncSetupVerifyPinSubtitle;
+
+  /// Subtitle shown while the pre-flight PIN check is in progress
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get syncSetupVerifyPinChecking;
+
+  /// Error subtitle shown when the pre-flight PIN check fails
+  ///
+  /// In en, this message translates to:
+  /// **'That phrase and PIN don\'t unlock this device.'**
+  String get syncSetupVerifyPinFailed;
+
+  /// Link below the numpad on the pre-flight PIN screen that navigates back to mnemonic entry
+  ///
+  /// In en, this message translates to:
+  /// **'Try a different phrase'**
+  String get syncSetupTryDifferentPhrase;
+
+  /// Step label for the mnemonic entry step in the pairing step indicator
+  ///
+  /// In en, this message translates to:
+  /// **'Phrase'**
+  String get syncSetupStepPhrase;
+
+  /// Step label for the PIN entry step in the pairing step indicator
+  ///
+  /// In en, this message translates to:
+  /// **'PIN'**
+  String get syncSetupStepPin;
+
+  /// Step label for the QR scan step in the pairing step indicator
+  ///
+  /// In en, this message translates to:
+  /// **'Scan'**
+  String get syncSetupStepScan;
+
+  /// Accessible label for the pairing step indicator, announced as a live region on step changes
+  ///
+  /// In en, this message translates to:
+  /// **'Step {step} of 3: {name}'**
+  String syncSetupStepIndicatorLabel(int step, String name);
+
+  /// Accessibility label for the icon-only backspace button in the PIN numpad
+  ///
+  /// In en, this message translates to:
+  /// **'Backspace'**
+  String get syncSetupNumpadBackspaceLabel;
+
+  /// Subtitle shown when the pre-flight PIN check is locked out, with a countdown
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Try again in {seconds}s'**
+  String syncSetupVerifyPinLockedOut(int seconds);
+
+  /// Toast shown when PIN verification fails due to a transient infrastructure error (not a wrong credential). Lockout counter is NOT incremented.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t verify — try again'**
+  String get syncSetupVerifyPinTransientError;
+
   /// Semantics label for a member avatar image
   ///
   /// In en, this message translates to:
@@ -16432,6 +16504,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t push {name} to PluralKit: {error}'**
   String pkPushNewMemberDialogError(String name, String error);
+
+  /// Settings row title for the Verify Saved Backup feature
+  ///
+  /// In en, this message translates to:
+  /// **'Verify saved backup'**
+  String get verifyBackupRowTitle;
+
+  /// Settings row subtitle for the Verify Saved Backup feature
+  ///
+  /// In en, this message translates to:
+  /// **'Check saved words match this install'**
+  String get verifyBackupRowSubtitle;
+
+  /// Screen title for the Verify Saved Backup screen
+  ///
+  /// In en, this message translates to:
+  /// **'Verify saved backup'**
+  String get verifyBackupScreenTitle;
+
+  /// Step indicator label for the phrase entry step
+  ///
+  /// In en, this message translates to:
+  /// **'Phrase'**
+  String get verifyBackupStepPhrase;
+
+  /// Step indicator label for the PIN entry step
+  ///
+  /// In en, this message translates to:
+  /// **'PIN'**
+  String get verifyBackupStepPin;
+
+  /// Step indicator label for the result step
+  ///
+  /// In en, this message translates to:
+  /// **'Result'**
+  String get verifyBackupStepResult;
+
+  /// Accessible label for the step indicator on the Verify Saved Backup screen
+  ///
+  /// In en, this message translates to:
+  /// **'Step {step} of 3: {name}'**
+  String verifyBackupStepIndicatorLabel(int step, String name);
+
+  /// Headline shown when the backup phrase and PIN match
+  ///
+  /// In en, this message translates to:
+  /// **'These words unlock this device'**
+  String get verifyBackupMatchHeadline;
+
+  /// Body text shown when the backup phrase and PIN match
+  ///
+  /// In en, this message translates to:
+  /// **'Save this QR to skip typing next time.'**
+  String get verifyBackupMatchBody;
+
+  /// Caption showing the verification date
+  ///
+  /// In en, this message translates to:
+  /// **'Verified {date}'**
+  String verifyBackupVerifiedOn(String date);
+
+  /// Headline shown when the backup phrase and PIN do not match
+  ///
+  /// In en, this message translates to:
+  /// **'That didn\'t match'**
+  String get verifyBackupNoMatchHeadline;
+
+  /// Body text shown when the backup phrase and PIN do not match
+  ///
+  /// In en, this message translates to:
+  /// **'Try another saved backup, or double-check the PIN. Older installs have different phrases.'**
+  String get verifyBackupNoMatchBody;
+
+  /// Button label to try a different backup phrase
+  ///
+  /// In en, this message translates to:
+  /// **'Try a different backup'**
+  String get verifyBackupTryDifferentBackup;
+
+  /// Button label to re-enter the PIN
+  ///
+  /// In en, this message translates to:
+  /// **'Re-enter PIN'**
+  String get verifyBackupReenterPin;
+
+  /// Button label to share the QR code
+  ///
+  /// In en, this message translates to:
+  /// **'Share QR'**
+  String get verifyBackupShareQrButton;
+
+  /// Done button label on the verify backup result screen
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get verifyBackupDoneButton;
+
+  /// Banner shown when the device is locked
+  ///
+  /// In en, this message translates to:
+  /// **'Your device is locked — unlock it first'**
+  String get verifyBackupLockedBanner;
+
+  /// Button label to unlock the device
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock device'**
+  String get verifyBackupUnlockButton;
+
+  /// Banner shown when the runtime DEK restore is deferred
+  ///
+  /// In en, this message translates to:
+  /// **'Sync access needs to be restored'**
+  String get verifyBackupRuntimeDeferredBanner;
+
+  /// Banner shown while waiting for device unlock (Android Keystore)
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock your device to continue'**
+  String get verifyBackupAwaitingUnlockBanner;
+
+  /// Banner shown when the wrapped DEK needs to be re-wrapped
+  ///
+  /// In en, this message translates to:
+  /// **'Your backup needs to be re-secured'**
+  String get verifyBackupNeedsRewrapBanner;
+
+  /// Button label to trigger the re-wrap flow
+  ///
+  /// In en, this message translates to:
+  /// **'Re-secure backup'**
+  String get verifyBackupNeedsRewrapButton;
+
+  /// Empty state message when there is no active install
+  ///
+  /// In en, this message translates to:
+  /// **'No active install to verify against.'**
+  String get verifyBackupNoActiveInstall;
+
+  /// Button label to scan a QR code containing the backup phrase
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR'**
+  String get verifyBackupScanQrButton;
+
+  /// Error shown when a scanned QR does not contain a valid BIP39 phrase
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t read this QR — try typing the words instead'**
+  String get verifyBackupScanInvalid;
+
+  /// Subtitle shown while validating the mnemonic and PIN
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get verifyBackupValidating;
+
+  /// Accessible label for the QR code on the match result screen
+  ///
+  /// In en, this message translates to:
+  /// **'QR code containing your recovery phrase'**
+  String get verifyBackupNoQrSemanticLabel;
+
+  /// Live-region accessible label announced when the backup matches
+  ///
+  /// In en, this message translates to:
+  /// **'Verified'**
+  String get verifyBackupSrAnnounceMatch;
+
+  /// Live-region accessible label announced when the backup does not match
+  ///
+  /// In en, this message translates to:
+  /// **'Not verified'**
+  String get verifyBackupSrAnnounceNoMatch;
 }
 
 class _AppLocalizationsDelegate

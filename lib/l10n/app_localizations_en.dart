@@ -4376,6 +4376,48 @@ class AppLocalizationsEn extends AppLocalizations {
       'Waiting for the other device to finish setting up.';
 
   @override
+  String get syncSetupVerifyPinTitle => 'Enter your PIN';
+
+  @override
+  String get syncSetupVerifyPinSubtitle =>
+      'We\'ll check it matches this device before scanning.';
+
+  @override
+  String get syncSetupVerifyPinChecking => 'Checking…';
+
+  @override
+  String get syncSetupVerifyPinFailed =>
+      'That phrase and PIN don\'t unlock this device.';
+
+  @override
+  String get syncSetupTryDifferentPhrase => 'Try a different phrase';
+
+  @override
+  String get syncSetupStepPhrase => 'Phrase';
+
+  @override
+  String get syncSetupStepPin => 'PIN';
+
+  @override
+  String get syncSetupStepScan => 'Scan';
+
+  @override
+  String syncSetupStepIndicatorLabel(int step, String name) {
+    return 'Step $step of 3: $name';
+  }
+
+  @override
+  String get syncSetupNumpadBackspaceLabel => 'Backspace';
+
+  @override
+  String syncSetupVerifyPinLockedOut(int seconds) {
+    return 'Too many attempts. Try again in ${seconds}s';
+  }
+
+  @override
+  String get syncSetupVerifyPinTransientError => 'Couldn\'t verify — try again';
+
+  @override
   String memberAvatarSemantics(String name) {
     return '$name avatar';
   }
@@ -10221,4 +10263,103 @@ class AppLocalizationsEn extends AppLocalizations {
   String pkPushNewMemberDialogError(String name, String error) {
     return 'Couldn\'t push $name to PluralKit: $error';
   }
+
+  @override
+  String get verifyBackupRowTitle => 'Verify saved backup';
+
+  @override
+  String get verifyBackupRowSubtitle => 'Check saved words match this install';
+
+  @override
+  String get verifyBackupScreenTitle => 'Verify saved backup';
+
+  @override
+  String get verifyBackupStepPhrase => 'Phrase';
+
+  @override
+  String get verifyBackupStepPin => 'PIN';
+
+  @override
+  String get verifyBackupStepResult => 'Result';
+
+  @override
+  String verifyBackupStepIndicatorLabel(int step, String name) {
+    return 'Step $step of 3: $name';
+  }
+
+  @override
+  String get verifyBackupMatchHeadline => 'These words unlock this device';
+
+  @override
+  String get verifyBackupMatchBody => 'Save this QR to skip typing next time.';
+
+  @override
+  String verifyBackupVerifiedOn(String date) {
+    return 'Verified $date';
+  }
+
+  @override
+  String get verifyBackupNoMatchHeadline => 'That didn\'t match';
+
+  @override
+  String get verifyBackupNoMatchBody =>
+      'Try another saved backup, or double-check the PIN. Older installs have different phrases.';
+
+  @override
+  String get verifyBackupTryDifferentBackup => 'Try a different backup';
+
+  @override
+  String get verifyBackupReenterPin => 'Re-enter PIN';
+
+  @override
+  String get verifyBackupShareQrButton => 'Share QR';
+
+  @override
+  String get verifyBackupDoneButton => 'Done';
+
+  @override
+  String get verifyBackupLockedBanner =>
+      'Your device is locked — unlock it first';
+
+  @override
+  String get verifyBackupUnlockButton => 'Unlock device';
+
+  @override
+  String get verifyBackupRuntimeDeferredBanner =>
+      'Sync access needs to be restored';
+
+  @override
+  String get verifyBackupAwaitingUnlockBanner =>
+      'Unlock your device to continue';
+
+  @override
+  String get verifyBackupNeedsRewrapBanner =>
+      'Your backup needs to be re-secured';
+
+  @override
+  String get verifyBackupNeedsRewrapButton => 'Re-secure backup';
+
+  @override
+  String get verifyBackupNoActiveInstall =>
+      'No active install to verify against.';
+
+  @override
+  String get verifyBackupScanQrButton => 'Scan QR';
+
+  @override
+  String get verifyBackupScanInvalid =>
+      'Couldn\'t read this QR — try typing the words instead';
+
+  @override
+  String get verifyBackupValidating => 'Checking…';
+
+  @override
+  String get verifyBackupNoQrSemanticLabel =>
+      'QR code containing your recovery phrase';
+
+  @override
+  String get verifyBackupSrAnnounceMatch => 'Verified';
+
+  @override
+  String get verifyBackupSrAnnounceNoMatch => 'Not verified';
 }

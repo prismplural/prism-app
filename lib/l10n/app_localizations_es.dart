@@ -4452,6 +4452,49 @@ class AppLocalizationsEs extends AppLocalizations {
       'Esperando a que el otro dispositivo termine la configuración.';
 
   @override
+  String get syncSetupVerifyPinTitle => 'Ingresa tu PIN';
+
+  @override
+  String get syncSetupVerifyPinSubtitle =>
+      'Verificaremos que coincida con este dispositivo antes de escanear.';
+
+  @override
+  String get syncSetupVerifyPinChecking => 'Verificando…';
+
+  @override
+  String get syncSetupVerifyPinFailed =>
+      'Esa frase y PIN no desbloquean este dispositivo.';
+
+  @override
+  String get syncSetupTryDifferentPhrase => 'Intentar con otra frase';
+
+  @override
+  String get syncSetupStepPhrase => 'Frase';
+
+  @override
+  String get syncSetupStepPin => 'PIN';
+
+  @override
+  String get syncSetupStepScan => 'Escanear';
+
+  @override
+  String syncSetupStepIndicatorLabel(int step, String name) {
+    return 'Paso $step de 3: $name';
+  }
+
+  @override
+  String get syncSetupNumpadBackspaceLabel => 'Retroceso';
+
+  @override
+  String syncSetupVerifyPinLockedOut(int seconds) {
+    return 'Demasiados intentos. Inténtalo en ${seconds}s';
+  }
+
+  @override
+  String get syncSetupVerifyPinTransientError =>
+      'No se pudo verificar — inténtalo de nuevo';
+
+  @override
   String memberAvatarSemantics(String name) {
     return 'Avatar de $name';
   }
@@ -10399,4 +10442,107 @@ class AppLocalizationsEs extends AppLocalizations {
   String pkPushNewMemberDialogError(String name, String error) {
     return 'No se pudo enviar a $name a PluralKit: $error';
   }
+
+  @override
+  String get verifyBackupRowTitle => 'Verificar copia de seguridad';
+
+  @override
+  String get verifyBackupRowSubtitle =>
+      'Comprueba que las palabras guardadas coinciden con esta instalación';
+
+  @override
+  String get verifyBackupScreenTitle => 'Verificar copia de seguridad';
+
+  @override
+  String get verifyBackupStepPhrase => 'Frase';
+
+  @override
+  String get verifyBackupStepPin => 'PIN';
+
+  @override
+  String get verifyBackupStepResult => 'Resultado';
+
+  @override
+  String verifyBackupStepIndicatorLabel(int step, String name) {
+    return 'Paso $step de 3: $name';
+  }
+
+  @override
+  String get verifyBackupMatchHeadline =>
+      'Estas palabras desbloquean este dispositivo';
+
+  @override
+  String get verifyBackupMatchBody =>
+      'Guarda este QR para evitar escribirlo la próxima vez.';
+
+  @override
+  String verifyBackupVerifiedOn(String date) {
+    return 'Verificado el $date';
+  }
+
+  @override
+  String get verifyBackupNoMatchHeadline => 'Eso no coincide';
+
+  @override
+  String get verifyBackupNoMatchBody =>
+      'Prueba otra copia de seguridad guardada o comprueba el PIN. Las instalaciones antiguas tienen frases diferentes.';
+
+  @override
+  String get verifyBackupTryDifferentBackup => 'Probar otra copia de seguridad';
+
+  @override
+  String get verifyBackupReenterPin => 'Volver a introducir PIN';
+
+  @override
+  String get verifyBackupShareQrButton => 'Compartir QR';
+
+  @override
+  String get verifyBackupDoneButton => 'Listo';
+
+  @override
+  String get verifyBackupLockedBanner =>
+      'Tu dispositivo está bloqueado — desbloquéalo primero';
+
+  @override
+  String get verifyBackupUnlockButton => 'Desbloquear dispositivo';
+
+  @override
+  String get verifyBackupRuntimeDeferredBanner =>
+      'Es necesario restaurar el acceso de sincronización';
+
+  @override
+  String get verifyBackupAwaitingUnlockBanner =>
+      'Desbloquea tu dispositivo para continuar';
+
+  @override
+  String get verifyBackupNeedsRewrapBanner =>
+      'Tu copia de seguridad necesita volver a protegerse';
+
+  @override
+  String get verifyBackupNeedsRewrapButton =>
+      'Volver a proteger copia de seguridad';
+
+  @override
+  String get verifyBackupNoActiveInstall =>
+      'No hay instalación activa con la que verificar.';
+
+  @override
+  String get verifyBackupScanQrButton => 'Escanear QR';
+
+  @override
+  String get verifyBackupScanInvalid =>
+      'No se pudo leer este QR — intenta escribir las palabras';
+
+  @override
+  String get verifyBackupValidating => 'Comprobando…';
+
+  @override
+  String get verifyBackupNoQrSemanticLabel =>
+      'Código QR con tu frase de recuperación';
+
+  @override
+  String get verifyBackupSrAnnounceMatch => 'Verificado';
+
+  @override
+  String get verifyBackupSrAnnounceNoMatch => 'No verificado';
 }

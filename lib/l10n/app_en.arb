@@ -6010,6 +6010,67 @@
   "@syncSetupPairingReadyWaiting": {
     "description": "Body of the pairing-ready confirmation shown briefly after a successful snapshot upload"
   },
+  "syncSetupVerifyPinTitle": "Enter your PIN",
+  "@syncSetupVerifyPinTitle": {
+    "description": "Title on the pre-flight PIN verification screen before scanning the joiner QR"
+  },
+  "syncSetupVerifyPinSubtitle": "We'll check it matches this device before scanning.",
+  "@syncSetupVerifyPinSubtitle": {
+    "description": "Default subtitle on the pre-flight PIN verification screen"
+  },
+  "syncSetupVerifyPinChecking": "Checking…",
+  "@syncSetupVerifyPinChecking": {
+    "description": "Subtitle shown while the pre-flight PIN check is in progress"
+  },
+  "syncSetupVerifyPinFailed": "That phrase and PIN don't unlock this device.",
+  "@syncSetupVerifyPinFailed": {
+    "description": "Error subtitle shown when the pre-flight PIN check fails"
+  },
+  "syncSetupTryDifferentPhrase": "Try a different phrase",
+  "@syncSetupTryDifferentPhrase": {
+    "description": "Link below the numpad on the pre-flight PIN screen that navigates back to mnemonic entry"
+  },
+  "syncSetupStepPhrase": "Phrase",
+  "@syncSetupStepPhrase": {
+    "description": "Step label for the mnemonic entry step in the pairing step indicator"
+  },
+  "syncSetupStepPin": "PIN",
+  "@syncSetupStepPin": {
+    "description": "Step label for the PIN entry step in the pairing step indicator"
+  },
+  "syncSetupStepScan": "Scan",
+  "@syncSetupStepScan": {
+    "description": "Step label for the QR scan step in the pairing step indicator"
+  },
+  "syncSetupStepIndicatorLabel": "Step {step} of 3: {name}",
+  "@syncSetupStepIndicatorLabel": {
+    "description": "Accessible label for the pairing step indicator, announced as a live region on step changes",
+    "placeholders": {
+      "step": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "syncSetupNumpadBackspaceLabel": "Backspace",
+  "@syncSetupNumpadBackspaceLabel": {
+    "description": "Accessibility label for the icon-only backspace button in the PIN numpad"
+  },
+  "syncSetupVerifyPinLockedOut": "Too many attempts. Try again in {seconds}s",
+  "@syncSetupVerifyPinLockedOut": {
+    "description": "Subtitle shown when the pre-flight PIN check is locked out, with a countdown",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "syncSetupVerifyPinTransientError": "Couldn't verify — try again",
+  "@syncSetupVerifyPinTransientError": {
+    "description": "Toast shown when PIN verification fails due to a transient infrastructure error (not a wrong credential). Lockout counter is NOT incremented."
+  },
   "memberAvatarSemantics": "{name} avatar",
   "@memberAvatarSemantics": {
     "description": "Semantics label for a member avatar image",
@@ -11007,5 +11068,135 @@
         "type": "String"
       }
     }
+  },
+
+  "verifyBackupRowTitle": "Verify saved backup",
+  "@verifyBackupRowTitle": {
+    "description": "Settings row title for the Verify Saved Backup feature"
+  },
+  "verifyBackupRowSubtitle": "Check saved words match this install",
+  "@verifyBackupRowSubtitle": {
+    "description": "Settings row subtitle for the Verify Saved Backup feature"
+  },
+  "verifyBackupScreenTitle": "Verify saved backup",
+  "@verifyBackupScreenTitle": {
+    "description": "Screen title for the Verify Saved Backup screen"
+  },
+  "verifyBackupStepPhrase": "Phrase",
+  "@verifyBackupStepPhrase": {
+    "description": "Step indicator label for the phrase entry step"
+  },
+  "verifyBackupStepPin": "PIN",
+  "@verifyBackupStepPin": {
+    "description": "Step indicator label for the PIN entry step"
+  },
+  "verifyBackupStepResult": "Result",
+  "@verifyBackupStepResult": {
+    "description": "Step indicator label for the result step"
+  },
+  "verifyBackupStepIndicatorLabel": "Step {step} of 3: {name}",
+  "@verifyBackupStepIndicatorLabel": {
+    "description": "Accessible label for the step indicator on the Verify Saved Backup screen",
+    "placeholders": {
+      "step": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyBackupMatchHeadline": "These words unlock this device",
+  "@verifyBackupMatchHeadline": {
+    "description": "Headline shown when the backup phrase and PIN match"
+  },
+  "verifyBackupMatchBody": "Save this QR to skip typing next time.",
+  "@verifyBackupMatchBody": {
+    "description": "Body text shown when the backup phrase and PIN match"
+  },
+  "verifyBackupVerifiedOn": "Verified {date}",
+  "@verifyBackupVerifiedOn": {
+    "description": "Caption showing the verification date",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyBackupNoMatchHeadline": "That didn't match",
+  "@verifyBackupNoMatchHeadline": {
+    "description": "Headline shown when the backup phrase and PIN do not match"
+  },
+  "verifyBackupNoMatchBody": "Try another saved backup, or double-check the PIN. Older installs have different phrases.",
+  "@verifyBackupNoMatchBody": {
+    "description": "Body text shown when the backup phrase and PIN do not match"
+  },
+  "verifyBackupTryDifferentBackup": "Try a different backup",
+  "@verifyBackupTryDifferentBackup": {
+    "description": "Button label to try a different backup phrase"
+  },
+  "verifyBackupReenterPin": "Re-enter PIN",
+  "@verifyBackupReenterPin": {
+    "description": "Button label to re-enter the PIN"
+  },
+  "verifyBackupShareQrButton": "Share QR",
+  "@verifyBackupShareQrButton": {
+    "description": "Button label to share the QR code"
+  },
+  "verifyBackupDoneButton": "Done",
+  "@verifyBackupDoneButton": {
+    "description": "Done button label on the verify backup result screen"
+  },
+  "verifyBackupLockedBanner": "Your device is locked — unlock it first",
+  "@verifyBackupLockedBanner": {
+    "description": "Banner shown when the device is locked"
+  },
+  "verifyBackupUnlockButton": "Unlock device",
+  "@verifyBackupUnlockButton": {
+    "description": "Button label to unlock the device"
+  },
+  "verifyBackupRuntimeDeferredBanner": "Sync access needs to be restored",
+  "@verifyBackupRuntimeDeferredBanner": {
+    "description": "Banner shown when the runtime DEK restore is deferred"
+  },
+  "verifyBackupAwaitingUnlockBanner": "Unlock your device to continue",
+  "@verifyBackupAwaitingUnlockBanner": {
+    "description": "Banner shown while waiting for device unlock (Android Keystore)"
+  },
+  "verifyBackupNeedsRewrapBanner": "Your backup needs to be re-secured",
+  "@verifyBackupNeedsRewrapBanner": {
+    "description": "Banner shown when the wrapped DEK needs to be re-wrapped"
+  },
+  "verifyBackupNeedsRewrapButton": "Re-secure backup",
+  "@verifyBackupNeedsRewrapButton": {
+    "description": "Button label to trigger the re-wrap flow"
+  },
+  "verifyBackupNoActiveInstall": "No active install to verify against.",
+  "@verifyBackupNoActiveInstall": {
+    "description": "Empty state message when there is no active install"
+  },
+  "verifyBackupScanQrButton": "Scan QR",
+  "@verifyBackupScanQrButton": {
+    "description": "Button label to scan a QR code containing the backup phrase"
+  },
+  "verifyBackupScanInvalid": "Couldn't read this QR — try typing the words instead",
+  "@verifyBackupScanInvalid": {
+    "description": "Error shown when a scanned QR does not contain a valid BIP39 phrase"
+  },
+  "verifyBackupValidating": "Checking…",
+  "@verifyBackupValidating": {
+    "description": "Subtitle shown while validating the mnemonic and PIN"
+  },
+  "verifyBackupNoQrSemanticLabel": "QR code containing your recovery phrase",
+  "@verifyBackupNoQrSemanticLabel": {
+    "description": "Accessible label for the QR code on the match result screen"
+  },
+  "verifyBackupSrAnnounceMatch": "Verified",
+  "@verifyBackupSrAnnounceMatch": {
+    "description": "Live-region accessible label announced when the backup matches"
+  },
+  "verifyBackupSrAnnounceNoMatch": "Not verified",
+  "@verifyBackupSrAnnounceNoMatch": {
+    "description": "Live-region accessible label announced when the backup does not match"
   }
 }

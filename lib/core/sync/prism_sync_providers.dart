@@ -17,6 +17,7 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/security/pin_buffer.dart';
 import 'package:prism_plurality/core/security/secret_bytes.dart'
     show secretUtf8Bytes;
 import 'package:prism_plurality/core/services/app_data_dir.dart';
@@ -3373,6 +3374,49 @@ final syncEnabledProvider = Provider<bool>((ref) {
 });
 
 // ---------------------------------------------------------------------------
+// verifyMnemonicPin result type
+// ---------------------------------------------------------------------------
+
+/// Result of a [SyncHealthNotifier.verifyMnemonicPin] call.
+///
+/// Callers should switch exhaustively on this type to handle all branches.
+sealed class VerifyMnemonicPinResult {
+  const VerifyMnemonicPinResult();
+}
+
+/// The supplied mnemonic + PIN successfully unlock this install's wrapped_dek.
+final class VerifyMnemonicPinMatch extends VerifyMnemonicPinResult {
+  const VerifyMnemonicPinMatch();
+}
+
+/// The supplied mnemonic + PIN do NOT unlock this install's wrapped_dek, or
+/// the mnemonic could not be decoded. The caller should not disclose which
+/// input was wrong.
+final class VerifyMnemonicPinNoMatch extends VerifyMnemonicPinResult {
+  const VerifyMnemonicPinNoMatch();
+}
+
+/// The `wrapped_dek` is not present in the platform keychain — the user must
+/// complete the wrapped_dek recovery flow before verification is possible.
+final class VerifyMnemonicPinNeedsRewrap extends VerifyMnemonicPinResult {
+  const VerifyMnemonicPinNeedsRewrap();
+}
+
+/// The sync engine handle is not yet available. Retry once the handle is
+/// present (i.e. after the engine initialises).
+final class VerifyMnemonicPinHandleUnavailable extends VerifyMnemonicPinResult {
+  const VerifyMnemonicPinHandleUnavailable();
+}
+
+/// An infrastructure error occurred during verification — the result is
+/// unknown. The caller should NOT increment the lockout counter for this
+/// variant; it does not indicate a wrong credential.
+final class VerifyMnemonicPinError extends VerifyMnemonicPinResult {
+  const VerifyMnemonicPinError({required this.message});
+  final String message;
+}
+
+// ---------------------------------------------------------------------------
 // Sync health
 // ---------------------------------------------------------------------------
 
@@ -3431,7 +3475,52 @@ class _BoolNotifier extends Notifier<bool> {
   void setValue(bool value) => state = value;
 }
 
+// ---------------------------------------------------------------------------
+// verifyMnemonicPin test seam
+// ---------------------------------------------------------------------------
+
+/// FFI call-sites used by [SyncHealthNotifier.verifyMnemonicPin].
+///
+/// Production code uses [_ProductionSyncVerifyMnemonicPinFns]. Tests inject a
+/// fake via [SyncHealthNotifier.verifyFns] to exercise the real method body
+/// without requiring a linked Rust dylib.
+@visibleForTesting
+abstract class SyncVerifyMnemonicPinFns {
+  Future<List<int>> mnemonicToBytes(Uint8List mnemonic);
+  Future<bool> verifyMnemonicPin({
+    required ffi.PrismSyncHandle handle,
+    required Uint8List password,
+    required List<int> secretKey,
+  });
+}
+
+class _ProductionSyncVerifyMnemonicPinFns implements SyncVerifyMnemonicPinFns {
+  const _ProductionSyncVerifyMnemonicPinFns();
+
+  @override
+  Future<List<int>> mnemonicToBytes(Uint8List mnemonic) =>
+      ffi.mnemonicToBytes(mnemonic: mnemonic);
+
+  @override
+  Future<bool> verifyMnemonicPin({
+    required ffi.PrismSyncHandle handle,
+    required Uint8List password,
+    required List<int> secretKey,
+  }) =>
+      ffi.verifyMnemonicPin(
+        handle: handle,
+        password: password,
+        secretKey: secretKey,
+      );
+}
+
 class SyncHealthNotifier extends Notifier<SyncHealthState> {
+  /// Test seam — production uses the real FFI functions. Tests override this
+  /// to inject fakes without re-implementing the method body.
+  @visibleForTesting
+  SyncVerifyMnemonicPinFns verifyFns =
+      const _ProductionSyncVerifyMnemonicPinFns();
+
   @override
   SyncHealthState build() => SyncHealthState.healthy;
 
@@ -3538,6 +3627,79 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
       return false;
     } finally {
       // Always zero any secret bytes that made it into Dart memory.
+      _zeroBytesBestEffort(mnemonicBytes);
+      _zeroBytesBestEffort(pinBytes);
+      _zeroBytesBestEffort(secretKeyBytes);
+    }
+  }
+
+  /// Pre-flight check that the typed mnemonic + PIN unlock the current
+  /// install's wrapped_dek. Has NO side effects (does not unlock, configure,
+  /// cache keys, or set state). Use during pairing pre-flight and on the
+  /// verify-backup screen. Wrap call sites in a PinLockoutState to enforce
+  /// rate-limiting — a 6-digit PIN has only 10^6 entropy.
+  ///
+  /// The [PinBuffer] is drained when verification is actually attempted
+  /// (Match / NoMatch). On [VerifyMnemonicPinHandleUnavailable] and
+  /// [VerifyMnemonicPinNeedsRewrap] the caller did not consume the PIN, so
+  /// the caller must clear it explicitly if they don't intend to retry.
+  /// Callers must collect a fresh PIN to retry after Match / NoMatch.
+  Future<VerifyMnemonicPinResult> verifyMnemonicPin({
+    required PinBuffer pin,
+    required String mnemonic,
+  }) async {
+    final handle = ref.read(prismSyncHandleProvider).value;
+    if (handle == null) return const VerifyMnemonicPinHandleUnavailable();
+
+    final wrappedDekPresent =
+        await ref.read(syncWrappedDekPresentProvider.future);
+    if (!wrappedDekPresent) return const VerifyMnemonicPinNeedsRewrap();
+
+    // Past this point we commit to attempting verification — drain the PIN
+    // buffer now so the docstring guarantee holds for all remaining paths.
+    final normalized = mnemonic.trim().toLowerCase();
+    Uint8List? mnemonicBytes;
+    Uint8List? pinBytes = pin.consumeBytesAndClear();
+    List<int>? secretKeyBytes;
+    try {
+      try {
+        mnemonicBytes = secretUtf8Bytes(normalized);
+        secretKeyBytes =
+            await verifyFns.mnemonicToBytes(mnemonicBytes);
+      } catch (_) {
+        // Invalid mnemonic — don't disclose which input was wrong.
+        return const VerifyMnemonicPinNoMatch();
+      } finally {
+        _zeroBytesBestEffort(mnemonicBytes);
+        mnemonicBytes = null;
+      }
+
+      try {
+        final matched = await verifyFns.verifyMnemonicPin(
+          handle: handle,
+          password: pinBytes,
+          secretKey: secretKeyBytes,
+        );
+        return matched
+            ? const VerifyMnemonicPinMatch()
+            : const VerifyMnemonicPinNoMatch();
+      } on Exception {
+        // Infrastructure error (storage IO, Rust panic, missing dek_salt).
+        // Return a distinct Error variant so callers do NOT increment the
+        // lockout counter — this is not a wrong-credential outcome.
+        return const VerifyMnemonicPinError(message: 'Sync engine error');
+      } finally {
+        _zeroBytesBestEffort(pinBytes);
+        _zeroBytesBestEffort(secretKeyBytes);
+        pinBytes = null;
+        secretKeyBytes = null;
+      }
+    } catch (_) {
+      // Unexpected non-Exception throwable (e.g. Error from an assertion).
+      // Treat as infrastructure failure — do not increment lockout.
+      return const VerifyMnemonicPinError(message: 'Sync engine error');
+    } finally {
+      // Belt-and-suspenders: zero anything that survived into this scope.
       _zeroBytesBestEffort(mnemonicBytes);
       _zeroBytesBestEffort(pinBytes);
       _zeroBytesBestEffort(secretKeyBytes);

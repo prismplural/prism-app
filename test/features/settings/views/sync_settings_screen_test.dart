@@ -459,4 +459,38 @@ void main() {
       },
     );
   });
+
+  group('Verify saved backup row visibility', () {
+    // The "Verify saved backup" row uses the same canSetUpAnotherDeviceRow
+    // gate as "Set up another device" — it should appear only when handle,
+    // complete identity, and wrapped_dek are all present.
+    test('row is hidden when canSetUpAnotherDeviceRow returns false', () {
+      // No handle
+      expect(
+        canSetUpAnotherDeviceRow(
+          hasActiveHandle: false,
+          relayUrl: 'https://relay.example.com',
+          syncId: 'sync-123',
+          deviceId: 'device-123',
+          hasDeviceSecret: true,
+          hasWrappedDek: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('row is shown when canSetUpAnotherDeviceRow returns true', () {
+      expect(
+        canSetUpAnotherDeviceRow(
+          hasActiveHandle: true,
+          relayUrl: 'https://relay.example.com',
+          syncId: 'sync-123',
+          deviceId: 'device-123',
+          hasDeviceSecret: true,
+          hasWrappedDek: true,
+        ),
+        isTrue,
+      );
+    });
+  });
 }

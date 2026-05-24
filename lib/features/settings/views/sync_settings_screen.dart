@@ -761,6 +761,24 @@ class _ConfiguredView extends ConsumerWidget {
           ),
         ),
 
+        // Recovery — verify saved backup
+        if (canSetUpAnotherDevice &&
+            nodeId != null &&
+            nodeId.isNotEmpty)
+          PrismSection(
+            title: 'Recovery',
+            child: PrismGroupedSectionCard(
+              child: PrismSettingsRow(
+                icon: AppIcons.shieldOutlined,
+                title: context.l10n.verifyBackupRowTitle,
+                subtitle: context.l10n.verifyBackupRowSubtitle,
+                onTap: () => context.push(
+                  AppRoutePaths.settingsSyncVerifyBackup,
+                ),
+              ),
+            ),
+          ),
+
         // Sync preferences — centralises sync-behaviour toggles from other screens
         PrismSection(
           title: context.l10n.syncPreferencesSection,

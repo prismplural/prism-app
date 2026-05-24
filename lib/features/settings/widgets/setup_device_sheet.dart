@@ -12,6 +12,7 @@ import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/crypto/bip39_validate.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/security/pin_buffer.dart';
+import 'package:prism_plurality/core/security/pin_lockout_state.dart';
 import 'package:prism_plurality/core/security/secret_bytes.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/pairing_sas_display.dart';
@@ -26,6 +27,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
+import 'package:prism_plurality/shared/widgets/pin_numpad_cell.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
 class SetupDeviceSheet {
@@ -149,11 +151,14 @@ class _SetupDeviceSheetContent extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<_SetupDeviceSheetContent> createState() =>
-      _SetupDeviceSheetContentState();
+      SetupDeviceSheetContentState();
 }
 
 enum _InitiatorStep {
   enterMnemonic,
+  // Pre-flight PIN verification: confirm the typed phrase+PIN unlock this
+  // device before proceeding to the joiner QR scan.
+  pinPreflight,
   prompt,
   scanning,
   connecting,
@@ -170,8 +175,10 @@ enum _InitiatorStep {
   error,
 }
 
-class _SetupDeviceSheetContentState
-    extends ConsumerState<_SetupDeviceSheetContent> {
+// State class is public so tests can access @visibleForTesting members.
+class SetupDeviceSheetContentState
+    extends ConsumerState<_SetupDeviceSheetContent>
+    with WidgetsBindingObserver {
   _InitiatorStep _step = _InitiatorStep.enterMnemonic;
   bool _joinerScanned = false;
   List<String>? _sasWords;
@@ -198,12 +205,42 @@ class _SetupDeviceSheetContentState
   // persisted in the keychain. Dart Strings cannot be zeroed, so this is kept
   // only until completeInitiatorCeremony returns, reset, or dispose.
   String? _mnemonic;
+
+  /// The PIN that passed pre-flight verification. Held here from pinPreflight
+  /// until _completeInitiator consumes it, so the user never has to re-enter it.
+  /// Zeroed on dispose, reset, and app lifecycle pause.
+  PinBuffer? _validatedPin;
+
+  /// Whether [_validatedPin] is currently null.
+  ///
+  /// Exposed only for widget tests that need to verify lifecycle-pause zeroing
+  /// without walking the full SAS → passwordEntry path.
+  @visibleForTesting
+  bool get validatedPinIsNull => _validatedPin == null;
+
+  /// The current length of [_validatedPin], or -1 if null.
+  ///
+  /// Exposed for regression tests that verify the buffer is non-empty after
+  /// the preflight view unmounts (guarding against the dispose-clears-parent
+  /// buffer bug).
+  @visibleForTesting
+  int get validatedPinLength => _validatedPin?.length ?? -1;
+
   late final PairingCeremonyApi _pairingApi;
 
   @override
   void initState() {
     super.initState();
     _pairingApi = ref.read(pairingCeremonyApiProvider);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _validatedPin?.clear();
+      _validatedPin = null;
+    }
   }
 
   MobileScannerController _ensureJoinerScanner() {
@@ -212,6 +249,7 @@ class _SetupDeviceSheetContentState
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (_shouldCancelActiveCeremony()) {
       unawaited(_cancelActiveCeremony());
     }
@@ -219,6 +257,8 @@ class _SetupDeviceSheetContentState
     _uploadEventSubscription?.close();
     _uploadEventSubscription = null;
     _mnemonic = null;
+    _validatedPin?.clear();
+    _validatedPin = null;
     super.dispose();
   }
 
@@ -230,6 +270,8 @@ class _SetupDeviceSheetContentState
     _joinerScannerController = null;
     _uploadEventSubscription?.close();
     _uploadEventSubscription = null;
+    _validatedPin?.clear();
+    _validatedPin = null;
     setState(() {
       _step = _InitiatorStep.enterMnemonic;
       _joinerScanned = false;
@@ -253,6 +295,7 @@ class _SetupDeviceSheetContentState
       _InitiatorStep.completing ||
       _InitiatorStep.error => true,
       _InitiatorStep.enterMnemonic ||
+      _InitiatorStep.pinPreflight ||
       _InitiatorStep.prompt ||
       _InitiatorStep.uploadComplete ||
       _InitiatorStep.done => false,
@@ -312,7 +355,14 @@ class _SetupDeviceSheetContentState
     }
   }
 
-  Future<void> _completeInitiator(String pin) async {
+  Future<void> _completeInitiator(PinBuffer pin) async {
+    // Drain the buffer synchronously BEFORE any setState/await — once the
+    // step changes the source view (_PreflightPinView or _InitiatorPinView)
+    // unmounts and its dispose() clears the buffer. Same risk if the app
+    // backgrounds mid-flight: the lifecycle hook clears _validatedPin.
+    final pinBytes = pin.consumeBytesAndClear();
+
+    try {
     setState(() {
       _step = _InitiatorStep.uploading;
       _error = null;
@@ -386,10 +436,8 @@ class _SetupDeviceSheetContentState
       }
 
       final pairingApi = ref.read(pairingCeremonyApiProvider);
-      Uint8List? pinBytes;
       Uint8List? mnemonicBytes;
       try {
-        pinBytes = secretUtf8Bytes(pin);
         mnemonicBytes = secretUtf8Bytes(mnemonic);
         await pairingApi.completeInitiatorCeremony(
           handle: widget.handle,
@@ -397,7 +445,6 @@ class _SetupDeviceSheetContentState
           mnemonic: mnemonicBytes,
         );
       } finally {
-        zeroBytesBestEffort(pinBytes);
         zeroBytesBestEffort(mnemonicBytes);
         _mnemonic = null;
       }
@@ -432,6 +479,20 @@ class _SetupDeviceSheetContentState
         _error = e.toString();
         _step = _InitiatorStep.error;
       });
+    } finally {
+      // Drop the _validatedPin reference now that the buffer has been consumed
+      // (success path: consumeBytesAndClear already zeroed it) or the ceremony
+      // failed (error path: zero any remaining bytes and release the reference).
+      // This prevents a dangling reference to a stale/consumed buffer after
+      // _completeInitiator returns.
+      _validatedPin?.clear();
+      _validatedPin = null;
+    }
+    } finally {
+      // Belt-and-suspenders: zero pinBytes on every path including early
+      // throws from setState or pre-FFI setup code. The inner mnemonicBytes
+      // finally block already handles the normal crypto path.
+      zeroBytesBestEffort(pinBytes);
     }
   }
 
@@ -478,18 +539,65 @@ class _SetupDeviceSheetContentState
     setState(() {
       _mnemonic = normalized;
       _error = null;
-      _step = _InitiatorStep.prompt;
+      _step = _InitiatorStep.pinPreflight;
     });
+  }
+
+  void _onPreflightValid(PinBuffer pin) {
+    _validatedPin = pin;
+    setState(() => _step = _InitiatorStep.prompt);
+  }
+
+  void _onPreflightNeedsRewrap() {
+    ref.read(syncHealthProvider.notifier).setState(SyncHealthState.needsRewrap);
+    if (mounted) {
+      PrismToast.error(
+        context,
+        message: context.l10n.syncEngineNeedsPinReconfirm,
+      );
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _onPreflightHandleUnavailable() {
+    if (mounted) {
+      PrismToast.error(
+        context,
+        message: context.l10n.syncEngineNotAvailable,
+      );
+      Navigator.of(context).pop();
+    }
   }
 
   Widget _buildContent() {
     return switch (_step) {
-      _InitiatorStep.enterMnemonic => _MnemonicEntryView(
-        initialError: _error,
-        onSubmit: _onMnemonicSubmitted,
+      _InitiatorStep.enterMnemonic => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _PreflightStepIndicator(currentStep: _PreflightStep.phrase),
+          const SizedBox(height: 16),
+          _MnemonicEntryView(
+            initialError: _error,
+            onSubmit: _onMnemonicSubmitted,
+          ),
+        ],
       ),
-      _InitiatorStep.prompt => _ScanJoinerPrompt(
-        onStartScan: () => setState(() => _step = _InitiatorStep.scanning),
+      _InitiatorStep.pinPreflight => _PreflightPinView(
+        mnemonic: _mnemonic!,
+        onValidated: _onPreflightValid,
+        onBack: () => setState(() => _step = _InitiatorStep.enterMnemonic),
+        onNeedsRewrap: _onPreflightNeedsRewrap,
+        onHandleUnavailable: _onPreflightHandleUnavailable,
+      ),
+      _InitiatorStep.prompt => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _PreflightStepIndicator(currentStep: _PreflightStep.scan),
+          const SizedBox(height: 16),
+          _ScanJoinerPrompt(
+            onStartScan: () => setState(() => _step = _InitiatorStep.scanning),
+          ),
+        ],
       ),
       _InitiatorStep.scanning => _JoinerQrScannerView(
         ensureScanner: _ensureJoinerScanner,
@@ -521,7 +629,13 @@ class _SetupDeviceSheetContentState
       ),
       _InitiatorStep.sasVerification => _SasVerificationView(
         sasWords: _sasWords!,
-        onConfirm: () => setState(() => _step = _InitiatorStep.passwordEntry),
+        onConfirm: () {
+          if (_validatedPin != null) {
+            _completeInitiator(_validatedPin!);
+          } else {
+            setState(() => _step = _InitiatorStep.passwordEntry);
+          }
+        },
         onReject: _reset,
       ),
       _InitiatorStep.passwordEntry => _InitiatorPinView(
@@ -562,6 +676,420 @@ class _SetupDeviceSheetContentState
         onTryAgain: _reset,
       ),
     };
+  }
+}
+
+enum _PreflightStep { phrase, pin, scan }
+
+/// A compact "1 Phrase · 2 PIN · 3 Scan" row used across the preflight steps.
+class _PreflightStepIndicator extends StatelessWidget {
+  const _PreflightStepIndicator({required this.currentStep});
+
+  final _PreflightStep currentStep;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+
+    final steps = [
+      (l10n.syncSetupStepPhrase, _PreflightStep.phrase),
+      (l10n.syncSetupStepPin, _PreflightStep.pin),
+      (l10n.syncSetupStepScan, _PreflightStep.scan),
+    ];
+
+    final currentIndex =
+        steps.indexWhere((s) => s.$2 == currentStep);
+    final stepNumber = currentIndex + 1;
+    final stepName = steps[currentIndex].$1;
+
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      label: l10n.syncSetupStepIndicatorLabel(stepNumber, stepName),
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < steps.length; i++) ...[
+              if (i > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Text(
+                    '·',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+              Text(
+                '${i + 1} ${steps[i].$1}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: steps[i].$2 == currentStep
+                      ? FontWeight.w700
+                      : FontWeight.w400,
+                  color: steps[i].$2 == currentStep
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// PIN entry screen shown BEFORE scanning the joiner QR to verify the user's
+/// phrase+PIN unlock the current install's wrapped_dek.
+///
+/// Reuses [PinNumpadCell] for numpad cells and mirrors the shake +
+/// dot-scale-pulse animation pattern from [_SyncPinSheetState].
+class _PreflightPinView extends ConsumerStatefulWidget {
+  const _PreflightPinView({
+    required this.mnemonic,
+    required this.onValidated,
+    required this.onBack,
+    required this.onNeedsRewrap,
+    required this.onHandleUnavailable,
+  });
+
+  final String mnemonic;
+  final void Function(PinBuffer pin) onValidated;
+  final VoidCallback onBack;
+  final VoidCallback onNeedsRewrap;
+  final VoidCallback onHandleUnavailable;
+
+  @override
+  ConsumerState<_PreflightPinView> createState() => _PreflightPinViewState();
+}
+
+class _PreflightPinViewState extends ConsumerState<_PreflightPinView>
+    with TickerProviderStateMixin {
+  static const _pinLength = 6;
+
+  late final PinBuffer _pin = PinBuffer(length: _pinLength);
+  late final PinLockoutState _lockout =
+      PinLockoutState(prefsScope: 'prism.preflight');
+
+  bool _hasError = false;
+  bool _checking = false;
+
+  late final AnimationController _shakeController;
+  late final Animation<double> _shakeAnimation;
+
+  late final AnimationController _dotController;
+  late final Animation<double> _dotScaleAnim;
+  int? _lastFilledDotIndex;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _shakeAnimation =
+        TweenSequence<double>([
+          TweenSequenceItem(tween: Tween(begin: 0, end: -12), weight: 1),
+          TweenSequenceItem(tween: Tween(begin: -12, end: 12), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 12, end: -8), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
+        ]).animate(
+          CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut),
+        );
+
+    _dotController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _dotScaleAnim =
+        TweenSequence<double>([
+          TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 1),
+          TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 1),
+        ]).animate(_dotController);
+
+    _lockout.load().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _pin.clear();
+    _shakeController.dispose();
+    _dotController.dispose();
+    super.dispose();
+  }
+
+  void _onDigit(String digit) {
+    if (_checking || _lockout.isLockedOut || !_pin.appendDigit(digit)) return;
+    setState(() {
+      _hasError = false;
+      _lastFilledDotIndex = _pin.length - 1;
+    });
+    _dotController.forward(from: 0);
+    if (_pin.isFull) {
+      _onPinComplete();
+    }
+  }
+
+  void _onBackspace() {
+    if (_pin.isEmpty || _checking) return;
+    setState(_pin.removeLast);
+  }
+
+  void _shake() {
+    _shakeController.forward(from: 0);
+    _pin.clear();
+    setState(() => _lastFilledDotIndex = null);
+  }
+
+  // Pauses briefly after successful validation so the user sees the dots fill before advancing.
+  Future<void> _pauseForFeedback() async {
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+  }
+
+  Future<void> _onPinComplete() async {
+    if (_lockout.isLockedOut) {
+      _shake();
+      return;
+    }
+    setState(() => _checking = true);
+
+    // Make a defensive copy — verifyMnemonicPin drains the buffer
+    final pinCopy = PinBuffer(length: _pin.length)..replaceWith(_pin);
+
+    try {
+      final result =
+          await ref.read(syncHealthProvider.notifier).verifyMnemonicPin(
+        pin: pinCopy,
+        mnemonic: widget.mnemonic,
+      );
+
+      if (!mounted) return;
+
+      switch (result) {
+        case VerifyMnemonicPinMatch():
+          await _lockout.clear();
+          await _pauseForFeedback();
+          if (!mounted) return;
+          // Create a defensive copy so the parent owns a separate buffer.
+          // The view's _pin is cleared below; when dispose() clears it again
+          // that is harmless — the parent's handoff buffer is independent.
+          final handoff = PinBuffer(length: _pin.length)..replaceWith(_pin);
+          _pin.clear(); // we are done with our copy
+          widget.onValidated(handoff);
+        case VerifyMnemonicPinNoMatch():
+          await _lockout.recordFailure();
+          if (!mounted) return;
+          _pin.clear();
+          setState(() {
+            _checking = false;
+            _hasError = true;
+          });
+          _shake();
+        case VerifyMnemonicPinNeedsRewrap():
+          widget.onNeedsRewrap();
+        case VerifyMnemonicPinHandleUnavailable():
+          widget.onHandleUnavailable();
+        case VerifyMnemonicPinError():
+          // Infrastructure error — do NOT increment lockout. Show a toast
+          // and stay on this step so the user can retry.
+          if (!mounted) return;
+          _pin.clear();
+          setState(() => _checking = false);
+          _shake();
+          PrismToast.show(
+            context,
+            message: context.l10n.syncSetupVerifyPinTransientError,
+          );
+      }
+    } finally {
+      pinCopy.clear();
+    }
+  }
+
+  String _subtitle(BuildContext context) {
+    if (_lockout.isLockedOut) {
+      return context.l10n.syncSetupVerifyPinLockedOut(_lockout.secondsRemaining);
+    }
+    if (_checking) return context.l10n.syncSetupVerifyPinChecking;
+    if (_hasError) return context.l10n.syncSetupVerifyPinFailed;
+    return context.l10n.syncSetupVerifyPinSubtitle;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accentColor = theme.colorScheme.primary;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _PreflightStepIndicator(currentStep: _PreflightStep.pin),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: PrismButton(
+            label: context.l10n.back,
+            onPressed: widget.onBack,
+            icon: AppIcons.arrowBackIosNew,
+            tone: PrismButtonTone.subtle,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Icon(AppIcons.lockOutline, color: accentColor, size: 40),
+        const SizedBox(height: 16),
+        Text(
+          context.l10n.syncSetupVerifyPinTitle,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _subtitle(context),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: _hasError
+                ? theme.colorScheme.error
+                : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 32),
+        // PIN dot indicators with shake animation
+        AnimatedBuilder(
+          animation: _shakeAnimation,
+          builder: (context, child) => Transform.translate(
+            offset: Offset(_shakeAnimation.value, 0),
+            child: child,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_pinLength, (i) {
+              final filled = i < _pin.length;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: AnimatedBuilder(
+                  animation: _dotScaleAnim,
+                  builder: (context, child) => Transform.scale(
+                    scale:
+                        i == _lastFilledDotIndex ? _dotScaleAnim.value : 1.0,
+                    child: child,
+                  ),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: filled
+                          ? accentColor
+                          : accentColor.withValues(alpha: 0.15),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+        const SizedBox(height: 32),
+        // Numpad
+        if (!_checking)
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 296),
+              child: NumpadKeyboardListener(
+                onDigit: _onDigit,
+                onBackspace: _onBackspace,
+                enabled: !_checking && !_lockout.isLockedOut,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var row = 0; row < 4; row++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: _buildRow(row, theme),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: _PreflightCheckingIndicator(),
+          ),
+        if (!_checking) ...[
+          const SizedBox(height: 8),
+          Center(
+            child: GestureDetector(
+              onTap: widget.onBack,
+              child: Text(
+                context.l10n.syncSetupTryDifferentPhrase,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: accentColor,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  List<Widget> _buildRow(int row, ThemeData theme) {
+    if (row < 3) {
+      return List.generate(3, (col) {
+        final digit = '${row * 3 + col + 1}';
+        return PinNumpadCell(
+          label: digit,
+          onTap: () => _onDigit(digit),
+          theme: theme,
+        );
+      });
+    }
+    return [
+      const SizedBox(width: 72, height: 72),
+      PinNumpadCell(
+        label: '0',
+        onTap: () => _onDigit('0'),
+        theme: theme,
+      ),
+      PinNumpadCell(
+        icon: AppIcons.backspaceOutlined,
+        onTap: _onBackspace,
+        theme: theme,
+      ),
+    ];
+  }
+}
+
+/// Small spinner shown while the pre-flight PIN check is in progress.
+class _PreflightCheckingIndicator extends StatelessWidget {
+  const _PreflightCheckingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: PrismSpinner(
+        color: Theme.of(context).colorScheme.primary,
+        size: 40,
+        dotCount: 8,
+        duration: const Duration(milliseconds: 2000),
+      ),
+    );
   }
 }
 
@@ -859,7 +1387,7 @@ class _SasVerificationView extends StatelessWidget {
 class _InitiatorPinView extends StatefulWidget {
   const _InitiatorPinView({required this.onPinEntered, required this.onBack});
 
-  final void Function(String pin) onPinEntered;
+  final void Function(PinBuffer pin) onPinEntered;
   final VoidCallback onBack;
 
   @override
@@ -879,9 +1407,8 @@ class _InitiatorPinViewState extends State<_InitiatorPinView> {
   void _onDigit(String digit) {
     if (!_pin.appendDigit(digit)) return;
     if (_pin.isFull) {
-      final pin = _pin.consumeStringAndClear();
       setState(() {});
-      widget.onPinEntered(pin);
+      widget.onPinEntered(_pin);
       return;
     }
     setState(() {});
@@ -982,7 +1509,7 @@ class _InitiatorPinViewState extends State<_InitiatorPinView> {
     if (row < 3) {
       return List.generate(3, (col) {
         final digit = '${row * 3 + col + 1}';
-        return _InitiatorNumpadButton(
+        return PinNumpadCell(
           label: digit,
           onTap: () => _onDigit(digit),
           theme: theme,
@@ -991,58 +1518,17 @@ class _InitiatorPinViewState extends State<_InitiatorPinView> {
     }
     return [
       const SizedBox(width: 72, height: 72),
-      _InitiatorNumpadButton(
+      PinNumpadCell(
         label: '0',
         onTap: () => _onDigit('0'),
         theme: theme,
       ),
-      _InitiatorNumpadButton(
+      PinNumpadCell(
         icon: AppIcons.backspaceOutlined,
         onTap: _onBackspace,
         theme: theme,
       ),
     ];
-  }
-}
-
-class _InitiatorNumpadButton extends StatelessWidget {
-  const _InitiatorNumpadButton({
-    this.label,
-    this.icon,
-    required this.onTap,
-    required this.theme,
-  });
-
-  final String? label;
-  final IconData? icon;
-  final VoidCallback onTap;
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 72,
-        height: 72,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: theme.colorScheme.primary.withValues(alpha: 0.08),
-        ),
-        child: label != null
-            ? Text(
-                label!,
-                style: TextStyle(
-                  color: theme.colorScheme.onSurface,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w500,
-                ),
-              )
-            : Icon(icon, size: 24, color: theme.colorScheme.onSurface),
-      ),
-    );
   }
 }
 

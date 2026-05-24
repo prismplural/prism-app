@@ -47,6 +47,7 @@ abstract final class AppRoutePaths {
   static const settingsMigration = '/settings/migration';
   static const settingsSyncTroubleshooting = '/settings/sync-troubleshooting';
   static const settingsDevices = '/settings/devices';
+  static const settingsSyncVerifyBackup = '/settings/sync/verify-backup';
   static const settingsDataBrowser = '/settings/data-browser';
   static const settingsMembersManage = '/settings/members/manage';
   static const settingsGroups = '/settings/members/groups';
@@ -117,6 +118,7 @@ abstract final class AppRouteNames {
   static const notes = 'notes';
   static const statistics = 'statistics';
   static const settingsSync = 'settings-sync';
+  static const settingsSyncVerifyBackup = 'settings-sync-verify-backup';
   static const onboarding = 'onboarding';
   static const secretKeySetup = 'secret-key-setup';
   static const syncSetup = 'sync-setup';

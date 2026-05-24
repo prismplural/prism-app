@@ -51,6 +51,7 @@ import '../../features/members/views/groups_screen.dart';
 import '../../features/members/views/group_detail_screen.dart';
 import '../../features/members/views/system_management_screen.dart';
 import '../../features/settings/views/secret_key_setup_screen.dart';
+import '../../features/settings/views/verify_backup_screen.dart';
 import '../../features/settings/views/sync_setup_screen.dart';
 import '../../features/pluralkit/views/pk_sync_debug_screen.dart';
 import '../../features/pluralkit/views/pluralkit_setup_screen.dart';
@@ -474,6 +475,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                     name: AppRouteNames.settingsSync,
                     path: 'sync',
                     builder: (context, state) => const SyncSettingsScreen(),
+                    routes: [
+                      GoRoute(
+                        name: AppRouteNames.settingsSyncVerifyBackup,
+                        path: 'verify-backup',
+                        builder: (context, state) =>
+                            const VerifyBackupScreen(),
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: 'notifications',
