@@ -42,7 +42,6 @@ import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/features/fronting/services/period_delete.dart';
 import 'package:prism_plurality/features/fronting/views/period_detail_args.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
@@ -931,49 +930,39 @@ class _PeriodTile extends ConsumerWidget {
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     if (period.sessionIds.isEmpty) return;
 
-    // Multi-contributor periods (2+ sessions): use the period-level batch
-    // delete. The merge/fill-gap strategy dialog is not well-defined for
-    // overlapping sessions, so we skip it here.
-    if (period.sessionIds.length >= 2) {
-      final contributors = period.activeMembers
-          .map((id) => membersMap[id])
-          .whereType<Member>()
-          .toList();
-      await confirmAndDeletePeriod(
-        context,
-        ref,
-        sessionIds: period.sessionIds,
-        contributors: contributors,
-      );
-      return;
-    }
-
-    // Single-contributor period: keep the existing per-session strategy
-    // dialog (merge/fill-gap UX is well-defined for one session + its
-    // two neighbors).
-    final firstSessionId = period.sessionIds.first;
-
     final repo = ref.read(frontingSessionRepositoryProvider);
-    final session = await repo.getSessionById(firstSessionId);
-    if (session == null || !context.mounted) return;
     final allSessions = await repo.getAllSessions();
-    final editGuard = ref.read(frontingEditGuardProvider);
-    final resolutionService = ref.read(frontingEditResolutionServiceProvider);
-    final changeExecutor = ref.read(frontingChangeExecutorProvider);
-
-    final sessionSnapshot = session.toSnapshot();
-    final allSnapshots = allSessions.map((s) => s.toSnapshot()).toList();
-    final deleteCtx = editGuard.getDeleteContext(sessionSnapshot, allSnapshots);
-
     if (!context.mounted) return;
-    final strategy = await showDeleteStrategyDialog(
+
+    final editGuard = ref.read(frontingEditGuardProvider);
+    final allSnapshots = allSessions.map((s) => s.toSnapshot()).toList();
+    // For ongoing periods `period.end` is the substituted "now" from
+    // derivation time — stale by the time the user picks a strategy.
+    // A session that ended in between would classify as straddle-end
+    // and leave a microsecond ghost row after the slice.
+    final periodEnd = period.isOpenEnded ? DateTime.now() : period.end;
+    final deleteCtx = editGuard.getDeletePeriodContext(
+      periodStart: period.start,
+      periodEnd: periodEnd,
+      isOngoing: period.isOpenEnded,
+      periodSessionIds: period.sessionIds.toSet(),
+      allSessions: allSnapshots,
+    );
+
+    final strategy = await showDeletePeriodStrategyDialog(
       context,
       deleteContext: deleteCtx,
     );
     if (strategy == null || !context.mounted) return;
 
+    final resolutionService = ref.read(frontingEditResolutionServiceProvider);
+    final changeExecutor = ref.read(frontingChangeExecutorProvider);
+
     Haptics.heavy();
-    final changes = resolutionService.computeDeleteChanges(deleteCtx, strategy);
+    final changes = resolutionService.computeDeletePeriodChanges(
+      deleteCtx,
+      strategy,
+    );
     final result = await changeExecutor.execute(changes);
     result.when(
       success: (_) {},

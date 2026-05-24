@@ -79,6 +79,79 @@ class FrontingDeleteContext {
   }
 }
 
+/// Context for deleting a derived period.
+///
+/// Sessions fully inside get deleted, sessions overlapping one boundary
+/// get trimmed, sessions straddling both get split. The chosen strategy
+/// decides what fills the cleared slice.
+class FrontingDeletePeriodContext {
+  final DateTime periodStart;
+
+  /// For an ongoing period this is the substituted "now" — callers
+  /// should pass a fresh `DateTime.now()` at delete time, not the
+  /// derivation-time bound, or a session that just ended will be
+  /// classified as straddle-end and leave a microsecond ghost row
+  /// after the slice.
+  final DateTime periodEnd;
+
+  /// Period reaches the trailing edge of the timeline with an open
+  /// contributor. Drives `clearEnd` semantics for extendPrevious and
+  /// `end: null` for the convertToUnknown row.
+  final bool isOngoing;
+
+  final List<FrontingSessionSnapshot> sessionsInPeriod;
+
+  /// Sessions ending exactly at periodStart. Extended under
+  /// extendPrevious.
+  final List<FrontingSessionSnapshot> previousSessions;
+
+  /// Sessions starting exactly at periodEnd. Reserved for parity with
+  /// previousSessions; extendNext isn't surfaced today.
+  final List<FrontingSessionSnapshot> nextSessions;
+
+  const FrontingDeletePeriodContext({
+    required this.periodStart,
+    required this.periodEnd,
+    required this.isOngoing,
+    this.sessionsInPeriod = const [],
+    this.previousSessions = const [],
+    this.nextSessions = const [],
+  });
+
+  /// A session that starts before the slice and ends within it — i.e.
+  /// a "previous side" extendPrevious can actually extend. Both-
+  /// straddlers don't count: they're left intact, so their presence
+  /// doesn't make the option meaningful on its own.
+  bool get hasStraddleStartOnly {
+    for (final s in sessionsInPeriod) {
+      if (!s.start.isBefore(periodStart)) continue;
+      final eff = s.end ?? DateTime(9999);
+      if (!eff.isAfter(periodEnd)) return true;
+    }
+    return false;
+  }
+
+  bool get hasStraddleEnd {
+    for (final s in sessionsInPeriod) {
+      if (s.end == null) return true;
+      if (s.end!.isAfter(periodEnd)) return true;
+    }
+    return false;
+  }
+
+  List<FrontingDeleteStrategy> get availableStrategies {
+    // Don't offer extendPrevious when only both-straddlers exist —
+    // they're left intact under the strategy and the tap would be a
+    // no-op.
+    final hasPrev = previousSessions.isNotEmpty || hasStraddleStartOnly;
+    final strategies = <FrontingDeleteStrategy>[];
+    if (hasPrev) strategies.add(FrontingDeleteStrategy.extendPrevious);
+    strategies.add(FrontingDeleteStrategy.convertToUnknown);
+    strategies.add(FrontingDeleteStrategy.leaveGap);
+    return strategies;
+  }
+}
+
 /// Result of pre-save validation.
 class FrontingEditValidationResult {
   final bool canSaveDirectly;

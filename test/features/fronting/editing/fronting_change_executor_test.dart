@@ -369,4 +369,296 @@ void main() {
       expect(await memberRepo.getMemberById(unknownSentinelMemberId), isNull);
     });
   });
+
+  group('FrontingChangeExecutor – splitFromSessionId lineage', () {
+    late AppDatabase db;
+    late DriftFrontingSessionRepository sessionRepo;
+    late FakeFrontSessionCommentsRepository commentsRepo;
+    late FrontingChangeExecutor executor;
+
+    setUp(() {
+      db = AppDatabase(NativeDatabase.memory());
+      sessionRepo = DriftFrontingSessionRepository(db.frontingSessionsDao, null);
+      commentsRepo = FakeFrontSessionCommentsRepository();
+      executor = FrontingChangeExecutor(
+        repository: sessionRepo,
+        mutationRunner: MutationRunner(transactionRunner: db.transaction),
+        frontSessionCommentsRepository: commentsRepo,
+      );
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('reparents comments timestamped inside the new range from '
+        'splitFromSessionId',
+        () async {
+      // Original session [10:00, 16:00]. Delete the period [12:00, 14:00]
+      // with leaveGap: the original is trimmed to [10:00, 12:00] and a new
+      // session [14:00, 16:00] is created. Comments at 10:30 (pre-slice),
+      // 12:30 (inside-slice), and 14:30 (post-slice) live on the original.
+      // After the split, the 14:30 comment must move to the new right-half
+      // — leaving it on the trimmed original would hide it from the
+      // post-period section view.
+      final original = FrontingSession(
+        id: 'original-id',
+        startTime: DateTime(2026, 4, 1, 10),
+        endTime: DateTime(2026, 4, 1, 16),
+        memberId: 'alice',
+      );
+      await sessionRepo.createSession(original);
+
+      for (final entry in [
+        ('pre', DateTime(2026, 4, 1, 10, 30)),
+        ('inside', DateTime(2026, 4, 1, 12, 30)),
+        ('post', DateTime(2026, 4, 1, 14, 30)),
+      ]) {
+        await commentsRepo.createComment(
+          FrontSessionComment(
+            id: entry.$1,
+            sessionId: original.id,
+            body: entry.$1,
+            timestamp: entry.$2,
+            createdAt: entry.$2,
+          ),
+        );
+      }
+
+      // Simulate the period-delete split: trim original end to 12:00,
+      // create right-half [14:00, 16:00] tagged as splitFrom the original.
+      final result = await executor.execute([
+        UpdateSessionChange(
+          sessionId: original.id,
+          patch: FrontingSessionPatch(end: DateTime(2026, 4, 1, 12)),
+        ),
+        CreateSessionChange(
+          FrontingSessionDraft(
+            memberId: 'alice',
+            start: DateTime(2026, 4, 1, 14),
+            end: DateTime(2026, 4, 1, 16),
+            splitFromSessionId: original.id,
+          ),
+        ),
+      ]);
+      expect(result.isSuccess, isTrue);
+
+      // Find the new right-half session by start time.
+      final sessions = await sessionRepo.getAllSessions();
+      final rightHalf = sessions.firstWhere(
+        (s) => s.startTime == DateTime(2026, 4, 1, 14),
+      );
+
+      // 'inside' was stuck on the trimmed original — timestamp outside
+      // its new range. Expect it deleted, not left orphaned.
+      final commentsBySession = <String, List<String>>{};
+      for (final c in commentsRepo.comments) {
+        commentsBySession.putIfAbsent(c.sessionId, () => []).add(c.id);
+      }
+      expect(commentsBySession[original.id], ['pre']);
+      expect(commentsBySession[rightHalf.id], ['post']);
+      expect(commentsRepo.comments.map((c) => c.id), isNot(contains('inside')));
+    });
+
+    test('dropOrphanedComments on a one-sided trim deletes comments '
+        'whose timestamps fall outside the new range', () async {
+      // Straddle-start-only shape: session [10:00, 16:00] trimmed to end
+      // at 14:00 (the period delete cleared [14:00, 16:00]). A comment
+      // at 15:00 was inside the original range, now outside — must be
+      // deleted, not orphaned on the shortened session.
+      final original = FrontingSession(
+        id: 'straddler',
+        startTime: DateTime(2026, 4, 1, 10),
+        endTime: DateTime(2026, 4, 1, 16),
+        memberId: 'alice',
+      );
+      await sessionRepo.createSession(original);
+      await commentsRepo.createComment(
+        FrontSessionComment(
+          id: 'kept',
+          sessionId: original.id,
+          body: 'kept',
+          timestamp: DateTime(2026, 4, 1, 11),
+          createdAt: DateTime(2026, 4, 1, 11),
+        ),
+      );
+      await commentsRepo.createComment(
+        FrontSessionComment(
+          id: 'orphan',
+          sessionId: original.id,
+          body: 'orphan',
+          timestamp: DateTime(2026, 4, 1, 15),
+          createdAt: DateTime(2026, 4, 1, 15),
+        ),
+      );
+
+      final result = await executor.execute([
+        UpdateSessionChange(
+          sessionId: original.id,
+          patch: FrontingSessionPatch(
+            end: DateTime(2026, 4, 1, 14),
+            dropOrphanedComments: true,
+          ),
+        ),
+      ]);
+      expect(result.isSuccess, isTrue);
+
+      expect(commentsRepo.comments.map((c) => c.id), ['kept']);
+    });
+
+    test('dropOrphanedComments=false (default) leaves orphans alone — '
+        'preserves existing executor semantics', () async {
+      final original = FrontingSession(
+        id: 's',
+        startTime: DateTime(2026, 4, 1, 10),
+        endTime: DateTime(2026, 4, 1, 16),
+        memberId: 'alice',
+      );
+      await sessionRepo.createSession(original);
+      await commentsRepo.createComment(
+        FrontSessionComment(
+          id: 'late',
+          sessionId: original.id,
+          body: 'late',
+          timestamp: DateTime(2026, 4, 1, 15),
+          createdAt: DateTime(2026, 4, 1, 15),
+        ),
+      );
+
+      // Plain trim with no flag — orphan is not auto-deleted.
+      final result = await executor.execute([
+        UpdateSessionChange(
+          sessionId: original.id,
+          patch: FrontingSessionPatch(end: DateTime(2026, 4, 1, 14)),
+        ),
+      ]);
+      expect(result.isSuccess, isTrue);
+      expect(commentsRepo.comments.map((c) => c.id), ['late']);
+    });
+
+    test('reparentOrphansToSessionId moves orphans to the target session', () async {
+      // Simulates convertToUnknown on a straddle-start: Alice
+      // [10:00, 16:00] gets trimmed to [10:00, 14:00] and her after-slice
+      // comment moves to the Unknown session that was created up front.
+      final unknown = FrontingSession(
+        id: 'unknown-target',
+        startTime: DateTime(2026, 4, 1, 14),
+        endTime: DateTime(2026, 4, 1, 16),
+        memberId: 'unknown-member',
+      );
+      final alice = FrontingSession(
+        id: 'alice-s',
+        startTime: DateTime(2026, 4, 1, 10),
+        endTime: DateTime(2026, 4, 1, 16),
+        memberId: 'alice',
+      );
+      await sessionRepo.createSession(unknown);
+      await sessionRepo.createSession(alice);
+      await commentsRepo.createComment(
+        FrontSessionComment(
+          id: 'orphan',
+          sessionId: alice.id,
+          body: 'orphan',
+          timestamp: DateTime(2026, 4, 1, 15),
+          createdAt: DateTime(2026, 4, 1, 15),
+        ),
+      );
+
+      final result = await executor.execute([
+        UpdateSessionChange(
+          sessionId: alice.id,
+          patch: FrontingSessionPatch(
+            end: DateTime(2026, 4, 1, 14),
+            reparentOrphansToSessionId: unknown.id,
+          ),
+        ),
+      ]);
+      expect(result.isSuccess, isTrue);
+
+      final orphan =
+          commentsRepo.comments.firstWhere((c) => c.id == 'orphan');
+      expect(orphan.sessionId, unknown.id);
+    });
+
+    test('sliceReparentToSessionId routes split-slice comments to the '
+        'target instead of deleting them', () async {
+      // Simulates convertToUnknown on a both-straddler: Alice
+      // [10:00, 16:00] is split into [10:00, 12:00] + [14:00, 16:00],
+      // the slice [12:00, 14:00] becomes Unknown. A 13:00 comment must
+      // move to the Unknown session, not be deleted.
+      final unknown = FrontingSession(
+        id: 'unknown-target',
+        startTime: DateTime(2026, 4, 1, 12),
+        endTime: DateTime(2026, 4, 1, 14),
+        memberId: 'unknown-member',
+      );
+      final alice = FrontingSession(
+        id: 'alice-s',
+        startTime: DateTime(2026, 4, 1, 10),
+        endTime: DateTime(2026, 4, 1, 16),
+        memberId: 'alice',
+      );
+      await sessionRepo.createSession(unknown);
+      await sessionRepo.createSession(alice);
+      await commentsRepo.createComment(
+        FrontSessionComment(
+          id: 'slice',
+          sessionId: alice.id,
+          body: 'slice',
+          timestamp: DateTime(2026, 4, 1, 13),
+          createdAt: DateTime(2026, 4, 1, 13),
+        ),
+      );
+      await commentsRepo.createComment(
+        FrontSessionComment(
+          id: 'after',
+          sessionId: alice.id,
+          body: 'after',
+          timestamp: DateTime(2026, 4, 1, 15),
+          createdAt: DateTime(2026, 4, 1, 15),
+        ),
+      );
+
+      final result = await executor.execute([
+        UpdateSessionChange(
+          sessionId: alice.id,
+          patch: FrontingSessionPatch(end: DateTime(2026, 4, 1, 12)),
+        ),
+        CreateSessionChange(
+          FrontingSessionDraft(
+            memberId: 'alice',
+            start: DateTime(2026, 4, 1, 14),
+            end: DateTime(2026, 4, 1, 16),
+            splitFromSessionId: alice.id,
+            sliceReparentToSessionId: unknown.id,
+          ),
+        ),
+      ]);
+      expect(result.isSuccess, isTrue);
+
+      final byId = {for (final c in commentsRepo.comments) c.id: c.sessionId};
+      // The 'after' comment lands on the new right-half (split reparent).
+      final rightHalf = (await sessionRepo.getAllSessions())
+          .firstWhere((s) => s.startTime == DateTime(2026, 4, 1, 14));
+      expect(byId['after'], rightHalf.id);
+      // The 'slice' comment moves to the Unknown row — not deleted.
+      expect(byId['slice'], unknown.id);
+    });
+
+    test('presetId on a Create uses the supplied UUID', () async {
+      const id = 'preset-uuid';
+      await executor.execute([
+        CreateSessionChange(
+          FrontingSessionDraft(
+            memberId: 'alice',
+            start: DateTime(2026, 4, 1, 10),
+            end: DateTime(2026, 4, 1, 11),
+            presetId: id,
+          ),
+        ),
+      ]);
+      final all = await sessionRepo.getAllSessions();
+      expect(all.map((s) => s.id), contains(id));
+    });
+  });
 }

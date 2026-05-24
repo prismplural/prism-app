@@ -1,3 +1,4 @@
+import 'package:prism_plurality/domain/models/fronting_session.dart' show SessionType;
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_rules.dart';
@@ -221,6 +222,51 @@ class FrontingEditGuard {
       session: session,
       previous: previous,
       next: next,
+    );
+  }
+
+  /// Build delete context for a derived period.
+  ///
+  /// In-period membership comes from [periodSessionIds], not raw
+  /// time-overlap: always-fronting background sessions overlap many
+  /// periods but aren't claimed by any one of them, and deleting a
+  /// visitor period must not trim or split a long-running host.
+  ///
+  /// Sleep sessions live on a parallel timeline and are skipped
+  /// entirely.
+  FrontingDeletePeriodContext getDeletePeriodContext({
+    required DateTime periodStart,
+    required DateTime periodEnd,
+    required bool isOngoing,
+    required Set<String> periodSessionIds,
+    required List<FrontingSessionSnapshot> allSessions,
+  }) {
+    final inPeriod = <FrontingSessionSnapshot>[];
+    final previous = <FrontingSessionSnapshot>[];
+    final next = <FrontingSessionSnapshot>[];
+
+    for (final s in allSessions) {
+      if (s.isDeleted) continue;
+      if (s.sessionType == SessionType.sleep) continue;
+
+      if (periodSessionIds.contains(s.id)) {
+        inPeriod.add(s);
+        continue;
+      }
+      if (s.end != null && s.end!.isAtSameMomentAs(periodStart)) {
+        previous.add(s);
+      } else if (s.start.isAtSameMomentAs(periodEnd)) {
+        next.add(s);
+      }
+    }
+
+    return FrontingDeletePeriodContext(
+      periodStart: periodStart,
+      periodEnd: periodEnd,
+      isOngoing: isOngoing,
+      sessionsInPeriod: inPeriod,
+      previousSessions: previous,
+      nextSessions: next,
     );
   }
 

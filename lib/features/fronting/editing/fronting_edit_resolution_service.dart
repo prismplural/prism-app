@@ -1,3 +1,5 @@
+import 'package:uuid/uuid.dart';
+
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
@@ -207,6 +209,272 @@ class FrontingEditResolutionService {
       case FrontingDeleteStrategy.leaveGap:
         return [DeleteSessionChange(session.id)];
     }
+  }
+
+  // ── computeDeletePeriodChanges ──────────────────────────────────────────
+
+  /// Changes for deleting the period [context] under [strategy].
+  ///
+  /// Sessions in the slice are trimmed at the boundaries, split if they
+  /// straddle both, or deleted if fully contained. The strategy then
+  /// fills the cleared slice (extend the predecessor, drop in an
+  /// Unknown row, or leave a gap).
+  ///
+  /// Comment routing is decided up front so trim/split patches can
+  /// carry the reparent target:
+  ///
+  /// * `convertToUnknown` reuses a contained session as the Unknown row
+  ///   when possible (so its per-session comments stay attached) and
+  ///   otherwise emits a fresh Create with a preset id first; either
+  ///   way every other trim/split routes its orphans to that id.
+  /// * `extendPrevious` routes to whichever session ends up covering
+  ///   the slice — a straddle-start being extended, a both-straddler
+  ///   left intact, or the first touching previousSession.
+  /// * `leaveGap` drops orphans.
+  ///
+  /// Open-ended sessions inside an ongoing period get special handling:
+  /// trimming start to `periodEnd` would create a fresh `[now, null]`
+  /// row that silently undoes the delete, so they're either deleted
+  /// (when contained) or closed at `periodStart` (when straddling).
+  List<FrontingSessionChange> computeDeletePeriodChanges(
+    FrontingDeletePeriodContext context,
+    FrontingDeleteStrategy strategy,
+  ) {
+    final pStart = context.periodStart;
+    final pEnd = context.periodEnd;
+    final changes = <FrontingSessionChange>[];
+
+    // Deterministic order so two synced devices pick the same
+    // survivor/target. Without this, per-field LWW after sync would
+    // resolve {Update memberId, Delete other} pairs into both rows
+    // deleted — the Unknown the user asked for would disappear.
+    final orderedInPeriod = [...context.sessionsInPeriod]..sort((a, b) {
+      final c = a.start.compareTo(b.start);
+      if (c != 0) return c;
+      return a.id.compareTo(b.id);
+    });
+
+    String? unknownSurvivorId;
+    String? unknownPresetId;
+    String? sliceCommentTargetId;
+    if (strategy == FrontingDeleteStrategy.convertToUnknown) {
+      for (final s in orderedInPeriod) {
+        final isOpen = s.end == null;
+        final effectiveEnd = s.end ?? _activeSentinel;
+        final startsBefore = s.start.isBefore(pStart);
+        final endsAfter = effectiveEnd.isAfter(pEnd);
+        final fullyContained = !startsBefore && !endsAfter;
+        final ongoingContainedOpen =
+            context.isOngoing && isOpen && !startsBefore;
+        if (fullyContained || ongoingContainedOpen) {
+          unknownSurvivorId = s.id;
+          break;
+        }
+      }
+      if (unknownSurvivorId != null) {
+        sliceCommentTargetId = unknownSurvivorId;
+      } else {
+        // Create the Unknown row first so its session exists when later
+        // trims reparent into it.
+        unknownPresetId = const Uuid().v4();
+        sliceCommentTargetId = unknownPresetId;
+        changes.add(
+          CreateSessionChange(
+            FrontingSessionDraft(
+              memberId: unknownSentinelMemberId,
+              start: pStart,
+              end: context.isOngoing ? null : pEnd,
+              presetId: unknownPresetId,
+            ),
+          ),
+        );
+      }
+    } else if (strategy == FrontingDeleteStrategy.extendPrevious) {
+      // Whatever session ends up covering the slice afterwards is a
+      // valid target: a straddle-start (extended to pEnd), a both-
+      // straddler (left intact), or — failing those — the first touching
+      // previousSession. Ongoing-open straddlers are skipped: they're
+      // left as-is for the special case below, not extended.
+      for (final s in orderedInPeriod) {
+        final isOpen = s.end == null;
+        if (context.isOngoing && isOpen) continue;
+        final effectiveEnd = s.end ?? _activeSentinel;
+        final startsBefore = s.start.isBefore(pStart);
+        final endsAfter = effectiveEnd.isAfter(pEnd);
+        if (startsBefore && !endsAfter) {
+          sliceCommentTargetId = s.id;
+          break;
+        }
+        if (startsBefore && endsAfter) {
+          sliceCommentTargetId = s.id;
+          break;
+        }
+      }
+      if (sliceCommentTargetId == null &&
+          context.previousSessions.isNotEmpty) {
+        final orderedPrevious = [...context.previousSessions]..sort((a, b) {
+          final c = a.start.compareTo(b.start);
+          if (c != 0) return c;
+          return a.id.compareTo(b.id);
+        });
+        sliceCommentTargetId = orderedPrevious.first.id;
+      }
+    }
+
+    for (final s in context.sessionsInPeriod) {
+      if (s.id == unknownSurvivorId) {
+        changes.add(
+          UpdateSessionChange(
+            sessionId: s.id,
+            patch: FrontingSessionPatch(
+              memberId: unknownSentinelMemberId,
+              start: pStart,
+              end: context.isOngoing ? null : pEnd,
+              clearEnd: context.isOngoing,
+            ),
+          ),
+        );
+        continue;
+      }
+
+      final isOpen = s.end == null;
+      final effectiveEnd = s.end ?? _activeSentinel;
+      final startsBefore = s.start.isBefore(pStart);
+      final endsAfter = effectiveEnd.isAfter(pEnd);
+      final fullyContained = !startsBefore && !endsAfter;
+
+      // Open inside an ongoing period: can't trim start to pEnd without
+      // producing a fresh `[now, null]` row that silently undoes the
+      // delete. Close at pStart for both-straddlers (no post-period
+      // tail to recreate), delete the rest outright.
+      if (context.isOngoing && isOpen) {
+        if (startsBefore) {
+          if (strategy != FrontingDeleteStrategy.extendPrevious) {
+            changes.add(
+              UpdateSessionChange(
+                sessionId: s.id,
+                patch: FrontingSessionPatch(
+                  end: pStart,
+                  dropOrphanedComments: sliceCommentTargetId == null,
+                  reparentOrphansToSessionId: sliceCommentTargetId,
+                ),
+              ),
+            );
+          }
+        } else {
+          changes.add(DeleteSessionChange(s.id));
+        }
+        continue;
+      }
+
+      if (fullyContained) {
+        changes.add(DeleteSessionChange(s.id));
+        continue;
+      }
+
+      if (startsBefore && endsAfter) {
+        // Both-straddler: under extendPrevious the session already
+        // covers the slice as-is. Otherwise split at the boundaries.
+        if (strategy == FrontingDeleteStrategy.extendPrevious) {
+          continue;
+        }
+        changes.add(
+          UpdateSessionChange(
+            sessionId: s.id,
+            patch: FrontingSessionPatch(end: pStart),
+          ),
+        );
+        changes.add(
+          CreateSessionChange(
+            FrontingSessionDraft(
+              memberId: s.memberId,
+              start: pEnd,
+              end: s.end,
+              notes: s.notes,
+              confidenceIndex: s.confidenceIndex,
+              sessionType: s.sessionType,
+              quality: s.quality,
+              isHealthKitImport: s.isHealthKitImport,
+              // Same v5 derivation FrontingMutationService.splitSession
+              // uses so two synced devices converge on the same right-
+              // half row.
+              presetId: const Uuid().v5(
+                splitNamespace,
+                '${s.id}:${pEnd.toUtc().toIso8601String()}',
+              ),
+              splitFromSessionId: s.id,
+              sliceReparentToSessionId: sliceCommentTargetId,
+            ),
+          ),
+        );
+        continue;
+      }
+
+      if (startsBefore) {
+        // Straddle-start only.
+        if (strategy == FrontingDeleteStrategy.extendPrevious) {
+          changes.add(
+            UpdateSessionChange(
+              sessionId: s.id,
+              patch: context.isOngoing
+                  ? const FrontingSessionPatch(clearEnd: true)
+                  : FrontingSessionPatch(end: pEnd),
+            ),
+          );
+        } else {
+          changes.add(
+            UpdateSessionChange(
+              sessionId: s.id,
+              patch: FrontingSessionPatch(
+                end: pStart,
+                dropOrphanedComments: sliceCommentTargetId == null,
+                reparentOrphansToSessionId: sliceCommentTargetId,
+              ),
+            ),
+          );
+        }
+        continue;
+      }
+
+      // Straddle-end only (open-inside-ongoing already handled above).
+      changes.add(
+        UpdateSessionChange(
+          sessionId: s.id,
+          patch: FrontingSessionPatch(
+            start: pEnd,
+            dropOrphanedComments: sliceCommentTargetId == null,
+            reparentOrphansToSessionId: sliceCommentTargetId,
+          ),
+        ),
+      );
+    }
+
+    switch (strategy) {
+      case FrontingDeleteStrategy.extendPrevious:
+        for (final p in context.previousSessions) {
+          changes.add(
+            UpdateSessionChange(
+              sessionId: p.id,
+              patch: context.isOngoing
+                  ? const FrontingSessionPatch(clearEnd: true)
+                  : FrontingSessionPatch(end: pEnd),
+            ),
+          );
+        }
+        break;
+
+      case FrontingDeleteStrategy.convertToUnknown:
+      case FrontingDeleteStrategy.leaveGap:
+      case FrontingDeleteStrategy.extendNext:
+      case FrontingDeleteStrategy.splitBetweenNeighbors:
+        // convertToUnknown emitted the survivor update or up-front
+        // Create above; nothing more to do here. extendNext and
+        // splitBetweenNeighbors aren't surfaced by availableStrategies
+        // today — fall through with leaveGap-style behavior.
+        break;
+    }
+
+    return changes;
   }
 
   // ── computeGapFillChanges ───────────────────────────────────────────────

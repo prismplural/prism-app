@@ -144,8 +144,9 @@ class FrontingChangeExecutor {
   Future<void> _applyChange(FrontingSessionChange change) async {
     switch (change) {
       case CreateSessionChange(:final session):
+        final newId = session.presetId ?? const Uuid().v4();
         final newSession = FrontingSession(
-          id: const Uuid().v4(),
+          id: newId,
           startTime: session.start,
           endTime: session.end,
           memberId: session.memberId,
@@ -158,6 +159,47 @@ class FrontingChangeExecutor {
               : null,
         );
         await _repository.createSession(newSession);
+        // Period-delete split continuation: move comments inside the
+        // new range onto this row, and either reparent the slice
+        // comments (when `sliceReparentToSessionId` is set) or delete
+        // them. Same shape as FrontingMutationService.splitSession's
+        // reparent step, with extra slice handling for the period-delete
+        // path where a middle chunk is removed or relabeled.
+        final splitFromId = session.splitFromSessionId;
+        if (splitFromId != null) {
+          await reparentFrontSessionCommentsByTimestamp(
+            _frontSessionCommentsRepository,
+            fromSessionId: splitFromId,
+            targets: [
+              FrontSessionCommentReparentTarget(
+                sessionId: newId,
+                startTime: session.start,
+                endTime: session.end,
+              ),
+            ],
+          );
+          final commentsRepo = _frontSessionCommentsRepository;
+          if (commentsRepo != null) {
+            final source = await _repository.getSessionById(splitFromId);
+            final sourceEnd = source?.endTime;
+            if (sourceEnd != null && session.start.isAfter(sourceEnd)) {
+              final sliceTarget = session.sliceReparentToSessionId;
+              final allComments = await commentsRepo.getAllComments();
+              for (final c in allComments) {
+                if (c.sessionId != splitFromId) continue;
+                if (c.timestamp.isBefore(sourceEnd)) continue;
+                if (!c.timestamp.isBefore(session.start)) continue;
+                if (sliceTarget != null) {
+                  await commentsRepo.updateComment(
+                    c.copyWith(sessionId: sliceTarget),
+                  );
+                } else {
+                  await commentsRepo.deleteComment(c.id);
+                }
+              }
+            }
+          }
+        }
 
       case UpdateSessionChange(:final sessionId, :final patch):
         final existing = await _repository.getSessionById(sessionId);
@@ -168,6 +210,31 @@ class FrontingChangeExecutor {
         }
         final updated = _applyPatch(existing, patch);
         await _repository.updateSession(updated);
+        if (patch.dropOrphanedComments ||
+            patch.reparentOrphansToSessionId != null) {
+          final commentsRepo = _frontSessionCommentsRepository;
+          if (commentsRepo != null) {
+            final newStart = updated.startTime;
+            final newEndExclusive = updated.endTime;
+            final reparentTo = patch.reparentOrphansToSessionId;
+            final allComments = await commentsRepo.getAllComments();
+            for (final c in allComments) {
+              if (c.sessionId != sessionId) continue;
+              final beforeRange = c.timestamp.isBefore(newStart);
+              final afterRange = newEndExclusive != null &&
+                  !c.timestamp.isBefore(newEndExclusive);
+              if (beforeRange || afterRange) {
+                if (reparentTo != null) {
+                  await commentsRepo.updateComment(
+                    c.copyWith(sessionId: reparentTo),
+                  );
+                } else {
+                  await commentsRepo.deleteComment(c.id);
+                }
+              }
+            }
+          }
+        }
 
       case DeleteSessionChange(:final sessionId):
         await _repository.deleteSession(sessionId);

@@ -650,4 +650,301 @@ void main() {
       expect(info.duration, const Duration(minutes: 30));
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // getDeletePeriodContext
+  // ---------------------------------------------------------------------------
+
+  group('getDeletePeriodContext', () {
+    final pStart = DateTime(2026, 5, 1, 14, 0);
+    final pEnd = DateTime(2026, 5, 1, 15, 0);
+
+    test('classifies overlap / touching-previous / touching-next correctly',
+        () {
+      // Way-before (not touching), touching-previous, overlapping (straddle
+      // start), fully-inside, straddle-end, touching-next, way-after.
+      final far = makeSession(
+        id: 'far',
+        start: DateTime(2026, 5, 1, 10, 0),
+        end: DateTime(2026, 5, 1, 11, 0),
+      );
+      final prev = makeSession(
+        id: 'prev',
+        start: DateTime(2026, 5, 1, 13, 0),
+        end: pStart,
+      );
+      final straddleStart = makeSession(
+        id: 'straddleStart',
+        start: DateTime(2026, 5, 1, 13, 30),
+        end: DateTime(2026, 5, 1, 14, 30),
+      );
+      final inside = makeSession(
+        id: 'inside',
+        start: DateTime(2026, 5, 1, 14, 15),
+        end: DateTime(2026, 5, 1, 14, 45),
+      );
+      final straddleEnd = makeSession(
+        id: 'straddleEnd',
+        start: DateTime(2026, 5, 1, 14, 45),
+        end: DateTime(2026, 5, 1, 15, 30),
+      );
+      final next = makeSession(
+        id: 'next',
+        start: pEnd,
+        end: DateTime(2026, 5, 1, 16, 0),
+      );
+      final later = makeSession(
+        id: 'later',
+        start: DateTime(2026, 5, 1, 17, 0),
+        end: DateTime(2026, 5, 1, 18, 0),
+      );
+
+      final ctx = guard.getDeletePeriodContext(
+        periodStart: pStart,
+        periodEnd: pEnd,
+        isOngoing: false,
+        periodSessionIds: const {'straddleStart', 'inside', 'straddleEnd'},
+        allSessions: [
+          far,
+          prev,
+          straddleStart,
+          inside,
+          straddleEnd,
+          next,
+          later,
+        ],
+      );
+
+      expect(
+        ctx.sessionsInPeriod.map((s) => s.id),
+        unorderedEquals(['straddleStart', 'inside', 'straddleEnd']),
+      );
+      expect(ctx.previousSessions.map((s) => s.id), ['prev']);
+      expect(ctx.nextSessions.map((s) => s.id), ['next']);
+    });
+
+    test('always-present session overlapping but not in periodSessionIds '
+        'is left alone', () {
+      // Background/always-fronting member with a long-running session that
+      // overlaps the period. derive_periods.dart partitions these out of
+      // period.sessionIds — deleting the period must not touch the host.
+      final host = makeSession(
+        id: 'always-host',
+        memberId: 'always-host-id',
+        start: DateTime(2026, 4, 1, 0, 0),
+        end: null,
+      );
+      final visitor = makeSession(
+        id: 'visitor',
+        memberId: 'visitor-id',
+        start: pStart,
+        end: pEnd,
+      );
+      final ctx = guard.getDeletePeriodContext(
+        periodStart: pStart,
+        periodEnd: pEnd,
+        isOngoing: true,
+        periodSessionIds: const {'visitor'},
+        allSessions: [host, visitor],
+      );
+      expect(ctx.sessionsInPeriod.map((s) => s.id), ['visitor']);
+      expect(ctx.previousSessions, isEmpty);
+      expect(ctx.nextSessions, isEmpty);
+    });
+
+    test('excludes sleep sessions from every bucket', () {
+      final sleep = makeSession(
+        id: 'sleep',
+        start: pStart,
+        end: pEnd,
+        sessionType: SessionType.sleep,
+      );
+      final ctx = guard.getDeletePeriodContext(
+        periodStart: pStart,
+        periodEnd: pEnd,
+        isOngoing: false,
+        periodSessionIds: const {'sleep'},
+        allSessions: [sleep],
+      );
+      expect(ctx.sessionsInPeriod, isEmpty);
+      expect(ctx.previousSessions, isEmpty);
+      expect(ctx.nextSessions, isEmpty);
+    });
+
+    test('excludes soft-deleted sessions', () {
+      final deleted = makeSession(
+        id: 'd',
+        start: pStart,
+        end: pEnd,
+        isDeleted: true,
+      );
+      final ctx = guard.getDeletePeriodContext(
+        periodStart: pStart,
+        periodEnd: pEnd,
+        isOngoing: false,
+        periodSessionIds: const {'d'},
+        allSessions: [deleted],
+      );
+      expect(ctx.sessionsInPeriod, isEmpty);
+    });
+
+    test('open-ended session is classified as in-period when in the set', () {
+      // Open-ended foreground session that the period claims.
+      final open = makeSession(
+        id: 'open',
+        start: DateTime(2026, 5, 1, 13, 0),
+        end: null,
+      );
+      final ctx = guard.getDeletePeriodContext(
+        periodStart: pStart,
+        periodEnd: pEnd,
+        isOngoing: true,
+        periodSessionIds: const {'open'},
+        allSessions: [open],
+      );
+      expect(ctx.sessionsInPeriod.map((s) => s.id), ['open']);
+      expect(ctx.previousSessions, isEmpty);
+      expect(ctx.nextSessions, isEmpty);
+    });
+
+    test('availableStrategies: no previous, no straddler → only Unknown + Gap',
+        () {
+      final inside = makeSession(
+        id: 'inside',
+        start: pStart,
+        end: pEnd,
+      );
+      final ctx = guard.getDeletePeriodContext(
+        periodStart: pStart,
+        periodEnd: pEnd,
+        isOngoing: false,
+        periodSessionIds: const {'inside'},
+        allSessions: [inside],
+      );
+      expect(
+        ctx.availableStrategies,
+        [
+          FrontingDeleteStrategy.convertToUnknown,
+          FrontingDeleteStrategy.leaveGap,
+        ],
+      );
+    });
+
+    test(
+        'availableStrategies: touching previous adds extendPrevious',
+        () {
+      final prev = makeSession(
+        id: 'p',
+        start: DateTime(2026, 5, 1, 13, 0),
+        end: pStart,
+      );
+      final inside = makeSession(id: 'i', start: pStart, end: pEnd);
+      final ctx = guard.getDeletePeriodContext(
+        periodStart: pStart,
+        periodEnd: pEnd,
+        isOngoing: false,
+        periodSessionIds: const {'i'},
+        allSessions: [prev, inside],
+      );
+      expect(ctx.availableStrategies.first, FrontingDeleteStrategy.extendPrevious);
+      expect(ctx.availableStrategies, contains(FrontingDeleteStrategy.leaveGap));
+    });
+
+    test('availableStrategies: straddle-start (no touching prev) adds extendPrevious',
+        () {
+      final straddle = makeSession(
+        id: 's',
+        start: DateTime(2026, 5, 1, 13, 30),
+        end: DateTime(2026, 5, 1, 14, 30),
+      );
+      final ctx = guard.getDeletePeriodContext(
+        periodStart: pStart,
+        periodEnd: pEnd,
+        isOngoing: false,
+        periodSessionIds: const {'s'},
+        allSessions: [straddle],
+      );
+      expect(
+        ctx.availableStrategies,
+        contains(FrontingDeleteStrategy.extendPrevious),
+      );
+    });
+
+    test('ongoing period: caller must pass fresh periodEnd so a session '
+        'that ended after derivation time classifies as fully-contained, '
+        'not straddle-end', () {
+      // Period derived at T0=14:30 (substituted "now"); Bob was fronting
+      // open-ended at that moment. Bob ended at T0+3sec. User confirms
+      // delete at T0+5sec. The caller must pass periodEnd=T0+5sec
+      // (fresh now) — otherwise Bob's end (T0+3sec > stale-T0) is
+      // straddle-end and gets trimmed to [T0, T0+3sec], a 3-second
+      // ghost row that renders in the home view.
+      final pStartOngoing = DateTime(2026, 5, 1, 14, 0);
+      final stalePEnd = DateTime(2026, 5, 1, 14, 30, 0);
+      final freshPEnd = DateTime(2026, 5, 1, 14, 30, 5);
+      final bob = makeSession(
+        id: 'bob-just-ended',
+        memberId: 'bob',
+        start: DateTime(2026, 5, 1, 14, 15),
+        end: DateTime(2026, 5, 1, 14, 30, 3),
+      );
+
+      // With stale pEnd: Bob is straddle-end (end > pEnd).
+      final stale = guard.getDeletePeriodContext(
+        periodStart: pStartOngoing,
+        periodEnd: stalePEnd,
+        isOngoing: true,
+        periodSessionIds: const {'bob-just-ended'},
+        allSessions: [bob],
+      );
+      expect(stale.sessionsInPeriod.single.id, 'bob-just-ended');
+      // Stale classifies him as straddle-end (end past pEnd).
+      expect(stale.hasStraddleEnd, isTrue);
+
+      // With fresh pEnd: Bob's end (14:30:03) is now ≤ pEnd (14:30:05),
+      // so he's fully-contained — convertToUnknown will Delete (or pick
+      // him as the Unknown survivor) instead of trimming.
+      final fresh = guard.getDeletePeriodContext(
+        periodStart: pStartOngoing,
+        periodEnd: freshPEnd,
+        isOngoing: true,
+        periodSessionIds: const {'bob-just-ended'},
+        allSessions: [bob],
+      );
+      expect(fresh.sessionsInPeriod.single.id, 'bob-just-ended');
+      expect(fresh.hasStraddleEnd, isFalse);
+    });
+
+    test('availableStrategies: pure both-straddler does NOT offer '
+        'extendPrevious', () {
+      // Single session spanning the entire slice from before to after —
+      // think a current front that started before the visible history
+      // window. extendPrevious leaves both-straddlers intact, so offering
+      // the option here means the dialog shows a button that does
+      // nothing.
+      final spanning = makeSession(
+        id: 'spanning',
+        start: DateTime(2026, 5, 1, 10, 0),
+        end: DateTime(2026, 5, 1, 18, 0),
+      );
+      final ctx = guard.getDeletePeriodContext(
+        periodStart: pStart,
+        periodEnd: pEnd,
+        isOngoing: false,
+        periodSessionIds: const {'spanning'},
+        allSessions: [spanning],
+      );
+      expect(
+        ctx.availableStrategies,
+        isNot(contains(FrontingDeleteStrategy.extendPrevious)),
+      );
+      expect(
+        ctx.availableStrategies,
+        [
+          FrontingDeleteStrategy.convertToUnknown,
+          FrontingDeleteStrategy.leaveGap,
+        ],
+      );
+    });
+  });
 }

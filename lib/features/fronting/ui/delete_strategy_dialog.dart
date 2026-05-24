@@ -23,14 +23,42 @@ Future<FrontingDeleteStrategy?> showDeleteStrategyDialog(
   );
   if (!context.mounted) return null;
 
+  return _showStrategyDialog(
+    context,
+    title: 'Delete Session',
+    strategies: deleteContext.availableStrategies,
+    previousSessionName: previousSessionName,
+  );
+}
+
+/// Period-level variant of [showDeleteStrategyDialog]. Copy stays
+/// generic since a period can have multiple previous fronters.
+Future<FrontingDeleteStrategy?> showDeletePeriodStrategyDialog(
+  BuildContext context, {
+  required FrontingDeletePeriodContext deleteContext,
+}) {
+  return _showStrategyDialog(
+    context,
+    title: 'Delete Period',
+    strategies: deleteContext.availableStrategies,
+    previousSessionName: null,
+  );
+}
+
+Future<FrontingDeleteStrategy?> _showStrategyDialog(
+  BuildContext context, {
+  required String title,
+  required List<FrontingDeleteStrategy> strategies,
+  required String? previousSessionName,
+}) {
   return PrismDialog.show<FrontingDeleteStrategy>(
     context: context,
-    title: 'Delete Session',
+    title: title,
     builder: (ctx) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ...deleteContext.availableStrategies.map((strategy) {
+          ...strategies.map((strategy) {
             final copy = _copyForStrategy(
               strategy,
               previousSessionName: previousSessionName,

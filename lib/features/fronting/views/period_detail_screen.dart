@@ -12,7 +12,6 @@ import 'package:prism_plurality/features/fronting/providers/derived_periods_prov
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
-import 'package:prism_plurality/features/fronting/services/period_delete.dart';
 import 'package:prism_plurality/features/fronting/services/period_lookup.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
@@ -103,35 +102,94 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
     });
   }
 
-  // ── Delete contributor resolution ─────────────────────────────────────────
+  // ── Period delete ─────────────────────────────────────────────────────────
 
-  /// Resolves the list of [Member] objects for the delete confirm dialog.
-  ///
-  /// When a [PeriodDetailArgs] hint is present it already carries [Member]
-  /// objects, so we use those directly. On the deep-link path (hint == null)
-  /// we fall back to matching the period from [derivedPeriodsProvider] and
-  /// batch-loading its member IDs via [membersByIdsProvider]. If both hint
-  /// and matched period are absent (extreme edge case — deep-link before
-  /// periods have been derived), returns an empty list with a comment that
-  /// this is a degenerate state.
-  List<Member> _resolveDeleteContributors() {
-    if (widget.hint != null) return widget.hint!.activeMembers;
+  /// Period bounds + ongoing flag + contributing session ids for the
+  /// period-level delete. Prefers the hint (it carries the bounds of
+  /// the row the user actually tapped — `findPeriodBySessionIds` would
+  /// otherwise return the first match when two distinct periods share
+  /// the same contributor set). Falls back to the live match on the
+  /// deep-link path; returns null only when neither is available.
+  ({
+    DateTime start,
+    DateTime end,
+    bool isOngoing,
+    Set<String> sessionIds,
+  })?
+      _resolvePeriodBounds() {
+    final hint = widget.hint;
+    if (hint != null) {
+      return (
+        start: hint.start,
+        end: hint.end,
+        isOngoing: hint.isOpenEnded,
+        sessionIds: widget.sessionIds.toSet(),
+      );
+    }
     final periodsAsync = ref.read(derivedPeriodsProvider);
     final matched = periodsAsync.whenOrNull(
       data: (periods) => findPeriodBySessionIds(periods, widget.sessionIds),
     );
-    // Degenerate state: deep-link arrived before derived periods resolved.
-    // The confirm dialog will show an empty names string — acceptable because
-    // this window is extremely short (periods derive from a single DB query).
-    if (matched == null) return const <Member>[];
-    final key = memberIdsKey(matched.activeMembers);
-    final map =
-        ref.read(membersByIdsProvider(key)).whenOrNull(data: (m) => m) ??
-        const <String, Member>{};
-    return matched.activeMembers
-        .map((id) => map[id])
-        .whereType<Member>()
-        .toList();
+    if (matched != null) {
+      return (
+        start: matched.start,
+        end: matched.end,
+        isOngoing: matched.isOpenEnded,
+        sessionIds: matched.sessionIds.toSet(),
+      );
+    }
+    return null;
+  }
+
+  Future<void> _handlePeriodDelete(BuildContext context) async {
+    final bounds = _resolvePeriodBounds();
+    if (bounds == null) return;
+
+    final repo = ref.read(frontingSessionRepositoryProvider);
+    final allSessions = await repo.getAllSessions();
+    if (!context.mounted) return;
+
+    final editGuard = ref.read(frontingEditGuardProvider);
+    final allSnapshots = allSessions.map((s) => s.toSnapshot()).toList();
+    // For ongoing periods `bounds.end` is the substituted "now" from
+    // the hint or live match, stale across the dialog interaction. See
+    // _PeriodTile._confirmDelete for the ghost-row failure mode.
+    final periodEnd = bounds.isOngoing ? DateTime.now() : bounds.end;
+    final deleteCtx = editGuard.getDeletePeriodContext(
+      periodStart: bounds.start,
+      periodEnd: periodEnd,
+      isOngoing: bounds.isOngoing,
+      periodSessionIds: bounds.sessionIds,
+      allSessions: allSnapshots,
+    );
+
+    final strategy = await showDeletePeriodStrategyDialog(
+      context,
+      deleteContext: deleteCtx,
+    );
+    if (strategy == null || !context.mounted) return;
+
+    final resolutionService = ref.read(frontingEditResolutionServiceProvider);
+    final changeExecutor = ref.read(frontingChangeExecutorProvider);
+
+    Haptics.heavy();
+    final changes = resolutionService.computeDeletePeriodChanges(
+      deleteCtx,
+      strategy,
+    );
+    final result = await changeExecutor.execute(changes);
+    if (!context.mounted) return;
+    result.when(
+      success: (_) {
+        if (context.mounted) context.pop();
+      },
+      failure: (error) {
+        PrismToast.error(
+          context,
+          message: context.l10n.frontingErrorSavingSession(error),
+        );
+      },
+    );
   }
 
   @override
@@ -203,17 +261,7 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
           PrismTopBarAction(
             icon: AppIcons.deleteOutline,
             tooltip: context.l10n.frontingSessionDetailDeleteTooltip,
-            onPressed: () async {
-              final didDelete = await confirmAndDeletePeriod(
-                context,
-                ref,
-                sessionIds: widget.sessionIds,
-                contributors: _resolveDeleteContributors(),
-              );
-              if (didDelete && context.mounted) {
-                context.pop();
-              }
-            },
+            onPressed: () => _handlePeriodDelete(context),
           ),
         ],
       ),

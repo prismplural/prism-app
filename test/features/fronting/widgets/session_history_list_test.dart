@@ -1070,12 +1070,17 @@ void main() {
   });
 
   // ─────────────────────────────────────────────────────────────────────
-  // Task 12: long-press Delete on a multi-contributor period
+  // Long-press Delete on a multi-contributor period now opens the
+  // period-level strategy dialog (extend previous / mark unknown / leave
+  // gap), matching what individual-session deletes have always offered.
+  // Before this, multi-contributor periods silently fell through to a
+  // plain confirm dialog with no choice about what filled the time.
   // ─────────────────────────────────────────────────────────────────────
 
   group('SessionHistoryList – long-press delete', () {
-    testWidgets('long-press a 2-contributor period → Delete → confirm → '
-        'both sessions deleted via repo', (tester) async {
+    testWidgets(
+        'long-press a 2-contributor period → Delete → '
+        'period strategy dialog appears with options', (tester) async {
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 12);
 
@@ -1128,32 +1133,21 @@ void main() {
       await tester.pumpWidget(widget);
       await tester.pumpAndSettle();
 
-      // Confirm the row is visible.
       expect(find.text('Alice & Bob'), findsOneWidget);
 
-      // Long-press the row to open the context menu.
       await tester.longPress(find.text('Alice & Bob'));
       await tester.pumpAndSettle();
 
-      // The context popup should contain a "Delete" item.
       expect(find.text('Delete'), findsOneWidget);
-
-      // Tap "Delete" in the popup.
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
 
-      // The period-level confirm dialog should now be visible.
-      expect(find.text('Delete period?'), findsOneWidget);
-
-      // There are two "Delete" texts: the dialog confirm button.
-      // Use findsWidgets to handle the confirm button alongside any other
-      // rendered text.
-      await tester.tap(find.text('Delete').last);
-      await tester.pumpAndSettle();
-
-      // Both sessions must have been deleted via the repository.
-      expect(repo.deletedIds, containsAll(['s1', 's2']));
-      expect(repo.deletedIds.length, 2);
+      // The period strategy dialog must appear with its title and the
+      // strategy options surfaced from FrontingDeletePeriodContext
+      // .availableStrategies — that's the regression we're guarding.
+      expect(find.text('Delete Period'), findsOneWidget);
+      expect(find.text('Mark as Unknown'), findsOneWidget);
+      expect(find.text('Delete session'), findsOneWidget);
     });
   });
 }
