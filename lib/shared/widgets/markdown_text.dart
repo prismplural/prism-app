@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:markdown/markdown.dart' as md;
+import 'package:prism_plurality/shared/markdown/subtext_syntax.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Renders text as Markdown when [enabled], otherwise as plain [Text].
@@ -36,6 +38,7 @@ class MarkdownText extends StatelessWidget {
 
     final theme = Theme.of(context);
     final sheet = _buildStyleSheet(context, theme);
+    final bodyStyle = sheet.p ?? baseStyle ?? const TextStyle();
 
     return MarkdownBody(
       data: _normalizeDiscordLikeIndentation(data),
@@ -50,6 +53,23 @@ class MarkdownText extends StatelessWidget {
         padding: sheet.listBulletPadding,
         checked: checked,
       ),
+      extensionSet: md.ExtensionSet(
+        [
+          const SubtextBlockSyntax(),
+          ...md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+        ],
+        md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
+      ),
+      builders: {
+        'subtext': SubtextBuilder(
+          baseStyle: bodyStyle,
+          mutedColor: theme.colorScheme.onSurfaceVariant,
+          codeBackground: theme.colorScheme.surfaceContainerHighest,
+          linkColor: theme.colorScheme.primary,
+          // ignore: unnecessary_lambdas — adapts non-null href to nullable handler
+          onTapLink: (href) => _launchSafeLink(href),
+        ),
+      },
     );
   }
 
@@ -212,6 +232,7 @@ class MarkdownText extends StatelessWidget {
     return _blockquoteMarker.hasMatch(line) ||
         _headingMarker.hasMatch(line) ||
         _listMarker.hasMatch(line) ||
+        _subtextMarker.hasMatch(line) ||
         _thematicBreakMarker.hasMatch(line);
   }
 
@@ -270,4 +291,5 @@ const _nbsp = '\u00A0';
 final _blockquoteMarker = RegExp(r'^(?:>{1,3})(?:[ \t]|$)');
 final _headingMarker = RegExp(r'^#{1,6}(?:[ \t]|$)');
 final _listMarker = RegExp(r'^(?:[*+-]|\d{1,9}[.)])(?:[ \t]|$)');
+final _subtextMarker = RegExp(r'^-#[ \t]');
 final _thematicBreakMarker = RegExp(r'^(?:[-*_][ \t]*){3,}$');
