@@ -94,6 +94,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SingleChildScrollView), findsNothing);
+    expect(find.byType(ShaderMask), findsNothing);
     expect(_renderedTileOrderByName(tester, members), ['a', 'b', 'c', 'd']);
   });
 
@@ -159,6 +160,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(SingleChildScrollView), findsOneWidget);
+      // Scroll mode wraps the scroll view in a ShaderMask so the cut edge
+      // fades — without it the bar reads as "this is everyone."
+      expect(find.byType(ShaderMask), findsOneWidget);
       expect(_renderedTileOrderByName(tester, members), [
         'bianca',
         'irena',

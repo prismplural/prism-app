@@ -99,9 +99,10 @@ class QuickFrontSection extends ConsumerWidget {
 }
 
 /// Packed mode uses [AnimatedPositioned] for a smooth slide on reorder.
-/// Scroll mode uses a plain `Row` — animating inside a scroll view isn't
-/// worth the complexity.
-class _AnimatedQuickFrontRow extends StatelessWidget {
+/// Scroll mode uses a plain `Row` wrapped in a [ShaderMask] that fades
+/// whichever edge has content past it — animating inside a scroll view
+/// isn't worth the complexity.
+class _AnimatedQuickFrontRow extends StatefulWidget {
   const _AnimatedQuickFrontRow({
     required this.members,
     required this.frontingIds,
@@ -117,39 +118,119 @@ class _AnimatedQuickFrontRow extends StatelessWidget {
   final double maxWidth;
 
   @override
+  State<_AnimatedQuickFrontRow> createState() => _AnimatedQuickFrontRowState();
+}
+
+class _AnimatedQuickFrontRowState extends State<_AnimatedQuickFrontRow> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    // ScrollController doesn't notify its listeners on initial attach, so
+    // the AnimatedBuilder below would render with maxScrollExtent==0 on the
+    // first frame — no fade visible until the user scrolls. Force one
+    // post-frame rebuild so the right-edge fade appears immediately.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// 0 when the left edge is at the start, 1 once the user has scrolled
+  /// past [_kEdgeFadeWidth]. Linear ramp so the fade-in is continuous
+  /// rather than popping on at the first pixel of scroll.
+  double _leftFadeStrength() {
+    if (!_scrollController.hasClients) return 0;
+    final pixels = _scrollController.position.pixels;
+    if (pixels <= 0) return 0;
+    return (pixels / _kEdgeFadeWidth).clamp(0.0, 1.0);
+  }
+
+  double _rightFadeStrength() {
+    if (!_scrollController.hasClients) return 0;
+    final pos = _scrollController.position;
+    if (pos.maxScrollExtent <= 0) return 0;
+    final remaining = pos.maxScrollExtent - pos.pixels;
+    if (remaining <= 0) return 0;
+    return (remaining / _kEdgeFadeWidth).clamp(0.0, 1.0);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final slotWidth = maxWidth / slotCount;
+    final slotWidth = widget.maxWidth / widget.slotCount;
     final ringSize = slotWidth < quickFrontRingSize
         ? slotWidth
         : quickFrontRingSize;
     final labelHeight = _measureQuickFrontLabelHeight(
       context,
-      members: members,
+      members: widget.members,
       maxWidth: slotWidth,
     );
     final rowHeight = ringSize + _kQuickFrontLabelGap + labelHeight;
 
-    if (scrolls) {
+    if (widget.scrolls) {
+      final scrollView = SingleChildScrollView(
+        controller: _scrollController,
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final member in widget.members)
+              SizedBox(
+                key: ValueKey(member.id),
+                width: slotWidth,
+                child: _QuickFrontButton(
+                  member: member,
+                  isFronting: widget.frontingIds.contains(member.id),
+                  ringSize: ringSize,
+                ),
+              ),
+          ],
+        ),
+      );
+
       return SizedBox(
         height: rowHeight,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final member in members)
-                SizedBox(
-                  key: ValueKey(member.id),
-                  width: slotWidth,
-                  child: _QuickFrontButton(
-                    member: member,
-                    isFronting: frontingIds.contains(member.id),
-                    ringSize: ringSize,
-                  ),
-                ),
-            ],
-          ),
+        child: AnimatedBuilder(
+          animation: _scrollController,
+          builder: (context, child) {
+            final leftAlpha = _leftFadeStrength();
+            final rightAlpha = _rightFadeStrength();
+            // Both edges flush: nothing to fade. Skipping ShaderMask avoids
+            // the offscreen layer cost for cases where content briefly fits.
+            if (leftAlpha == 0 && rightAlpha == 0) return child!;
+            return ShaderMask(
+              shaderCallback: (bounds) {
+                // Cap fade at half the bar so narrow viewports still leave
+                // an opaque middle band.
+                final fadeFraction = (_kEdgeFadeWidth / bounds.width).clamp(
+                  0.0,
+                  0.5,
+                );
+                return LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Colors.black.withValues(alpha: 1.0 - leftAlpha),
+                    Colors.black,
+                    Colors.black,
+                    Colors.black.withValues(alpha: 1.0 - rightAlpha),
+                  ],
+                  stops: [0.0, fadeFraction, 1.0 - fadeFraction, 1.0],
+                ).createShader(bounds);
+              },
+              blendMode: BlendMode.dstIn,
+              child: child,
+            );
+          },
+          child: scrollView,
         ),
       );
     }
@@ -158,9 +239,9 @@ class _AnimatedQuickFrontRow extends StatelessWidget {
       height: rowHeight,
       child: Stack(
         children: [
-          for (int i = 0; i < members.length; i++)
+          for (int i = 0; i < widget.members.length; i++)
             AnimatedPositioned(
-              key: ValueKey(members[i].id),
+              key: ValueKey(widget.members[i].id),
               duration: Anim.md,
               curve: Anim.standard,
               left: i * slotWidth,
@@ -168,8 +249,8 @@ class _AnimatedQuickFrontRow extends StatelessWidget {
               child: SizedBox(
                 width: slotWidth,
                 child: _QuickFrontButton(
-                  member: members[i],
-                  isFronting: frontingIds.contains(members[i].id),
+                  member: widget.members[i],
+                  isFronting: widget.frontingIds.contains(widget.members[i].id),
                   ringSize: ringSize,
                 ),
               ),
@@ -205,6 +286,10 @@ const _frequentPadWhenNotScrolling = 2;
 /// Frequent tiles appended after fronters in scroll mode — fixed, not
 /// scaled to slot count.
 const _frequentTilesWhenScrolling = 4;
+
+/// Width of the scroll-edge gradient in scroll mode. The fade ramps to
+/// full opacity over this many pixels of scroll movement.
+const _kEdgeFadeWidth = 24.0;
 
 int _slotCountForWidth(double width) {
   if (width <= 0) return _kMinSlotCount;
