@@ -448,11 +448,14 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       );
       // Delete child data that references members
       await db.customStatement('DELETE FROM custom_field_values');
-      await db.customStatement('DELETE FROM member_group_entries');
-      await db.customStatement('DELETE FROM notes');
-      await db.customStatement('DELETE FROM poll_votes');
       await db.customStatement('DELETE FROM habit_completions');
       await db.customStatement('DELETE FROM member_board_posts');
+      await db.customStatement('DELETE FROM member_group_entries');
+      await db.customStatement(
+        'DELETE FROM member_profile_preference_values',
+      );
+      await db.customStatement('DELETE FROM notes');
+      await db.customStatement('DELETE FROM poll_votes');
       // Delete user members; keep the system-managed Unknown sentinel because
       // fronting history now points to it and member-management UI filters it.
       await db.customStatement('DELETE FROM members WHERE id <> ?', [
@@ -462,11 +465,12 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     _notifyTableChanges([
       'fronting_sessions',
       'custom_field_values',
-      'member_group_entries',
-      'notes',
-      'poll_votes',
       'habit_completions',
       'member_board_posts',
+      'member_group_entries',
+      'member_profile_preference_values',
+      'notes',
+      'poll_votes',
       'members',
     ]);
   }

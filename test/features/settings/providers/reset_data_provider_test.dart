@@ -61,6 +61,7 @@ const _allUserDataTables = [
   'sharing_requests',
   'media_attachments',
   'member_board_posts',
+  'member_profile_preference_values',
   'sp_sync_state',
   'sp_id_map',
   'pk_mapping_state',
@@ -172,6 +173,80 @@ void main() {
             )
             .getSingle();
         expect(sleepRow.data['member_id'], isNull);
+      },
+    );
+
+    test(
+      'members reset clears member_profile_preference_values',
+      () async {
+        final harness = await _ResetHarness.create();
+        addTearDown(harness.dispose);
+
+        // Seed two preference rows: one for a regular member that will be
+        // deleted, and one for the Unknown sentinel member. The sentinel is
+        // inserted by _resetMembers itself (InsertOrIgnore), so we pre-insert
+        // it here to simulate it having stale preferences.
+        final db = harness.db;
+        final now = DateTime.utc(2026, 3, 18, 12);
+        await db
+            .into(db.members)
+            .insert(
+              MembersCompanion(
+                id: const Value('member-pref-1'),
+                name: const Value('PrefMember'),
+                emoji: const Value('P'),
+                createdAt: Value(now),
+              ),
+            );
+        await db
+            .into(db.members)
+            .insert(
+              MembersCompanion(
+                id: Value(unknownSentinelMemberId),
+                name: const Value('Unknown'),
+                emoji: const Value('❔'),
+                createdAt: Value(now),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+        await db
+            .into(db.memberProfilePreferenceValues)
+            .insert(
+              const MemberProfilePreferenceValuesCompanion(
+                id: Value('mppv-regular'),
+                memberId: Value('member-pref-1'),
+                key: Value('profile.show_pronouns'),
+                valueType: Value('bool'),
+                valueJson: Value('true'),
+              ),
+            );
+        await db
+            .into(db.memberProfilePreferenceValues)
+            .insert(
+              MemberProfilePreferenceValuesCompanion(
+                id: const Value('mppv-sentinel'),
+                memberId: Value(unknownSentinelMemberId),
+                key: const Value('profile.show_pronouns'),
+                valueType: const Value('bool'),
+                valueJson: const Value('false'),
+              ),
+            );
+
+        await harness.reset(ResetCategory.members);
+
+        final reopened = await harness.reopenDatabase();
+        addTearDown(reopened.close);
+
+        // Both rows are cleared — member_profile_preference_values has no FK
+        // so a full DELETE FROM is the correct cleanup (no sentinel exemption).
+        expect(
+          await _countRows(reopened, 'member_profile_preference_values'),
+          0,
+          reason:
+              'member_profile_preference_values must be emptied on members '
+              'reset to prevent orphan rows when a member is re-created with '
+              'the same ID',
+        );
       },
     );
 
@@ -1982,6 +2057,19 @@ class _ResetHarness {
             status: const Value('pending'),
             createdAt: Value(now),
             updatedAt: Value(now),
+          ),
+        );
+
+    // ── Member profile preference values ──────────────────────────────
+    await db
+        .into(db.memberProfilePreferenceValues)
+        .insert(
+          const MemberProfilePreferenceValuesCompanion(
+            id: Value('mppv-1'),
+            memberId: Value('member-1'),
+            key: Value('profile.show_pronouns'),
+            valueType: Value('bool'),
+            valueJson: Value('true'),
           ),
         );
 
