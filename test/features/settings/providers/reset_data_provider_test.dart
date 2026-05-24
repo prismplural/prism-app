@@ -2074,6 +2074,17 @@ class _ResetHarness {
           ),
         );
 
+    // ── App preference values ─────────────────────────────────────────
+    await db
+        .into(db.appPreferenceValues)
+        .insert(
+          const AppPreferenceValuesCompanion(
+            key: Value('theme.accent'),
+            valueType: Value('string'),
+            valueJson: Value('"violet"'),
+          ),
+        );
+
     // ── External state ────────────────────────────────────────────────
     // Seed a fake encrypted media cache file (mirrors what DownloadManager
     // writes at <appSupport>/prism_media/<mediaId>.enc).
