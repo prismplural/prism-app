@@ -11,6 +11,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
 import 'package:prism_plurality/features/chat/utils/chat_author_options.dart';
 import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
+import 'package:prism_plurality/features/chat/utils/markdown_utils.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
@@ -1351,8 +1352,11 @@ final conversationTileDataProvider = Provider.autoDispose
       );
     });
 
-// Mentions must resolve BEFORE spoiler redaction so `redactSpoilers` clamps
-// on the display-length of `@Name`, not on the raw `@[uuid]` token.
+// Strip → resolve → redact: stripping the raw text first protects member
+// names containing markdown chars (`A_B_C`); resolving before redaction
+// keeps the spoiler block count clamped on the visible `@Name` length.
 String buildTilePreviewContent(String rawContent, Map<String, String> nameMap) {
-  return redactSpoilers(replaceMentionsWithNames(rawContent, nameMap));
+  final stripped = stripMarkdownMarkers(rawContent);
+  final resolved = replaceMentionsWithNames(stripped, nameMap);
+  return redactSpoilers(resolved);
 }

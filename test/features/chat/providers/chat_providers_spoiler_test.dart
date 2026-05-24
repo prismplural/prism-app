@@ -65,4 +65,77 @@ void main() {
       );
     });
   });
+
+  group('conversation-list preview markdown stripping', () {
+    test('strips leading `-#` small-text marker', () {
+      expect(
+        buildTilePreviewContent('-# subtle aside', const {}),
+        'subtle aside',
+      );
+    });
+
+    test('strips `-#` on later lines', () {
+      expect(
+        buildTilePreviewContent('hello\n-# subtle aside', const {}),
+        'hello\nsubtle aside',
+      );
+    });
+
+    test('strips bold/italic/code/link markers', () {
+      expect(
+        buildTilePreviewContent(
+          '**bold** *italic* `code` [label](https://x)',
+          const {},
+        ),
+        'bold italic code label',
+      );
+    });
+
+    test('marker stripping composes with spoiler redaction', () {
+      // `**inside**` lives outside a spoiler — should be stripped.
+      // `||secret||` should be redacted to `▮▮▮▮▮▮`.
+      final result = buildTilePreviewContent(
+        '**inside** ||secret||',
+        const {},
+      );
+      expect(result, 'inside ▮▮▮▮▮▮');
+    });
+
+    test('member names with markdown-like chars are NOT mangled', () {
+      // The stripper runs on the RAW message text BEFORE mention resolution,
+      // so a member whose display name contains `_`, `*`, or other
+      // marker-ish characters survives the preview intact.
+      const memberId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+      final result = buildTilePreviewContent(
+        'hi @[$memberId]!',
+        {memberId: 'A_B_C'},
+      );
+      expect(result, 'hi @A_B_C!');
+    });
+
+    test('member names interact correctly with spoiler clamping', () {
+      // After strip + resolve, the spoiler should clamp on the visible
+      // length of `@LongName` (9 chars) rather than the raw `@[uuid]`.
+      const memberId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+      final result = buildTilePreviewContent(
+        '||@[$memberId]||',
+        {memberId: 'LongName'},
+      );
+      // `@LongName` is 9 chars but spoiler redaction clamps to a max of 8.
+      expect(result, '▮' * 8);
+    });
+
+    test('mention followed by parenthetical text is not mangled', () {
+      // `@[uuid](she/her)` is a mention immediately followed by pronouns
+      // or any parenthetical aside. The marker stripper must not treat
+      // the brackets+parens as a markdown link — if it does, the bracket
+      // contents become text and the mention can no longer resolve.
+      const memberId = '01234567-89ab-cdef-0123-456789abcdef';
+      final result = buildTilePreviewContent(
+        '@[$memberId](she/her) said hi',
+        {memberId: 'Alex'},
+      );
+      expect(result, '@Alex(she/her) said hi');
+    });
+  });
 }

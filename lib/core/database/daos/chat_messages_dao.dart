@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/tables/chat_messages_table.dart';
 import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
+import 'package:prism_plurality/features/chat/utils/markdown_utils.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 
 part 'chat_messages_dao.g.dart';
@@ -469,15 +470,15 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
 /// Build a match-highlighted snippet from [rawContent] that can never leak
 /// spoiler plaintext.
 ///
-/// The full message is redacted first (so any `||…||` spans are already
-/// `▮`-blocks), then whole-word matches for any [queryTokens] prefix are
-/// located and wrapped in `[…]`. The surrounding window is ~40 chars before
-/// the first match and ~80 chars after the last match inside that window,
-/// bounded by the content ends. If no token matches inside the redacted
-/// content (i.e. the FTS hit was on a term that lived entirely inside a
-/// spoiler), a plain head-of-message preview is returned with no highlights.
+/// Spoilers are redacted to `▮` blocks and markdown markers are stripped
+/// before matching, so the snippet shows clean text. Mention tokens
+/// (`@[uuid]`) are preserved for [SearchResultTile] to render as chips.
+/// Whole-word matches for any [queryTokens] prefix are wrapped in `[…]`;
+/// the window is ~40 chars before the first match and ~80 chars after,
+/// bounded by content ends. Queries that only matched inside a spoiler
+/// (or inside a stripped marker) fall back to a plain head preview.
 String _buildSafeSnippet(String rawContent, List<String> queryTokens) {
-  final safe = redactSpoilers(rawContent);
+  final safe = stripMarkdownMarkers(redactSpoilers(rawContent));
   const maxPreview = 120;
   final headPreview = safe.length <= maxPreview
       ? safe

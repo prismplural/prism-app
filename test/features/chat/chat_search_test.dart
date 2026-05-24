@@ -324,4 +324,81 @@ void main() {
       expectNoBisectedToken(results.first.snippet);
     });
   });
+
+  // Snippets must strip markdown markers (`**bold**`, `*italic*`,
+  // `` `code` ``, `[label](url)`, and the leading `-#` small-text marker)
+  // so they don't leak raw syntax into the search results list. Mention
+  // tokens (`@[uuid]`) are preserved for the tile to render as chips.
+  group('snippet strips markdown markers', () {
+    test('leading `-#` small text marker is removed', () async {
+      await dao.insertMessage(ChatMessagesCompanion.insert(
+        id: 'msg-small',
+        content: '-# whisper alligator quietly',
+        timestamp: DateTime(2026, 5, 5, 9, 0),
+        conversationId: 'conv-1',
+        authorId: const Value('author-1'),
+      ));
+
+      final results = await dao.searchMessages('alligator');
+      expect(results, hasLength(1));
+      final snippet = results.first.snippet;
+      expect(snippet.contains('-#'), isFalse);
+      expect(snippet.contains('[alligator]'), isTrue);
+    });
+
+    test('bold/italic/code markers stripped, label preserved', () async {
+      await dao.insertMessage(ChatMessagesCompanion.insert(
+        id: 'msg-mixed-md',
+        content: '**bold** and *italic* and `code` cantaloupe tail',
+        timestamp: DateTime(2026, 5, 5, 9, 30),
+        conversationId: 'conv-1',
+        authorId: const Value('author-1'),
+      ));
+
+      final results = await dao.searchMessages('cantaloupe');
+      expect(results, hasLength(1));
+      final snippet = results.first.snippet;
+      expect(snippet.contains('**'), isFalse);
+      expect(snippet.contains('`'), isFalse);
+      // The first match window starts near the head of the message.
+      expect(snippet.contains('bold'), isTrue);
+      expect(snippet.contains('[cantaloupe]'), isTrue);
+    });
+
+    test('link label kept, url discarded', () async {
+      await dao.insertMessage(ChatMessagesCompanion.insert(
+        id: 'msg-link',
+        content: '[durian recipes](https://example.com/durian) tail',
+        timestamp: DateTime(2026, 5, 5, 10, 0),
+        conversationId: 'conv-1',
+        authorId: const Value('author-1'),
+      ));
+
+      final results = await dao.searchMessages('durian');
+      expect(results, hasLength(1));
+      final snippet = results.first.snippet;
+      expect(snippet.contains('https://'), isFalse);
+      expect(snippet.contains('](') , isFalse);
+      // Matched word is wrapped in `[…]`; the rest of the label is preserved.
+      expect(snippet.contains('[durian] recipes'), isTrue);
+    });
+
+    test('mention token `@[uuid]` is preserved for chip rendering', () async {
+      const carolId = '01234567-89ab-cdef-0123-456789abcdef';
+      await dao.insertMessage(ChatMessagesCompanion.insert(
+        id: 'msg-mention-md',
+        content: '**hey** @[$carolId] eggplant',
+        timestamp: DateTime(2026, 5, 5, 10, 30),
+        conversationId: 'conv-1',
+        authorId: const Value('author-1'),
+      ));
+
+      final results = await dao.searchMessages('eggplant');
+      expect(results, hasLength(1));
+      final snippet = results.first.snippet;
+      expect(snippet.contains('@[$carolId]'), isTrue,
+          reason: 'mention token must survive marker stripping');
+      expect(snippet.contains('**'), isFalse);
+    });
+  });
 }
