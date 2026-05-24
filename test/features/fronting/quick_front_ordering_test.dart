@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -9,6 +10,7 @@ import 'package:prism_plurality/features/fronting/widgets/quick_front_section.da
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Member _m(String id, String name, {int displayOrder = 0}) => Member(
@@ -95,6 +97,7 @@ void main() {
 
     expect(find.byType(SingleChildScrollView), findsNothing);
     expect(find.byType(ShaderMask), findsNothing);
+    expect(find.byIcon(AppIcons.chevronRight), findsNothing);
     expect(_renderedTileOrderByName(tester, members), ['a', 'b', 'c', 'd']);
   });
 
@@ -161,8 +164,10 @@ void main() {
 
       expect(find.byType(SingleChildScrollView), findsOneWidget);
       // Scroll mode wraps the scroll view in a ShaderMask so the cut edge
-      // fades — without it the bar reads as "this is everyone."
+      // fades — without it the bar reads as "this is everyone." A
+      // decorative right chevron rides on top as a second affordance.
       expect(find.byType(ShaderMask), findsOneWidget);
+      expect(find.byIcon(AppIcons.chevronRight), findsOneWidget);
       expect(_renderedTileOrderByName(tester, members), [
         'bianca',
         'irena',
@@ -236,4 +241,67 @@ void main() {
       'f',
     ]);
   });
+
+  testWidgets(
+    'Unknown sentinel appears in the bar when actively fronting',
+    (tester) async {
+      // When fronting as Unknown, the bar needs a tile for it so the user
+      // can quick-end that session. It's a real active state, even if it's
+      // a placeholder member.
+      final unknown = _m(unknownSentinelMemberId, 'Unknown');
+      final members = [
+        _m('a', 'Alex'),
+        _m('b', 'Bea'),
+        _m('c', 'Cy'),
+        unknown,
+      ];
+      final t = DateTime(2026, 1, 1, 12);
+      final sessions = [_session(unknownSentinelMemberId, t)];
+
+      await tester.pumpWidget(
+        _harness(
+          members: members,
+          activeSessions: sessions,
+          counts: {'a': 10, 'b': 5, 'c': 3},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Unknown leads (only current fronter), then top frequent picks.
+      expect(_renderedTileOrderByName(tester, members), [
+        unknownSentinelMemberId,
+        'a',
+        'b',
+        'c',
+      ]);
+    },
+  );
+
+  testWidgets(
+    'Unknown sentinel is never offered as a frequent pick when not fronting',
+    (tester) async {
+      // Imported data can leave Unknown with the highest frequency count.
+      // It still must not appear in the suggestions — nobody deliberately
+      // quick-switches *to* Unknown; that's the add-front sheet's job.
+      final unknown = _m(unknownSentinelMemberId, 'Unknown');
+      final members = [
+        _m('a', 'Alex'),
+        _m('b', 'Bea'),
+        _m('c', 'Cy'),
+        unknown,
+      ];
+
+      await tester.pumpWidget(
+        _harness(
+          members: members,
+          activeSessions: const [],
+          counts: {unknownSentinelMemberId: 100, 'a': 10, 'b': 5, 'c': 3},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Unknown'), findsNothing);
+      expect(_renderedTileOrderByName(tester, members), ['a', 'b', 'c']);
+    },
+  );
 }

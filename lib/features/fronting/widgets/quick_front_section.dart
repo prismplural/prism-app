@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/quick_front_hint_provider.dart';
@@ -12,6 +13,7 @@ import 'package:prism_plurality/features/fronting/utils/member_frequency_sort.da
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -55,9 +57,17 @@ class QuickFrontSection extends ConsumerWidget {
               for (final m in currentFronters) m.id,
             };
 
+            // Suggest only real members. Unknown is a placeholder you'd
+            // never deliberately switch *to*, and it can accumulate high
+            // frequency counts in imported data that would otherwise
+            // dominate suggestions. It still appears in the current-
+            // fronters group if a session is active, so there's a
+            // quick-remove tile for it.
             final nonFronters = [
               for (final m in members)
-                if (!currentFronterIds.contains(m.id)) m,
+                if (!currentFronterIds.contains(m.id) &&
+                    m.id != unknownSentinelMemberId)
+                  m,
             ];
 
             final List<Member> tiles;
@@ -100,8 +110,10 @@ class QuickFrontSection extends ConsumerWidget {
 
 /// Packed mode uses [AnimatedPositioned] for a smooth slide on reorder.
 /// Scroll mode uses a plain `Row` wrapped in a [ShaderMask] that fades
-/// whichever edge has content past it — animating inside a scroll view
-/// isn't worth the complexity.
+/// whichever edge has content past it, plus a decorative right chevron
+/// that's visible only at the start (a first-impression hint that
+/// scroll exists). Animating positions inside a scroll view isn't worth
+/// the complexity.
 class _AnimatedQuickFrontRow extends StatefulWidget {
   const _AnimatedQuickFrontRow({
     required this.members,
@@ -142,19 +154,30 @@ class _AnimatedQuickFrontRowState extends State<_AnimatedQuickFrontRow> {
     super.dispose();
   }
 
+  /// Single-position guard. `hasClients` only checks `length >= 1`, so
+  /// during reconciliation when a new scroll view briefly co-exists with
+  /// the old one the `.position` getter throws. Returns null instead so
+  /// the strength helpers can fall through to 0.
+  ScrollPosition? _attachedPosition() {
+    if (_scrollController.positions.length != 1) return null;
+    final pos = _scrollController.positions.first;
+    if (!pos.hasContentDimensions) return null;
+    return pos;
+  }
+
   /// 0 when the left edge is at the start, 1 once the user has scrolled
   /// past [_kEdgeFadeWidth]. Linear ramp so the fade-in is continuous
   /// rather than popping on at the first pixel of scroll.
   double _leftFadeStrength() {
-    if (!_scrollController.hasClients) return 0;
-    final pixels = _scrollController.position.pixels;
-    if (pixels <= 0) return 0;
-    return (pixels / _kEdgeFadeWidth).clamp(0.0, 1.0);
+    final pos = _attachedPosition();
+    if (pos == null) return 0;
+    if (pos.pixels <= 0) return 0;
+    return (pos.pixels / _kEdgeFadeWidth).clamp(0.0, 1.0);
   }
 
   double _rightFadeStrength() {
-    if (!_scrollController.hasClients) return 0;
-    final pos = _scrollController.position;
+    final pos = _attachedPosition();
+    if (pos == null) return 0;
     if (pos.maxScrollExtent <= 0) return 0;
     final remaining = pos.maxScrollExtent - pos.pixels;
     if (remaining <= 0) return 0;
@@ -196,41 +219,77 @@ class _AnimatedQuickFrontRowState extends State<_AnimatedQuickFrontRow> {
         ),
       );
 
-      return SizedBox(
-        height: rowHeight,
+      final maskedScroll = AnimatedBuilder(
+        animation: _scrollController,
+        builder: (context, child) {
+          final leftAlpha = _leftFadeStrength();
+          final rightAlpha = _rightFadeStrength();
+          // Both edges flush: nothing to fade. Skipping ShaderMask avoids
+          // the offscreen layer cost for cases where content briefly fits.
+          if (leftAlpha == 0 && rightAlpha == 0) return child!;
+          return ShaderMask(
+            shaderCallback: (bounds) {
+              // Cap fade at half the bar so narrow viewports still leave an
+              // opaque middle band.
+              final fadeFraction = (_kEdgeFadeWidth / bounds.width).clamp(
+                0.0,
+                0.5,
+              );
+              return LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Colors.black.withValues(alpha: 1.0 - leftAlpha),
+                  Colors.black,
+                  Colors.black,
+                  Colors.black.withValues(alpha: 1.0 - rightAlpha),
+                ],
+                stops: [0.0, fadeFraction, 1.0 - fadeFraction, 1.0],
+              ).createShader(bounds);
+            },
+            blendMode: BlendMode.dstIn,
+            child: child,
+          );
+        },
+        child: scrollView,
+      );
+
+      // Decorative chevron — never tappable, just a first-impression hint
+      // that there's more to scroll to. Fades out as soon as the user
+      // starts scrolling (its job is done once they know), tied to the
+      // left-edge scroll strength so the fade tracks the same pixel
+      // distance as the gradient ramps. Kept in the tree at opacity 0
+      // so its element doesn't churn during scroll.
+      final chevron = IgnorePointer(
         child: AnimatedBuilder(
           animation: _scrollController,
           builder: (context, child) {
-            final leftAlpha = _leftFadeStrength();
-            final rightAlpha = _rightFadeStrength();
-            // Both edges flush: nothing to fade. Skipping ShaderMask avoids
-            // the offscreen layer cost for cases where content briefly fits.
-            if (leftAlpha == 0 && rightAlpha == 0) return child!;
-            return ShaderMask(
-              shaderCallback: (bounds) {
-                // Cap fade at half the bar so narrow viewports still leave
-                // an opaque middle band.
-                final fadeFraction = (_kEdgeFadeWidth / bounds.width).clamp(
+            final opacity =
+                ((1.0 - _leftFadeStrength()) * _kScrollChevronMaxOpacity).clamp(
                   0.0,
-                  0.5,
+                  1.0,
                 );
-                return LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    Colors.black.withValues(alpha: 1.0 - leftAlpha),
-                    Colors.black,
-                    Colors.black,
-                    Colors.black.withValues(alpha: 1.0 - rightAlpha),
-                  ],
-                  stops: [0.0, fadeFraction, 1.0 - fadeFraction, 1.0],
-                ).createShader(bounds);
-              },
-              blendMode: BlendMode.dstIn,
-              child: child,
-            );
+            return Opacity(opacity: opacity, child: child);
           },
-          child: scrollView,
+          child: Icon(
+            AppIcons.chevronRight,
+            size: _kScrollChevronSize,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+      );
+
+      return SizedBox(
+        height: rowHeight,
+        child: Stack(
+          children: [
+            Positioned.fill(child: maskedScroll),
+            Positioned(
+              right: 0,
+              top: (ringSize - _kScrollChevronSize) / 2,
+              child: chevron,
+            ),
+          ],
         ),
       );
     }
@@ -289,7 +348,15 @@ const _frequentTilesWhenScrolling = 4;
 
 /// Width of the scroll-edge gradient in scroll mode. The fade ramps to
 /// full opacity over this many pixels of scroll movement.
-const _kEdgeFadeWidth = 24.0;
+const _kEdgeFadeWidth = 36.0;
+
+/// Diameter of the right-edge chevron decoration shown in scroll mode.
+const _kScrollChevronSize = 20.0;
+
+/// Max opacity of the right-edge chevron when fully on. Scaled down by
+/// the right-edge fade strength so the chevron crossfades with the
+/// gradient — it's only a discoverability hint, not a fixed UI element.
+const _kScrollChevronMaxOpacity = 0.55;
 
 int _slotCountForWidth(double width) {
   if (width <= 0) return _kMinSlotCount;
