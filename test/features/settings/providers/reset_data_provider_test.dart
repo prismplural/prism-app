@@ -68,6 +68,117 @@ const _allUserDataTables = [
   'pk_mapping_state',
 ];
 
+// ── Member-ID orphan-reference manifest ────────────────────────────────────
+// Every table.column pair that holds a member-identity reference (scalar or
+// JSON) must appear here or in [_memberRefAllowlist].
+//
+// Columns in [_memberRefAllowlist] are intentional deferred gaps — they still
+// orphan member IDs after _resetMembers but are accepted for now.  Each entry
+// carries a TODO so they don't rot silently.
+//
+// The schema-coverage test will fail if a new column is added to the Drift
+// schema whose name matches the member-ID pattern without being listed here.
+
+enum _RefType {
+  /// Column is UPDATE'd to [unknownSentinelMemberId].
+  reAttributedToSentinel,
+
+  /// Column is UPDATE'd to NULL.
+  nulled,
+
+  /// The parent row is DELETE'd entirely.
+  deleted,
+
+  /// Row is either deleted or column is nulled — both are acceptable outcomes.
+  scalarOrDeleted,
+}
+
+class _MemberRef {
+  const _MemberRef(this.table, this.column, this.type);
+
+  final String table;
+  final String column;
+  final _RefType type;
+}
+
+const _memberRefColumns = <_MemberRef>[
+  // fronting_sessions: normal rows re-attributed to the Unknown sentinel so
+  // fronting history is preserved.
+  _MemberRef('fronting_sessions', 'member_id', _RefType.reAttributedToSentinel),
+
+  // chat_messages: author_id nulled so the message text survives.
+  // reply_to_author_id is intentionally in the allowlist (deferred).
+  _MemberRef('chat_messages', 'author_id', _RefType.nulled),
+
+  // conversations: creator nulled; JSON list/map columns cleared separately.
+  _MemberRef('conversations', 'creator_id', _RefType.nulled),
+
+  // habits: assignment cleared; habit definition itself survives.
+  _MemberRef('habits', 'assigned_member_id', _RefType.nulled),
+
+  // reminders: target cleared; reminder definition survives.
+  _MemberRef('reminders', 'target_member_id', _RefType.nulled),
+
+  // Per-member child data: fully deleted on reset.
+  _MemberRef(
+    'member_profile_preference_values',
+    'member_id',
+    _RefType.scalarOrDeleted,
+  ),
+  _MemberRef('member_group_entries', 'member_id', _RefType.deleted),
+  _MemberRef('custom_field_values', 'member_id', _RefType.deleted),
+  _MemberRef('notes', 'member_id', _RefType.deleted),
+  _MemberRef('poll_votes', 'member_id', _RefType.deleted),
+  _MemberRef(
+    'habit_completions',
+    'completed_by_member_id',
+    _RefType.deleted,
+  ),
+  _MemberRef('member_board_posts', 'target_member_id', _RefType.deleted),
+  _MemberRef('member_board_posts', 'author_id', _RefType.deleted),
+];
+
+/// Columns that reference member IDs but are intentionally excluded from the
+/// _resetMembers behaviour check.  Each entry must carry a TODO explaining why
+/// it is deferred rather than fixed.
+///
+/// Format: (tableName, columnName)
+const _memberRefAllowlist = <(String, String)>{
+  // TODO: system_settings.chat_badge_preferences is a JSON map of
+  // memberId → badge preference ('all' | 'mentions_only').  It is not
+  // cleared by _resetMembers, leaving stale member-ID keys after reset.
+  // Tracked as a deferred orphan fix.
+  ('system_settings', 'chat_badge_preferences'),
+
+  // TODO: plural_kit_sync_state.field_sync_config is a JSON map of
+  // memberId → PluralKit field-sync config.  Not cleared by _resetMembers.
+  // Tracked as a deferred orphan fix.
+  ('plural_kit_sync_state', 'field_sync_config'),
+
+  // pk_mapping_state.local_member_id maps PK member UUIDs to local Prism
+  // member IDs.  The whole table is wiped during full reset via _resetAll but
+  // is NOT explicitly cleared by _resetMembers (members-only reset).
+  // TODO: decide whether _resetMembers should also wipe pk_mapping_state.
+  ('pk_mapping_state', 'local_member_id'),
+
+  // pk_mapping_state.pk_member_id / pk_member_uuid are PluralKit short IDs
+  // and UUIDs — they reference PK entities, not local Prism members.
+  // Not applicable to the members-reset orphan check.
+  ('pk_mapping_state', 'pk_member_id'),
+  ('pk_mapping_state', 'pk_member_uuid'),
+
+  // member_group_entries.pk_member_uuid is a PluralKit UUID column used for
+  // PK group sync — it does not reference a local Prism member ID.
+  // Not applicable to the members-reset orphan check.
+  ('member_group_entries', 'pk_member_uuid'),
+
+  // chat_messages.reply_to_author_id is a denormalized snapshot of the
+  // original message's author — it still holds the victim member ID after
+  // _resetMembers because only author_id is cleared.
+  // TODO: null reply_to_author_id in _resetMembers to close this orphan gap.
+  ('chat_messages', 'reply_to_author_id'),
+};
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -1738,6 +1849,408 @@ void main() {
 
         expect(await harness.appDbFile.exists(), isTrue);
         expect(await _countRows(freshDb, 'members'), 1);
+      },
+    );
+  });
+
+  // ── Member-ID orphan-reference invariants ───────────────────────────────
+  // Two-part safety net:
+  //   1. The schema-coverage test walks all Drift tables via introspection and
+  //      fails if a column whose name matches a member-ID pattern is not listed
+  //      in [_memberRefColumns] or [_memberRefAllowlist].  Add the column to
+  //      the appropriate list — this forces every new member-ref column to be
+  //      explicitly classified.
+  //   2. The behaviour test seeds one row per entry in [_memberRefColumns],
+  //      runs _resetMembers, and asserts that the column value was either
+  //      deleted, nulled, or re-attributed to the Unknown sentinel.
+
+  group('members reset orphan-reference invariants', () {
+    test(
+      'every member-ID column in the schema is covered by _memberRefColumns or _memberRefAllowlist',
+      () {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        // Collect (table, column) pairs already listed in our manifest.
+        final covered = {
+          for (final ref in _memberRefColumns) (ref.table, ref.column),
+        };
+
+        // Pattern: column name that looks like a member-identity reference.
+        // Exact names and suffix/regex patterns derived from the audit.
+        const exactNames = {
+          'member_id',
+          'target_member_id',
+          'assigned_member_id',
+          'author_id',
+          'creator_id',
+          'completed_by_member_id',
+          'local_member_id',
+        };
+        final memberSuffixRe = RegExp(
+          r'^[a-z_]*member[_a-z]*id$',
+          caseSensitive: false,
+        );
+
+        final uncovered = <String>[];
+        for (final table in db.allTables) {
+          final tableName = table.actualTableName;
+          for (final col in table.$columns) {
+            final colName = col.$name;
+            final isMatch =
+                exactNames.contains(colName) ||
+                memberSuffixRe.hasMatch(colName);
+            if (!isMatch) continue;
+            if (_memberRefAllowlist.contains((tableName, colName))) continue;
+            if (!covered.contains((tableName, colName))) {
+              uncovered.add('$tableName.$colName');
+            }
+          }
+        }
+
+        expect(
+          uncovered,
+          isEmpty,
+          reason:
+              'The following member-ID columns are not listed in '
+              '_memberRefColumns or _memberRefAllowlist.\n'
+              'Add them to _memberRefColumns with the correct _RefType, OR '
+              'to _memberRefAllowlist with a // TODO: comment explaining why '
+              'they are deferred:\n'
+              '${uncovered.join('\n')}',
+        );
+      },
+    );
+
+    test(
+      'every column referencing members is wiped or nulled by _resetMembers',
+      () async {
+        final harness = await _ResetHarness.create();
+        addTearDown(harness.dispose);
+
+        final db = harness.db;
+        final now = DateTime.utc(2026, 3, 18, 12);
+        const victimId = 'member-victim';
+
+        // Seed the victim member.
+        await db.into(db.members).insert(
+          MembersCompanion(
+            id: const Value(victimId),
+            name: const Value('Victim'),
+            emoji: const Value('V'),
+            createdAt: Value(now),
+          ),
+        );
+
+        // Seed prerequisite rows needed to satisfy NOT NULL constraints for
+        // some child tables.
+        await db.into(db.conversations).insert(
+          ConversationsCompanion(
+            id: const Value('conv-orphan-1'),
+            createdAt: Value(now),
+            lastActivityAt: Value(now),
+            participantIds: const Value('[]'),
+          ),
+        );
+        await db.into(db.habits).insert(
+          HabitsCompanion(
+            id: const Value('habit-orphan-1'),
+            name: const Value('Orphan habit'),
+            createdAt: Value(now),
+            modifiedAt: Value(now),
+          ),
+        );
+        await db.into(db.polls).insert(
+          PollsCompanion(
+            id: const Value('poll-orphan-1'),
+            question: const Value('Q?'),
+            createdAt: Value(now),
+          ),
+        );
+        await db.into(db.pollOptions).insert(
+          const PollOptionsCompanion(
+            id: Value('opt-orphan-1'),
+            pollId: Value('poll-orphan-1'),
+            optionText: Value('Yes'),
+          ),
+        );
+        await db.into(db.customFields).insert(
+          CustomFieldsCompanion(
+            id: const Value('field-orphan-1'),
+            name: const Value('Field'),
+            fieldType: const Value(0),
+            createdAt: Value(now),
+          ),
+        );
+        await db.into(db.memberGroups).insert(
+          MemberGroupsCompanion(
+            id: const Value('group-orphan-1'),
+            name: const Value('Group'),
+            createdAt: Value(now),
+          ),
+        );
+
+        // Seed one row per _memberRefColumns entry.
+        const rowId = 'orphan-row';
+
+        // fronting_sessions.member_id
+        await db.into(db.frontingSessions).insert(
+          FrontingSessionsCompanion(
+            id: const Value('$rowId-fronting'),
+            startTime: Value(now),
+            memberId: const Value(victimId),
+            sessionType: const Value(0),
+          ),
+        );
+
+        // chat_messages.author_id
+        await db.into(db.chatMessages).insert(
+          ChatMessagesCompanion(
+            id: const Value('$rowId-chat-msg'),
+            content: const Value('hello'),
+            timestamp: Value(now),
+            authorId: const Value(victimId),
+            conversationId: const Value('conv-orphan-1'),
+          ),
+        );
+
+        // conversations.creator_id
+        await db.into(db.conversations).insert(
+          ConversationsCompanion(
+            id: const Value('$rowId-conv'),
+            createdAt: Value(now),
+            lastActivityAt: Value(now),
+            creatorId: const Value(victimId),
+            participantIds: const Value('[]'),
+          ),
+        );
+
+        // habits.assigned_member_id
+        await db.into(db.habits).insert(
+          HabitsCompanion(
+            id: const Value('$rowId-habit'),
+            name: const Value('Orphan habit 2'),
+            assignedMemberId: const Value(victimId),
+            createdAt: Value(now),
+            modifiedAt: Value(now),
+          ),
+        );
+
+        // reminders.target_member_id
+        await db.into(db.reminders).insert(
+          RemindersCompanion(
+            id: const Value('$rowId-reminder'),
+            name: const Value('Orphan reminder'),
+            message: const Value('msg'),
+            trigger: const Value(0),
+            targetMemberId: const Value(victimId),
+            createdAt: Value(now),
+            modifiedAt: Value(now),
+          ),
+        );
+
+        // member_profile_preference_values.member_id
+        await db.into(db.memberProfilePreferenceValues).insert(
+          const MemberProfilePreferenceValuesCompanion(
+            id: Value('$rowId-mppv'),
+            memberId: Value(victimId),
+            key: Value('profile.show_pronouns'),
+            valueType: Value('bool'),
+            valueJson: Value('true'),
+          ),
+        );
+
+        // member_group_entries.member_id
+        await db.into(db.memberGroupEntries).insert(
+          const MemberGroupEntriesCompanion(
+            id: Value('$rowId-group-entry'),
+            groupId: Value('group-orphan-1'),
+            memberId: Value(victimId),
+          ),
+        );
+
+        // custom_field_values.member_id
+        await db.into(db.customFieldValues).insert(
+          const CustomFieldValuesCompanion(
+            id: Value('$rowId-cfv'),
+            customFieldId: Value('field-orphan-1'),
+            memberId: Value(victimId),
+            value: Value('42'),
+          ),
+        );
+
+        // notes.member_id
+        await db.into(db.notes).insert(
+          NotesCompanion(
+            id: const Value('$rowId-note'),
+            title: const Value('Orphan note'),
+            body: const Value('body'),
+            memberId: const Value(victimId),
+            date: Value(now),
+            createdAt: Value(now),
+            modifiedAt: Value(now),
+          ),
+        );
+
+        // poll_votes.member_id
+        await db.into(db.pollVotes).insert(
+          PollVotesCompanion(
+            id: const Value('$rowId-vote'),
+            pollOptionId: const Value('opt-orphan-1'),
+            memberId: const Value(victimId),
+            votedAt: Value(now),
+          ),
+        );
+
+        // habit_completions.completed_by_member_id
+        await db.into(db.habitCompletions).insert(
+          HabitCompletionsCompanion(
+            id: const Value('$rowId-completion'),
+            habitId: const Value('habit-orphan-1'),
+            completedAt: Value(now),
+            completedByMemberId: const Value(victimId),
+            createdAt: Value(now),
+            modifiedAt: Value(now),
+          ),
+        );
+
+        // member_board_posts.target_member_id
+        // member_board_posts.author_id (seed both on one row)
+        await db.into(db.memberBoardPosts).insert(
+          MemberBoardPostsCompanion(
+            id: const Value('$rowId-board-post'),
+            targetMemberId: const Value(victimId),
+            authorId: const Value(victimId),
+            audience: const Value('public'),
+            body: const Value('post body'),
+            createdAt: Value(now),
+            writtenAt: Value(now),
+          ),
+        );
+
+        // Run _resetMembers via the public reset path.
+        await harness.reset(ResetCategory.members);
+
+        final reopened = await harness.reopenDatabase();
+        addTearDown(reopened.close);
+
+        // Helper: query a single nullable text column on a given table.
+        Future<String?> colValue(String table, String col, String id) async {
+          final rows = await reopened
+              .customSelect(
+                'SELECT $col FROM $table WHERE id = ?',
+                variables: [Variable.withString(id)],
+              )
+              .get();
+          if (rows.isEmpty) return null; // row deleted — counts as "handled"
+          return rows.single.data[col] as String?;
+        }
+
+        // Check each entry in _memberRefColumns.
+        for (final ref in _memberRefColumns) {
+          switch (ref.type) {
+            case _RefType.reAttributedToSentinel:
+              // Row must survive; column re-attributed to Unknown sentinel.
+              final val = await colValue(
+                ref.table,
+                ref.column,
+                '$rowId-${ref.table == 'fronting_sessions' ? 'fronting' : ref.table}',
+              );
+              expect(
+                val,
+                unknownSentinelMemberId,
+                reason:
+                    '${ref.table}.${ref.column} must be re-attributed to '
+                    'the Unknown sentinel after members reset',
+              );
+
+            case _RefType.nulled:
+              // Row must survive; column must be NULL.
+              final String rowSuffix;
+              if (ref.table == 'chat_messages') {
+                rowSuffix = 'chat-msg';
+              } else if (ref.table == 'conversations') {
+                rowSuffix = 'conv';
+              } else if (ref.table == 'habits') {
+                rowSuffix = 'habit';
+              } else if (ref.table == 'reminders') {
+                rowSuffix = 'reminder';
+              } else {
+                rowSuffix = ref.table;
+              }
+              final val = await colValue(ref.table, ref.column, '$rowId-$rowSuffix');
+              expect(
+                val,
+                isNull,
+                reason:
+                    '${ref.table}.${ref.column} must be nulled after members reset',
+              );
+
+            case _RefType.deleted:
+            case _RefType.scalarOrDeleted:
+              // Row must be gone.
+              final String rowSuffix;
+              if (ref.table == 'member_profile_preference_values') {
+                rowSuffix = 'mppv';
+              } else if (ref.table == 'member_group_entries') {
+                rowSuffix = 'group-entry';
+              } else if (ref.table == 'custom_field_values') {
+                rowSuffix = 'cfv';
+              } else if (ref.table == 'poll_votes') {
+                rowSuffix = 'vote';
+              } else if (ref.table == 'habit_completions') {
+                rowSuffix = 'completion';
+              } else if (ref.table == 'notes') {
+                rowSuffix = 'note';
+              } else if (ref.table == 'member_board_posts') {
+                rowSuffix = 'board-post';
+              } else {
+                rowSuffix = ref.table;
+              }
+              final rowCount = await reopened
+                  .customSelect(
+                    'SELECT COUNT(*) AS c FROM ${ref.table} WHERE id = ?',
+                    variables: [Variable.withString('$rowId-$rowSuffix')],
+                  )
+                  .getSingle();
+              expect(
+                rowCount.data['c'],
+                0,
+                reason:
+                    '${ref.table}.${ref.column}: row must be deleted after members reset',
+              );
+          }
+        }
+
+        // JSON list/map columns on conversations must be cleared.
+        final convRow = await reopened
+            .customSelect(
+              'SELECT participant_ids, archived_by_member_ids, '
+              'muted_by_member_ids, last_read_timestamps '
+              'FROM conversations WHERE id = ?',
+              variables: [Variable.withString('$rowId-conv')],
+            )
+            .getSingle();
+        expect(
+          convRow.data['participant_ids'],
+          '[]',
+          reason: 'conversations.participant_ids must be cleared',
+        );
+        expect(
+          convRow.data['archived_by_member_ids'],
+          '[]',
+          reason: 'conversations.archived_by_member_ids must be cleared',
+        );
+        expect(
+          convRow.data['muted_by_member_ids'],
+          '[]',
+          reason: 'conversations.muted_by_member_ids must be cleared',
+        );
+        expect(
+          convRow.data['last_read_timestamps'],
+          '{}',
+          reason: 'conversations.last_read_timestamps must be cleared',
+        );
       },
     );
   });
