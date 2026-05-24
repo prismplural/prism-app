@@ -34,6 +34,7 @@ import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 /// Drift schema, add it here — the completeness guard test will fail if any
 /// table is missing from the "All Data" reset.
 const _allUserDataTables = [
+  'app_preference_values',
   'members',
   'fronting_sessions',
   'conversations',
