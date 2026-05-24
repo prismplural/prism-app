@@ -80,8 +80,9 @@ class _AcceptMnemonicApi extends PairingCeremonyApi {
 // Test helpers
 // ---------------------------------------------------------------------------
 
-const _prefsKeyAttempts = 'prism.sync_pin_failed_attempts';
-const _prefsKeyLockedUntil = 'prism.sync_pin_locked_until_ms';
+// New dot-separated keys used by PinLockoutState for the 'prism.sync_pin' scope.
+const _prefsKeyAttempts = 'prism.sync_pin.failed_attempts';
+const _prefsKeyLockedUntil = 'prism.sync_pin.locked_until_ms';
 
 // A canonical BIP39 12-word mnemonic with a valid checksum.
 const _validMnemonic =

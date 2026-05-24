@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/crypto/bip39_validate.dart';
 import 'package:prism_plurality/core/security/pin_buffer.dart';
+import 'package:prism_plurality/core/security/pin_lockout_state.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
@@ -16,7 +17,6 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 /// Two-step modal sheet that prompts for the 12-word BIP39 recovery
 /// phrase and then the 6-digit PIN to unlock the sync key hierarchy.
@@ -62,12 +62,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
 
   // Brute-force throttling — persisted to SharedPreferences so lockout
   // survives sheet dismissal and app restarts.
-  int _failedAttempts = 0;
-  DateTime? _lockedUntil;
-  static const _maxAttempts = 5;
-  static const _baseLockoutSeconds = 30;
-  static const _prefsKeyAttempts = 'prism.sync_pin_failed_attempts';
-  static const _prefsKeyLockedUntil = 'prism.sync_pin_locked_until_ms';
+  late final _lockout = PinLockoutState(prefsScope: 'prism.sync_pin');
 
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
@@ -104,7 +99,9 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     // Rebuild when the mnemonic text changes so the "Continue" button's
     // enabled state tracks the current word count.
     _mnemonicController.addListener(_onMnemonicChanged);
-    _loadLockoutState();
+    _lockout.load().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   void _onMnemonicChanged() {
@@ -114,38 +111,6 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     setState(() {});
   }
 
-  Future<void> _loadLockoutState() async {
-    final prefs = await SharedPreferences.getInstance();
-    final attempts = prefs.getInt(_prefsKeyAttempts) ?? 0;
-    final lockedUntilMs = prefs.getInt(_prefsKeyLockedUntil);
-    final lockedUntil = lockedUntilMs != null
-        ? DateTime.fromMillisecondsSinceEpoch(lockedUntilMs)
-        : null;
-    if (!mounted) return;
-    setState(() {
-      _failedAttempts = attempts;
-      _lockedUntil = lockedUntil;
-    });
-  }
-
-  Future<void> _saveLockoutState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_prefsKeyAttempts, _failedAttempts);
-    if (_lockedUntil != null) {
-      await prefs.setInt(
-        _prefsKeyLockedUntil,
-        _lockedUntil!.millisecondsSinceEpoch,
-      );
-    } else {
-      await prefs.remove(_prefsKeyLockedUntil);
-    }
-  }
-
-  Future<void> _clearLockoutState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_prefsKeyAttempts);
-    await prefs.remove(_prefsKeyLockedUntil);
-  }
 
   @override
   void dispose() {
@@ -161,23 +126,9 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     super.dispose();
   }
 
-  bool get _isLockedOut {
-    if (_lockedUntil == null) return false;
-    if (DateTime.now().isAfter(_lockedUntil!)) {
-      _lockedUntil = null;
-      return false;
-    }
-    return true;
-  }
-
-  int get _lockoutSecondsRemaining {
-    if (_lockedUntil == null) return 0;
-    return _lockedUntil!.difference(DateTime.now()).inSeconds.clamp(0, 9999);
-  }
-
   String _pinSubtitle(BuildContext context) {
-    if (_isLockedOut) {
-      return 'Too many attempts. Try again in ${_lockoutSecondsRemaining}s';
+    if (_lockout.isLockedOut) {
+      return 'Too many attempts. Try again in ${_lockout.secondsRemaining}s';
     }
     if (_hasError) return context.l10n.syncPinSheetUnlockFailed;
     return context.l10n.syncPinSheetSubtitle;
@@ -217,7 +168,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
   // ── Step 2 actions ────────────────────────────────────────────────────
 
   void _onDigit(String digit) {
-    if (_isLoading || _isLockedOut || !_pin.appendDigit(digit)) return;
+    if (_isLoading || _lockout.isLockedOut || !_pin.appendDigit(digit)) return;
     Haptics.light();
     setState(() {
       _hasError = false;
@@ -239,7 +190,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
   }
 
   Future<void> _onPinComplete() async {
-    if (_isLockedOut) {
+    if (_lockout.isLockedOut) {
       _showError();
       return;
     }
@@ -264,18 +215,11 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     if (!mounted) return;
 
     if (success) {
-      await _clearLockoutState();
+      await _lockout.clear();
       if (!mounted) return;
       Navigator.of(context).pop();
     } else {
-      _failedAttempts++;
-      if (_failedAttempts >= _maxAttempts) {
-        final multiplier = _failedAttempts ~/ _maxAttempts;
-        _lockedUntil = DateTime.now().add(
-          Duration(seconds: _baseLockoutSeconds * multiplier),
-        );
-      }
-      await _saveLockoutState();
+      await _lockout.recordFailure();
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -487,7 +431,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
               child: NumpadKeyboardListener(
                 onDigit: _onDigit,
                 onBackspace: _onBackspace,
-                enabled: !_isLoading && !_isLockedOut,
+                enabled: !_isLoading && !_lockout.isLockedOut,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
