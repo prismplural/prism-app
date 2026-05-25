@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
+import 'package:prism_plurality/domain/models/typed_field_value.dart';
 
 /// A typed definition for one custom field type. Pure metadata — no widget
 /// imports from features/. The widget layer's counterpart is
@@ -17,6 +18,8 @@ class CustomFieldTypeDefinition {
     required this.icon,
     required this.configFromJson,
     required this.configToJson,
+    required this.valueParser,
+    required this.valueEncoder,
     this.allowsTextualSwitch = false,
   });
 
@@ -44,6 +47,15 @@ class CustomFieldTypeDefinition {
   /// Serialize the sealed config back to a JSON map. Returns null for legacy.
   final Map<String, dynamic>? Function(CustomFieldTypeConfig? config)
   configToJson;
+
+  /// Parse the raw value string into the typed variant. Never throws —
+  /// returns a sensible empty default or UnsupportedFieldValue on malformed input.
+  final TypedFieldValue Function(String? rawValue) valueParser;
+
+  /// Encode the typed variant back to a raw value string for storage.
+  /// May safely assume the variant matches the type (caller's responsibility);
+  /// if it doesn't, returns empty string and does not crash.
+  final String Function(TypedFieldValue value) valueEncoder;
 
   /// Whether this type can be switched to/from another textual type in the
   /// edit sheet (only true for text ↔ long_text today).
