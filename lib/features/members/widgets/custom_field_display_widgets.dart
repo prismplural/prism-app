@@ -1,0 +1,285 @@
+import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+
+// ---------------------------------------------------------------------------
+// Shared display widget helpers extracted from custom_fields_display.dart.
+// These have no dependency on the registry or definitions — they are pure
+// Flutter widgets used by both the display file and the definition files.
+// ---------------------------------------------------------------------------
+
+/// Renders a text value with inline markdown support (bold, italic, code).
+class FieldInlineMarkdownText extends StatelessWidget {
+  const FieldInlineMarkdownText(
+    this.data, {
+    super.key,
+    this.style,
+    this.textAlign = TextAlign.start,
+  });
+
+  final String data;
+  final TextStyle? style;
+  final TextAlign textAlign;
+
+  static final _boldStar = RegExp(r'\*\*(.+?)\*\*');
+  static final _boldUnderscore = RegExp(r'__(.+?)__');
+  static final _italicStar = RegExp(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)');
+  static final _italicUnderscore = RegExp(r'(?<!_)_(?!_)(.+?)(?<!_)_(?!_)');
+  static final _code = RegExp(r'`(.+?)`');
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final baseStyle = style ?? theme.textTheme.bodyMedium ?? const TextStyle();
+    final codeColor = theme.colorScheme.surfaceContainerHighest;
+
+    final segments = <_InlineMarkdownSegment>[];
+    final matched = List.filled(data.length, false);
+
+    void addMatches(
+      RegExp pattern,
+      TextStyle Function(TextStyle base) styleForMatch,
+    ) {
+      for (final match in pattern.allMatches(data)) {
+        if (_overlaps(matched, match.start, match.end)) continue;
+        for (var i = match.start; i < match.end; i++) {
+          matched[i] = true;
+        }
+        segments.add(
+          _InlineMarkdownSegment(
+            start: match.start,
+            end: match.end,
+            content: match.group(1)!,
+            style: styleForMatch(baseStyle),
+          ),
+        );
+      }
+    }
+
+    addMatches(
+      _code,
+      (base) =>
+          base.copyWith(fontFamily: 'monospace', backgroundColor: codeColor),
+    );
+    addMatches(_boldStar, (base) => base.copyWith(fontWeight: FontWeight.bold));
+    addMatches(
+      _boldUnderscore,
+      (base) => base.copyWith(fontWeight: FontWeight.bold),
+    );
+    addMatches(
+      _italicStar,
+      (base) => base.copyWith(fontStyle: FontStyle.italic),
+    );
+    addMatches(
+      _italicUnderscore,
+      (base) => base.copyWith(fontStyle: FontStyle.italic),
+    );
+
+    if (segments.isEmpty) {
+      return Text(data, style: baseStyle, textAlign: textAlign);
+    }
+
+    segments.sort((a, b) => a.start.compareTo(b.start));
+    final spans = <InlineSpan>[];
+    var cursor = 0;
+
+    for (final segment in segments) {
+      if (cursor < segment.start) {
+        spans.add(TextSpan(text: data.substring(cursor, segment.start)));
+      }
+      spans.add(TextSpan(text: segment.content, style: segment.style));
+      cursor = segment.end;
+    }
+
+    if (cursor < data.length) {
+      spans.add(TextSpan(text: data.substring(cursor)));
+    }
+
+    return Text.rich(
+      TextSpan(style: baseStyle, children: spans),
+      textAlign: textAlign,
+    );
+  }
+
+  bool _overlaps(List<bool> matched, int start, int end) {
+    for (var i = start; i < end; i++) {
+      if (matched[i]) return true;
+    }
+    return false;
+  }
+}
+
+class _InlineMarkdownSegment {
+  const _InlineMarkdownSegment({
+    required this.start,
+    required this.end,
+    required this.content,
+    required this.style,
+  });
+
+  final int start;
+  final int end;
+  final String content;
+  final TextStyle style;
+}
+
+/// Renders a long text value with a line/character preview and a "View more"
+/// sheet opener when the text is truncated.
+class FieldLongTextPreview extends StatelessWidget {
+  const FieldLongTextPreview({
+    super.key,
+    required this.title,
+    required this.data,
+    this.style,
+  });
+
+  static const _previewCharacterLimit = 900;
+  static const _previewLineLimit = 12;
+
+  final String title;
+  final String data;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final preview = _buildPreview(data);
+    final isTruncated = preview != data;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MarkdownText(
+          data: isTruncated ? '$preview...' : data,
+          enabled: true,
+          baseStyle: style ?? theme.textTheme.bodyMedium,
+        ),
+        if (isTruncated) ...[
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () => _openDetail(context),
+            child: Text(
+              'View more',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _openDetail(BuildContext context) {
+    PrismSheet.showFullScreen<void>(
+      context: context,
+      builder: (context, scrollController) => _FieldDetailSheet(
+        title: title,
+        data: data,
+        scrollController: scrollController,
+      ),
+    );
+  }
+
+  String _buildPreview(String raw) {
+    final lines = raw.split('\n');
+    var preview = lines.length > _previewLineLimit
+        ? lines.take(_previewLineLimit).join('\n')
+        : raw;
+
+    if (preview.length > _previewCharacterLimit) {
+      preview = preview.substring(0, _previewCharacterLimit);
+      final lastWhitespace = preview.lastIndexOf(RegExp(r'\s'));
+      if (lastWhitespace > _previewCharacterLimit * 0.65) {
+        preview = preview.substring(0, lastWhitespace);
+      }
+    }
+
+    return preview.trimRight();
+  }
+}
+
+class _FieldDetailSheet extends StatelessWidget {
+  const _FieldDetailSheet({
+    required this.title,
+    required this.data,
+    required this.scrollController,
+  });
+
+  final String title;
+  final String data;
+  final ScrollController scrollController;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: Column(
+        children: [
+          PrismSheetTopBar(title: title),
+          Expanded(
+            child: ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+              children: [
+                MarkdownText(
+                  data: data,
+                  enabled: true,
+                  baseStyle: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    height: 1.55,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Renders a hex color value with a circular color swatch preview.
+class FieldColorDisplay extends StatelessWidget {
+  const FieldColorDisplay({super.key, required this.value});
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    Color? color;
+    try {
+      color = AppColors.fromHex(value);
+    } catch (_) {
+      color = null;
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (color != null) ...[
+          Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              border: Border.all(
+                color: theme.colorScheme.outline.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(fontFamily: 'monospace'),
+          textAlign: TextAlign.end,
+        ),
+      ],
+    );
+  }
+}
