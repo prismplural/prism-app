@@ -10,7 +10,17 @@ abstract class CustomFieldsRepository {
   Future<void> createField(domain.CustomField field);
   Future<void> updateField(domain.CustomField field);
   Future<void> reorderFields(List<domain.CustomField> fields);
-  Future<void> deleteField(String id);
+  /// Delete a field by [id].
+  ///
+  /// For group-typed fields, [deleteChildren] controls what happens to child
+  /// fields:
+  /// - `false` (default): promotes children to top level by clearing their
+  ///   `parentFieldId`. The children remain active.
+  /// - `true`: soft-deletes each child individually (each emits its own sync op).
+  ///
+  /// For non-group fields this parameter has no effect (non-group fields have
+  /// no children by the depth-1 invariant).
+  Future<void> deleteField(String id, {bool deleteChildren = false});
 
   Stream<List<domain.CustomFieldValue>> watchValuesForMember(String memberId);
   Stream<List<domain.CustomFieldValue>> watchValuesForField(String fieldId);

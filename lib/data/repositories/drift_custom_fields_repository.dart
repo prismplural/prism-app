@@ -5,6 +5,7 @@ import 'package:prism_plurality/core/database/daos/custom_fields_dao.dart';
 import 'package:prism_plurality/data/mappers/custom_field_mapper.dart';
 import 'package:prism_plurality/data/mappers/custom_field_value_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/domain/custom_fields/custom_fields_exceptions.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart' as domain;
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart'
@@ -29,9 +30,25 @@ class DriftCustomFieldsRepository
 
   @override
   Stream<List<domain.CustomField>> watchAllFields() {
-    return _dao.watchAllFields().map(
-      (rows) => rows.map(CustomFieldMapper.toDomain).toList(),
-    );
+    return _dao.watchAllFields().map((rows) {
+      final fields = rows.map(CustomFieldMapper.toDomain).toList();
+      // Orphan-on-read promotion: the DAO filters isDeleted==false, so every
+      // id in this list is an active field. A child whose parent is absent
+      // from this list (missing or soft-deleted) renders at top level.
+      // This is an IN-MEMORY transformation only — the DB row keeps its
+      // parent_field_id so the child re-attaches naturally on the next
+      // stream emission if the parent comes back via sync.
+      final activeIds = fields.map((f) => f.id).toSet();
+      return fields.map((f) {
+        final parentId = f.parentFieldId;
+        if (parentId == null) return f;
+        if (!activeIds.contains(parentId)) {
+          // Orphaned: parent missing or soft-deleted → render at top level.
+          return f.copyWith(parentFieldId: null);
+        }
+        return f;
+      }).toList();
+    });
   }
 
   @override
@@ -49,6 +66,7 @@ class DriftCustomFieldsRepository
 
   @override
   Future<void> createField(domain.CustomField field) async {
+    await _validateDepth(field);
     final companion = CustomFieldMapper.toCompanion(field);
     await _dao.createField(companion);
     await syncRecordCreate(_fieldsTable, field.id, _fieldFields(field));
@@ -56,9 +74,21 @@ class DriftCustomFieldsRepository
 
   @override
   Future<void> updateField(domain.CustomField field) async {
+    await _validateDepth(field);
     final companion = CustomFieldMapper.toCompanion(field);
     await _dao.updateField(field.id, companion);
     await syncRecordUpdate(_fieldsTable, field.id, _fieldFields(field));
+  }
+
+  /// Validates the depth-1 cap: a field may have a parent, but that parent
+  /// must not itself have a parent (no groups inside groups).
+  Future<void> _validateDepth(domain.CustomField field) async {
+    final parentId = field.parentFieldId;
+    if (parentId == null) return;
+    final parent = await getFieldById(parentId);
+    if (parent != null && parent.parentFieldId != null) {
+      throw DepthLimitExceededException(field.id, parentId);
+    }
   }
 
   @override
@@ -84,7 +114,39 @@ class DriftCustomFieldsRepository
   }
 
   @override
-  Future<void> deleteField(String id) async {
+  Future<void> deleteField(String id, {bool deleteChildren = false}) async {
+    final field = await getFieldById(id);
+    if (field == null) return; // idempotent
+
+    if (field.fieldTypeId == 'group') {
+      // Fetch all active (non-deleted) fields to find children.
+      final allFields = await _allFieldsOnce();
+      final children = allFields.where((f) => f.parentFieldId == id).toList();
+
+      if (deleteChildren) {
+        // Soft-delete each child individually so each emits its own sync op.
+        for (final child in children) {
+          await _softDeleteField(child.id);
+        }
+      } else {
+        // Promote children to top level by clearing parent_field_id.
+        for (final child in children) {
+          await updateField(child.copyWith(parentFieldId: null));
+        }
+      }
+    }
+
+    await _softDeleteField(id);
+  }
+
+  /// Fetch all active (non-deleted) fields once (no stream subscription).
+  Future<List<domain.CustomField>> _allFieldsOnce() async {
+    final rows = await _dao.watchAllFields().first;
+    return rows.map(CustomFieldMapper.toDomain).toList();
+  }
+
+  /// Soft-delete a single field and its values, emitting sync ops for each.
+  Future<void> _softDeleteField(String id) async {
     // Fetch values before bulk soft-delete so we can emit sync ops for each.
     final values = await _dao.watchValuesForField(id).first;
     await _dao.deleteField(id);
@@ -127,6 +189,13 @@ class DriftCustomFieldsRepository
 
   @override
   Future<void> upsertValue(domain.CustomFieldValue value) async {
+    final field = await getFieldById(value.customFieldId);
+    if (field != null && field.fieldTypeId == 'group') {
+      throw InvalidFieldTypeException(
+        value.customFieldId,
+        'group-typed fields cannot have per-member values',
+      );
+    }
     final companion = CustomFieldValueMapper.toCompanion(value);
     await _dao.upsertValue(companion);
     await syncRecordCreate(_valuesTable, value.id, _valueFields(value));

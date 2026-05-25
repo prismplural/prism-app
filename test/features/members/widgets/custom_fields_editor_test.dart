@@ -177,7 +177,7 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   Future<void> createField(CustomField field) async {}
 
   @override
-  Future<void> deleteField(String id) async {}
+  Future<void> deleteField(String id, {bool deleteChildren = false}) async {}
 
   @override
   Future<void> deleteValue(String id) async {

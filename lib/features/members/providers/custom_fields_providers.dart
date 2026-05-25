@@ -85,10 +85,10 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
     });
   }
 
-  Future<void> deleteField(String id) async {
+  Future<void> deleteField(String id, {bool deleteChildren = false}) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
-      await repo.deleteField(id);
+      await repo.deleteField(id, deleteChildren: deleteChildren);
     });
   }
 
