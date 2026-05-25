@@ -5746,11 +5746,11 @@ abstract class AppLocalizations {
   /// **'View Settings'**
   String get memberListViewSettingsTitle;
 
-  /// Title for the dismissible members list banner that points users to View Settings
+  /// Title for the dismissible members list banner that points users to View Settings. The term is the user's chosen singular member terminology, capitalized.
   ///
   /// In en, this message translates to:
-  /// **'Member view options'**
-  String get memberViewSettingsBannerTitle;
+  /// **'{term} view options'**
+  String memberViewSettingsBannerTitle(String term);
 
   /// Body for the dismissible members list banner that points users to View Settings. The term is the user's chosen singular member terminology in lowercase.
   ///

@@ -4505,9 +4505,14 @@
   "@memberListViewSettingsTitle": {
     "description": "Title for the members list view settings sheet and menu row"
   },
-  "memberViewSettingsBannerTitle": "Member view options",
+  "memberViewSettingsBannerTitle": "{term} view options",
   "@memberViewSettingsBannerTitle": {
-    "description": "Title for the dismissible members list banner that points users to View Settings"
+    "description": "Title for the dismissible members list banner that points users to View Settings. The term is the user's chosen singular member terminology, capitalized.",
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
   },
   "memberViewSettingsBannerMessage": "Group and {term} view preferences can be adjusted in View Settings.",
   "@memberViewSettingsBannerMessage": {

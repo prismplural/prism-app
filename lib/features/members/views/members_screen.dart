@@ -954,14 +954,15 @@ class _MemberViewSettingsBanner extends StatelessWidget {
       child: InfoBanner(
         icon: AppIcons.moreVert,
         iconColor: theme.colorScheme.primary,
-        title: context.l10n.memberViewSettingsBannerTitle,
+        title: context.l10n.memberViewSettingsBannerTitle(terms.singular),
         message: context.l10n.memberViewSettingsBannerMessage(
           terms.singularLower,
         ),
         buttonText: context.l10n.memberListViewSettingsTitle,
         onButtonPressed: onOpenSettings,
         onDismiss: onDismiss,
-        dismissTooltip: context.l10n.dismiss,
+        dismissLabel: context.l10n.dismiss,
+        actionsBelow: true,
       ),
     );
   }

@@ -3371,7 +3371,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberListViewSettingsTitle => 'Ajustes de vista';
 
   @override
-  String get memberViewSettingsBannerTitle => 'Opciones de vista de miembros';
+  String memberViewSettingsBannerTitle(String term) {
+    return 'Opciones de vista de $term';
+  }
 
   @override
   String memberViewSettingsBannerMessage(String term) {
