@@ -26,6 +26,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
@@ -75,14 +76,86 @@ class CustomFieldDetailScreen extends ConsumerWidget {
   }
 }
 
-class _CustomFieldDetailBody extends ConsumerWidget {
+class _CustomFieldDetailBody extends ConsumerStatefulWidget {
   const _CustomFieldDetailBody({required this.field});
 
   final CustomField field;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_CustomFieldDetailBody> createState() =>
+      _CustomFieldDetailBodyState();
+}
+
+/// Enum used as menu value for the overflow action menu.
+enum _MoveAction {
+  moveIntoGroup,
+  moveOutOfGroup,
+  moveToAnotherGroup,
+}
+
+class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> {
+  CustomField get field => widget.field;
+
+  /// All top-level group fields in the system.
+  List<CustomField> _allGroups(List<CustomField> allFields) => allFields
+      .where((f) => f.fieldTypeId == 'group' && f.parentFieldId == null)
+      .toList();
+
+  List<CustomField> _eligibleGroups(List<CustomField> allFields) {
+    return _allGroups(allFields).where((g) {
+      if (g.id == field.id) return false;
+      if (g.id == field.parentFieldId) return false;
+      return true;
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final allFieldsAsync = ref.watch(customFieldsProvider);
+    final allFields = allFieldsAsync.value ?? <CustomField>[];
+    final isGroup = field.fieldTypeId == 'group';
+    final isNested = field.parentFieldId != null;
+    final eligible = !isGroup ? _eligibleGroups(allFields) : <CustomField>[];
+    final otherGroups = isNested ? _eligibleGroups(allFields) : <CustomField>[];
+    final parentGroup = isNested
+        ? allFields.where((f) => f.id == field.parentFieldId).firstOrNull
+        : null;
+
+    // Build the overflow menu items for move actions.
+    // Edit and Delete stay as direct visible app bar actions.
+    // Groups can't be nested, so they never get move items.
+    final moveItems = <PrismMenuItem<_MoveAction>>[];
+    if (!isGroup) {
+      if (eligible.isNotEmpty) {
+        moveItems.add(PrismMenuItem(
+          value: _MoveAction.moveIntoGroup,
+          label: context.l10n.customFieldMenuMoveIntoGroup,
+          icon: AppIcons.folderOutlined,
+        ));
+      } else if (_allGroups(allFields).isNotEmpty) {
+        moveItems.add(PrismMenuItem(
+          value: _MoveAction.moveIntoGroup,
+          label: context.l10n.customFieldNoEligibleGroups,
+          icon: AppIcons.folderOutlined,
+          enabled: false,
+        ));
+      }
+    }
+    if (isNested) {
+      moveItems.add(PrismMenuItem(
+        value: _MoveAction.moveOutOfGroup,
+        label: context.l10n.customFieldMenuMoveOutOfGroup,
+        icon: AppIcons.arrowUpward,
+      ));
+      if (otherGroups.isNotEmpty) {
+        moveItems.add(PrismMenuItem(
+          value: _MoveAction.moveToAnotherGroup,
+          label: context.l10n.customFieldMenuMoveToAnotherGroup,
+          icon: AppIcons.arrowForward,
+        ));
+      }
+    }
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -97,8 +170,21 @@ class _CustomFieldDetailBody extends ConsumerWidget {
           PrismTopBarAction(
             icon: AppIcons.deleteOutline,
             tooltip: context.l10n.delete,
-            onPressed: () => _confirmDelete(context, ref),
+            onPressed: () => _confirmDelete(context),
           ),
+          // Only show the overflow menu when there are move actions available.
+          if (moveItems.isNotEmpty)
+            PrismPopupMenu<_MoveAction>(
+              items: moveItems,
+              width: 260,
+              onSelected: (action) => _handleMoveAction(
+                context,
+                action: action,
+                allFields: allFields,
+                eligible: eligible,
+                otherGroups: otherGroups,
+              ),
+            ),
         ],
       ),
       bodyPadding: EdgeInsets.zero,
@@ -117,11 +203,39 @@ class _CustomFieldDetailBody extends ConsumerWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    field.name,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        field.name,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      // "Inside: {group}" badge when nested.
+                      if (parentGroup != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              AppIcons.folderOutlined,
+                              size: 14,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              context.l10n.customFieldDetailInsideGroup(
+                                parentGroup.name,
+                              ),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
@@ -165,7 +279,96 @@ class _CustomFieldDetailBody extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+  Future<void> _handleMoveAction(
+    BuildContext context, {
+    required _MoveAction action,
+    required List<CustomField> allFields,
+    required List<CustomField> eligible,
+    required List<CustomField> otherGroups,
+  }) async {
+    switch (action) {
+      case _MoveAction.moveIntoGroup:
+        await _showGroupPicker(
+          context,
+          groups: eligible,
+          title: context.l10n.customFieldMenuMoveIntoGroup,
+          onSelected: (g) => _moveIntoGroup(context, g),
+        );
+      case _MoveAction.moveOutOfGroup:
+        await _moveOutOfGroup(context);
+      case _MoveAction.moveToAnotherGroup:
+        await _showGroupPicker(
+          context,
+          groups: otherGroups,
+          title: context.l10n.customFieldMenuMoveToAnotherGroup,
+          onSelected: (g) => _moveIntoGroup(context, g),
+        );
+    }
+  }
+
+  Future<void> _showGroupPicker(
+    BuildContext context, {
+    required List<CustomField> groups,
+    required String title,
+    required void Function(CustomField group) onSelected,
+  }) async {
+    final selected = await showDialog<CustomField>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(title),
+        children: [
+          for (final group in groups)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(ctx).pop(group),
+              child: Row(
+                children: [
+                  Icon(AppIcons.folderOutlined, size: 20),
+                  const SizedBox(width: 12),
+                  Text(group.name),
+                ],
+              ),
+            ),
+          if (groups.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Text(
+                context.l10n.customFieldNoEligibleGroups,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (selected != null) onSelected(selected);
+  }
+
+  Future<void> _moveIntoGroup(BuildContext context, CustomField targetGroup) async {
+    await ref.read(customFieldNotifierProvider.notifier).updateField(
+          field.copyWith(parentFieldId: targetGroup.id),
+        );
+    if (context.mounted) {
+      PrismToast.show(
+        context,
+        message: '${field.name} moved into ${targetGroup.name}',
+      );
+    }
+  }
+
+  Future<void> _moveOutOfGroup(BuildContext context) async {
+    await ref.read(customFieldNotifierProvider.notifier).updateField(
+          field.copyWith(parentFieldId: null),
+        );
+    if (context.mounted) {
+      PrismToast.show(
+        context,
+        message: '${field.name} moved to top level',
+      );
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
     final navigator = Navigator.of(context);
     final router = GoRouter.maybeOf(context);
     final deletedToast = context.l10n.settingsCustomFieldsDeletedToast(

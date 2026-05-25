@@ -10539,8 +10539,6 @@ class AppLocalizationsEn extends AppLocalizations {
     return '$name: $step of $total';
   }
 
-  // ── Slider ─────────────────────────────────────────────────────────────────
-
   @override
   String get customFieldTypeSlider => 'Slider';
 
@@ -10599,27 +10597,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldSliderShowTicks => 'Show tick marks';
 
   @override
-  String customFieldSliderValueLabel({required String anchor, required int percent}) {
+  String customFieldSliderValueLabel(String anchor, int percent) {
     return 'Closer to $anchor, $percent%';
   }
 
   @override
-  String customFieldSliderValueLabelCentered({required String anchor, required int percent}) {
+  String customFieldSliderValueLabelCentered(String anchor, int percent) {
     return '$anchor, $percent%';
   }
 
   @override
-  String customFieldSliderNumericValueLabel({required String value, required String unit}) {
+  String customFieldSliderNumericValueLabel(String value, String unit) {
     return '$value$unit';
   }
 
   @override
-  String customFieldSliderSemanticLabel({required String name, required String value, required String unit}) {
+  String customFieldSliderSemanticLabel(
+    String name,
+    String value,
+    String unit,
+  ) {
     return '$name, $value $unit';
   }
 
   @override
-  String customFieldSliderSemanticLabelLabeled({required String name, required String description}) {
+  String customFieldSliderSemanticLabelLabeled(
+    String name,
+    String description,
+  ) {
     return '$name, $description';
   }
 
@@ -10671,4 +10676,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sliderGradientPresetMonochrome => 'Monochrome';
+
+  @override
+  String get customFieldMenuEdit => 'Edit';
+
+  @override
+  String get customFieldMenuMoveIntoGroup => 'Move into group';
+
+  @override
+  String get customFieldMenuMoveOutOfGroup => 'Move out of group';
+
+  @override
+  String get customFieldMenuMoveToAnotherGroup => 'Move to another group';
+
+  @override
+  String get customFieldMenuDelete => 'Delete';
+
+  @override
+  String customFieldDetailInsideGroup(String group) {
+    return 'Inside: $group';
+  }
+
+  @override
+  String get customFieldFirstGroupTip =>
+      'Long-press a field to move it into a group';
+
+  @override
+  String get customFieldNoEligibleGroups => 'No groups to move into';
 }

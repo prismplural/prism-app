@@ -16979,8 +16979,6 @@ abstract class AppLocalizations {
   /// **'{name}: {step} of {total}'**
   String customFieldScaleSemanticLabel(String name, int step, int total);
 
-  // ── Slider ─────────────────────────────────────────────────────────────────
-
   /// Label for the Slider custom field type in the type picker
   ///
   /// In en, this message translates to:
@@ -17035,7 +17033,7 @@ abstract class AppLocalizations {
   /// **'Right label (optional)'**
   String get customFieldSliderRightLabel;
 
-  /// Label for the center anchor text field in labeled slider config
+  /// Label for the center anchor text field in labeled slider config; when set, adds a center snap position
   ///
   /// In en, this message translates to:
   /// **'Center label (optional)'**
@@ -17093,31 +17091,31 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Closer to {anchor}, {percent}%'**
-  String customFieldSliderValueLabel({required String anchor, required int percent});
+  String customFieldSliderValueLabel(String anchor, int percent);
 
-  /// Value indicator pill text when exactly on center anchor in labeled slider mode
+  /// Value indicator pill text when the thumb is exactly on the center anchor in labeled slider mode
   ///
   /// In en, this message translates to:
   /// **'{anchor}, {percent}%'**
-  String customFieldSliderValueLabelCentered({required String anchor, required int percent});
+  String customFieldSliderValueLabelCentered(String anchor, int percent);
 
   /// Value indicator pill text for numeric slider mode; unit may be empty
   ///
   /// In en, this message translates to:
   /// **'{value}{unit}'**
-  String customFieldSliderNumericValueLabel({required String value, required String unit});
+  String customFieldSliderNumericValueLabel(String value, String unit);
 
   /// Screen-reader label for numeric slider mode
   ///
   /// In en, this message translates to:
   /// **'{name}, {value} {unit}'**
-  String customFieldSliderSemanticLabel({required String name, required String value, required String unit});
+  String customFieldSliderSemanticLabel(String name, String value, String unit);
 
   /// Screen-reader label for labeled slider mode; description is the pill text
   ///
   /// In en, this message translates to:
   /// **'{name}, {description}'**
-  String customFieldSliderSemanticLabelLabeled({required String name, required String description});
+  String customFieldSliderSemanticLabelLabeled(String name, String description);
 
   /// Category heading for gender expression gradient presets
   ///
@@ -17214,6 +17212,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Monochrome'**
   String get sliderGradientPresetMonochrome;
+
+  /// Context menu item to edit a custom field
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get customFieldMenuEdit;
+
+  /// Context menu item to move a field into a group; tapping shows a submenu of groups
+  ///
+  /// In en, this message translates to:
+  /// **'Move into group'**
+  String get customFieldMenuMoveIntoGroup;
+
+  /// Context menu item to move a nested field back to top level
+  ///
+  /// In en, this message translates to:
+  /// **'Move out of group'**
+  String get customFieldMenuMoveOutOfGroup;
+
+  /// Context menu item to move a nested field into a different group
+  ///
+  /// In en, this message translates to:
+  /// **'Move to another group'**
+  String get customFieldMenuMoveToAnotherGroup;
+
+  /// Context menu item to delete a custom field
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get customFieldMenuDelete;
+
+  /// Badge shown on the custom field detail screen when the field is nested inside a group
+  ///
+  /// In en, this message translates to:
+  /// **'Inside: {group}'**
+  String customFieldDetailInsideGroup(String group);
+
+  /// One-shot snackbar tip shown after the first group field is created
+  ///
+  /// In en, this message translates to:
+  /// **'Long-press a field to move it into a group'**
+  String get customFieldFirstGroupTip;
+
+  /// Disabled menu item shown when there are no eligible target groups for a move action
+  ///
+  /// In en, this message translates to:
+  /// **'No groups to move into'**
+  String get customFieldNoEligibleGroups;
 }
 
 class _AppLocalizationsDelegate

@@ -11504,5 +11504,24 @@
   "sliderGradientPresetSolidAccent": "Solid accent",
   "@sliderGradientPresetSolidAccent": { "description": "Label for the solid-accent gradient preset (single color, no gradient)" },
   "sliderGradientPresetMonochrome": "Monochrome",
-  "@sliderGradientPresetMonochrome": { "description": "Label for the monochrome gradient preset" }
+  "@sliderGradientPresetMonochrome": { "description": "Label for the monochrome gradient preset" },
+  "customFieldMenuEdit": "Edit",
+  "@customFieldMenuEdit": { "description": "Context menu item to edit a custom field" },
+  "customFieldMenuMoveIntoGroup": "Move into group",
+  "@customFieldMenuMoveIntoGroup": { "description": "Context menu item to move a field into a group; tapping shows a submenu of groups" },
+  "customFieldMenuMoveOutOfGroup": "Move out of group",
+  "@customFieldMenuMoveOutOfGroup": { "description": "Context menu item to move a nested field back to top level" },
+  "customFieldMenuMoveToAnotherGroup": "Move to another group",
+  "@customFieldMenuMoveToAnotherGroup": { "description": "Context menu item to move a nested field into a different group" },
+  "customFieldMenuDelete": "Delete",
+  "@customFieldMenuDelete": { "description": "Context menu item to delete a custom field" },
+  "customFieldDetailInsideGroup": "Inside: {group}",
+  "@customFieldDetailInsideGroup": {
+    "description": "Badge shown on the custom field detail screen when the field is nested inside a group",
+    "placeholders": { "group": { "type": "String" } }
+  },
+  "customFieldFirstGroupTip": "Long-press a field to move it into a group",
+  "@customFieldFirstGroupTip": { "description": "One-shot snackbar tip shown after the first group field is created" },
+  "customFieldNoEligibleGroups": "No groups to move into",
+  "@customFieldNoEligibleGroups": { "description": "Disabled menu item shown when there are no eligible target groups for a move action" }
 }
