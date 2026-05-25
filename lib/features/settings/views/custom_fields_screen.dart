@@ -85,6 +85,7 @@ class _FieldsList extends ConsumerWidget {
     CustomFieldType.longText => AppIcons.notes,
     CustomFieldType.color => AppIcons.palette,
     CustomFieldType.date => AppIcons.calendarToday,
+    CustomFieldType.choice => AppIcons.checkBoxOutlined,
   };
 
   String _subtitleForField(BuildContext context, CustomField field) {

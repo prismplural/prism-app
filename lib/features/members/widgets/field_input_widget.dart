@@ -68,7 +68,9 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
         ChatMarkdownEditingController(text: initialValue),
       CustomFieldType.longText =>
         MarkdownEditingController(text: initialValue),
-      CustomFieldType.color || CustomFieldType.date =>
+      CustomFieldType.color ||
+      CustomFieldType.date ||
+      CustomFieldType.choice =>
         TextEditingController(text: initialValue),
     };
   }
@@ -103,6 +105,7 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
       case CustomFieldType.color:
         await _saveValue(_textController.text.trim());
       case CustomFieldType.date:
+      case CustomFieldType.choice:
         break;
     }
   }
@@ -142,6 +145,8 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
       CustomFieldType.longText => _buildLongTextInput(context),
       CustomFieldType.color => _buildColorInput(context),
       CustomFieldType.date => _buildDateInput(context),
+      // choice renderer lands in Task 8
+      CustomFieldType.choice => const SizedBox.shrink(),
     };
   }
 

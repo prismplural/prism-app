@@ -8140,6 +8140,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldDatePrecisionTimestamp => 'Date & Time';
 
   @override
+  String get customFieldTypeChoice => 'Choice';
+
+  @override
+  String get customFieldChoiceOptionsHeading => 'Options';
+
+  @override
+  String get customFieldChoiceAddOption => 'Add option';
+
+  @override
+  String get customFieldChoiceOptionPlaceholder => 'Option label';
+
+  @override
+  String get customFieldChoiceAllowMultipleLabel => 'Allow multiple selections';
+
+  @override
+  String get customFieldChoiceAllowOtherLabel => 'Allow \'Other\' free text';
+
+  @override
+  String get customFieldChoiceDuplicateLabel => 'Duplicate label';
+
+  @override
+  String get customFieldChoiceRemoveOptionTooltip => 'Remove option';
+
+  @override
+  String get customFieldChoiceReorderHandleTooltip => 'Drag to reorder';
+
+  @override
+  String get customFieldChoiceColorCycleTooltip => 'Change color';
+
+  @override
   String get settingsDataBrowserTitle => 'Data Browser';
 
   @override

@@ -193,6 +193,7 @@ class _CustomFieldDetailBody extends ConsumerWidget {
     CustomFieldType.longText => AppIcons.notes,
     CustomFieldType.color => AppIcons.palette,
     CustomFieldType.date => AppIcons.calendarToday,
+    CustomFieldType.choice => AppIcons.checkBoxOutlined,
   };
 }
 
@@ -555,7 +556,8 @@ String _formatValueForField(
     CustomFieldType.date => _formatDateValue(context, raw, field.datePrecision),
     CustomFieldType.text ||
     CustomFieldType.longText ||
-    CustomFieldType.color => raw,
+    CustomFieldType.color ||
+    CustomFieldType.choice => raw,
   };
 }
 

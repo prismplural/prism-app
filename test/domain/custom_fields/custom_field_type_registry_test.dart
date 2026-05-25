@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/custom_fields/custom_field_type_registry.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
+import 'package:prism_plurality/domain/models/typed_field_value.dart';
 
 // ---------------------------------------------------------------------------
 // Test-local stub definitions — pure logic, no widget/riverpod/database deps.
@@ -13,6 +14,8 @@ import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 
 CustomFieldTypeConfig? _nullConfig(Map<String, dynamic>? json) => null;
 Map<String, dynamic>? _nullConfigOut(CustomFieldTypeConfig? config) => null;
+TypedFieldValue _nullParser(String? raw) => TypedFieldValue.text(raw ?? '');
+String _nullEncoder(TypedFieldValue v) => '';
 
 CustomFieldTypeDefinition _stub({
   required String id,
@@ -26,6 +29,8 @@ CustomFieldTypeDefinition _stub({
     icon: Icons.circle,
     configFromJson: _nullConfig,
     configToJson: _nullConfigOut,
+    valueParser: _nullParser,
+    valueEncoder: _nullEncoder,
     allowsTextualSwitch: allowsTextualSwitch,
   );
 }
@@ -110,13 +115,15 @@ void main() {
     });
 
     test('nullable legacyIntValue is allowed', () {
-      const noLegacyDef = CustomFieldTypeDefinition(
+      final noLegacyDef = CustomFieldTypeDefinition(
         id: 'future_no_legacy',
         legacyIntValue: null,
         labelL10nKey: 'future',
         icon: Icons.circle,
         configFromJson: _nullConfig,
         configToJson: _nullConfigOut,
+        valueParser: _nullParser,
+        valueEncoder: _nullEncoder,
       );
       // Two definitions with null legacyIntValue should be allowed
       // (no int collision since null is excluded from the duplicate check).

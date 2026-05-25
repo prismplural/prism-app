@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/domain/models/custom_field.dart';
+import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 
@@ -44,6 +45,8 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
     required CustomFieldType fieldType,
     DatePrecision? datePrecision,
     int displayOrder = 0,
+    String? fieldTypeId,
+    CustomFieldTypeConfig? typeConfig,
   }) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
@@ -54,6 +57,8 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
         datePrecision: datePrecision,
         displayOrder: displayOrder,
         createdAt: DateTime.now(),
+        fieldTypeId: fieldTypeId,
+        typeConfig: typeConfig,
       );
       await repo.createField(field);
     });
@@ -63,6 +68,20 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
       await repo.updateField(field);
+    });
+  }
+
+  /// Write a whole-config blob for [fieldId] using the LWW invariant.
+  ///
+  /// Any config mutation must write the entire blob — no field-level
+  /// merge inside the JSON. CRDT convergence depends on this contract.
+  Future<void> writeTypedConfig(
+    String fieldId,
+    CustomFieldTypeConfig newConfig,
+  ) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(customFieldsRepositoryProvider);
+      await repo.writeTypedConfig(fieldId, newConfig);
     });
   }
 

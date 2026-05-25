@@ -9,13 +9,15 @@ enum CustomFieldType {
   text, // 0 - short text
   color, // 1
   date, // 2
-  longText; // 3
+  longText, // 3
+  choice; // 4 - single/multi-select (fieldTypeId='choice', legacyIntValue=4)
 
   String get label => switch (this) {
     CustomFieldType.text => 'Short Text',
     CustomFieldType.color => 'Color',
     CustomFieldType.date => 'Date',
     CustomFieldType.longText => 'Long Text',
+    CustomFieldType.choice => 'Choice',
   };
 
   String localizedLabel(AppLocalizations l10n) => switch (this) {
@@ -23,11 +25,12 @@ enum CustomFieldType {
     CustomFieldType.color => l10n.customFieldTypeColor,
     CustomFieldType.date => l10n.customFieldTypeDate,
     CustomFieldType.longText => l10n.customFieldTypeLongText,
+    CustomFieldType.choice => l10n.customFieldTypeChoice,
   };
 
   bool get isTextual => switch (this) {
     CustomFieldType.text || CustomFieldType.longText => true,
-    CustomFieldType.color || CustomFieldType.date => false,
+    CustomFieldType.color || CustomFieldType.date || CustomFieldType.choice => false,
   };
 }
 

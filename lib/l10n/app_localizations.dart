@@ -13299,6 +13299,66 @@ abstract class AppLocalizations {
   /// **'Date & Time'**
   String get customFieldDatePrecisionTimestamp;
 
+  /// Label for the choice (single/multi-select) custom field type
+  ///
+  /// In en, this message translates to:
+  /// **'Choice'**
+  String get customFieldTypeChoice;
+
+  /// Section heading for the choice field options list in the create/edit field sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Options'**
+  String get customFieldChoiceOptionsHeading;
+
+  /// Button label to add a new choice option
+  ///
+  /// In en, this message translates to:
+  /// **'Add option'**
+  String get customFieldChoiceAddOption;
+
+  /// Placeholder text inside a choice option label text field
+  ///
+  /// In en, this message translates to:
+  /// **'Option label'**
+  String get customFieldChoiceOptionPlaceholder;
+
+  /// Toggle label for allowing multiple selections in a choice field
+  ///
+  /// In en, this message translates to:
+  /// **'Allow multiple selections'**
+  String get customFieldChoiceAllowMultipleLabel;
+
+  /// Toggle label for allowing an 'Other' free-text entry in a choice field
+  ///
+  /// In en, this message translates to:
+  /// **'Allow \'Other\' free text'**
+  String get customFieldChoiceAllowOtherLabel;
+
+  /// Warning chip shown when a choice option label duplicates another option
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate label'**
+  String get customFieldChoiceDuplicateLabel;
+
+  /// Tooltip for the remove button on a choice option row
+  ///
+  /// In en, this message translates to:
+  /// **'Remove option'**
+  String get customFieldChoiceRemoveOptionTooltip;
+
+  /// Tooltip for the drag handle on a choice option row
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to reorder'**
+  String get customFieldChoiceReorderHandleTooltip;
+
+  /// Tooltip for the color swatch button that cycles through palette colors
+  ///
+  /// In en, this message translates to:
+  /// **'Change color'**
+  String get customFieldChoiceColorCycleTooltip;
+
   /// Title of the data browser debug screen
   ///
   /// In en, this message translates to:
