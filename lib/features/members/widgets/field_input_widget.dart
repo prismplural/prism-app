@@ -140,12 +140,16 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
 
     // TODO(task-5): replace with registry.lookupByLegacyInt once field.fieldTypeId
     // is available on the domain model.
+    //
+    // NOTE: CustomFieldType.choice is handled entirely by the renderer registry
+    // (buildChoiceEditor in choice_field_widgets.dart). FieldInputWidget is
+    // only reached for the 4 legacy types; dispatch in custom_fields_editor.dart
+    // routes choice through the registry before it can reach this switch.
     return switch (widget.field.fieldType) {
       CustomFieldType.text => _buildTextInput(context),
       CustomFieldType.longText => _buildLongTextInput(context),
       CustomFieldType.color => _buildColorInput(context),
       CustomFieldType.date => _buildDateInput(context),
-      // choice renderer lands in Task 8
       CustomFieldType.choice => const SizedBox.shrink(),
     };
   }

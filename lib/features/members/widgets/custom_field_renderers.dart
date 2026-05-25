@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:prism_plurality/domain/custom_fields/custom_field_type_registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
+import 'package:prism_plurality/features/members/widgets/choice_field_widgets.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_display_widgets.dart';
 import 'package:prism_plurality/features/members/widgets/field_input_widget.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -69,6 +70,11 @@ final Map<String, CustomFieldRenderer> customFieldRenderers = {
     editorBuilder: buildDateEditor,
     displayBuilder: buildDateDisplay,
     compactBuilder: buildDateCompact,
+  ),
+  'choice': const CustomFieldRenderer(
+    editorBuilder: buildChoiceEditor,
+    displayBuilder: buildChoiceDisplay,
+    compactBuilder: buildChoiceCompact,
   ),
 };
 
