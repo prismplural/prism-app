@@ -11332,5 +11332,45 @@
   "customFieldGroupDeleteChildren": "Delete them too",
   "@customFieldGroupDeleteChildren": {
     "description": "Action button in the delete-group dialog that deletes all child fields along with the group"
+  },
+  "customFieldTypeScale": "Scale",
+  "@customFieldTypeScale": { "description": "Label for the Scale custom field type in the type picker" },
+  "customFieldScaleEmojiHeading": "Emoji",
+  "@customFieldScaleEmojiHeading": { "description": "Section heading for the emoji picker in scale field config" },
+  "customFieldScaleStepsHeading": "Steps",
+  "@customFieldScaleStepsHeading": { "description": "Section heading for the steps slider in scale field config" },
+  "customFieldScaleAdvancedEmoji": "Advanced: any emoji",
+  "@customFieldScaleAdvancedEmoji": { "description": "Button that reveals the free-form emoji input in scale field config" },
+  "customFieldScaleCustomEmojiHint": "Type or paste an emoji",
+  "@customFieldScaleCustomEmojiHint": { "description": "Hint text for the custom emoji text field in scale field config" },
+  "customFieldScaleStepsHelpFew": "{count} steps",
+  "@customFieldScaleStepsHelpFew": {
+    "description": "Live label showing the current number of steps in the scale steps slider",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "customFieldScaleStepsHelpMany": "Larger scales may be cramped on small screens",
+  "@customFieldScaleStepsHelpMany": { "description": "Soft warning shown below the steps slider when steps > 7" },
+  "customFieldScaleClearTooltip": "Clear rating",
+  "@customFieldScaleClearTooltip": { "description": "Tooltip for the × clear button in the scale field editor" },
+  "customFieldScaleClearedAnnouncement": "Cleared rating",
+  "@customFieldScaleClearedAnnouncement": { "description": "Screen-reader announcement spoken when the scale rating is cleared via long-press" },
+  "customFieldScaleSemanticLabel": "{name}: {step} of {total}",
+  "@customFieldScaleSemanticLabel": {
+    "description": "Accessibility label for the scale emoji row, describing the current rating",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "step": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -4,6 +4,7 @@ import 'package:prism_plurality/domain/custom_fields/definitions/color_field_def
 import 'package:prism_plurality/domain/custom_fields/definitions/date_field_definition.dart';
 import 'package:prism_plurality/domain/custom_fields/definitions/group_field_definition.dart';
 import 'package:prism_plurality/domain/custom_fields/definitions/long_text_field_definition.dart';
+import 'package:prism_plurality/domain/custom_fields/definitions/scale_field_definition.dart';
 import 'package:prism_plurality/domain/custom_fields/definitions/text_field_definition.dart';
 
 /// The global registry of all registered custom field types.
@@ -13,7 +14,6 @@ import 'package:prism_plurality/domain/custom_fields/definitions/text_field_defi
 ///
 /// Future types are added by appending to this list — no schema or dispatch
 /// site changes required (Tasks 7, 9, 11, 13):
-///   // scaleFieldDefinition  — Task 11
 ///   // sliderFieldDefinition — Task 13
 final customFieldTypeRegistry = CustomFieldTypeRegistry([
   textFieldDefinition,
@@ -22,4 +22,5 @@ final customFieldTypeRegistry = CustomFieldTypeRegistry([
   longTextFieldDefinition,
   choiceFieldDefinition, // Task 7
   groupFieldDefinition, // Task 9
+  scaleFieldDefinition, // Task 11
 ]);

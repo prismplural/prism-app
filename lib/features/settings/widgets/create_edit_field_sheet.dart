@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/domain/custom_fields/choice_option_palette.dart';
 import 'package:prism_plurality/domain/custom_fields/custom_field_type_registry.dart';
 import 'package:prism_plurality/domain/custom_fields/registry.dart';
+import 'package:prism_plurality/domain/custom_fields/scale_emoji_palette.dart';
 import 'package:prism_plurality/domain/models/choice_option.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
@@ -79,6 +80,13 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   // Per-option focus nodes, keyed by option ID.
   final Map<String, FocusNode> _optionFocusNodes = {};
 
+  // Scale config state — mutable copy for the UI.
+  String _scaleEmoji = '⭐';
+  int _scaleSteps = 5;
+  // Whether the "Advanced: any emoji" input is visible.
+  bool _scaleShowCustomEmojiInput = false;
+  late final TextEditingController _scaleCustomEmojiController;
+
   bool _saving = false;
   late final String _initialName;
   late final String _initialTypeId;
@@ -88,7 +96,17 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       _nameController.text != _initialName ||
       _selectedTypeId != _initialTypeId ||
       _selectedPrecision != _initialPrecision ||
-      (_selectedTypeId == 'choice' && _isChoiceDirty);
+      (_selectedTypeId == 'choice' && _isChoiceDirty) ||
+      (_selectedTypeId == 'scale' && _isScaleDirty);
+
+  bool get _isScaleDirty {
+    final existingConfig = widget.field?.typeConfig;
+    if (existingConfig is! ScaleConfig || _selectedTypeId != 'scale') {
+      return _scaleEmoji != '⭐' || _scaleSteps != 5;
+    }
+    return existingConfig.emoji != _scaleEmoji ||
+        existingConfig.steps != _scaleSteps;
+  }
 
   bool get _isChoiceDirty {
     final existingConfig = widget.field?.typeConfig;
@@ -123,6 +141,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     super.initState();
     final f = widget.field;
     _nameController = TextEditingController(text: f?.name ?? '');
+    _scaleCustomEmojiController = TextEditingController();
     if (f != null) {
       // Derive canonical type ID. Prefer fieldTypeId (registry-first); fall
       // back to looking up the legacy enum's int in the registry.
@@ -138,6 +157,12 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         _choiceOptions = List.of(config.options);
         _choiceAllowsMultiple = config.allowsMultiple;
         _choiceAllowsOther = config.allowsOther;
+      }
+      // Hydrate scale config from existing field.
+      if (f.typeConfig is ScaleConfig) {
+        final config = f.typeConfig! as ScaleConfig;
+        _scaleEmoji = config.emoji;
+        _scaleSteps = config.steps;
       }
     } else {
       // New field: default to 'text'. When adding a child to a group,
@@ -158,6 +183,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   @override
   void dispose() {
     _nameController.dispose();
+    _scaleCustomEmojiController.dispose();
     for (final c in _optionControllers.values) {
       c.dispose();
     }
@@ -263,6 +289,13 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     );
   }
 
+  // ── Scale helpers ───────────────────────────────────────────────────
+
+  /// Build the current [ScaleConfig] from UI state.
+  ScaleConfig _buildScaleConfig() {
+    return ScaleConfig(emoji: _scaleEmoji, steps: _scaleSteps);
+  }
+
   // ── Duplicate detection ─────────────────────────────────────────────
 
   /// Returns IDs of options whose labels are duplicated (case-insensitive).
@@ -310,6 +343,13 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
               ? CustomFieldType.values[legacyInt]
               : CustomFieldType.text;
 
+      // Derive the typeConfig for types that need it.
+      final CustomFieldTypeConfig? typeConfig = switch (_selectedTypeId) {
+        'choice' => _buildChoiceConfig(),
+        'scale' => _buildScaleConfig(),
+        _ => null,
+      };
+
       if (widget.isEditing) {
         final updated = widget.field!.copyWith(
           name: name,
@@ -317,8 +357,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           fieldTypeId: _selectedTypeId,
           datePrecision:
               _selectedTypeId == 'date' ? _selectedPrecision : null,
-          typeConfig:
-              _selectedTypeId == 'choice' ? _buildChoiceConfig() : null,
+          typeConfig: typeConfig,
         );
         await notifier.updateField(updated);
       } else {
@@ -328,8 +367,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           datePrecision:
               _selectedTypeId == 'date' ? _selectedPrecision : null,
           fieldTypeId: _selectedTypeId,
-          typeConfig:
-              _selectedTypeId == 'choice' ? _buildChoiceConfig() : null,
+          typeConfig: typeConfig,
           parentFieldId: widget.parentFieldId,
         );
       }
@@ -523,6 +561,25 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                       ),
                     ],
 
+                    // Scale config
+                    if (_selectedTypeId == 'scale') ...[
+                      const SizedBox(height: 24),
+                      _ScaleConfigSection(
+                        selectedEmoji: _scaleEmoji,
+                        steps: _scaleSteps,
+                        showCustomEmojiInput: _scaleShowCustomEmojiInput,
+                        customEmojiController: _scaleCustomEmojiController,
+                        onEmojiSelected: (e) =>
+                            setState(() => _scaleEmoji = e),
+                        onToggleCustomEmoji: () => setState(
+                          () => _scaleShowCustomEmojiInput =
+                              !_scaleShowCustomEmojiInput,
+                        ),
+                        onStepsChanged: (v) =>
+                            setState(() => _scaleSteps = v),
+                      ),
+                    ],
+
                     const SizedBox(height: 32),
                   ],
                 ),
@@ -553,6 +610,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       'customFieldTypeDate' => l10n.customFieldTypeDate,
       'customFieldTypeChoice' => l10n.customFieldTypeChoice,
       'customFieldTypeGroup' => l10n.customFieldTypeGroup,
+      'customFieldTypeScale' => l10n.customFieldTypeScale,
       _ => def.labelL10nKey,
     };
   }
@@ -780,6 +838,176 @@ class _ChoiceOptionRow extends StatelessWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Scale config section ────────────────────────────────────────────────────
+
+class _ScaleConfigSection extends StatelessWidget {
+  const _ScaleConfigSection({
+    required this.selectedEmoji,
+    required this.steps,
+    required this.showCustomEmojiInput,
+    required this.customEmojiController,
+    required this.onEmojiSelected,
+    required this.onToggleCustomEmoji,
+    required this.onStepsChanged,
+  });
+
+  final String selectedEmoji;
+  final int steps;
+  final bool showCustomEmojiInput;
+  final TextEditingController customEmojiController;
+  final ValueChanged<String> onEmojiSelected;
+  final VoidCallback onToggleCustomEmoji;
+  final ValueChanged<int> onStepsChanged;
+
+  static const int _softWarnThreshold = 7;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Emoji picker ──────────────────────────────────────────────
+        Text(
+          l10n.customFieldScaleEmojiHeading,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: [
+            for (final emoji in kScaleEmojiPalette)
+              _EmojiPickerButton(
+                emoji: emoji,
+                isSelected: selectedEmoji == emoji && !showCustomEmojiInput,
+                onTap: () => onEmojiSelected(emoji),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: onToggleCustomEmoji,
+          style: TextButton.styleFrom(
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Text(l10n.customFieldScaleAdvancedEmoji),
+        ),
+        if (showCustomEmojiInput) ...[
+          const SizedBox(height: 8),
+          PrismTextField(
+            controller: customEmojiController,
+            hintText: l10n.customFieldScaleCustomEmojiHint,
+            onChanged: (value) {
+              // Use the raw input if non-empty (user typed/pasted an emoji).
+              // We don't try to extract a single grapheme cluster here since
+              // multi-codepoint emoji (ZWJ sequences) would be truncated.
+              // The l10n hint text already instructs the user to type/paste
+              // a single emoji.
+              if (value.isNotEmpty) {
+                onEmojiSelected(value);
+              }
+            },
+          ),
+        ],
+
+        const SizedBox(height: 24),
+
+        // ── Steps slider ─────────────────────────────────────────────
+        Text(
+          l10n.customFieldScaleStepsHeading,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Expanded(
+              child: Slider(
+                value: steps.toDouble(),
+                min: 2,
+                max: 10,
+                divisions: 8,
+                label: l10n.customFieldScaleStepsHelpFew(steps),
+                onChanged: (v) => onStepsChanged(v.round()),
+              ),
+            ),
+            SizedBox(
+              width: 80,
+              child: Text(
+                l10n.customFieldScaleStepsHelpFew(steps),
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+        if (steps > _softWarnThreshold) ...[
+          const SizedBox(height: 4),
+          Text(
+            l10n.customFieldScaleStepsHelpMany,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+
+        // TODO(spec §2c): Per-step labels UI deferred to v2. The ScaleConfig
+        // model already has a `stepLabels` field; the editor UI for populating
+        // it was descoped from this batch to keep the surface tight. When
+        // implemented, add a "Step labels" toggle here that reveals a list of
+        // N text inputs, one per step.
+      ],
+    );
+  }
+}
+
+/// A single tappable emoji button in the scale emoji palette picker.
+class _EmojiPickerButton extends StatelessWidget {
+  const _EmojiPickerButton({
+    required this.emoji,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String emoji;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: isSelected
+              ? theme.colorScheme.primaryContainer
+              : Colors.transparent,
+          border: Border.all(
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outlineVariant,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Center(
+          child: Text(emoji, style: const TextStyle(fontSize: 22)),
+        ),
       ),
     );
   }

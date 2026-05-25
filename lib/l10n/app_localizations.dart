@@ -16918,6 +16918,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete them too'**
   String get customFieldGroupDeleteChildren;
+
+  /// Label for the Scale custom field type in the type picker
+  ///
+  /// In en, this message translates to:
+  /// **'Scale'**
+  String get customFieldTypeScale;
+
+  /// Section heading for the emoji picker in scale field config
+  ///
+  /// In en, this message translates to:
+  /// **'Emoji'**
+  String get customFieldScaleEmojiHeading;
+
+  /// Section heading for the steps slider in scale field config
+  ///
+  /// In en, this message translates to:
+  /// **'Steps'**
+  String get customFieldScaleStepsHeading;
+
+  /// Button that reveals the free-form emoji input in scale field config
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced: any emoji'**
+  String get customFieldScaleAdvancedEmoji;
+
+  /// Hint text for the custom emoji text field in scale field config
+  ///
+  /// In en, this message translates to:
+  /// **'Type or paste an emoji'**
+  String get customFieldScaleCustomEmojiHint;
+
+  /// Live label showing the current number of steps in the scale steps slider
+  ///
+  /// In en, this message translates to:
+  /// **'{count} steps'**
+  String customFieldScaleStepsHelpFew(int count);
+
+  /// Soft warning shown below the steps slider when steps > 7
+  ///
+  /// In en, this message translates to:
+  /// **'Larger scales may be cramped on small screens'**
+  String get customFieldScaleStepsHelpMany;
+
+  /// Tooltip for the × clear button in the scale field editor
+  ///
+  /// In en, this message translates to:
+  /// **'Clear rating'**
+  String get customFieldScaleClearTooltip;
+
+  /// Screen-reader announcement spoken when the scale rating is cleared via long-press
+  ///
+  /// In en, this message translates to:
+  /// **'Cleared rating'**
+  String get customFieldScaleClearedAnnouncement;
+
+  /// Accessibility label for the scale emoji row, describing the current rating
+  ///
+  /// In en, this message translates to:
+  /// **'{name}: {step} of {total}'**
+  String customFieldScaleSemanticLabel(String name, int step, int total);
 }
 
 class _AppLocalizationsDelegate

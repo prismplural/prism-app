@@ -10687,4 +10687,39 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get customFieldGroupDeleteChildren => 'Delete them too';
+
+  @override
+  String get customFieldTypeScale => 'Scale';
+
+  @override
+  String get customFieldScaleEmojiHeading => 'Emoji';
+
+  @override
+  String get customFieldScaleStepsHeading => 'Steps';
+
+  @override
+  String get customFieldScaleAdvancedEmoji => 'Advanced: any emoji';
+
+  @override
+  String get customFieldScaleCustomEmojiHint => 'Type or paste an emoji';
+
+  @override
+  String customFieldScaleStepsHelpFew(int count) {
+    return '$count steps';
+  }
+
+  @override
+  String get customFieldScaleStepsHelpMany =>
+      'Larger scales may be cramped on small screens';
+
+  @override
+  String get customFieldScaleClearTooltip => 'Clear rating';
+
+  @override
+  String get customFieldScaleClearedAnnouncement => 'Cleared rating';
+
+  @override
+  String customFieldScaleSemanticLabel(String name, int step, int total) {
+    return '$name: $step of $total';
+  }
 }
