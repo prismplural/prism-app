@@ -282,6 +282,9 @@ const String prismSyncSchema = '''
       "fields": {
         "name": "String",
         "field_type": "Int",
+        "field_type_id": "String",
+        "parent_field_id": "String",
+        "type_config_json": "String",
         "date_precision": "Int",
         "display_order": "Int",
         "created_at": "DateTime",

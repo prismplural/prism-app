@@ -494,6 +494,12 @@ const _writeOmittedFields = <String, Set<String>>{
   //   but the emit path for each is a discrete syncRecordUpdate, not the bulk
   //   helper.
   'system_settings': {'boards_enabled', 'sp_boards_backfilled_at'},
+  // `field_type_id`, `parent_field_id`, `type_config_json` — new columns added
+  //   in custom-fields-v2 Task 1. The domain CustomField model does not yet
+  //   carry these fields (model extension is a later task). The sync adapter
+  //   already round-trips them (Task 2); the repository _fieldFields helper
+  //   will be updated when the domain model is extended.
+  'custom_fields': {'field_type_id', 'parent_field_id', 'type_config_json'},
 };
 
 /// Extracts the set of string keys (e.g. `'created_at':`) from the body of a
