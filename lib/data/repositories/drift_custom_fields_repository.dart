@@ -189,7 +189,11 @@ class DriftCustomFieldsRepository
   ///
   /// Whole-config LWW invariant: any config mutation writes the entire blob.
   /// No field-level merge inside the JSON. CRDT convergence depends on this.
-  Future<void> _writeTypedConfig(
+  ///
+  /// Part of the public [CustomFieldsRepository] interface so BATCH 2+
+  /// choice-config UI can use the whole-config LWW write path directly.
+  @override
+  Future<void> writeTypedConfig(
     String fieldId,
     CustomFieldTypeConfig newConfig,
   ) async {

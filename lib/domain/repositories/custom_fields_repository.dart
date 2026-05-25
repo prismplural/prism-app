@@ -1,4 +1,5 @@
 import 'package:prism_plurality/domain/models/custom_field.dart' as domain;
+import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart'
     as domain;
 
@@ -22,4 +23,14 @@ abstract class CustomFieldsRepository {
   Future<void> deleteValue(String id);
   Future<void> deleteValuesForField(String fieldId);
   Future<void> deleteValuesForMember(String memberId);
+
+  /// Write a whole-config blob for [fieldId] using the LWW (last-write-wins)
+  /// invariant: any config mutation writes the entire blob. No field-level
+  /// merge inside the JSON. CRDT convergence depends on this contract.
+  ///
+  /// First callers land in BATCH 2 (choice option mutations) and beyond.
+  Future<void> writeTypedConfig(
+    String fieldId,
+    CustomFieldTypeConfig newConfig,
+  );
 }

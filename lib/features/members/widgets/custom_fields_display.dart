@@ -6,7 +6,7 @@ import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
-import 'package:prism_plurality/features/members/widgets/custom_field_display_widgets.dart';
+import 'package:prism_plurality/features/members/widgets/custom_field_renderers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
@@ -98,26 +98,25 @@ class CustomFieldsDisplay extends ConsumerWidget {
     return widgets;
   }
 
+  /// Format the raw stored value into a human-readable string for display.
+  ///
+  /// For date fields, this formats per the field's precision. For all other
+  /// legacy types, the raw value is used as-is. Keyed on [field.fieldTypeId]
+  /// (the stable string ID) rather than the legacy enum.
   static String _formatValueForField(
     BuildContext context,
     CustomField field,
     String raw,
   ) {
-    return switch (field.fieldType) {
-      CustomFieldType.date => _formatDateValue(
-        context,
-        raw,
-        field.datePrecision,
-      ),
-      CustomFieldType.text ||
-      CustomFieldType.longText ||
-      CustomFieldType.color => raw,
-    };
+    if (field.fieldTypeId == 'date') {
+      return _formatDateValue(context, raw, field.datePrecision);
+    }
+    return raw;
   }
 
   static bool _shouldUseCard(_FieldValueEntry entry) {
-    if (entry.field.fieldType == CustomFieldType.longText) return true;
-    if (entry.field.fieldType == CustomFieldType.text) return false;
+    if (entry.field.fieldTypeId == 'long_text') return true;
+    if (entry.field.fieldTypeId == 'text') return false;
     if (entry.value.value.contains('\n')) return true;
     if (entry.field.name.length > _compactNameLimit) return true;
     if (entry.displayValue.length > _compactValueLimit) return true;
@@ -293,8 +292,12 @@ class _FieldValueCard extends StatelessWidget {
   }
 }
 
-/// Renders the value body for a custom field entry. Dispatches to the
-/// appropriate display widget via the registry.
+/// Renders the value body for a custom field entry. Dispatches THROUGH the
+/// renderer registry — no hardcoded type switches.
+///
+/// [textStyle] and [textAlign] are applied via [DefaultTextStyle] and [Align]
+/// at the call site when the renderer returns a widget that benefits from them.
+/// Each renderer is self-contained; callers style the container, not internals.
 class _FieldValueBody extends StatelessWidget {
   const _FieldValueBody({
     required this.entry,
@@ -309,36 +312,23 @@ class _FieldValueBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final def = customFieldTypeRegistry.lookupById(entry.field.fieldTypeId);
+    final renderer = rendererFor(def);
 
-    if (def == null) {
-      // Unknown type — forward-compat: render as plain text.
+    if (renderer == null) {
+      // Unknown type — forward-compat: render as plain text with caller style.
       return Text(entry.value.value, style: textStyle, textAlign: textAlign);
     }
 
-    // The compact builder is used for inline row rendering (the compact group).
-    // For card rendering, we call displayBuilder. Both paths go through the
-    // registry but we route based on usage context via textStyle/textAlign hints.
-    // Since the definition's display/compact builders return complete widgets,
-    // we need to pick one. For _FieldValueBody we always call displayBuilder
-    // (it is used by both _FieldValueRow and _FieldValueCard). The distinction
-    // between compact and full display is handled at layout level above.
-    return switch (entry.field.fieldType) {
-      CustomFieldType.text => FieldInlineMarkdownText(
-        entry.value.value,
-        style: textStyle,
-        textAlign: textAlign,
-      ),
-      CustomFieldType.longText => FieldLongTextPreview(
-        title: entry.field.name,
-        data: entry.value.value,
-        style: textStyle,
-      ),
-      CustomFieldType.color => FieldColorDisplay(value: entry.value.value),
-      CustomFieldType.date => Text(
-        entry.displayValue,
-        style: textStyle,
-        textAlign: textAlign,
-      ),
-    };
+    // Wrap in DefaultTextStyle so renderers that produce Text widgets inherit
+    // the caller's desired style without each renderer needing to accept it.
+    final child = renderer.displayBuilder(context, entry.field, entry.value);
+
+    if (textStyle == null && textAlign == TextAlign.start) return child;
+
+    return DefaultTextStyle.merge(
+      style: textStyle ?? const TextStyle(),
+      textAlign: textAlign,
+      child: child,
+    );
   }
 }

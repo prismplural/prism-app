@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart' as domain;
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 
@@ -84,18 +85,9 @@ class CustomFieldMapper {
   /// rows where field_type_id was not yet stored.
   ///
   /// The v27→v28 migration backfills field_type_id for all rows, so this path
-  /// is only hit defensively. Uses a standalone table rather than importing
-  /// the registry to keep this file free of widget/provider dependencies.
+  /// is only hit defensively. Delegates to the registry now that registry.dart
+  /// is pure Dart (no widget/provider transitive dependencies after Fix 1).
   static String? _legacyIntToId(int legacyInt) {
-    // Must stay in sync with CustomFieldTypeDefinition.legacyIntValue in
-    // the registry definitions. Legacy types 0–3 only; new types always
-    // write field_type_id directly and never fall through here.
-    const _legacyMap = {
-      0: 'text',
-      1: 'color',
-      2: 'date',
-      3: 'long_text',
-    };
-    return _legacyMap[legacyInt];
+    return customFieldTypeRegistry.lookupByLegacyInt(legacyInt)?.id;
   }
 }

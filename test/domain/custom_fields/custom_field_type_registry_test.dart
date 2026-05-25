@@ -13,13 +13,6 @@ import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 
 CustomFieldTypeConfig? _nullConfig(Map<String, dynamic>? json) => null;
 Map<String, dynamic>? _nullConfigOut(CustomFieldTypeConfig? config) => null;
-Widget _noWidget(
-  BuildContext context,
-  dynamic field,
-  dynamic value, [
-  dynamic _,
-]) =>
-    const SizedBox.shrink();
 
 CustomFieldTypeDefinition _stub({
   required String id,
@@ -33,9 +26,6 @@ CustomFieldTypeDefinition _stub({
     icon: Icons.circle,
     configFromJson: _nullConfig,
     configToJson: _nullConfigOut,
-    editorBuilder: (c, f, v, m) => const SizedBox.shrink(),
-    displayBuilder: (c, f, v) => const SizedBox.shrink(),
-    compactBuilder: (c, f, v) => const SizedBox.shrink(),
     allowsTextualSwitch: allowsTextualSwitch,
   );
 }
@@ -120,16 +110,13 @@ void main() {
     });
 
     test('nullable legacyIntValue is allowed', () {
-      final noLegacyDef = CustomFieldTypeDefinition(
+      const noLegacyDef = CustomFieldTypeDefinition(
         id: 'future_no_legacy',
         legacyIntValue: null,
         labelL10nKey: 'future',
         icon: Icons.circle,
         configFromJson: _nullConfig,
         configToJson: _nullConfigOut,
-        editorBuilder: (c, f, v, m) => const SizedBox.shrink(),
-        displayBuilder: (c, f, v) => const SizedBox.shrink(),
-        compactBuilder: (c, f, v) => const SizedBox.shrink(),
       );
       // Two definitions with null legacyIntValue should be allowed
       // (no int collision since null is excluded from the duplicate check).

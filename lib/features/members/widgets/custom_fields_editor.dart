@@ -5,6 +5,7 @@ import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/members/widgets/custom_field_renderers.dart';
 import 'package:prism_plurality/features/members/widgets/field_input_widget.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -91,19 +92,37 @@ class CustomFieldsEditor extends ConsumerWidget {
     CustomFieldValue? existingValue,
   ) {
     final def = customFieldTypeRegistry.lookupById(field.fieldTypeId);
-    if (def != null) {
-      // The registry editorBuilder creates a FieldInputWidget for legacy types;
-      // future types will have their own stateful widgets. The controller is
-      // threaded in via FieldInputWidget's optional parameter — for legacy
-      // types the builder creates a FieldInputWidget that accepts the controller
-      // via the field_input_widget.dart API.
-      return _ControllerBoundFieldInput(
-        field: field,
-        memberId: memberId,
-        existingValue: existingValue,
-        controller: controller,
-      );
+    final renderer = rendererFor(def);
+
+    if (renderer != null) {
+      // Dispatch THROUGH the renderer registry. For the 4 legacy types, the
+      // renderer returns a FieldInputWidget. Future types (choice, scale,
+      // slider, group) register their own renderer and return a different
+      // widget — no edits to this method needed.
+      //
+      // For legacy types the renderer's editorBuilder creates a bare
+      // FieldInputWidget without a controller. We wrap it in
+      // _ControllerBoundFieldInput so the controller can coordinate saves.
+      // Once all types are either legacy (FieldInputWidget) or self-managing
+      // (their own StatefulWidget that doesn't need the controller), this
+      // wrapping can be revisited.
+      if (def!.id == 'text' ||
+          def.id == 'long_text' ||
+          def.id == 'color' ||
+          def.id == 'date') {
+        // All 4 legacy types use FieldInputWidget; give it the controller.
+        return _ControllerBoundFieldInput(
+          field: field,
+          memberId: memberId,
+          existingValue: existingValue,
+          controller: controller,
+        );
+      }
+      // Non-legacy types: delegate entirely to the renderer. The controller
+      // is not threaded in — future types manage their own save lifecycle.
+      return renderer.editorBuilder(context, field, existingValue, memberId);
     }
+
     // Unknown type — render nothing rather than crashing. Forward-compat: a
     // newer schema may have a type the current build doesn't know about.
     return const SizedBox.shrink();
@@ -112,10 +131,10 @@ class CustomFieldsEditor extends ConsumerWidget {
 
 /// Thin wrapper that passes [CustomFieldsEditorController] into [FieldInputWidget].
 ///
-/// The registry's [editorBuilder] signature is `(context, field, value, memberId)`
-/// and has no slot for the controller. This widget bridges the gap: it creates
-/// [FieldInputWidget] directly, giving it the controller, so the controller can
-/// call [savePendingValue] on all registered inputs.
+/// All 4 legacy types share [FieldInputWidget] with coordinated saves via
+/// the controller. This wrapper lets [CustomFieldsEditor._buildFieldEditor]
+/// route through the renderer registry while still providing the controller
+/// to the underlying widget.
 class _ControllerBoundFieldInput extends StatelessWidget {
   const _ControllerBoundFieldInput({
     required this.field,

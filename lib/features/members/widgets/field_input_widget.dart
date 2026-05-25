@@ -26,7 +26,7 @@ import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 ///
 /// This is a public class (non-private) so that
 /// [CustomFieldsEditorController] can store its state instances, and so that
-/// definition files can create instances for their [editorBuilder] functions.
+/// renderer functions in custom_field_renderers.dart can create instances.
 class FieldInputWidget extends ConsumerStatefulWidget {
   const FieldInputWidget({
     super.key,

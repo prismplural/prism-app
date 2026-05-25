@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
+import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
@@ -225,4 +226,10 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   @override
   Stream<List<CustomFieldValue>> watchValuesForField(String fieldId) =>
       const Stream.empty();
+
+  @override
+  Future<void> writeTypedConfig(
+    String fieldId,
+    CustomFieldTypeConfig newConfig,
+  ) async {}
 }
