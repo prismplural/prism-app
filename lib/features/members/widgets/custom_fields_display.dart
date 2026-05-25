@@ -7,6 +7,7 @@ import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_renderers.dart';
+import 'package:prism_plurality/features/members/widgets/group_field_widgets.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
@@ -47,36 +48,52 @@ class CustomFieldsDisplay extends ConsumerWidget {
       for (final v in values) v.customFieldId: v,
     };
 
-    // Only iterate top-level fields (parentFieldId == null). Group-type fields
-    // have no per-member value; group children are skipped here — they would
-    // render at the top level otherwise, bypassing their parent group container.
-    // Groups themselves are also skipped because they have no stored value.
-    final entries = [
-      for (final field in fields.where((f) => f.parentFieldId == null))
-        if ((valueMap[field.id]?.value ?? '').isNotEmpty)
-          _FieldValueEntry(
-            field: field,
-            value: valueMap[field.id]!,
-            displayValue: _formatValueForField(
-              context,
-              field,
-              valueMap[field.id]!.value,
-            ),
-          ),
-    ];
+    // Iterate top-level fields (parentFieldId == null) in displayOrder.
+    // Group-type fields have no per-member value and are routed directly to
+    // _GroupDisplayWidget (which watches providers itself). Non-group fields
+    // take the value-driven _FieldValueEntry path as before.
+    //
+    // Children of groups are intentionally excluded here — they render inside
+    // their parent's _GroupDisplayWidget instead.
+    final topLevelFields =
+        fields.where((f) => f.parentFieldId == null).toList();
 
-    if (entries.isEmpty) return const SizedBox.shrink();
+    final items = <_TopLevelItem>[];
+    for (final field in topLevelFields) {
+      if (field.fieldTypeId == 'group') {
+        items.add(_TopLevelItem.group(field));
+      } else {
+        final value = valueMap[field.id];
+        if (value != null && value.value.isNotEmpty) {
+          items.add(
+            _TopLevelItem.entry(
+              _FieldValueEntry(
+                field: field,
+                value: value,
+                displayValue: _formatValueForField(context, field, value.value),
+              ),
+            ),
+          );
+        }
+      }
+    }
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    // Build the widget list respecting compact-run grouping for entry items.
+    // Group widgets are rendered individually (no compact-run membership).
+    final widgets = _buildItemWidgets(items);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: _buildEntryWidgets(entries),
+        children: widgets,
       ),
     );
   }
 
-  List<Widget> _buildEntryWidgets(List<_FieldValueEntry> entries) {
+  List<Widget> _buildItemWidgets(List<_TopLevelItem> items) {
     final widgets = <Widget>[];
     var compactRun = <_FieldValueEntry>[];
 
@@ -87,7 +104,15 @@ class CustomFieldsDisplay extends ConsumerWidget {
       compactRun = [];
     }
 
-    for (final entry in entries) {
+    for (final item in items) {
+      if (item.isGroup) {
+        flushCompactRun();
+        if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
+        widgets.add(buildGroupDisplayForMember(item.groupField!, memberId));
+        continue;
+      }
+
+      final entry = item.entry!;
       if (entry.isCompact) {
         compactRun.add(entry);
         continue;
@@ -101,6 +126,7 @@ class CustomFieldsDisplay extends ConsumerWidget {
     flushCompactRun();
     return widgets;
   }
+
 
   /// Format the raw stored value into a human-readable string for display.
   ///
@@ -163,6 +189,24 @@ class _FieldValueEntry {
   final String displayValue;
 
   bool get isCompact => !CustomFieldsDisplay._shouldUseCard(this);
+}
+
+/// Discriminated union of top-level display items: either a group widget
+/// (rendered directly by [_GroupDisplayWidget]) or a value-driven entry
+/// (rendered via the compact/card path).
+class _TopLevelItem {
+  const _TopLevelItem._({this.groupField, this.entry});
+
+  factory _TopLevelItem.group(CustomField field) =>
+      _TopLevelItem._(groupField: field);
+
+  factory _TopLevelItem.entry(_FieldValueEntry entry) =>
+      _TopLevelItem._(entry: entry);
+
+  final CustomField? groupField;
+  final _FieldValueEntry? entry;
+
+  bool get isGroup => groupField != null;
 }
 
 class _CompactFieldGroup extends StatelessWidget {

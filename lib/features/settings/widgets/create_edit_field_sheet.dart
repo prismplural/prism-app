@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/domain/custom_fields/choice_option_palette.dart';
+import 'package:prism_plurality/domain/custom_fields/custom_field_type_registry.dart';
+import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/choice_option.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
@@ -57,16 +59,14 @@ class CreateEditFieldSheet extends ConsumerStatefulWidget {
 class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   static const _uuid = Uuid();
 
-  static const _fieldTypeOptions = [
-    CustomFieldType.text,
-    CustomFieldType.longText,
-    CustomFieldType.color,
-    CustomFieldType.date,
-    CustomFieldType.choice,
-  ];
-
   late final TextEditingController _nameController;
-  CustomFieldType _selectedType = CustomFieldType.text;
+
+  /// Canonical type identifier — the stable string ID from the registry.
+  /// All type-conditional logic branches on this, not on [CustomFieldType].
+  /// Defaults to 'text'; never 'group' when adding a child field (enforced
+  /// in [initState]).
+  late String _selectedTypeId;
+
   DatePrecision _selectedPrecision = DatePrecision.full;
 
   // Choice config state — mutable copy of options for the UI.
@@ -81,18 +81,18 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
 
   bool _saving = false;
   late final String _initialName;
-  late final CustomFieldType _initialType;
+  late final String _initialTypeId;
   late final DatePrecision _initialPrecision;
 
   bool get _isDirty =>
       _nameController.text != _initialName ||
-      _selectedType != _initialType ||
+      _selectedTypeId != _initialTypeId ||
       _selectedPrecision != _initialPrecision ||
-      (_selectedType == CustomFieldType.choice && _isChoiceDirty);
+      (_selectedTypeId == 'choice' && _isChoiceDirty);
 
   bool get _isChoiceDirty {
     final existingConfig = widget.field?.typeConfig;
-    if (existingConfig is! ChoiceConfig) {
+    if (existingConfig is! ChoiceConfig || _selectedTypeId != 'choice') {
       return _choiceOptions.isNotEmpty ||
           _choiceAllowsMultiple ||
           _choiceAllowsOther;
@@ -124,7 +124,13 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     final f = widget.field;
     _nameController = TextEditingController(text: f?.name ?? '');
     if (f != null) {
-      _selectedType = f.fieldType;
+      // Derive canonical type ID. Prefer fieldTypeId (registry-first); fall
+      // back to looking up the legacy enum's int in the registry.
+      _selectedTypeId = f.fieldTypeId ??
+          customFieldTypeRegistry
+              .lookupByLegacyInt(f.fieldType.index)
+              ?.id ??
+          'text';
       _selectedPrecision = f.datePrecision ?? DatePrecision.full;
       // Hydrate choice config from existing field.
       if (f.typeConfig is ChoiceConfig) {
@@ -133,6 +139,10 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         _choiceAllowsMultiple = config.allowsMultiple;
         _choiceAllowsOther = config.allowsOther;
       }
+    } else {
+      // New field: default to 'text'. When adding a child to a group,
+      // force 'text' (never 'group') to prevent nested groups.
+      _selectedTypeId = 'text';
     }
     // Build controllers/focus nodes for any pre-existing options.
     for (final option in _choiceOptions) {
@@ -141,7 +151,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       _optionFocusNodes[option.id] = FocusNode();
     }
     _initialName = _nameController.text;
-    _initialType = _selectedType;
+    _initialTypeId = _selectedTypeId;
     _initialPrecision = _selectedPrecision;
   }
 
@@ -288,29 +298,38 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     try {
       final notifier = ref.read(customFieldNotifierProvider.notifier);
 
+      // Derive the legacy enum value for back-compat storage.
+      // Registry-only types (e.g. 'group', legacyIntValue=5) have an int
+      // that is OUT OF RANGE for CustomFieldType.values (which only has 5
+      // entries, indices 0-4). Guard with a range check and fall back to
+      // CustomFieldType.text for any out-of-range or missing int.
+      final def = customFieldTypeRegistry.lookupById(_selectedTypeId);
+      final legacyInt = def?.legacyIntValue;
+      final legacyFieldType =
+          (legacyInt != null && legacyInt < CustomFieldType.values.length)
+              ? CustomFieldType.values[legacyInt]
+              : CustomFieldType.text;
+
       if (widget.isEditing) {
         final updated = widget.field!.copyWith(
           name: name,
-          fieldType: _selectedType,
-          datePrecision: _selectedType == CustomFieldType.date
-              ? _selectedPrecision
-              : null,
-          typeConfig: _selectedType == CustomFieldType.choice
-              ? _buildChoiceConfig()
-              : null,
+          fieldType: legacyFieldType,
+          fieldTypeId: _selectedTypeId,
+          datePrecision:
+              _selectedTypeId == 'date' ? _selectedPrecision : null,
+          typeConfig:
+              _selectedTypeId == 'choice' ? _buildChoiceConfig() : null,
         );
         await notifier.updateField(updated);
       } else {
         await notifier.createField(
           name: name,
-          fieldType: _selectedType,
-          datePrecision: _selectedType == CustomFieldType.date
-              ? _selectedPrecision
-              : null,
-          fieldTypeId: _selectedType == CustomFieldType.choice ? 'choice' : null,
-          typeConfig: _selectedType == CustomFieldType.choice
-              ? _buildChoiceConfig()
-              : null,
+          fieldType: legacyFieldType,
+          datePrecision:
+              _selectedTypeId == 'date' ? _selectedPrecision : null,
+          fieldTypeId: _selectedTypeId,
+          typeConfig:
+              _selectedTypeId == 'choice' ? _buildChoiceConfig() : null,
           parentFieldId: widget.parentFieldId,
         );
       }
@@ -396,27 +415,30 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                     if (widget.isEditing) ...[
                       // In edit mode, allow switching between textual types
                       // (short text ↔ long text) since both store plain
-                      // markdown strings. Color, date, and choice have
-                      // different storage shapes and remain locked.
+                      // markdown strings. Other types have different storage
+                      // shapes and remain locked once created.
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          for (final type in _fieldTypeOptions)
+                          for (final def
+                              in customFieldTypeRegistry.definitions)
                             PrismChip(
-                              label: type.localizedLabel(context.l10n),
-                              selected: type == _selectedType,
-                              onTap: (_selectedType.isTextual && type.isTextual)
+                              label: _labelForDef(context, def),
+                              selected: def.id == _selectedTypeId,
+                              onTap: (def.allowsTextualSwitch &&
+                                      _isCurrentTypeTextual)
                                   ? () {
-                                      setState(() => _selectedType = type);
+                                      setState(
+                                          () => _selectedTypeId = def.id);
                                       Haptics.selection();
                                     }
                                   : null,
-                              avatar: Icon(_iconForType(type), size: 16),
+                              avatar: Icon(def.icon, size: 16),
                             ),
                         ],
                       ),
-                      if (!_selectedType.isTextual) ...[
+                      if (!_isCurrentTypeTextual) ...[
                         const SizedBox(height: 8),
                         Text(
                           context.l10n.settingsCreateEditFieldTypeImmutable,
@@ -426,26 +448,31 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         ),
                       ],
                     ] else ...[
+                      // When adding a child field (parentFieldId != null),
+                      // hide 'group' to prevent nested groups.
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          for (final type in _fieldTypeOptions)
-                            PrismChip(
-                              label: type.localizedLabel(context.l10n),
-                              selected: type == _selectedType,
-                              onTap: () {
-                                setState(() => _selectedType = type);
-                                Haptics.selection();
-                              },
-                              avatar: Icon(_iconForType(type), size: 16),
-                            ),
+                          for (final def
+                              in customFieldTypeRegistry.definitions)
+                            if (widget.parentFieldId == null ||
+                                def.id != 'group')
+                              PrismChip(
+                                label: _labelForDef(context, def),
+                                selected: def.id == _selectedTypeId,
+                                onTap: () {
+                                  setState(() => _selectedTypeId = def.id);
+                                  Haptics.selection();
+                                },
+                                avatar: Icon(def.icon, size: 16),
+                              ),
                         ],
                       ),
                     ],
 
                     // Date precision picker
-                    if (_selectedType == CustomFieldType.date) ...[
+                    if (_selectedTypeId == 'date') ...[
                       const SizedBox(height: 24),
                       Text(
                         context
@@ -474,7 +501,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                     ],
 
                     // Choice config
-                    if (_selectedType == CustomFieldType.choice) ...[
+                    if (_selectedTypeId == 'choice') ...[
                       const SizedBox(height: 24),
                       _ChoiceConfigSection(
                         visibleOptions: _visibleOptions,
@@ -507,13 +534,28 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     );
   }
 
-  IconData _iconForType(CustomFieldType type) => switch (type) {
-    CustomFieldType.text => AppIcons.textFields,
-    CustomFieldType.longText => AppIcons.notes,
-    CustomFieldType.color => AppIcons.palette,
-    CustomFieldType.date => AppIcons.calendarToday,
-    CustomFieldType.choice => AppIcons.checkBoxOutlined,
-  };
+  /// Whether the currently selected type supports textual switching.
+  bool get _isCurrentTypeTextual =>
+      customFieldTypeRegistry.lookupById(_selectedTypeId)?.allowsTextualSwitch ??
+      false;
+
+  /// Resolve a registry definition's labelL10nKey into the localized string.
+  /// Bridge pattern: known keys map to AppLocalizations methods; unknown future
+  /// types fall back to the key itself.
+  ///
+  /// TODO: replace with AppLocalizations.resolve(key) once available.
+  String _labelForDef(BuildContext context, CustomFieldTypeDefinition def) {
+    final l10n = context.l10n;
+    return switch (def.labelL10nKey) {
+      'customFieldTypeShortText' => l10n.customFieldTypeShortText,
+      'customFieldTypeLongText' => l10n.customFieldTypeLongText,
+      'customFieldTypeColor' => l10n.customFieldTypeColor,
+      'customFieldTypeDate' => l10n.customFieldTypeDate,
+      'customFieldTypeChoice' => l10n.customFieldTypeChoice,
+      'customFieldTypeGroup' => l10n.customFieldTypeGroup,
+      _ => def.labelL10nKey,
+    };
+  }
 }
 
 // ── Choice config section ───────────────────────────────────────────────────

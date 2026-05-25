@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
+import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_renderers.dart';
@@ -115,36 +116,84 @@ class _GroupEditorWidget extends ConsumerWidget {
 
 /// Builds the read-only display widget for a Group field.
 ///
-/// The value parameter is ignored (groups have no per-member value). The widget
-/// watches the providers directly. Returns [SizedBox.shrink] when all children
-/// have empty values.
+/// The value parameter is unused (groups have no per-member value), but
+/// [CustomFieldValue.memberId] is extracted so this widget knows which member's
+/// values to watch. Returns [SizedBox.shrink] when all children are empty.
 Widget buildGroupDisplay(
   BuildContext context,
   CustomField field,
   CustomFieldValue value,
 ) {
-  return _GroupDisplayWidget(field: field);
+  return GroupDisplayWidget(field: field, memberId: value.memberId);
 }
 
-class _GroupDisplayWidget extends ConsumerWidget {
-  const _GroupDisplayWidget({required this.field});
+/// Public factory for use from [CustomFieldsDisplay], which routes group-typed
+/// fields directly (no [CustomFieldValue] is available for groups).
+Widget buildGroupDisplayForMember(CustomField field, String memberId) {
+  return GroupDisplayWidget(field: field, memberId: memberId);
+}
+
+/// Read-only display for a Group field. Watches [customFieldsProvider] to
+/// find child fields, then [memberCustomFieldValuesProvider] to find their
+/// values. Renders children with non-empty values inside [_GroupInsetContainer].
+/// Returns [SizedBox.shrink] when no children have values.
+class GroupDisplayWidget extends ConsumerWidget {
+  const GroupDisplayWidget({super.key, required this.field, required this.memberId});
 
   final CustomField field;
+  final String memberId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Group display widgets are rendered inside _FieldValueBody which already
-    // has the member's values available. However, _FieldValueBody doesn't pass
-    // them down and there's no memberId in scope here. The display context
-    // (CustomFieldsDisplay) renders each field individually. Since groups are
-    // filtered out of the top-level iteration (parentFieldId == null filter),
-    // this widget is only reached when groups are explicitly dispatched to.
-    // For now, hide — the group's children are rendered directly.
-    //
-    // In a future batch, a memberId-aware GroupDisplay can watch the right
-    // provider here. For Task 10, the top-level filter in CustomFieldsDisplay
-    // prevents double-rendering children AND groups at the top level.
-    return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final fieldsAsync = ref.watch(customFieldsProvider);
+    final valuesAsync = ref.watch(memberCustomFieldValuesProvider(memberId));
+
+    return fieldsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (fields) => valuesAsync.when(
+        loading: () => const SizedBox.shrink(),
+        error: (_, _) => const SizedBox.shrink(),
+        data: (values) {
+          final children = fields
+              .where((f) => f.parentFieldId == field.id)
+              .toList()
+            ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+          final valuesByFieldId = {
+            for (final v in values) v.customFieldId: v,
+          };
+
+          final childWidgets = <Widget>[];
+          for (final child in children) {
+            final value = valuesByFieldId[child.id];
+            if (value == null || value.value.isEmpty) continue;
+            final renderer = rendererFor(
+              customFieldTypeRegistry.lookupById(child.fieldTypeId),
+            );
+            if (renderer == null) continue;
+            childWidgets.add(renderer.displayBuilder(context, child, value));
+          }
+
+          if (childWidgets.isEmpty) return const SizedBox.shrink();
+
+          return _GroupInsetContainer(
+            field: field,
+            theme: theme,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < childWidgets.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 12),
+                  childWidgets[i],
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -168,6 +217,20 @@ Widget buildGroupCompact(
 /// Uses a 4dp [outlineVariant]-colored left border — NOT card chrome — so
 /// groups feel structural without producing a wall of cards (per BATCH 1
 /// designer feedback).
+/// Small map from string icon identifiers (stored in [GroupConfig.icon]) to
+/// [IconData] values. Extend as new group icon options are added.
+///
+/// Falls back to [AppIcons.folderOutlined] for unrecognised / null entries.
+IconData _iconForGroupConfig(String? iconName) {
+  return switch (iconName) {
+    'folderOutlined' => AppIcons.folderOutlined,
+    'notes' => AppIcons.notes,
+    'tuneOutlined' => AppIcons.tuneOutlined,
+    'accountTreeOutlined' => AppIcons.accountTreeOutlined,
+    _ => AppIcons.folderOutlined, // default + forward-compat
+  };
+}
+
 class _GroupInsetContainer extends StatelessWidget {
   const _GroupInsetContainer({
     required this.field,
@@ -181,46 +244,55 @@ class _GroupInsetContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final hasName = field.name.trim().isNotEmpty;
+    final groupConfig = field.typeConfig as GroupConfig?;
+    final headerIcon = _iconForGroupConfig(groupConfig?.icon);
+    final semanticsLabel =
+        hasName ? field.name : l10n.customFieldTypeGroup;
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          left: BorderSide(
-            color: theme.colorScheme.outlineVariant,
-            width: 4,
+    return Semantics(
+      container: true,
+      label: semanticsLabel,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: theme.colorScheme.outlineVariant,
+              width: 4,
+            ),
           ),
         ),
-      ),
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (hasName) ...[
-            Row(
-              children: [
-                Icon(
-                  AppIcons.folderOutlined,
-                  size: 14,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    field.name,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (hasName) ...[
+              Row(
+                children: [
+                  Icon(
+                    headerIcon,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      field.name,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            child,
           ],
-          child,
-        ],
+        ),
       ),
     );
   }

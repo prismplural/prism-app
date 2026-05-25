@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/custom_fields/definitions/choice_field_definition.dart';
+import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
@@ -110,7 +111,7 @@ class _CustomFieldDetailBody extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  _iconForType(field.fieldType),
+                  _iconForField(field),
                   color: theme.colorScheme.primary,
                   size: 28,
                 ),
@@ -131,7 +132,7 @@ class _CustomFieldDetailBody extends ConsumerWidget {
                 children: [
                   _MetadataRow(
                     label: context.l10n.settingsCreateEditFieldTypeHeading,
-                    value: field.fieldType.localizedLabel(context.l10n),
+                    value: _labelForField(context, field),
                   ),
                   if (field.fieldType == CustomFieldType.date &&
                       field.datePrecision != null) ...[
@@ -229,13 +230,45 @@ class _CustomFieldDetailBody extends ConsumerWidget {
     }
   }
 
-  IconData _iconForType(CustomFieldType type) => switch (type) {
-    CustomFieldType.text => AppIcons.textFields,
-    CustomFieldType.longText => AppIcons.notes,
-    CustomFieldType.color => AppIcons.palette,
-    CustomFieldType.date => AppIcons.calendarToday,
-    CustomFieldType.choice => AppIcons.checkBoxOutlined,
-  };
+  /// Registry-driven icon. Falls back to enum-based lookup for legacy types
+  /// if the registry entry has no entry (shouldn't happen in practice).
+  IconData _iconForField(CustomField field) {
+    final def = customFieldTypeRegistry.lookupById(field.fieldTypeId);
+    if (def != null) return def.icon;
+    // Legacy fallback for fields with no fieldTypeId (pre-registry rows).
+    return switch (field.fieldType) {
+      CustomFieldType.text => AppIcons.textFields,
+      CustomFieldType.longText => AppIcons.notes,
+      CustomFieldType.color => AppIcons.palette,
+      CustomFieldType.date => AppIcons.calendarToday,
+      CustomFieldType.choice => AppIcons.checkBoxOutlined,
+    };
+  }
+
+  /// Registry-driven type label. The [CustomFieldTypeDefinition.labelL10nKey]
+  /// is a string key that maps directly to the AppLocalizations method name.
+  /// This bridge resolves known keys; unknown future types fall through to the
+  /// legacy enum label.
+  ///
+  /// TODO: once AppLocalizations exposes a `resolve(key)` helper, replace
+  /// this switch with a single call.
+  String _labelForField(BuildContext context, CustomField field) {
+    final l10n = context.l10n;
+    final def = customFieldTypeRegistry.lookupById(field.fieldTypeId);
+    if (def != null) {
+      return switch (def.labelL10nKey) {
+        'customFieldTypeShortText' => l10n.customFieldTypeShortText,
+        'customFieldTypeLongText' => l10n.customFieldTypeLongText,
+        'customFieldTypeColor' => l10n.customFieldTypeColor,
+        'customFieldTypeDate' => l10n.customFieldTypeDate,
+        'customFieldTypeChoice' => l10n.customFieldTypeChoice,
+        'customFieldTypeGroup' => l10n.customFieldTypeGroup,
+        _ => def.labelL10nKey, // unknown future type — show key as fallback
+      };
+    }
+    // Legacy fallback for fields with no fieldTypeId.
+    return field.fieldType.localizedLabel(l10n);
+  }
 }
 
 class _MetadataRow extends StatelessWidget {
