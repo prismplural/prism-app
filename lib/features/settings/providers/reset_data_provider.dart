@@ -448,7 +448,9 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       );
       // Scalar member references: null out so the rows survive (these features
       // don't require a member to be valid) but stop pointing at deleted ones.
-      await db.customStatement('UPDATE chat_messages SET author_id = NULL');
+      await db.customStatement(
+        'UPDATE chat_messages SET author_id = NULL, reply_to_author_id = NULL',
+      );
       await db.customStatement(
         'UPDATE conversations SET creator_id = NULL',
       );
@@ -459,7 +461,19 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       );
       await db.customStatement('UPDATE habits SET assigned_member_id = NULL');
       await db.customStatement(
+        'UPDATE pk_mapping_state SET local_member_id = NULL',
+      );
+      await db.customStatement(
         'UPDATE reminders SET target_member_id = NULL',
+      );
+      // JSON maps keyed by memberId — reset to defaults so stale keys don't
+      // hang around. chat_badge_preferences defaults to '{}'; field_sync_config
+      // is nullable.
+      await db.customStatement(
+        "UPDATE system_settings SET chat_badge_preferences = '{}'",
+      );
+      await db.customStatement(
+        'UPDATE plural_kit_sync_state SET field_sync_config = NULL',
       );
       // Delete child data that references members
       await db.customStatement('DELETE FROM custom_field_values');
@@ -489,8 +503,11 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       'member_profile_preference_values',
       'members',
       'notes',
+      'pk_mapping_state',
+      'plural_kit_sync_state',
       'poll_votes',
       'reminders',
+      'system_settings',
     ]);
   }
 

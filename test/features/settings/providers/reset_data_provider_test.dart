@@ -106,15 +106,19 @@ const _memberRefColumns = <_MemberRef>[
   // fronting history is preserved.
   _MemberRef('fronting_sessions', 'member_id', _RefType.reAttributedToSentinel),
 
-  // chat_messages: author_id nulled so the message text survives.
-  // reply_to_author_id is intentionally in the allowlist (deferred).
+  // chat_messages: author_id and the denormalized reply-author snapshot both
+  // nulled so message text survives without dangling refs.
   _MemberRef('chat_messages', 'author_id', _RefType.nulled),
+  _MemberRef('chat_messages', 'reply_to_author_id', _RefType.nulled),
 
   // conversations: creator nulled; JSON list/map columns cleared separately.
   _MemberRef('conversations', 'creator_id', _RefType.nulled),
 
   // habits: assignment cleared; habit definition itself survives.
   _MemberRef('habits', 'assigned_member_id', _RefType.nulled),
+
+  // pk_mapping_state: local member ref nulled; PluralKit-side state survives.
+  _MemberRef('pk_mapping_state', 'local_member_id', _RefType.nulled),
 
   // reminders: target cleared; reminder definition survives.
   _MemberRef('reminders', 'target_member_id', _RefType.nulled),
@@ -138,45 +142,13 @@ const _memberRefColumns = <_MemberRef>[
   _MemberRef('member_board_posts', 'author_id', _RefType.deleted),
 ];
 
-/// Columns that reference member IDs but are intentionally excluded from the
-/// _resetMembers behaviour check.  Each entry must carry a TODO explaining why
-/// it is deferred rather than fixed.
-///
-/// Format: (tableName, columnName)
+/// Columns whose name matches the member-ID pattern but which do not actually
+/// reference local Prism member IDs. Excluded from the orphan check.
 const _memberRefAllowlist = <(String, String)>{
-  // TODO: system_settings.chat_badge_preferences is a JSON map of
-  // memberId → badge preference ('all' | 'mentions_only').  It is not
-  // cleared by _resetMembers, leaving stale member-ID keys after reset.
-  // Tracked as a deferred orphan fix.
-  ('system_settings', 'chat_badge_preferences'),
-
-  // TODO: plural_kit_sync_state.field_sync_config is a JSON map of
-  // memberId → PluralKit field-sync config.  Not cleared by _resetMembers.
-  // Tracked as a deferred orphan fix.
-  ('plural_kit_sync_state', 'field_sync_config'),
-
-  // pk_mapping_state.local_member_id maps PK member UUIDs to local Prism
-  // member IDs.  The whole table is wiped during full reset via _resetAll but
-  // is NOT explicitly cleared by _resetMembers (members-only reset).
-  // TODO: decide whether _resetMembers should also wipe pk_mapping_state.
-  ('pk_mapping_state', 'local_member_id'),
-
-  // pk_mapping_state.pk_member_id / pk_member_uuid are PluralKit short IDs
-  // and UUIDs — they reference PK entities, not local Prism members.
-  // Not applicable to the members-reset orphan check.
+  // PluralKit short IDs and UUIDs — reference PK entities, not local members.
   ('pk_mapping_state', 'pk_member_id'),
   ('pk_mapping_state', 'pk_member_uuid'),
-
-  // member_group_entries.pk_member_uuid is a PluralKit UUID column used for
-  // PK group sync — it does not reference a local Prism member ID.
-  // Not applicable to the members-reset orphan check.
   ('member_group_entries', 'pk_member_uuid'),
-
-  // chat_messages.reply_to_author_id is a denormalized snapshot of the
-  // original message's author — it still holds the victim member ID after
-  // _resetMembers because only author_id is cleared.
-  // TODO: null reply_to_author_id in _resetMembers to close this orphan gap.
-  ('chat_messages', 'reply_to_author_id'),
 };
 
 void main() {
@@ -2003,13 +1975,14 @@ void main() {
           ),
         );
 
-        // chat_messages.author_id
+        // chat_messages.author_id + reply_to_author_id (both nulled on reset).
         await db.into(db.chatMessages).insert(
           ChatMessagesCompanion(
             id: const Value('$rowId-chat-msg'),
             content: const Value('hello'),
             timestamp: Value(now),
             authorId: const Value(victimId),
+            replyToAuthorId: const Value(victimId),
             conversationId: const Value('conv-orphan-1'),
           ),
         );
@@ -2047,6 +2020,40 @@ void main() {
             createdAt: Value(now),
             modifiedAt: Value(now),
           ),
+        );
+
+        // pk_mapping_state.local_member_id
+        await db.into(db.pkMappingState).insert(
+          PkMappingStateCompanion(
+            id: const Value('$rowId-pk-mapping'),
+            decisionType: const Value('link'),
+            localMemberId: const Value(victimId),
+            pkMemberUuid: const Value('00000000-0000-0000-0000-000000000001'),
+            createdAt: Value(now),
+            updatedAt: Value(now),
+          ),
+        );
+
+        // JSON maps keyed by memberId — system_settings (singleton) and
+        // plural_kit_sync_state are seeded with member-keyed JSON so the
+        // post-reset assertions below can verify both are cleared.
+        await db.into(db.systemSettingsTable).insert(
+          const SystemSettingsTableCompanion(
+            id: Value('singleton'),
+            chatBadgePreferences: Value(
+              '{"$victimId": "mentions_only"}',
+            ),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+        await db.into(db.pluralKitSyncState).insert(
+          const PluralKitSyncStateCompanion(
+            id: Value('pk_config'),
+            fieldSyncConfig: Value(
+              '{"$victimId": {"name": "push"}}',
+            ),
+          ),
+          mode: InsertMode.insertOrReplace,
         );
 
         // member_profile_preference_values.member_id
@@ -2173,6 +2180,8 @@ void main() {
                 rowSuffix = 'conv';
               } else if (ref.table == 'habits') {
                 rowSuffix = 'habit';
+              } else if (ref.table == 'pk_mapping_state') {
+                rowSuffix = 'pk-mapping';
               } else if (ref.table == 'reminders') {
                 rowSuffix = 'reminder';
               } else {
@@ -2250,6 +2259,32 @@ void main() {
           convRow.data['last_read_timestamps'],
           '{}',
           reason: 'conversations.last_read_timestamps must be cleared',
+        );
+
+        // JSON maps keyed by memberId — must no longer reference the victim.
+        final settingsRow = await reopened
+            .customSelect(
+              'SELECT chat_badge_preferences FROM system_settings '
+              'WHERE id = ?',
+              variables: [Variable.withString('singleton')],
+            )
+            .getSingle();
+        expect(
+          settingsRow.data['chat_badge_preferences'],
+          '{}',
+          reason: 'system_settings.chat_badge_preferences must be cleared',
+        );
+        final pkSyncRow = await reopened
+            .customSelect(
+              'SELECT field_sync_config FROM plural_kit_sync_state '
+              'WHERE id = ?',
+              variables: [Variable.withString('pk_config')],
+            )
+            .getSingle();
+        expect(
+          pkSyncRow.data['field_sync_config'],
+          isNull,
+          reason: 'plural_kit_sync_state.field_sync_config must be cleared',
         );
       },
     );
