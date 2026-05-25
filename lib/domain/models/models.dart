@@ -20,3 +20,5 @@ export 'member_group_entry.dart';
 export 'note.dart';
 export 'media_attachment.dart';
 export 'reminder.dart';
+export 'choice_option.dart';
+export 'custom_field_type_config.dart';
