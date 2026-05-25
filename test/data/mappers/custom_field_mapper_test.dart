@@ -367,8 +367,8 @@ void main() {
       expect(domain.CustomFieldType.longText.label, 'Long Text');
     });
 
-    test('values list has 4 types', () {
-      expect(domain.CustomFieldType.values.length, 4);
+    test('values list has 5 types (back-compat fallback only; new types register via the registry)', () {
+      expect(domain.CustomFieldType.values.length, 5);
     });
 
     test('isTextual identifies short and long text fields', () {
