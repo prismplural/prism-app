@@ -102,7 +102,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 27;
+  int get schemaVersion => 28;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -765,6 +765,39 @@ class AppDatabase extends _$AppDatabase {
         await _createPreferenceValueIndexes();
         current = 27;
       }
+      if (current == 27 && to >= 28) {
+        // Idempotent — dev/test seeders may already have the columns.
+        final cols = await customSelect('PRAGMA table_info(custom_fields)').get();
+        final names = cols.map((r) => r.read<String>('name')).toSet();
+        if (!names.contains('field_type_id')) {
+          await migrator.addColumn(customFields, customFields.fieldTypeId);
+        }
+        if (!names.contains('parent_field_id')) {
+          await migrator.addColumn(customFields, customFields.parentFieldId);
+        }
+        if (!names.contains('type_config_json')) {
+          await migrator.addColumn(customFields, customFields.typeConfigJson);
+        }
+        // Backfill field_type_id from the existing int for back-compat.
+        // Mapping mirrors custom_field_mapper.dart:12 (CustomFieldType enum order
+        // text=0, color=1, date=2, longText=3) — keep in lockstep.
+        await customStatement('''
+          UPDATE custom_fields
+          SET field_type_id = CASE field_type
+            WHEN 0 THEN 'text'
+            WHEN 1 THEN 'color'
+            WHEN 2 THEN 'date'
+            WHEN 3 THEN 'long_text'
+            ELSE NULL
+          END
+          WHERE field_type_id IS NULL
+        ''');
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_custom_fields_parent '
+          'ON custom_fields(parent_field_id) WHERE parent_field_id IS NOT NULL',
+        );
+        current = 28;
+      }
       if (current != to) {
         throw UnsupportedError(
           'Schema baseline was reset to v1 for the private beta. '
@@ -1298,6 +1331,10 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_member_groups_parent_id '
       'ON member_groups (parent_group_id) WHERE parent_group_id IS NOT NULL',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_custom_fields_parent '
+      'ON custom_fields(parent_field_id) WHERE parent_field_id IS NOT NULL',
     );
   }
 

@@ -17155,6 +17155,39 @@ class $CustomFieldsTable extends CustomFields
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _fieldTypeIdMeta = const VerificationMeta(
+    'fieldTypeId',
+  );
+  @override
+  late final GeneratedColumn<String> fieldTypeId = GeneratedColumn<String>(
+    'field_type_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _parentFieldIdMeta = const VerificationMeta(
+    'parentFieldId',
+  );
+  @override
+  late final GeneratedColumn<String> parentFieldId = GeneratedColumn<String>(
+    'parent_field_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _typeConfigJsonMeta = const VerificationMeta(
+    'typeConfigJson',
+  );
+  @override
+  late final GeneratedColumn<String> typeConfigJson = GeneratedColumn<String>(
+    'type_config_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -17164,6 +17197,9 @@ class $CustomFieldsTable extends CustomFields
     displayOrder,
     createdAt,
     isDeleted,
+    fieldTypeId,
+    parentFieldId,
+    typeConfigJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -17230,6 +17266,33 @@ class $CustomFieldsTable extends CustomFields
         isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
       );
     }
+    if (data.containsKey('field_type_id')) {
+      context.handle(
+        _fieldTypeIdMeta,
+        fieldTypeId.isAcceptableOrUnknown(
+          data['field_type_id']!,
+          _fieldTypeIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('parent_field_id')) {
+      context.handle(
+        _parentFieldIdMeta,
+        parentFieldId.isAcceptableOrUnknown(
+          data['parent_field_id']!,
+          _parentFieldIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('type_config_json')) {
+      context.handle(
+        _typeConfigJsonMeta,
+        typeConfigJson.isAcceptableOrUnknown(
+          data['type_config_json']!,
+          _typeConfigJsonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -17267,6 +17330,18 @@ class $CustomFieldsTable extends CustomFields
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
       )!,
+      fieldTypeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_type_id'],
+      ),
+      parentFieldId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_field_id'],
+      ),
+      typeConfigJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type_config_json'],
+      ),
     );
   }
 
@@ -17284,6 +17359,9 @@ class CustomFieldRow extends DataClass implements Insertable<CustomFieldRow> {
   final int displayOrder;
   final DateTime createdAt;
   final bool isDeleted;
+  final String? fieldTypeId;
+  final String? parentFieldId;
+  final String? typeConfigJson;
   const CustomFieldRow({
     required this.id,
     required this.name,
@@ -17292,6 +17370,9 @@ class CustomFieldRow extends DataClass implements Insertable<CustomFieldRow> {
     required this.displayOrder,
     required this.createdAt,
     required this.isDeleted,
+    this.fieldTypeId,
+    this.parentFieldId,
+    this.typeConfigJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -17305,6 +17386,15 @@ class CustomFieldRow extends DataClass implements Insertable<CustomFieldRow> {
     map['display_order'] = Variable<int>(displayOrder);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || fieldTypeId != null) {
+      map['field_type_id'] = Variable<String>(fieldTypeId);
+    }
+    if (!nullToAbsent || parentFieldId != null) {
+      map['parent_field_id'] = Variable<String>(parentFieldId);
+    }
+    if (!nullToAbsent || typeConfigJson != null) {
+      map['type_config_json'] = Variable<String>(typeConfigJson);
+    }
     return map;
   }
 
@@ -17319,6 +17409,15 @@ class CustomFieldRow extends DataClass implements Insertable<CustomFieldRow> {
       displayOrder: Value(displayOrder),
       createdAt: Value(createdAt),
       isDeleted: Value(isDeleted),
+      fieldTypeId: fieldTypeId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fieldTypeId),
+      parentFieldId: parentFieldId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentFieldId),
+      typeConfigJson: typeConfigJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(typeConfigJson),
     );
   }
 
@@ -17335,6 +17434,9 @@ class CustomFieldRow extends DataClass implements Insertable<CustomFieldRow> {
       displayOrder: serializer.fromJson<int>(json['displayOrder']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      fieldTypeId: serializer.fromJson<String?>(json['fieldTypeId']),
+      parentFieldId: serializer.fromJson<String?>(json['parentFieldId']),
+      typeConfigJson: serializer.fromJson<String?>(json['typeConfigJson']),
     );
   }
   @override
@@ -17348,6 +17450,9 @@ class CustomFieldRow extends DataClass implements Insertable<CustomFieldRow> {
       'displayOrder': serializer.toJson<int>(displayOrder),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'fieldTypeId': serializer.toJson<String?>(fieldTypeId),
+      'parentFieldId': serializer.toJson<String?>(parentFieldId),
+      'typeConfigJson': serializer.toJson<String?>(typeConfigJson),
     };
   }
 
@@ -17359,6 +17464,9 @@ class CustomFieldRow extends DataClass implements Insertable<CustomFieldRow> {
     int? displayOrder,
     DateTime? createdAt,
     bool? isDeleted,
+    Value<String?> fieldTypeId = const Value.absent(),
+    Value<String?> parentFieldId = const Value.absent(),
+    Value<String?> typeConfigJson = const Value.absent(),
   }) => CustomFieldRow(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -17369,6 +17477,13 @@ class CustomFieldRow extends DataClass implements Insertable<CustomFieldRow> {
     displayOrder: displayOrder ?? this.displayOrder,
     createdAt: createdAt ?? this.createdAt,
     isDeleted: isDeleted ?? this.isDeleted,
+    fieldTypeId: fieldTypeId.present ? fieldTypeId.value : this.fieldTypeId,
+    parentFieldId: parentFieldId.present
+        ? parentFieldId.value
+        : this.parentFieldId,
+    typeConfigJson: typeConfigJson.present
+        ? typeConfigJson.value
+        : this.typeConfigJson,
   );
   CustomFieldRow copyWithCompanion(CustomFieldsCompanion data) {
     return CustomFieldRow(
@@ -17383,6 +17498,15 @@ class CustomFieldRow extends DataClass implements Insertable<CustomFieldRow> {
           : this.displayOrder,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      fieldTypeId: data.fieldTypeId.present
+          ? data.fieldTypeId.value
+          : this.fieldTypeId,
+      parentFieldId: data.parentFieldId.present
+          ? data.parentFieldId.value
+          : this.parentFieldId,
+      typeConfigJson: data.typeConfigJson.present
+          ? data.typeConfigJson.value
+          : this.typeConfigJson,
     );
   }
 
@@ -17395,7 +17519,10 @@ class CustomFieldRow extends DataClass implements Insertable<CustomFieldRow> {
           ..write('datePrecision: $datePrecision, ')
           ..write('displayOrder: $displayOrder, ')
           ..write('createdAt: $createdAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('fieldTypeId: $fieldTypeId, ')
+          ..write('parentFieldId: $parentFieldId, ')
+          ..write('typeConfigJson: $typeConfigJson')
           ..write(')'))
         .toString();
   }
@@ -17409,6 +17536,9 @@ class CustomFieldRow extends DataClass implements Insertable<CustomFieldRow> {
     displayOrder,
     createdAt,
     isDeleted,
+    fieldTypeId,
+    parentFieldId,
+    typeConfigJson,
   );
   @override
   bool operator ==(Object other) =>
@@ -17420,7 +17550,10 @@ class CustomFieldRow extends DataClass implements Insertable<CustomFieldRow> {
           other.datePrecision == this.datePrecision &&
           other.displayOrder == this.displayOrder &&
           other.createdAt == this.createdAt &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.fieldTypeId == this.fieldTypeId &&
+          other.parentFieldId == this.parentFieldId &&
+          other.typeConfigJson == this.typeConfigJson);
 }
 
 class CustomFieldsCompanion extends UpdateCompanion<CustomFieldRow> {
@@ -17431,6 +17564,9 @@ class CustomFieldsCompanion extends UpdateCompanion<CustomFieldRow> {
   final Value<int> displayOrder;
   final Value<DateTime> createdAt;
   final Value<bool> isDeleted;
+  final Value<String?> fieldTypeId;
+  final Value<String?> parentFieldId;
+  final Value<String?> typeConfigJson;
   final Value<int> rowid;
   const CustomFieldsCompanion({
     this.id = const Value.absent(),
@@ -17440,6 +17576,9 @@ class CustomFieldsCompanion extends UpdateCompanion<CustomFieldRow> {
     this.displayOrder = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.fieldTypeId = const Value.absent(),
+    this.parentFieldId = const Value.absent(),
+    this.typeConfigJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CustomFieldsCompanion.insert({
@@ -17450,6 +17589,9 @@ class CustomFieldsCompanion extends UpdateCompanion<CustomFieldRow> {
     this.displayOrder = const Value.absent(),
     required DateTime createdAt,
     this.isDeleted = const Value.absent(),
+    this.fieldTypeId = const Value.absent(),
+    this.parentFieldId = const Value.absent(),
+    this.typeConfigJson = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -17463,6 +17605,9 @@ class CustomFieldsCompanion extends UpdateCompanion<CustomFieldRow> {
     Expression<int>? displayOrder,
     Expression<DateTime>? createdAt,
     Expression<bool>? isDeleted,
+    Expression<String>? fieldTypeId,
+    Expression<String>? parentFieldId,
+    Expression<String>? typeConfigJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -17473,6 +17618,9 @@ class CustomFieldsCompanion extends UpdateCompanion<CustomFieldRow> {
       if (displayOrder != null) 'display_order': displayOrder,
       if (createdAt != null) 'created_at': createdAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (fieldTypeId != null) 'field_type_id': fieldTypeId,
+      if (parentFieldId != null) 'parent_field_id': parentFieldId,
+      if (typeConfigJson != null) 'type_config_json': typeConfigJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -17485,6 +17633,9 @@ class CustomFieldsCompanion extends UpdateCompanion<CustomFieldRow> {
     Value<int>? displayOrder,
     Value<DateTime>? createdAt,
     Value<bool>? isDeleted,
+    Value<String?>? fieldTypeId,
+    Value<String?>? parentFieldId,
+    Value<String?>? typeConfigJson,
     Value<int>? rowid,
   }) {
     return CustomFieldsCompanion(
@@ -17495,6 +17646,9 @@ class CustomFieldsCompanion extends UpdateCompanion<CustomFieldRow> {
       displayOrder: displayOrder ?? this.displayOrder,
       createdAt: createdAt ?? this.createdAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      fieldTypeId: fieldTypeId ?? this.fieldTypeId,
+      parentFieldId: parentFieldId ?? this.parentFieldId,
+      typeConfigJson: typeConfigJson ?? this.typeConfigJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -17523,6 +17677,15 @@ class CustomFieldsCompanion extends UpdateCompanion<CustomFieldRow> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (fieldTypeId.present) {
+      map['field_type_id'] = Variable<String>(fieldTypeId.value);
+    }
+    if (parentFieldId.present) {
+      map['parent_field_id'] = Variable<String>(parentFieldId.value);
+    }
+    if (typeConfigJson.present) {
+      map['type_config_json'] = Variable<String>(typeConfigJson.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -17539,6 +17702,9 @@ class CustomFieldsCompanion extends UpdateCompanion<CustomFieldRow> {
           ..write('displayOrder: $displayOrder, ')
           ..write('createdAt: $createdAt, ')
           ..write('isDeleted: $isDeleted, ')
+          ..write('fieldTypeId: $fieldTypeId, ')
+          ..write('parentFieldId: $parentFieldId, ')
+          ..write('typeConfigJson: $typeConfigJson, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -33064,6 +33230,9 @@ typedef $$CustomFieldsTableCreateCompanionBuilder =
       Value<int> displayOrder,
       required DateTime createdAt,
       Value<bool> isDeleted,
+      Value<String?> fieldTypeId,
+      Value<String?> parentFieldId,
+      Value<String?> typeConfigJson,
       Value<int> rowid,
     });
 typedef $$CustomFieldsTableUpdateCompanionBuilder =
@@ -33075,6 +33244,9 @@ typedef $$CustomFieldsTableUpdateCompanionBuilder =
       Value<int> displayOrder,
       Value<DateTime> createdAt,
       Value<bool> isDeleted,
+      Value<String?> fieldTypeId,
+      Value<String?> parentFieldId,
+      Value<String?> typeConfigJson,
       Value<int> rowid,
     });
 
@@ -33119,6 +33291,21 @@ class $$CustomFieldsTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldTypeId => $composableBuilder(
+    column: $table.fieldTypeId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentFieldId => $composableBuilder(
+    column: $table.parentFieldId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get typeConfigJson => $composableBuilder(
+    column: $table.typeConfigJson,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -33166,6 +33353,21 @@ class $$CustomFieldsTableOrderingComposer
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get fieldTypeId => $composableBuilder(
+    column: $table.fieldTypeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parentFieldId => $composableBuilder(
+    column: $table.parentFieldId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get typeConfigJson => $composableBuilder(
+    column: $table.typeConfigJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CustomFieldsTableAnnotationComposer
@@ -33201,6 +33403,21 @@ class $$CustomFieldsTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldTypeId => $composableBuilder(
+    column: $table.fieldTypeId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get parentFieldId => $composableBuilder(
+    column: $table.parentFieldId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get typeConfigJson => $composableBuilder(
+    column: $table.typeConfigJson,
+    builder: (column) => column,
+  );
 }
 
 class $$CustomFieldsTableTableManager
@@ -33241,6 +33458,9 @@ class $$CustomFieldsTableTableManager
                 Value<int> displayOrder = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<String?> fieldTypeId = const Value.absent(),
+                Value<String?> parentFieldId = const Value.absent(),
+                Value<String?> typeConfigJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CustomFieldsCompanion(
                 id: id,
@@ -33250,6 +33470,9 @@ class $$CustomFieldsTableTableManager
                 displayOrder: displayOrder,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
+                fieldTypeId: fieldTypeId,
+                parentFieldId: parentFieldId,
+                typeConfigJson: typeConfigJson,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -33261,6 +33484,9 @@ class $$CustomFieldsTableTableManager
                 Value<int> displayOrder = const Value.absent(),
                 required DateTime createdAt,
                 Value<bool> isDeleted = const Value.absent(),
+                Value<String?> fieldTypeId = const Value.absent(),
+                Value<String?> parentFieldId = const Value.absent(),
+                Value<String?> typeConfigJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CustomFieldsCompanion.insert(
                 id: id,
@@ -33270,6 +33496,9 @@ class $$CustomFieldsTableTableManager
                 displayOrder: displayOrder,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
+                fieldTypeId: fieldTypeId,
+                parentFieldId: parentFieldId,
+                typeConfigJson: typeConfigJson,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
