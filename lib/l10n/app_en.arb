@@ -11372,5 +11372,137 @@
         "type": "int"
       }
     }
-  }
+  },
+
+  "customFieldTypeSlider": "Slider",
+  "@customFieldTypeSlider": { "description": "Label for the Slider custom field type in the type picker" },
+  "customFieldSliderModeHeading": "Slider type",
+  "@customFieldSliderModeHeading": { "description": "Section heading for the slider mode chooser (labeled vs numeric)" },
+  "customFieldSliderModeLabeled": "Mood / Intensity",
+  "@customFieldSliderModeLabeled": { "description": "Label for the labeled slider mode card" },
+  "customFieldSliderModeLabeledDescription": "Members place themselves on a spectrum with named endpoints.",
+  "@customFieldSliderModeLabeledDescription": { "description": "Description text on the labeled slider mode card" },
+  "customFieldSliderModeNumeric": "Measurement",
+  "@customFieldSliderModeNumeric": { "description": "Label for the numeric slider mode card" },
+  "customFieldSliderModeNumericDescription": "Members enter a number on a scale you define.",
+  "@customFieldSliderModeNumericDescription": { "description": "Description text on the numeric slider mode card" },
+  "customFieldSliderModeLockNotice": "Slider type is fixed once the field is created.",
+  "@customFieldSliderModeLockNotice": { "description": "Notice shown in edit mode explaining the slider mode cannot be changed" },
+  "customFieldSliderLeftLabel": "Left label (optional)",
+  "@customFieldSliderLeftLabel": { "description": "Label for the left anchor text field in labeled slider config" },
+  "customFieldSliderRightLabel": "Right label (optional)",
+  "@customFieldSliderRightLabel": { "description": "Label for the right anchor text field in labeled slider config" },
+  "customFieldSliderCenterLabel": "Center label (optional)",
+  "@customFieldSliderCenterLabel": { "description": "Label for the center anchor text field in labeled slider config; when set, adds a center snap position" },
+  "customFieldSliderGradientHeading": "Gradient",
+  "@customFieldSliderGradientHeading": { "description": "Section heading for the gradient preset picker in labeled slider config" },
+  "customFieldSliderAdvancedColors": "Advanced: custom colors",
+  "@customFieldSliderAdvancedColors": { "description": "Button that reveals the per-anchor color picker override in labeled slider config" },
+  "customFieldSliderSnapToPositions": "Snap to positions",
+  "@customFieldSliderSnapToPositions": { "description": "Toggle label for snap-to-positions in labeled slider config" },
+  "customFieldSliderMin": "Min",
+  "@customFieldSliderMin": { "description": "Label for the minimum value text field in numeric slider config" },
+  "customFieldSliderMax": "Max",
+  "@customFieldSliderMax": { "description": "Label for the maximum value text field in numeric slider config" },
+  "customFieldSliderStep": "Step",
+  "@customFieldSliderStep": { "description": "Label for the step size text field in numeric slider config" },
+  "customFieldSliderUnit": "Unit (optional)",
+  "@customFieldSliderUnit": { "description": "Label for the unit suffix text field in numeric slider config" },
+  "customFieldSliderShowTicks": "Show tick marks",
+  "@customFieldSliderShowTicks": { "description": "Toggle label for showing tick marks in numeric slider config" },
+  "customFieldSliderValueLabel": "Closer to {anchor}, {percent}%",
+  "@customFieldSliderValueLabel": {
+    "description": "Value indicator pill text for labeled slider mode, shown above the thumb",
+    "placeholders": {
+      "anchor": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "customFieldSliderValueLabelCentered": "{anchor}, {percent}%",
+  "@customFieldSliderValueLabelCentered": {
+    "description": "Value indicator pill text when the thumb is exactly on the center anchor in labeled slider mode",
+    "placeholders": {
+      "anchor": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "customFieldSliderNumericValueLabel": "{value}{unit}",
+  "@customFieldSliderNumericValueLabel": {
+    "description": "Value indicator pill text for numeric slider mode; unit may be empty",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "customFieldSliderSemanticLabel": "{name}, {value} {unit}",
+  "@customFieldSliderSemanticLabel": {
+    "description": "Screen-reader label for numeric slider mode",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "customFieldSliderSemanticLabelLabeled": "{name}, {description}",
+  "@customFieldSliderSemanticLabelLabeled": {
+    "description": "Screen-reader label for labeled slider mode; description is the pill text",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "customFieldSliderCategoryGenderExpression": "Gender expression",
+  "@customFieldSliderCategoryGenderExpression": { "description": "Category heading for gender expression gradient presets" },
+  "customFieldSliderCategoryMoodIntensity": "Mood / Intensity",
+  "@customFieldSliderCategoryMoodIntensity": { "description": "Category heading for mood/intensity gradient presets" },
+  "customFieldSliderCategoryTemperature": "Temperature",
+  "@customFieldSliderCategoryTemperature": { "description": "Category heading for temperature gradient presets" },
+  "customFieldSliderCategoryNeutral": "Neutral",
+  "@customFieldSliderCategoryNeutral": { "description": "Category heading for neutral gradient presets" },
+  "sliderGradientPresetFemmeMasc": "Femme ↔ Masc",
+  "@sliderGradientPresetFemmeMasc": { "description": "Label for the femme-masc gradient preset" },
+  "sliderGradientPresetSoftHard": "Soft ↔ Hard",
+  "@sliderGradientPresetSoftHard": { "description": "Label for the soft-hard gradient preset" },
+  "sliderGradientPresetHighLowGender": "High gender ↔ Agender",
+  "@sliderGradientPresetHighLowGender": { "description": "Label for the high-low gender gradient preset" },
+  "sliderGradientPresetFeminineMasculineEnergy": "Feminine ↔ Masculine energy",
+  "@sliderGradientPresetFeminineMasculineEnergy": { "description": "Label for the feminine-masculine energy gradient preset" },
+  "sliderGradientPresetCalmIntense": "Calm ↔ Intense",
+  "@sliderGradientPresetCalmIntense": { "description": "Label for the calm-intense gradient preset" },
+  "sliderGradientPresetSadHappy": "Sad ↔ Happy",
+  "@sliderGradientPresetSadHappy": { "description": "Label for the sad-happy gradient preset" },
+  "sliderGradientPresetLowHighEnergy": "Low ↔ High energy",
+  "@sliderGradientPresetLowHighEnergy": { "description": "Label for the low-high energy gradient preset" },
+  "sliderGradientPresetSoftBold": "Soft ↔ Bold",
+  "@sliderGradientPresetSoftBold": { "description": "Label for the soft-bold gradient preset" },
+  "sliderGradientPresetCoolWarm": "Cool ↔ Warm",
+  "@sliderGradientPresetCoolWarm": { "description": "Label for the cool-warm gradient preset" },
+  "sliderGradientPresetDayNight": "Day ↔ Night",
+  "@sliderGradientPresetDayNight": { "description": "Label for the day-night gradient preset" },
+  "sliderGradientPresetSolidAccent": "Solid accent",
+  "@sliderGradientPresetSolidAccent": { "description": "Label for the solid-accent gradient preset (single color, no gradient)" },
+  "sliderGradientPresetMonochrome": "Monochrome",
+  "@sliderGradientPresetMonochrome": { "description": "Label for the monochrome gradient preset" }
 }

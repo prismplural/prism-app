@@ -16978,6 +16978,242 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{name}: {step} of {total}'**
   String customFieldScaleSemanticLabel(String name, int step, int total);
+
+  // ── Slider ─────────────────────────────────────────────────────────────────
+
+  /// Label for the Slider custom field type in the type picker
+  ///
+  /// In en, this message translates to:
+  /// **'Slider'**
+  String get customFieldTypeSlider;
+
+  /// Section heading for the slider mode chooser (labeled vs numeric)
+  ///
+  /// In en, this message translates to:
+  /// **'Slider type'**
+  String get customFieldSliderModeHeading;
+
+  /// Label for the labeled slider mode card
+  ///
+  /// In en, this message translates to:
+  /// **'Mood / Intensity'**
+  String get customFieldSliderModeLabeled;
+
+  /// Description text on the labeled slider mode card
+  ///
+  /// In en, this message translates to:
+  /// **'Members place themselves on a spectrum with named endpoints.'**
+  String get customFieldSliderModeLabeledDescription;
+
+  /// Label for the numeric slider mode card
+  ///
+  /// In en, this message translates to:
+  /// **'Measurement'**
+  String get customFieldSliderModeNumeric;
+
+  /// Description text on the numeric slider mode card
+  ///
+  /// In en, this message translates to:
+  /// **'Members enter a number on a scale you define.'**
+  String get customFieldSliderModeNumericDescription;
+
+  /// Notice shown in edit mode explaining the slider mode cannot be changed
+  ///
+  /// In en, this message translates to:
+  /// **'Slider type is fixed once the field is created.'**
+  String get customFieldSliderModeLockNotice;
+
+  /// Label for the left anchor text field in labeled slider config
+  ///
+  /// In en, this message translates to:
+  /// **'Left label (optional)'**
+  String get customFieldSliderLeftLabel;
+
+  /// Label for the right anchor text field in labeled slider config
+  ///
+  /// In en, this message translates to:
+  /// **'Right label (optional)'**
+  String get customFieldSliderRightLabel;
+
+  /// Label for the center anchor text field in labeled slider config
+  ///
+  /// In en, this message translates to:
+  /// **'Center label (optional)'**
+  String get customFieldSliderCenterLabel;
+
+  /// Section heading for the gradient preset picker in labeled slider config
+  ///
+  /// In en, this message translates to:
+  /// **'Gradient'**
+  String get customFieldSliderGradientHeading;
+
+  /// Button that reveals the per-anchor color picker override in labeled slider config
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced: custom colors'**
+  String get customFieldSliderAdvancedColors;
+
+  /// Toggle label for snap-to-positions in labeled slider config
+  ///
+  /// In en, this message translates to:
+  /// **'Snap to positions'**
+  String get customFieldSliderSnapToPositions;
+
+  /// Label for the minimum value text field in numeric slider config
+  ///
+  /// In en, this message translates to:
+  /// **'Min'**
+  String get customFieldSliderMin;
+
+  /// Label for the maximum value text field in numeric slider config
+  ///
+  /// In en, this message translates to:
+  /// **'Max'**
+  String get customFieldSliderMax;
+
+  /// Label for the step size text field in numeric slider config
+  ///
+  /// In en, this message translates to:
+  /// **'Step'**
+  String get customFieldSliderStep;
+
+  /// Label for the unit suffix text field in numeric slider config
+  ///
+  /// In en, this message translates to:
+  /// **'Unit (optional)'**
+  String get customFieldSliderUnit;
+
+  /// Toggle label for showing tick marks in numeric slider config
+  ///
+  /// In en, this message translates to:
+  /// **'Show tick marks'**
+  String get customFieldSliderShowTicks;
+
+  /// Value indicator pill text for labeled slider mode, shown above the thumb
+  ///
+  /// In en, this message translates to:
+  /// **'Closer to {anchor}, {percent}%'**
+  String customFieldSliderValueLabel({required String anchor, required int percent});
+
+  /// Value indicator pill text when exactly on center anchor in labeled slider mode
+  ///
+  /// In en, this message translates to:
+  /// **'{anchor}, {percent}%'**
+  String customFieldSliderValueLabelCentered({required String anchor, required int percent});
+
+  /// Value indicator pill text for numeric slider mode; unit may be empty
+  ///
+  /// In en, this message translates to:
+  /// **'{value}{unit}'**
+  String customFieldSliderNumericValueLabel({required String value, required String unit});
+
+  /// Screen-reader label for numeric slider mode
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, {value} {unit}'**
+  String customFieldSliderSemanticLabel({required String name, required String value, required String unit});
+
+  /// Screen-reader label for labeled slider mode; description is the pill text
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, {description}'**
+  String customFieldSliderSemanticLabelLabeled({required String name, required String description});
+
+  /// Category heading for gender expression gradient presets
+  ///
+  /// In en, this message translates to:
+  /// **'Gender expression'**
+  String get customFieldSliderCategoryGenderExpression;
+
+  /// Category heading for mood/intensity gradient presets
+  ///
+  /// In en, this message translates to:
+  /// **'Mood / Intensity'**
+  String get customFieldSliderCategoryMoodIntensity;
+
+  /// Category heading for temperature gradient presets
+  ///
+  /// In en, this message translates to:
+  /// **'Temperature'**
+  String get customFieldSliderCategoryTemperature;
+
+  /// Category heading for neutral gradient presets
+  ///
+  /// In en, this message translates to:
+  /// **'Neutral'**
+  String get customFieldSliderCategoryNeutral;
+
+  /// Label for the femme-masc gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Femme ↔ Masc'**
+  String get sliderGradientPresetFemmeMasc;
+
+  /// Label for the soft-hard gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Soft ↔ Hard'**
+  String get sliderGradientPresetSoftHard;
+
+  /// Label for the high-low gender gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'High gender ↔ Agender'**
+  String get sliderGradientPresetHighLowGender;
+
+  /// Label for the feminine-masculine energy gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Feminine ↔ Masculine energy'**
+  String get sliderGradientPresetFeminineMasculineEnergy;
+
+  /// Label for the calm-intense gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Calm ↔ Intense'**
+  String get sliderGradientPresetCalmIntense;
+
+  /// Label for the sad-happy gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Sad ↔ Happy'**
+  String get sliderGradientPresetSadHappy;
+
+  /// Label for the low-high energy gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Low ↔ High energy'**
+  String get sliderGradientPresetLowHighEnergy;
+
+  /// Label for the soft-bold gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Soft ↔ Bold'**
+  String get sliderGradientPresetSoftBold;
+
+  /// Label for the cool-warm gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Cool ↔ Warm'**
+  String get sliderGradientPresetCoolWarm;
+
+  /// Label for the day-night gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Day ↔ Night'**
+  String get sliderGradientPresetDayNight;
+
+  /// Label for the solid-accent gradient preset (single color, no gradient)
+  ///
+  /// In en, this message translates to:
+  /// **'Solid accent'**
+  String get sliderGradientPresetSolidAccent;
+
+  /// Label for the monochrome gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Monochrome'**
+  String get sliderGradientPresetMonochrome;
 }
 
 class _AppLocalizationsDelegate

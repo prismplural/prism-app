@@ -10538,4 +10538,137 @@ class AppLocalizationsEn extends AppLocalizations {
   String customFieldScaleSemanticLabel(String name, int step, int total) {
     return '$name: $step of $total';
   }
+
+  // ── Slider ─────────────────────────────────────────────────────────────────
+
+  @override
+  String get customFieldTypeSlider => 'Slider';
+
+  @override
+  String get customFieldSliderModeHeading => 'Slider type';
+
+  @override
+  String get customFieldSliderModeLabeled => 'Mood / Intensity';
+
+  @override
+  String get customFieldSliderModeLabeledDescription =>
+      'Members place themselves on a spectrum with named endpoints.';
+
+  @override
+  String get customFieldSliderModeNumeric => 'Measurement';
+
+  @override
+  String get customFieldSliderModeNumericDescription =>
+      'Members enter a number on a scale you define.';
+
+  @override
+  String get customFieldSliderModeLockNotice =>
+      'Slider type is fixed once the field is created.';
+
+  @override
+  String get customFieldSliderLeftLabel => 'Left label (optional)';
+
+  @override
+  String get customFieldSliderRightLabel => 'Right label (optional)';
+
+  @override
+  String get customFieldSliderCenterLabel => 'Center label (optional)';
+
+  @override
+  String get customFieldSliderGradientHeading => 'Gradient';
+
+  @override
+  String get customFieldSliderAdvancedColors => 'Advanced: custom colors';
+
+  @override
+  String get customFieldSliderSnapToPositions => 'Snap to positions';
+
+  @override
+  String get customFieldSliderMin => 'Min';
+
+  @override
+  String get customFieldSliderMax => 'Max';
+
+  @override
+  String get customFieldSliderStep => 'Step';
+
+  @override
+  String get customFieldSliderUnit => 'Unit (optional)';
+
+  @override
+  String get customFieldSliderShowTicks => 'Show tick marks';
+
+  @override
+  String customFieldSliderValueLabel({required String anchor, required int percent}) {
+    return 'Closer to $anchor, $percent%';
+  }
+
+  @override
+  String customFieldSliderValueLabelCentered({required String anchor, required int percent}) {
+    return '$anchor, $percent%';
+  }
+
+  @override
+  String customFieldSliderNumericValueLabel({required String value, required String unit}) {
+    return '$value$unit';
+  }
+
+  @override
+  String customFieldSliderSemanticLabel({required String name, required String value, required String unit}) {
+    return '$name, $value $unit';
+  }
+
+  @override
+  String customFieldSliderSemanticLabelLabeled({required String name, required String description}) {
+    return '$name, $description';
+  }
+
+  @override
+  String get customFieldSliderCategoryGenderExpression => 'Gender expression';
+
+  @override
+  String get customFieldSliderCategoryMoodIntensity => 'Mood / Intensity';
+
+  @override
+  String get customFieldSliderCategoryTemperature => 'Temperature';
+
+  @override
+  String get customFieldSliderCategoryNeutral => 'Neutral';
+
+  @override
+  String get sliderGradientPresetFemmeMasc => 'Femme ↔ Masc';
+
+  @override
+  String get sliderGradientPresetSoftHard => 'Soft ↔ Hard';
+
+  @override
+  String get sliderGradientPresetHighLowGender => 'High gender ↔ Agender';
+
+  @override
+  String get sliderGradientPresetFeminineMasculineEnergy =>
+      'Feminine ↔ Masculine energy';
+
+  @override
+  String get sliderGradientPresetCalmIntense => 'Calm ↔ Intense';
+
+  @override
+  String get sliderGradientPresetSadHappy => 'Sad ↔ Happy';
+
+  @override
+  String get sliderGradientPresetLowHighEnergy => 'Low ↔ High energy';
+
+  @override
+  String get sliderGradientPresetSoftBold => 'Soft ↔ Bold';
+
+  @override
+  String get sliderGradientPresetCoolWarm => 'Cool ↔ Warm';
+
+  @override
+  String get sliderGradientPresetDayNight => 'Day ↔ Night';
+
+  @override
+  String get sliderGradientPresetSolidAccent => 'Solid accent';
+
+  @override
+  String get sliderGradientPresetMonochrome => 'Monochrome';
 }
