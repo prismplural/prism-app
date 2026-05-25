@@ -5,6 +5,18 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 part 'custom_field.freezed.dart';
 part 'custom_field.g.dart';
 
+/// Field type identity used in legacy exhaustive switches throughout the app.
+///
+/// **Extension policy:** New types are registered via `customFieldTypeRegistry`
+/// in `lib/domain/custom_fields/registry.dart`. Enum entries here are
+/// back-compat fallbacks ONLY — for code that hasn't been migrated to dispatch
+/// through the registry yet. Adding a new entry should be considered tech debt;
+/// prefer extending the registry without adding here.
+///
+/// BATCH 3+ types (group, scale, slider) must NOT extend this enum. They
+/// register only through the registry. If a switch on [CustomFieldType]
+/// requires exhaustiveness, add a wildcard/default branch for future types
+/// rather than widening the enum.
 enum CustomFieldType {
   text, // 0 - short text
   color, // 1

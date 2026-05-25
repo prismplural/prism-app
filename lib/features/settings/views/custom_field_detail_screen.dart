@@ -4,9 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/custom_fields/definitions/choice_field_definition.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
+import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -554,11 +557,32 @@ String _formatValueForField(
 ) {
   return switch (field.fieldType) {
     CustomFieldType.date => _formatDateValue(context, raw, field.datePrecision),
+    // Fix 1: resolve choice JSON into human-readable labels instead of leaking raw JSON.
+    CustomFieldType.choice => _formatChoiceValue(context, field, raw),
     CustomFieldType.text ||
     CustomFieldType.longText ||
-    CustomFieldType.color ||
-    CustomFieldType.choice => raw,
+    CustomFieldType.color => raw,
   };
+}
+
+/// Resolves a raw choice JSON string into a comma-separated list of option
+/// labels. Returns an empty string if nothing can be resolved.
+String _formatChoiceValue(BuildContext context, CustomField field, String raw) {
+  final parsed = choiceFieldDefinition.valueParser(raw);
+  if (parsed is! ChoiceFieldValue) return '';
+  final config = field.typeConfig;
+  if (config is! ChoiceConfig) return '';
+
+  final optionsById = {for (final o in config.options) o.id: o};
+  final labels = parsed.optionIds
+      .map((id) => optionsById[id]?.label)
+      .whereType<String>()
+      .where((l) => l.isNotEmpty)
+      .toList();
+  if (parsed.other != null && parsed.other!.isNotEmpty) {
+    labels.add(context.l10n.customFieldChoiceOtherPrefix(parsed.other!));
+  }
+  return labels.join(', ');
 }
 
 String _formatDateValue(

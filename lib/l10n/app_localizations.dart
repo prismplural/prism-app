@@ -13359,6 +13359,90 @@ abstract class AppLocalizations {
   /// **'Change color'**
   String get customFieldChoiceColorCycleTooltip;
 
+  /// Title for the dialog that lets a user rename a choice option
+  ///
+  /// In en, this message translates to:
+  /// **'Edit option label'**
+  String get customFieldChoiceEditLabelDialogTitle;
+
+  /// Hint text for the text field inside the edit-label dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Option label'**
+  String get customFieldChoiceOptionLabelHint;
+
+  /// Title of the confirm-delete dialog for a choice option
+  ///
+  /// In en, this message translates to:
+  /// **'Delete option'**
+  String get customFieldChoiceDeleteOptionTitle;
+
+  /// Body of the confirm-delete dialog for a choice option
+  ///
+  /// In en, this message translates to:
+  /// **'\"{label}\" will be soft-deleted. Members who selected it will still see it (faded) but can no longer choose it. This affects all members.'**
+  String customFieldChoiceDeleteOptionMessage(String label);
+
+  /// Context-menu item to rename a choice option chip
+  ///
+  /// In en, this message translates to:
+  /// **'Edit label'**
+  String get customFieldChoiceEditMenuLabel;
+
+  /// Context-menu item to cycle the color of a choice option chip
+  ///
+  /// In en, this message translates to:
+  /// **'Change color'**
+  String get customFieldChoiceChangeColorMenuLabel;
+
+  /// Context-menu item to soft-delete a choice option
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get customFieldChoiceDeleteMenuLabel;
+
+  /// Label for the 'Other' chip that toggles the free-text entry
+  ///
+  /// In en, this message translates to:
+  /// **'Other…'**
+  String get customFieldChoiceOtherChipLabel;
+
+  /// Hint text inside the Other free-text field
+  ///
+  /// In en, this message translates to:
+  /// **'Specify…'**
+  String get customFieldChoiceOtherTextHint;
+
+  /// Tooltip shown on a soft-deleted option chip to signal it is no longer choosable
+  ///
+  /// In en, this message translates to:
+  /// **'(removed)'**
+  String get customFieldChoiceRemovedSuffix;
+
+  /// Chip/text label for an Other free-text answer, e.g. 'Other: my answer'
+  ///
+  /// In en, this message translates to:
+  /// **'Other: {value}'**
+  String customFieldChoiceOtherPrefix(String value);
+
+  /// Accessibility suffix appended to a choice chip label when the option is selected
+  ///
+  /// In en, this message translates to:
+  /// **'selected'**
+  String get customFieldChoiceSelectedSuffix;
+
+  /// Accessibility suffix appended to a choice chip label when the option is not selected
+  ///
+  /// In en, this message translates to:
+  /// **'not selected'**
+  String get customFieldChoiceNotSelectedSuffix;
+
+  /// Semantics label for the Other free-text field (accessibility)
+  ///
+  /// In en, this message translates to:
+  /// **'Other, free text'**
+  String get customFieldChoiceOtherSemanticLabel;
+
   /// Title of the data browser debug screen
   ///
   /// In en, this message translates to:

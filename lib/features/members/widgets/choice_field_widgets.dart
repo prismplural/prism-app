@@ -11,6 +11,7 @@ import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
@@ -61,6 +62,8 @@ class _ChoiceEditorWidget extends ConsumerStatefulWidget {
 class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
   late ChoiceFieldValue _currentValue;
   late TextEditingController _otherController;
+  // Fix 6: buffer "Other" text until focus loss instead of saving on every keystroke.
+  String? _pendingOtherText;
   // Map from option ID → GlobalKey<BlurPopupAnchorState> for long-press menus.
   final Map<String, GlobalKey<BlurPopupAnchorState>> _popupKeys = {};
 
@@ -77,7 +80,9 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
     final newRaw = widget.existingValue?.value ?? '';
     final oldRaw = oldWidget.existingValue?.value ?? '';
     if (newRaw != oldRaw) {
-      _currentValue = _parseValue(widget.existingValue?.value);
+      setState(() {
+        _currentValue = _parseValue(widget.existingValue?.value);
+      });
       final newOther = _currentValue.other ?? '';
       if (_otherController.text != newOther) {
         _otherController.text = newOther;
@@ -156,24 +161,25 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
     ChoiceConfig config,
     ChoiceOption option,
   ) async {
+    final l10n = context.l10n;
     final controller = TextEditingController(text: option.label);
     final confirmed = await PrismDialog.show<bool>(
       context: context,
-      title: 'Edit option label',
+      title: l10n.customFieldChoiceEditLabelDialogTitle,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Save'),
+          child: Text(l10n.save),
         ),
       ],
       builder: (ctx) => PrismTextField(
         controller: controller,
         autofocus: true,
-        hintText: 'Option label',
+        hintText: l10n.customFieldChoiceOptionLabelHint,
         onSubmitted: (_) => Navigator.of(ctx).pop(true),
       ),
     );
@@ -209,14 +215,12 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
     ChoiceConfig config,
     ChoiceOption option,
   ) async {
+    final l10n = context.l10n;
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete option',
-      message:
-          '"${option.label}" will be soft-deleted. Members who selected it '
-          'will still see it (faded) but can no longer choose it. '
-          'This affects all members.',
-      confirmLabel: 'Delete',
+      title: l10n.customFieldChoiceDeleteOptionTitle,
+      message: l10n.customFieldChoiceDeleteOptionMessage(option.label),
+      confirmLabel: l10n.customFieldChoiceDeleteMenuLabel,
       destructive: true,
       icon: AppIcons.warningAmber,
     );
@@ -232,16 +236,28 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
         .writeTypedConfig(widget.field.id, updatedConfig);
   }
 
+  /// Fix 6: Save the Other text on focus loss, trimming whitespace first.
+  void _flushOtherText() {
+    final pending = _pendingOtherText;
+    _pendingOtherText = null;
+    if (pending == null) return;
+    final trimmed = pending.trim();
+    unawaited(
+      _save(_currentValue.copyWith(other: trimmed.isEmpty ? null : trimmed)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final config = _config();
     if (config == null) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
     final allowsMultiple = config.allowsMultiple;
     final allowsOther = config.allowsOther;
-    final isOtherSelected = _currentValue.optionIds.contains('__other__') ||
-        (_currentValue.other?.isNotEmpty ?? false);
+    // Fix 8: remove dead `_currentValue.optionIds.contains('__other__')` check.
+    final isOtherSelected = _currentValue.other?.isNotEmpty ?? false;
 
     // Separate active vs deleted options.
     final activeOptions = config.options.where((o) => !o.isDeleted).toList()
@@ -255,7 +271,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
       for (final option in activeOptions)
         _buildOptionChip(context, theme, config, option, allowsMultiple),
       for (final option in deletedButSelected)
-        _buildDeletedOptionChip(context, theme, option, allowsMultiple),
+        _buildDeletedOptionChip(context, theme, option),
       if (allowsOther)
         _buildOtherChip(context, theme, isOtherSelected),
     ];
@@ -274,15 +290,24 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
         Wrap(spacing: 8, runSpacing: 6, children: chips),
         if (allowsOther && isOtherSelected) ...[
           const SizedBox(height: 8),
-          PrismTextField(
-            controller: _otherController,
-            hintText: 'Specify…',
-            autofocus: true,
-            onChanged: (text) {
-              unawaited(
-                _save(_currentValue.copyWith(other: text.isEmpty ? null : text)),
-              );
-            },
+          // Fix 3: Semantics wrapper for Other text field (accessibility HARD GATE).
+          Semantics(
+            textField: true,
+            label: l10n.customFieldChoiceOtherSemanticLabel,
+            child: Focus(
+              // Fix 6: save on focus loss instead of on every keystroke.
+              onFocusChange: (hasFocus) {
+                if (!hasFocus) _flushOtherText();
+              },
+              child: PrismTextField(
+                controller: _otherController,
+                hintText: l10n.customFieldChoiceOtherTextHint,
+                autofocus: true,
+                onChanged: (text) {
+                  _pendingOtherText = text;
+                },
+              ),
+            ),
           ),
         ],
       ],
@@ -296,11 +321,16 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
     ChoiceOption option,
     bool allowsMultiple,
   ) {
+    final l10n = context.l10n;
     final isSelected = _currentValue.optionIds.contains(option.id);
     final color =
         option.colorHex != null ? AppColors.fromHex(option.colorHex!) : null;
 
     final popupKey = _popupKeyFor(option.id);
+    // Fix 3: spec-mandated Semantics for option chips in the editor.
+    final semanticLabel =
+        '${widget.field.name}, ${option.label}, '
+        '${isSelected ? l10n.customFieldChoiceSelectedSuffix : l10n.customFieldChoiceNotSelectedSuffix}';
 
     return BlurPopupAnchor(
       key: popupKey,
@@ -314,7 +344,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
           0 => PrismListRow(
               dense: true,
               leading: Icon(AppIcons.edit, size: 20),
-              title: const Text('Edit label'),
+              title: Text(l10n.customFieldChoiceEditMenuLabel),
               onTap: () {
                 close();
                 unawaited(_editOptionLabel(context, config, option));
@@ -323,7 +353,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
           1 => PrismListRow(
               dense: true,
               leading: Icon(AppIcons.palette, size: 20),
-              title: const Text('Change color'),
+              title: Text(l10n.customFieldChoiceChangeColorMenuLabel),
               onTap: () {
                 close();
                 unawaited(_cycleOptionColor(config, option));
@@ -337,7 +367,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
                 size: 20,
                 color: theme.colorScheme.error,
               ),
-              title: const Text('Delete'),
+              title: Text(l10n.customFieldChoiceDeleteMenuLabel),
               onTap: () {
                 close();
                 unawaited(_deleteOption(context, config, option));
@@ -345,14 +375,19 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
             ),
         };
       },
-      child: GestureDetector(
-        onLongPress: () => _handleLongPress(context, config, option),
-        child: PrismChip(
-          label: option.label,
-          selected: isSelected,
-          selectedColor: color,
-          tintColor: isSelected ? color : null,
-          onTap: () => _toggleOption(option.id, allowsMultiple),
+      child: Semantics(
+        button: true,
+        label: semanticLabel,
+        excludeSemantics: true,
+        child: GestureDetector(
+          onLongPress: () => _handleLongPress(context, config, option),
+          child: PrismChip(
+            label: option.label,
+            selected: isSelected,
+            selectedColor: color,
+            tintColor: isSelected ? color : null,
+            onTap: () => _toggleOption(option.id, allowsMultiple),
+          ),
         ),
       ),
     );
@@ -362,17 +397,28 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
     BuildContext context,
     ThemeData theme,
     ChoiceOption option,
-    bool allowsMultiple,
   ) {
+    final l10n = context.l10n;
     final isSelected = _currentValue.optionIds.contains(option.id);
+    // Fix 3: Semantics for deleted option chips.
+    final semanticLabel =
+        '${widget.field.name}, ${option.label}, '
+        '${isSelected ? l10n.customFieldChoiceSelectedSuffix : l10n.customFieldChoiceNotSelectedSuffix}, '
+        '${l10n.customFieldChoiceRemovedSuffix}';
     return Tooltip(
-      message: '(removed)',
-      child: Opacity(
-        opacity: 0.45,
-        child: PrismChip(
-          label: option.label,
-          selected: isSelected,
-          onTap: () => _toggleOption(option.id, allowsMultiple),
+      message: l10n.customFieldChoiceRemovedSuffix,
+      child: Semantics(
+        button: true,
+        label: semanticLabel,
+        excludeSemantics: true,
+        child: Opacity(
+          opacity: 0.45,
+          child: PrismChip(
+            label: option.label,
+            selected: isSelected,
+            // Fix 5: deleted chips are not tappable in editor.
+            onTap: null,
+          ),
         ),
       ),
     );
@@ -383,19 +429,30 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
     ThemeData theme,
     bool isSelected,
   ) {
-    return PrismChip(
-      label: 'Other…',
-      selected: isSelected,
-      onTap: () {
-        if (isSelected) {
-          // Deselect: clear other text.
-          unawaited(_save(_currentValue.copyWith(other: null)));
-          _otherController.clear();
-        } else {
-          // Select: mark as other-selected with empty text for now.
-          unawaited(_save(_currentValue.copyWith(other: '')));
-        }
-      },
+    final l10n = context.l10n;
+    // Fix 3: Semantics for Other chip.
+    final semanticLabel =
+        '${widget.field.name}, ${l10n.customFieldChoiceOtherChipLabel}, '
+        '${isSelected ? l10n.customFieldChoiceSelectedSuffix : l10n.customFieldChoiceNotSelectedSuffix}';
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      excludeSemantics: true,
+      child: PrismChip(
+        label: l10n.customFieldChoiceOtherChipLabel,
+        selected: isSelected,
+        onTap: () {
+          if (isSelected) {
+            // Deselect: clear other text.
+            _pendingOtherText = null;
+            unawaited(_save(_currentValue.copyWith(other: null)));
+            _otherController.clear();
+          } else {
+            // Select: mark as other-selected with empty text for now.
+            unawaited(_save(_currentValue.copyWith(other: '')));
+          }
+        },
+      ),
     );
   }
 }
@@ -419,6 +476,7 @@ class _ChoiceDisplayWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final config = field.typeConfig;
     if (config is! ChoiceConfig) {
       return Text(value.value);
@@ -446,15 +504,26 @@ class _ChoiceDisplayWidget extends StatelessWidget {
           : null;
       final isDeleted = option.isDeleted;
 
-      Widget chip = PrismChip(
-        label: option.label,
-        selected: true,
-        tintColor: color,
-        onTap: null,
+      // Fix 3: Semantics for display chips.
+      final semanticLabel =
+          '${field.name}, ${option.label}, '
+          '${l10n.customFieldChoiceSelectedSuffix}'
+          '${isDeleted ? ', ${l10n.customFieldChoiceRemovedSuffix}' : ''}';
+
+      Widget chip = Semantics(
+        button: false,
+        label: semanticLabel,
+        excludeSemantics: true,
+        child: PrismChip(
+          label: option.label,
+          selected: true,
+          tintColor: color,
+          onTap: null,
+        ),
       );
       if (isDeleted) {
         chip = Tooltip(
-          message: '(removed)',
+          message: l10n.customFieldChoiceRemovedSuffix,
           child: Opacity(opacity: 0.45, child: chip),
         );
       }
@@ -462,11 +531,17 @@ class _ChoiceDisplayWidget extends StatelessWidget {
     }
 
     if (choiceValue.other != null && choiceValue.other!.isNotEmpty) {
+      final otherLabel = l10n.customFieldChoiceOtherPrefix(choiceValue.other!);
       chips.add(
-        PrismChip(
-          label: 'Other: ${choiceValue.other}',
-          selected: true,
-          onTap: null,
+        Semantics(
+          button: false,
+          label: '${field.name}, $otherLabel',
+          excludeSemantics: true,
+          child: PrismChip(
+            label: otherLabel,
+            selected: true,
+            onTap: null,
+          ),
         ),
       );
     }
@@ -500,6 +575,7 @@ class _ChoiceCompactWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final config = field.typeConfig;
     if (config is! ChoiceConfig) {
       return Text(value.value);
@@ -510,6 +586,8 @@ class _ChoiceCompactWidget extends StatelessWidget {
         parsed is ChoiceFieldValue ? parsed : const ChoiceFieldValue();
 
     // Build resolved label list (preserving a deterministic order).
+    // resolvedLabels and resolvedOptions are parallel: each index corresponds
+    // to either a ChoiceOption or the trailing Other text.
     final optionMap = {for (final o in config.options) o.id: o};
     final resolvedLabels = <String>[];
     final resolvedOptions = <ChoiceOption>[];
@@ -521,8 +599,14 @@ class _ChoiceCompactWidget extends StatelessWidget {
         resolvedOptions.add(option);
       }
     }
-    if (choiceValue.other != null && choiceValue.other!.isNotEmpty) {
-      resolvedLabels.add('Other: ${choiceValue.other}');
+    // Fix 2: Other was previously only added to resolvedLabels (not resolvedOptions),
+    // making the "else" branch in the chip-render loop unreachable. Now we track
+    // whether Other is present via a separate bool and iterate resolvedLabels
+    // (not resolvedOptions) for the visible count.
+    final hasOther =
+        choiceValue.other != null && choiceValue.other!.isNotEmpty;
+    if (hasOther) {
+      resolvedLabels.add(l10n.customFieldChoiceOtherPrefix(choiceValue.other!));
     }
 
     if (resolvedLabels.isEmpty) return const SizedBox.shrink();
@@ -541,25 +625,41 @@ class _ChoiceCompactWidget extends StatelessWidget {
           return Text(fullText, overflow: TextOverflow.ellipsis);
         }
 
-        // Chip row: up to _maxVisibleChips, then "+N more" label.
-        final visibleCount = resolvedOptions.length.clamp(0, _maxVisibleChips);
+        // Fix 2: iterate by resolvedLabels.length (not resolvedOptions.length)
+        // so Other at the end of the list actually gets rendered as a chip.
+        final visibleCount = resolvedLabels.length.clamp(0, _maxVisibleChips);
         final overflow =
             resolvedLabels.length > _maxVisibleChips
                 ? resolvedLabels.length - _maxVisibleChips
                 : 0;
 
         final chips = <Widget>[
-          for (var i = 0; i < visibleCount; i++) ...[
+          for (var i = 0; i < visibleCount; i++)
+            // Fix 2: branch on whether this index is an option or the Other text.
             if (i < resolvedOptions.length)
-              _buildMiniChip(context, resolvedOptions[i])
+              // Fix 3: Semantics for compact option chips.
+              Semantics(
+                button: false,
+                label:
+                    '${field.name}, ${resolvedLabels[i]}, '
+                    '${l10n.customFieldChoiceSelectedSuffix}'
+                    '${resolvedOptions[i].isDeleted ? ', ${l10n.customFieldChoiceRemovedSuffix}' : ''}',
+                excludeSemantics: true,
+                child: _buildMiniChip(context, resolvedOptions[i]),
+              )
             else
-              // "Other" pill — only appears at the end.
-              PrismChip(
-                label: resolvedLabels[i],
-                selected: true,
-                onTap: null,
+              // Other pill — now reachable.
+              // Fix 3: Semantics for compact Other chip.
+              Semantics(
+                button: false,
+                label: '${field.name}, ${resolvedLabels[i]}',
+                excludeSemantics: true,
+                child: PrismChip(
+                  label: resolvedLabels[i],
+                  selected: true,
+                  onTap: null,
+                ),
               ),
-          ],
           if (overflow > 0)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),

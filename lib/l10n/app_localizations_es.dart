@@ -8301,6 +8301,52 @@ class AppLocalizationsEs extends AppLocalizations {
   String get customFieldChoiceColorCycleTooltip => 'Change color';
 
   @override
+  String get customFieldChoiceEditLabelDialogTitle => 'Edit option label';
+
+  @override
+  String get customFieldChoiceOptionLabelHint => 'Option label';
+
+  @override
+  String get customFieldChoiceDeleteOptionTitle => 'Delete option';
+
+  @override
+  String customFieldChoiceDeleteOptionMessage(String label) {
+    return '\"$label\" will be soft-deleted. Members who selected it will still see it (faded) but can no longer choose it. This affects all members.';
+  }
+
+  @override
+  String get customFieldChoiceEditMenuLabel => 'Edit label';
+
+  @override
+  String get customFieldChoiceChangeColorMenuLabel => 'Change color';
+
+  @override
+  String get customFieldChoiceDeleteMenuLabel => 'Delete';
+
+  @override
+  String get customFieldChoiceOtherChipLabel => 'Other…';
+
+  @override
+  String get customFieldChoiceOtherTextHint => 'Specify…';
+
+  @override
+  String get customFieldChoiceRemovedSuffix => '(removed)';
+
+  @override
+  String customFieldChoiceOtherPrefix(String value) {
+    return 'Other: $value';
+  }
+
+  @override
+  String get customFieldChoiceSelectedSuffix => 'selected';
+
+  @override
+  String get customFieldChoiceNotSelectedSuffix => 'not selected';
+
+  @override
+  String get customFieldChoiceOtherSemanticLabel => 'Other, free text';
+
+  @override
   String get settingsDataBrowserTitle => 'Visor de datos';
 
   @override
