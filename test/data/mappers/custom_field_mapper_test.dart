@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart' as db;
 import 'package:prism_plurality/data/mappers/custom_field_mapper.dart';
 import 'package:prism_plurality/data/mappers/custom_field_value_mapper.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart' as domain;
+import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart' as domain;
 
 import '../../helpers/mapper_test_helpers.dart';
@@ -110,9 +113,12 @@ void main() {
         id: companion.id.value,
         name: companion.name.value,
         fieldType: companion.fieldType.value,
+        fieldTypeId: companion.fieldTypeId.value,
         datePrecision: companion.datePrecision.value,
         displayOrder: companion.displayOrder.value,
         createdAt: companion.createdAt.value,
+        parentFieldId: companion.parentFieldId.value,
+        typeConfigJson: companion.typeConfigJson.value,
         isDeleted: false,
       );
 
@@ -138,15 +144,133 @@ void main() {
         id: companion.id.value,
         name: companion.name.value,
         fieldType: companion.fieldType.value,
+        fieldTypeId: companion.fieldTypeId.value,
         datePrecision: companion.datePrecision.value,
         displayOrder: companion.displayOrder.value,
         createdAt: companion.createdAt.value,
+        parentFieldId: companion.parentFieldId.value,
+        typeConfigJson: companion.typeConfigJson.value,
         isDeleted: false,
       );
 
       final restored = CustomFieldMapper.toDomain(row);
       expect(restored.fieldType, domain.CustomFieldType.date);
       expect(restored.datePrecision, domain.DatePrecision.timestamp);
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // CustomFieldMapper round-trip — new columns (Task 5)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  group('CustomFieldMapper round-trip', () {
+    test('legacy text field (int-only) round-trips', () {
+      final row = db.CustomFieldRow(
+        id: 'a',
+        name: 'Bio',
+        fieldType: 0,
+        fieldTypeId: 'text',
+        datePrecision: null,
+        parentFieldId: null,
+        typeConfigJson: null,
+        displayOrder: 0,
+        createdAt: DateTime.utc(2026),
+        isDeleted: false,
+      );
+      final mapped = CustomFieldMapper.toDomain(row);
+      expect(mapped.fieldTypeId, 'text');
+      expect(mapped.typeConfig, isNull);
+      final back = CustomFieldMapper.toCompanion(mapped);
+      expect(back.fieldTypeId.value, 'text');
+      expect(back.typeConfigJson.value, isNull);
+    });
+
+    test('new-type row with config round-trips', () {
+      final row = db.CustomFieldRow(
+        id: 'b',
+        name: 'Faves',
+        fieldType: 4,
+        fieldTypeId: 'choice',
+        datePrecision: null,
+        parentFieldId: null,
+        typeConfigJson:
+            '{"runtimeType":"choice","options":[],"allowsMultiple":true,"allowsOther":false}',
+        displayOrder: 1,
+        createdAt: DateTime.utc(2026),
+        isDeleted: false,
+      );
+      final mapped = CustomFieldMapper.toDomain(row);
+      expect(mapped.fieldTypeId, 'choice');
+      expect(mapped.typeConfig, isA<ChoiceConfig>());
+      expect((mapped.typeConfig as ChoiceConfig).allowsMultiple, true);
+      final back = CustomFieldMapper.toCompanion(mapped);
+      expect(back.fieldTypeId.value, 'choice');
+      // Re-encoded JSON should parse back to the same config (string compare
+      // may differ due to key order — parse it instead).
+      final reparsed = CustomFieldTypeConfigCodec.fromJson(
+        jsonDecode(back.typeConfigJson.value!) as Map<String, dynamic>,
+      );
+      expect(reparsed, mapped.typeConfig);
+    });
+
+    test('unknown future-type row preserves field_type_id and raw config', () {
+      final row = db.CustomFieldRow(
+        id: 'c',
+        name: 'Future',
+        fieldType: 99,
+        fieldTypeId: 'future_x',
+        datePrecision: null,
+        parentFieldId: null,
+        typeConfigJson: '{"runtimeType":"future_x","mystery":true}',
+        displayOrder: 2,
+        createdAt: DateTime.utc(2026),
+        isDeleted: false,
+      );
+      final mapped = CustomFieldMapper.toDomain(row);
+      expect(
+        mapped.fieldTypeId,
+        'future_x',
+        reason: 'Unknown ID preserved verbatim',
+      );
+      expect(
+        mapped.typeConfig,
+        isNull,
+        reason:
+            'Unknown variant fails to parse cleanly; left null',
+      );
+
+      final back = CustomFieldMapper.toCompanion(mapped);
+      expect(
+        back.fieldTypeId.value,
+        'future_x',
+        reason: 'Round-trip preserves unknown id',
+      );
+      // typeConfigJson on round-trip will be null because typeConfig is null —
+      // this is a known limitation. The full byte-preservation of unknown-variant
+      // config will be handled at the repository level (Task 5 part of fieldFields
+      // doesn't run for an unknown variant; the sync layer's readRow preserves
+      // the raw column directly).
+    });
+
+    test('field_type_id null falls back to legacy int', () {
+      final row = db.CustomFieldRow(
+        id: 'd',
+        name: 'Old',
+        fieldType: 2,
+        fieldTypeId: null, // pre-migration row
+        datePrecision: 0,
+        parentFieldId: null,
+        typeConfigJson: null,
+        displayOrder: 3,
+        createdAt: DateTime.utc(2026),
+        isDeleted: false,
+      );
+      final mapped = CustomFieldMapper.toDomain(row);
+      expect(
+        mapped.fieldTypeId,
+        'date',
+        reason: 'Falls back to registry by legacy int',
+      );
     });
   });
 

@@ -16,6 +16,8 @@ _CustomField _$CustomFieldFromJson(Map<String, dynamic> json) => _CustomField(
   ),
   displayOrder: (json['displayOrder'] as num?)?.toInt() ?? 0,
   createdAt: DateTime.parse(json['createdAt'] as String),
+  fieldTypeId: json['fieldTypeId'] as String?,
+  parentFieldId: json['parentFieldId'] as String?,
 );
 
 Map<String, dynamic> _$CustomFieldToJson(_CustomField instance) =>
@@ -26,6 +28,8 @@ Map<String, dynamic> _$CustomFieldToJson(_CustomField instance) =>
       'datePrecision': _$DatePrecisionEnumMap[instance.datePrecision],
       'displayOrder': instance.displayOrder,
       'createdAt': instance.createdAt.toIso8601String(),
+      'fieldTypeId': instance.fieldTypeId,
+      'parentFieldId': instance.parentFieldId,
     };
 
 const _$CustomFieldTypeEnumMap = {

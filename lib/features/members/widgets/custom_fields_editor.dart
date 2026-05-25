@@ -90,12 +90,7 @@ class CustomFieldsEditor extends ConsumerWidget {
     CustomField field,
     CustomFieldValue? existingValue,
   ) {
-    // TODO(task-5): switch to registry.lookupById(field.fieldTypeId) once
-    // field.fieldTypeId is on the domain model (Task 5). Until then, bridge
-    // via the legacy int.
-    final def = customFieldTypeRegistry.lookupByLegacyInt(
-      field.fieldType.index,
-    );
+    final def = customFieldTypeRegistry.lookupById(field.fieldTypeId);
     if (def != null) {
       // The registry editorBuilder creates a FieldInputWidget for legacy types;
       // future types will have their own stateful widgets. The controller is

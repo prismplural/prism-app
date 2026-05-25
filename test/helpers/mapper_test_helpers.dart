@@ -145,6 +145,9 @@ db.CustomFieldRow makeDbCustomField({
   int? datePrecision,
   int displayOrder = 0,
   DateTime? createdAt,
+  String? fieldTypeId,
+  String? parentFieldId,
+  String? typeConfigJson,
 }) {
   return db.CustomFieldRow(
     id: id,
@@ -154,6 +157,9 @@ db.CustomFieldRow makeDbCustomField({
     displayOrder: displayOrder,
     createdAt: createdAt ?? DateTime(2026, 3, 20, 12, 0),
     isDeleted: false,
+    fieldTypeId: fieldTypeId,
+    parentFieldId: parentFieldId,
+    typeConfigJson: typeConfigJson,
   );
 }
 

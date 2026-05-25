@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 part 'custom_field.freezed.dart';
@@ -68,6 +69,10 @@ abstract class CustomField with _$CustomField {
     DatePrecision? datePrecision,
     @Default(0) int displayOrder,
     required DateTime createdAt,
+    String? fieldTypeId,
+    String? parentFieldId,
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    CustomFieldTypeConfig? typeConfig,
   }) = _CustomField;
 
   factory CustomField.fromJson(Map<String, dynamic> json) =>

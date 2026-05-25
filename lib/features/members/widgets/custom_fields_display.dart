@@ -288,12 +288,7 @@ class _FieldValueCard extends StatelessWidget {
   }
 
   IconData _iconForField(CustomField field) {
-    // TODO(task-5): switch to registry.lookupById(field.fieldTypeId) once
-    // field.fieldTypeId is on the domain model (Task 5). Until then, bridge
-    // via the legacy int.
-    return customFieldTypeRegistry
-            .lookupByLegacyInt(field.fieldType.index)
-            ?.icon ??
+    return customFieldTypeRegistry.lookupById(field.fieldTypeId)?.icon ??
         AppIcons.textFields;
   }
 }
@@ -313,12 +308,7 @@ class _FieldValueBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO(task-5): switch to registry.lookupById(field.fieldTypeId) once
-    // field.fieldTypeId is on the domain model (Task 5). Until then, bridge
-    // via the legacy int.
-    final def = customFieldTypeRegistry.lookupByLegacyInt(
-      entry.field.fieldType.index,
-    );
+    final def = customFieldTypeRegistry.lookupById(entry.field.fieldTypeId);
 
     if (def == null) {
       // Unknown type — forward-compat: render as plain text.

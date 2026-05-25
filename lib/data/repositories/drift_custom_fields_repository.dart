@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/custom_fields_dao.dart';
 import 'package:prism_plurality/data/mappers/custom_field_mapper.dart';
 import 'package:prism_plurality/data/mappers/custom_field_value_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart' as domain;
+import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart'
     as domain;
 import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
@@ -164,14 +167,38 @@ class DriftCustomFieldsRepository
   /// `createField()` for the bulk insert. See
   /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
   static Map<String, dynamic> fieldFields(domain.CustomField f) {
+    String? typeConfigJson;
+    if (f.typeConfig != null) {
+      typeConfigJson =
+          jsonEncode(CustomFieldTypeConfigCodec.toJson(f.typeConfig!));
+    }
     return {
       'name': f.name,
       'field_type': f.fieldType.index,
+      'field_type_id': f.fieldTypeId,
+      'parent_field_id': f.parentFieldId,
+      'type_config_json': typeConfigJson,
       'date_precision': f.datePrecision?.index,
       'display_order': f.displayOrder,
       'created_at': f.createdAt.toUtc().toIso8601String(),
       'is_deleted': false,
     };
+  }
+
+  /// Single write path for typeConfig mutations.
+  ///
+  /// Whole-config LWW invariant: any config mutation writes the entire blob.
+  /// No field-level merge inside the JSON. CRDT convergence depends on this.
+  Future<void> _writeTypedConfig(
+    String fieldId,
+    CustomFieldTypeConfig newConfig,
+  ) async {
+    final existing = await getFieldById(fieldId);
+    if (existing == null) {
+      throw StateError('Cannot write config for missing field $fieldId');
+    }
+    final updated = existing.copyWith(typeConfig: newConfig);
+    await updateField(updated);
   }
 
   Map<String, dynamic> _valueFields(domain.CustomFieldValue v) =>
