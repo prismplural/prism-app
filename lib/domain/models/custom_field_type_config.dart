@@ -89,10 +89,10 @@ class CustomFieldTypeConfigCodec {
     }
     if (extra.isEmpty) return config;
     return switch (config) {
-      ChoiceConfig c => c.copyWith(extra: extra),
-      GroupConfig c => c.copyWith(extra: extra),
-      ScaleConfig c => c.copyWith(extra: extra),
-      SliderConfig c => c.copyWith(extra: extra),
+      final ChoiceConfig c => c.copyWith(extra: extra),
+      final GroupConfig c => c.copyWith(extra: extra),
+      final ScaleConfig c => c.copyWith(extra: extra),
+      final SliderConfig c => c.copyWith(extra: extra),
     };
   }
 
@@ -106,10 +106,10 @@ class CustomFieldTypeConfigCodec {
   static Map<String, dynamic> toJson(CustomFieldTypeConfig config) {
     final base = _toJsonDeep(config);
     final extra = switch (config) {
-      ChoiceConfig c => c.extra,
-      GroupConfig c => c.extra,
-      ScaleConfig c => c.extra,
-      SliderConfig c => c.extra,
+      final ChoiceConfig c => c.extra,
+      final GroupConfig c => c.extra,
+      final ScaleConfig c => c.extra,
+      final SliderConfig c => c.extra,
     };
     if (extra.isEmpty) return base;
     return {...base, ...extra};
@@ -118,7 +118,7 @@ class CustomFieldTypeConfigCodec {
   /// Produces a fully serialized map (all nested objects converted to maps).
   static Map<String, dynamic> _toJsonDeep(CustomFieldTypeConfig config) {
     return switch (config) {
-      ChoiceConfig c => {
+      final ChoiceConfig c => {
         ...c.toJson(),
         'options': c.options.map((o) => o.toJson()).toList(),
       },
