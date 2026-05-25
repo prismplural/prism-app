@@ -16,6 +16,14 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 ///
 /// Use [PrismDialog.show] for custom content or [PrismDialog.confirm] for a
 /// standard confirmation dialog with title, message, and confirm/cancel buttons.
+///
+/// The body ([child] plus icon/title/message) scrolls inside the dialog shell;
+/// [actions] are pinned at the bottom. Two consequences for callers:
+///
+/// - Put buttons in [actions], not [child] — buttons embedded in [child]
+///   scroll with the body and can be pushed off-screen by tall content.
+/// - Don't put [Expanded] or [Flexible] at the root of [child]. The body has
+///   unbounded vertical constraints; a root-level flex child would assert.
 class PrismDialog extends StatelessWidget {
   const PrismDialog({
     super.key,
@@ -177,6 +185,7 @@ class PrismDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasActions = actions != null && actions!.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -184,30 +193,44 @@ class PrismDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (icon != null) ...[
-            Icon(icon, size: 32, color: iconColor ?? theme.colorScheme.primary),
-            const SizedBox(height: 12),
-          ],
-          if (title != null) ...[
-            Text(
-              title!,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (icon != null) ...[
+                    Icon(
+                      icon,
+                      size: 32,
+                      color: iconColor ?? theme.colorScheme.primary,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (title != null) ...[
+                    Text(
+                      title!,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (message != null) ...[
+                    Text(
+                      message!,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  child,
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-          ],
-          if (message != null) ...[
-            Text(
-              message!,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          child,
-          if (actions != null && actions!.isNotEmpty) ...[
+          ),
+          if (hasActions) ...[
             const SizedBox(height: 12),
             Wrap(
               alignment: WrapAlignment.end,

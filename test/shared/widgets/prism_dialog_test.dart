@@ -294,4 +294,98 @@ void main() {
 
     expect(result, isFalse);
   });
+
+  testWidgets(
+    'PrismDialog pins actions and scrolls body when content overflows',
+    (tester) async {
+      // 500px height forces the shell's 560px cap to clip a naive Column.
+      await tester.binding.setSurfaceSize(const Size(600, 500));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      var confirmed = false;
+
+      await tester.pumpWidget(
+        buildApp(
+          child: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                PrismDialog.show(
+                  context: context,
+                  title: 'Tall Dialog',
+                  message: 'This dialog has a body taller than the shell cap.',
+                  actions: [
+                    PrismButton(
+                      label: 'Cancel',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    PrismButton(
+                      label: 'Confirm',
+                      tone: PrismButtonTone.filled,
+                      onPressed: () {
+                        confirmed = true;
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                  builder: (_) => Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: List.generate(
+                      30,
+                      (i) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text('Body row $i'),
+                      ),
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Body should scroll instead of overflowing the dialog',
+      );
+
+      final dialogRect = tester.getRect(find.byType(PrismDialog));
+      final confirmRect = tester.getRect(
+        find.widgetWithText(PrismButton, 'Confirm'),
+      );
+      final cancelRect = tester.getRect(
+        find.widgetWithText(PrismButton, 'Cancel'),
+      );
+
+      bool dialogContainsRect(Rect r) =>
+          r.left >= dialogRect.left &&
+          r.right <= dialogRect.right &&
+          r.top >= dialogRect.top &&
+          r.bottom <= dialogRect.bottom;
+
+      expect(
+        dialogContainsRect(confirmRect),
+        isTrue,
+        reason:
+            'Confirm button rect $confirmRect should be fully inside dialog $dialogRect',
+      );
+      expect(
+        dialogContainsRect(cancelRect),
+        isTrue,
+        reason:
+            'Cancel button rect $cancelRect should be fully inside dialog $dialogRect',
+      );
+
+      await tester.tap(find.widgetWithText(PrismButton, 'Confirm'));
+      await tester.pumpAndSettle();
+
+      expect(confirmed, isTrue);
+    },
+  );
 }

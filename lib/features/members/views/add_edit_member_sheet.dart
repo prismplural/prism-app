@@ -401,18 +401,16 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       context: context,
       title: context.l10n.settingsAccentColorPickerTitle,
       builder: (_) {
-        return SingleChildScrollView(
-          child: ColorPicker(
-            pickerColor: pickerColor,
-            onColorChanged: (color) {
-              pickerColor = color;
-            },
-            enableAlpha: false,
-            hexInputBar: true,
-            labelTypes: const [],
-            portraitOnly: true,
-            pickerAreaHeightPercent: 0.7,
-          ),
+        return ColorPicker(
+          pickerColor: pickerColor,
+          onColorChanged: (color) {
+            pickerColor = color;
+          },
+          enableAlpha: false,
+          hexInputBar: true,
+          labelTypes: const [],
+          portraitOnly: true,
+          pickerAreaHeightPercent: 0.7,
         );
       },
       actions: [
@@ -474,18 +472,16 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       context: context,
       title: context.l10n.memberNameStyleColorLabel,
       builder: (_) {
-        return SingleChildScrollView(
-          child: ColorPicker(
-            pickerColor: pickerColor,
-            onColorChanged: (color) {
-              pickerColor = color;
-            },
-            enableAlpha: false,
-            hexInputBar: true,
-            labelTypes: const [],
-            portraitOnly: true,
-            pickerAreaHeightPercent: 0.7,
-          ),
+        return ColorPicker(
+          pickerColor: pickerColor,
+          onColorChanged: (color) {
+            pickerColor = color;
+          },
+          enableAlpha: false,
+          hexInputBar: true,
+          labelTypes: const [],
+          portraitOnly: true,
+          pickerAreaHeightPercent: 0.7,
         );
       },
       actions: [

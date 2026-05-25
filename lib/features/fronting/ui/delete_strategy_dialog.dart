@@ -54,6 +54,14 @@ Future<FrontingDeleteStrategy?> _showStrategyDialog(
   return PrismDialog.show<FrontingDeleteStrategy>(
     context: context,
     title: title,
+    actions: [
+      Builder(
+        builder: (ctx) => PrismButton(
+          label: ctx.l10n.cancel,
+          onPressed: () => Navigator.of(ctx).pop(null),
+        ),
+      ),
+    ],
     builder: (ctx) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -99,14 +107,6 @@ Future<FrontingDeleteStrategy?> _showStrategyDialog(
               ),
             );
           }),
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerRight,
-            child: PrismButton(
-              label: ctx.l10n.cancel,
-              onPressed: () => Navigator.of(ctx).pop(null),
-            ),
-          ),
         ],
       );
     },

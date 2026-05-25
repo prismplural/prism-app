@@ -45,18 +45,16 @@ class AccentColorPicker extends StatelessWidget {
       context: context,
       title: context.l10n.settingsAccentColorPickerTitle,
       builder: (dialogContext) {
-        return SingleChildScrollView(
-          child: ColorPicker(
-            pickerColor: pickerColor,
-            onColorChanged: (color) {
-              pickerColor = color;
-            },
-            enableAlpha: false,
-            hexInputBar: true,
-            labelTypes: const [],
-            portraitOnly: true,
-            pickerAreaHeightPercent: 0.7,
-          ),
+        return ColorPicker(
+          pickerColor: pickerColor,
+          onColorChanged: (color) {
+            pickerColor = color;
+          },
+          enableAlpha: false,
+          hexInputBar: true,
+          labelTypes: const [],
+          portraitOnly: true,
+          pickerAreaHeightPercent: 0.7,
         );
       },
       actions: [

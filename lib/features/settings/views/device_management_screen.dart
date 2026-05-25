@@ -126,22 +126,21 @@ class DeviceManagementScreen extends ConsumerWidget {
       context: context,
       title: context.l10n.devicesRotateKeyTitle,
       message: context.l10n.devicesRotateKeyMessage,
-      builder: (dialogContext) {
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            PrismButton(
-              label: context.l10n.cancel,
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-            ),
-            const SizedBox(width: 8),
-            PrismButton(
-              label: context.l10n.devicesRotate,
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-            ),
-          ],
-        );
-      },
+      actions: [
+        Builder(
+          builder: (dialogContext) => PrismButton(
+            label: context.l10n.cancel,
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+          ),
+        ),
+        Builder(
+          builder: (dialogContext) => PrismButton(
+            label: context.l10n.devicesRotate,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
+        ),
+      ],
+      builder: (_) => const SizedBox.shrink(),
     );
 
     if (confirmed != true || !context.mounted) return;
@@ -167,65 +166,62 @@ class DeviceManagementScreen extends ConsumerWidget {
     WidgetRef ref,
     Device device,
   ) async {
-    final result = await PrismDialog.show<({bool confirmed, bool wipe})>(
-      context: context,
-      title: context.l10n.devicesRevokeTitle,
-      message: context.l10n.devicesRevokeMessage(device.shortId),
-      builder: (dialogContext) {
-        var requestWipe = false;
-
-        return StatefulBuilder(
-          builder: (_, setState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PrismSwitchRow(
-                  title: context.l10n.devicesRequestWipeTitle,
-                  subtitle: context.l10n.devicesRequestWipeSubtitle,
-                  value: requestWipe,
-                  onChanged: (value) => setState(() => requestWipe = value),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    PrismButton(
-                      label: context.l10n.cancel,
-                      onPressed: () => Navigator.of(dialogContext).pop(null),
-                    ),
-                    const SizedBox(width: 8),
-                    PrismButton(
-                      label: context.l10n.devicesRevoke,
-                      onPressed: () => Navigator.of(
-                        dialogContext,
-                      ).pop((confirmed: true, wipe: requestWipe)),
-                      tone: PrismButtonTone.destructive,
-                    ),
-                  ],
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    if (result == null || !result.confirmed || !context.mounted) return;
-
+    final requestWipe = ValueNotifier<bool>(false);
     try {
-      await ref
-          .read(deviceListProvider.notifier)
-          .revoke(device.deviceId, remoteWipe: result.wipe);
-      if (context.mounted) {
-        PrismToast.success(
-          context,
-          message: context.l10n.devicesRevoked(device.shortId),
-        );
+      final result = await PrismDialog.show<({bool confirmed, bool wipe})>(
+        context: context,
+        title: context.l10n.devicesRevokeTitle,
+        message: context.l10n.devicesRevokeMessage(device.shortId),
+        actions: [
+          Builder(
+            builder: (dialogContext) => PrismButton(
+              label: context.l10n.cancel,
+              onPressed: () => Navigator.of(dialogContext).pop(null),
+            ),
+          ),
+          Builder(
+            builder: (dialogContext) => PrismButton(
+              label: context.l10n.devicesRevoke,
+              onPressed: () => Navigator.of(dialogContext).pop(
+                (confirmed: true, wipe: requestWipe.value),
+              ),
+              tone: PrismButtonTone.destructive,
+            ),
+          ),
+        ],
+        builder: (_) => ValueListenableBuilder<bool>(
+          valueListenable: requestWipe,
+          builder: (_, value, _) => PrismSwitchRow(
+            title: context.l10n.devicesRequestWipeTitle,
+            subtitle: context.l10n.devicesRequestWipeSubtitle,
+            value: value,
+            onChanged: (next) => requestWipe.value = next,
+          ),
+        ),
+      );
+
+      if (result == null || !result.confirmed || !context.mounted) return;
+
+      try {
+        await ref
+            .read(deviceListProvider.notifier)
+            .revoke(device.deviceId, remoteWipe: result.wipe);
+        if (context.mounted) {
+          PrismToast.success(
+            context,
+            message: context.l10n.devicesRevoked(device.shortId),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          PrismToast.error(
+            context,
+            message: context.l10n.devicesFailedToRevoke(e),
+          );
+        }
       }
-    } catch (e) {
-      if (context.mounted) {
-        PrismToast.error(context, message: context.l10n.devicesFailedToRevoke(e));
-      }
+    } finally {
+      requestWipe.dispose();
     }
   }
 }

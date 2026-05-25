@@ -647,30 +647,32 @@ Future<_NextFronterChoice?> _showNextFronterDialog(BuildContext context) {
     context: context,
     title: l10n.frontingNextFronterTitle,
     message: l10n.frontingNextFronterBody,
-    builder: (ctx) => Wrap(
-      alignment: WrapAlignment.end,
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        PrismButton(
+    actions: [
+      Builder(
+        builder: (ctx) => PrismButton(
           label: l10n.frontingNextFronterPick,
           tone: PrismButtonTone.filled,
           onPressed: () =>
               Navigator.of(ctx).pop(_NextFronterChoice.pickFronter),
         ),
-        PrismButton(
+      ),
+      Builder(
+        builder: (ctx) => PrismButton(
           label: l10n.frontingNextFronterUnknown,
           tone: PrismButtonTone.outlined,
           onPressed: () => Navigator.of(ctx).pop(_NextFronterChoice.unknown),
         ),
-        PrismButton(
+      ),
+      Builder(
+        builder: (ctx) => PrismButton(
           label: l10n.frontingNextFronterEnd,
           tone: PrismButtonTone.outlined,
           onPressed: () =>
               Navigator.of(ctx).pop(_NextFronterChoice.endWithoutFronting),
         ),
-      ],
-    ),
+      ),
+    ],
+    builder: (_) => const SizedBox.shrink(),
   );
 }
 

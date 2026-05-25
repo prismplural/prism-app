@@ -151,18 +151,16 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
       context: context,
       title: l10n.systemInfoColorPickAction,
       builder: (dialogContext) {
-        return SingleChildScrollView(
-          child: ColorPicker(
-            pickerColor: pickerColor,
-            onColorChanged: (color) {
-              pickerColor = color;
-            },
-            enableAlpha: false,
-            hexInputBar: true,
-            labelTypes: const [],
-            portraitOnly: true,
-            pickerAreaHeightPercent: 0.7,
-          ),
+        return ColorPicker(
+          pickerColor: pickerColor,
+          onColorChanged: (color) {
+            pickerColor = color;
+          },
+          enableAlpha: false,
+          hexInputBar: true,
+          labelTypes: const [],
+          portraitOnly: true,
+          pickerAreaHeightPercent: 0.7,
         );
       },
       actions: [

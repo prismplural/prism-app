@@ -227,60 +227,58 @@ class _HealthReportDialogContent extends ConsumerWidget {
           child: PrismLoadingState(),
         ),
         error: (e, _) => Text('Error running check: $e'),
-        data: (report) => SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    report.isHealthy
-                        ? AppIcons.checkCircle
-                        : AppIcons.warningAmber,
-                    color: report.isHealthy ? Colors.green : Colors.orange,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    report.isHealthy ? 'Database OK' : 'Issues Found',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Records: ${_formatCounts(report.recordCounts, terms)}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              if (report.issues.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                const Divider(),
-                const SizedBox(height: 8),
-                ...report.issues.map(
-                  (issue) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          AppIcons.errorOutline,
-                          size: 16,
-                          color: Colors.orange,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            issue,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+        data: (report) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  report.isHealthy
+                      ? AppIcons.checkCircle
+                      : AppIcons.warningAmber,
+                  color: report.isHealthy ? Colors.green : Colors.orange,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  report.isHealthy ? 'Database OK' : 'Issues Found',
+                  style: Theme.of(context).textTheme.titleSmall,
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Records: ${_formatCounts(report.recordCounts, terms)}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            if (report.issues.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(),
+              const SizedBox(height: 8),
+              ...report.issues.map(
+                (issue) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        AppIcons.errorOutline,
+                        size: 16,
+                        color: Colors.orange,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          issue,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );

@@ -66,21 +66,13 @@ class _ChatScreen extends StatelessWidget {
   }
 }
 
-void _consumeExpectedDialogOverflow(WidgetTester tester) {
-  final error = tester.takeException();
-  if (error == null) return;
-  expect(error.toString(), contains('A RenderFlex overflowed by'));
-}
-
 void main() {
   testWidgets('enable closes dialog without popping nested chat route', (
     tester,
   ) async {
     bool? result;
-    tester.view.physicalSize = const Size(1200, 2000);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.binding.setSurfaceSize(const Size(600, 500));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(_buildTestApp(onResult: (value) => result = value));
 
@@ -91,11 +83,13 @@ void main() {
     await tester.tap(find.text('Open GIF consent'));
     await tester.pumpAndSettle();
     expect(find.byType(GifConsentDialog), findsOneWidget);
-    _consumeExpectedDialogOverflow(tester);
+    expect(
+      tester.takeException(),
+      isNull,
+      reason: 'Dialog body should scroll instead of overflowing',
+    );
 
-    tester
-        .widget<PrismButton>(find.widgetWithText(PrismButton, 'Enable GIFs'))
-        .onPressed();
+    await tester.tap(find.widgetWithText(PrismButton, 'Enable GIFs'));
     await tester.pumpAndSettle();
 
     expect(result, isTrue);
@@ -108,10 +102,8 @@ void main() {
     tester,
   ) async {
     bool? result;
-    tester.view.physicalSize = const Size(1200, 2000);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.binding.setSurfaceSize(const Size(600, 500));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(_buildTestApp(onResult: (value) => result = value));
 
@@ -122,11 +114,13 @@ void main() {
     await tester.tap(find.text('Open GIF consent'));
     await tester.pumpAndSettle();
     expect(find.byType(GifConsentDialog), findsOneWidget);
-    _consumeExpectedDialogOverflow(tester);
+    expect(
+      tester.takeException(),
+      isNull,
+      reason: 'Dialog body should scroll instead of overflowing',
+    );
 
-    tester
-        .widget<PrismButton>(find.widgetWithText(PrismButton, 'No Thanks'))
-        .onPressed();
+    await tester.tap(find.widgetWithText(PrismButton, 'No Thanks'));
     await tester.pumpAndSettle();
 
     expect(result, isFalse);
