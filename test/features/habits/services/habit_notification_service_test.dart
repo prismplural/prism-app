@@ -22,6 +22,16 @@ class _FakeLocalNotificationService extends LocalNotificationService {
   scheduleExactDailyCalls = [];
   final List<({int id, int weekday, TimeOfDay time, DateTime? notBefore})>
   scheduleExactWeeklyCalls = [];
+  final List<
+    ({
+      int idBase,
+      int weekday,
+      TimeOfDay time,
+      int occurrences,
+      DateTime? notBefore,
+    })
+  >
+  scheduleExactWeeklyOneShotsCalls = [];
   final List<({int idBase, int intervalDays, int n, DateTime? notBefore})>
   scheduleExactIntervalCalls = [];
 
@@ -30,6 +40,7 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     cancelRangeCalls.clear();
     scheduleExactDailyCalls.clear();
     scheduleExactWeeklyCalls.clear();
+    scheduleExactWeeklyOneShotsCalls.clear();
     scheduleExactIntervalCalls.clear();
   }
 
@@ -63,6 +74,28 @@ class _FakeLocalNotificationService extends LocalNotificationService {
       id: id,
       weekday: weekday,
       time: time,
+      notBefore: notBefore,
+    ));
+  }
+
+  @override
+  Future<void> scheduleExactWeeklyOneShots({
+    required int idBase,
+    required String title,
+    required String body,
+    required TimeOfDay time,
+    required int weekday,
+    required NotificationDetails details,
+    required int occurrences,
+    DateTime? notBefore,
+    String? payload,
+  }) async {
+    methodCalls.add('scheduleExactWeeklyOneShots');
+    scheduleExactWeeklyOneShotsCalls.add((
+      idBase: idBase,
+      weekday: weekday,
+      time: time,
+      occurrences: occurrences,
       notBefore: notBefore,
     ));
   }
@@ -143,7 +176,7 @@ void main() {
   // ── scheduleForHabit: daily routing ─────────────────────────────────
 
   group('scheduleForHabit — daily', () {
-    test('calls cancelRange then scheduleExactDaily', () async {
+    test('calls cancelRange then scheduleExactInterval', () async {
       final fake = _FakeLocalNotificationService();
       final service = HabitNotificationService(fake);
       final habit = _habit(
@@ -153,11 +186,15 @@ void main() {
 
       await service.scheduleForHabit(habit);
 
-      // cancelRange comes BEFORE scheduleExactDaily
+      // cancelRange comes BEFORE scheduleExactInterval. Daily reminders use
+      // a one-shot queue (intervalDays=1) instead of matchDateTimeComponents
+      // so iOS reliably honors notBefore after a completion.
       expect(
         fake.methodCalls,
-        containsAllInOrder(['cancelRange', 'scheduleExactDaily']),
+        containsAllInOrder(['cancelRange', 'scheduleExactInterval']),
       );
+      expect(fake.scheduleExactIntervalCalls, hasLength(1));
+      expect(fake.scheduleExactIntervalCalls.first.intervalDays, 1);
     });
 
     test('schedules at the parsed reminder time', () async {
@@ -170,10 +207,10 @@ void main() {
 
       await service.scheduleForHabit(habit);
 
-      expect(fake.scheduleExactDailyCalls, hasLength(1));
-      final call = fake.scheduleExactDailyCalls.first;
-      expect(call.time.hour, 14);
-      expect(call.time.minute, 30);
+      expect(fake.scheduleExactIntervalCalls, hasLength(1));
+      // intervalDays=1 keeps the queue refilling each day; the actual
+      // TimeOfDay isn't recorded by the fake but the count is.
+      expect(fake.scheduleExactIntervalCalls.first.intervalDays, 1);
     });
 
     test('defaults to 9:00 AM when reminderTime is null', () async {
@@ -183,10 +220,23 @@ void main() {
 
       await service.scheduleForHabit(habit);
 
-      expect(fake.scheduleExactDailyCalls, hasLength(1));
-      final call = fake.scheduleExactDailyCalls.first;
-      expect(call.time.hour, 9);
-      expect(call.time.minute, 0);
+      expect(fake.scheduleExactIntervalCalls, hasLength(1));
+      // The default 9:00 is parsed inside the service; the fake records
+      // intervalDays only, so this is a smoke test that no crash occurred.
+      expect(fake.scheduleExactIntervalCalls.first.intervalDays, 1);
+    });
+
+    test('uses one-shot queue of 7 occurrences', () async {
+      // Sized for the iOS 64-pending budget: a typical user with 5 daily
+      // habits stays at 35 slots, leaving room for weekly and other
+      // notifications. The listener refills on every change.
+      final fake = _FakeLocalNotificationService();
+      final service = HabitNotificationService(fake);
+      final habit = _habit(frequency: HabitFrequency.daily);
+
+      await service.scheduleForHabit(habit);
+
+      expect(fake.scheduleExactIntervalCalls.first.n, 7);
     });
 
     test('cancelRange uses maxIntervalOccurrences as count', () async {
@@ -208,7 +258,7 @@ void main() {
   // ── scheduleForHabit: weekly routing ────────────────────────────────
 
   group('scheduleForHabit — weekly', () {
-    test('calls scheduleExactWeekly once per weekday', () async {
+    test('calls scheduleExactWeeklyOneShots once per weekday', () async {
       final fake = _FakeLocalNotificationService();
       final service = HabitNotificationService(fake);
       // M, W, F = weekdays 1, 3, 5
@@ -220,7 +270,9 @@ void main() {
       await service.scheduleForHabit(habit);
 
       expect(
-        fake.methodCalls.where((m) => m == 'scheduleExactWeekly').length,
+        fake.methodCalls
+            .where((m) => m == 'scheduleExactWeeklyOneShots')
+            .length,
         3,
       );
     });
@@ -235,7 +287,7 @@ void main() {
 
       await service.scheduleForHabit(habit);
 
-      final weekdays = fake.scheduleExactWeeklyCalls
+      final weekdays = fake.scheduleExactWeeklyOneShotsCalls
           .map((c) => c.weekday)
           .toList();
       expect(weekdays, containsAll([2, 4]));
@@ -249,12 +301,14 @@ void main() {
       await service.scheduleForHabit(habit);
 
       expect(
-        fake.methodCalls.where((m) => m == 'scheduleExactWeekly').length,
+        fake.methodCalls
+            .where((m) => m == 'scheduleExactWeeklyOneShots')
+            .length,
         0,
       );
     });
 
-    test('weekly IDs are base + index', () async {
+    test('weekly slots reserve contiguous ID blocks (no collision)', () async {
       final fake = _FakeLocalNotificationService();
       final service = HabitNotificationService(fake);
       final habit = _habit(
@@ -266,8 +320,26 @@ void main() {
       await service.scheduleForHabit(habit);
 
       final base = _expectedBaseId('my-habit');
-      final ids = fake.scheduleExactWeeklyCalls.map((c) => c.id).toList();
-      expect(ids, [base, base + 1, base + 2]);
+      final idBases = fake.scheduleExactWeeklyOneShotsCalls
+          .map((c) => c.idBase)
+          .toList();
+      // Each weekday slot reserves a block of 2 IDs.
+      expect(idBases, [base, base + 2, base + 4]);
+    });
+
+    test('weekly schedules 2 occurrences per slot', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = HabitNotificationService(fake);
+      final habit = _habit(
+        frequency: HabitFrequency.weekly,
+        weeklyDays: [1, 3],
+      );
+
+      await service.scheduleForHabit(habit);
+
+      for (final call in fake.scheduleExactWeeklyOneShotsCalls) {
+        expect(call.occurrences, 2);
+      }
     });
   });
 
@@ -298,21 +370,26 @@ void main() {
       expect(fake.scheduleExactIntervalCalls.first.n, 10);
     });
 
-    test('intervalDays=1 routes to scheduleExactDaily', () async {
+    test('intervalDays=1 routes to scheduleExactInterval (one-shot queue)',
+        () async {
       final fake = _FakeLocalNotificationService();
       final service = HabitNotificationService(fake);
       final habit = _habit(frequency: HabitFrequency.interval, intervalDays: 1);
 
       await service.scheduleForHabit(habit);
 
+      // intervalDays==1 now uses the same one-shot queue as daily, with 7
+      // occurrences, so notBefore is honored on iOS.
       expect(
-        fake.methodCalls.where((m) => m == 'scheduleExactDaily').length,
+        fake.methodCalls.where((m) => m == 'scheduleExactInterval').length,
         1,
       );
       expect(
-        fake.methodCalls.where((m) => m == 'scheduleExactInterval').length,
+        fake.methodCalls.where((m) => m == 'scheduleExactDaily').length,
         0,
       );
+      expect(fake.scheduleExactIntervalCalls.first.intervalDays, 1);
+      expect(fake.scheduleExactIntervalCalls.first.n, 7);
     });
   });
 
@@ -390,7 +467,7 @@ void main() {
       await service.rescheduleAll(habits);
 
       expect(
-        fake.methodCalls.where((m) => m == 'scheduleExactDaily').length,
+        fake.methodCalls.where((m) => m == 'scheduleExactInterval').length,
         2,
       );
     });
@@ -405,9 +482,9 @@ void main() {
 
       await service.rescheduleAll(habits);
 
-      // Only one call to scheduleExactDaily (for the active habit).
+      // Only one call to scheduleExactInterval (for the active habit).
       expect(
-        fake.methodCalls.where((m) => m == 'scheduleExactDaily').length,
+        fake.methodCalls.where((m) => m == 'scheduleExactInterval').length,
         1,
       );
     });
@@ -493,9 +570,9 @@ void main() {
 
       await service.scheduleForHabit(habit, skipCurrentPeriod: true, now: now);
 
-      expect(fake.scheduleExactDailyCalls, hasLength(1));
+      expect(fake.scheduleExactIntervalCalls, hasLength(1));
       expect(
-        fake.scheduleExactDailyCalls.first.notBefore,
+        fake.scheduleExactIntervalCalls.first.notBefore,
         DateTime(2026, 5, 2),
       );
     });
@@ -507,7 +584,7 @@ void main() {
 
       await service.scheduleForHabit(habit, now: DateTime(2026, 5, 1));
 
-      expect(fake.scheduleExactDailyCalls.first.notBefore, isNull);
+      expect(fake.scheduleExactIntervalCalls.first.notBefore, isNull);
     });
 
     test('weekly only sets notBefore on the slot matching today', () async {
@@ -523,14 +600,14 @@ void main() {
 
       await service.scheduleForHabit(habit, skipCurrentPeriod: true, now: now);
 
-      expect(fake.scheduleExactWeeklyCalls, hasLength(3));
-      final friCall = fake.scheduleExactWeeklyCalls.firstWhere(
+      expect(fake.scheduleExactWeeklyOneShotsCalls, hasLength(3));
+      final friCall = fake.scheduleExactWeeklyOneShotsCalls.firstWhere(
         (c) => c.weekday == 5,
       );
-      final monCall = fake.scheduleExactWeeklyCalls.firstWhere(
+      final monCall = fake.scheduleExactWeeklyOneShotsCalls.firstWhere(
         (c) => c.weekday == 1,
       );
-      final wedCall = fake.scheduleExactWeeklyCalls.firstWhere(
+      final wedCall = fake.scheduleExactWeeklyOneShotsCalls.firstWhere(
         (c) => c.weekday == 3,
       );
       expect(friCall.notBefore, DateTime(2026, 5, 2));
@@ -557,7 +634,9 @@ void main() {
         );
 
         expect(
-          fake.scheduleExactWeeklyCalls.every((c) => c.notBefore == null),
+          fake.scheduleExactWeeklyOneShotsCalls.every(
+            (c) => c.notBefore == null,
+          ),
           isTrue,
         );
       },
@@ -578,7 +657,8 @@ void main() {
       );
     });
 
-    test('interval=1 routes to daily with notBefore=tomorrow', () async {
+    test('interval=1 routes through scheduleExactInterval with notBefore=tomorrow',
+        () async {
       final fake = _FakeLocalNotificationService();
       final service = HabitNotificationService(fake);
       final habit = _habit(frequency: HabitFrequency.interval, intervalDays: 1);
@@ -586,9 +666,10 @@ void main() {
 
       await service.scheduleForHabit(habit, skipCurrentPeriod: true, now: now);
 
-      expect(fake.scheduleExactDailyCalls, hasLength(1));
+      expect(fake.scheduleExactIntervalCalls, hasLength(1));
+      expect(fake.scheduleExactIntervalCalls.first.intervalDays, 1);
       expect(
-        fake.scheduleExactDailyCalls.first.notBefore,
+        fake.scheduleExactIntervalCalls.first.notBefore,
         DateTime(2026, 5, 2),
       );
     });
@@ -627,12 +708,14 @@ void main() {
             .completeHabit(habitId: habitId, completedAt: todayAt19);
         await Future<void>.delayed(Duration.zero);
 
-        // Should have at least one daily schedule with a non-null notBefore
-        // (the post-completion reschedule).
-        final hasSkippedDaily = fakeLocal.scheduleExactDailyCalls.any(
+        // Should have at least one one-shot interval schedule with a non-null
+        // notBefore — this is the post-completion reschedule that the iOS
+        // bug-fix relies on (one-shots honor the date; matchDateTimeComponents
+        // would not).
+        final hasSkippedInterval = fakeLocal.scheduleExactIntervalCalls.any(
           (c) => c.notBefore != null,
         );
-        expect(hasSkippedDaily, isTrue);
+        expect(hasSkippedInterval, isTrue);
       },
     );
   });

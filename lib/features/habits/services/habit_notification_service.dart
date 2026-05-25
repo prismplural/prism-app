@@ -30,6 +30,16 @@ class HabitNotificationService {
   static const _habitNotificationIdBase = 3000000;
   static const _habitNotificationIdMod = 100000;
 
+  /// One-shot occurrences per daily habit, sized to leave room under iOS's
+  /// 64-pending-notification cap (over which iOS silently drops the oldest).
+  /// The listener refills on every habit/completion/settings change, so 7
+  /// days of forward coverage covers any realistic gap between app opens.
+  static const _dailyOccurrences = 7;
+
+  /// One-shot occurrences per weekly weekday slot. Same iOS-budget concern
+  /// as [_dailyOccurrences].
+  static const _weeklyOccurrencesPerSlot = 2;
+
   AppLocalizations get _l10n => lookupAppLocalizations(_localeResolver());
 
   /// Schedule notifications for a habit based on its frequency and reminder
@@ -83,11 +93,13 @@ class HabitNotificationService {
     switch (habit.frequency) {
       case HabitFrequency.daily:
       case HabitFrequency.custom:
-        await _localService.scheduleExactDaily(
-          id: _baseId(habit.id),
+        await _localService.scheduleExactInterval(
+          idBase: _baseId(habit.id),
           title: title,
           body: body,
           time: time,
+          intervalDays: 1,
+          maxOccurrences: _dailyOccurrences,
           details: details,
           notBefore: skipCurrentPeriod ? tomorrow : null,
         );
@@ -106,41 +118,36 @@ class HabitNotificationService {
         final todayIdx = clock.weekday % 7;
         for (var i = 0; i < days.length; i++) {
           final isTodaySlot = skipCurrentPeriod && days[i] == todayIdx;
-          await _localService.scheduleExactWeekly(
-            id: _baseId(habit.id) + i,
+          // Each weekday slot reserves a contiguous block of IDs to avoid
+          // collision between slots sharing the same habit base.
+          await _localService.scheduleExactWeeklyOneShots(
+            idBase: _baseId(habit.id) + i * _weeklyOccurrencesPerSlot,
             title: title,
             body: body,
             time: time,
             weekday: days[i],
+            occurrences: _weeklyOccurrencesPerSlot,
             details: details,
             notBefore: isTodaySlot ? tomorrow : null,
           );
         }
 
       case HabitFrequency.interval:
-        final intervalDays = habit.intervalDays ?? 1;
-        if (intervalDays <= 1) {
-          await _localService.scheduleExactDaily(
-            id: _baseId(habit.id),
-            title: title,
-            body: body,
-            time: time,
-            details: details,
-            notBefore: skipCurrentPeriod ? tomorrow : null,
-          );
-        } else {
-          await _localService.scheduleExactInterval(
-            idBase: _baseId(habit.id),
-            title: title,
-            body: body,
-            time: time,
-            intervalDays: intervalDays,
-            details: details,
-            notBefore: skipCurrentPeriod
-                ? today.add(Duration(days: intervalDays))
-                : null,
-          );
-        }
+        final intervalDays = (habit.intervalDays ?? 1).clamp(1, 365);
+        await _localService.scheduleExactInterval(
+          idBase: _baseId(habit.id),
+          title: title,
+          body: body,
+          time: time,
+          intervalDays: intervalDays,
+          // For interval=1, use the daily occurrence count; for >1 fall back
+          // to the LocalNotificationService default (30-day coverage).
+          maxOccurrences: intervalDays == 1 ? _dailyOccurrences : null,
+          details: details,
+          notBefore: skipCurrentPeriod
+              ? today.add(Duration(days: intervalDays))
+              : null,
+        );
     }
   }
 

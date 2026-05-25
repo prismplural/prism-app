@@ -121,17 +121,16 @@ class LocalNotificationService {
     );
   }
 
-  /// Schedules N individual one-shot notifications spaced [intervalDays] apart.
+  /// Schedules N one-shot notifications spaced [intervalDays] apart.
   ///
-  /// N = ceil(30 / intervalDays).clamp(2, [maxIntervalOccurrences]),
-  /// guaranteeing ≥ 30 days of future coverage.
+  /// N = ceil(30 / intervalDays).clamp(2, [maxIntervalOccurrences]).
   ///
-  /// Note: do NOT call this with intervalDays == 1; use [scheduleExactDaily].
-  /// Callers are responsible for cancelling stale IDs with [cancelRange]
-  /// before calling this.
+  /// Prefer this over [scheduleExactDaily] / [scheduleExactWeekly] when
+  /// [notBefore] matters: the matchDateTimeComponents path on iOS/macOS
+  /// extracts only the clock-time from `scheduledDate` and ignores the
+  /// date, firing at the next matching time-of-day regardless.
   ///
-  /// [notBefore] floors the first occurrence — pass `today + intervalDays` to
-  /// skip the current period after a completion.
+  /// Callers must cancel stale IDs with [cancelRange] before calling.
   Future<void> scheduleExactInterval({
     required int idBase,
     required String title,
@@ -159,7 +158,44 @@ class LocalNotificationService {
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         payload: payload,
       );
-      next = next.add(Duration(days: intervalDays));
+      next = _advanceWallClockDays(next, intervalDays, time);
+    }
+  }
+
+  /// Schedules [occurrences] one-shot notifications for [weekday], 7 days apart.
+  ///
+  /// The iOS/macOS-safe alternative to [scheduleExactWeekly] when [notBefore]
+  /// matters — see [scheduleExactInterval] for the underlying platform quirk.
+  ///
+  /// [weekday] follows the app convention (0=Sun..6=Sat). Out-of-range
+  /// values are not validated — callers should filter.
+  ///
+  /// Callers must cancel stale IDs with [cancelRange] before calling.
+  Future<void> scheduleExactWeeklyOneShots({
+    required int idBase,
+    required String title,
+    required String body,
+    required TimeOfDay time,
+    required int weekday,
+    required NotificationDetails details,
+    required int occurrences,
+    DateTime? notBefore,
+    String? payload,
+  }) async {
+    if (kIsWeb) return;
+    await _ensureInitialized();
+    var next = _nextWeekdayOccurrence(time, weekday, notBefore: notBefore);
+    for (var i = 0; i < occurrences; i++) {
+      await _plugin.zonedSchedule(
+        id: idBase + i,
+        title: title,
+        body: body,
+        scheduledDate: next,
+        notificationDetails: details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: payload,
+      );
+      next = _advanceWallClockDays(next, 7, time);
     }
   }
 
@@ -387,6 +423,25 @@ class LocalNotificationService {
     _nextOccurrence(time, notBefore: notBefore),
     weekday,
   );
+
+  /// Advances [from] by [days] calendar days, re-anchoring the wall-clock
+  /// [time]. Plain `Duration(days: N)` shifts by 86400 s per day and
+  /// drifts the hour by ±1 across DST transitions.
+  tz.TZDateTime _advanceWallClockDays(
+    tz.TZDateTime from,
+    int days,
+    TimeOfDay time,
+  ) {
+    final shifted = from.add(Duration(days: days));
+    return tz.TZDateTime(
+      tz.local,
+      shifted.year,
+      shifted.month,
+      shifted.day,
+      time.hour,
+      time.minute,
+    );
+  }
 }
 
 /// Walks forward from [from] until landing on [weekday] (the app's picker
