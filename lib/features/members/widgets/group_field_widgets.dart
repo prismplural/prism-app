@@ -1,3 +1,20 @@
+// ## Accessibility
+//
+// **Group inset container** (editor + display)
+// - Outer container: Semantics(container: true, label: '{groupName}') so
+//   screen readers announce the group boundary before traversing children.
+//
+// **Empty-group button**
+// - Uses TextButton.icon which inherits Flutter's default button semantics.
+//
+// **Child fields**
+// - Each child field renders its own Semantics via its type's widget
+//   (e.g. choice chips, scale slider, slider track). The group container
+//   does not add extra wrappers around children.
+//
+// Manual VoiceOver/TalkBack verification pending — pre-existing FFI compile
+// chain blocks widget tests in this directory.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

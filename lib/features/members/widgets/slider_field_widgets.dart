@@ -1,3 +1,27 @@
+// ## Accessibility
+//
+// **Editor**
+// - Slider wrapped in Semantics(label: '{fieldName}').
+// - Flutter's built-in Slider provides semanticFormatterCallback that
+//   maps the raw double to a human-readable string:
+//   - Labeled mode: '{nearestAnchorName}, {percent}%' (or just '{percent}%'
+//     when no anchor label is set).
+//   - Numeric mode: '{value}{unit}'.
+// - showValueIndicator: ShowValueIndicator.always ensures the value bubble
+//   is always visible, which also feeds the system accessibility value.
+//
+// **Display**
+// - Same Slider with onChanged: null (read-only). Value indicator still
+//   renders, giving screen readers the current value via the semantic formatter.
+//
+// **Compact**
+// - Renders as a Row of SizedBox custom-painted track + Text suffix.
+//   Screen readers announce the suffix text via the parent row's label.
+//   No extra Semantics wrappers needed.
+//
+// Manual VoiceOver/TalkBack verification pending — pre-existing FFI compile
+// chain blocks widget tests in this directory.
+
 import 'dart:async';
 import 'dart:math' as math;
 

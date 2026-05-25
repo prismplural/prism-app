@@ -1,3 +1,23 @@
+// ## Accessibility
+//
+// **Editor**
+// - Emoji row wrapped in Semantics(slider: true, value: '{fieldName}, {step}/{total}',
+//   label: '{fieldName}', onLongPress: clear) so screen readers treat the row
+//   as a single interactive slider widget.
+// - SemanticsService.sendAnnouncement fires "{fieldName} cleared" when the
+//   user long-presses to clear, giving immediate feedback to VoiceOver/TalkBack.
+//
+// **Display**
+// - Outer Semantics(label: '{fieldName}, {step}/{total} stars', excludeSemantics: true)
+//   collapses the individual emoji glyph children into a single readable value.
+//
+// **Compact**
+// - Renders as plain Text('{emoji} {step}/{total}') — inherits parent row's
+//   semantics; no extra wrapper needed.
+//
+// Manual VoiceOver/TalkBack verification pending — pre-existing FFI compile
+// chain blocks widget tests in this directory.
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';

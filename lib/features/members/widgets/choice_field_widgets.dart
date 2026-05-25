@@ -1,3 +1,22 @@
+// ## Accessibility
+//
+// **Editor chips**
+// - Each active option chip: Semantics(button: true, label: '{fieldName}, {option.label}, selected/not selected').
+// - Each deleted-but-still-selected option chip: Semantics(button: true, label: '{fieldName}, {option.label}, selected/not selected, removed').
+// - "Other…" chip: Semantics(button: true, label: '{fieldName}, Other, selected/not selected').
+// - Other text field: Semantics(textField: true, label: 'Other, free text').
+//
+// **Display chips** (read-only profile view)
+// - Selected option chips: Semantics(button: false, label: '{fieldName}, {option.label}, selected'[, removed]).
+// - Other text pill: Semantics(button: false, label: '{fieldName}, Other: {text}').
+//
+// **Compact chips** (list-row)
+// - Each visible option chip: Semantics(button: false, label: '{fieldName}, {label}, selected'[, removed]).
+// - Other pill: Semantics(button: false, label: '{fieldName}, Other: {text}').
+//
+// Manual VoiceOver/TalkBack verification pending — pre-existing FFI compile
+// chain blocks widget tests in this directory.
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
