@@ -158,16 +158,10 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget> {
     if (center != null &&
         anchorName == center &&
         (value - 50.0).abs() < 0.5) {
-      return l10n.customFieldSliderValueLabelCentered(
-        anchor: anchorName,
-        percent: percent,
-      );
+      return l10n.customFieldSliderValueLabelCentered(anchorName, percent);
     }
 
-    return l10n.customFieldSliderValueLabel(
-      anchor: anchorName,
-      percent: percent,
-    );
+    return l10n.customFieldSliderValueLabel(anchorName, percent);
   }
 
   /// Compute display text for numeric mode.
