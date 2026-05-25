@@ -1362,6 +1362,40 @@ class HideTotalMemberCountNotifier extends AsyncNotifier<bool> {
   }
 }
 
+/// Synced app preference for the fronting-reminder suppress window — the
+/// minimum minutes that must pass after the most-recent front log before
+/// the next reminder fires (0 disables).
+final frontingReminderSuppressMinutesProvider =
+    AsyncNotifierProvider<FrontingReminderSuppressMinutesNotifier, int>(
+      FrontingReminderSuppressMinutesNotifier.new,
+    );
+
+class FrontingReminderSuppressMinutesNotifier extends AsyncNotifier<int> {
+  @override
+  Future<int> build() async {
+    final repo = ref.watch(appPreferenceRepositoryProvider);
+    final subscription = repo
+        .watch(frontingReminderSuppressMinutesPreference)
+        .listen(
+          (value) {
+            state = AsyncValue.data(value);
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            state = AsyncValue.error(error, stackTrace);
+          },
+        );
+    ref.onDispose(subscription.cancel);
+    return repo.get(frontingReminderSuppressMinutesPreference);
+  }
+
+  Future<void> set(int value) async {
+    await ref
+        .read(appPreferenceRepositoryProvider)
+        .set(frontingReminderSuppressMinutesPreference, value);
+    state = AsyncValue.data(value);
+  }
+}
+
 /// Narrow provider for `quickSwitchThresholdSeconds`.
 final quickSwitchThresholdProvider = Provider<int>((ref) {
   return ref

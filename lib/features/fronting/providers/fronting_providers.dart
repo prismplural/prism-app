@@ -5,6 +5,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/mutations/app_failure.dart';
 import 'package:prism_plurality/core/mutations/mutation_result.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
+import 'package:prism_plurality/core/services/fronting_reminder_reanchor.dart';
 import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/models/update_fronting_session_patch.dart';
@@ -120,6 +121,10 @@ class FrontingNotifier extends AsyncNotifier<void> {
     // Intentionally empty.
   }
 
+  void _scheduleReanchorBestEffort() {
+    scheduleFrontingReminderReanchorBestEffort(ref);
+  }
+
   /// Starts a fronting session for one or more members.
   ///
   /// Each member in [memberIds] gets its own session row with the same
@@ -149,6 +154,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
       _invalidateMemberStats(id);
     }
     _invalidateDerivedHistory();
+    _scheduleReanchorBestEffort();
   }
 
   /// Creates one closed historical row per member and merges any same-member
@@ -200,6 +206,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
       _invalidateMemberStats(id);
     }
     _invalidateDerivedHistory();
+    _scheduleReanchorBestEffort();
   }
 
   /// Atomically ends a sleep session and optionally starts one active fronting
@@ -226,6 +233,9 @@ class FrontingNotifier extends AsyncNotifier<void> {
       for (final id in result.previousMemberIds) {
         _invalidateMemberStats(id);
       }
+      if (result.sessions.isNotEmpty) {
+        _scheduleReanchorBestEffort();
+      }
     }
     _invalidateDerivedHistory();
   }
@@ -249,6 +259,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
     // addCoFronter guarantees exactly one session back.
     _invalidateMemberStats(result.sessions.single.memberId);
     _invalidateDerivedHistory();
+    _scheduleReanchorBestEffort();
   }
 
   /// Removes a single co-fronter by ending their active session.

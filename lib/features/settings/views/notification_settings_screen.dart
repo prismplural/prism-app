@@ -100,6 +100,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
                         },
                       ),
                     ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    const _FrontingReminderSuppressRow(),
                   ],
                 ],
               ),
@@ -128,6 +130,120 @@ class NotificationSettingsScreen extends ConsumerWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Picked when the user chooses "Custom…"; intercepted to open the dialog.
+const int _kSuppressCustomSentinel = -1;
+const List<int> _kSuppressPresets = [0, 5, 10, 15];
+const int _kSuppressMin = 1;
+const int _kSuppressMax = 60;
+
+class _FrontingReminderSuppressRow extends ConsumerWidget {
+  const _FrontingReminderSuppressRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncValue = ref.watch(frontingReminderSuppressMinutesProvider);
+    final value = asyncValue.value ?? 5;
+    final l10n = context.l10n;
+
+    String labelFor(int v) =>
+        v == 0 ? l10n.notificationsSuppressOff : l10n.notificationsSuppressMinutes(v);
+
+    final items = <PrismSelectItem<int>>[
+      for (final preset in _kSuppressPresets)
+        PrismSelectItem(value: preset, label: labelFor(preset)),
+      // Surface a non-preset value so the field shows the user's choice.
+      if (!_kSuppressPresets.contains(value))
+        PrismSelectItem(
+          value: value,
+          label: l10n.notificationsSuppressCustomLabel(value),
+        ),
+      PrismSelectItem(
+        value: _kSuppressCustomSentinel,
+        label: l10n.notificationsSuppressCustomOption,
+      ),
+    ];
+
+    return PrismListRow(
+      title: Text(l10n.notificationsSuppressIfRecentTitle),
+      subtitle: Text(l10n.notificationsSuppressIfRecentSubtitle),
+      trailing: PrismSelect<int>.compact(
+        value: value,
+        menuWidth: 200,
+        items: items,
+        onChanged: (selected) async {
+          if (selected == null) return;
+          if (selected == _kSuppressCustomSentinel) {
+            final custom = await _promptForCustomMinutes(context, value);
+            if (custom != null) {
+              await ref
+                  .read(frontingReminderSuppressMinutesProvider.notifier)
+                  .set(custom);
+            }
+            return;
+          }
+          await ref
+              .read(frontingReminderSuppressMinutesProvider.notifier)
+              .set(selected);
+        },
+      ),
+    );
+  }
+
+  Future<int?> _promptForCustomMinutes(
+    BuildContext context,
+    int initial,
+  ) async {
+    final l10n = context.l10n;
+    final controller = TextEditingController(
+      text: initial >= _kSuppressMin && initial <= _kSuppressMax
+          ? initial.toString()
+          : '',
+    );
+    return showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(l10n.notificationsSuppressCustomDialogTitle),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            decoration: InputDecoration(
+              suffixText: l10n.notificationsSuppressCustomSuffix,
+              helperText: l10n.notificationsSuppressCustomDialogHelper,
+            ),
+            onSubmitted: (_) {
+              final parsed = int.tryParse(controller.text);
+              if (parsed != null &&
+                  parsed >= _kSuppressMin &&
+                  parsed <= _kSuppressMax) {
+                Navigator.of(dialogContext).pop(parsed);
+              }
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
+            ),
+            TextButton(
+              onPressed: () {
+                final parsed = int.tryParse(controller.text);
+                if (parsed != null &&
+                    parsed >= _kSuppressMin &&
+                    parsed <= _kSuppressMax) {
+                  Navigator.of(dialogContext).pop(parsed);
+                }
+              },
+              child: Text(MaterialLocalizations.of(context).okButtonLabel),
+            ),
+          ],
+        );
+      },
     );
   }
 }

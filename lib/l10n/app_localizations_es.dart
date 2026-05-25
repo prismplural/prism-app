@@ -858,6 +858,46 @@ class AppLocalizationsEs extends AppLocalizations {
       'Con qué frecuencia enviar recordatorios';
 
   @override
+  String get notificationsSuppressIfRecentTitle =>
+      'Omitir si se registró hace poco';
+
+  @override
+  String get notificationsSuppressIfRecentSubtitle =>
+      'No recordar si registraste un frente recientemente';
+
+  @override
+  String get notificationsSuppressOff => 'Desactivado';
+
+  @override
+  String notificationsSuppressMinutes(int minutes) {
+    String _temp0 = intl.Intl.pluralLogic(
+      minutes,
+      locale: localeName,
+      other: '$minutes minutos',
+      one: '1 minuto',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String notificationsSuppressCustomLabel(int minutes) {
+    return 'Personalizado ($minutes min)';
+  }
+
+  @override
+  String get notificationsSuppressCustomOption => 'Personalizado…';
+
+  @override
+  String get notificationsSuppressCustomDialogTitle =>
+      'Omitir recordatorio durante';
+
+  @override
+  String get notificationsSuppressCustomDialogHelper => 'Entre 1 y 60 minutos';
+
+  @override
+  String get notificationsSuppressCustomSuffix => 'minutos';
+
+  @override
   String get notificationsChatSection => 'Notificaciones de chat';
 
   @override

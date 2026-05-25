@@ -1598,6 +1598,60 @@ abstract class AppLocalizations {
   /// **'How often to send reminders'**
   String get notificationsReminderIntervalSubtitle;
 
+  /// Title for the row that lets the user set how long to skip the fronting reminder after a recent front log
+  ///
+  /// In en, this message translates to:
+  /// **'Skip if logged recently'**
+  String get notificationsSuppressIfRecentTitle;
+
+  /// Subtitle explaining the suppress-after-recent-log behavior
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t remind if you logged a front recently'**
+  String get notificationsSuppressIfRecentSubtitle;
+
+  /// Option label meaning the suppress-window is disabled
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get notificationsSuppressOff;
+
+  /// Label for a suppress-window value in minutes
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes, plural, =1{1 minute} other{{minutes} minutes}}'**
+  String notificationsSuppressMinutes(int minutes);
+
+  /// Label shown when the suppress window is a non-preset value
+  ///
+  /// In en, this message translates to:
+  /// **'Custom ({minutes} min)'**
+  String notificationsSuppressCustomLabel(int minutes);
+
+  /// Menu option that opens a dialog to enter a custom suppress-window value
+  ///
+  /// In en, this message translates to:
+  /// **'Custom…'**
+  String get notificationsSuppressCustomOption;
+
+  /// Title of the dialog that lets the user enter a custom suppress window
+  ///
+  /// In en, this message translates to:
+  /// **'Skip reminder for'**
+  String get notificationsSuppressCustomDialogTitle;
+
+  /// Helper text under the input describing the allowed range
+  ///
+  /// In en, this message translates to:
+  /// **'Between 1 and 60 minutes'**
+  String get notificationsSuppressCustomDialogHelper;
+
+  /// Suffix shown next to the custom-value input field
+  ///
+  /// In en, this message translates to:
+  /// **'minutes'**
+  String get notificationsSuppressCustomSuffix;
+
   /// Chat notifications section title
   ///
   /// In en, this message translates to:

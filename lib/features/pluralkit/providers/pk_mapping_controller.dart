@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/fronting_reminder_reanchor.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -856,6 +857,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
     final db = ref.read(databaseProvider);
     final repo = ref.read(frontingSessionRepositoryProvider);
     final mutationService = ref.read(frontingMutationServiceProvider);
+    var startedNewFronts = false;
     await db.transaction(() async {
       final activeSessions = await repo.getAllActiveSessionsUnfiltered();
 
@@ -878,10 +880,17 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
         // startFronting uses its own MutationRunner.run — drift supports
         // nested transactions, so this composes correctly.
         await mutationService.startFronting(toStart.toList(), startTime: now);
+        startedNewFronts = true;
       }
     });
 
     if (!ref.mounted) return;
+
+    // FrontingNotifier's re-anchor hook only fires when fronts are created
+    // through it; this path goes through the mutation service directly.
+    if (startedNewFronts) {
+      scheduleFrontingReminderReanchorBestEffort(ref);
+    }
 
     // 4. Post-apply bootstrap.
     //

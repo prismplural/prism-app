@@ -1098,6 +1098,52 @@
   "@notificationsReminderIntervalSubtitle": {
     "description": "Reminder interval row subtitle"
   },
+  "notificationsSuppressIfRecentTitle": "Skip if logged recently",
+  "@notificationsSuppressIfRecentTitle": {
+    "description": "Title for the row that lets the user set how long to skip the fronting reminder after a recent front log"
+  },
+  "notificationsSuppressIfRecentSubtitle": "Don't remind if you logged a front recently",
+  "@notificationsSuppressIfRecentSubtitle": {
+    "description": "Subtitle explaining the suppress-after-recent-log behavior"
+  },
+  "notificationsSuppressOff": "Off",
+  "@notificationsSuppressOff": {
+    "description": "Option label meaning the suppress-window is disabled"
+  },
+  "notificationsSuppressMinutes": "{minutes, plural, =1{1 minute} other{{minutes} minutes}}",
+  "@notificationsSuppressMinutes": {
+    "description": "Label for a suppress-window value in minutes",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationsSuppressCustomLabel": "Custom ({minutes} min)",
+  "@notificationsSuppressCustomLabel": {
+    "description": "Label shown when the suppress window is a non-preset value",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationsSuppressCustomOption": "Custom…",
+  "@notificationsSuppressCustomOption": {
+    "description": "Menu option that opens a dialog to enter a custom suppress-window value"
+  },
+  "notificationsSuppressCustomDialogTitle": "Skip reminder for",
+  "@notificationsSuppressCustomDialogTitle": {
+    "description": "Title of the dialog that lets the user enter a custom suppress window"
+  },
+  "notificationsSuppressCustomDialogHelper": "Between 1 and 60 minutes",
+  "@notificationsSuppressCustomDialogHelper": {
+    "description": "Helper text under the input describing the allowed range"
+  },
+  "notificationsSuppressCustomSuffix": "minutes",
+  "@notificationsSuppressCustomSuffix": {
+    "description": "Suffix shown next to the custom-value input field"
+  },
   "notificationsChatSection": "Chat Notifications",
   "@notificationsChatSection": {
     "description": "Chat notifications section title"

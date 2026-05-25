@@ -832,6 +832,45 @@ class AppLocalizationsEn extends AppLocalizations {
       'How often to send reminders';
 
   @override
+  String get notificationsSuppressIfRecentTitle => 'Skip if logged recently';
+
+  @override
+  String get notificationsSuppressIfRecentSubtitle =>
+      'Don\'t remind if you logged a front recently';
+
+  @override
+  String get notificationsSuppressOff => 'Off';
+
+  @override
+  String notificationsSuppressMinutes(int minutes) {
+    String _temp0 = intl.Intl.pluralLogic(
+      minutes,
+      locale: localeName,
+      other: '$minutes minutes',
+      one: '1 minute',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String notificationsSuppressCustomLabel(int minutes) {
+    return 'Custom ($minutes min)';
+  }
+
+  @override
+  String get notificationsSuppressCustomOption => 'Custom…';
+
+  @override
+  String get notificationsSuppressCustomDialogTitle => 'Skip reminder for';
+
+  @override
+  String get notificationsSuppressCustomDialogHelper =>
+      'Between 1 and 60 minutes';
+
+  @override
+  String get notificationsSuppressCustomSuffix => 'minutes';
+
+  @override
   String get notificationsChatSection => 'Chat Notifications';
 
   @override
