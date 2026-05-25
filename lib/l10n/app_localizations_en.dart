@@ -10479,4 +10479,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get verifyBackupSrAnnounceNoMatch => 'Not verified';
+
+  @override
+  String get customFieldTypeGroup => 'Group';
+
+  @override
+  String get customFieldGroupAddChildButton => 'Add field to this group';
+
+  @override
+  String get customFieldGroupNewChildTitle => 'Add field to group';
+
+  @override
+  String customFieldGroupDeleteTitle(String name) {
+    return 'Delete $name?';
+  }
+
+  @override
+  String get customFieldGroupDeleteMessage =>
+      'What should happen to the fields inside this group?';
+
+  @override
+  String get customFieldGroupPromoteChildren => 'Promote to top level';
+
+  @override
+  String get customFieldGroupDeleteChildren => 'Delete them too';
 }

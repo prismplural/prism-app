@@ -170,17 +170,55 @@ class _CustomFieldDetailBody extends ConsumerWidget {
     final deletedToast = context.l10n.settingsCustomFieldsDeletedToast(
       field.name,
     );
-    final confirmed = await PrismDialog.confirm(
-      context: context,
-      title: context.l10n.settingsCustomFieldsDeleteTitle,
-      message: context.l10n.settingsCustomFieldsDeleteConfirm(field.name),
-      confirmLabel: context.l10n.delete,
-      destructive: true,
-    );
-    if (!confirmed) return;
+
+    bool? deleteChildren; // null = cancel, false = promote, true = delete children
+
+    if (field.fieldTypeId == 'group') {
+      deleteChildren = await showDialog<bool?>(
+        context: context,
+        builder: (ctx) {
+          final theme = Theme.of(ctx);
+          return AlertDialog(
+            title: Text(context.l10n.customFieldGroupDeleteTitle(field.name)),
+            content: Text(context.l10n.customFieldGroupDeleteMessage),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(null),
+                child: Text(context.l10n.cancel),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.error,
+                ),
+                child: Text(context.l10n.customFieldGroupDeleteChildren),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(context.l10n.customFieldGroupPromoteChildren),
+              ),
+            ],
+          );
+        },
+      );
+      if (deleteChildren == null) return; // user cancelled
+    } else {
+      final confirmed = await PrismDialog.confirm(
+        context: context,
+        title: context.l10n.settingsCustomFieldsDeleteTitle,
+        message: context.l10n.settingsCustomFieldsDeleteConfirm(field.name),
+        confirmLabel: context.l10n.delete,
+        destructive: true,
+      );
+      if (!confirmed) return;
+      deleteChildren = false; // non-group, parameter has no effect
+    }
 
     Haptics.heavy();
-    await ref.read(customFieldNotifierProvider.notifier).deleteField(field.id);
+    await ref.read(customFieldNotifierProvider.notifier).deleteField(
+          field.id,
+          deleteChildren: deleteChildren,
+        );
     if (context.mounted) {
       PrismToast.show(context, message: deletedToast);
     }

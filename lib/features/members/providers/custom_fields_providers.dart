@@ -47,6 +47,7 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
     int displayOrder = 0,
     String? fieldTypeId,
     CustomFieldTypeConfig? typeConfig,
+    String? parentFieldId,
   }) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
@@ -59,6 +60,7 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
         createdAt: DateTime.now(),
         fieldTypeId: fieldTypeId,
         typeConfig: typeConfig,
+        parentFieldId: parentFieldId,
       );
       await repo.createField(field);
     });

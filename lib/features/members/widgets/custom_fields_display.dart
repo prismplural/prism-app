@@ -47,8 +47,12 @@ class CustomFieldsDisplay extends ConsumerWidget {
       for (final v in values) v.customFieldId: v,
     };
 
+    // Only iterate top-level fields (parentFieldId == null). Group-type fields
+    // have no per-member value; group children are skipped here — they would
+    // render at the top level otherwise, bypassing their parent group container.
+    // Groups themselves are also skipped because they have no stored value.
     final entries = [
-      for (final field in fields)
+      for (final field in fields.where((f) => f.parentFieldId == null))
         if ((valueMap[field.id]?.value ?? '').isNotEmpty)
           _FieldValueEntry(
             field: field,

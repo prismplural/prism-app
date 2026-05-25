@@ -16876,6 +16876,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not verified'**
   String get verifyBackupSrAnnounceNoMatch;
+
+  /// Label for the group custom field type (shown in settings list subtitle)
+  ///
+  /// In en, this message translates to:
+  /// **'Group'**
+  String get customFieldTypeGroup;
+
+  /// Button label shown inside an empty group editor to add the first child field
+  ///
+  /// In en, this message translates to:
+  /// **'Add field to this group'**
+  String get customFieldGroupAddChildButton;
+
+  /// Sheet title when creating a new field nested inside a group
+  ///
+  /// In en, this message translates to:
+  /// **'Add field to group'**
+  String get customFieldGroupNewChildTitle;
+
+  /// Title of the delete-group confirm dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {name}?'**
+  String customFieldGroupDeleteTitle(String name);
+
+  /// Body of the delete-group confirm dialog explaining the choice for child fields
+  ///
+  /// In en, this message translates to:
+  /// **'What should happen to the fields inside this group?'**
+  String get customFieldGroupDeleteMessage;
+
+  /// Action button in the delete-group dialog that promotes child fields to top level instead of deleting them
+  ///
+  /// In en, this message translates to:
+  /// **'Promote to top level'**
+  String get customFieldGroupPromoteChildren;
+
+  /// Action button in the delete-group dialog that deletes all child fields along with the group
+  ///
+  /// In en, this message translates to:
+  /// **'Delete them too'**
+  String get customFieldGroupDeleteChildren;
 }
 
 class _AppLocalizationsDelegate

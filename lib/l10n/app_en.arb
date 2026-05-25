@@ -11303,5 +11303,34 @@
   "verifyBackupSrAnnounceNoMatch": "Not verified",
   "@verifyBackupSrAnnounceNoMatch": {
     "description": "Live-region accessible label announced when the backup does not match"
+  },
+  "customFieldTypeGroup": "Group",
+  "@customFieldTypeGroup": {
+    "description": "Label for the group custom field type (shown in settings list subtitle)"
+  },
+  "customFieldGroupAddChildButton": "Add field to this group",
+  "@customFieldGroupAddChildButton": {
+    "description": "Button label shown inside an empty group editor to add the first child field"
+  },
+  "customFieldGroupNewChildTitle": "Add field to group",
+  "@customFieldGroupNewChildTitle": {
+    "description": "Sheet title when creating a new field nested inside a group"
+  },
+  "customFieldGroupDeleteTitle": "Delete {name}?",
+  "@customFieldGroupDeleteTitle": {
+    "description": "Title of the delete-group confirm dialog",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "customFieldGroupDeleteMessage": "What should happen to the fields inside this group?",
+  "@customFieldGroupDeleteMessage": {
+    "description": "Body of the delete-group confirm dialog explaining the choice for child fields"
+  },
+  "customFieldGroupPromoteChildren": "Promote to top level",
+  "@customFieldGroupPromoteChildren": {
+    "description": "Action button in the delete-group dialog that promotes child fields to top level instead of deleting them"
+  },
+  "customFieldGroupDeleteChildren": "Delete them too",
+  "@customFieldGroupDeleteChildren": {
+    "description": "Action button in the delete-group dialog that deletes all child fields along with the group"
   }
 }

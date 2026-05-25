@@ -78,7 +78,11 @@ class CustomFieldsEditor extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 12),
-        for (final field in fields) ...[
+        // Only render top-level fields (parentFieldId == null). Group fields
+        // are responsible for rendering their own children. Children with a
+        // non-null parentFieldId are skipped here; the group renderer pulls
+        // them back in from the same flat provider stream.
+        for (final field in fields.where((f) => f.parentFieldId == null)) ...[
           _buildFieldEditor(context, field, valueMap[field.id]),
           const SizedBox(height: 12),
         ],

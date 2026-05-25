@@ -6,6 +6,7 @@ import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/widgets/choice_field_widgets.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_display_widgets.dart';
 import 'package:prism_plurality/features/members/widgets/field_input_widget.dart';
+import 'package:prism_plurality/features/members/widgets/group_field_widgets.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Renderer for one custom field type. The widget layer's counterpart to
@@ -75,6 +76,11 @@ final Map<String, CustomFieldRenderer> customFieldRenderers = {
     editorBuilder: buildChoiceEditor,
     displayBuilder: buildChoiceDisplay,
     compactBuilder: buildChoiceCompact,
+  ),
+  'group': const CustomFieldRenderer(
+    editorBuilder: buildGroupEditor,
+    displayBuilder: buildGroupDisplay,
+    compactBuilder: buildGroupCompact,
   ),
 };
 

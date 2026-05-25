@@ -27,15 +27,24 @@ import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 /// date types remain immutable once created because their storage shapes
 /// differ.
 ///
+/// When [parentFieldId] is set, the created field is nested under that group.
+/// Has no effect in edit mode.
+///
 /// Use via [PrismSheet.showFullScreen].
 class CreateEditFieldSheet extends ConsumerStatefulWidget {
   const CreateEditFieldSheet({
     super.key,
     this.field,
+    this.parentFieldId,
     required this.scrollController,
   });
 
   final CustomField? field;
+
+  /// When non-null, the new field will be created as a child of this group.
+  /// Ignored in edit mode.
+  final String? parentFieldId;
+
   final ScrollController scrollController;
 
   bool get isEditing => field != null;
@@ -302,6 +311,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           typeConfig: _selectedType == CustomFieldType.choice
               ? _buildChoiceConfig()
               : null,
+          parentFieldId: widget.parentFieldId,
         );
       }
 
@@ -336,7 +346,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
               PrismSheetTopBar(
                 title: widget.isEditing
                     ? context.l10n.settingsCreateEditFieldEditTitle
-                    : context.l10n.settingsCreateEditFieldNewTitle,
+                    : widget.parentFieldId != null
+                        ? context.l10n.customFieldGroupNewChildTitle
+                        : context.l10n.settingsCreateEditFieldNewTitle,
                 trailing: _saving
                     ? SizedBox(
                         width: PrismTokens.topBarActionSize,
