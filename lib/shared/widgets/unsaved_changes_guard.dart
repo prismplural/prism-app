@@ -51,6 +51,11 @@ class UnsavedChangesDismissScope extends InheritedWidget {
 }
 
 /// Blocks route dismissal while an editor has unsaved local state.
+///
+/// Set [isActive] to `false` to make the guard transparent — useful when an
+/// outer `PopScope` handles in-sheet navigation that shouldn't prompt for
+/// discard. Dirty-state tracking via [UnsavedChangesDismissController] is
+/// unaffected so drag-to-dismiss still sees the dirty state.
 class UnsavedChangesGuard<T> extends StatefulWidget {
   const UnsavedChangesGuard({
     super.key,
@@ -58,12 +63,15 @@ class UnsavedChangesGuard<T> extends StatefulWidget {
     required this.child,
     this.onDiscard,
     this.discardResult,
+    this.isActive = true,
   });
 
   final bool hasUnsavedChanges;
   final Widget child;
   final FutureOr<void> Function()? onDiscard;
   final T? discardResult;
+
+  final bool isActive;
 
   static Future<bool> confirmDiscard(BuildContext context) {
     return PrismDialog.confirm(
@@ -122,10 +130,15 @@ class _UnsavedChangesGuardState<T> extends State<UnsavedChangesGuard<T>> {
 
   @override
   Widget build(BuildContext context) {
+    final canPop =
+        !widget.isActive || _allowPop || !widget.hasUnsavedChanges;
     return PopScope<T>(
-      canPop: _allowPop || !widget.hasUnsavedChanges,
+      canPop: canPop,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
+        // When inactive the PopScope is transparent — defer to the outer
+        // route or PopScope that actually blocked the pop.
+        if (!widget.isActive) return;
 
         final shouldDiscard = await confirmDiscardForDismiss();
         if (shouldDiscard && context.mounted) {

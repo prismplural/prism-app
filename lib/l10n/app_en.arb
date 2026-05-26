@@ -3808,6 +3808,35 @@
   "@memberProxyTagsEmpty": {
     "description": "Shown when a member has no proxy tags"
   },
+  "memberProxyTagsCount": "{count, plural, =0{None set} =1{1 tag} other{{count} tags}}",
+  "@memberProxyTagsCount": {
+    "description": "Subtitle on the proxy-tags summary row in the member edit sheet",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "memberCustomFieldsCount": "{count, plural, =0{None set} =1{1 field} other{{count} fields}}",
+  "@memberCustomFieldsCount": {
+    "description": "Subtitle on the custom-fields summary row in the member edit sheet",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "memberEditDetailBackTooltip": "Back to edit {termSingularLower}",
+  "@memberEditDetailBackTooltip": {
+    "description": "Tooltip and semantic label for the back chevron in a member edit detail view",
+    "placeholders": {
+      "termSingularLower": {
+        "type": "String"
+      }
+    }
+  },
   "memberEditTooltip": "Edit {termSingularLower}",
   "@memberEditTooltip": {
     "description": "Tooltip for edit member button",

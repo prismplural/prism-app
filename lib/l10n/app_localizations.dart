@@ -4954,6 +4954,24 @@ abstract class AppLocalizations {
   /// **'No proxy tags set.'**
   String get memberProxyTagsEmpty;
 
+  /// Subtitle on the proxy-tags summary row in the member edit sheet
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{None set} =1{1 tag} other{{count} tags}}'**
+  String memberProxyTagsCount(int count);
+
+  /// Subtitle on the custom-fields summary row in the member edit sheet
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{None set} =1{1 field} other{{count} fields}}'**
+  String memberCustomFieldsCount(int count);
+
+  /// Tooltip and semantic label for the back chevron in a member edit detail view
+  ///
+  /// In en, this message translates to:
+  /// **'Back to edit {termSingularLower}'**
+  String memberEditDetailBackTooltip(String termSingularLower);
+
   /// Tooltip for edit member button
   ///
   /// In en, this message translates to:

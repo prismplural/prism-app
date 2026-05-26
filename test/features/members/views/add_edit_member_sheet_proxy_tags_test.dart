@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dar
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 class _FakeMemberRepository implements MemberRepository {
@@ -128,11 +129,15 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    final proxyRow = find.widgetWithText(PrismSettingsRow, 'Proxy Tags');
     await tester.scrollUntilVisible(
-      find.text('Proxy Tags'),
+      proxyRow,
       400,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.tap(proxyRow);
+    await tester.pumpAndSettle();
+
     await tester.tap(find.widgetWithText(PrismButton, 'Add proxy tag'));
     await tester.pumpAndSettle();
 
@@ -195,17 +200,13 @@ void main() {
     );
 
     await tester.pumpAndSettle();
+    final proxyRow = find.widgetWithText(PrismSettingsRow, 'Proxy Tags');
     await tester.scrollUntilVisible(
-      find.text('Proxy Tags'),
+      proxyRow,
       400,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.scrollUntilVisible(
-      find.byTooltip('Remove proxy tag'),
-      120,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.drag(find.byType(Scrollable).first, const Offset(0, -40));
+    await tester.tap(proxyRow);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Remove proxy tag'));

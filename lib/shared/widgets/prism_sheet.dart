@@ -449,12 +449,14 @@ class _SheetChromeState extends State<_SheetChrome> {
 ///
 /// When [titleWidget] is provided it replaces the text title in the center
 /// area, automatically inset by [PrismTokens.topBarActionSize] on each side.
+///
 class PrismSheetTopBar extends StatelessWidget {
   const PrismSheetTopBar({
     super.key,
     required this.title,
     this.trailing,
     this.titleWidget,
+    this.leading,
   });
 
   final String title;
@@ -466,6 +468,9 @@ class PrismSheetTopBar extends StatelessWidget {
   /// [PrismTokens.topBarActionSize] on each side so it never overlaps the
   /// leading/trailing action buttons.
   final Widget? titleWidget;
+
+  /// Replaces the default close button. Size to [PrismTokens.topBarActionSize].
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -495,13 +500,15 @@ class PrismSheetTopBar extends StatelessWidget {
               ),
             Align(
               alignment: Alignment.centerLeft,
-              child: PrismGlassIconButton(
-                icon: AppIcons.close,
-                size: PrismTokens.topBarActionSize,
-                onPressed: () => Navigator.of(context).maybePop(),
-                tooltip: context.l10n.close,
-                semanticLabel: context.l10n.close,
-              ),
+              child:
+                  leading ??
+                  PrismGlassIconButton(
+                    icon: AppIcons.close,
+                    size: PrismTokens.topBarActionSize,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    tooltip: context.l10n.close,
+                    semanticLabel: context.l10n.close,
+                  ),
             ),
             if (trailing != null)
               Align(alignment: Alignment.centerRight, child: trailing!),

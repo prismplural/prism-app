@@ -2837,6 +2837,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberProxyTagsEmpty => 'No proxy tags set.';
 
   @override
+  String memberProxyTagsCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString tags',
+      one: '1 tag',
+      zero: 'None set',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String memberCustomFieldsCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString fields',
+      one: '1 field',
+      zero: 'None set',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String memberEditDetailBackTooltip(String termSingularLower) {
+    return 'Back to edit $termSingularLower';
+  }
+
+  @override
   String memberEditTooltip(String termSingularLower) {
     return 'Edit $termSingularLower';
   }

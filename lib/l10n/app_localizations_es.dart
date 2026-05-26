@@ -2897,6 +2897,45 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberProxyTagsEmpty => 'No hay etiquetas de proxy.';
 
   @override
+  String memberProxyTagsCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString etiquetas',
+      one: '1 etiqueta',
+      zero: 'Sin definir',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String memberCustomFieldsCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString campos',
+      one: '1 campo',
+      zero: 'Sin definir',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String memberEditDetailBackTooltip(String termSingularLower) {
+    return 'Volver a editar $termSingularLower';
+  }
+
+  @override
   String memberEditTooltip(String termSingularLower) {
     return 'Editar $termSingularLower';
   }

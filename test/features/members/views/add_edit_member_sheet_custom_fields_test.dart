@@ -10,6 +10,7 @@ import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 Finder _prismField(String label) => find.byWidgetPredicate(
@@ -78,11 +79,20 @@ void main() {
     );
 
     await tester.pumpAndSettle();
+    // Scope to PrismSettingsRow — the editor's own "Custom Fields" header
+    // is mounted off-screen in the detail view and would match find.text.
+    final customFieldsRow = find.widgetWithText(
+      PrismSettingsRow,
+      'Custom Fields',
+    );
     await tester.scrollUntilVisible(
-      _prismField('Role'),
+      customFieldsRow,
       400,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.tap(customFieldsRow);
+    await tester.pumpAndSettle();
+
     await tester.enterText(
       find.descendant(
         of: _prismField('Role'),
