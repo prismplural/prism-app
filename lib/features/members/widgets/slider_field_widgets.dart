@@ -287,10 +287,30 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
     // Semantics(container: false) label would flow upward to an ancestor
     // instead of decorating the Slider. semanticFormatterCallback below is
     // what announces the current value to assistive tech.
+    final editorFraction = (max > min)
+        ? ((clampedValue - min) / (max - min)).clamp(0.0, 1.0)
+        : 0.0;
+    final editorPositionTint = _gradientColorAt(trackColors, editorFraction);
     final slider = SliderTheme(
       data: theme.sliderTheme.copyWith(
         // ignore: deprecated_member_use — spec §2d requires always-visible indicator
         showValueIndicator: ShowValueIndicator.always,
+        valueIndicatorShape: _GlassValueIndicatorShape(
+          fillColor: _glassFillColorTinted(theme, editorPositionTint),
+          borderColor: _glassBorderColor(theme),
+        ),
+        valueIndicatorTextStyle: theme.textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.onSurface,
+        ),
+        // No overlay + zero-width glass thumb removes the track's edge
+        // inset, so the track aligns with sibling content. Thumb fill
+        // picks up the gradient color at the current value's position.
+        overlayShape: SliderComponentShape.noOverlay,
+        thumbShape: _GlassThumbShape(
+          fillColor: _glassFillColorTinted(theme, editorPositionTint),
+          borderColor: _glassBorderColor(theme),
+        ),
         trackShape: trackShape,
         trackHeight: isLabeled ? 8.0 : null,
       ),
@@ -324,7 +344,10 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
         ),
         const SizedBox(height: 4),
         slider,
-        if (isLabeled) _SliderLabelRow(config: config),
+        if (isLabeled) ...[
+          const SizedBox(height: 6),
+          _SliderLabelRow(config: config),
+        ],
       ],
     );
   }
@@ -402,6 +425,23 @@ class _SliderDisplayWidget extends StatelessWidget {
     // themselves; skip our internal label when they do.
     final showInternalLabel = !CustomFieldDisplayScope.labelHandledFor(context);
 
+    // Glass thumb, tinted by the gradient color at the current position.
+    // Numeric mode paints the value text inside the thumb since Flutter's
+    // built-in ShowValueIndicator skips painting for read-only sliders.
+    final valueFraction = (max > min)
+        ? ((clampedValue - min) / (max - min)).clamp(0.0, 1.0)
+        : 0.0;
+    final positionTint = _gradientColorAt(trackColors, valueFraction);
+    final thumbShape = _GlassThumbShape(
+      fillColor: _glassFillColorTinted(theme, positionTint),
+      borderColor: _glassBorderColor(theme),
+      labelTextStyle: theme.textTheme.labelSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: theme.colorScheme.onSurface,
+      ),
+      label: isLabeled ? null : indicatorLabel,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -415,32 +455,17 @@ class _SliderDisplayWidget extends StatelessWidget {
           ),
           const SizedBox(height: 4),
         ],
-        // Numeric mode: render the current value as a real Text widget. The
-        // Slider's built-in value indicator (ShowValueIndicator.always) does
-        // not paint reliably for read-only sliders (onChanged: null), so the
-        // user would otherwise have no way to see the actual number.
-        if (!isLabeled) ...[
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              indicatorLabel,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(height: 2),
-        ],
         // No outer Semantics(label:) wrap — see _SliderEditorWidgetState.build
         // for rationale. The visible Text(field.name) above (or the
         // group-level header) provides the label;
         // semanticFormatterCallback announces the current value.
         SliderTheme(
           data: theme.sliderTheme.copyWith(
-            // ignore: deprecated_member_use — spec §2d requires always-visible indicator
-            showValueIndicator: ShowValueIndicator.always,
+            showValueIndicator: ShowValueIndicator.never,
+            thumbShape: thumbShape,
             trackShape: trackShape,
             trackHeight: isLabeled ? 8.0 : null,
+            overlayShape: SliderComponentShape.noOverlay,
           ),
           child: Slider(
             value: clampedValue,
@@ -452,7 +477,10 @@ class _SliderDisplayWidget extends StatelessWidget {
             onChanged: null, // read-only
           ),
         ),
-        if (isLabeled) _SliderLabelRow(config: config),
+        if (isLabeled) ...[
+          const SizedBox(height: 6),
+          _SliderLabelRow(config: config),
+        ],
       ],
     );
   }
@@ -856,6 +884,224 @@ class _MiniTrackPainter extends CustomPainter {
       old.isGradient != isGradient;
 }
 
+// ─── Glass slider component shapes ────────────────────────────────────────────
+
+/// Translucent fill for the glass thumb / value indicator. Painted to
+/// canvas, so no [BackdropFilter] — uses higher alpha and an [onSurface]
+/// tint to keep readable over colorful gradient tracks.
+Color _glassFillColor(ThemeData theme) {
+  final isDark = theme.brightness == Brightness.dark;
+  final base = theme.colorScheme.surfaceContainerHigh.withValues(
+    alpha: isDark ? 0.62 : 0.88,
+  );
+  final tint = theme.colorScheme.onSurface.withValues(
+    alpha: isDark ? 0.22 : 0.10,
+  );
+  return Color.alphaBlend(tint, base);
+}
+
+Color _glassBorderColor(ThemeData theme) {
+  final isDark = theme.brightness == Brightness.dark;
+  return theme.colorScheme.outlineVariant.withValues(
+    alpha: isDark ? 0.85 : 0.65,
+  );
+}
+
+/// Sample the gradient at the given fraction [0..1] using the same HSL
+/// interpolation as the track shape. Returns null if there's no gradient
+/// to sample (numeric mode, missing colors).
+Color? _gradientColorAt(_TrackColors? trackColors, double fraction) {
+  if (trackColors == null) return null;
+  final t = fraction.clamp(0.0, 1.0);
+  final center = trackColors.center;
+  if (center == null) {
+    return lerpHsl(trackColors.left, trackColors.right, t);
+  }
+  if (t < 0.5) return lerpHsl(trackColors.left, center, t * 2);
+  return lerpHsl(center, trackColors.right, (t - 0.5) * 2);
+}
+
+/// Blend a track-position color into the base glass fill so the thumb
+/// picks up a hint of whatever it's sitting on.
+Color _glassFillColorTinted(ThemeData theme, Color? positionTint) {
+  final base = _glassFillColor(theme);
+  if (positionTint == null) return base;
+  return Color.alphaBlend(positionTint.withValues(alpha: 0.45), base);
+}
+
+/// Glass-styled slider thumb: translucent rounded pill with a hairline
+/// border. When [label] is non-null the thumb expands horizontally to fit
+/// the text — used by the read-only display widget for numeric mode, since
+/// Flutter's [ShowValueIndicator] doesn't paint for disabled sliders.
+class _GlassThumbShape extends SliderComponentShape {
+  const _GlassThumbShape({
+    required this.fillColor,
+    required this.borderColor,
+    this.labelTextStyle,
+    this.label,
+  });
+
+  final Color fillColor;
+  final Color borderColor;
+  final TextStyle? labelTextStyle;
+  final String? label;
+
+  static const double _bareSize = 22.0;
+  static const double _pillHeight = 22.0;
+  static const double _pillHorizontalPadding = 10.0;
+
+  /// Zero WIDTH skips the slider's per-thumb track inset, so the track
+  /// sits flush with its parent column's content edges. Real HEIGHT keeps
+  /// the slider's intrinsic row from collapsing. [paint] draws at the
+  /// real visual size; the small overflow at extreme values bleeds into
+  /// the surrounding card padding.
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) =>
+      Size(0, _visualSize().height);
+
+  Size _visualSize() {
+    if (label == null) return const Size(_bareSize, _bareSize);
+    final painter = _measureLabel();
+    final width = painter.width + (_pillHorizontalPadding * 2);
+    return Size(math.max(width, _bareSize), _pillHeight);
+  }
+
+  TextPainter _measureLabel() {
+    return TextPainter(
+      text: TextSpan(text: label, style: labelTextStyle),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+  }
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final canvas = context.canvas;
+    final size = _visualSize();
+    final rect = Rect.fromCenter(
+      center: center,
+      width: size.width,
+      height: size.height,
+    );
+    final radius = Radius.circular(size.height / 2);
+    final rrect = RRect.fromRectAndRadius(rect, radius);
+
+    canvas.drawRRect(rrect, Paint()..color = fillColor);
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..color = borderColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+
+    if (label != null) {
+      final painter = _measureLabel();
+      painter.paint(
+        canvas,
+        center - Offset(painter.width / 2, painter.height / 2),
+      );
+    }
+  }
+}
+
+/// Glass-styled value indicator (the popup that floats above the thumb while
+/// dragging). Used by the editor widget; the display widget hides the
+/// built-in indicator and paints the value directly in [_GlassThumbShape].
+class _GlassValueIndicatorShape extends SliderComponentShape {
+  const _GlassValueIndicatorShape({
+    required this.fillColor,
+    required this.borderColor,
+  });
+
+  final Color fillColor;
+  final Color borderColor;
+
+  static const double _height = 26.0;
+  static const double _horizontalPadding = 10.0;
+  static const double _verticalGapAboveThumb = 8.0;
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) =>
+      const Size(0, _height + _verticalGapAboveThumb);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final canvas = context.canvas;
+    final opacity = activationAnimation.value;
+    if (opacity <= 0) return;
+
+    final width = labelPainter.width + (_horizontalPadding * 2);
+    final pillCenter = Offset(
+      center.dx,
+      center.dy - (_height / 2) - _verticalGapAboveThumb,
+    );
+    final rect = Rect.fromCenter(
+      center: pillCenter,
+      width: width,
+      height: _height,
+    );
+    final rrect = RRect.fromRectAndRadius(
+      rect,
+      const Radius.circular(_height / 2),
+    );
+
+    canvas.drawRRect(
+      rrect,
+      Paint()..color = fillColor.withValues(alpha: fillColor.a * opacity),
+    );
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..color = borderColor.withValues(alpha: borderColor.a * opacity)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+
+    final textOpacity = (labelPainter.text?.style?.color?.a ?? 1.0) * opacity;
+    final originalSpan = labelPainter.text;
+    if (originalSpan is TextSpan && originalSpan.style != null) {
+      labelPainter.text = TextSpan(
+        text: originalSpan.text,
+        style: originalSpan.style!.copyWith(
+          color: originalSpan.style!.color?.withValues(alpha: textOpacity),
+        ),
+      );
+      labelPainter.layout();
+    }
+    labelPainter.paint(
+      canvas,
+      pillCenter - Offset(labelPainter.width / 2, labelPainter.height / 2),
+    );
+  }
+}
+
 // ─── Slider label row ─────────────────────────────────────────────────────────
 
 /// Renders left / center / right labels below the slider for labeled mode.
@@ -874,25 +1120,22 @@ class _SliderLabelRow extends StatelessWidget {
     final right = config.rightLabel ?? '';
     final center = config.centerLabel;
 
-    if (left.isEmpty && right.isEmpty && center == null) return const SizedBox.shrink();
+    if (left.isEmpty && right.isEmpty && center == null) {
+      return const SizedBox.shrink();
+    }
 
-    return Padding(
-      // 24px matches Material's default Slider track padding:
-      // max(overlayRadius=24, thumbRadius=10) = 24. The track endpoints sit
-      // 24px inside the slider widget; matching the labels keeps them
-      // visually aligned with the actual track start/end.
-      padding: const EdgeInsets.only(left: 24, right: 24, top: 0),
-      child: Row(
-        children: [
-          Text(left, style: labelStyle, overflow: TextOverflow.ellipsis),
-          if (center != null) ...[
-            const Spacer(),
-            Text(center, style: labelStyle, overflow: TextOverflow.ellipsis),
-          ],
+    // The slider's zero-inset thumb makes its track land flush with the
+    // parent's content edges, so anchor labels sit flush there too.
+    return Row(
+      children: [
+        Text(left, style: labelStyle, overflow: TextOverflow.ellipsis),
+        if (center != null) ...[
           const Spacer(),
-          Text(right, style: labelStyle, overflow: TextOverflow.ellipsis),
+          Text(center, style: labelStyle, overflow: TextOverflow.ellipsis),
         ],
-      ),
+        const Spacer(),
+        Text(right, style: labelStyle, overflow: TextOverflow.ellipsis),
+      ],
     );
   }
 }
