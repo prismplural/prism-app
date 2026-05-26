@@ -27,7 +27,7 @@ class SliderGradientPreset {
 }
 
 const List<SliderGradientPreset> kSliderGradientPresets = [
-  // Identity — gender-axis presets recolored to break the pink↔blue stereotype (NOT pride-flag palettes).
+  // Identity — gender-axis presets (NOT pride-flag palettes).
   SliderGradientPreset(
     id: 'femme-masc',
     labelL10nKey: 'sliderGradientPresetFemmeMasc',
@@ -98,7 +98,7 @@ const List<SliderGradientPreset> kSliderGradientPresets = [
     rightHex: '#1E2444', // deep navy
   ),
 
-  // Palette — curated color-story presets not tied to any axis meaning
+  // Palette — decorative; no labeled axis meaning.
   SliderGradientPreset(
     id: 'palette-rose-dusk',
     labelL10nKey: 'sliderGradientPresetPaletteRoseDusk',
