@@ -3172,5 +3172,8 @@
   "verifyBackupValidating": "Comprobando…",
   "verifyBackupNoQrSemanticLabel": "Código QR con tu frase de recuperación",
   "verifyBackupSrAnnounceMatch": "Verificado",
-  "verifyBackupSrAnnounceNoMatch": "No verificado"
+  "verifyBackupSrAnnounceNoMatch": "No verificado",
+  "customFieldSliderMinMaxError": "El máximo debe ser mayor que el mínimo",
+  "customFieldSliderStepError": "El paso debe ser mayor que cero",
+  "customFieldSliderNumericRangeError": "El mínimo y el máximo deben ser números válidos"
 }

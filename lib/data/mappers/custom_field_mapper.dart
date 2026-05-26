@@ -27,20 +27,40 @@ class CustomFieldMapper {
 
     // Parse typeConfigJson via the codec wrapper so unknown forward-compat
     // keys are preserved in the variant's extra map.
+    //
+    // Preservation rule (v2): whenever the codec cannot produce a typed
+    // [CustomFieldTypeConfig], preserve the raw bytes verbatim in
+    // [unknownTypeConfigRaw] so subsequent saves from this device don't wipe
+    // forward-compat data. This covers:
+    //   - syntactically malformed JSON (jsonDecode throws)
+    //   - valid JSON that isn't a top-level object (e.g. arrays, scalars)
+    //   - valid JSON objects representing variants this build doesn't know
+    //     about (codec throws)
     CustomFieldTypeConfig? typeConfig;
+    String? unknownTypeConfigRaw;
     final rawConfig = row.typeConfigJson;
     if (rawConfig != null && rawConfig.isNotEmpty) {
       try {
-        final json = jsonDecode(rawConfig) as Map<String, dynamic>;
-        typeConfig = CustomFieldTypeConfigCodec.fromJson(json);
+        final decoded = jsonDecode(rawConfig);
+        if (decoded is Map<String, dynamic>) {
+          typeConfig = CustomFieldTypeConfigCodec.fromJson(decoded);
+        } else {
+          // Valid JSON but not an object → preserve raw for forward-compat.
+          unknownTypeConfigRaw = rawConfig;
+        }
       } catch (_) {
-        // Malformed config — leave null. The raw column is still preserved
-        // for sync re-emit by readRow elsewhere.
+        // Codec rejected, or jsonDecode failed → preserve raw for
+        // forward-compat.
+        unknownTypeConfigRaw = rawConfig;
       }
     }
 
+    // Negative ints from corrupt storage or a malicious peer must not crash
+    // the mapper. Symmetric with the import-side guard in
+    // data_import_service.dart.
     final domainFieldType =
-        row.fieldType < domain.CustomFieldType.values.length
+        (row.fieldType >= 0 &&
+                row.fieldType < domain.CustomFieldType.values.length)
             ? domain.CustomFieldType.values[row.fieldType]
             : domain.CustomFieldType.text;
 
@@ -49,6 +69,7 @@ class CustomFieldMapper {
       name: row.name,
       fieldType: domainFieldType,
       datePrecision: row.datePrecision != null &&
+              row.datePrecision! >= 0 &&
               row.datePrecision! < domain.DatePrecision.values.length
           ? domain.DatePrecision.values[row.datePrecision!]
           : null,
@@ -57,15 +78,20 @@ class CustomFieldMapper {
       fieldTypeId: fieldTypeId,
       parentFieldId: row.parentFieldId,
       typeConfig: typeConfig,
+      unknownTypeConfigRaw: unknownTypeConfigRaw,
     );
   }
 
   static CustomFieldsCompanion toCompanion(domain.CustomField model) {
-    // Serialize typeConfig through the codec for forward-compat extra-key preservation.
+    // Serialize typeConfig through the codec for forward-compat extra-key
+    // preservation. Fall back to unknownTypeConfigRaw when typeConfig is null
+    // so fully unrecognized future variants aren't wiped on subsequent saves.
     String? typeConfigJson;
     if (model.typeConfig != null) {
       final jsonMap = CustomFieldTypeConfigCodec.toJson(model.typeConfig!);
       typeConfigJson = jsonEncode(jsonMap);
+    } else if (model.unknownTypeConfigRaw != null) {
+      typeConfigJson = model.unknownTypeConfigRaw;
     }
 
     return CustomFieldsCompanion(

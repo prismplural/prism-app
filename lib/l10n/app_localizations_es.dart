@@ -10825,6 +10825,17 @@ class AppLocalizationsEs extends AppLocalizations {
   String get customFieldSliderCategoryNeutral => 'Neutral';
 
   @override
+  String get customFieldSliderMinMaxError =>
+      'El máximo debe ser mayor que el mínimo';
+
+  @override
+  String get customFieldSliderStepError => 'El paso debe ser mayor que cero';
+
+  @override
+  String get customFieldSliderNumericRangeError =>
+      'El mínimo y el máximo deben ser números válidos';
+
+  @override
   String get sliderGradientPresetFemmeMasc => 'Femme ↔ Masc';
 
   @override

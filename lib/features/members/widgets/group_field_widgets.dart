@@ -24,6 +24,7 @@ import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_renderers.dart';
+import 'package:prism_plurality/features/members/widgets/field_input_widget.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -36,9 +37,14 @@ Widget buildGroupEditor(
   BuildContext context,
   CustomField field,
   CustomFieldValue? value,
-  String memberId,
-) {
-  return _GroupEditorWidget(field: field, memberId: memberId);
+  String memberId, {
+  CustomFieldsEditorControllerBase? controller,
+}) {
+  return _GroupEditorWidget(
+    field: field,
+    memberId: memberId,
+    controller: controller,
+  );
 }
 
 /// Stateful editor for a Group custom field. Renders a left-border inset
@@ -47,10 +53,18 @@ Widget buildGroupEditor(
 /// Watches [customFieldsProvider] to find children where
 /// [CustomField.parentFieldId] matches [field.id].
 class _GroupEditorWidget extends ConsumerWidget {
-  const _GroupEditorWidget({required this.field, required this.memberId});
+  const _GroupEditorWidget({
+    required this.field,
+    required this.memberId,
+    this.controller,
+  });
 
   final CustomField field;
   final String memberId;
+  /// Optional controller from the parent [CustomFieldsEditor]. Passed down to
+  /// legacy textual child fields so [savePendingValues] captures typed text
+  /// before the member sheet closes.
+  final CustomFieldsEditorControllerBase? controller;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -112,9 +126,32 @@ class _GroupEditorWidget extends ConsumerWidget {
     final def = customFieldTypeRegistry.lookupById(child.fieldTypeId);
     final renderer = rendererFor(def);
     if (renderer != null) {
+      // Depth-1 hard cap. Write-side validators reject group-in-group, but
+      // createFieldFromImport and sync apply tolerate it. Recursing into
+      // buildGroupEditor here would stack-overflow on a chain or loop on a
+      // cycle. promoteOrphansForRender handles most cases; this guard
+      // closes the window before the next stream emission settles.
+      if (def!.id == kGroupFieldTypeId) {
+        return const SizedBox.shrink();
+      }
+      // Mirror the wrapping logic from CustomFieldsEditor._buildFieldEditor:
+      // legacy textual types must be wrapped in FieldInputWidget with the
+      // controller so savePendingValues() captures unsaved text before the
+      // member sheet closes. Non-legacy types manage their own save lifecycle.
+      if (def.id == 'text' ||
+          def.id == 'long_text' ||
+          def.id == 'color' ||
+          def.id == 'date') {
+        return FieldInputWidget(
+          field: child,
+          memberId: memberId,
+          existingValue: existingValue,
+          controller: controller,
+        );
+      }
       return renderer.editorBuilder(context, child, existingValue, memberId);
     }
-    // Legacy types without a registry entry fall through to SizedBox.
+    // Unknown/unregistered type — render nothing rather than crashing.
     return const SizedBox.shrink();
   }
 

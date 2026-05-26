@@ -15,6 +15,7 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/custom_fields_dao.dart';
 import 'package:prism_plurality/data/mappers/custom_field_mapper.dart';
 import 'package:prism_plurality/data/repositories/drift_custom_fields_repository.dart';
+import 'package:prism_plurality/domain/custom_fields/orphan_promotion.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 
 // ---------------------------------------------------------------------------
@@ -86,9 +87,14 @@ void main() {
   // angle: specifically, that a child field whose parent is tombstoned or
   // outright missing renders at top level WITHOUT mutating the DB row.
 
-  group('orphan-on-read (group-delete race)', () {
+  group('orphan-on-render (group-delete race)', () {
+    // Orphan promotion lives in the render-layer helper
+    // `promoteOrphansForRender` (driven by `topLevelCustomFieldsProvider`).
+    // The repo stream exposes the raw on-disk view so write paths and group
+    // editors see the actual stored
+    // `parent_field_id`. These tests cover both halves of the contract.
     test(
-      'child rendered at top level when parent already tombstoned on this peer',
+      'raw stream preserves parent ref + render helper promotes when parent is tombstoned',
       () async {
         // Set up: G (group) + C (child of G).
         final fieldG = _field(id: 'G', fieldTypeId: 'group');
@@ -103,21 +109,23 @@ void main() {
         // was applied, leaving C orphaned in storage.
         await database.customFieldsDao.deleteField('G');
 
-        // watchAllFields must promote C to top level in memory.
-        final fields = await repo.watchAllFields().first;
+        // Raw stream still emits C with its original parent_field_id.
+        final raw = await repo.watchAllFields().first;
+        expect(raw.map((f) => f.id), isNot(contains('G')));
+        final rawC = raw.firstWhere((f) => f.id == 'C');
+        expect(rawC.parentFieldId, 'G',
+            reason: 'raw repo stream must preserve on-disk parent_field_id');
 
-        // G is gone.
-        expect(fields.map((f) => f.id), isNot(contains('G')));
-
-        // C is promoted — parentFieldId cleared in-memory.
-        final c = fields.firstWhere((f) => f.id == 'C');
-        expect(c.parentFieldId, isNull,
-            reason: 'orphaned child must render at top level');
+        // Render-layer projection promotes the orphan.
+        final projected = promoteOrphansForRender(raw);
+        final projectedC = projected.firstWhere((f) => f.id == 'C');
+        expect(projectedC.parentFieldId, isNull,
+            reason: 'orphaned child must render at top level after projection');
       },
     );
 
     test(
-      'child with parentFieldId pointing at never-existent field appears at top level',
+      'raw stream preserves parent ref + render helper promotes when parent id is never-existent',
       () async {
         // Insert C with a parentFieldId that was never in the DB (e.g. peer
         // created C referencing G, but G's row arrived on this device later
@@ -125,15 +133,21 @@ void main() {
         final fieldC = _field(id: 'C', parentFieldId: 'never-exists');
         await repo.createField(fieldC);
 
-        // watchAllFields must render C at top level in memory.
-        final fields = await repo.watchAllFields().first;
-        final c = fields.firstWhere((f) => f.id == 'C');
-        expect(c.parentFieldId, isNull,
+        // Raw view preserves the bogus parent ref so sync re-attach can fire
+        // naturally if the parent arrives later.
+        final raw = await repo.watchAllFields().first;
+        final rawC = raw.firstWhere((f) => f.id == 'C');
+        expect(rawC.parentFieldId, 'never-exists',
+            reason: 'raw repo stream must preserve on-disk parent_field_id');
+
+        // Render-layer projection promotes the orphan.
+        final projected = promoteOrphansForRender(raw);
+        final projectedC = projected.firstWhere((f) => f.id == 'C');
+        expect(projectedC.parentFieldId, isNull,
             reason: 'child of never-existent parent must render at top level');
 
         // Storage must NOT have been mutated: the raw DB row should still
-        // carry the original parent ref so that re-attaches naturally if the
-        // parent ever arrives via sync.
+        // carry the original parent ref so re-attach is automatic.
         final rawRow = await database.customFieldsDao.getFieldById('C');
         expect(rawRow?.parentFieldId, 'never-exists',
             reason:

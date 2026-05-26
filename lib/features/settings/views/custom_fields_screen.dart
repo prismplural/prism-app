@@ -29,7 +29,7 @@ class CustomFieldsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fieldsAsync = ref.watch(customFieldsProvider);
+    final fieldsAsync = ref.watch(topLevelCustomFieldsProvider);
     final terms = watchTerminology(context, ref);
 
     return PrismPageScaffold(
@@ -291,27 +291,33 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
   }
 
   Future<void> _moveIntoGroup(BuildContext context, CustomField targetGroup) async {
-    await ref.read(customFieldNotifierProvider.notifier).updateField(
-          widget.field.copyWith(parentFieldId: targetGroup.id),
-        );
-    if (context.mounted) {
-      PrismToast.show(
-        context,
-        message: '${widget.field.name} moved into ${targetGroup.name}',
-      );
+    final failure = await ref
+        .read(customFieldNotifierProvider.notifier)
+        .moveFieldToParent(widget.field.id, targetGroup.id);
+    if (!context.mounted) return;
+    if (failure != null) {
+      PrismToast.error(context, message: failure.toString());
+      return;
     }
+    PrismToast.show(
+      context,
+      message: '${widget.field.name} moved into ${targetGroup.name}',
+    );
   }
 
   Future<void> _moveOutOfGroup(BuildContext context) async {
-    await ref.read(customFieldNotifierProvider.notifier).updateField(
-          widget.field.copyWith(parentFieldId: null),
-        );
-    if (context.mounted) {
-      PrismToast.show(
-        context,
-        message: '${widget.field.name} moved to top level',
-      );
+    final failure = await ref
+        .read(customFieldNotifierProvider.notifier)
+        .moveFieldToParent(widget.field.id, null);
+    if (!context.mounted) return;
+    if (failure != null) {
+      PrismToast.error(context, message: failure.toString());
+      return;
     }
+    PrismToast.show(
+      context,
+      message: '${widget.field.name} moved to top level',
+    );
   }
 
   Future<void> _openEditSheet(BuildContext context) async {

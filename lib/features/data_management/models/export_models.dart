@@ -1785,6 +1785,9 @@ class V1CustomField {
     this.datePrecision,
     this.displayOrder = 0,
     required this.createdAt,
+    this.fieldTypeId,
+    this.parentFieldId,
+    this.typeConfigJson,
   });
 
   final String id;
@@ -1794,6 +1797,13 @@ class V1CustomField {
   final int displayOrder;
   final String createdAt;
 
+  // v28 fields — optional so older backup files (without these keys) still
+  // parse correctly via fromJson. Stored as raw JSON strings so future field
+  // types survive a round-trip through a build that doesn't understand them.
+  final String? fieldTypeId;
+  final String? parentFieldId;
+  final String? typeConfigJson;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
@@ -1801,6 +1811,9 @@ class V1CustomField {
     if (datePrecision != null) 'datePrecision': datePrecision,
     'displayOrder': displayOrder,
     'createdAt': createdAt,
+    if (fieldTypeId != null) 'fieldTypeId': fieldTypeId,
+    if (parentFieldId != null) 'parentFieldId': parentFieldId,
+    if (typeConfigJson != null) 'typeConfigJson': typeConfigJson,
   };
 
   factory V1CustomField.fromJson(Map<String, dynamic> json) => V1CustomField(
@@ -1810,6 +1823,9 @@ class V1CustomField {
     datePrecision: json['datePrecision'] as int?,
     displayOrder: json['displayOrder'] as int? ?? 0,
     createdAt: json['createdAt'] as String,
+    fieldTypeId: json['fieldTypeId'] as String?,
+    parentFieldId: json['parentFieldId'] as String?,
+    typeConfigJson: json['typeConfigJson'] as String?,
   );
 }
 

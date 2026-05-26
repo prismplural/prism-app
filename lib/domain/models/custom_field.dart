@@ -88,6 +88,11 @@ abstract class CustomField with _$CustomField {
     String? parentFieldId,
     @JsonKey(includeFromJson: false, includeToJson: false)
     CustomFieldTypeConfig? typeConfig,
+    /// Raw JSON string preserved when [typeConfig] parsing fails for an
+    /// unrecognized future field type. Written back to storage unchanged so
+    /// subsequent saves from this device don't wipe forward-compat data.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    String? unknownTypeConfigRaw,
   }) = _CustomField;
 
   factory CustomField.fromJson(Map<String, dynamic> json) =>

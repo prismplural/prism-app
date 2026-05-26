@@ -1,26 +1,16 @@
-// ## Accessibility
+// Accessibility:
+// - Slider relies on its built-in semantics; no outer Semantics(label:) wrap
+//   (it would flow up to an ancestor and not decorate the Slider node). The
+//   visible Text(field.name) above labels the surrounding row.
+// - semanticFormatterCallback announces the value: labeled mode reads
+//   '{anchorName}, {percent}%'; numeric mode reads '{value}{unit}'.
+// - showValueIndicator: always keeps the bubble visible for sighted users.
 //
-// **Editor**
-// - Slider wrapped in Semantics(label: '{fieldName}').
-// - Flutter's built-in Slider provides semanticFormatterCallback that
-//   maps the raw double to a human-readable string:
-//   - Labeled mode: '{nearestAnchorName}, {percent}%' (or just '{percent}%'
-//     when no anchor label is set).
-//   - Numeric mode: '{value}{unit}'.
-// - showValueIndicator: ShowValueIndicator.always ensures the value bubble
-//   is always visible, which also feeds the system accessibility value.
+// Display: same Slider with onChanged: null. Compact: Row of painted track +
+// Text suffix, announced via the parent row's label.
 //
-// **Display**
-// - Same Slider with onChanged: null (read-only). Value indicator still
-//   renders, giving screen readers the current value via the semantic formatter.
-//
-// **Compact**
-// - Renders as a Row of SizedBox custom-painted track + Text suffix.
-//   Screen readers announce the suffix text via the parent row's label.
-//   No extra Semantics wrappers needed.
-//
-// Manual VoiceOver/TalkBack verification pending — pre-existing FFI compile
-// chain blocks widget tests in this directory.
+// Manual VoiceOver/TalkBack verification pending (FFI compile chain blocks
+// widget tests in this directory).
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -195,12 +185,22 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget> {
     final config = _config();
 
     final isLabeled = config.mode == SliderMode.labeled;
-    final min = isLabeled ? 0.0 : (config.min ?? 0.0);
-    final max = isLabeled ? 100.0 : (config.max ?? 10.0);
+    final rawMin = isLabeled ? 0.0 : (config.min ?? 0.0);
+    final rawMax = isLabeled ? 100.0 : (config.max ?? 10.0);
+    // Defensive guard: bad legacy data may carry NaN, infinity, or min >= max.
+    // The config UI now blocks these, but row-level bad data could still slip
+    // through sync from older builds. Snap to sane defaults so Slider can't
+    // crash. NaN comparisons are always false in IEEE 754, so isFinite must
+    // come first.
+    final (double min, double max) = (rawMin.isFinite && rawMax.isFinite)
+        ? (rawMin < rawMax ? (rawMin, rawMax) : (rawMin, rawMin + 1.0))
+        : (0.0, isLabeled ? 100.0 : 10.0);
     final step = isLabeled ? null : config.step;
 
     // Clamp current value to valid range.
-    final clampedValue = _currentValue.clamp(min, max);
+    final clampedValue = _currentValue.isFinite
+        ? _currentValue.clamp(min, max)
+        : min;
 
     // Compute divisions.
     int? divisions;
@@ -236,6 +236,12 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget> {
           )
         : null;
 
+    // No outer Semantics(label:) wrap here: the visible Text(field.name) above
+    // already labels the surrounding row, and Slider's internal
+    // Semantics(container: true) is a fresh boundary — an outer
+    // Semantics(container: false) label would flow upward to an ancestor
+    // instead of decorating the Slider. semanticFormatterCallback below is
+    // what announces the current value to assistive tech.
     final slider = SliderTheme(
       data: theme.sliderTheme.copyWith(
         // ignore: deprecated_member_use — spec §2d requires always-visible indicator
@@ -243,21 +249,18 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget> {
         trackShape: trackShape,
         trackHeight: isLabeled ? 8.0 : null,
       ),
-      child: Semantics(
-        label: widget.field.name,
-        child: Slider(
-          value: clampedValue,
-          min: min,
-          max: max,
-          divisions: divisions,
-          label: indicatorLabel,
-          semanticFormatterCallback: (_) => indicatorLabel,
-          onChanged: (v) => setState(() => _currentValue = v),
-          onChangeEnd: (v) {
-            setState(() => _currentValue = v);
-            unawaited(_persistValue(v));
-          },
-        ),
+      child: Slider(
+        value: clampedValue,
+        min: min,
+        max: max,
+        divisions: divisions,
+        label: indicatorLabel,
+        semanticFormatterCallback: (_) => indicatorLabel,
+        onChanged: (v) => setState(() => _currentValue = v),
+        onChangeEnd: (v) {
+          setState(() => _currentValue = v);
+          unawaited(_persistValue(v));
+        },
       ),
     );
 
@@ -317,9 +320,15 @@ class _SliderDisplayWidget extends StatelessWidget {
     final currentValue = parsed.value!;
 
     final isLabeled = config.mode == SliderMode.labeled;
-    final min = isLabeled ? 0.0 : (config.min ?? 0.0);
-    final max = isLabeled ? 100.0 : (config.max ?? 10.0);
-    final clampedValue = currentValue.clamp(min, max);
+    final rawMin = isLabeled ? 0.0 : (config.min ?? 0.0);
+    final rawMax = isLabeled ? 100.0 : (config.max ?? 10.0);
+    // Defensive guard: see _SliderEditorWidgetState.build for rationale.
+    final (double min, double max) = (rawMin.isFinite && rawMax.isFinite)
+        ? (rawMin < rawMax ? (rawMin, rawMax) : (rawMin, rawMin + 1.0))
+        : (0.0, isLabeled ? 100.0 : 10.0);
+    final clampedValue = currentValue.isFinite
+        ? currentValue.clamp(min, max)
+        : min;
 
     final trackColors = isLabeled ? _resolveTrackColors(config) : null;
 
@@ -330,6 +339,8 @@ class _SliderDisplayWidget extends StatelessWidget {
             rightColor: trackColors.right,
           )
         : null;
+
+    final indicatorLabel = _indicatorLabel(clampedValue, config, context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,10 +353,13 @@ class _SliderDisplayWidget extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
+        // No outer Semantics(label:) wrap — see _SliderEditorWidgetState.build
+        // for rationale. The visible Text(field.name) above provides the label;
+        // semanticFormatterCallback announces the current value.
         SliderTheme(
           data: theme.sliderTheme.copyWith(
             // ignore: deprecated_member_use — spec §2d requires always-visible indicator
-        showValueIndicator: ShowValueIndicator.always,
+            showValueIndicator: ShowValueIndicator.always,
             trackShape: trackShape,
             trackHeight: isLabeled ? 8.0 : null,
           ),
@@ -353,7 +367,8 @@ class _SliderDisplayWidget extends StatelessWidget {
             value: clampedValue,
             min: min,
             max: max,
-            label: _indicatorLabel(clampedValue, config, context),
+            label: indicatorLabel,
+            semanticFormatterCallback: (_) => indicatorLabel,
             onChanged: null, // read-only
           ),
         ),

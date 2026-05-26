@@ -551,6 +551,9 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   Future<void> createField(CustomField field) async {}
 
   @override
+  Future<void> createFieldFromImport(CustomField field) async {}
+
+  @override
   Future<void> deleteField(String id, {bool deleteChildren = false}) async {}
 
   @override
@@ -580,12 +583,30 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   Future<void> updateField(CustomField field) async {}
 
   @override
+  Future<void> renameField(String fieldId, String newName) async {}
+
+  @override
+  Future<void> moveFieldToParent(String fieldId, String? newParentId) async {}
+
+  @override
+  Future<void> setFieldDatePrecision(
+    String fieldId,
+    DatePrecision? newPrecision,
+  ) async {}
+
+  @override
+  Future<void> setFieldDisplayOrder(String fieldId, int newOrder) async {}
+
+  @override
   Future<void> reorderFields(List<CustomField> fields) async {}
 
   @override
   Future<void> upsertValue(CustomFieldValue value) async {
     upsertedValues.add(value);
   }
+
+  @override
+  Future<List<CustomField>> getAllFields() async => const [];
 
   @override
   Stream<List<CustomField>> watchAllFields() => const Stream.empty();

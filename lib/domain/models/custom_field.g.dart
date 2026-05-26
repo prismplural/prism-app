@@ -37,6 +37,7 @@ const _$CustomFieldTypeEnumMap = {
   CustomFieldType.color: 'color',
   CustomFieldType.date: 'date',
   CustomFieldType.longText: 'longText',
+  CustomFieldType.choice: 'choice',
 };
 
 const _$DatePrecisionEnumMap = {

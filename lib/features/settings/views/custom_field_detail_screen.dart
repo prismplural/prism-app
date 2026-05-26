@@ -112,7 +112,7 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final allFieldsAsync = ref.watch(customFieldsProvider);
+    final allFieldsAsync = ref.watch(topLevelCustomFieldsProvider);
     final allFields = allFieldsAsync.value ?? <CustomField>[];
     final isGroup = field.fieldTypeId == 'group';
     final isNested = field.parentFieldId != null;
@@ -345,27 +345,33 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
   }
 
   Future<void> _moveIntoGroup(BuildContext context, CustomField targetGroup) async {
-    await ref.read(customFieldNotifierProvider.notifier).updateField(
-          field.copyWith(parentFieldId: targetGroup.id),
-        );
-    if (context.mounted) {
-      PrismToast.show(
-        context,
-        message: '${field.name} moved into ${targetGroup.name}',
-      );
+    final failure = await ref
+        .read(customFieldNotifierProvider.notifier)
+        .moveFieldToParent(field.id, targetGroup.id);
+    if (!context.mounted) return;
+    if (failure != null) {
+      PrismToast.error(context, message: failure.toString());
+      return;
     }
+    PrismToast.show(
+      context,
+      message: '${field.name} moved into ${targetGroup.name}',
+    );
   }
 
   Future<void> _moveOutOfGroup(BuildContext context) async {
-    await ref.read(customFieldNotifierProvider.notifier).updateField(
-          field.copyWith(parentFieldId: null),
-        );
-    if (context.mounted) {
-      PrismToast.show(
-        context,
-        message: '${field.name} moved to top level',
-      );
+    final failure = await ref
+        .read(customFieldNotifierProvider.notifier)
+        .moveFieldToParent(field.id, null);
+    if (!context.mounted) return;
+    if (failure != null) {
+      PrismToast.error(context, message: failure.toString());
+      return;
     }
+    PrismToast.show(
+      context,
+      message: '${field.name} moved to top level',
+    );
   }
 
   Future<void> _confirmDelete(BuildContext context) async {

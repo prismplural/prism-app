@@ -5,6 +5,7 @@ import 'package:prism_plurality/core/database/app_database.dart' as db;
 import 'package:prism_plurality/core/database/daos/custom_fields_dao.dart';
 import 'package:prism_plurality/data/repositories/drift_custom_fields_repository.dart';
 import 'package:prism_plurality/domain/custom_fields/custom_fields_exceptions.dart';
+import 'package:prism_plurality/domain/custom_fields/orphan_promotion.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 
@@ -118,8 +119,11 @@ void main() {
   // ── 2. Depth-1 enforcement on updateField ───────────────────────────────
 
   test(
-    'updateField throws DepthLimitExceededException when re-parenting would exceed depth 1',
+    'moveFieldToParent throws DepthLimitExceededException when target itself is nested',
     () async {
+      // Validation lives only in moveFieldToParent (user-intent moves).
+      // updateField tolerates invalid parents because importers replay
+      // historical state. This test exercises the explicit move path.
       final fieldA = _groupField(id: 'A');
       final fieldB = _field(id: 'B', parentFieldId: 'A');
       final fieldC = _field(id: 'C');
@@ -129,11 +133,35 @@ void main() {
       await repo.createField(fieldC);
 
       // Attempt to make C a child of B (B already has parent A → depth 2).
-      final cWithBAsParent = fieldC.copyWith(parentFieldId: 'B');
       expect(
-        () => repo.updateField(cWithBAsParent),
+        () => repo.moveFieldToParent('C', 'B'),
         throwsA(isA<DepthLimitExceededException>()),
       );
+    },
+  );
+
+  test(
+    'updateField tolerates parent-state changes (importer replay) without throwing',
+    () async {
+      // updateField is the importer/replay full-row path. It must not throw
+      // on a nested-parent payload; render-layer orphan promotion handles
+      // display when the structure is invalid.
+      final fieldA = _groupField(id: 'A');
+      final fieldB = _field(id: 'B', parentFieldId: 'A');
+      final fieldC = _field(id: 'C');
+
+      await repo.createField(fieldA);
+      await repo.createField(fieldB);
+      await repo.createField(fieldC);
+
+      // Replay would-be-invalid: C points at B which itself has a parent.
+      final cWithBAsParent = fieldC.copyWith(parentFieldId: 'B');
+      // Should complete without throwing — the importer/replay surface is
+      // tolerant of historical/peer state.
+      await repo.updateField(cWithBAsParent);
+
+      final stored = await repo.getFieldById('C');
+      expect(stored?.parentFieldId, 'B');
     },
   );
 
@@ -163,10 +191,15 @@ void main() {
     expect(stored?.value, 'test');
   });
 
-  // ── 4. Orphan-on-read promotion (soft-deleted parent) ────────────────────
+  // ── 4. Raw stream + render-layer promotion (soft-deleted parent) ─────────
+  //
+  // The repo stream exposes the raw on-disk view; `promoteOrphansForRender`
+  // (driven by `topLevelCustomFieldsProvider`) is what applies the
+  // parent-clearing transform for display.
 
   test(
-    'watchAllFields promotes child to top level when its parent is soft-deleted',
+    'watchAllFields preserves raw parentFieldId when parent is soft-deleted; '
+    'promoteOrphansForRender promotes the child',
     () async {
       final groupG = _groupField(id: 'G');
       final childC = _field(id: 'C', parentFieldId: 'G');
@@ -175,31 +208,41 @@ void main() {
       await repo.createField(childC);
 
       // Soft-delete G using the DAO directly (bypassing the group deleteField
-      // logic so we can test orphan promotion in isolation).
+      // logic so we can test the read-side contract in isolation).
       await database.customFieldsDao.deleteField('G');
 
-      final fields = await repo.watchAllFields().first;
+      final raw = await repo.watchAllFields().first;
+      // G is filtered out by the DAO (isDeleted = true).
+      expect(raw.map((f) => f.id), isNot(contains('G')));
+      final rawC = raw.firstWhere((f) => f.id == 'C');
+      // Raw view preserves on-disk parent_field_id — important for write paths
+      // and group editors that filter by exact parent match.
+      expect(rawC.parentFieldId, 'G');
 
-      // G is deleted; only C appears.
-      expect(fields.map((f) => f.id), isNot(contains('G')));
-      final c = fields.firstWhere((f) => f.id == 'C');
-      // C should be promoted: parentFieldId cleared in-memory.
-      expect(c.parentFieldId, isNull);
+      // Render-layer projection promotes orphans for display.
+      final projected = promoteOrphansForRender(raw);
+      final projectedC = projected.firstWhere((f) => f.id == 'C');
+      expect(projectedC.parentFieldId, isNull);
     },
   );
 
-  // ── 5. Orphan-on-read when parent was never inserted ─────────────────────
+  // ── 5. Same contract for nonexistent parent ──────────────────────────────
 
   test(
-    'watchAllFields promotes child to top level when parent id is nonexistent',
+    'watchAllFields preserves raw parentFieldId when parent id is nonexistent; '
+    'promoteOrphansForRender promotes the child',
     () async {
       // Insert C with a parent that does not exist in the DB.
       final childC = _field(id: 'C', parentFieldId: 'nonexistent');
       await repo.createField(childC);
 
-      final fields = await repo.watchAllFields().first;
-      final c = fields.firstWhere((f) => f.id == 'C');
-      expect(c.parentFieldId, isNull);
+      final raw = await repo.watchAllFields().first;
+      final rawC = raw.firstWhere((f) => f.id == 'C');
+      expect(rawC.parentFieldId, 'nonexistent');
+
+      final projected = promoteOrphansForRender(raw);
+      final projectedC = projected.firstWhere((f) => f.id == 'C');
+      expect(projectedC.parentFieldId, isNull);
     },
   );
 

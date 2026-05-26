@@ -183,8 +183,9 @@ class DataExportService {
         .map(_mapMemberGroupEntry)
         .toList();
 
-    // Fetch custom fields and values
-    final customFields = await customFieldsRepository.watchAllFields().first;
+    // getAllFields returns the raw on-disk view; backups capture the actual
+    // parent_field_id even for children currently promoted at render time.
+    final customFields = await customFieldsRepository.getAllFields();
     final allFieldValues = await customFieldsRepository.getAllValues();
     final v1CustomFields = customFields.map(_mapCustomField).toList();
     final v1CustomFieldValues = allFieldValues
@@ -739,14 +740,30 @@ class DataExportService {
   V1MemberGroupEntry _mapMemberGroupEntry(MemberGroupEntry e) =>
       V1MemberGroupEntry(id: e.id, groupId: e.groupId, memberId: e.memberId);
 
-  V1CustomField _mapCustomField(CustomField f) => V1CustomField(
-    id: f.id,
-    name: f.name,
-    fieldType: f.fieldType.index,
-    datePrecision: f.datePrecision?.index,
-    displayOrder: f.displayOrder,
-    createdAt: f.createdAt.toUtc().toIso8601String(),
-  );
+  V1CustomField _mapCustomField(CustomField f) {
+    // Serialize typeConfig as a raw JSON string so future-type fields survive
+    // a backup round-trip even if the running app doesn't understand them.
+    String? typeConfigJson;
+    if (f.typeConfig != null) {
+      typeConfigJson =
+          jsonEncode(CustomFieldTypeConfigCodec.toJson(f.typeConfig!));
+    } else if (f.unknownTypeConfigRaw != null) {
+      // Forward-compat: preserve raw bytes for unknown future types.
+      typeConfigJson = f.unknownTypeConfigRaw;
+    }
+
+    return V1CustomField(
+      id: f.id,
+      name: f.name,
+      fieldType: f.fieldType.index,
+      datePrecision: f.datePrecision?.index,
+      displayOrder: f.displayOrder,
+      createdAt: f.createdAt.toUtc().toIso8601String(),
+      fieldTypeId: f.fieldTypeId,
+      parentFieldId: f.parentFieldId,
+      typeConfigJson: typeConfigJson,
+    );
+  }
 
   V1CustomFieldValue _mapCustomFieldValue(CustomFieldValue v) =>
       V1CustomFieldValue(

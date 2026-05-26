@@ -1,16 +1,39 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/custom_fields/custom_fields_exceptions.dart';
+import 'package:prism_plurality/domain/custom_fields/orphan_promotion.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
-import 'package:prism_plurality/core/database/database_providers.dart';
 
 /// Watches all custom field definitions, ordered by displayOrder.
+///
+/// **Raw on-disk view.** Children with a `parentFieldId` are emitted as-is,
+/// including ones whose parent is missing or non-group. Consumers that render
+/// a top-level list should watch [topLevelCustomFieldsProvider] instead;
+/// consumers that need the exact on-disk parent (e.g. the group editor that
+/// filters by `parentFieldId == groupId`) should keep using this provider.
 final customFieldsProvider = StreamProvider<List<CustomField>>((ref) {
   final repo = ref.watch(customFieldsRepositoryProvider);
   return repo.watchAllFields();
 });
+
+/// Render-layer view of all custom fields with orphaned children promoted to
+/// the top level.
+///
+/// A child whose parent is missing/soft-deleted or is not a group-typed field
+/// has its `parentFieldId` cleared in the projection. This is a purely
+/// in-memory transform; the DB row is unchanged so the child re-attaches on
+/// the next stream emission if the parent comes back via sync.
+///
+/// Use this for any UI that displays a top-level list of custom fields. Do
+/// **not** use it on write paths — writing back a promoted instance would
+/// propagate the cleared parent to disk.
+final topLevelCustomFieldsProvider = Provider<AsyncValue<List<CustomField>>>(
+  (ref) => ref.watch(customFieldsProvider).whenData(promoteOrphansForRender),
+);
 
 /// Watches a single custom field by ID.
 final customFieldByIdProvider = StreamProvider.autoDispose
@@ -40,7 +63,10 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
-  Future<void> createField({
+  /// Returns the caught error or `null` on success. Callers must check —
+  /// `AsyncValue.guard` would otherwise swallow `InvalidFieldTypeException`
+  /// and other failures into state with no UI surface.
+  Future<Object?> createField({
     required String name,
     required CustomFieldType fieldType,
     DatePrecision? datePrecision,
@@ -49,6 +75,7 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
     CustomFieldTypeConfig? typeConfig,
     String? parentFieldId,
   }) async {
+    Object? failure;
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
       final field = CustomField(
@@ -62,29 +89,131 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
         typeConfig: typeConfig,
         parentFieldId: parentFieldId,
       );
-      await repo.createField(field);
+      try {
+        await repo.createField(field);
+      } catch (e) {
+        failure = e;
+        rethrow;
+      }
     });
+    return failure;
   }
 
-  Future<void> updateField(CustomField field) async {
+  /// Updates [field] via the repository (full-row diff path — for cases
+  /// where the caller legitimately changed the `fieldTypeId` or otherwise
+  /// needs whole-row semantics). UI edits of individual columns should
+  /// prefer the patch wrappers ([renameField], [setFieldDatePrecision],
+  /// [writeTypedConfig]) for CRDT correctness.
+  ///
+  /// Returns the caught error (or `null` on success). Callers MUST check
+  /// the return value and surface non-null errors via toast.
+  Future<Object?> updateField(CustomField field) async {
+    Object? failure;
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
-      await repo.updateField(field);
+      try {
+        await repo.updateField(field);
+      } catch (e) {
+        failure = e;
+        rethrow;
+      }
     });
+    return failure;
+  }
+
+  /// Patch [fieldId]'s parent to [newParentId]. Pass `null` to move to top
+  /// level.
+  ///
+  /// Returns the [InvalidFieldTypeException] or [DepthLimitExceededException]
+  /// when the move is rejected, or `null` on success. Callers should surface
+  /// the returned exception via toast/snackbar so user-explicit moves fail
+  /// loudly rather than silently swallow. Storage/unknown errors still flow
+  /// through `AsyncValue.guard` into `state`.
+  Future<Exception?> moveFieldToParent(
+    String fieldId,
+    String? newParentId,
+  ) async {
+    Exception? failure;
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(customFieldsRepositoryProvider);
+      try {
+        await repo.moveFieldToParent(fieldId, newParentId);
+      } on InvalidFieldTypeException catch (e) {
+        failure = e;
+        rethrow;
+      } on DepthLimitExceededException catch (e) {
+        failure = e;
+        rethrow;
+      }
+    });
+    return failure;
+  }
+
+  /// Patch [fieldId]'s name. Single-column write — peers' concurrent edits to
+  /// other columns are preserved.
+  ///
+  /// Returns the caught error (e.g. storage failure) or `null` on success.
+  /// Callers should surface non-null returns via toast so failures don't
+  /// silently swallow.
+  Future<Object?> renameField(String fieldId, String newName) async {
+    Object? failure;
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(customFieldsRepositoryProvider);
+      try {
+        await repo.renameField(fieldId, newName);
+      } catch (e) {
+        failure = e;
+        rethrow;
+      }
+    });
+    return failure;
+  }
+
+  /// Patch [fieldId]'s date precision. Single-column write.
+  ///
+  /// Returns the caught error or `null` on success — see [renameField] for
+  /// the rationale.
+  Future<Object?> setFieldDatePrecision(
+    String fieldId,
+    DatePrecision? newPrecision,
+  ) async {
+    Object? failure;
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(customFieldsRepositoryProvider);
+      try {
+        await repo.setFieldDatePrecision(fieldId, newPrecision);
+      } catch (e) {
+        failure = e;
+        rethrow;
+      }
+    });
+    return failure;
   }
 
   /// Write a whole-config blob for [fieldId] using the LWW invariant.
   ///
   /// Any config mutation must write the entire blob — no field-level
   /// merge inside the JSON. CRDT convergence depends on this contract.
-  Future<void> writeTypedConfig(
+  ///
+  /// Returns the caught error (codec encoding failure, storage failure)
+  /// or `null` on success. Callers MUST check the return value and surface
+  /// non-null errors via toast — choice option edits, slider config edits,
+  /// etc. all flow through here and silent failures would be a UX dead-end.
+  Future<Object?> writeTypedConfig(
     String fieldId,
     CustomFieldTypeConfig newConfig,
   ) async {
+    Object? failure;
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
-      await repo.writeTypedConfig(fieldId, newConfig);
+      try {
+        await repo.writeTypedConfig(fieldId, newConfig);
+      } catch (e) {
+        failure = e;
+        rethrow;
+      }
     });
+    return failure;
   }
 
   Future<void> deleteField(String id, {bool deleteChildren = false}) async {

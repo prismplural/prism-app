@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/custom_fields/choice_option_palette.dart';
 import 'package:prism_plurality/domain/custom_fields/custom_field_type_registry.dart';
 import 'package:prism_plurality/domain/custom_fields/registry.dart';
@@ -408,6 +409,32 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     }
   }
 
+  // ── Slider numeric validation ───────────────────────────────────────
+
+  /// Returns a validation error message when the numeric slider config is
+  /// invalid, or null when it is valid. Used to show inline errors and to
+  /// disable the Save button.
+  String? _sliderNumericError(AppLocalizations l10n) {
+    if (_selectedTypeId != 'slider' || _sliderMode != SliderMode.numeric) {
+      return null;
+    }
+    final min = double.tryParse(_sliderMinController.text.trim());
+    final max = double.tryParse(_sliderMaxController.text.trim());
+    final step = double.tryParse(_sliderStepController.text.trim());
+    // Reject NaN and infinity — `NaN >= max` is always false, so a missing
+    // isFinite check would let bad values reach the runtime Slider and crash.
+    if (min == null || max == null || !min.isFinite || !max.isFinite) {
+      return l10n.customFieldSliderNumericRangeError;
+    }
+    if (min >= max) {
+      return l10n.customFieldSliderMinMaxError;
+    }
+    if (step != null && (!step.isFinite || step <= 0)) {
+      return l10n.customFieldSliderStepError;
+    }
+    return null;
+  }
+
   // ── Duplicate detection ─────────────────────────────────────────────
 
   /// Returns IDs of options whose labels are duplicated (case-insensitive).
@@ -464,17 +491,68 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       };
 
       if (widget.isEditing) {
-        final updated = widget.field!.copyWith(
-          name: name,
-          fieldType: legacyFieldType,
-          fieldTypeId: _selectedTypeId,
-          datePrecision:
-              _selectedTypeId == 'date' ? _selectedPrecision : null,
-          typeConfig: typeConfig,
-        );
-        await notifier.updateField(updated);
+        final existing = widget.field!;
+        // Dispatch patch methods per changed field so the wire emit covers
+        // only what actually changed; stale values in this snapshot can't
+        // clobber peers' concurrent edits (parent_field_id, display_order).
+        final nameChanged = existing.name != name;
+        final newPrecision =
+            _selectedTypeId == 'date' ? _selectedPrecision : null;
+        final precisionChanged = existing.datePrecision != newPrecision;
+        // typeConfig equality: domain CustomField is `@freezed`, so structural
+        // equality applies. For null↔null/non-null, == handles it.
+        final configChanged = existing.typeConfig != typeConfig;
+        // Textual type-switch (text ↔ longText) changes the type id/enum.
+        // This is the only case where we still need a full-row update because
+        // the storage shape's stable type identity itself is moving.
+        final typeIdChanged = existing.fieldTypeId != _selectedTypeId ||
+            existing.fieldType != legacyFieldType;
+
+        if (typeIdChanged) {
+          // Re-fetch the raw row: `existing` may be a promoted snapshot
+          // (parentFieldId nulled by topLevelCustomFieldsProvider). Without
+          // this, the diff would emit parent_field_id=null and destroy the
+          // on-disk parent reference.
+          final repo = ref.read(customFieldsRepositoryProvider);
+          final raw = await repo.getFieldById(existing.id);
+          if (raw == null) {
+            throw StateError(
+              'Field ${existing.id} no longer exists; cannot update.',
+            );
+          }
+          final updated = raw.copyWith(
+            name: name,
+            fieldType: legacyFieldType,
+            fieldTypeId: _selectedTypeId,
+            datePrecision: newPrecision,
+            typeConfig: typeConfig,
+          );
+          final err = await notifier.updateField(updated);
+          if (err != null) throw err;
+        } else {
+          // Fire each changed-only patch in order. The wrappers swallow the
+          // throw via AsyncValue.guard and return the caught error; re-throw
+          // the first non-null so the outer try/catch surfaces it.
+          if (nameChanged) {
+            final err = await notifier.renameField(existing.id, name);
+            if (err != null) throw err;
+          }
+          if (precisionChanged) {
+            final err = await notifier.setFieldDatePrecision(
+              existing.id,
+              newPrecision,
+            );
+            if (err != null) throw err;
+          }
+          if (configChanged && typeConfig != null) {
+            final err = await notifier.writeTypedConfig(existing.id, typeConfig);
+            if (err != null) throw err;
+          }
+        }
       } else {
-        await notifier.createField(
+        // Must check the return — InvalidFieldTypeException would otherwise
+        // be swallowed and the sheet would pop with a success Haptic.
+        final err = await notifier.createField(
           name: name,
           fieldType: legacyFieldType,
           datePrecision:
@@ -483,6 +561,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           typeConfig: typeConfig,
           parentFieldId: widget.parentFieldId,
         );
+        if (err != null) throw err;
       }
 
       if (mounted) {
@@ -504,10 +583,19 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final canSave = _nameController.text.trim().isNotEmpty;
+    final l10n = context.l10n;
+    final sliderError = _sliderNumericError(l10n);
+    final canSave =
+        _nameController.text.trim().isNotEmpty && sliderError == null;
 
     return ListenableBuilder(
-      listenable: _nameController,
+      // Also listen to slider controllers so canSave reacts to min/max/step.
+      listenable: Listenable.merge([
+        _nameController,
+        _sliderMinController,
+        _sliderMaxController,
+        _sliderStepController,
+      ]),
       builder: (context, _) => UnsavedChangesGuard<bool>(
         hasUnsavedChanges: _isDirty,
         child: SafeArea(
@@ -713,6 +801,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         stepController: _sliderStepController,
                         unitController: _sliderUnitController,
                         showTicks: _sliderShowTicks,
+                        numericError: sliderError,
                         onModeSelected: (m) =>
                             setState(() => _sliderMode = m),
                         onPresetSelected: (id) =>
@@ -1188,6 +1277,7 @@ class _SliderConfigSection extends StatelessWidget {
     required this.stepController,
     required this.unitController,
     required this.showTicks,
+    this.numericError,
     required this.onModeSelected,
     required this.onPresetSelected,
     required this.onToggleAdvancedColors,
@@ -1215,6 +1305,10 @@ class _SliderConfigSection extends StatelessWidget {
   final TextEditingController stepController;
   final TextEditingController unitController;
   final bool showTicks;
+  /// Validation error for numeric mode (min >= max or step <= 0). When
+  /// non-null, shown inline below the numeric controls and the Save button is
+  /// disabled by the parent.
+  final String? numericError;
   final ValueChanged<SliderMode> onModeSelected;
   final ValueChanged<String> onPresetSelected;
   final VoidCallback onToggleAdvancedColors;
@@ -1424,6 +1518,28 @@ class _SliderConfigSection extends StatelessWidget {
             value: showTicks,
             onChanged: onShowTicksChanged,
           ),
+          // Inline validation error for min >= max or step <= 0.
+          if (numericError != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 16,
+                  color: theme.colorScheme.error,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    numericError!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ],
     );

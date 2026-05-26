@@ -36,6 +36,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
@@ -212,21 +213,37 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
         if (o.id == option.id) o.copyWith(label: newLabel) else o,
     ];
     final updatedConfig = config.copyWith(options: updatedOptions);
-    await ref
+    final err = await ref
         .read(customFieldNotifierProvider.notifier)
         .writeTypedConfig(widget.field.id, updatedConfig);
+    if (err == null) return;
+    if (!context.mounted) return;
+    PrismToast.error(
+      context,
+      message: context.l10n.settingsCreateEditFieldSaveError(err.toString()),
+    );
   }
 
-  Future<void> _cycleOptionColor(ChoiceConfig config, ChoiceOption option) async {
+  Future<void> _cycleOptionColor(
+    BuildContext context,
+    ChoiceConfig config,
+    ChoiceOption option,
+  ) async {
     final newColor = cycleChoicePaletteColor(option.colorHex);
     final updatedOptions = [
       for (final o in config.options)
         if (o.id == option.id) o.copyWith(colorHex: newColor) else o,
     ];
     final updatedConfig = config.copyWith(options: updatedOptions);
-    await ref
+    final err = await ref
         .read(customFieldNotifierProvider.notifier)
         .writeTypedConfig(widget.field.id, updatedConfig);
+    if (err == null) return;
+    if (!context.mounted) return;
+    PrismToast.error(
+      context,
+      message: context.l10n.settingsCreateEditFieldSaveError(err.toString()),
+    );
   }
 
   Future<void> _deleteOption(
@@ -250,9 +267,15 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
         if (o.id == option.id) o.copyWith(isDeleted: true) else o,
     ];
     final updatedConfig = config.copyWith(options: updatedOptions);
-    await ref
+    final err = await ref
         .read(customFieldNotifierProvider.notifier)
         .writeTypedConfig(widget.field.id, updatedConfig);
+    if (err == null) return;
+    if (!context.mounted) return;
+    PrismToast.error(
+      context,
+      message: context.l10n.settingsCreateEditFieldSaveError(err.toString()),
+    );
   }
 
   /// Fix 6: Save the Other text on focus loss, trimming whitespace first.
@@ -375,7 +398,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
               title: Text(l10n.customFieldChoiceChangeColorMenuLabel),
               onTap: () {
                 close();
-                unawaited(_cycleOptionColor(config, option));
+                unawaited(_cycleOptionColor(context, config, option));
               },
             ),
           _ => PrismListRow(

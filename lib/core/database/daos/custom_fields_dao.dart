@@ -28,6 +28,15 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
             ..where((f) => f.id.equals(id) & f.isDeleted.equals(false)))
           .getSingleOrNull();
 
+  /// Look up a row by id INCLUDING soft-deleted tombstones. Used by
+  /// `createFieldFromImport` to detect the tombstone-collision case (where
+  /// the backup carries a row whose id matches a row this device previously
+  /// deleted) — without this, the INSERT would hit a UNIQUE constraint and
+  /// roll back the entire restore transaction.
+  Future<CustomFieldRow?> getFieldByIdIncludingDeleted(String id) =>
+      (select(customFields)..where((f) => f.id.equals(id)))
+          .getSingleOrNull();
+
   Future<int> createField(CustomFieldsCompanion companion) =>
       into(customFields).insert(companion);
 
@@ -38,7 +47,19 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
     await batch((b) => b.insertAll(customFields, rows));
   }
 
-  Future<void> updateField(String id, CustomFieldsCompanion companion) =>
+  /// Returns the affected row count. Filters to ACTIVE rows only — soft-deleted
+  /// tombstones don't match, so a stale UI patching a deleted row gets
+  /// affected=0 and the repository bails before emitting a phantom sync op.
+  Future<int> updateField(String id, CustomFieldsCompanion companion) =>
+      (update(customFields)
+            ..where((f) => f.id.equals(id) & f.isDeleted.equals(false)))
+          .write(companion);
+
+  /// Update WITHOUT the isDeleted filter. Used by [createFieldFromImport] to
+  /// resurrect soft-deleted tombstones during backup restore. Do NOT use from
+  /// general patch paths — they should always go through [updateField] so
+  /// stale UI writes don't reach tombstoned rows.
+  Future<int> resurrectField(String id, CustomFieldsCompanion companion) =>
       (update(customFields)..where((f) => f.id.equals(id))).write(companion);
 
   /// Bulk-update field display orders in one SQL statement.

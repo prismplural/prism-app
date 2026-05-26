@@ -7,6 +7,7 @@ import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_renderers.dart';
 import 'package:prism_plurality/features/members/widgets/field_input_widget.dart';
+import 'package:prism_plurality/features/members/widgets/group_field_widgets.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -23,7 +24,7 @@ class CustomFieldsEditor extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fieldsAsync = ref.watch(customFieldsProvider);
+    final fieldsAsync = ref.watch(topLevelCustomFieldsProvider);
 
     return fieldsAsync.when(
       loading: () => const SizedBox.shrink(),
@@ -122,8 +123,19 @@ class CustomFieldsEditor extends ConsumerWidget {
           controller: controller,
         );
       }
-      // Non-legacy types: delegate entirely to the renderer. The controller
-      // is not threaded in — future types manage their own save lifecycle.
+      // Group fields: pass the controller so child legacy fields inside the
+      // group are also wrapped and register with savePendingValues().
+      if (def.id == 'group') {
+        return buildGroupEditor(
+          context,
+          field,
+          existingValue,
+          memberId,
+          controller: controller,
+        );
+      }
+      // Non-legacy, non-group types: delegate entirely to the renderer.
+      // These types manage their own save lifecycle.
       return renderer.editorBuilder(context, field, existingValue, memberId);
     }
 

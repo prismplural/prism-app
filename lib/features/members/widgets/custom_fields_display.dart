@@ -25,7 +25,7 @@ class CustomFieldsDisplay extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fieldsAsync = ref.watch(customFieldsProvider);
+    final fieldsAsync = ref.watch(topLevelCustomFieldsProvider);
     final valuesAsync = ref.watch(memberCustomFieldValuesProvider(memberId));
 
     return fieldsAsync.when(

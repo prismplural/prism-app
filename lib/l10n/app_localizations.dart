@@ -17141,6 +17141,24 @@ abstract class AppLocalizations {
   /// **'Neutral'**
   String get customFieldSliderCategoryNeutral;
 
+  /// Validation error shown when numeric slider min >= max
+  ///
+  /// In en, this message translates to:
+  /// **'Max must be greater than min'**
+  String get customFieldSliderMinMaxError;
+
+  /// Validation error shown when numeric slider step <= 0
+  ///
+  /// In en, this message translates to:
+  /// **'Step must be greater than zero'**
+  String get customFieldSliderStepError;
+
+  /// Validation error shown when numeric slider min or max cannot be parsed
+  ///
+  /// In en, this message translates to:
+  /// **'Min and max must be valid numbers'**
+  String get customFieldSliderNumericRangeError;
+
   /// Label for the femme-masc gradient preset
   ///
   /// In en, this message translates to:

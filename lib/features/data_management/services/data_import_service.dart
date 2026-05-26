@@ -1880,7 +1880,33 @@ class DataImportService {
 
         for (final f in export.customFields) {
           if (existingFieldIds.contains(f.id)) continue;
-          await customFieldsRepository.createField(
+
+          // Preserve raw bytes when the codec can't produce a typed view
+          // (malformed, non-object, or unknown future variant) so a re-export
+          // from this device doesn't wipe forward-compat data.
+          CustomFieldTypeConfig? typeConfig;
+          String? unknownTypeConfigRaw;
+          final rawConfig = f.typeConfigJson;
+          if (rawConfig != null && rawConfig.isNotEmpty) {
+            try {
+              final decoded = jsonDecode(rawConfig);
+              if (decoded is Map<String, dynamic>) {
+                typeConfig = CustomFieldTypeConfigCodec.fromJson(decoded);
+              } else {
+                // Valid JSON but not an object → preserve raw.
+                unknownTypeConfigRaw = rawConfig;
+              }
+            } catch (_) {
+              // Codec rejected, or jsonDecode failed → preserve raw.
+              unknownTypeConfigRaw = rawConfig;
+            }
+          }
+
+          // Use the import bypass so a backup row whose parent_field_id
+          // points at an invalid parent still imports. Without it,
+          // _validateDepth on createField would throw inside the wrapping
+          // db.transaction and roll back the whole restore.
+          await customFieldsRepository.createFieldFromImport(
             CustomField(
               id: f.id,
               name: f.name,
@@ -1897,6 +1923,10 @@ class DataImportService {
                   : null,
               displayOrder: f.displayOrder,
               createdAt: DateTime.parse(f.createdAt),
+              fieldTypeId: f.fieldTypeId,
+              parentFieldId: f.parentFieldId,
+              typeConfig: typeConfig,
+              unknownTypeConfigRaw: unknownTypeConfigRaw,
             ),
           );
           customFieldsCreated++;

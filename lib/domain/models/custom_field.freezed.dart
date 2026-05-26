@@ -15,7 +15,10 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$CustomField {
 
- String get id; String get name; CustomFieldType get fieldType; DatePrecision? get datePrecision; int get displayOrder; DateTime get createdAt; String? get fieldTypeId; String? get parentFieldId;@JsonKey(includeFromJson: false, includeToJson: false) CustomFieldTypeConfig? get typeConfig;
+ String get id; String get name; CustomFieldType get fieldType; DatePrecision? get datePrecision; int get displayOrder; DateTime get createdAt; String? get fieldTypeId; String? get parentFieldId;@JsonKey(includeFromJson: false, includeToJson: false) CustomFieldTypeConfig? get typeConfig;/// Raw JSON string preserved when [typeConfig] parsing fails for an
+/// unrecognized future field type. Written back to storage unchanged so
+/// subsequent saves from this device don't wipe forward-compat data.
+@JsonKey(includeFromJson: false, includeToJson: false) String? get unknownTypeConfigRaw;
 /// Create a copy of CustomField
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +31,16 @@ $CustomFieldCopyWith<CustomField> get copyWith => _$CustomFieldCopyWithImpl<Cust
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CustomField&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.fieldType, fieldType) || other.fieldType == fieldType)&&(identical(other.datePrecision, datePrecision) || other.datePrecision == datePrecision)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.fieldTypeId, fieldTypeId) || other.fieldTypeId == fieldTypeId)&&(identical(other.parentFieldId, parentFieldId) || other.parentFieldId == parentFieldId)&&(identical(other.typeConfig, typeConfig) || other.typeConfig == typeConfig));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CustomField&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.fieldType, fieldType) || other.fieldType == fieldType)&&(identical(other.datePrecision, datePrecision) || other.datePrecision == datePrecision)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.fieldTypeId, fieldTypeId) || other.fieldTypeId == fieldTypeId)&&(identical(other.parentFieldId, parentFieldId) || other.parentFieldId == parentFieldId)&&(identical(other.typeConfig, typeConfig) || other.typeConfig == typeConfig)&&(identical(other.unknownTypeConfigRaw, unknownTypeConfigRaw) || other.unknownTypeConfigRaw == unknownTypeConfigRaw));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,fieldType,datePrecision,displayOrder,createdAt,fieldTypeId,parentFieldId,typeConfig);
+int get hashCode => Object.hash(runtimeType,id,name,fieldType,datePrecision,displayOrder,createdAt,fieldTypeId,parentFieldId,typeConfig,unknownTypeConfigRaw);
 
 @override
 String toString() {
-  return 'CustomField(id: $id, name: $name, fieldType: $fieldType, datePrecision: $datePrecision, displayOrder: $displayOrder, createdAt: $createdAt, fieldTypeId: $fieldTypeId, parentFieldId: $parentFieldId, typeConfig: $typeConfig)';
+  return 'CustomField(id: $id, name: $name, fieldType: $fieldType, datePrecision: $datePrecision, displayOrder: $displayOrder, createdAt: $createdAt, fieldTypeId: $fieldTypeId, parentFieldId: $parentFieldId, typeConfig: $typeConfig, unknownTypeConfigRaw: $unknownTypeConfigRaw)';
 }
 
 
@@ -48,7 +51,7 @@ abstract mixin class $CustomFieldCopyWith<$Res>  {
   factory $CustomFieldCopyWith(CustomField value, $Res Function(CustomField) _then) = _$CustomFieldCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, CustomFieldType fieldType, DatePrecision? datePrecision, int displayOrder, DateTime createdAt, String? fieldTypeId, String? parentFieldId,@JsonKey(includeFromJson: false, includeToJson: false) CustomFieldTypeConfig? typeConfig
+ String id, String name, CustomFieldType fieldType, DatePrecision? datePrecision, int displayOrder, DateTime createdAt, String? fieldTypeId, String? parentFieldId,@JsonKey(includeFromJson: false, includeToJson: false) CustomFieldTypeConfig? typeConfig,@JsonKey(includeFromJson: false, includeToJson: false) String? unknownTypeConfigRaw
 });
 
 
@@ -65,7 +68,7 @@ class _$CustomFieldCopyWithImpl<$Res>
 
 /// Create a copy of CustomField
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? fieldType = null,Object? datePrecision = freezed,Object? displayOrder = null,Object? createdAt = null,Object? fieldTypeId = freezed,Object? parentFieldId = freezed,Object? typeConfig = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? fieldType = null,Object? datePrecision = freezed,Object? displayOrder = null,Object? createdAt = null,Object? fieldTypeId = freezed,Object? parentFieldId = freezed,Object? typeConfig = freezed,Object? unknownTypeConfigRaw = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -76,7 +79,8 @@ as int,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cas
 as DateTime,fieldTypeId: freezed == fieldTypeId ? _self.fieldTypeId : fieldTypeId // ignore: cast_nullable_to_non_nullable
 as String?,parentFieldId: freezed == parentFieldId ? _self.parentFieldId : parentFieldId // ignore: cast_nullable_to_non_nullable
 as String?,typeConfig: freezed == typeConfig ? _self.typeConfig : typeConfig // ignore: cast_nullable_to_non_nullable
-as CustomFieldTypeConfig?,
+as CustomFieldTypeConfig?,unknownTypeConfigRaw: freezed == unknownTypeConfigRaw ? _self.unknownTypeConfigRaw : unknownTypeConfigRaw // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 /// Create a copy of CustomField
@@ -173,10 +177,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  CustomFieldType fieldType,  DatePrecision? datePrecision,  int displayOrder,  DateTime createdAt,  String? fieldTypeId,  String? parentFieldId, @JsonKey(includeFromJson: false, includeToJson: false)  CustomFieldTypeConfig? typeConfig)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  CustomFieldType fieldType,  DatePrecision? datePrecision,  int displayOrder,  DateTime createdAt,  String? fieldTypeId,  String? parentFieldId, @JsonKey(includeFromJson: false, includeToJson: false)  CustomFieldTypeConfig? typeConfig, @JsonKey(includeFromJson: false, includeToJson: false)  String? unknownTypeConfigRaw)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _CustomField() when $default != null:
-return $default(_that.id,_that.name,_that.fieldType,_that.datePrecision,_that.displayOrder,_that.createdAt,_that.fieldTypeId,_that.parentFieldId,_that.typeConfig);case _:
+return $default(_that.id,_that.name,_that.fieldType,_that.datePrecision,_that.displayOrder,_that.createdAt,_that.fieldTypeId,_that.parentFieldId,_that.typeConfig,_that.unknownTypeConfigRaw);case _:
   return orElse();
 
 }
@@ -194,10 +198,10 @@ return $default(_that.id,_that.name,_that.fieldType,_that.datePrecision,_that.di
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  CustomFieldType fieldType,  DatePrecision? datePrecision,  int displayOrder,  DateTime createdAt,  String? fieldTypeId,  String? parentFieldId, @JsonKey(includeFromJson: false, includeToJson: false)  CustomFieldTypeConfig? typeConfig)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  CustomFieldType fieldType,  DatePrecision? datePrecision,  int displayOrder,  DateTime createdAt,  String? fieldTypeId,  String? parentFieldId, @JsonKey(includeFromJson: false, includeToJson: false)  CustomFieldTypeConfig? typeConfig, @JsonKey(includeFromJson: false, includeToJson: false)  String? unknownTypeConfigRaw)  $default,) {final _that = this;
 switch (_that) {
 case _CustomField():
-return $default(_that.id,_that.name,_that.fieldType,_that.datePrecision,_that.displayOrder,_that.createdAt,_that.fieldTypeId,_that.parentFieldId,_that.typeConfig);case _:
+return $default(_that.id,_that.name,_that.fieldType,_that.datePrecision,_that.displayOrder,_that.createdAt,_that.fieldTypeId,_that.parentFieldId,_that.typeConfig,_that.unknownTypeConfigRaw);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -214,10 +218,10 @@ return $default(_that.id,_that.name,_that.fieldType,_that.datePrecision,_that.di
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  CustomFieldType fieldType,  DatePrecision? datePrecision,  int displayOrder,  DateTime createdAt,  String? fieldTypeId,  String? parentFieldId, @JsonKey(includeFromJson: false, includeToJson: false)  CustomFieldTypeConfig? typeConfig)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  CustomFieldType fieldType,  DatePrecision? datePrecision,  int displayOrder,  DateTime createdAt,  String? fieldTypeId,  String? parentFieldId, @JsonKey(includeFromJson: false, includeToJson: false)  CustomFieldTypeConfig? typeConfig, @JsonKey(includeFromJson: false, includeToJson: false)  String? unknownTypeConfigRaw)?  $default,) {final _that = this;
 switch (_that) {
 case _CustomField() when $default != null:
-return $default(_that.id,_that.name,_that.fieldType,_that.datePrecision,_that.displayOrder,_that.createdAt,_that.fieldTypeId,_that.parentFieldId,_that.typeConfig);case _:
+return $default(_that.id,_that.name,_that.fieldType,_that.datePrecision,_that.displayOrder,_that.createdAt,_that.fieldTypeId,_that.parentFieldId,_that.typeConfig,_that.unknownTypeConfigRaw);case _:
   return null;
 
 }
@@ -229,7 +233,7 @@ return $default(_that.id,_that.name,_that.fieldType,_that.datePrecision,_that.di
 @JsonSerializable()
 
 class _CustomField extends CustomField {
-  const _CustomField({required this.id, required this.name, required this.fieldType, this.datePrecision, this.displayOrder = 0, required this.createdAt, this.fieldTypeId, this.parentFieldId, @JsonKey(includeFromJson: false, includeToJson: false) this.typeConfig}): super._();
+  const _CustomField({required this.id, required this.name, required this.fieldType, this.datePrecision, this.displayOrder = 0, required this.createdAt, this.fieldTypeId, this.parentFieldId, @JsonKey(includeFromJson: false, includeToJson: false) this.typeConfig, @JsonKey(includeFromJson: false, includeToJson: false) this.unknownTypeConfigRaw}): super._();
   factory _CustomField.fromJson(Map<String, dynamic> json) => _$CustomFieldFromJson(json);
 
 @override final  String id;
@@ -241,6 +245,10 @@ class _CustomField extends CustomField {
 @override final  String? fieldTypeId;
 @override final  String? parentFieldId;
 @override@JsonKey(includeFromJson: false, includeToJson: false) final  CustomFieldTypeConfig? typeConfig;
+/// Raw JSON string preserved when [typeConfig] parsing fails for an
+/// unrecognized future field type. Written back to storage unchanged so
+/// subsequent saves from this device don't wipe forward-compat data.
+@override@JsonKey(includeFromJson: false, includeToJson: false) final  String? unknownTypeConfigRaw;
 
 /// Create a copy of CustomField
 /// with the given fields replaced by the non-null parameter values.
@@ -255,16 +263,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CustomField&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.fieldType, fieldType) || other.fieldType == fieldType)&&(identical(other.datePrecision, datePrecision) || other.datePrecision == datePrecision)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.fieldTypeId, fieldTypeId) || other.fieldTypeId == fieldTypeId)&&(identical(other.parentFieldId, parentFieldId) || other.parentFieldId == parentFieldId)&&(identical(other.typeConfig, typeConfig) || other.typeConfig == typeConfig));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CustomField&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.fieldType, fieldType) || other.fieldType == fieldType)&&(identical(other.datePrecision, datePrecision) || other.datePrecision == datePrecision)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.fieldTypeId, fieldTypeId) || other.fieldTypeId == fieldTypeId)&&(identical(other.parentFieldId, parentFieldId) || other.parentFieldId == parentFieldId)&&(identical(other.typeConfig, typeConfig) || other.typeConfig == typeConfig)&&(identical(other.unknownTypeConfigRaw, unknownTypeConfigRaw) || other.unknownTypeConfigRaw == unknownTypeConfigRaw));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,fieldType,datePrecision,displayOrder,createdAt,fieldTypeId,parentFieldId,typeConfig);
+int get hashCode => Object.hash(runtimeType,id,name,fieldType,datePrecision,displayOrder,createdAt,fieldTypeId,parentFieldId,typeConfig,unknownTypeConfigRaw);
 
 @override
 String toString() {
-  return 'CustomField(id: $id, name: $name, fieldType: $fieldType, datePrecision: $datePrecision, displayOrder: $displayOrder, createdAt: $createdAt, fieldTypeId: $fieldTypeId, parentFieldId: $parentFieldId, typeConfig: $typeConfig)';
+  return 'CustomField(id: $id, name: $name, fieldType: $fieldType, datePrecision: $datePrecision, displayOrder: $displayOrder, createdAt: $createdAt, fieldTypeId: $fieldTypeId, parentFieldId: $parentFieldId, typeConfig: $typeConfig, unknownTypeConfigRaw: $unknownTypeConfigRaw)';
 }
 
 
@@ -275,7 +283,7 @@ abstract mixin class _$CustomFieldCopyWith<$Res> implements $CustomFieldCopyWith
   factory _$CustomFieldCopyWith(_CustomField value, $Res Function(_CustomField) _then) = __$CustomFieldCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, CustomFieldType fieldType, DatePrecision? datePrecision, int displayOrder, DateTime createdAt, String? fieldTypeId, String? parentFieldId,@JsonKey(includeFromJson: false, includeToJson: false) CustomFieldTypeConfig? typeConfig
+ String id, String name, CustomFieldType fieldType, DatePrecision? datePrecision, int displayOrder, DateTime createdAt, String? fieldTypeId, String? parentFieldId,@JsonKey(includeFromJson: false, includeToJson: false) CustomFieldTypeConfig? typeConfig,@JsonKey(includeFromJson: false, includeToJson: false) String? unknownTypeConfigRaw
 });
 
 
@@ -292,7 +300,7 @@ class __$CustomFieldCopyWithImpl<$Res>
 
 /// Create a copy of CustomField
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? fieldType = null,Object? datePrecision = freezed,Object? displayOrder = null,Object? createdAt = null,Object? fieldTypeId = freezed,Object? parentFieldId = freezed,Object? typeConfig = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? fieldType = null,Object? datePrecision = freezed,Object? displayOrder = null,Object? createdAt = null,Object? fieldTypeId = freezed,Object? parentFieldId = freezed,Object? typeConfig = freezed,Object? unknownTypeConfigRaw = freezed,}) {
   return _then(_CustomField(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -303,7 +311,8 @@ as int,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cas
 as DateTime,fieldTypeId: freezed == fieldTypeId ? _self.fieldTypeId : fieldTypeId // ignore: cast_nullable_to_non_nullable
 as String?,parentFieldId: freezed == parentFieldId ? _self.parentFieldId : parentFieldId // ignore: cast_nullable_to_non_nullable
 as String?,typeConfig: freezed == typeConfig ? _self.typeConfig : typeConfig // ignore: cast_nullable_to_non_nullable
-as CustomFieldTypeConfig?,
+as CustomFieldTypeConfig?,unknownTypeConfigRaw: freezed == unknownTypeConfigRaw ? _self.unknownTypeConfigRaw : unknownTypeConfigRaw // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
