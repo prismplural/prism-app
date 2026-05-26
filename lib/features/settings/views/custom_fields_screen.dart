@@ -155,6 +155,7 @@ class _FieldsList extends ConsumerWidget {
     return ReorderableListView.builder(
       padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
       itemCount: topLevel.length,
+      buildDefaultDragHandles: false,
       onReorder: (oldIndex, newIndex) => _onReorder(ref, oldIndex, newIndex),
       proxyDecorator: (child, index, animation) {
         return AnimatedBuilder(

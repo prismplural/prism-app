@@ -141,6 +141,7 @@ class NavigationLayoutEditor extends StatelessWidget {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: entries.length,
+                  buildDefaultDragHandles: false,
                   onReorder: (oldIndex, newIndex) {
                     _onReorder(context, entries, oldIndex, newIndex);
                   },

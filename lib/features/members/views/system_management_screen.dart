@@ -213,6 +213,7 @@ class _SystemManagementScreenState
                           bottom: NavBarInset.of(context),
                         ),
                         itemCount: displayedMembers.length,
+                        buildDefaultDragHandles: false,
                         onReorder: (oldIndex, newIndex) =>
                             _onReorder(displayedMembers, oldIndex, newIndex),
                         itemBuilder: (context, index) {

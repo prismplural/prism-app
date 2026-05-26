@@ -140,6 +140,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           : ReorderableListView.builder(
               padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
               itemCount: flatItems.length,
+              buildDefaultDragHandles: false,
               onReorder: (oldIndex, newIndex) =>
                   _onReorder(flatItems, oldIndex, newIndex),
               proxyDecorator: (child, index, animation) {
