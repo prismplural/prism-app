@@ -30,6 +30,7 @@ import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/members/widgets/custom_field_display_scope.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -278,6 +279,11 @@ class _ScaleDisplayWidget extends StatelessWidget {
       steps,
     );
 
+    // When this scale is rendered inside a group, the group container
+    // already provides a bold field-name header above us; rendering our
+    // own small `labelMedium` name would produce a double-label.
+    final showInternalLabel = !CustomFieldDisplayScope.isInGroupOf(context);
+
     return Semantics(
       label: semanticsLabel,
       excludeSemantics: true,
@@ -285,13 +291,15 @@ class _ScaleDisplayWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            field.name,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          if (showInternalLabel) ...[
+            Text(
+              field.name,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
+            const SizedBox(height: 4),
+          ],
           Wrap(
             children: List.generate(steps, (i) {
               final isActive = (i + 1) <= selectedStep;

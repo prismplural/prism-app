@@ -25,6 +25,7 @@ import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/members/widgets/custom_field_display_scope.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 
@@ -342,19 +343,27 @@ class _SliderDisplayWidget extends StatelessWidget {
 
     final indicatorLabel = _indicatorLabel(clampedValue, config, context);
 
+    // When this slider is rendered inside a group, the group container
+    // already provides a bold field-name header above us; rendering our
+    // own small `labelMedium` name would produce a double-label.
+    final showInternalLabel = !CustomFieldDisplayScope.isInGroupOf(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          field.name,
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+        if (showInternalLabel) ...[
+          Text(
+            field.name,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
+          const SizedBox(height: 4),
+        ],
         // No outer Semantics(label:) wrap — see _SliderEditorWidgetState.build
-        // for rationale. The visible Text(field.name) above provides the label;
+        // for rationale. The visible Text(field.name) above (or the
+        // group-level header) provides the label;
         // semanticFormatterCallback announces the current value.
         SliderTheme(
           data: theme.sliderTheme.copyWith(

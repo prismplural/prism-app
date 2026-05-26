@@ -25,6 +25,7 @@ import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/members/widgets/custom_field_display_scope.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_renderers.dart';
 import 'package:prism_plurality/features/members/widgets/field_input_widget.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
@@ -221,35 +222,104 @@ class GroupDisplayWidget extends ConsumerWidget {
             for (final v in values) v.customFieldId: v,
           };
 
-          final childWidgets = <Widget>[];
+          final childEntries = <_GroupChildEntry>[];
           for (final child in children) {
             final value = valuesByFieldId[child.id];
             if (value == null || value.value.isEmpty) continue;
-            final renderer = rendererFor(
-              customFieldTypeRegistry.lookupById(child.fieldTypeId),
-            );
+            final def =
+                customFieldTypeRegistry.lookupById(child.fieldTypeId);
+            final renderer = rendererFor(def);
             if (renderer == null) continue;
-            childWidgets.add(renderer.displayBuilder(context, child, value));
+            childEntries.add(
+              _GroupChildEntry(
+                child: child,
+                value: value,
+                icon: def?.icon ?? AppIcons.textFields,
+                renderer: renderer,
+              ),
+            );
           }
 
-          if (childWidgets.isEmpty) return const SizedBox.shrink();
+          if (childEntries.isEmpty) return const SizedBox.shrink();
 
           return _GroupCard(
             field: field,
             theme: theme,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < childWidgets.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 12),
-                  childWidgets[i],
+            child: CustomFieldDisplayScope(
+              isInGroup: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < childEntries.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 16),
+                    _GroupChildDisplay(entry: childEntries[i]),
+                  ],
                 ],
-              ],
+              ),
             ),
           );
         },
       ),
+    );
+  }
+}
+
+/// Per-child packet built up during the GroupDisplayWidget render pass —
+/// pre-resolves the registry icon and the renderer to keep the inline
+/// `_GroupChildDisplay` widget simple.
+class _GroupChildEntry {
+  const _GroupChildEntry({
+    required this.child,
+    required this.value,
+    required this.icon,
+    required this.renderer,
+  });
+
+  final CustomField child;
+  final CustomFieldValue value;
+  final IconData icon;
+  final CustomFieldRenderer renderer;
+}
+
+/// Renders a single child field inside the group card: a labelled header
+/// (icon + name) above the renderer's value widget. The header style
+/// matches the top-level `_FieldValueCard` header so a child inside a
+/// group reads at the same visual weight as a top-level field card.
+class _GroupChildDisplay extends StatelessWidget {
+  const _GroupChildDisplay({required this.entry});
+
+  final _GroupChildEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Icon(
+              entry.icon,
+              size: 16,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                entry.child.name,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        entry.renderer.displayBuilder(context, entry.child, entry.value),
+      ],
     );
   }
 }
