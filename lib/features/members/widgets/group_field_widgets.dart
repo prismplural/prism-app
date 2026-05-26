@@ -1,21 +1,6 @@
-// ## Accessibility
-//
-// **Group card container** (editor + display)
-// - Outer container: Semantics(container: true, label: '{groupName}') so
-//   screen readers announce the group boundary before traversing children.
-//   When the title is hidden or empty, the semantic label falls back to
-//   the localized type name so the group is still identifiable.
-//
-// **Empty-group button**
-// - Uses TextButton.icon which inherits Flutter's default button semantics.
-//
-// **Child fields**
-// - Each child field renders its own Semantics via its type's widget
-//   (e.g. choice chips, scale slider, slider track). The group container
-//   does not add extra wrappers around children.
-//
-// Manual VoiceOver/TalkBack verification pending — pre-existing FFI compile
-// chain blocks widget tests in this directory.
+// Accessibility: the group card wraps its body in Semantics(container: true)
+// so screen readers announce the boundary even when the visible title is
+// hidden or empty. Child fields keep their own Semantics from each renderer.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -265,9 +250,6 @@ class GroupDisplayWidget extends ConsumerWidget {
   }
 }
 
-/// Per-child packet built up during the GroupDisplayWidget render pass —
-/// pre-resolves the registry icon and the renderer to keep the inline
-/// `_GroupChildDisplay` widget simple.
 class _GroupChildEntry {
   const _GroupChildEntry({
     required this.child,
@@ -282,18 +264,13 @@ class _GroupChildEntry {
   final CustomFieldRenderer renderer;
 }
 
-/// Renders a single child field inside the group card. Short single-line
-/// types (text, color, date) lay out side-by-side `Name | Value` so the
-/// group mirrors the compact rhythm of top-level field rows. Types whose
-/// value widgets need horizontal room (long text, choice, scale, slider,
-/// nested group) keep the stacked header + body layout.
+/// Compact `Name | Value` for short single-line types; stacked header +
+/// body for everything else.
 class _GroupChildDisplay extends StatelessWidget {
   const _GroupChildDisplay({required this.entry});
 
   final _GroupChildEntry entry;
 
-  /// Types that render as a short single-line value and pair well with a
-  /// right-aligned compact Row layout.
   static const _compactTypeIds = <String>{'text', 'color', 'date'};
 
   bool get _isCompact => _compactTypeIds.contains(entry.child.fieldTypeId);
@@ -395,15 +372,9 @@ IconData _iconForGroupConfig(String? iconName) {
   };
 }
 
-/// Card chrome for a group, mirroring the shape of `_FieldValueCard` in
-/// `custom_fields_display.dart` so groups read as proper section cards
-/// rather than sidebar quotes.
-///
-/// The header (icon + group name + bottom divider) is rendered only when the
-/// group has a non-empty name AND `GroupConfig.hideTitleOnProfile` is false.
-/// Otherwise the card is flush — visible structure without a label. The
-/// outer Semantics container always carries some label so screen readers
-/// still announce the boundary.
+/// Header is rendered only when the group has a non-empty name and
+/// [GroupConfig.hideTitleOnProfile] is false. The Semantics label always
+/// carries something so screen readers announce the boundary either way.
 class _GroupCard extends StatelessWidget {
   const _GroupCard({
     required this.field,
@@ -426,8 +397,6 @@ class _GroupCard extends StatelessWidget {
     final semanticsLabel =
         hasName ? field.name : l10n.customFieldTypeGroup;
 
-    // Match `_FieldValueCard` tones so groups visually belong to the same
-    // surface family as other content cards on the profile.
     final headerBgColor = theme.colorScheme.onSurface.withValues(alpha: 0.04);
     final dividerColor = theme.colorScheme.onSurface.withValues(alpha: 0.07);
 

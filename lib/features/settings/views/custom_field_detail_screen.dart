@@ -270,10 +270,8 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
               ),
             ),
             const SizedBox(height: 28),
-            // Groups don't have per-member values, so "Filled in by N members"
-            // would always be 0 and is misleading. Pivot to a list of the
-            // group's child fields instead — that's the meaningful thing a
-            // user comes here to inspect or change.
+            // Groups have no per-member value, so "Filled in by N" is empty
+            // by definition — list the children instead.
             if (isGroup)
               _GroupContentsSection(group: field)
             else
@@ -457,9 +455,6 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
     }
   }
 
-  /// Group fields are allowed to have an empty name (they can be used as
-  /// pure visual containers). Surfaces still need a clickable label so
-  /// users can find and edit them — fall back to a placeholder.
   bool _isPlaceholderName(CustomField field) =>
       field.fieldTypeId == 'group' && field.name.trim().isEmpty;
 
@@ -483,8 +478,6 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
     };
   }
 
-  /// Registry-driven type label. Delegates to [localizedFieldTypeLabel] so
-  /// every surface stays in sync. Used here for the metadata card.
   String _labelForField(BuildContext context, CustomField field) =>
       localizedFieldTypeLabel(context.l10n, field);
 }
@@ -898,14 +891,8 @@ String _formatDateValue(
 
 // ─── Group contents section ─────────────────────────────────────────────────
 
-/// Section on the group detail screen listing the group's child fields.
-///
-/// Replaces the "Filled in by N members" section for groups, which would
-/// always be 0 (groups have no per-member values). The user comes to a
-/// group's detail screen to see what's *in* the group and to add more.
-///
-/// Rows are reorderable within the group via drag handles. Cross-group
-/// moves still use the long-press menu on the main list.
+/// Within-group reorder via drag handles; cross-group moves still use the
+/// long-press menu on the main list.
 class _GroupContentsSection extends ConsumerWidget {
   const _GroupContentsSection({required this.group});
 
@@ -1031,9 +1018,6 @@ class _GroupChildRow extends StatelessWidget {
   const _GroupChildRow({super.key, required this.child, required this.index});
 
   final CustomField child;
-
-  /// Position of this row inside the enclosing ReorderableListView. Used by
-  /// [ReorderableDragStartListener] to grab the right entry.
   final int index;
 
   @override
@@ -1072,7 +1056,6 @@ class _GroupChildRow extends StatelessWidget {
         ],
       ),
       onTap: () => context.push(AppRoutePaths.settingsCustomField(child.id)),
-      // Use the same dense row used elsewhere on the detail screen.
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
     );
   }

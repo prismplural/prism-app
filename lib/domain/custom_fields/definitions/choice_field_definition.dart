@@ -37,10 +37,7 @@ TypedFieldValue _parse(String? raw) {
 
 String _encode(TypedFieldValue value) {
   if (value is! ChoiceFieldValue) return '';
-  // "No selection at all" → empty raw value so the storage column doesn't
-  // hold a meaningless `{}`. An empty `other` string is meaningful (the
-  // Other chip was tapped but no text typed yet) and must round-trip; null
-  // means Other was never selected.
+  // Empty `other` is meaningful (Other tapped, no text yet); null is not.
   if (value.optionIds.isEmpty && value.other == null) {
     return '';
   }

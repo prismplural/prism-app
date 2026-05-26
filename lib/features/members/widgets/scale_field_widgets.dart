@@ -279,9 +279,7 @@ class _ScaleDisplayWidget extends StatelessWidget {
       steps,
     );
 
-    // When this scale is rendered inside a group, the group container
-    // already provides a bold field-name header above us; rendering our
-    // own small `labelMedium` name would produce a double-label.
+    // Group containers label children themselves; skip ours to avoid a double label.
     final showInternalLabel = !CustomFieldDisplayScope.isInGroupOf(context);
 
     return Semantics(

@@ -126,10 +126,8 @@ class _FieldsList extends ConsumerWidget {
     final reordered = List<CustomField>.from(topLevel);
     final item = reordered.removeAt(oldIndex);
     reordered.insert(newIndex, item);
-    // Top-level reorder only — within-group reorder is handled by each
-    // group's nested ReorderableListView in [_TopLevelFieldItem]. The
-    // notifier scopes display_order per-parent so the two list spaces
-    // don't collide.
+    // display_order is scoped per parent, so the outer and the nested lists
+    // can each reassign 0..n-1 without colliding.
     ref.read(customFieldNotifierProvider.notifier).reorderFields(reordered);
     Haptics.selection();
   }
@@ -176,9 +174,6 @@ class _FieldsList extends ConsumerWidget {
         final isGroup = field.fieldTypeId == 'group';
         final children = isGroup ? _childrenOf(field.id) : <CustomField>[];
 
-        // Groups render as a Column: the group's own row followed by a
-        // nested ReorderableListView of children. The outer reorderable
-        // list still owns top-level drags via the parent context.
         return _TopLevelFieldItem(
           key: ValueKey(field.id),
           field: field,
@@ -232,10 +227,8 @@ class _TopLevelFieldItem extends StatelessWidget {
           subtitleForField: subtitleForField,
           theme: theme,
         ),
-        // Indented children — nested ReorderableListView so each group can
-        // reorder its own children. Drag handles attach to the nearest
-        // ReorderableListView ancestor, so children grab this inner list
-        // and top-level rows grab the outer one.
+        // Nested list — drag handles attach to this inner list; the outer
+        // list still owns top-level rows.
         if (children.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 24),
@@ -493,14 +486,12 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     //   - Move-to-another: only when nested AND other groups exist.
     final theme = widget.theme;
 
-    // Unnamed groups (allowed by the editor) still need a clickable label so
-    // the user can find and edit them. Non-group fields are never empty —
-    // the editor enforces a non-empty name for them.
-    final displayName = field.name.trim().isEmpty && field.fieldTypeId == 'group'
-        ? context.l10n.customFieldGroupUntitledFallback
-        : field.name;
+    // Groups are the only type allowed to save with an empty name.
     final isPlaceholderName =
         field.name.trim().isEmpty && field.fieldTypeId == 'group';
+    final displayName = isPlaceholderName
+        ? context.l10n.customFieldGroupUntitledFallback
+        : field.name;
 
     final Widget rowContent = PrismListRow(
       leading: Icon(widget.iconForField(field), color: theme.colorScheme.primary),
@@ -522,10 +513,6 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle for both top-level and nested children. The
-          // ReorderableDragStartListener attaches to the nearest
-          // ReorderableListView ancestor; the outer list owns top-level
-          // rows and each group's inner list owns its own children.
           ReorderableDragStartListener(
             index: widget.index,
             child: Icon(

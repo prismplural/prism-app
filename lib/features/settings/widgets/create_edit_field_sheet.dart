@@ -127,8 +127,6 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   bool get _isGroupDirty {
     final existingConfig = widget.field?.typeConfig;
     if (existingConfig is! GroupConfig || _selectedTypeId != 'group') {
-      // Default for a fresh group is hideTitleOnProfile=false. Treat any flip
-      // from that as dirty so the save button activates.
       return _groupHideTitleOnProfile;
     }
     return existingConfig.hideTitleOnProfile != _groupHideTitleOnProfile;
@@ -398,10 +396,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
 
   // ── Group helpers ───────────────────────────────────────────────────
 
-  /// Build the current [GroupConfig] from UI state. Preserves `icon` and any
-  /// forward-compat `extra` keys on the existing field, so the toggle change
-  /// does not blow away icon selection set elsewhere or unknown keys synced
-  /// from peers on newer versions.
+  /// copyWith preserves `icon` and any forward-compat `extra` keys.
   GroupConfig _buildGroupConfig() {
     final existing = widget.field?.typeConfig;
     if (existing is GroupConfig) {
@@ -497,9 +492,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
 
   Future<void> _save() async {
     final name = _nameController.text.trim();
-    // Group fields may be unnamed (used as a pure visual container). All
-    // other types require a name — they need a label to identify them in
-    // lists, pickers, and on profiles.
+    // Groups are the only type allowed to save without a name.
     if (name.isEmpty && _selectedTypeId != 'group') return;
 
     setState(() => _saving = true);
@@ -623,7 +616,6 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final sliderError = _sliderNumericError(l10n);
-    // Groups may be unnamed; every other type requires a name to be saveable.
     final hasNameOrIsGroup =
         _nameController.text.trim().isNotEmpty || _selectedTypeId == 'group';
     final canSave = hasNameOrIsGroup && sliderError == null;
