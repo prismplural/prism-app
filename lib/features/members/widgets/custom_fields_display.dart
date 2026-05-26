@@ -94,6 +94,11 @@ class CustomFieldsDisplay extends ConsumerWidget {
     );
   }
 
+  // Types whose display widgets need a full-width vertical layout (header
+  // above body) instead of the 2-column compact row. Sliders have visible
+  // tracks + label rows that don't fit in a value column.
+  static const _stackedTypeIds = <String>{'slider'};
+
   List<Widget> _buildItemWidgets(List<_TopLevelItem> items) {
     final widgets = <Widget>[];
     var compactRun = <_FieldValueEntry>[];
@@ -114,6 +119,12 @@ class CustomFieldsDisplay extends ConsumerWidget {
       }
 
       final entry = item.entry!;
+      if (_stackedTypeIds.contains(entry.field.fieldTypeId)) {
+        flushCompactRun();
+        if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
+        widgets.add(_FieldValueStacked(entry: entry));
+        continue;
+      }
       if (entry.isCompact) {
         compactRun.add(entry);
         continue;
@@ -338,6 +349,42 @@ class _FieldValueCard extends StatelessWidget {
   IconData _iconForField(CustomField field) {
     return customFieldTypeRegistry.lookupById(field.fieldTypeId)?.icon ??
         AppIcons.textFields;
+  }
+}
+
+/// Stacked layout: field name as a small bold header above the renderer's
+/// body. Used for types whose display widgets are inherently wide and need
+/// the full row to themselves — sliders especially, where the value column
+/// of the compact 2-column layout is too narrow for the track + label row.
+/// Matches the visual treatment used by group children of the same types.
+class _FieldValueStacked extends StatelessWidget {
+  const _FieldValueStacked({required this.entry});
+
+  final _FieldValueEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: double.infinity,
+      child: PrismSectionCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              entry.field.name,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _FieldValueBody(entry: entry),
+          ],
+        ),
+      ),
+    );
   }
 }
 

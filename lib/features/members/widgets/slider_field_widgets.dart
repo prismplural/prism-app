@@ -822,7 +822,11 @@ class _SliderLabelRow extends StatelessWidget {
     if (left.isEmpty && right.isEmpty && center == null) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 0),
+      // 24px matches Material's default Slider track padding:
+      // max(overlayRadius=24, thumbRadius=10) = 24. The track endpoints sit
+      // 24px inside the slider widget; matching the labels keeps them
+      // visually aligned with the actual track start/end.
+      padding: const EdgeInsets.only(left: 24, right: 24, top: 0),
       child: Row(
         children: [
           Text(left, style: labelStyle, overflow: TextOverflow.ellipsis),
