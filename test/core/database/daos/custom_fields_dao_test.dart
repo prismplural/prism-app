@@ -83,7 +83,11 @@ void main() {
       await insertValue('v-active-2');
       await insertValue('v-already-dead', isDeleted: true);
 
-      await db.customFieldsDao.softDeleteAllCustomFieldData();
+      final result = await db.customFieldsDao.softDeleteAllCustomFieldData();
+
+      // Returned IDs match the rows that were active before the call
+      expect(result.fieldIds.toSet(), equals({'f-active-1', 'f-active-2', 'field-1'}));
+      expect(result.valueIds.toSet(), equals({'v-active-1', 'v-active-2'}));
 
       // Query ALL rows including tombstones
       final allFields = await (db.select(db.customFields)).get();
@@ -108,8 +112,15 @@ void main() {
       await insertValue('v-1');
       await insertValue('v-2');
 
-      await db.customFieldsDao.softDeleteAllCustomFieldData();
-      await db.customFieldsDao.softDeleteAllCustomFieldData(); // second call
+      final first = await db.customFieldsDao.softDeleteAllCustomFieldData();
+      // First call captures all active IDs
+      expect(first.fieldIds, isNotEmpty);
+      expect(first.valueIds, isNotEmpty);
+
+      final second = await db.customFieldsDao.softDeleteAllCustomFieldData(); // second call
+      // Second call finds nothing active — empty lists
+      expect(second.fieldIds.isEmpty, isTrue);
+      expect(second.valueIds.isEmpty, isTrue);
 
       final allFields = await (db.select(db.customFields)).get();
       final allValues = await (db.select(db.customFieldValues)).get();

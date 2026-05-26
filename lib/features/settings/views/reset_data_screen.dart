@@ -22,9 +22,10 @@ class ResetDataScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fieldsAsync = ref.watch(topLevelCustomFieldsProvider);
+    // while loading/error, disable optimistically — better than a stale-enabled tap target
     final customFieldsEmpty = fieldsAsync.maybeWhen(
       data: (fields) => fields.isEmpty,
-      orElse: () => false,
+      orElse: () => true,
     );
 
     return PrismPageScaffold(

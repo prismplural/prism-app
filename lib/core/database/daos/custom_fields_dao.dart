@@ -176,14 +176,30 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
           .map((row) => row.read(customFieldValues.id)!)
           .get();
 
-  /// Bulk soft-delete every non-deleted custom field and value. Idempotent.
-  Future<void> softDeleteAllCustomFieldData() async {
-    await transaction(() async {
+  /// Bulk soft-delete every non-deleted custom field and value, all inside
+  /// a single transaction so the captured IDs and the soft-delete share the
+  /// same snapshot. Returns the IDs that transitioned to tombstoned in this
+  /// call so the caller can emit CRDT sync ops without a Phase-1/Phase-2 race.
+  ///
+  /// Idempotent — calling on already-tombstoned-only data returns empty lists.
+  Future<({List<String> fieldIds, List<String> valueIds})>
+      softDeleteAllCustomFieldData() async {
+    return transaction(() async {
+      final fieldIds = await (selectOnly(customFields)
+            ..addColumns([customFields.id])
+            ..where(customFields.isDeleted.equals(false)))
+          .map((row) => row.read(customFields.id)!)
+          .get();
+      final valueIds = await (selectOnly(customFieldValues)
+            ..addColumns([customFieldValues.id])
+            ..where(customFieldValues.isDeleted.equals(false)))
+          .map((row) => row.read(customFieldValues.id)!)
+          .get();
       await (update(customFields)..where((f) => f.isDeleted.equals(false)))
           .write(const CustomFieldsCompanion(isDeleted: Value(true)));
-      await (update(customFieldValues)
-            ..where((v) => v.isDeleted.equals(false)))
+      await (update(customFieldValues)..where((v) => v.isDeleted.equals(false)))
           .write(const CustomFieldValuesCompanion(isDeleted: Value(true)));
+      return (fieldIds: fieldIds, valueIds: valueIds);
     });
   }
 }
