@@ -91,8 +91,9 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
 
   @override
   void dispose() {
+    final discarded = widget.controller?.isDiscarded ?? false;
     widget.controller?.unregister(this);
-    unawaited(savePendingValue());
+    if (!discarded) unawaited(savePendingValue());
     _focusNode.dispose();
     _textController.dispose();
     super.dispose();
@@ -473,4 +474,8 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
 abstract class CustomFieldsEditorControllerBase {
   void register(FieldInputWidgetState state);
   void unregister(FieldInputWidgetState state);
+
+  /// True if the editor was discarded — child inputs use this to skip the
+  /// save-on-dispose safety net so cancelled edits don't sneak through.
+  bool get isDiscarded;
 }

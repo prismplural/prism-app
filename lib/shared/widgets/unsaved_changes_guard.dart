@@ -82,6 +82,12 @@ class UnsavedChangesGuard<T> extends StatefulWidget {
 class _UnsavedChangesGuardState<T> extends State<UnsavedChangesGuard<T>> {
   UnsavedChangesDismissController? _dismissController;
 
+  /// Set to true after a confirmed discard so the follow-up Navigator.pop
+  /// isn't vetoed by [PopScope]. Without this, the pop is blocked because
+  /// [widget.hasUnsavedChanges] is still true, leaving the route stuck
+  /// alive and silently blocking the next modal push.
+  bool _allowPop = false;
+
   bool get hasUnsavedChanges => widget.hasUnsavedChanges;
 
   @override
@@ -108,13 +114,16 @@ class _UnsavedChangesGuardState<T> extends State<UnsavedChangesGuard<T>> {
     if (!shouldDiscard || !mounted) return false;
 
     await widget.onDiscard?.call();
-    return mounted;
+    if (!mounted) return false;
+
+    setState(() => _allowPop = true);
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope<T>(
-      canPop: !widget.hasUnsavedChanges,
+      canPop: _allowPop || !widget.hasUnsavedChanges,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
 

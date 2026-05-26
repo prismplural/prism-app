@@ -182,11 +182,29 @@ class _ControllerBoundFieldInput extends StatelessWidget {
 /// before the parent sheet closes to persist any unsaved (focused) values.
 class CustomFieldsEditorController implements CustomFieldsEditorControllerBase {
   final Set<FieldInputWidgetState> _inputs = {};
+  bool _discarded = false;
+
+  /// True after [discard] has been called. Registered inputs check this in
+  /// their own `dispose` and skip the auto-save so cancelled edits don't
+  /// leak through to disk during widget teardown.
+  @override
+  bool get isDiscarded => _discarded;
 
   Future<void> savePendingValues() async {
     for (final input in List<FieldInputWidgetState>.of(_inputs)) {
       await input.savePendingValue();
     }
+  }
+
+  /// Mark the editor as discarded. Wire this from an [UnsavedChangesGuard]'s
+  /// `onDiscard` so dropping the sheet doesn't quietly persist in-flight
+  /// text in the legacy [FieldInputWidget] save-on-dispose path.
+  void discard() {
+    _discarded = true;
+  }
+
+  void dispose() {
+    _inputs.clear();
   }
 
   @override

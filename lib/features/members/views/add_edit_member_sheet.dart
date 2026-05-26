@@ -276,6 +276,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     _nameStyleColorHexController.dispose();
     _displayNameController.dispose();
     _pluralkitDisplayNameController.dispose();
+    _customFieldsEditorController.dispose();
     for (final draft in _proxyTagDrafts) {
       draft.dispose();
     }
@@ -790,6 +791,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       ]),
       builder: (context, _) => UnsavedChangesGuard<bool>(
         hasUnsavedChanges: _isDirty,
+        onDiscard: _customFieldsEditorController.discard,
         child: SafeArea(
           child: Column(
             children: [
