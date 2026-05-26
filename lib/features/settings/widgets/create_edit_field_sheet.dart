@@ -16,6 +16,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/utils/custom_field_type_labels.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
@@ -890,24 +891,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       false;
 
   /// Resolve a registry definition's labelL10nKey into the localized string.
-  /// Bridge pattern: known keys map to AppLocalizations methods; unknown future
-  /// types fall back to the key itself.
-  ///
-  /// TODO: replace with AppLocalizations.resolve(key) once available.
-  String _labelForDef(BuildContext context, CustomFieldTypeDefinition def) {
-    final l10n = context.l10n;
-    return switch (def.labelL10nKey) {
-      'customFieldTypeShortText' => l10n.customFieldTypeShortText,
-      'customFieldTypeLongText' => l10n.customFieldTypeLongText,
-      'customFieldTypeColor' => l10n.customFieldTypeColor,
-      'customFieldTypeDate' => l10n.customFieldTypeDate,
-      'customFieldTypeChoice' => l10n.customFieldTypeChoice,
-      'customFieldTypeGroup' => l10n.customFieldTypeGroup,
-      'customFieldTypeScale' => l10n.customFieldTypeScale,
-      'customFieldTypeSlider' => l10n.customFieldTypeSlider,
-      _ => def.labelL10nKey,
-    };
-  }
+  /// Delegates to the shared resolver so every surface stays in sync.
+  String _labelForDef(BuildContext context, CustomFieldTypeDefinition def) =>
+      localizedFieldTypeDefLabel(context.l10n, def);
 }
 
 // ── Choice config section ───────────────────────────────────────────────────

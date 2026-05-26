@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/utils/custom_field_type_labels.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
@@ -110,15 +111,13 @@ class _FieldsList extends ConsumerWidget {
   };
 
   String _subtitleForField(BuildContext context, CustomField field) {
-    if (field.fieldTypeId == 'group') {
-      return context.l10n.customFieldTypeGroup;
-    }
+    final l10n = context.l10n;
+    final typeLabel = localizedFieldTypeLabel(l10n, field);
     if (field.fieldType == CustomFieldType.date &&
         field.datePrecision != null) {
-      return '${field.fieldType.localizedLabel(context.l10n)} • '
-          '${field.datePrecision!.localizedLabel(context.l10n)}';
+      return '$typeLabel • ${field.datePrecision!.localizedLabel(l10n)}';
     }
-    return field.fieldType.localizedLabel(context.l10n);
+    return typeLabel;
   }
 
   void _onReorder(WidgetRef ref, int oldIndex, int newIndex) {

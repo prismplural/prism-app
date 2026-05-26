@@ -19,6 +19,7 @@ import 'package:prism_plurality/features/settings/widgets/create_edit_field_shee
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/utils/custom_field_type_labels.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
@@ -482,30 +483,10 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
     };
   }
 
-  /// Registry-driven type label. The [CustomFieldTypeDefinition.labelL10nKey]
-  /// is a string key that maps directly to the AppLocalizations method name.
-  /// This bridge resolves known keys; unknown future types fall through to the
-  /// legacy enum label.
-  ///
-  /// TODO: once AppLocalizations exposes a `resolve(key)` helper, replace
-  /// this switch with a single call.
-  String _labelForField(BuildContext context, CustomField field) {
-    final l10n = context.l10n;
-    final def = customFieldTypeRegistry.lookupById(field.fieldTypeId);
-    if (def != null) {
-      return switch (def.labelL10nKey) {
-        'customFieldTypeShortText' => l10n.customFieldTypeShortText,
-        'customFieldTypeLongText' => l10n.customFieldTypeLongText,
-        'customFieldTypeColor' => l10n.customFieldTypeColor,
-        'customFieldTypeDate' => l10n.customFieldTypeDate,
-        'customFieldTypeChoice' => l10n.customFieldTypeChoice,
-        'customFieldTypeGroup' => l10n.customFieldTypeGroup,
-        _ => def.labelL10nKey, // unknown future type — show key as fallback
-      };
-    }
-    // Legacy fallback for fields with no fieldTypeId.
-    return field.fieldType.localizedLabel(l10n);
-  }
+  /// Registry-driven type label. Delegates to [localizedFieldTypeLabel] so
+  /// every surface stays in sync. Used here for the metadata card.
+  String _labelForField(BuildContext context, CustomField field) =>
+      localizedFieldTypeLabel(context.l10n, field);
 }
 
 class _MetadataRow extends StatelessWidget {
@@ -1061,24 +1042,12 @@ class _GroupChildRow extends StatelessWidget {
     CustomFieldTypeDefinition? def,
   ) {
     final l10n = context.l10n;
-    if (def != null) {
-      final label = switch (def.labelL10nKey) {
-        'customFieldTypeShortText' => l10n.customFieldTypeShortText,
-        'customFieldTypeLongText' => l10n.customFieldTypeLongText,
-        'customFieldTypeColor' => l10n.customFieldTypeColor,
-        'customFieldTypeDate' => l10n.customFieldTypeDate,
-        'customFieldTypeChoice' => l10n.customFieldTypeChoice,
-        'customFieldTypeGroup' => l10n.customFieldTypeGroup,
-        'customFieldTypeScale' => l10n.customFieldTypeScale,
-        'customFieldTypeSlider' => l10n.customFieldTypeSlider,
-        _ => def.labelL10nKey,
-      };
-      if (field.fieldType == CustomFieldType.date &&
-          field.datePrecision != null) {
-        return '$label • ${field.datePrecision!.localizedLabel(l10n)}';
-      }
-      return label;
+    final label = localizedFieldTypeLabel(l10n, field);
+    if (def != null &&
+        field.fieldType == CustomFieldType.date &&
+        field.datePrecision != null) {
+      return '$label • ${field.datePrecision!.localizedLabel(l10n)}';
     }
-    return field.fieldType.localizedLabel(l10n);
+    return label;
   }
 }
