@@ -1838,6 +1838,30 @@ abstract class AppLocalizations {
   /// **'Failed to reset: {error}'**
   String resetDataFailed(Object error);
 
+  /// Label for the Custom Fields reset row on the Reset Data screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Fields'**
+  String get resetDataCategoryCustomFieldsLabel;
+
+  /// Subtitle for the Custom Fields reset row on the Reset Data screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Deletes all custom fields and their values.'**
+  String get resetDataCategoryCustomFieldsDescription;
+
+  /// Title for the Custom Fields reset confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset Custom Fields?'**
+  String get resetDataConfirmCustomFieldsTitle;
+
+  /// Body text explaining the cascading scope of the Custom Fields reset.
+  ///
+  /// In en, this message translates to:
+  /// **'This will permanently delete all custom field definitions and the values your members have for them. This action cannot be undone.'**
+  String get resetDataConfirmCustomFieldsBody;
+
   /// Navigation settings screen title
   ///
   /// In en, this message translates to:

@@ -983,6 +983,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get resetDataCategoryCustomFieldsLabel => 'Custom Fields';
+
+  @override
+  String get resetDataCategoryCustomFieldsDescription =>
+      'Deletes all custom fields and their values.';
+
+  @override
+  String get resetDataConfirmCustomFieldsTitle => 'Reset Custom Fields?';
+
+  @override
+  String get resetDataConfirmCustomFieldsBody =>
+      'This will permanently delete all custom field definitions and the values your members have for them. This action cannot be undone.';
+
+  @override
   String get navigationSettingsTitle => 'Navigation';
 
   @override

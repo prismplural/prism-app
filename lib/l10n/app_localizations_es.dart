@@ -1012,6 +1012,21 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get resetDataCategoryCustomFieldsLabel => 'Campos personalizados';
+
+  @override
+  String get resetDataCategoryCustomFieldsDescription =>
+      'Elimina todos los campos personalizados y sus valores.';
+
+  @override
+  String get resetDataConfirmCustomFieldsTitle =>
+      '¿Restablecer campos personalizados?';
+
+  @override
+  String get resetDataConfirmCustomFieldsBody =>
+      'Esto eliminará permanentemente todas las definiciones de campos personalizados y los valores que tus miembros tengan para ellos. Esta acción no se puede deshacer.';
+
+  @override
   String get navigationSettingsTitle => 'Navegación';
 
   @override

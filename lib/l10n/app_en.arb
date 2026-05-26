@@ -1303,6 +1303,22 @@
       }
     }
   },
+  "resetDataCategoryCustomFieldsLabel": "Custom Fields",
+  "@resetDataCategoryCustomFieldsLabel": {
+    "description": "Label for the Custom Fields reset row on the Reset Data screen."
+  },
+  "resetDataCategoryCustomFieldsDescription": "Deletes all custom fields and their values.",
+  "@resetDataCategoryCustomFieldsDescription": {
+    "description": "Subtitle for the Custom Fields reset row on the Reset Data screen."
+  },
+  "resetDataConfirmCustomFieldsTitle": "Reset Custom Fields?",
+  "@resetDataConfirmCustomFieldsTitle": {
+    "description": "Title for the Custom Fields reset confirmation dialog."
+  },
+  "resetDataConfirmCustomFieldsBody": "This will permanently delete all custom field definitions and the values your members have for them. This action cannot be undone.",
+  "@resetDataConfirmCustomFieldsBody": {
+    "description": "Body text explaining the cascading scope of the Custom Fields reset."
+  },
   "navigationSettingsTitle": "Navigation",
   "@navigationSettingsTitle": {
     "description": "Navigation settings screen title"
