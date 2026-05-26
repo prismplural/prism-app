@@ -31,6 +31,7 @@ import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_display_scope.dart';
+import 'package:prism_plurality/features/members/widgets/custom_field_editor_scope.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -68,9 +69,52 @@ class _ScaleEditorWidget extends ConsumerStatefulWidget {
   ConsumerState<_ScaleEditorWidget> createState() => _ScaleEditorWidgetState();
 }
 
-class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget> {
+class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget>
+    implements PendingFieldEditState {
   // The index (0-based) of the emoji that was JUST tapped and is briefly scaled up.
   int? _animatingIndex;
+  // null = cleared or never set.
+  int? _step;
+  int? _initialStep;
+  CustomFieldsEditorController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialStep = _parseValue(widget.existingValue?.value).step;
+    _step = _initialStep;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = CustomFieldEditorScope.maybeOf(context);
+    if (identical(next, _controller)) return;
+    _controller?.unregister(this);
+    _controller = next;
+    _controller?.register(this);
+    _controller?.markDirty(this, _isDirty);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ScaleEditorWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newRaw = widget.existingValue?.value ?? '';
+    final oldRaw = oldWidget.existingValue?.value ?? '';
+    if (newRaw == oldRaw) return;
+    final nextStep = _parseValue(widget.existingValue?.value).step;
+    setState(() {
+      _initialStep = nextStep;
+      _step = nextStep;
+    });
+    _controller?.markDirty(this, _isDirty);
+  }
+
+  @override
+  void dispose() {
+    _controller?.unregister(this);
+    super.dispose();
+  }
 
   ScaleFieldValue _parseValue(String? raw) {
     final parsed = scaleFieldDefinition.valueParser(raw);
@@ -82,22 +126,43 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget> {
     return c is ScaleConfig ? c : const ScaleConfig();
   }
 
-  Future<void> _setStep(int step) async {
-    final encoded = scaleFieldDefinition.valueEncoder(ScaleFieldValue(step: step));
-    final notifier = ref.read(customFieldValueNotifierProvider.notifier);
-    await notifier.setValue(
-      customFieldId: widget.field.id,
-      memberId: widget.memberId,
-      value: encoded,
-      existingId: widget.existingValue?.id,
-    );
+  bool get _isDirty => _step != _initialStep;
+
+  void _setStep(int step) {
+    if (_step == step) return;
+    setState(() => _step = step);
+    _controller?.markDirty(this, _isDirty);
   }
 
-  Future<void> _clearValue() async {
-    final existingId = widget.existingValue?.id;
-    if (existingId == null) return;
+  void _clearValue() {
+    if (_step == null) return;
+    setState(() => _step = null);
+    _controller?.markDirty(this, _isDirty);
+  }
+
+  @override
+  Future<void> commitPendingValue() async {
+    if (_step == _initialStep) return;
     final notifier = ref.read(customFieldValueNotifierProvider.notifier);
-    await notifier.deleteValue(existingId);
+    final step = _step;
+    if (step == null || step < 1) {
+      final existingId = widget.existingValue?.id;
+      if (existingId != null) {
+        await notifier.deleteValue(existingId);
+      }
+    } else {
+      final encoded = scaleFieldDefinition.valueEncoder(
+        ScaleFieldValue(step: step),
+      );
+      await notifier.setValue(
+        customFieldId: widget.field.id,
+        memberId: widget.memberId,
+        value: encoded,
+        existingId: widget.existingValue?.id,
+      );
+    }
+    _initialStep = _step;
+    _controller?.markDirty(this, false);
   }
 
   void _triggerAnimatingStep(int index) {
@@ -128,8 +193,7 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget> {
     final emoji = config.emoji;
     final steps = config.steps;
 
-    final currentValue = _parseValue(widget.existingValue?.value);
-    final selectedStep = currentValue.step;
+    final selectedStep = _step;
     final hasValue = selectedStep != null && selectedStep >= 1;
 
     final disableAnimations = MediaQuery.of(context).disableAnimations;
@@ -165,7 +229,7 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget> {
         return GestureDetector(
           onTap: () {
             _triggerAnimatingStep(i);
-            unawaited(_setStep(i + 1));
+            _setStep(i + 1);
           },
           child: emojiWidget,
         );
@@ -200,14 +264,14 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget> {
                 label: widget.field.name,
                 onLongPress: hasValue
                     ? () {
-                        unawaited(_clearValue());
+                        _clearValue();
                         _announce(l10n.customFieldScaleClearedAnnouncement);
                       }
                     : null,
                 child: GestureDetector(
                   onLongPress: hasValue
                       ? () {
-                          unawaited(_clearValue());
+                          _clearValue();
                           _announce(l10n.customFieldScaleClearedAnnouncement);
                         }
                       : null,
@@ -220,7 +284,7 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget> {
                 message: l10n.customFieldScaleClearTooltip,
                 child: IconButton(
                   icon: Icon(AppIcons.close, size: 18),
-                  onPressed: () => unawaited(_clearValue()),
+                  onPressed: _clearValue,
                   color: theme.colorScheme.onSurfaceVariant,
                   visualDensity: VisualDensity.compact,
                 ),

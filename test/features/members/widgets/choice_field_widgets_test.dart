@@ -25,6 +25,7 @@ import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/choice_field_widgets.dart';
+import 'package:prism_plurality/features/members/widgets/custom_field_editor_scope.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -106,8 +107,16 @@ Widget _editorSubject({
   required CustomField field,
   CustomFieldValue? value,
   _FakeCustomFieldsRepository? repo,
+  CustomFieldsEditorController? controller,
 }) {
   final r = repo ?? _FakeCustomFieldsRepository();
+  Widget body = Consumer(
+    builder: (context, ref, _) =>
+        buildChoiceEditor(context, field, value, _memberId),
+  );
+  if (controller != null) {
+    body = CustomFieldEditorScope(controller: controller, child: body);
+  }
   return ProviderScope(
     overrides: [
       customFieldsRepositoryProvider.overrideWithValue(r),
@@ -119,16 +128,7 @@ Widget _editorSubject({
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
-      home: Scaffold(
-        body: Consumer(
-          builder: (context, ref, _) => buildChoiceEditor(
-            context,
-            field,
-            value,
-            _memberId,
-          ),
-        ),
-      ),
+      home: Scaffold(body: body),
     ),
   );
 }
@@ -200,69 +200,108 @@ void main() {
   });
 
   group('ChoiceEditor — single-select', () {
-    testWidgets('tapping a chip selects it', (tester) async {
+    testWidgets('tapping a chip stages selection; commit persists it', (
+      tester,
+    ) async {
       final repo = _FakeCustomFieldsRepository();
+      final controller = CustomFieldsEditorController();
       final field = _choiceField(
         options: [_option('a', 'Apples'), _option('b', 'Bananas')],
       );
 
       await tester.pumpWidget(
-        _editorSubject(field: field, value: null, repo: repo),
+        _editorSubject(
+          field: field,
+          value: null,
+          repo: repo,
+          controller: controller,
+        ),
       );
       await tester.pump();
 
       await tester.tap(find.text('Apples'));
       await tester.pump();
 
-      // The notifier should have received a setValue call with 'a' selected.
+      // Tap stages the edit; the notifier has not yet been touched.
+      expect(repo.upsertedValues, isEmpty);
+      expect(controller.hasPendingChanges, isTrue);
+
+      await controller.commit();
+      await tester.pump();
+
       expect(repo.upsertedValues, hasLength(1));
       expect(repo.upsertedValues.single.value, contains('"a"'));
     });
 
-    testWidgets('tapping a second chip replaces the first', (tester) async {
-      final repo = _FakeCustomFieldsRepository();
-      final field = _choiceField(
-        options: [_option('a', 'Apples'), _option('b', 'Bananas')],
-      );
-      // Pre-select 'a'
-      final existing = _value('{"options":["a"]}');
+    testWidgets(
+      'tapping a second chip replaces the first; commit writes the latest',
+      (tester) async {
+        final repo = _FakeCustomFieldsRepository();
+        final controller = CustomFieldsEditorController();
+        final field = _choiceField(
+          options: [_option('a', 'Apples'), _option('b', 'Bananas')],
+        );
+        // Pre-select 'a'
+        final existing = _value('{"options":["a"]}');
 
-      await tester.pumpWidget(
-        _editorSubject(field: field, value: existing, repo: repo),
-      );
-      await tester.pump();
+        await tester.pumpWidget(
+          _editorSubject(
+            field: field,
+            value: existing,
+            repo: repo,
+            controller: controller,
+          ),
+        );
+        await tester.pump();
 
-      await tester.tap(find.text('Bananas'));
-      await tester.pump();
+        await tester.tap(find.text('Bananas'));
+        await tester.pump();
+        await controller.commit();
+        await tester.pump();
 
-      // Last upsert should only contain 'b', not 'a'.
-      final lastValue = repo.upsertedValues.last.value;
-      expect(lastValue, contains('"b"'));
-      expect(lastValue, isNot(contains('"a"')));
-    });
+        // Single upsert with only 'b'; the intermediate 'a' selection never
+        // reached disk because edits don't fire writes between taps.
+        expect(repo.upsertedValues, hasLength(1));
+        final lastValue = repo.upsertedValues.last.value;
+        expect(lastValue, contains('"b"'));
+        expect(lastValue, isNot(contains('"a"')));
+      },
+    );
 
-    testWidgets('deselecting the only selected chip calls deleteValue', (
+    testWidgets('deselecting the only selected chip deletes on commit', (
       tester,
     ) async {
       final repo = _FakeCustomFieldsRepository();
+      final controller = CustomFieldsEditorController();
       final field = _choiceField(options: [_option('a', 'Apples')]);
       final existing = _value('{"options":["a"]}');
 
       await tester.pumpWidget(
-        _editorSubject(field: field, value: existing, repo: repo),
+        _editorSubject(
+          field: field,
+          value: existing,
+          repo: repo,
+          controller: controller,
+        ),
       );
       await tester.pump();
 
       await tester.tap(find.text('Apples'));
       await tester.pump();
+      expect(repo.deletedValueIds, isEmpty);
 
+      await controller.commit();
+      await tester.pump();
       expect(repo.deletedValueIds, contains('val-1'));
     });
   });
 
   group('ChoiceEditor — multi-select (allowsMultiple: true)', () {
-    testWidgets('tapping toggles chips independently', (tester) async {
+    testWidgets('tapping toggles chips independently; commit writes them all', (
+      tester,
+    ) async {
       final repo = _FakeCustomFieldsRepository();
+      final controller = CustomFieldsEditorController();
       final field = _choiceField(
         options: [
           _option('a', 'Apples'),
@@ -273,7 +312,12 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _editorSubject(field: field, value: null, repo: repo),
+        _editorSubject(
+          field: field,
+          value: null,
+          repo: repo,
+          controller: controller,
+        ),
       );
       await tester.pump();
 
@@ -281,8 +325,11 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Cherries'));
       await tester.pump();
+      await controller.commit();
+      await tester.pump();
 
-      // Both 'a' and 'c' should appear in the final encoded value.
+      // Both 'a' and 'c' should appear in the single committed encoded value.
+      expect(repo.upsertedValues, hasLength(1));
       final lastValue = repo.upsertedValues.last.value;
       expect(lastValue, contains('"a"'));
       expect(lastValue, contains('"c"'));
@@ -320,16 +367,22 @@ void main() {
     });
 
     testWidgets(
-      'tapping Other chip expands text field; text persists via setValue',
+      'tapping Other chip expands text field; commit persists the typed text',
       (tester) async {
         final repo = _FakeCustomFieldsRepository();
+        final controller = CustomFieldsEditorController();
         final field = _choiceField(
           options: [_option('a', 'Apples')],
           allowsOther: true,
         );
 
         await tester.pumpWidget(
-          _editorSubject(field: field, value: null, repo: repo),
+          _editorSubject(
+            field: field,
+            value: null,
+            repo: repo,
+            controller: controller,
+          ),
         );
         await tester.pump();
 
@@ -345,7 +398,13 @@ void main() {
         await tester.enterText(find.byType(TextField), 'Dragonfruit');
         await tester.pump();
 
-        // setValue called with the other text.
+        // Editing alone does not write — even mid-keystroke.
+        expect(repo.upsertedValues, isEmpty);
+
+        // Commit flushes the buffered Other text into the encoded value.
+        await controller.commit();
+        await tester.pump();
+        expect(repo.upsertedValues, hasLength(1));
         expect(
           repo.upsertedValues.last.value,
           contains('"Dragonfruit"'),

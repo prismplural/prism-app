@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +6,7 @@ import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/members/widgets/custom_field_editor_scope.dart';
 import 'package:prism_plurality/features/members/widgets/full_screen_markdown_editor_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -19,115 +18,112 @@ import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
-/// The stateful widget that handles per-field editing for a single custom
-/// field. All four legacy types (text, longText, color, date) share this
-/// widget; state management (controller, focus node, save logic) lives in
-/// [FieldInputWidgetState].
-///
-/// This is a public class (non-private) so that
-/// [CustomFieldsEditorController] can store its state instances, and so that
-/// renderer functions in custom_field_renderers.dart can create instances.
+/// Per-field editor for the four legacy custom-field types (text, longText,
+/// color, date). Edits stage into the local [TextEditingController]; the host
+/// drives persistence via [CustomFieldsEditorController.commit].
 class FieldInputWidget extends ConsumerStatefulWidget {
   const FieldInputWidget({
     super.key,
     required this.field,
     required this.memberId,
     this.existingValue,
-    this.controller,
   });
 
   final CustomField field;
   final String memberId;
   final CustomFieldValue? existingValue;
 
-  /// Optional controller for coordinated saves (e.g., on parent sheet close).
-  final CustomFieldsEditorControllerBase? controller;
-
   @override
   ConsumerState<FieldInputWidget> createState() => FieldInputWidgetState();
 }
 
-/// State for [FieldInputWidget]. Public so [CustomFieldsEditorControllerBase]
-/// can call [savePendingValue] on all registered instances.
-class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
+class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
+    implements PendingFieldEditState {
   late final TextEditingController _textController;
   late final FocusNode _focusNode;
-  late final CustomFieldValueNotifier _valueNotifier;
-  late String _lastSavedValue;
+  late String _initialValue;
+  CustomFieldsEditorController? _controller;
 
   @override
   void initState() {
     super.initState();
-    _valueNotifier = ref.read(customFieldValueNotifierProvider.notifier);
     _focusNode = FocusNode();
-    widget.controller?.register(this);
-    final initialValue = widget.existingValue?.value ?? '';
-    _lastSavedValue = initialValue;
+    _initialValue = widget.existingValue?.value ?? '';
     _textController = switch (widget.field.fieldType) {
       CustomFieldType.text =>
-        ChatMarkdownEditingController(text: initialValue),
+        ChatMarkdownEditingController(text: _initialValue),
       CustomFieldType.longText =>
-        MarkdownEditingController(text: initialValue),
+        MarkdownEditingController(text: _initialValue),
       CustomFieldType.color ||
       CustomFieldType.date ||
       CustomFieldType.choice =>
-        TextEditingController(text: initialValue),
+        TextEditingController(text: _initialValue),
     };
+    _textController.addListener(_handleTextChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = CustomFieldEditorScope.maybeOf(context);
+    if (identical(next, _controller)) return;
+    _controller?.unregister(this);
+    _controller = next;
+    _controller?.register(this);
+    _controller?.markDirty(this, _isDirty);
   }
 
   @override
   void didUpdateWidget(covariant FieldInputWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     final newVal = widget.existingValue?.value ?? '';
-    if (oldWidget.existingValue?.value != newVal) {
-      _lastSavedValue = newVal;
-    }
-    if (oldWidget.existingValue?.value != newVal &&
-        !_focusNode.hasFocus &&
-        _textController.text != newVal) {
+    final oldVal = oldWidget.existingValue?.value ?? '';
+    if (newVal == oldVal) return;
+    // External update (sync stream). Adopt as the new baseline, but never
+    // clobber the visible text while the user is focused — their save wins.
+    _initialValue = newVal;
+    if (!_focusNode.hasFocus && _textController.text != newVal) {
       _textController.text = newVal;
     }
+    _controller?.markDirty(this, _isDirty);
   }
 
   @override
   void dispose() {
-    final discarded = widget.controller?.isDiscarded ?? false;
-    widget.controller?.unregister(this);
-    if (!discarded) unawaited(savePendingValue());
+    _textController.removeListener(_handleTextChanged);
+    _controller?.unregister(this);
     _focusNode.dispose();
     _textController.dispose();
     super.dispose();
   }
 
-  Future<void> savePendingValue() async {
-    switch (widget.field.fieldType) {
-      case CustomFieldType.text:
-      case CustomFieldType.longText:
-      case CustomFieldType.color:
-        await _saveValue(_textController.text.trim());
-      case CustomFieldType.date:
-      case CustomFieldType.choice:
-        break;
-    }
+  bool get _isDirty => _textController.text.trim() != _initialValue.trim();
+
+  void _handleTextChanged() {
+    _controller?.markDirty(this, _isDirty);
   }
 
-  Future<void> _saveValue(String value) async {
-    if (value == _lastSavedValue) return;
+  @override
+  Future<void> commitPendingValue() async {
+    final value = _textController.text.trim();
+    if (value == _initialValue.trim()) return;
 
-    if (value.isEmpty && widget.existingValue != null) {
-      _lastSavedValue = '';
-      await _valueNotifier.deleteValue(widget.existingValue!.id);
-      return;
+    final notifier = ref.read(customFieldValueNotifierProvider.notifier);
+    if (value.isEmpty) {
+      final existingId = widget.existingValue?.id;
+      if (existingId != null) {
+        await notifier.deleteValue(existingId);
+      }
+    } else {
+      await notifier.setValue(
+        customFieldId: widget.field.id,
+        memberId: widget.memberId,
+        value: value,
+        existingId: widget.existingValue?.id,
+      );
     }
-    if (value.isEmpty) return;
-
-    _lastSavedValue = value;
-    await _valueNotifier.setValue(
-      customFieldId: widget.field.id,
-      memberId: widget.memberId,
-      value: value,
-      existingId: widget.existingValue?.id,
-    );
+    _initialValue = value;
+    _controller?.markDirty(this, false);
   }
 
   @override
@@ -139,9 +135,6 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
       controller.updateTheme(context);
     }
 
-    // TODO(task-5): replace with registry.lookupByLegacyInt once field.fieldTypeId
-    // is available on the domain model.
-    //
     // NOTE: CustomFieldType.choice is handled entirely by the renderer registry
     // (buildChoiceEditor in choice_field_widgets.dart). FieldInputWidget is
     // only reached for the 4 legacy types; dispatch in custom_fields_editor.dart
@@ -157,19 +150,12 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
 
   Widget _buildTextInput(BuildContext context) {
     final l10n = context.l10n;
-    return Focus(
-      onFocusChange: (hasFocus) {
-        if (!hasFocus) unawaited(savePendingValue());
-      },
-      child: PrismTextField(
-        focusNode: _focusNode,
-        controller: _textController,
-        labelText: widget.field.name,
-        hintText: l10n.memberCustomFieldEnterHint(
-          widget.field.name.toLowerCase(),
-        ),
-        onChanged: (_) {},
-        onSubmitted: (value) => unawaited(_saveValue(value)),
+    return PrismTextField(
+      focusNode: _focusNode,
+      controller: _textController,
+      labelText: widget.field.name,
+      hintText: l10n.memberCustomFieldEnterHint(
+        widget.field.name.toLowerCase(),
       ),
     );
   }
@@ -199,22 +185,16 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
           ],
         ),
         const SizedBox(height: 4),
-        Focus(
-          onFocusChange: (hasFocus) {
-            if (!hasFocus) unawaited(savePendingValue());
-          },
-          child: PrismTextField(
-            focusNode: _focusNode,
-            controller: _textController,
-            hintText: l10n.memberCustomFieldEnterHint(
-              widget.field.name.toLowerCase(),
-            ),
-            keyboardType: TextInputType.multiline,
-            minLines: 5,
-            maxLines: null,
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: (_) {},
+        PrismTextField(
+          focusNode: _focusNode,
+          controller: _textController,
+          hintText: l10n.memberCustomFieldEnterHint(
+            widget.field.name.toLowerCase(),
           ),
+          keyboardType: TextInputType.multiline,
+          minLines: 5,
+          maxLines: null,
+          textCapitalization: TextCapitalization.sentences,
         ),
       ],
     );
@@ -230,9 +210,7 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
       ),
     );
     if (result == null || !mounted) return;
-
     setState(() => _textController.text = result);
-    await _saveValue(result);
   }
 
   Widget _buildColorInput(BuildContext context) {
@@ -245,34 +223,28 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
       // Invalid hex — no preview.
     }
 
-    return Focus(
-      onFocusChange: (hasFocus) {
-        if (!hasFocus) unawaited(savePendingValue());
-      },
-      child: PrismTextField(
-        focusNode: _focusNode,
-        controller: _textController,
-        labelText: widget.field.name,
-        hintText: '#AF8EE9',
-        onChanged: (val) => setState(() {}),
-        onSubmitted: (value) => unawaited(_saveValue(value)),
-        suffix: previewColor != null
-            ? Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: previewColor,
-                    border: Border.all(
-                      color: theme.colorScheme.outline.withValues(alpha: 0.3),
-                    ),
+    return PrismTextField(
+      focusNode: _focusNode,
+      controller: _textController,
+      labelText: widget.field.name,
+      hintText: '#AF8EE9',
+      onChanged: (val) => setState(() {}),
+      suffix: previewColor != null
+          ? Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: previewColor,
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withValues(alpha: 0.3),
                   ),
                 ),
-              )
-            : null,
-      ),
+              ),
+            )
+          : null,
     );
   }
 
@@ -306,13 +278,6 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
                     color: theme.colorScheme.onSurfaceVariant,
                     onPressed: () {
                       _textController.text = '';
-                      if (widget.existingValue != null) {
-                        unawaited(
-                          ref
-                              .read(customFieldValueNotifierProvider.notifier)
-                              .deleteValue(widget.existingValue!.id),
-                        );
-                      }
                       setState(() {});
                     },
                     tooltip: l10n.memberClearDateTooltip,
@@ -388,7 +353,6 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
         );
         if (picked != null && mounted) {
           _textController.text = picked.toIso8601String();
-          await _saveValue(_textController.text);
           setState(() {});
         }
 
@@ -402,7 +366,6 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
         );
         if (picked != null && mounted) {
           _textController.text = picked.toIso8601String();
-          await _saveValue(_textController.text);
           setState(() {});
         }
 
@@ -417,7 +380,6 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
         );
         if (picked != null && mounted) {
           _textController.text = picked.toIso8601String();
-          await _saveValue(_textController.text);
           setState(() {});
         }
 
@@ -445,7 +407,6 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
           time.minute,
         );
         _textController.text = combined.toIso8601String();
-        await _saveValue(_textController.text);
         setState(() {});
     }
   }
@@ -466,16 +427,4 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget> {
         '${DateFormat.yMMMd(locale).format(dt)} ${context.formatTime(dt)}',
     };
   }
-}
-
-/// Abstract base for the editor controller so [FieldInputWidget] can
-/// register/unregister without importing [CustomFieldsEditorController]
-/// (which lives in custom_fields_editor.dart — a different package-level file).
-abstract class CustomFieldsEditorControllerBase {
-  void register(FieldInputWidgetState state);
-  void unregister(FieldInputWidgetState state);
-
-  /// True if the editor was discarded — child inputs use this to skip the
-  /// save-on-dispose safety net so cancelled edits don't sneak through.
-  bool get isDiscarded;
 }

@@ -14,10 +14,10 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 void main() {
   const memberId = 'member-1';
 
-  testWidgets('long text value saves when editor closes without blur', (
-    tester,
-  ) async {
+  testWidgets('long text value is staged locally and is NOT persisted '
+      'when the editor unmounts without commit', (tester) async {
     final repo = _FakeCustomFieldsRepository();
+    final controller = CustomFieldsEditorController();
     final showEditor = ValueNotifier(true);
     final field = CustomField(
       id: 'second-bio',
@@ -29,6 +29,7 @@ void main() {
     await tester.pumpWidget(
       _subject(
         repo: repo,
+        controller: controller,
         showEditor: showEditor,
         memberId: memberId,
         fields: [field],
@@ -43,61 +44,21 @@ void main() {
     );
     await tester.pump();
 
+    // Edit is staged, not persisted.
     expect(repo.upsertedValues, isEmpty);
+    expect(controller.hasPendingChanges, isTrue);
 
     showEditor.value = false;
     await tester.pumpAndSettle();
 
-    expect(repo.upsertedValues, hasLength(1));
-    expect(repo.upsertedValues.single.customFieldId, field.id);
-    expect(repo.upsertedValues.single.memberId, memberId);
-    expect(
-      repo.upsertedValues.single.value,
-      '## Private bio\n\nA longer note-level field.',
-    );
+    // Closing the editor without committing drops the staged edit.
+    expect(repo.upsertedValues, isEmpty);
   });
 
-  testWidgets(
-    'closing editor does not duplicate a blur-saved long text value',
-    (tester) async {
-      final repo = _FakeCustomFieldsRepository();
-      final showEditor = ValueNotifier(true);
-      final field = CustomField(
-        id: 'second-bio',
-        name: 'Second bio',
-        fieldType: CustomFieldType.longText,
-        createdAt: DateTime(2026, 1, 1),
-      );
-
-      await tester.pumpWidget(
-        _subject(
-          repo: repo,
-          showEditor: showEditor,
-          memberId: memberId,
-          fields: [field],
-          values: const [],
-        ),
-      );
-      await tester.pump();
-
-      await tester.tap(find.byType(EditableText));
-      await tester.enterText(find.byType(EditableText), 'Already saved');
-      FocusManager.instance.primaryFocus?.unfocus();
-      await tester.pumpAndSettle();
-
-      expect(repo.upsertedValues, hasLength(1));
-
-      showEditor.value = false;
-      await tester.pumpAndSettle();
-
-      expect(repo.upsertedValues, hasLength(1));
-    },
-  );
-
-  testWidgets('long text edit button opens full-screen editor and saves', (
-    tester,
-  ) async {
+  testWidgets('commit() flushes the staged long-text value through the '
+      'value notifier exactly once', (tester) async {
     final repo = _FakeCustomFieldsRepository();
+    final controller = CustomFieldsEditorController();
     final showEditor = ValueNotifier(true);
     final field = CustomField(
       id: 'second-bio',
@@ -109,6 +70,7 @@ void main() {
     await tester.pumpWidget(
       _subject(
         repo: repo,
+        controller: controller,
         showEditor: showEditor,
         memberId: memberId,
         fields: [field],
@@ -117,29 +79,77 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.byTooltip('Edit'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Second bio'), findsWidgets);
-
-    await tester.enterText(
-      find.byType(EditableText).last,
-      '# Full screen\n\nSaved from the larger editor.',
-    );
+    await tester.enterText(find.byType(EditableText), 'Already staged');
     await tester.pump();
-    await tester.tap(find.byTooltip('Save'));
-    await tester.pumpAndSettle();
+    expect(repo.upsertedValues, isEmpty);
 
+    await controller.commit();
+    await tester.pump();
     expect(repo.upsertedValues, hasLength(1));
-    expect(
-      repo.upsertedValues.single.value,
-      '# Full screen\n\nSaved from the larger editor.',
-    );
+    expect(controller.hasPendingChanges, isFalse);
+
+    // A second commit with no further edits is a no-op.
+    await controller.commit();
+    expect(repo.upsertedValues, hasLength(1));
   });
+
+  testWidgets(
+    'long text edit button opens full-screen editor and stages the result '
+    '(commit still required to persist)',
+    (tester) async {
+      final repo = _FakeCustomFieldsRepository();
+      final controller = CustomFieldsEditorController();
+      final showEditor = ValueNotifier(true);
+      final field = CustomField(
+        id: 'second-bio',
+        name: 'Second bio',
+        fieldType: CustomFieldType.longText,
+        createdAt: DateTime(2026, 1, 1),
+      );
+
+      await tester.pumpWidget(
+        _subject(
+          repo: repo,
+          controller: controller,
+          showEditor: showEditor,
+          memberId: memberId,
+          fields: [field],
+          values: const [],
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byTooltip('Edit'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Second bio'), findsWidgets);
+
+      await tester.enterText(
+        find.byType(EditableText).last,
+        '# Full screen\n\nStaged from the larger editor.',
+      );
+      await tester.pump();
+      await tester.tap(find.byTooltip('Save'));
+      await tester.pumpAndSettle();
+
+      // Full-screen save returns the value to the parent editor; no write yet.
+      expect(repo.upsertedValues, isEmpty);
+      expect(controller.hasPendingChanges, isTrue);
+
+      await controller.commit();
+      await tester.pump();
+      expect(repo.upsertedValues, hasLength(1));
+      expect(
+        repo.upsertedValues.single.value,
+        '# Full screen\n\nStaged from the larger editor.',
+      );
+    },
+  );
 }
 
 Widget _subject({
   required _FakeCustomFieldsRepository repo,
+  required CustomFieldsEditorController controller,
   required ValueNotifier<bool> showEditor,
   required String memberId,
   required List<CustomField> fields,
@@ -161,7 +171,10 @@ Widget _subject({
           valueListenable: showEditor,
           builder: (context, isVisible, _) {
             if (!isVisible) return const SizedBox.shrink();
-            return CustomFieldsEditor(memberId: memberId);
+            return CustomFieldsEditor(
+              memberId: memberId,
+              controller: controller,
+            );
           },
         ),
       ),

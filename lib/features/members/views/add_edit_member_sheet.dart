@@ -176,7 +176,13 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
       _nameStyleColorHex != _initialNameStyleColorHexValue ||
       !_bytesEqual(_profileHeaderImageData, _initialProfileHeaderImageData) ||
       _birthday != _initialBirthday ||
-      _birthdayHideYear != _initialBirthdayHideYear;
+      _birthdayHideYear != _initialBirthdayHideYear ||
+      _customFieldsEditorController.hasPendingChanges;
+
+  void _handleCustomFieldsDirtyChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
 
   bool get _showPluralKitDisplayNameField {
     final member = widget.member;
@@ -218,7 +224,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     _pluralkitDisplayNameController = TextEditingController(
       text: m?.pluralkitDisplayName ?? '',
     );
-    _customFieldsEditorController = CustomFieldsEditorController();
+    _customFieldsEditorController = CustomFieldsEditorController()
+      ..addListener(_handleCustomFieldsDirtyChanged);
     _proxyTagsScrollController = ScrollController();
     _customFieldsScrollController = ScrollController();
     _viewAnimationController = AnimationController(
@@ -301,7 +308,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     _proxyTagsScrollController.dispose();
     _customFieldsScrollController.dispose();
     _viewAnimationController.dispose();
-    _customFieldsEditorController.dispose();
+    _customFieldsEditorController
+      ..removeListener(_handleCustomFieldsDirtyChanged)
+      ..dispose();
     for (final draft in _proxyTagDrafts) {
       draft.dispose();
     }
@@ -718,7 +727,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
             await _maybeAskAlwaysFrontingSessionChoice(updated);
         if (!mounted || alwaysFrontingSessionChoice == null) return;
 
-        await _customFieldsEditorController.savePendingValues();
+        await _customFieldsEditorController.commit();
         await notifier.updateMember(
           updated,
           endPreviousAlwaysFrontingSessions:
@@ -727,7 +736,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
               alwaysFrontingSessionChoice.sessionIdsToEnd,
         );
       } else {
-        await _customFieldsEditorController.savePendingValues();
+        await _customFieldsEditorController.commit();
         await notifier.createMember(
           id: _memberId,
           name: name,

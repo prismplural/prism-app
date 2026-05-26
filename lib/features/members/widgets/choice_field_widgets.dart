@@ -30,6 +30,7 @@ import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/members/widgets/custom_field_editor_scope.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -79,19 +80,33 @@ class _ChoiceEditorWidget extends ConsumerStatefulWidget {
       _ChoiceEditorWidgetState();
 }
 
-class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
+class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
+    implements PendingFieldEditState {
+  late ChoiceFieldValue _initialValue;
   late ChoiceFieldValue _currentValue;
   late TextEditingController _otherController;
-  // Fix 6: buffer "Other" text until focus loss instead of saving on every keystroke.
+  // Buffered "Other" text; flushed into _currentValue on focus loss or commit.
   String? _pendingOtherText;
-  // Map from option ID → GlobalKey<BlurPopupAnchorState> for long-press menus.
   final Map<String, GlobalKey<BlurPopupAnchorState>> _popupKeys = {};
+  CustomFieldsEditorController? _controller;
 
   @override
   void initState() {
     super.initState();
-    _currentValue = _parseValue(widget.existingValue?.value);
+    _initialValue = _parseValue(widget.existingValue?.value);
+    _currentValue = _initialValue;
     _otherController = TextEditingController(text: _currentValue.other ?? '');
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = CustomFieldEditorScope.maybeOf(context);
+    if (identical(next, _controller)) return;
+    _controller?.unregister(this);
+    _controller = next;
+    _controller?.register(this);
+    _controller?.markDirty(this, _isDirty);
   }
 
   @override
@@ -99,19 +114,24 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
     super.didUpdateWidget(oldWidget);
     final newRaw = widget.existingValue?.value ?? '';
     final oldRaw = oldWidget.existingValue?.value ?? '';
-    if (newRaw != oldRaw) {
-      setState(() {
-        _currentValue = _parseValue(widget.existingValue?.value);
-      });
-      final newOther = _currentValue.other ?? '';
-      if (_otherController.text != newOther) {
-        _otherController.text = newOther;
-      }
+    if (newRaw == oldRaw) return;
+    // External update (sync stream). Adopt as the new baseline; an in-flight
+    // local edit gets clobbered, which is rare and recoverable.
+    final next = _parseValue(widget.existingValue?.value);
+    setState(() {
+      _initialValue = next;
+      _currentValue = next;
+    });
+    final newOther = next.other ?? '';
+    if (_otherController.text != newOther) {
+      _otherController.text = newOther;
     }
+    _controller?.markDirty(this, _isDirty);
   }
 
   @override
   void dispose() {
+    _controller?.unregister(this);
     _otherController.dispose();
     super.dispose();
   }
@@ -133,14 +153,32 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
     );
   }
 
-  Future<void> _save(ChoiceFieldValue newValue) async {
+  bool get _isDirty {
+    if (_currentValue != _initialValue) return true;
+    // _pendingOtherText holds in-flight typing between keystrokes and blur;
+    // include it so the dismiss guard sees unsaved text in the Other field.
+    final pending = _pendingOtherText;
+    return pending != null && pending.trim() != (_currentValue.other ?? '');
+  }
+
+  void _stage(ChoiceFieldValue newValue) {
+    if (newValue == _currentValue) return;
     setState(() => _currentValue = newValue);
+    _controller?.markDirty(this, _isDirty);
+  }
 
-    final encoded = choiceFieldDefinition.valueEncoder(newValue);
+  @override
+  Future<void> commitPendingValue() async {
+    // Flush unblurred Other text (Save tapped with keyboard still up).
+    final pendingOther = _pendingOtherText;
+    if (pendingOther != null) {
+      _pendingOtherText = null;
+      _currentValue = _currentValue.copyWith(other: pendingOther.trim());
+    }
+    if (_currentValue == _initialValue) return;
+    final encoded = choiceFieldDefinition.valueEncoder(_currentValue);
     final notifier = ref.read(customFieldValueNotifierProvider.notifier);
-
     if (encoded.isEmpty) {
-      // Empty selection + no other text → delete the stored value.
       final existingId = widget.existingValue?.id;
       if (existingId != null) {
         await notifier.deleteValue(existingId);
@@ -153,6 +191,8 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
         existingId: widget.existingValue?.id,
       );
     }
+    _initialValue = _currentValue;
+    _controller?.markDirty(this, false);
   }
 
   void _toggleOption(String optionId, bool allowsMultiple) {
@@ -165,7 +205,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
       }
       selected.add(optionId);
     }
-    unawaited(_save(_currentValue.copyWith(optionIds: selected)));
+    _stage(_currentValue.copyWith(optionIds: selected));
   }
 
   Future<void> _handleLongPress(
@@ -278,14 +318,13 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
     );
   }
 
-  /// Empty trimmed text persists as `''` (selection survives); the only way
-  /// to deselect is tapping the chip itself.
+  /// Empty trimmed text stays as `''` so the Other selection survives;
+  /// deselect only happens by tapping the chip.
   void _flushOtherText() {
     final pending = _pendingOtherText;
     _pendingOtherText = null;
     if (pending == null) return;
-    final trimmed = pending.trim();
-    unawaited(_save(_currentValue.copyWith(other: trimmed)));
+    _stage(_currentValue.copyWith(other: pending.trim()));
   }
 
   @override
@@ -346,6 +385,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
                 autofocus: true,
                 onChanged: (text) {
                   _pendingOtherText = text;
+                  _controller?.markDirty(this, _isDirty);
                 },
               ),
             ),
@@ -486,11 +526,11 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
           if (isSelected) {
             // Deselect: clear other text.
             _pendingOtherText = null;
-            unawaited(_save(_currentValue.copyWith(other: null)));
             _otherController.clear();
+            _stage(_currentValue.copyWith(other: null));
           } else {
             // Select: mark as other-selected with empty text for now.
-            unawaited(_save(_currentValue.copyWith(other: '')));
+            _stage(_currentValue.copyWith(other: ''));
           }
         },
       ),

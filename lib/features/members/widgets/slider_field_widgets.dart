@@ -12,7 +12,6 @@
 // Manual VoiceOver/TalkBack verification pending (FFI compile chain blocks
 // widget tests in this directory).
 
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -26,6 +25,7 @@ import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_display_scope.dart';
+import 'package:prism_plurality/features/members/widgets/custom_field_editor_scope.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 
@@ -64,8 +64,15 @@ class _SliderEditorWidget extends ConsumerStatefulWidget {
       _SliderEditorWidgetState();
 }
 
-class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget> {
+class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
+    implements PendingFieldEditState {
   late double _currentValue;
+  // _initialValue == null means no stored value; _touched flips on any
+  // drag-end so we commit the displayed midpoint when the user releases
+  // it as their intentional first value.
+  double? _initialValue;
+  bool _touched = false;
+  CustomFieldsEditorController? _controller;
 
   SliderConfig _config() {
     final c = widget.field.typeConfig;
@@ -92,15 +99,57 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget> {
     final config = _config();
     final parsed = sliderFieldDefinition.valueParser(widget.existingValue?.value);
     if (parsed is SliderFieldValue && parsed.value != null) {
+      _initialValue = parsed.value;
       _currentValue = parsed.value!;
     } else {
+      _initialValue = null;
       _currentValue = _defaultMidpoint(config);
     }
   }
 
-  Future<void> _persistValue(double value) async {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = CustomFieldEditorScope.maybeOf(context);
+    if (identical(next, _controller)) return;
+    _controller?.unregister(this);
+    _controller = next;
+    _controller?.register(this);
+    _controller?.markDirty(this, _isDirty);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SliderEditorWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newRaw = widget.existingValue?.value ?? '';
+    final oldRaw = oldWidget.existingValue?.value ?? '';
+    if (newRaw == oldRaw) return;
+    final parsed = sliderFieldDefinition.valueParser(widget.existingValue?.value);
+    final next = (parsed is SliderFieldValue) ? parsed.value : null;
+    setState(() {
+      _initialValue = next;
+      if (next != null) _currentValue = next;
+      _touched = false;
+    });
+    _controller?.markDirty(this, _isDirty);
+  }
+
+  @override
+  void dispose() {
+    _controller?.unregister(this);
+    super.dispose();
+  }
+
+  bool get _isDirty {
+    if (!_touched) return false;
+    return _currentValue != _initialValue;
+  }
+
+  @override
+  Future<void> commitPendingValue() async {
+    if (!_isDirty) return;
     final encoded = sliderFieldDefinition
-        .valueEncoder(SliderFieldValue(value: value));
+        .valueEncoder(SliderFieldValue(value: _currentValue));
     final notifier = ref.read(customFieldValueNotifierProvider.notifier);
     await notifier.setValue(
       customFieldId: widget.field.id,
@@ -108,6 +157,9 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget> {
       value: encoded,
       existingId: widget.existingValue?.id,
     );
+    _initialValue = _currentValue;
+    _touched = false;
+    _controller?.markDirty(this, false);
   }
 
   /// Compute the nearest anchor name + percent for labeled mode.
@@ -251,8 +303,11 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget> {
         semanticFormatterCallback: (_) => indicatorLabel,
         onChanged: (v) => setState(() => _currentValue = v),
         onChangeEnd: (v) {
-          setState(() => _currentValue = v);
-          unawaited(_persistValue(v));
+          setState(() {
+            _currentValue = v;
+            _touched = true;
+          });
+          _controller?.markDirty(this, _isDirty);
         },
       ),
     );
