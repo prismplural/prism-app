@@ -203,21 +203,13 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget> {
         ? _currentValue.clamp(min, max)
         : min;
 
-    // Compute divisions.
-    int? divisions;
-    if (isLabeled) {
-      if (config.snapToPositions) {
-        // 3 snaps (0/50/100) when no center; 5 snaps (0/25/50/75/100) with center.
-        divisions = config.centerLabel != null ? 4 : 2;
-      }
-      // else continuous (divisions = null)
-    } else if (step != null && step > 0) {
-      final range = max - min;
-      if (range > 0) {
-        divisions = (range / step).round();
-        if (divisions <= 0) divisions = null;
-      }
-    }
+    final divisions = _divisionsFor(
+      isLabeled: isLabeled,
+      config: config,
+      min: min,
+      max: max,
+      step: step,
+    );
 
     // Value indicator label.
     final indicatorLabel = isLabeled
@@ -343,6 +335,14 @@ class _SliderDisplayWidget extends StatelessWidget {
 
     final indicatorLabel = _indicatorLabel(clampedValue, config, context);
 
+    final divisions = _divisionsFor(
+      isLabeled: isLabeled,
+      config: config,
+      min: min,
+      max: max,
+      step: isLabeled ? null : config.step,
+    );
+
     // Group containers label children themselves; skip ours to avoid a double label.
     final showInternalLabel = !CustomFieldDisplayScope.isInGroupOf(context);
 
@@ -374,6 +374,7 @@ class _SliderDisplayWidget extends StatelessWidget {
             value: clampedValue,
             min: min,
             max: max,
+            divisions: divisions,
             label: indicatorLabel,
             semanticFormatterCallback: (_) => indicatorLabel,
             onChanged: null, // read-only
@@ -821,6 +822,26 @@ class _SliderLabelRow extends StatelessWidget {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/// Labeled mode snaps via `snapToPositions`; numeric mode snaps and draws
+/// ticks only when `showTicks` is on. Returns null for a continuous slider.
+int? _divisionsFor({
+  required bool isLabeled,
+  required SliderConfig config,
+  required double min,
+  required double max,
+  required double? step,
+}) {
+  if (isLabeled) {
+    if (!config.snapToPositions) return null;
+    return config.centerLabel != null ? 4 : 2;
+  }
+  if (!config.showTicks || step == null || step <= 0) return null;
+  final range = max - min;
+  if (range <= 0) return null;
+  final divisions = (range / step).round();
+  return divisions > 0 ? divisions : null;
+}
 
 /// Resolved track colors from a [SliderConfig].
 class _TrackColors {
