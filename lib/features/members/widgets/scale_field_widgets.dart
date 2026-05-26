@@ -279,8 +279,9 @@ class _ScaleDisplayWidget extends StatelessWidget {
       steps,
     );
 
-    // Group containers label children themselves; skip ours to avoid a double label.
-    final showInternalLabel = !CustomFieldDisplayScope.isInGroupOf(context);
+    // Parent containers (groups, compact rows, value cards) label children
+    // themselves; skip our internal label when they do.
+    final showInternalLabel = !CustomFieldDisplayScope.labelHandledFor(context);
 
     return Semantics(
       label: semanticsLabel,

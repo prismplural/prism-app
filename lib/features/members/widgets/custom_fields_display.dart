@@ -6,6 +6,7 @@ import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/members/widgets/custom_field_display_scope.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_renderers.dart';
 import 'package:prism_plurality/features/members/widgets/group_field_widgets.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -369,7 +370,14 @@ class _FieldValueBody extends StatelessWidget {
 
     // Wrap in DefaultTextStyle so renderers that produce Text widgets inherit
     // the caller's desired style without each renderer needing to accept it.
-    final child = renderer.displayBuilder(context, entry.field, entry.value);
+    //
+    // CustomFieldDisplayScope tells renderers like slider/scale that the
+    // surrounding row/card already shows the field name, so they should skip
+    // their own internal label.
+    final child = CustomFieldDisplayScope(
+      labelHandled: true,
+      child: renderer.displayBuilder(context, entry.field, entry.value),
+    );
 
     if (textStyle == null && textAlign == TextAlign.start) return child;
 

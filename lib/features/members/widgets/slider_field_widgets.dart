@@ -343,8 +343,9 @@ class _SliderDisplayWidget extends StatelessWidget {
       step: isLabeled ? null : config.step,
     );
 
-    // Group containers label children themselves; skip ours to avoid a double label.
-    final showInternalLabel = !CustomFieldDisplayScope.isInGroupOf(context);
+    // Parent containers (groups, compact rows, value cards) label children
+    // themselves; skip our internal label when they do.
+    final showInternalLabel = !CustomFieldDisplayScope.labelHandledFor(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -358,6 +359,22 @@ class _SliderDisplayWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
+        ],
+        // Numeric mode: render the current value as a real Text widget. The
+        // Slider's built-in value indicator (ShowValueIndicator.always) does
+        // not paint reliably for read-only sliders (onChanged: null), so the
+        // user would otherwise have no way to see the actual number.
+        if (!isLabeled) ...[
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              indicatorLabel,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
         ],
         // No outer Semantics(label:) wrap — see _SliderEditorWidgetState.build
         // for rationale. The visible Text(field.name) above (or the

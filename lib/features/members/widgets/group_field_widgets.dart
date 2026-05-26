@@ -230,7 +230,7 @@ class GroupDisplayWidget extends ConsumerWidget {
             field: field,
             theme: theme,
             child: CustomFieldDisplayScope(
-              isInGroup: true,
+              labelHandled: true,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
