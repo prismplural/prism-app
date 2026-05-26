@@ -1,8 +1,10 @@
 // ## Accessibility
 //
-// **Group inset container** (editor + display)
+// **Group card container** (editor + display)
 // - Outer container: Semantics(container: true, label: '{groupName}') so
 //   screen readers announce the group boundary before traversing children.
+//   When the title is hidden or empty, the semantic label falls back to
+//   the localized type name so the group is still identifiable.
 //
 // **Empty-group button**
 // - Uses TextButton.icon which inherits Flutter's default button semantics.
@@ -29,6 +31,7 @@ import 'package:prism_plurality/features/settings/widgets/create_edit_field_shee
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 // ─── Editor ───────────────────────────────────────────────────────────────────
 
@@ -90,7 +93,7 @@ class _GroupEditorWidget extends ConsumerWidget {
               .toList()
             ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
-          return _GroupInsetContainer(
+          return _GroupCard(
             field: field,
             theme: theme,
             child: children.isEmpty
@@ -189,7 +192,7 @@ Widget buildGroupDisplayForMember(CustomField field, String memberId) {
 
 /// Read-only display for a Group field. Watches [customFieldsProvider] to
 /// find child fields, then [memberCustomFieldValuesProvider] to find their
-/// values. Renders children with non-empty values inside [_GroupInsetContainer].
+/// values. Renders children with non-empty values inside [_GroupCard].
 /// Returns [SizedBox.shrink] when no children have values.
 class GroupDisplayWidget extends ConsumerWidget {
   const GroupDisplayWidget({super.key, required this.field, required this.memberId});
@@ -231,7 +234,7 @@ class GroupDisplayWidget extends ConsumerWidget {
 
           if (childWidgets.isEmpty) return const SizedBox.shrink();
 
-          return _GroupInsetContainer(
+          return _GroupCard(
             field: field,
             theme: theme,
             child: Column(
@@ -266,11 +269,6 @@ Widget buildGroupCompact(
 
 // ─── Shared containers ────────────────────────────────────────────────────────
 
-/// The bordered left-inset container shared by group editor and display.
-///
-/// Uses a 4dp [outlineVariant]-colored left border — NOT card chrome — so
-/// groups feel structural without producing a wall of cards (per BATCH 1
-/// designer feedback).
 /// Small map from string icon identifiers (stored in [GroupConfig.icon]) to
 /// [IconData] values. Extend as new group icon options are added.
 ///
@@ -285,8 +283,17 @@ IconData _iconForGroupConfig(String? iconName) {
   };
 }
 
-class _GroupInsetContainer extends StatelessWidget {
-  const _GroupInsetContainer({
+/// Card chrome for a group, mirroring the shape of `_FieldValueCard` in
+/// `custom_fields_display.dart` so groups read as proper section cards
+/// rather than sidebar quotes.
+///
+/// The header (icon + group name + bottom divider) is rendered only when the
+/// group has a non-empty name AND `GroupConfig.hideTitleOnProfile` is false.
+/// Otherwise the card is flush — visible structure without a label. The
+/// outer Semantics container always carries some label so screen readers
+/// still announce the boundary.
+class _GroupCard extends StatelessWidget {
+  const _GroupCard({
     required this.field,
     required this.theme,
     required this.child,
@@ -301,50 +308,66 @@ class _GroupInsetContainer extends StatelessWidget {
     final l10n = context.l10n;
     final hasName = field.name.trim().isNotEmpty;
     final groupConfig = field.typeConfig as GroupConfig?;
+    final hideTitle = groupConfig?.hideTitleOnProfile ?? false;
+    final showHeader = hasName && !hideTitle;
     final headerIcon = _iconForGroupConfig(groupConfig?.icon);
     final semanticsLabel =
         hasName ? field.name : l10n.customFieldTypeGroup;
 
+    // Match `_FieldValueCard` tones so groups visually belong to the same
+    // surface family as other content cards on the profile.
+    final headerBgColor = theme.colorScheme.onSurface.withValues(alpha: 0.04);
+    final dividerColor = theme.colorScheme.onSurface.withValues(alpha: 0.07);
+
     return Semantics(
       container: true,
       label: semanticsLabel,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            left: BorderSide(
-              color: theme.colorScheme.outlineVariant,
-              width: 4,
-            ),
-          ),
-        ),
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      child: PrismSurface(
+        tone: PrismSurfaceTone.subtle,
+        padding: EdgeInsets.zero,
+        borderRadius: 8,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (hasName) ...[
-              Row(
-                children: [
-                  Icon(
-                    headerIcon,
-                    size: 14,
-                    color: theme.colorScheme.onSurfaceVariant,
+            if (showHeader)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: headerBgColor,
+                  border: Border(
+                    bottom: BorderSide(color: dividerColor, width: 1),
                   ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      field.name,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        headerIcon,
+                        size: 16,
+                        color: theme.colorScheme.primary,
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          field.name,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            height: 1.25,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-              const SizedBox(height: 8),
-            ],
-            child,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+              child: child,
+            ),
           ],
         ),
       ),
