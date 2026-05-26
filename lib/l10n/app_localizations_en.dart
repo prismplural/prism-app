@@ -10566,6 +10566,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldScaleAdvancedEmoji => 'Advanced: any emoji';
 
   @override
+  String get customFieldScaleCustomEmoji => 'Custom';
+
+  @override
   String get customFieldScaleCustomEmojiHint => 'Type or paste an emoji';
 
   @override
@@ -10626,6 +10629,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get customFieldSliderAdvancedColors => 'Advanced: custom colors';
+
+  @override
+  String get customFieldSliderCustomGradient => 'Custom';
+
+  @override
+  String get customFieldSliderColorAnchorTitle => 'Pick a color';
 
   @override
   String get customFieldSliderSnapToPositions => 'Snap to positions';

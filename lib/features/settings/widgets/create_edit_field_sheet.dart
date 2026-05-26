@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -18,6 +19,8 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/custom_field_type_labels.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -100,7 +103,6 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   String? _sliderRightColorHex;
   String? _sliderCenterColorHex;
   bool _sliderSnapToPositions = false;
-  bool _sliderShowAdvancedColors = false;
   late final TextEditingController _sliderMinController;
   late final TextEditingController _sliderMaxController;
   late final TextEditingController _sliderStepController;
@@ -245,6 +247,10 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         final config = f.typeConfig! as ScaleConfig;
         _scaleEmoji = config.emoji;
         _scaleSteps = config.steps;
+        _scaleShowCustomEmojiInput = !kScaleEmojiPalette.contains(config.emoji);
+        if (_scaleShowCustomEmojiInput) {
+          _scaleCustomEmojiController.text = config.emoji;
+        }
       }
       // Hydrate group config from existing field.
       if (f.typeConfig is GroupConfig) {
@@ -698,29 +704,31 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                     ),
                     const SizedBox(height: 8),
                     if (widget.isEditing) ...[
-                      // In edit mode, allow switching between textual types
-                      // (short text ↔ long text) since both store plain
-                      // markdown strings. Other types have different storage
-                      // shapes and remain locked once created.
+                      // Edit mode shows only the chip(s) you can actually
+                      // pick: both textual types when the current type is
+                      // textual (short ↔ long), or the single locked chip
+                      // otherwise.
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          for (final def
-                              in customFieldTypeRegistry.definitions)
-                            PrismChip(
-                              label: _labelForDef(context, def),
-                              selected: def.id == _selectedTypeId,
-                              onTap: (def.allowsTextualSwitch &&
-                                      _isCurrentTypeTextual)
-                                  ? () {
-                                      setState(
-                                          () => _selectedTypeId = def.id);
-                                      Haptics.selection();
-                                    }
-                                  : null,
-                              avatar: Icon(def.icon, size: 16),
-                            ),
+                          for (final def in customFieldTypeRegistry.definitions)
+                            if (_isCurrentTypeTextual
+                                ? def.allowsTextualSwitch
+                                : def.id == _selectedTypeId)
+                              PrismChip(
+                                label: _labelForDef(context, def),
+                                selected: def.id == _selectedTypeId,
+                                onTap: _isCurrentTypeTextual
+                                    ? () {
+                                        setState(
+                                          () => _selectedTypeId = def.id,
+                                        );
+                                        Haptics.selection();
+                                      }
+                                    : null,
+                                avatar: Icon(def.icon, size: 16),
+                              ),
                         ],
                       ),
                       if (!_isCurrentTypeTextual) ...[
@@ -852,7 +860,6 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         rightColorHex: _sliderRightColorHex,
                         centerColorHex: _sliderCenterColorHex,
                         snapToPositions: _sliderSnapToPositions,
-                        showAdvancedColors: _sliderShowAdvancedColors,
                         minController: _sliderMinController,
                         maxController: _sliderMaxController,
                         stepController: _sliderStepController,
@@ -863,9 +870,6 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                             setState(() => _sliderMode = m),
                         onPresetSelected: (id) =>
                             setState(() => _sliderGradientPresetId = id),
-                        onToggleAdvancedColors: () => setState(
-                          () => _sliderShowAdvancedColors = !_sliderShowAdvancedColors,
-                        ),
                         onLeftColorChanged: (hex) =>
                             setState(() => _sliderLeftColorHex = hex),
                         onRightColorChanged: (hex) =>
@@ -1178,31 +1182,20 @@ class _ScaleConfigSection extends StatelessWidget {
                 isSelected: selectedEmoji == emoji && !showCustomEmojiInput,
                 onTap: () => onEmojiSelected(emoji),
               ),
+            _CustomEmojiButton(
+              isSelected: showCustomEmojiInput,
+              onTap: onToggleCustomEmoji,
+              tooltip: l10n.customFieldScaleCustomEmoji,
+            ),
           ],
         ),
-        const SizedBox(height: 8),
-        TextButton(
-          onPressed: onToggleCustomEmoji,
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: Text(l10n.customFieldScaleAdvancedEmoji),
-        ),
         if (showCustomEmojiInput) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           PrismTextField(
             controller: customEmojiController,
             hintText: l10n.customFieldScaleCustomEmojiHint,
             onChanged: (value) {
-              // Use the raw input if non-empty (user typed/pasted an emoji).
-              // We don't try to extract a single grapheme cluster here since
-              // multi-codepoint emoji (ZWJ sequences) would be truncated.
-              // The l10n hint text already instructs the user to type/paste
-              // a single emoji.
-              if (value.isNotEmpty) {
-                onEmojiSelected(value);
-              }
+              if (value.isNotEmpty) onEmojiSelected(value);
             },
           ),
         ],
@@ -1299,6 +1292,55 @@ class _EmojiPickerButton extends StatelessWidget {
   }
 }
 
+class _CustomEmojiButton extends StatelessWidget {
+  const _CustomEmojiButton({
+    required this.isSelected,
+    required this.onTap,
+    required this.tooltip,
+  });
+
+  final bool isSelected;
+  final VoidCallback onTap;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: isSelected
+                ? theme.colorScheme.primaryContainer
+                : Colors.transparent,
+            border: Border.all(
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.outlineVariant,
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Center(
+            child: Icon(
+              AppIcons.editOutlined,
+              size: 18,
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── Slider config section ───────────────────────────────────────────────────
 
 class _SliderConfigSection extends StatelessWidget {
@@ -1313,7 +1355,6 @@ class _SliderConfigSection extends StatelessWidget {
     required this.rightColorHex,
     required this.centerColorHex,
     required this.snapToPositions,
-    required this.showAdvancedColors,
     required this.minController,
     required this.maxController,
     required this.stepController,
@@ -1322,7 +1363,6 @@ class _SliderConfigSection extends StatelessWidget {
     this.numericError,
     required this.onModeSelected,
     required this.onPresetSelected,
-    required this.onToggleAdvancedColors,
     required this.onLeftColorChanged,
     required this.onRightColorChanged,
     required this.onCenterColorChanged,
@@ -1341,7 +1381,6 @@ class _SliderConfigSection extends StatelessWidget {
   final String? rightColorHex;
   final String? centerColorHex;
   final bool snapToPositions;
-  final bool showAdvancedColors;
   final TextEditingController minController;
   final TextEditingController maxController;
   final TextEditingController stepController;
@@ -1352,8 +1391,9 @@ class _SliderConfigSection extends StatelessWidget {
   /// disabled by the parent.
   final String? numericError;
   final ValueChanged<SliderMode> onModeSelected;
-  final ValueChanged<String> onPresetSelected;
-  final VoidCallback onToggleAdvancedColors;
+  /// Null marks the synthetic "Custom" choice, which reveals the per-anchor
+  /// color pickers.
+  final ValueChanged<String?> onPresetSelected;
   final ValueChanged<String?> onLeftColorChanged;
   final ValueChanged<String?> onRightColorChanged;
   final ValueChanged<String?> onCenterColorChanged;
@@ -1480,18 +1520,30 @@ class _SliderConfigSection extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-
-          // Advanced: custom colors disclosure.
-          TextButton(
-            onPressed: onToggleAdvancedColors,
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          Text(
+            l10n.customFieldSliderCustomGradient,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
             ),
-            child: Text(l10n.customFieldSliderAdvancedColors),
           ),
-          if (showAdvancedColors) ...[
-            const SizedBox(height: 8),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _CustomGradientChip(
+                isSelected: selectedPresetId == null,
+                onTap: () => onPresetSelected(null),
+                leftColorHex: leftColorHex,
+                centerColorHex: centerColorHex,
+                rightColorHex: rightColorHex,
+                labelText: l10n.customFieldSliderCustomGradient,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (selectedPresetId == null) ...[
             _ColorPickerRow(
               labelText: l10n.customFieldSliderLeftLabel,
               colorHex: leftColorHex,
@@ -1824,21 +1876,7 @@ class _ColorPickerRow extends StatelessWidget {
     return Row(
       children: [
         GestureDetector(
-          onTap: () async {
-            // Simple color picker: cycle through a basic palette
-            // matching the slider gradient presets pattern.
-            final picked = await showDialog<Color>(
-              context: context,
-              builder: (ctx) => _SimpleColorPickerDialog(
-                initialColor: currentColor,
-              ),
-            );
-            if (picked != null) {
-              final hex =
-                  '#${picked.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
-              onColorChanged(hex);
-            }
-          },
+          onTap: () => _openColorPicker(context, currentColor),
           child: Container(
             width: 32,
             height: 32,
@@ -1859,65 +1897,119 @@ class _ColorPickerRow extends StatelessWidget {
       ],
     );
   }
+
+  Future<void> _openColorPicker(
+    BuildContext context,
+    Color initialColor,
+  ) async {
+    var picked = initialColor;
+    final confirmed = await PrismDialog.show<bool>(
+      context: context,
+      title: context.l10n.customFieldSliderColorAnchorTitle,
+      builder: (dialogContext) {
+        return ColorPicker(
+          pickerColor: initialColor,
+          onColorChanged: (color) => picked = color,
+          enableAlpha: false,
+          hexInputBar: true,
+          labelTypes: const [],
+          portraitOnly: true,
+          pickerAreaHeightPercent: 0.7,
+        );
+      },
+      actions: [
+        PrismButton(
+          onPressed: () =>
+              Navigator.of(context, rootNavigator: true).pop(false),
+          label: context.l10n.cancel,
+        ),
+        PrismButton(
+          onPressed: () =>
+              Navigator.of(context, rootNavigator: true).pop(true),
+          label: context.l10n.save,
+          tone: PrismButtonTone.filled,
+        ),
+      ],
+    );
+    if (confirmed == true) {
+      final value = picked.toARGB32();
+      final hex =
+          '#${(value & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+      onColorChanged(hex);
+    }
+  }
 }
 
-// ── Simple color picker dialog ────────────────────────────────────────────────
+class _CustomGradientChip extends StatelessWidget {
+  const _CustomGradientChip({
+    required this.isSelected,
+    required this.onTap,
+    required this.leftColorHex,
+    required this.centerColorHex,
+    required this.rightColorHex,
+    required this.labelText,
+  });
 
-/// A simple grid color picker for override colors in the slider advanced section.
-class _SimpleColorPickerDialog extends StatelessWidget {
-  const _SimpleColorPickerDialog({required this.initialColor});
+  final bool isSelected;
+  final VoidCallback onTap;
+  final String? leftColorHex;
+  final String? centerColorHex;
+  final String? rightColorHex;
+  final String labelText;
 
-  final Color initialColor;
-
-  static const _palette = [
-    Color(0xFFF4A6C8), Color(0xFFC8B1E4), Color(0xFF7BA5D8),
-    Color(0xFFF7B5B5), Color(0xFFA8B4C2), Color(0xFF3D4756),
-    Color(0xFFE36BB0), Color(0xFFA0A0A0), Color(0xFFE08DA8),
-    Color(0xFF3C8E96), Color(0xFF7BAA7E), Color(0xFFD6534D),
-    Color(0xFF5479AE), Color(0xFFE4C44F), Color(0xFF8A8A8A),
-    Color(0xFFE69248), Color(0xFFD8C7E0), Color(0xFF2D1B36),
-    Color(0xFF5B92C9), Color(0xFFE08D5E), Color(0xFFF4D86E),
-    Color(0xFF1E2444), Color(0xFF7B5EA8), Color(0xFFE4DEEC),
-  ];
+  Color _parse(String? hex, Color fallback) {
+    if (hex == null) return fallback;
+    try {
+      return AppColors.fromHex(hex);
+    } catch (_) {
+      return fallback;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AlertDialog(
-      title: Text(
-        context.l10n.customFieldSliderAdvancedColors,
-        style: theme.textTheme.titleMedium,
-      ),
-      content: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final color in _palette)
-            GestureDetector(
-              onTap: () => Navigator.of(context).pop(color),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color,
-                  border: Border.all(
-                    color: color == initialColor
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outlineVariant,
-                    width: color == initialColor ? 3 : 1,
-                  ),
+    final fallback = theme.colorScheme.primary;
+    final left = _parse(leftColorHex, fallback);
+    final right = _parse(rightColorHex, fallback);
+    final center = centerColorHex == null ? null : _parse(centerColorHex, left);
+    final gradient = LinearGradient(
+      colors: center == null ? [left, right] : [left, center, right],
+    );
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outline.withValues(alpha: 0.4),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 20,
+              height: 12,
+              decoration: BoxDecoration(
+                gradient: gradient,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.3),
                 ),
               ),
             ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(context.l10n.cancel),
+            const SizedBox(width: 8),
+            Text(labelText, style: theme.textTheme.bodyMedium),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

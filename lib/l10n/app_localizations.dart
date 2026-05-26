@@ -17009,11 +17009,17 @@ abstract class AppLocalizations {
   /// **'Steps'**
   String get customFieldScaleStepsHeading;
 
-  /// Button that reveals the free-form emoji input in scale field config
+  /// Deprecated; replaced by customFieldScaleCustomEmoji.
   ///
   /// In en, this message translates to:
   /// **'Advanced: any emoji'**
   String get customFieldScaleAdvancedEmoji;
+
+  /// Tooltip/label for the custom-emoji button that lets users type any emoji.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get customFieldScaleCustomEmoji;
 
   /// Hint text for the custom emoji text field in scale field config
   ///
@@ -17117,11 +17123,23 @@ abstract class AppLocalizations {
   /// **'Gradient'**
   String get customFieldSliderGradientHeading;
 
-  /// Button that reveals the per-anchor color picker override in labeled slider config
+  /// Deprecated; replaced by customFieldSliderCustomGradient.
   ///
   /// In en, this message translates to:
   /// **'Advanced: custom colors'**
   String get customFieldSliderAdvancedColors;
+
+  /// Chip label that selects custom per-anchor colors instead of a gradient preset.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get customFieldSliderCustomGradient;
+
+  /// Title of the color picker dialog for a slider anchor (left/center/right).
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a color'**
+  String get customFieldSliderColorAnchorTitle;
 
   /// Toggle label for snap-to-positions in labeled slider config
   ///
