@@ -282,18 +282,60 @@ class _GroupChildEntry {
   final CustomFieldRenderer renderer;
 }
 
-/// Renders a single child field inside the group card: a labelled header
-/// (icon + name) above the renderer's value widget. The header style
-/// matches the top-level `_FieldValueCard` header so a child inside a
-/// group reads at the same visual weight as a top-level field card.
+/// Renders a single child field inside the group card. Short single-line
+/// types (text, color, date) lay out side-by-side `Name | Value` so the
+/// group mirrors the compact rhythm of top-level field rows. Types whose
+/// value widgets need horizontal room (long text, choice, scale, slider,
+/// nested group) keep the stacked header + body layout.
 class _GroupChildDisplay extends StatelessWidget {
   const _GroupChildDisplay({required this.entry});
 
   final _GroupChildEntry entry;
 
+  /// Types that render as a short single-line value and pair well with a
+  /// right-aligned compact Row layout.
+  static const _compactTypeIds = <String>{'text', 'color', 'date'};
+
+  bool get _isCompact => _compactTypeIds.contains(entry.child.fieldTypeId);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (_isCompact) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Flexible(
+            flex: 2,
+            fit: FlexFit.tight,
+            child: Text(
+              entry.child.name,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            flex: 3,
+            fit: FlexFit.tight,
+            child: DefaultTextStyle.merge(
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+              textAlign: TextAlign.end,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: entry.renderer.displayBuilder(
+                  context,
+                  entry.child,
+                  entry.value,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
