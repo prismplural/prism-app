@@ -262,6 +262,10 @@ enum ResetCategory {
   polls('Polls', 'Deletes all polls, options, and votes.'),
   habits('Habits', 'Deletes all habits and completion records.'),
   sleep('Sleep Sessions', 'Deletes all sleep tracking data.'),
+  customFields(
+    'Custom Fields',
+    'Deletes all custom fields and their values.',
+  ),
   sync(
     'Disconnect Sync',
     'Stops syncing on this device while keeping local Prism data.',
@@ -378,6 +382,8 @@ class ResetDataNotifier extends AsyncNotifier<void> {
           await _resetHabits();
         case ResetCategory.sleep:
           await _resetSleep();
+        case ResetCategory.customFields:
+          await _resetCustomFields();
         case ResetCategory.sync:
           await _resetSyncSystem(
             reason: SyncDisconnectReason.userDisconnect,
@@ -621,6 +627,13 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       'front_session_comments',
       'fronting_sessions',
     ]);
+  }
+
+  Future<void> _resetCustomFields() async {
+    _log('Resetting custom fields');
+    final repo = ref.read(customFieldsRepositoryProvider);
+    await repo.deleteAllFields();
+    _notifyTableChanges(['custom_fields', 'custom_field_values']);
   }
 
   Future<void> _resetSyncSystem({

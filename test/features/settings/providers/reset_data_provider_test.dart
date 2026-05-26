@@ -603,6 +603,87 @@ void main() {
       expect(await _countRows(reopened, 'members'), 2);
     });
 
+    test('custom fields reset tombstones all definitions and values', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      await _seedCustomFields(harness.db, fieldCount: 3, valuesPerField: 2);
+      await harness.reset(ResetCategory.customFields);
+
+      expect(await _countRows(harness.db, 'custom_fields'), 3);
+      expect(await _countRows(harness.db, 'custom_fields', activeOnly: true), 0);
+      expect(
+        await _countRows(harness.db, 'custom_field_values'),
+        greaterThanOrEqualTo(5),
+      );
+      expect(
+        await _countRows(harness.db, 'custom_field_values', activeOnly: true),
+        0,
+      );
+    });
+
+    test('custom fields reset is idempotent', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      await _seedCustomFields(harness.db, fieldCount: 2, valuesPerField: 1);
+      await harness.reset(ResetCategory.customFields);
+      await harness.reset(ResetCategory.customFields);
+
+      expect(
+        await _countRows(harness.db, 'custom_fields', activeOnly: true),
+        0,
+      );
+      expect(
+        await _countRows(harness.db, 'custom_field_values', activeOnly: true),
+        0,
+      );
+    });
+
+    test('custom fields reset is a no-op when there are no fields', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      await harness.reset(ResetCategory.customFields);
+      expect(
+        harness.container.read(resetDataNotifierProvider),
+        isA<AsyncData<void>>(),
+      );
+    });
+
+    test(
+      'custom fields reset after members reset does not crash on missing values',
+      () async {
+        final harness = await _ResetHarness.create();
+        addTearDown(harness.dispose);
+
+        await _seedCustomFields(harness.db, fieldCount: 2, valuesPerField: 3);
+        await harness.reset(ResetCategory.members);
+        await harness.reset(ResetCategory.customFields);
+
+        expect(
+          await _countRows(harness.db, 'custom_fields', activeOnly: true),
+          0,
+        );
+      },
+    );
+
+    test('custom fields reset notifies drift table updates', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      await _seedCustomFields(harness.db, fieldCount: 1, valuesPerField: 1);
+      final updates = <Set<String>>[];
+      final sub = harness.db.tableUpdates().listen(
+        (u) => updates.add(u.map((t) => t.table).toSet()),
+      );
+      await harness.reset(ResetCategory.customFields);
+      await Future<void>.delayed(Duration.zero);
+      await sub.cancel();
+      final flat = updates.expand((s) => s).toSet();
+      expect(flat, containsAll(['custom_fields', 'custom_field_values']));
+    });
+
     test('sync reset handles non-base64 keychain values gracefully', () async {
       final harness = await _ResetHarness.create();
       addTearDown(harness.dispose);
@@ -2952,11 +3033,45 @@ class _FakeNativeResetKeys implements NativeResetKeys {
   }
 }
 
-Future<int> _countRows(AppDatabase db, String table) async {
+Future<int> _countRows(
+  AppDatabase db,
+  String table, {
+  bool activeOnly = false,
+}) async {
+  final where = activeOnly ? ' WHERE is_deleted = 0' : '';
   final row = await db
-      .customSelect('SELECT COUNT(*) AS c FROM $table')
+      .customSelect('SELECT COUNT(*) AS c FROM $table$where')
       .getSingle();
   return row.read<int>('c');
+}
+
+Future<void> _seedCustomFields(
+  AppDatabase db, {
+  required int fieldCount,
+  required int valuesPerField,
+}) async {
+  final now = DateTime.utc(2026, 3, 18, 12);
+  for (var i = 0; i < fieldCount; i++) {
+    final fieldId = 'cf-$i';
+    await db.into(db.customFields).insert(
+      CustomFieldsCompanion(
+        id: Value(fieldId),
+        name: Value('field-$i'),
+        fieldType: const Value(0),
+        createdAt: Value(now),
+      ),
+    );
+    for (var j = 0; j < valuesPerField; j++) {
+      await db.into(db.customFieldValues).insert(
+        CustomFieldValuesCompanion(
+          id: Value('cfv-$i-$j'),
+          customFieldId: Value(fieldId),
+          memberId: Value('member-$i-$j'),
+          value: Value('v-$i-$j'),
+        ),
+      );
+    }
+  }
 }
 
 Future<int> _countSleepRows(AppDatabase db) async {
