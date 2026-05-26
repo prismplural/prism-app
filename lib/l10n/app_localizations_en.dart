@@ -10125,9 +10125,28 @@ class AppLocalizationsEn extends AppLocalizations {
     int pushed,
     int skipped,
     int failed,
+    int unresolvedCleared,
   ) {
-    return '$linked linked, $imported imported, $pushed pushed, $skipped skipped, $failed failed';
+    String _temp0 = intl.Intl.pluralLogic(
+      unresolvedCleared,
+      locale: localeName,
+      other: ', cleared $unresolvedCleared unresolved links',
+      zero: '',
+    );
+    return '$linked linked, $imported imported, $pushed pushed, $skipped skipped, $failed failed$_temp0';
   }
+
+  @override
+  String get pkMappingRowUnresolvedCandidateCaption =>
+      'Was linked to a PluralKit member no longer in this system';
+
+  @override
+  String get pkMappingRowNoCandidatesCaption =>
+      'No candidates — import as new or open Manage links to resolve';
+
+  @override
+  String get pkMappingSectionToPushUnresolvedCaption =>
+      'Was linked to a PluralKit member no longer in this system. Defaulting to Skip — change to Push if you want to create a new PluralKit member.';
 
   @override
   String get pkMappingErrorsHeader => 'Errors';

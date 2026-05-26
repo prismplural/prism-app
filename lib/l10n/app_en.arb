@@ -10914,16 +10914,29 @@
   "@pkMappingOptionDontPush": {
     "description": "Local-row option: leave this local member unpushed."
   },
-  "pkMappingResultsSummary": "{linked} linked, {imported} imported, {pushed} pushed, {skipped} skipped, {failed} failed",
+  "pkMappingResultsSummary": "{linked} linked, {imported} imported, {pushed} pushed, {skipped} skipped, {failed} failed{unresolvedCleared, plural, =0{} other{, cleared {unresolvedCleared} unresolved links}}",
   "@pkMappingResultsSummary": {
-    "description": "Summary line shown after applying PK mapping decisions.",
+    "description": "Summary line shown after applying PK mapping decisions. The 'cleared N unresolved links' clause is only included when unresolvedCleared > 0.",
     "placeholders": {
       "linked": { "type": "int" },
       "imported": { "type": "int" },
       "pushed": { "type": "int" },
       "skipped": { "type": "int" },
-      "failed": { "type": "int" }
+      "failed": { "type": "int" },
+      "unresolvedCleared": { "type": "int" }
     }
+  },
+  "pkMappingRowUnresolvedCandidateCaption": "Was linked to a PluralKit member no longer in this system",
+  "@pkMappingRowUnresolvedCandidateCaption": {
+    "description": "Muted caption shown under a local member in the PK-row link dropdown when the local carries stale PK fields (linked to a member not in the currently-paired PluralKit system). Linking will overwrite those stale fields."
+  },
+  "pkMappingRowNoCandidatesCaption": "No candidates — import as new or open Manage links to resolve",
+  "@pkMappingRowNoCandidatesCaption": {
+    "description": "Caption shown under a PK member row when no local member is available to link to. Steers the user toward 'Import as new' or the future Manage screen."
+  },
+  "pkMappingSectionToPushUnresolvedCaption": "Was linked to a PluralKit member no longer in this system. Defaulting to Skip — change to Push if you want to create a new PluralKit member.",
+  "@pkMappingSectionToPushUnresolvedCaption": {
+    "description": "Section-2 (Local members to push) caption shown under a local that carries unresolved PK fields and has been defaulted to Skip. Explains the asymmetric default and how to override."
   },
   "pkMappingErrorsHeader": "Errors",
   "@pkMappingErrorsHeader": {

@@ -704,8 +704,17 @@ void main() {
         final fakeClient = FakePluralKitClient();
         final service = _makeService(fakeClient: fakeClient, db: db);
 
-        // Seed a mapping-state row — simulates a prior Skip decision the user
-        // made against the previously-connected PK system.
+        await service.setToken('valid-token');
+        // New state machine: fresh connect puts us in needsDirection, not needsMapping.
+        expect(service.state.needsDirection, isTrue);
+        expect(service.state.needsMapping, isFalse);
+        expect(service.state.canAutoSync, isFalse);
+
+        // Seed a mapping-state row AFTER setToken — simulates a prior Skip
+        // decision the user made against the currently-connected PK system.
+        // (Seeding before setToken would race with PR1's "different-system
+        // setToken truncates pk_mapping_state" cleanup; the regression we
+        // care about here is clearToken's own truncation.)
         await db.pkMappingStateDao.upsert(
           PkMappingStateCompanion(
             id: const Value('local-123:pk-abc'),
@@ -718,12 +727,6 @@ void main() {
             updatedAt: Value(DateTime(2026, 1, 1)),
           ),
         );
-
-        await service.setToken('valid-token');
-        // New state machine: fresh connect puts us in needsDirection, not needsMapping.
-        expect(service.state.needsDirection, isTrue);
-        expect(service.state.needsMapping, isFalse);
-        expect(service.state.canAutoSync, isFalse);
 
         // Precondition — row exists.
         final before = await db.pkMappingStateDao.getAll();

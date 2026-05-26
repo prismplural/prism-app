@@ -14,11 +14,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
@@ -78,6 +81,12 @@ class _FakeClient implements PluralKitClient {
 
   final String _systemId;
 
+  /// Optional handler for `createMember` so PR 1's re-push test can return a
+  /// fabricated PK member instead of the default `UnimplementedError`. Counts
+  /// invocations.
+  PKMember Function(Map<String, dynamic> data)? onCreate;
+  int createCallCount = 0;
+
   @override
   String get currentToken => 'fake-token';
 
@@ -99,8 +108,11 @@ class _FakeClient implements PluralKitClient {
   Future<PKSwitch?> getCurrentFronters() async => null;
 
   @override
-  Future<PKMember> createMember(Map<String, dynamic> data) =>
-      throw UnimplementedError();
+  Future<PKMember> createMember(Map<String, dynamic> data) async {
+    createCallCount++;
+    if (onCreate == null) throw UnimplementedError();
+    return onCreate!(data);
+  }
 
   @override
   Future<PKMember> updateMember(String id, Map<String, dynamic> data) =>
@@ -453,4 +465,243 @@ void main() {
       expect(row.directionConfirmed, isFalse);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // PR 1 (mapping recovery): pk_mapping_state behavior on system swap.
+  //
+  // setToken's `!isSameSystem` branch must `clearAll` pk_mapping_state so a
+  // re-mapping against a different PK system isn't silently no-op'd by stale
+  // "applied" rows keyed to the prior session's identifiers. The same-system
+  // branch must NOT clear (it's a token rotation, not a remap).
+  // ---------------------------------------------------------------------------
+
+  group('PR 1: setToken — pk_mapping_state lifecycle', () {
+    test(
+      'same-system token rotation preserves pk_mapping_state rows',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        await _seedRow(
+          db,
+          systemId: 'sys-X',
+          mappingAcknowledged: true,
+          directionConfirmed: true,
+          linkedAt: DateTime(2024, 1, 1, 12).toUtc(),
+        );
+
+        // Seed an applied push row tied to the prior token.
+        await PkMappingStateDao(db).upsert(
+          PkMappingStateCompanion(
+            id: const Value('push:l1'),
+            decisionType: const Value('push'),
+            localMemberId: const Value('l1'),
+            status: const Value('applied'),
+            createdAt: Value(DateTime(2024, 1, 1, 12).toUtc()),
+            updatedAt: Value(DateTime(2024, 1, 1, 12).toUtc()),
+          ),
+        );
+
+        // Service whose client returns the SAME systemId — token rotation.
+        final service = _makeService(db, 'sys-X');
+        await service.setToken('new-token');
+
+        final rows = await PkMappingStateDao(db).getAll();
+        expect(
+          rows.map((r) => r.id),
+          contains('push:l1'),
+          reason:
+              'Same-system token rotation must NOT clear pk_mapping_state',
+        );
+      },
+    );
+
+    test(
+      'different-system swap clears pk_mapping_state',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        await _seedRow(
+          db,
+          systemId: 'sys-X',
+          mappingAcknowledged: true,
+          directionConfirmed: true,
+          linkedAt: DateTime(2024, 1, 1, 12).toUtc(),
+        );
+
+        await PkMappingStateDao(db).upsert(
+          PkMappingStateCompanion(
+            id: const Value('push:l1'),
+            decisionType: const Value('push'),
+            localMemberId: const Value('l1'),
+            status: const Value('applied'),
+            createdAt: Value(DateTime(2024, 1, 1, 12).toUtc()),
+            updatedAt: Value(DateTime(2024, 1, 1, 12).toUtc()),
+          ),
+        );
+
+        final before = await PkMappingStateDao(db).getAll();
+        expect(before, hasLength(1));
+
+        // Service whose client returns a DIFFERENT systemId.
+        final service = _makeService(db, 'sys-Y');
+        await service.setToken('new-token');
+
+        final after = await PkMappingStateDao(db).getAll();
+        expect(
+          after,
+          isEmpty,
+          reason:
+              'Different-system swap must clear pk_mapping_state so a '
+              're-mapping is not silently no-op\'d by stale applied rows',
+        );
+      },
+    );
+
+    test(
+      're-push of same local after different-system swap succeeds (no '
+      'alreadyApplied)',
+      () async {
+        // End-to-end proof of why the clear matters: after a system swap a
+        // PkPushNewDecision for the same local id must produce a real
+        // applier write, not an alreadyApplied no-op against the prior
+        // session's "push:l1" row.
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        await _seedRow(
+          db,
+          systemId: 'sys-X',
+          mappingAcknowledged: true,
+          directionConfirmed: true,
+          linkedAt: DateTime(2024, 1, 1, 12).toUtc(),
+        );
+        await PkMappingStateDao(db).upsert(
+          PkMappingStateCompanion(
+            id: const Value('push:l1'),
+            decisionType: const Value('push'),
+            localMemberId: const Value('l1'),
+            pkMemberId: const Value('priorid'),
+            pkMemberUuid: const Value('prior-uuid'),
+            status: const Value('applied'),
+            createdAt: Value(DateTime(2024, 1, 1, 12).toUtc()),
+            updatedAt: Value(DateTime(2024, 1, 1, 12).toUtc()),
+          ),
+        );
+
+        // Swap to a different system.
+        final memberRepo = _RepushMemberRepo([
+          domain.Member(
+            id: 'l1',
+            name: 'Alice',
+            createdAt: DateTime(2024).toUtc(),
+          ),
+        ]);
+        final client = _FakeClient('sys-Y')
+          ..onCreate = (data) => PKMember(
+                id: 'newid',
+                uuid: 'new-uuid',
+                name: data['name'] as String,
+              );
+        final service = PluralKitSyncService(
+          memberRepository: memberRepo,
+          frontingSessionRepository: _FakeFrontingSessionRepository(),
+          syncDao: db.pluralKitSyncDao,
+          bus: PkSyncEventBus(),
+          secureStorage: const FlutterSecureStorage(),
+          clientFactory: (_) => client,
+        );
+        await service.setToken('new-token');
+
+        // Now drive the applier directly against the cleared state.
+        final applier = PkMappingApplier(
+          members: memberRepo,
+          state: PkMappingStateDao(db),
+          pushService: const PkPushService(),
+          client: client,
+          bus: PkSyncEventBus(),
+        );
+        final results = await applier.apply([
+          const PkPushNewDecision(localMemberId: 'l1'),
+        ]);
+
+        expect(
+          results.single.outcome,
+          PkApplyOutcome.applied,
+          reason:
+              'After system swap the prior "push:l1" row must be gone; '
+              'this decision must not be reported as alreadyApplied',
+        );
+        expect(client.createCallCount, 1);
+
+        final updated = await memberRepo.getMemberById('l1');
+        expect(updated!.pluralkitId, 'newid');
+        expect(updated.pluralkitUuid, 'new-uuid');
+      },
+    );
+  });
+}
+
+/// In-memory member repo used only by the re-push test below. The file's main
+/// `_FakeMemberRepository` returns empty for everything, which would break the
+/// applier's `getMemberById` lookup.
+class _RepushMemberRepo implements MemberRepository {
+  _RepushMemberRepo(Iterable<domain.Member> seed) {
+    for (final m in seed) {
+      _byId[m.id] = m;
+    }
+  }
+  final Map<String, domain.Member> _byId = {};
+
+  @override
+  Future<List<domain.Member>> getAllMembers() async => _byId.values.toList();
+  @override
+  Future<List<domain.Member>> getAllMembersIncludingDeleted() async =>
+      _byId.values.toList();
+  @override
+  Future<domain.Member?> getMemberById(String id) async => _byId[id];
+  @override
+  Future<List<domain.Member>> getMembersByIds(List<String> ids) async =>
+      ids.map((id) => _byId[id]).whereType<domain.Member>().toList();
+  @override
+  Stream<List<domain.Member>> watchMembersByIds(List<String> ids) =>
+      Stream.value(const []);
+  @override
+  Future<void> createMember(domain.Member member) async {
+    _byId[member.id] = member;
+  }
+
+  @override
+  Future<void> updateMember(domain.Member member) async {
+    _byId[member.id] = member;
+  }
+
+  @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => 0;
+  @override
+  Future<void> deleteMember(String id) async {
+    _byId.remove(id);
+  }
+
+  @override
+  Stream<List<domain.Member>> watchAllMembers() => Stream.value(const []);
+  @override
+  Stream<List<domain.Member>> watchActiveMembers() => Stream.value(const []);
+  @override
+  Stream<domain.Member?> watchMemberById(String id) => Stream.value(_byId[id]);
+  @override
+  Future<int> getCount() async => _byId.length;
+  @override
+  Future<List<domain.Member>> getDeletedLinkedMembers() async => const [];
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+  @override
+  Future<({domain.Member member, bool wasCreated})>
+  ensureUnknownSentinelMember() => throw UnimplementedError();
 }

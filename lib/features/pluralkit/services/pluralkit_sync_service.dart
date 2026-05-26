@@ -799,6 +799,15 @@ class PluralKitSyncService {
       final isSameSystem = existing.systemId == system.id;
       final bumpEpoch = !isSameSystem;
 
+      // On a different-system swap, clear pk_mapping_state. Stale Skip/Push
+      // decisions keyed by the previous session's PK identifiers would
+      // otherwise return PkApplyOutcome.alreadyApplied on re-attempt and the
+      // user's new mapping would silently no-op. `clearToken` already does
+      // this; bring `setToken`'s system-swap path to parity.
+      if (!isSameSystem) {
+        await PkMappingStateDao(_syncDao.attachedDatabase).clearAll();
+      }
+
       // Preserve setup state (directionConfirmed + mappingAcknowledged) when
       // the user is rotating their token against the same PK system. A
       // different system (or no prior row) resets both flags so the wizard
