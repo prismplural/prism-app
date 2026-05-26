@@ -904,12 +904,22 @@ String _formatDateValue(
 /// always be 0 (groups have no per-member values). The user comes to a
 /// group's detail screen to see what's *in* the group and to add more.
 ///
-/// Rows are non-reorderable here. Cross-group reorder is deferred to a
-/// later batch (see comment in [custom_fields_screen.dart]).
+/// Rows are reorderable within the group via drag handles. Cross-group
+/// moves still use the long-press menu on the main list.
 class _GroupContentsSection extends ConsumerWidget {
   const _GroupContentsSection({required this.group});
 
   final CustomField group;
+
+  void _onReorder(WidgetRef ref, List<CustomField> children, int oldIndex,
+      int newIndex) {
+    if (newIndex > oldIndex) newIndex--;
+    final reordered = List<CustomField>.from(children);
+    final item = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, item);
+    ref.read(customFieldNotifierProvider.notifier).reorderFields(reordered);
+    Haptics.selection();
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -965,13 +975,25 @@ class _GroupContentsSection extends ConsumerWidget {
             else
               PrismSectionCard(
                 padding: EdgeInsets.zero,
-                child: Column(
-                  children: [
-                    for (var i = 0; i < children.length; i++) ...[
-                      if (i > 0) const Divider(height: 1),
-                      _GroupChildRow(child: children[i]),
-                    ],
-                  ],
+                child: ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: false,
+                  itemCount: children.length,
+                  onReorder: (oldIndex, newIndex) =>
+                      _onReorder(ref, children, oldIndex, newIndex),
+                  proxyDecorator: (child, _, _) => Material(
+                    elevation: 2,
+                    color: theme.colorScheme.surface,
+                    child: child,
+                  ),
+                  itemBuilder: (context, i) {
+                    return _GroupChildRow(
+                      key: ValueKey(children[i].id),
+                      child: children[i],
+                      index: i,
+                    );
+                  },
                 ),
               ),
             const SizedBox(height: 12),
@@ -1006,9 +1028,13 @@ class _GroupContentsSection extends ConsumerWidget {
 }
 
 class _GroupChildRow extends StatelessWidget {
-  const _GroupChildRow({required this.child});
+  const _GroupChildRow({super.key, required this.child, required this.index});
 
   final CustomField child;
+
+  /// Position of this row inside the enclosing ReorderableListView. Used by
+  /// [ReorderableDragStartListener] to grab the right entry.
+  final int index;
 
   @override
   Widget build(BuildContext context) {
@@ -1026,9 +1052,24 @@ class _GroupChildRow extends StatelessWidget {
           color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
-      trailing: Icon(
-        AppIcons.chevronRightRounded,
-        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ReorderableDragStartListener(
+            index: index,
+            child: Icon(
+              AppIcons.dragHandle,
+              color: theme.colorScheme.onSurfaceVariant.withValues(
+                alpha: 0.4,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            AppIcons.chevronRightRounded,
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+          ),
+        ],
       ),
       onTap: () => context.push(AppRoutePaths.settingsCustomField(child.id)),
       // Use the same dense row used elsewhere on the detail screen.
