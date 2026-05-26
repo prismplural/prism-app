@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
+import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -20,6 +21,12 @@ class ResetDataScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final fieldsAsync = ref.watch(topLevelCustomFieldsProvider);
+    final customFieldsEmpty = fieldsAsync.maybeWhen(
+      data: (fields) => fields.isEmpty,
+      orElse: () => false,
+    );
+
     return PrismPageScaffold(
       topBar: PrismTopBar(
         title: context.l10n.resetDataTitle,
@@ -44,6 +51,10 @@ class ResetDataScreen extends ConsumerWidget {
                       icon: _granularCategories[i].icon,
                       iconColor: _granularCategories[i].color,
                       category: _granularCategories[i].category,
+                      enabled: _granularCategories[i].category ==
+                              ResetCategory.customFields
+                          ? !customFieldsEmpty
+                          : true,
                     ),
                   ],
                 ],
@@ -88,6 +99,7 @@ class ResetDataScreen extends ConsumerWidget {
     required Color iconColor,
     required ResetCategory category,
     bool destructive = false,
+    bool enabled = true,
   }) {
     final terms = readTerminology(context, ref);
     return PrismSettingsRow(
@@ -96,7 +108,8 @@ class ResetDataScreen extends ConsumerWidget {
       title: _categoryLabel(category, terms),
       subtitle: _categoryDescription(category, terms),
       destructive: destructive,
-      onTap: () => _showConfirmation(context, ref, category),
+      enabled: enabled,
+      onTap: enabled ? () => _showConfirmation(context, ref, category) : null,
     );
   }
 
@@ -107,12 +120,15 @@ class ResetDataScreen extends ConsumerWidget {
   ) async {
     final isAll = category == ResetCategory.all;
     final isSync = category == ResetCategory.sync;
+    final isCustomFields = category == ResetCategory.customFields;
     final terms = readTerminology(context, ref);
     final label = _categoryLabel(category, terms);
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: isSync
           ? 'Disconnect sync from this device?'
+          : isCustomFields
+          ? context.l10n.resetDataConfirmCustomFieldsTitle
           : context.l10n.resetDataConfirmTitle(label),
       message: isAll
           ? context.l10n.resetDataConfirmAll(terms.pluralLower)
@@ -121,6 +137,8 @@ class ResetDataScreen extends ConsumerWidget {
                 'This also makes a best-effort attempt to remove this device '
                 'from the relay, or delete the relay group only when the relay '
                 'says this was the last device.'
+          : isCustomFields
+          ? context.l10n.resetDataConfirmCustomFieldsBody
           : context.l10n.resetDataConfirmCategory(label.toLowerCase()),
       confirmLabel: isAll
           ? context.l10n.resetDataConfirmEverything
@@ -210,6 +228,11 @@ final _granularCategories = [
     Colors.green,
   ),
   _CategoryEntry(ResetCategory.sleep, AppIcons.bedtimeOutlined, Colors.indigo),
+  _CategoryEntry(
+    ResetCategory.customFields,
+    AppIcons.tuneOutlined,
+    Colors.pink,
+  ),
 ];
 
 @visibleForTesting
