@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 enum SliderGradientCategory {
-  genderExpression,
+  identity,
   moodIntensity,
   temperature,
+  palette,
   neutral,
 }
 
@@ -26,39 +27,32 @@ class SliderGradientPreset {
 }
 
 const List<SliderGradientPreset> kSliderGradientPresets = [
-  // Gender expression (spectrum-shaped per spec — NOT pride-flag palettes)
+  // Identity — gender-axis presets recolored to break the pink↔blue stereotype (NOT pride-flag palettes).
   SliderGradientPreset(
     id: 'femme-masc',
     labelL10nKey: 'sliderGradientPresetFemmeMasc',
-    category: SliderGradientCategory.genderExpression,
-    leftHex: '#F4A6C8', // pink
-    centerHex: '#C8B1E4', // lavender
-    rightHex: '#7BA5D8', // blue
-  ),
-  SliderGradientPreset(
-    id: 'soft-hard',
-    labelL10nKey: 'sliderGradientPresetSoftHard',
-    category: SliderGradientCategory.genderExpression,
-    leftHex: '#F7B5B5', // warm pink
-    centerHex: '#A8B4C2',
-    rightHex: '#3D4756', // cool steel
+    category: SliderGradientCategory.identity,
+    leftHex: '#E89BB8',
+    centerHex: '#F0E6D6',
+    rightHex: '#8FAA9A',
   ),
   SliderGradientPreset(
     id: 'high-low-gender',
     labelL10nKey: 'sliderGradientPresetHighLowGender',
-    category: SliderGradientCategory.genderExpression,
-    leftHex: '#E36BB0', // saturated
-    rightHex: '#A0A0A0', // desaturated neutral
-  ),
-  SliderGradientPreset(
-    id: 'feminine-masculine-energy',
-    labelL10nKey: 'sliderGradientPresetFeminineMasculineEnergy',
-    category: SliderGradientCategory.genderExpression,
-    leftHex: '#E08DA8', // warm rose
-    rightHex: '#3C8E96', // cool teal
+    category: SliderGradientCategory.identity,
+    leftHex: '#F0D070',
+    rightHex: '#5B4378',
   ),
 
   // Mood / intensity
+  SliderGradientPreset(
+    id: 'soft-hard',
+    labelL10nKey: 'sliderGradientPresetSoftHard',
+    category: SliderGradientCategory.moodIntensity,
+    leftHex: '#F4EBD8',
+    centerHex: '#A89B8C',
+    rightHex: '#3A2E4D',
+  ),
   SliderGradientPreset(
     id: 'calm-intense',
     labelL10nKey: 'sliderGradientPresetCalmIntense',
@@ -102,6 +96,52 @@ const List<SliderGradientPreset> kSliderGradientPresets = [
     category: SliderGradientCategory.temperature,
     leftHex: '#F4D86E', // sun
     rightHex: '#1E2444', // deep navy
+  ),
+
+  // Palette — curated color-story presets not tied to any axis meaning
+  SliderGradientPreset(
+    id: 'palette-rose-dusk',
+    labelL10nKey: 'sliderGradientPresetPaletteRoseDusk',
+    category: SliderGradientCategory.palette,
+    leftHex: '#F4B89E',
+    centerHex: '#D17A8E',
+    rightHex: '#5B4378',
+  ),
+  SliderGradientPreset(
+    id: 'palette-sage-meadow',
+    labelL10nKey: 'sliderGradientPresetPaletteSageMeadow',
+    category: SliderGradientCategory.palette,
+    leftHex: '#C5D9B5',
+    rightHex: '#4A6B47',
+  ),
+  SliderGradientPreset(
+    id: 'palette-last-light',
+    labelL10nKey: 'sliderGradientPresetPaletteLastLight',
+    category: SliderGradientCategory.palette,
+    leftHex: '#F0C166',
+    centerHex: '#E68769',
+    rightHex: '#8F4438',
+  ),
+  SliderGradientPreset(
+    id: 'palette-amber-fire',
+    labelL10nKey: 'sliderGradientPresetPaletteAmberFire',
+    category: SliderGradientCategory.palette,
+    leftHex: '#F0D88E',
+    rightHex: '#C44848',
+  ),
+  SliderGradientPreset(
+    id: 'palette-mauve-bloom',
+    labelL10nKey: 'sliderGradientPresetPaletteMauveBloom',
+    category: SliderGradientCategory.palette,
+    leftHex: '#EAD9E8',
+    rightHex: '#5B4378',
+  ),
+  SliderGradientPreset(
+    id: 'palette-warm-ink',
+    labelL10nKey: 'sliderGradientPresetPaletteWarmInk',
+    category: SliderGradientCategory.palette,
+    leftHex: '#F4EBD8',
+    rightHex: '#3A2E2A',
   ),
 
   // Neutral
