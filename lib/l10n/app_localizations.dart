@@ -16943,6 +16943,54 @@ abstract class AppLocalizations {
   /// **'Delete them too'**
   String get customFieldGroupDeleteChildren;
 
+  /// Toggle label in the group editor sheet that controls whether the group's name renders as a header on member profiles
+  ///
+  /// In en, this message translates to:
+  /// **'Show title on profiles'**
+  String get customFieldGroupShowTitleLabel;
+
+  /// Sub-label under the show-title toggle explaining what hiding the title means
+  ///
+  /// In en, this message translates to:
+  /// **'Hide to use the group as a visual container only.'**
+  String get customFieldGroupShowTitleSubtitle;
+
+  /// Fallback label for a group whose name is empty; shown in the settings list and on the detail screen so users can still find/edit it
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled group'**
+  String get customFieldGroupUntitledFallback;
+
+  /// Section heading on the group detail screen for the list of child fields
+  ///
+  /// In en, this message translates to:
+  /// **'Fields in this group'**
+  String get customFieldGroupChildrenHeading;
+
+  /// Count line under the group children heading on the detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No fields yet} =1{1 field} other{{count} fields}}'**
+  String customFieldGroupChildrenCount(int count);
+
+  /// Short label for the CTA that adds a new field to the group, used on the detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Add field'**
+  String get customFieldGroupAddChildButtonShort;
+
+  /// Empty-state title shown on the group detail screen when the group has no child fields
+  ///
+  /// In en, this message translates to:
+  /// **'No fields yet'**
+  String get customFieldGroupChildrenEmptyTitle;
+
+  /// Empty-state subtitle shown on the group detail screen when the group has no child fields
+  ///
+  /// In en, this message translates to:
+  /// **'Add fields to organize related details together.'**
+  String get customFieldGroupChildrenEmptySubtitle;
+
   /// Label for the Scale custom field type in the type picker
   ///
   /// In en, this message translates to:

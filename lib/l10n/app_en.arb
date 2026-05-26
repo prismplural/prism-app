@@ -11349,6 +11349,39 @@
   "@customFieldGroupDeleteChildren": {
     "description": "Action button in the delete-group dialog that deletes all child fields along with the group"
   },
+  "customFieldGroupShowTitleLabel": "Show title on profiles",
+  "@customFieldGroupShowTitleLabel": {
+    "description": "Toggle label in the group editor sheet that controls whether the group's name renders as a header on member profiles"
+  },
+  "customFieldGroupShowTitleSubtitle": "Hide to use the group as a visual container only.",
+  "@customFieldGroupShowTitleSubtitle": {
+    "description": "Sub-label under the show-title toggle explaining what hiding the title means"
+  },
+  "customFieldGroupUntitledFallback": "Untitled group",
+  "@customFieldGroupUntitledFallback": {
+    "description": "Fallback label for a group whose name is empty; shown in the settings list and on the detail screen so users can still find/edit it"
+  },
+  "customFieldGroupChildrenHeading": "Fields in this group",
+  "@customFieldGroupChildrenHeading": {
+    "description": "Section heading on the group detail screen for the list of child fields"
+  },
+  "customFieldGroupChildrenCount": "{count, plural, =0{No fields yet} =1{1 field} other{{count} fields}}",
+  "@customFieldGroupChildrenCount": {
+    "description": "Count line under the group children heading on the detail screen",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "customFieldGroupAddChildButtonShort": "Add field",
+  "@customFieldGroupAddChildButtonShort": {
+    "description": "Short label for the CTA that adds a new field to the group, used on the detail screen"
+  },
+  "customFieldGroupChildrenEmptyTitle": "No fields yet",
+  "@customFieldGroupChildrenEmptyTitle": {
+    "description": "Empty-state title shown on the group detail screen when the group has no child fields"
+  },
+  "customFieldGroupChildrenEmptySubtitle": "Add fields to organize related details together.",
+  "@customFieldGroupChildrenEmptySubtitle": {
+    "description": "Empty-state subtitle shown on the group detail screen when the group has no child fields"
+  },
   "customFieldTypeScale": "Scale",
   "@customFieldTypeScale": { "description": "Label for the Scale custom field type in the type picker" },
   "customFieldScaleEmojiHeading": "Emoji",

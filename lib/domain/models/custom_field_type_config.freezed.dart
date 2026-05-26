@@ -190,11 +190,11 @@ return slider(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  choice,TResult Function( String? icon, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  group,TResult Function( String emoji,  int steps,  List<String>? stepLabels, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  scale,TResult Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  slider,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  choice,TResult Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  group,TResult Function( String emoji,  int steps,  List<String>? stepLabels, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  scale,TResult Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  slider,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case ChoiceConfig() when choice != null:
 return choice(_that.options,_that.allowsMultiple,_that.allowsOther,_that.extra);case GroupConfig() when group != null:
-return group(_that.icon,_that.extra);case ScaleConfig() when scale != null:
+return group(_that.icon,_that.hideTitleOnProfile,_that.extra);case ScaleConfig() when scale != null:
 return scale(_that.emoji,_that.steps,_that.stepLabels,_that.extra);case SliderConfig() when slider != null:
 return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_that.gradientPresetId,_that.leftColorHex,_that.rightColorHex,_that.centerColorHex,_that.snapToPositions,_that.min,_that.max,_that.step,_that.unit,_that.showTicks,_that.extra);case _:
   return orElse();
@@ -214,11 +214,11 @@ return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  choice,required TResult Function( String? icon, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  group,required TResult Function( String emoji,  int steps,  List<String>? stepLabels, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  scale,required TResult Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  slider,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  choice,required TResult Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  group,required TResult Function( String emoji,  int steps,  List<String>? stepLabels, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  scale,required TResult Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  slider,}) {final _that = this;
 switch (_that) {
 case ChoiceConfig():
 return choice(_that.options,_that.allowsMultiple,_that.allowsOther,_that.extra);case GroupConfig():
-return group(_that.icon,_that.extra);case ScaleConfig():
+return group(_that.icon,_that.hideTitleOnProfile,_that.extra);case ScaleConfig():
 return scale(_that.emoji,_that.steps,_that.stepLabels,_that.extra);case SliderConfig():
 return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_that.gradientPresetId,_that.leftColorHex,_that.rightColorHex,_that.centerColorHex,_that.snapToPositions,_that.min,_that.max,_that.step,_that.unit,_that.showTicks,_that.extra);}
 }
@@ -234,11 +234,11 @@ return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  choice,TResult? Function( String? icon, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  group,TResult? Function( String emoji,  int steps,  List<String>? stepLabels, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  scale,TResult? Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  slider,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  choice,TResult? Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  group,TResult? Function( String emoji,  int steps,  List<String>? stepLabels, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  scale,TResult? Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  slider,}) {final _that = this;
 switch (_that) {
 case ChoiceConfig() when choice != null:
 return choice(_that.options,_that.allowsMultiple,_that.allowsOther,_that.extra);case GroupConfig() when group != null:
-return group(_that.icon,_that.extra);case ScaleConfig() when scale != null:
+return group(_that.icon,_that.hideTitleOnProfile,_that.extra);case ScaleConfig() when scale != null:
 return scale(_that.emoji,_that.steps,_that.stepLabels,_that.extra);case SliderConfig() when slider != null:
 return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_that.gradientPresetId,_that.leftColorHex,_that.rightColorHex,_that.centerColorHex,_that.snapToPositions,_that.min,_that.max,_that.step,_that.unit,_that.showTicks,_that.extra);case _:
   return null;
@@ -343,10 +343,11 @@ as Map<String, dynamic>,
 @JsonSerializable()
 
 class GroupConfig implements CustomFieldTypeConfig {
-  const GroupConfig({this.icon, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _extra = extra,$type = $type ?? 'group';
+  const GroupConfig({this.icon, this.hideTitleOnProfile = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _extra = extra,$type = $type ?? 'group';
   factory GroupConfig.fromJson(Map<String, dynamic> json) => _$GroupConfigFromJson(json);
 
  final  String? icon;
+@JsonKey() final  bool hideTitleOnProfile;
  final  Map<String, dynamic> _extra;
 @override@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra {
   if (_extra is EqualUnmodifiableMapView) return _extra;
@@ -372,16 +373,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is GroupConfig&&(identical(other.icon, icon) || other.icon == icon)&&const DeepCollectionEquality().equals(other._extra, _extra));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is GroupConfig&&(identical(other.icon, icon) || other.icon == icon)&&(identical(other.hideTitleOnProfile, hideTitleOnProfile) || other.hideTitleOnProfile == hideTitleOnProfile)&&const DeepCollectionEquality().equals(other._extra, _extra));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,icon,const DeepCollectionEquality().hash(_extra));
+int get hashCode => Object.hash(runtimeType,icon,hideTitleOnProfile,const DeepCollectionEquality().hash(_extra));
 
 @override
 String toString() {
-  return 'CustomFieldTypeConfig.group(icon: $icon, extra: $extra)';
+  return 'CustomFieldTypeConfig.group(icon: $icon, hideTitleOnProfile: $hideTitleOnProfile, extra: $extra)';
 }
 
 
@@ -392,7 +393,7 @@ abstract mixin class $GroupConfigCopyWith<$Res> implements $CustomFieldTypeConfi
   factory $GroupConfigCopyWith(GroupConfig value, $Res Function(GroupConfig) _then) = _$GroupConfigCopyWithImpl;
 @override @useResult
 $Res call({
- String? icon,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
+ String? icon, bool hideTitleOnProfile,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
 });
 
 
@@ -409,10 +410,11 @@ class _$GroupConfigCopyWithImpl<$Res>
 
 /// Create a copy of CustomFieldTypeConfig
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? icon = freezed,Object? extra = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? icon = freezed,Object? hideTitleOnProfile = null,Object? extra = null,}) {
   return _then(GroupConfig(
 icon: freezed == icon ? _self.icon : icon // ignore: cast_nullable_to_non_nullable
-as String?,extra: null == extra ? _self._extra : extra // ignore: cast_nullable_to_non_nullable
+as String?,hideTitleOnProfile: null == hideTitleOnProfile ? _self.hideTitleOnProfile : hideTitleOnProfile // ignore: cast_nullable_to_non_nullable
+as bool,extra: null == extra ? _self._extra : extra // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,
   ));
 }

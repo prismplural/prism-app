@@ -27,11 +27,16 @@ Map<String, dynamic> _$ChoiceConfigToJson(ChoiceConfig instance) =>
 
 GroupConfig _$GroupConfigFromJson(Map<String, dynamic> json) => GroupConfig(
   icon: json['icon'] as String?,
+  hideTitleOnProfile: json['hideTitleOnProfile'] as bool? ?? false,
   $type: json['runtimeType'] as String?,
 );
 
 Map<String, dynamic> _$GroupConfigToJson(GroupConfig instance) =>
-    <String, dynamic>{'icon': instance.icon, 'runtimeType': instance.$type};
+    <String, dynamic>{
+      'icon': instance.icon,
+      'hideTitleOnProfile': instance.hideTitleOnProfile,
+      'runtimeType': instance.$type,
+    };
 
 ScaleConfig _$ScaleConfigFromJson(Map<String, dynamic> json) => ScaleConfig(
   emoji: json['emoji'] as String? ?? '⭐',

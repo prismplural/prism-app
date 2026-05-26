@@ -28,6 +28,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
 
   const factory CustomFieldTypeConfig.group({
     String? icon,
+    @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
     Map<String, dynamic> extra,
@@ -134,7 +135,7 @@ class CustomFieldTypeConfigCodec {
   static Set<String> _knownKeysFor(CustomFieldTypeConfig config) {
     return switch (config) {
       ChoiceConfig _ => const {'runtimeType', 'options', 'allowsMultiple', 'allowsOther'},
-      GroupConfig _ => const {'runtimeType', 'icon'},
+      GroupConfig _ => const {'runtimeType', 'icon', 'hideTitleOnProfile'},
       ScaleConfig _ => const {'runtimeType', 'emoji', 'steps', 'stepLabels'},
       SliderConfig _ => const {
         'runtimeType',

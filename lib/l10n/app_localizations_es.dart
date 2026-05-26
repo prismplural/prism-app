@@ -10704,6 +10704,41 @@ class AppLocalizationsEs extends AppLocalizations {
   String get customFieldGroupDeleteChildren => 'Delete them too';
 
   @override
+  String get customFieldGroupShowTitleLabel => 'Show title on profiles';
+
+  @override
+  String get customFieldGroupShowTitleSubtitle =>
+      'Hide to use the group as a visual container only.';
+
+  @override
+  String get customFieldGroupUntitledFallback => 'Untitled group';
+
+  @override
+  String get customFieldGroupChildrenHeading => 'Fields in this group';
+
+  @override
+  String customFieldGroupChildrenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count fields',
+      one: '1 field',
+      zero: 'No fields yet',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customFieldGroupAddChildButtonShort => 'Add field';
+
+  @override
+  String get customFieldGroupChildrenEmptyTitle => 'No fields yet';
+
+  @override
+  String get customFieldGroupChildrenEmptySubtitle =>
+      'Add fields to organize related details together.';
+
+  @override
   String get customFieldTypeScale => 'Scale';
 
   @override

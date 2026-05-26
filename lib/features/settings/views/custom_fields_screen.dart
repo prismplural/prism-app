@@ -290,7 +290,14 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     }).toList();
   }
 
+  /// Unnamed groups need a clickable label in toasts/dialogs too.
+  String _displayName(BuildContext context, CustomField f) =>
+      f.fieldTypeId == 'group' && f.name.trim().isEmpty
+          ? context.l10n.customFieldGroupUntitledFallback
+          : f.name;
+
   Future<void> _moveIntoGroup(BuildContext context, CustomField targetGroup) async {
+    final movedName = _displayName(context, widget.field);
     final failure = await ref
         .read(customFieldNotifierProvider.notifier)
         .moveFieldToParent(widget.field.id, targetGroup.id);
@@ -301,11 +308,12 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     }
     PrismToast.show(
       context,
-      message: '${widget.field.name} moved into ${targetGroup.name}',
+      message: '$movedName moved into ${targetGroup.name}',
     );
   }
 
   Future<void> _moveOutOfGroup(BuildContext context) async {
+    final movedName = _displayName(context, widget.field);
     final failure = await ref
         .read(customFieldNotifierProvider.notifier)
         .moveFieldToParent(widget.field.id, null);
@@ -316,7 +324,7 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     }
     PrismToast.show(
       context,
-      message: '${widget.field.name} moved to top level',
+      message: '$movedName moved to top level',
     );
   }
 
@@ -332,8 +340,9 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
 
   Future<void> _confirmDelete(BuildContext context) async {
     final navigator = Navigator.of(context);
+    final displayName = _displayName(context, widget.field);
     final deletedToast = context.l10n.settingsCustomFieldsDeletedToast(
-      widget.field.name,
+      displayName,
     );
 
     bool? deleteChildren; // null = cancel, false = promote, true = delete children
@@ -344,7 +353,7 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
         builder: (ctx) {
           final theme = Theme.of(ctx);
           return AlertDialog(
-            title: Text(context.l10n.customFieldGroupDeleteTitle(widget.field.name)),
+            title: Text(context.l10n.customFieldGroupDeleteTitle(displayName)),
             content: Text(context.l10n.customFieldGroupDeleteMessage),
             actions: [
               TextButton(
@@ -371,7 +380,7 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
       final confirmed = await PrismDialog.confirm(
         context: context,
         title: context.l10n.settingsCustomFieldsDeleteTitle,
-        message: context.l10n.settingsCustomFieldsDeleteConfirm(widget.field.name),
+        message: context.l10n.settingsCustomFieldsDeleteConfirm(displayName),
         confirmLabel: context.l10n.delete,
         destructive: true,
       );
@@ -451,9 +460,26 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     //   - Move-to-another: only when nested AND other groups exist.
     final theme = widget.theme;
 
+    // Unnamed groups (allowed by the editor) still need a clickable label so
+    // the user can find and edit them. Non-group fields are never empty —
+    // the editor enforces a non-empty name for them.
+    final displayName = field.name.trim().isEmpty && field.fieldTypeId == 'group'
+        ? context.l10n.customFieldGroupUntitledFallback
+        : field.name;
+    final isPlaceholderName =
+        field.name.trim().isEmpty && field.fieldTypeId == 'group';
+
     final Widget rowContent = PrismListRow(
       leading: Icon(widget.iconForField(field), color: theme.colorScheme.primary),
-      title: Text(field.name),
+      title: Text(
+        displayName,
+        style: isPlaceholderName
+            ? theme.textTheme.bodyLarge?.copyWith(
+                fontStyle: FontStyle.italic,
+                color: theme.colorScheme.onSurfaceVariant,
+              )
+            : null,
+      ),
       subtitle: Text(
         widget.subtitleForField(context, field),
         style: theme.textTheme.bodySmall?.copyWith(

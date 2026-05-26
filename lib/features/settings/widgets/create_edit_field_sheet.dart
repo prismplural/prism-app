@@ -106,6 +106,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   late final TextEditingController _sliderUnitController;
   bool _sliderShowTicks = false;
 
+  // Group config state.
+  bool _groupHideTitleOnProfile = false;
+
   bool _saving = false;
   late final String _initialName;
   late final String _initialTypeId;
@@ -117,7 +120,18 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       _selectedPrecision != _initialPrecision ||
       (_selectedTypeId == 'choice' && _isChoiceDirty) ||
       (_selectedTypeId == 'scale' && _isScaleDirty) ||
-      (_selectedTypeId == 'slider' && _isSliderDirty);
+      (_selectedTypeId == 'slider' && _isSliderDirty) ||
+      (_selectedTypeId == 'group' && _isGroupDirty);
+
+  bool get _isGroupDirty {
+    final existingConfig = widget.field?.typeConfig;
+    if (existingConfig is! GroupConfig || _selectedTypeId != 'group') {
+      // Default for a fresh group is hideTitleOnProfile=false. Treat any flip
+      // from that as dirty so the save button activates.
+      return _groupHideTitleOnProfile;
+    }
+    return existingConfig.hideTitleOnProfile != _groupHideTitleOnProfile;
+  }
 
   bool get _isScaleDirty {
     final existingConfig = widget.field?.typeConfig;
@@ -218,6 +232,11 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         final config = f.typeConfig! as ScaleConfig;
         _scaleEmoji = config.emoji;
         _scaleSteps = config.steps;
+      }
+      // Hydrate group config from existing field.
+      if (f.typeConfig is GroupConfig) {
+        final config = f.typeConfig! as GroupConfig;
+        _groupHideTitleOnProfile = config.hideTitleOnProfile;
       }
       // Hydrate slider config from existing field.
       if (f.typeConfig is SliderConfig) {
@@ -376,6 +395,20 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     return ScaleConfig(emoji: _scaleEmoji, steps: _scaleSteps);
   }
 
+  // ── Group helpers ───────────────────────────────────────────────────
+
+  /// Build the current [GroupConfig] from UI state. Preserves `icon` and any
+  /// forward-compat `extra` keys on the existing field, so the toggle change
+  /// does not blow away icon selection set elsewhere or unknown keys synced
+  /// from peers on newer versions.
+  GroupConfig _buildGroupConfig() {
+    final existing = widget.field?.typeConfig;
+    if (existing is GroupConfig) {
+      return existing.copyWith(hideTitleOnProfile: _groupHideTitleOnProfile);
+    }
+    return GroupConfig(hideTitleOnProfile: _groupHideTitleOnProfile);
+  }
+
   // ── Slider helpers ──────────────────────────────────────────────────
 
   String? _sliderTextToNull(TextEditingController c) {
@@ -463,7 +496,10 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
 
   Future<void> _save() async {
     final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    // Group fields may be unnamed (used as a pure visual container). All
+    // other types require a name — they need a label to identify them in
+    // lists, pickers, and on profiles.
+    if (name.isEmpty && _selectedTypeId != 'group') return;
 
     setState(() => _saving = true);
 
@@ -487,6 +523,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         'choice' => _buildChoiceConfig(),
         'scale' => _buildScaleConfig(),
         'slider' => _buildSliderConfig(),
+        'group' => _buildGroupConfig(),
         _ => null,
       };
 
@@ -585,8 +622,10 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final sliderError = _sliderNumericError(l10n);
-    final canSave =
-        _nameController.text.trim().isNotEmpty && sliderError == null;
+    // Groups may be unnamed; every other type requires a name to be saveable.
+    final hasNameOrIsGroup =
+        _nameController.text.trim().isNotEmpty || _selectedTypeId == 'group';
+    final canSave = hasNameOrIsGroup && sliderError == null;
 
     return ListenableBuilder(
       // Also listen to slider controllers so canSave reacts to min/max/step.
@@ -778,6 +817,17 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         ),
                         onStepsChanged: (v) =>
                             setState(() => _scaleSteps = v),
+                      ),
+                    ],
+
+                    // Group config
+                    if (_selectedTypeId == 'group') ...[
+                      const SizedBox(height: 24),
+                      _GroupConfigSection(
+                        hideTitleOnProfile: _groupHideTitleOnProfile,
+                        onHideTitleChanged: (v) => setState(
+                          () => _groupHideTitleOnProfile = v,
+                        ),
                       ),
                     ],
 
@@ -1901,6 +1951,45 @@ class _DuplicateWarningChip extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
       ),
+    );
+  }
+}
+
+// ── Group config section ────────────────────────────────────────────────────
+
+class _GroupConfigSection extends StatelessWidget {
+  const _GroupConfigSection({
+    required this.hideTitleOnProfile,
+    required this.onHideTitleChanged,
+  });
+
+  final bool hideTitleOnProfile;
+  final ValueChanged<bool> onHideTitleChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: !hideTitleOnProfile,
+          onChanged: (v) => onHideTitleChanged(!v),
+          title: Text(
+            l10n.customFieldGroupShowTitleLabel,
+            style: theme.textTheme.bodyMedium,
+          ),
+          subtitle: Text(
+            l10n.customFieldGroupShowTitleSubtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
