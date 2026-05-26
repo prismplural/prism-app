@@ -4,8 +4,15 @@ import 'package:prism_plurality/domain/custom_fields/slider_gradient_presets.dar
 
 void main() {
   group('kSliderGradientPresets', () {
-    test('has at least 12 entries', () {
-      expect(kSliderGradientPresets.length, greaterThanOrEqualTo(12));
+    test('has 17 entries', () {
+      expect(kSliderGradientPresets.length, equals(17));
+    });
+
+    test('palette category has six presets', () {
+      final palette = kSliderGradientPresets.where(
+        (p) => p.category == SliderGradientCategory.palette,
+      ).toList();
+      expect(palette.length, 6);
     });
 
     test('all preset IDs are unique', () {
@@ -20,8 +27,19 @@ void main() {
       expect(preset, isNotNull);
       expect(preset!.id, 'femme-masc');
       expect(preset.category, SliderGradientCategory.identity);
-      expect(preset.leftHex, '#F4A6C8');
-      expect(preset.rightHex, '#7BA5D8');
+      expect(preset.leftHex, '#E89BB8');
+      expect(preset.centerHex, '#F0E6D6');
+      expect(preset.rightHex, '#8FAA9A');
+    });
+
+    test('lookupGradientPreset("palette-rose-dusk") returns the correct entry', () {
+      final preset = lookupGradientPreset('palette-rose-dusk');
+      expect(preset, isNotNull);
+      expect(preset!.id, 'palette-rose-dusk');
+      expect(preset.category, SliderGradientCategory.palette);
+      expect(preset.leftHex, '#F4B89E');
+      expect(preset.centerHex, '#D17A8E');
+      expect(preset.rightHex, '#5B4378');
     });
 
     test('lookupGradientPreset("nonexistent") returns null', () {
