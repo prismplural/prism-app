@@ -433,20 +433,32 @@ class _SliderDisplayWidget extends StatelessWidget {
 // ─── Compact ──────────────────────────────────────────────────────────────────
 
 /// Builds the compact list-row display for a Slider field value.
-/// Shows a 60dp mini-track widget with filled bar + dot + word suffix.
+/// Mini-track widget with filled bar + dot + word suffix. [trackWidth]
+/// defaults to a width that reads well in narrow list rows; surfaces with
+/// more horizontal room can pass a larger value.
 Widget buildSliderCompact(
   BuildContext context,
   CustomField field,
-  CustomFieldValue value,
-) {
-  return _SliderCompactWidget(field: field, value: value);
+  CustomFieldValue value, {
+  double trackWidth = 60,
+}) {
+  return _SliderCompactWidget(
+    field: field,
+    value: value,
+    trackWidth: trackWidth,
+  );
 }
 
 class _SliderCompactWidget extends StatelessWidget {
-  const _SliderCompactWidget({required this.field, required this.value});
+  const _SliderCompactWidget({
+    required this.field,
+    required this.value,
+    this.trackWidth = 60,
+  });
 
   final CustomField field;
   final CustomFieldValue value;
+  final double trackWidth;
 
   SliderConfig _config() {
     final c = field.typeConfig;
@@ -484,7 +496,7 @@ class _SliderCompactWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          width: 60,
+          width: trackWidth,
           height: 16,
           child: CustomPaint(
             painter: _MiniTrackPainter(

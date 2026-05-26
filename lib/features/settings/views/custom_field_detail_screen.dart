@@ -14,6 +14,8 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/widgets/scale_field_widgets.dart';
+import 'package:prism_plurality/features/members/widgets/slider_field_widgets.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -25,6 +27,7 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -722,7 +725,7 @@ class _FilledValueRow extends StatelessWidget {
           size: 36,
         ),
         title: Text(memberName),
-        subtitle: _ValuePreview(field: field, rawValue: entry.value.value),
+        subtitle: _ValuePreview(field: field, value: entry.value),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
     );
@@ -737,23 +740,30 @@ class _FilledValueRow extends StatelessWidget {
 }
 
 class _ValuePreview extends StatelessWidget {
-  const _ValuePreview({required this.field, required this.rawValue});
+  const _ValuePreview({required this.field, required this.value});
 
   static const _previewCharacterLimit = 220;
   static const _previewLineLimit = 4;
 
   final CustomField field;
-  final String rawValue;
+  final CustomFieldValue value;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final formattedValue = _formatValueForField(context, field, rawValue);
+    final rawValue = value.value;
 
+    if (field.fieldTypeId == 'slider') {
+      return buildSliderCompact(context, field, value, trackWidth: 140);
+    }
+    if (field.fieldTypeId == 'scale') {
+      return buildScaleMini(context, field, value);
+    }
     if (field.fieldType == CustomFieldType.color) {
       return _ColorValue(value: rawValue);
     }
 
+    final formattedValue = _formatValueForField(context, field, rawValue);
     final preview = _buildPreview(formattedValue);
     final isTruncated = preview != formattedValue.trimRight();
     return Text(
@@ -942,6 +952,14 @@ class _GroupContentsSection extends ConsumerWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                const Spacer(),
+                PrismInlineIconButton(
+                  icon: AppIcons.add,
+                  iconSize: 20,
+                  color: theme.colorScheme.primary,
+                  onPressed: () => _openAddChildSheet(context),
+                  tooltip: context.l10n.settingsCustomFieldsAddTooltip,
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -983,20 +1001,6 @@ class _GroupContentsSection extends ConsumerWidget {
                   },
                 ),
               ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: () => _openAddChildSheet(context),
-                icon: Icon(AppIcons.add, size: 18),
-                label:
-                    Text(context.l10n.customFieldGroupAddChildButtonShort),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
-            ),
           ],
         );
       },

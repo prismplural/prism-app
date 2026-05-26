@@ -337,6 +337,59 @@ Widget buildScaleCompact(
   return _ScaleCompactWidget(field: field, value: value);
 }
 
+/// Mini visual rendering — a row of emojis at [emojiSize], dimmed for steps
+/// past the selected value. Returns [SizedBox.shrink] when no value is set.
+Widget buildScaleMini(
+  BuildContext context,
+  CustomField field,
+  CustomFieldValue value, {
+  double emojiSize = 14,
+}) {
+  return _ScaleMiniWidget(
+    field: field,
+    value: value,
+    emojiSize: emojiSize,
+  );
+}
+
+class _ScaleMiniWidget extends StatelessWidget {
+  const _ScaleMiniWidget({
+    required this.field,
+    required this.value,
+    required this.emojiSize,
+  });
+
+  final CustomField field;
+  final CustomFieldValue value;
+  final double emojiSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final config = field.typeConfig is ScaleConfig
+        ? field.typeConfig! as ScaleConfig
+        : const ScaleConfig();
+    final parsed = scaleFieldDefinition.valueParser(value.value);
+    final selectedStep = parsed is ScaleFieldValue ? parsed.step : null;
+    if (selectedStep == null || selectedStep < 1) return const SizedBox.shrink();
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < config.steps; i++) ...[
+          if (i > 0) const SizedBox(width: 2),
+          Opacity(
+            opacity: (i + 1) <= selectedStep ? 1.0 : 0.35,
+            child: Text(
+              config.emoji,
+              style: TextStyle(fontSize: emojiSize),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _ScaleCompactWidget extends StatelessWidget {
   const _ScaleCompactWidget({required this.field, required this.value});
 
