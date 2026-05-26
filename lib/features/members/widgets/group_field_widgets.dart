@@ -211,15 +211,14 @@ class GroupDisplayWidget extends ConsumerWidget {
           for (final child in children) {
             final value = valuesByFieldId[child.id];
             if (value == null || value.value.isEmpty) continue;
-            final def =
-                customFieldTypeRegistry.lookupById(child.fieldTypeId);
-            final renderer = rendererFor(def);
+            final renderer = rendererFor(
+              customFieldTypeRegistry.lookupById(child.fieldTypeId),
+            );
             if (renderer == null) continue;
             childEntries.add(
               _GroupChildEntry(
                 child: child,
                 value: value,
-                icon: def?.icon ?? AppIcons.textFields,
                 renderer: renderer,
               ),
             );
@@ -254,87 +253,83 @@ class _GroupChildEntry {
   const _GroupChildEntry({
     required this.child,
     required this.value,
-    required this.icon,
     required this.renderer,
   });
 
   final CustomField child;
   final CustomFieldValue value;
-  final IconData icon;
   final CustomFieldRenderer renderer;
 }
 
 /// Compact `Name | Value` for short single-line types; stacked header +
-/// body for everything else.
+/// body for everything else. Long text skips the parent header — markdown
+/// bodies usually carry their own.
 class _GroupChildDisplay extends StatelessWidget {
   const _GroupChildDisplay({required this.entry});
 
   final _GroupChildEntry entry;
 
   static const _compactTypeIds = <String>{'text', 'color', 'date'};
+  static const _headerlessTypeIds = <String>{'long_text'};
 
   bool get _isCompact => _compactTypeIds.contains(entry.child.fieldTypeId);
+  bool get _isHeaderless =>
+      _headerlessTypeIds.contains(entry.child.fieldTypeId);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (_isHeaderless) {
+      return entry.renderer.displayBuilder(context, entry.child, entry.value);
+    }
     if (_isCompact) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Flexible(
-            flex: 2,
-            fit: FlexFit.tight,
-            child: Text(
-              entry.child.name,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.35,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Flexible(
-            flex: 3,
-            fit: FlexFit.tight,
-            child: DefaultTextStyle.merge(
-              style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
-              textAlign: TextAlign.end,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: entry.renderer.displayBuilder(
-                  context,
-                  entry.child,
-                  entry.value,
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(
+              flex: 2,
+              fit: FlexFit.tight,
+              child: Text(
+                entry.child.name,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.35,
                 ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Flexible(
+              flex: 3,
+              fit: FlexFit.tight,
+              child: DefaultTextStyle.merge(
+                style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+                textAlign: TextAlign.end,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: entry.renderer.displayBuilder(
+                    context,
+                    entry.child,
+                    entry.value,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Icon(
-              entry.icon,
-              size: 16,
-              color: theme.colorScheme.primary,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                entry.child.name,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  height: 1.25,
-                ),
-              ),
-            ),
-          ],
+        Text(
+          entry.child.name,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+          ),
         ),
         const SizedBox(height: 8),
         entry.renderer.displayBuilder(context, entry.child, entry.value),
