@@ -14,6 +14,9 @@ class PollsDao extends DatabaseAccessor<AppDatabase> with _$PollsDaoMixin {
             ..orderBy([(p) => OrderingTerm.desc(p.createdAt)]))
           .get();
 
+  /// Includes soft-deleted rows; safe for dedup since tombstones retain the id.
+  Future<List<Poll>> getAllPollsIncludingDeleted() => select(polls).get();
+
   Stream<List<Poll>> watchAllPolls() =>
       (select(polls)
             ..where((p) => p.isDeleted.equals(false))

@@ -1479,10 +1479,14 @@ class DataImportService {
         }
 
         // 6. Import polls + options + votes
+        //
+        // Dedup includes tombstones: sync upserts into these tables and
+        // soft-delete keeps the PK id in place, so a filtered query would
+        // miss it and the INSERT would roll back the import transaction.
         var pollsCreated = 0;
         var pollOptionsCreated = 0;
-        final existingPolls = await pollRepository.getAllPolls();
-        final existingPollIds = existingPolls.map((p) => p.id).toSet();
+        final allPollRows = await db.pollsDao.getAllPollsIncludingDeleted();
+        final existingPollIds = <String>{for (final p in allPollRows) p.id};
 
         for (final p in export.polls) {
           if (existingPollIds.contains(p.id)) continue;
@@ -1503,11 +1507,14 @@ class DataImportService {
           pollsCreated++;
         }
 
-        // Batch-load all existing poll option IDs in one query.
-        final allOptions = await pollRepository.getAllOptions();
+        final allOptionRows = await db.pollOptionsDao
+            .getAllOptionsIncludingDeleted();
         final existingOptionIds = <String>{
-          for (final opt in allOptions) opt.id,
+          for (final o in allOptionRows) o.id,
         };
+        final allVoteRows = await db.pollVotesDao
+            .getAllVotesIncludingDeleted();
+        final existingVoteIds = <String>{for (final v in allVoteRows) v.id};
         for (final o in export.pollOptions) {
           if (existingOptionIds.contains(o.id)) continue;
 
@@ -1525,6 +1532,7 @@ class DataImportService {
 
           // Import votes for this option
           for (final v in o.votes) {
+            if (existingVoteIds.contains(v.id)) continue;
             await pollRepository.castVote(
               PollVote(
                 id: v.id,

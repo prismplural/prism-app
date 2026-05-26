@@ -15,6 +15,10 @@ class PollOptionsDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(o) => OrderingTerm.asc(o.sortOrder)]))
           .get();
 
+  /// Includes soft-deleted rows; safe for dedup since tombstones retain the id.
+  Future<List<PollOption>> getAllOptionsIncludingDeleted() =>
+      select(pollOptions).get();
+
   Future<List<PollOption>> getOptionsForPoll(String pollId) =>
       (select(pollOptions)
             ..where((o) => o.pollId.equals(pollId) & o.isDeleted.equals(false))

@@ -22,6 +22,9 @@ import 'package:prism_plurality/data/repositories/drift_conversation_categories_
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_friends_repository.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/poll.dart';
+import 'package:prism_plurality/domain/models/poll_option.dart';
+import 'package:prism_plurality/domain/models/poll_vote.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 
@@ -503,6 +506,287 @@ void main() {
         final settings = await settingsRepo.getSettings();
         expect(settings.systemName, 'Imported System');
         expect(settings.hasCompletedOnboarding, isFalse);
+      },
+    );
+
+    test(
+      'import dedupes poll votes already written to the destination',
+      () async {
+        // Reproduces the onboarding collision: relay sync upserts a vote
+        // row, the user falls back to backup import, the bare INSERT
+        // collides on poll_votes.id.
+        final pollRepo = DriftPollRepository(
+          db.pollsDao,
+          db.pollOptionsDao,
+          db.pollVotesDao,
+          null,
+        );
+
+        final now = DateTime(2026, 1, 15, 10, 0, 0).toUtc();
+        const pollId = 'poll-1';
+        const optionId = 'opt-1';
+        const voteId = '77c17336-87d6-4b9f-a513-34817f6bff86';
+        const memberId = 'member-1';
+
+        // Seed only the vote, not the parent option — that matches the
+        // observed user state where the option dedup did not trigger but
+        // the vote insert collided. poll_votes has no FK to poll_options.
+        await pollRepo.castVote(
+          PollVote(id: voteId, memberId: memberId, votedAt: now),
+          optionId,
+        );
+
+        final json = jsonEncode({
+          'formatVersion': '1.0',
+          'version': '1.0',
+          'appName': 'Prism Plurality',
+          'exportDate': now.toIso8601String(),
+          'totalRecords': 1,
+          'headmates': [
+            {
+              'id': memberId,
+              'name': 'Voter',
+              'isActive': true,
+              'createdAt': now.toIso8601String(),
+              'displayOrder': 0,
+              'isAdmin': false,
+              'customColorEnabled': false,
+            },
+          ],
+          'frontSessions': [],
+          'sleepSessions': [],
+          'conversations': [],
+          'messages': [],
+          'polls': [
+            {
+              'id': pollId,
+              'question': 'Do you want freeform?',
+              'isAnonymous': false,
+              'allowsMultipleVotes': false,
+              'isClosed': false,
+              'createdAt': now.toIso8601String(),
+            },
+          ],
+          'pollOptions': [
+            {
+              'id': optionId,
+              'pollId': pollId,
+              'text': 'Yes',
+              'sortOrder': 0,
+              'isOtherOption': true,
+              'votes': [
+                {
+                  'id': voteId,
+                  'memberId': memberId,
+                  'votedAt': now.toIso8601String(),
+                  'responseText': 'a freeform answer',
+                },
+              ],
+            },
+          ],
+          'systemSettings': [],
+          'habits': [],
+          'habitCompletions': [],
+        });
+
+        final result = await importService.importData(json);
+        expect(result.pollsCreated, 1);
+        expect(result.pollOptionsCreated, 1);
+
+        final votes = await pollRepo.getAllVotes();
+        expect(votes.where((v) => v.id == voteId), hasLength(1));
+      },
+    );
+
+    test(
+      'import dedupes poll/option/vote tombstones in the destination',
+      () async {
+        // Soft-delete keeps the PK id; dedup must include tombstones or
+        // the import rolls back on UNIQUE constraint. This exercises the
+        // polls.id path — the option tombstone short-circuits the outer
+        // loop, so the vote tombstone path is covered by the next test.
+        final pollRepo = DriftPollRepository(
+          db.pollsDao,
+          db.pollOptionsDao,
+          db.pollVotesDao,
+          null,
+        );
+
+        final now = DateTime(2026, 1, 15, 10, 0, 0).toUtc();
+        const pollId = 'tomb-poll-1';
+        const optionId = 'tomb-opt-1';
+        const voteId = 'tomb-vote-1';
+        const memberId = 'tomb-member-1';
+
+        await pollRepo.createPoll(
+          Poll(id: pollId, question: 'tombstoned', createdAt: now),
+        );
+        await pollRepo.createOption(
+          PollOption(id: optionId, text: 'Yes'),
+          pollId,
+        );
+        await pollRepo.castVote(
+          PollVote(id: voteId, memberId: memberId, votedAt: now),
+          optionId,
+        );
+        await db.pollVotesDao.softDeleteVote(voteId);
+        await db.pollOptionsDao.softDeleteOption(optionId);
+        await db.pollsDao.softDeletePoll(pollId);
+
+        expect(await pollRepo.getAllPolls(), isEmpty);
+        expect(await pollRepo.getAllOptions(), isEmpty);
+        expect(await pollRepo.getAllVotes(), isEmpty);
+        expect(
+          (await db.pollsDao.getAllPollsIncludingDeleted())
+              .map((p) => p.id),
+          contains(pollId),
+        );
+
+        final json = jsonEncode({
+          'formatVersion': '1.0',
+          'version': '1.0',
+          'appName': 'Prism Plurality',
+          'exportDate': now.toIso8601String(),
+          'totalRecords': 1,
+          'headmates': [
+            {
+              'id': memberId,
+              'name': 'Voter',
+              'isActive': true,
+              'createdAt': now.toIso8601String(),
+              'displayOrder': 0,
+              'isAdmin': false,
+              'customColorEnabled': false,
+            },
+          ],
+          'frontSessions': [],
+          'sleepSessions': [],
+          'conversations': [],
+          'messages': [],
+          'polls': [
+            {
+              'id': pollId,
+              'question': 'tombstoned',
+              'isAnonymous': false,
+              'allowsMultipleVotes': false,
+              'isClosed': false,
+              'createdAt': now.toIso8601String(),
+            },
+          ],
+          'pollOptions': [
+            {
+              'id': optionId,
+              'pollId': pollId,
+              'text': 'Yes',
+              'sortOrder': 0,
+              'isOtherOption': false,
+              'votes': [
+                {
+                  'id': voteId,
+                  'memberId': memberId,
+                  'votedAt': now.toIso8601String(),
+                },
+              ],
+            },
+          ],
+          'systemSettings': [],
+          'habits': [],
+          'habitCompletions': [],
+        });
+
+        await importService.importData(json);
+
+        expect(await pollRepo.getAllPolls(), isEmpty);
+        expect(await pollRepo.getAllOptions(), isEmpty);
+        expect(await pollRepo.getAllVotes(), isEmpty);
+      },
+    );
+
+    test(
+      'import dedupes orphan poll vote tombstone via fresh option',
+      () async {
+        // Pins the vote tombstone path: seed only a soft-deleted orphan
+        // vote, then import a fresh poll + fresh option whose votes array
+        // references the same id. The option dedup does not short-circuit,
+        // so the inner vote loop runs and must skip on existingVoteIds.
+        final pollRepo = DriftPollRepository(
+          db.pollsDao,
+          db.pollOptionsDao,
+          db.pollVotesDao,
+          null,
+        );
+
+        final now = DateTime(2026, 1, 15, 10, 0, 0).toUtc();
+        const memberId = 'orphan-vote-member';
+        const tombstonedVoteId = 'orphan-vote-tombstone';
+        const newPollId = 'fresh-poll';
+        const newOptionId = 'fresh-opt';
+
+        await pollRepo.castVote(
+          PollVote(id: tombstonedVoteId, memberId: memberId, votedAt: now),
+          'seed-only-option',
+        );
+        await db.pollVotesDao.softDeleteVote(tombstonedVoteId);
+
+        final json = jsonEncode({
+          'formatVersion': '1.0',
+          'version': '1.0',
+          'appName': 'Prism Plurality',
+          'exportDate': now.toIso8601String(),
+          'totalRecords': 1,
+          'headmates': [
+            {
+              'id': memberId,
+              'name': 'Voter',
+              'isActive': true,
+              'createdAt': now.toIso8601String(),
+              'displayOrder': 0,
+              'isAdmin': false,
+              'customColorEnabled': false,
+            },
+          ],
+          'frontSessions': [],
+          'sleepSessions': [],
+          'conversations': [],
+          'messages': [],
+          'polls': [
+            {
+              'id': newPollId,
+              'question': 'fresh',
+              'isAnonymous': false,
+              'allowsMultipleVotes': false,
+              'isClosed': false,
+              'createdAt': now.toIso8601String(),
+            },
+          ],
+          'pollOptions': [
+            {
+              'id': newOptionId,
+              'pollId': newPollId,
+              'text': 'Yes',
+              'sortOrder': 0,
+              'isOtherOption': false,
+              'votes': [
+                {
+                  'id': tombstonedVoteId,
+                  'memberId': memberId,
+                  'votedAt': now.toIso8601String(),
+                },
+              ],
+            },
+          ],
+          'systemSettings': [],
+          'habits': [],
+          'habitCompletions': [],
+        });
+
+        final result = await importService.importData(json);
+        expect(result.pollsCreated, 1);
+        expect(result.pollOptionsCreated, 1);
+
+        expect(await pollRepo.getAllPolls(), hasLength(1));
+        expect(await pollRepo.getAllOptions(), hasLength(1));
+        expect(await pollRepo.getAllVotes(), isEmpty);
       },
     );
   });

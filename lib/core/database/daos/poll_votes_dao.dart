@@ -12,6 +12,10 @@ class PollVotesDao extends DatabaseAccessor<AppDatabase>
   Future<List<PollVote>> getAllVotes() =>
       (select(pollVotes)..where((v) => v.isDeleted.equals(false))).get();
 
+  /// Includes soft-deleted rows; safe for dedup since tombstones retain the id.
+  Future<List<PollVote>> getAllVotesIncludingDeleted() =>
+      select(pollVotes).get();
+
   Future<List<PollVote>> getVotesForOption(String optionId) =>
       (select(pollVotes)
             ..where(
