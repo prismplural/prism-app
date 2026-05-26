@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/custom_fields/custom_field_type_registry.dart';
 import 'package:prism_plurality/domain/custom_fields/definitions/choice_field_definition.dart';
 import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
@@ -207,9 +208,15 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        field.name,
+                        _displayName(context, field),
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          fontStyle: _isPlaceholderName(field)
+                              ? FontStyle.italic
+                              : FontStyle.normal,
+                          color: _isPlaceholderName(field)
+                              ? theme.colorScheme.onSurfaceVariant
+                              : null,
                         ),
                       ),
                       // "Inside: {group}" badge when nested.
@@ -262,7 +269,14 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
               ),
             ),
             const SizedBox(height: 28),
-            _FilledInSection(field: field),
+            // Groups don't have per-member values, so "Filled in by N members"
+            // would always be 0 and is misleading. Pivot to a list of the
+            // group's child fields instead — that's the meaningful thing a
+            // user comes here to inspect or change.
+            if (isGroup)
+              _GroupContentsSection(group: field)
+            else
+              _FilledInSection(field: field),
           ],
         ),
       ),
@@ -345,6 +359,7 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
   }
 
   Future<void> _moveIntoGroup(BuildContext context, CustomField targetGroup) async {
+    final movedName = _displayName(context, field);
     final failure = await ref
         .read(customFieldNotifierProvider.notifier)
         .moveFieldToParent(field.id, targetGroup.id);
@@ -355,11 +370,12 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
     }
     PrismToast.show(
       context,
-      message: '${field.name} moved into ${targetGroup.name}',
+      message: '$movedName moved into ${targetGroup.name}',
     );
   }
 
   Future<void> _moveOutOfGroup(BuildContext context) async {
+    final movedName = _displayName(context, field);
     final failure = await ref
         .read(customFieldNotifierProvider.notifier)
         .moveFieldToParent(field.id, null);
@@ -370,15 +386,16 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
     }
     PrismToast.show(
       context,
-      message: '${field.name} moved to top level',
+      message: '$movedName moved to top level',
     );
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
     final navigator = Navigator.of(context);
     final router = GoRouter.maybeOf(context);
+    final displayName = _displayName(context, field);
     final deletedToast = context.l10n.settingsCustomFieldsDeletedToast(
-      field.name,
+      displayName,
     );
 
     bool? deleteChildren; // null = cancel, false = promote, true = delete children
@@ -389,7 +406,7 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
         builder: (ctx) {
           final theme = Theme.of(ctx);
           return AlertDialog(
-            title: Text(context.l10n.customFieldGroupDeleteTitle(field.name)),
+            title: Text(context.l10n.customFieldGroupDeleteTitle(displayName)),
             content: Text(context.l10n.customFieldGroupDeleteMessage),
             actions: [
               TextButton(
@@ -416,7 +433,7 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
       final confirmed = await PrismDialog.confirm(
         context: context,
         title: context.l10n.settingsCustomFieldsDeleteTitle,
-        message: context.l10n.settingsCustomFieldsDeleteConfirm(field.name),
+        message: context.l10n.settingsCustomFieldsDeleteConfirm(displayName),
         confirmLabel: context.l10n.delete,
         destructive: true,
       );
@@ -438,6 +455,17 @@ class _CustomFieldDetailBodyState extends ConsumerState<_CustomFieldDetailBody> 
       navigator.pop();
     }
   }
+
+  /// Group fields are allowed to have an empty name (they can be used as
+  /// pure visual containers). Surfaces still need a clickable label so
+  /// users can find and edit them — fall back to a placeholder.
+  bool _isPlaceholderName(CustomField field) =>
+      field.fieldTypeId == 'group' && field.name.trim().isEmpty;
+
+  String _displayName(BuildContext context, CustomField field) =>
+      _isPlaceholderName(field)
+          ? context.l10n.customFieldGroupUntitledFallback
+          : field.name;
 
   /// Registry-driven icon. Falls back to enum-based lookup for legacy types
   /// if the registry entry has no entry (shouldn't happen in practice).
@@ -884,5 +912,173 @@ String _formatDateValue(
     };
   } catch (_) {
     return raw;
+  }
+}
+
+// ─── Group contents section ─────────────────────────────────────────────────
+
+/// Section on the group detail screen listing the group's child fields.
+///
+/// Replaces the "Filled in by N members" section for groups, which would
+/// always be 0 (groups have no per-member values). The user comes to a
+/// group's detail screen to see what's *in* the group and to add more.
+///
+/// Rows are non-reorderable here. Cross-group reorder is deferred to a
+/// later batch (see comment in [custom_fields_screen.dart]).
+class _GroupContentsSection extends ConsumerWidget {
+  const _GroupContentsSection({required this.group});
+
+  final CustomField group;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final fieldsAsync = ref.watch(customFieldsProvider);
+
+    return fieldsAsync.when(
+      loading: () => const PrismLoadingState(),
+      error: (e, _) => Center(
+        child: Text(context.l10n.settingsCustomFieldsError(e.toString())),
+      ),
+      data: (allFields) {
+        final children = allFields
+            .where((f) => f.parentFieldId == group.id)
+            .toList()
+          ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  AppIcons.folderOutlined,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  context.l10n.customFieldGroupChildrenHeading,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              context.l10n.customFieldGroupChildrenCount(children.length),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (children.isEmpty)
+              EmptyState(
+                icon: Icon(AppIcons.folderOutlined),
+                title: context.l10n.customFieldGroupChildrenEmptyTitle,
+                subtitle:
+                    context.l10n.customFieldGroupChildrenEmptySubtitle,
+              )
+            else
+              PrismSectionCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    for (var i = 0; i < children.length; i++) ...[
+                      if (i > 0) const Divider(height: 1),
+                      _GroupChildRow(child: children[i]),
+                    ],
+                  ],
+                ),
+              ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => _openAddChildSheet(context),
+                icon: Icon(AppIcons.add, size: 18),
+                label:
+                    Text(context.l10n.customFieldGroupAddChildButtonShort),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openAddChildSheet(BuildContext context) {
+    PrismSheet.showFullScreen(
+      context: context,
+      builder: (ctx, scrollController) => CreateEditFieldSheet(
+        scrollController: scrollController,
+        parentFieldId: group.id,
+      ),
+    );
+  }
+}
+
+class _GroupChildRow extends StatelessWidget {
+  const _GroupChildRow({required this.child});
+
+  final CustomField child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final def = customFieldTypeRegistry.lookupById(child.fieldTypeId);
+    final icon = def?.icon ?? AppIcons.textFields;
+    final subtitle = _childSubtitle(context, child, def);
+
+    return PrismListRow(
+      leading: Icon(icon, color: theme.colorScheme.primary),
+      title: Text(child.name),
+      subtitle: Text(
+        subtitle,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+      trailing: Icon(
+        AppIcons.chevronRightRounded,
+        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+      ),
+      onTap: () => context.push(AppRoutePaths.settingsCustomField(child.id)),
+      // Use the same dense row used elsewhere on the detail screen.
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    );
+  }
+
+  String _childSubtitle(
+    BuildContext context,
+    CustomField field,
+    CustomFieldTypeDefinition? def,
+  ) {
+    final l10n = context.l10n;
+    if (def != null) {
+      final label = switch (def.labelL10nKey) {
+        'customFieldTypeShortText' => l10n.customFieldTypeShortText,
+        'customFieldTypeLongText' => l10n.customFieldTypeLongText,
+        'customFieldTypeColor' => l10n.customFieldTypeColor,
+        'customFieldTypeDate' => l10n.customFieldTypeDate,
+        'customFieldTypeChoice' => l10n.customFieldTypeChoice,
+        'customFieldTypeGroup' => l10n.customFieldTypeGroup,
+        'customFieldTypeScale' => l10n.customFieldTypeScale,
+        'customFieldTypeSlider' => l10n.customFieldTypeSlider,
+        _ => def.labelL10nKey,
+      };
+      if (field.fieldType == CustomFieldType.date &&
+          field.datePrecision != null) {
+        return '$label • ${field.datePrecision!.localizedLabel(l10n)}';
+      }
+      return label;
+    }
+    return field.fieldType.localizedLabel(l10n);
   }
 }
