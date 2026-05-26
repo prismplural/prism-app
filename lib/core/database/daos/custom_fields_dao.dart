@@ -159,4 +159,31 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
   Future<void> deleteValuesForMember(String memberId) =>
       (update(customFieldValues)..where((v) => v.memberId.equals(memberId)))
           .write(const CustomFieldValuesCompanion(isDeleted: Value(true)));
+
+  // ── Bulk reset helpers ──────────────────────────────────────────────────────
+
+  Future<List<String>> getNonDeletedFieldIds() =>
+      (selectOnly(customFields)
+            ..addColumns([customFields.id])
+            ..where(customFields.isDeleted.equals(false)))
+          .map((row) => row.read(customFields.id)!)
+          .get();
+
+  Future<List<String>> getNonDeletedValueIds() =>
+      (selectOnly(customFieldValues)
+            ..addColumns([customFieldValues.id])
+            ..where(customFieldValues.isDeleted.equals(false)))
+          .map((row) => row.read(customFieldValues.id)!)
+          .get();
+
+  /// Bulk soft-delete every non-deleted custom field and value. Idempotent.
+  Future<void> softDeleteAllCustomFieldData() async {
+    await transaction(() async {
+      await (update(customFields)..where((f) => f.isDeleted.equals(false)))
+          .write(const CustomFieldsCompanion(isDeleted: Value(true)));
+      await (update(customFieldValues)
+            ..where((v) => v.isDeleted.equals(false)))
+          .write(const CustomFieldValuesCompanion(isDeleted: Value(true)));
+    });
+  }
 }
