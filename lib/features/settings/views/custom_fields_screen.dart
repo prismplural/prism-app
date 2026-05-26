@@ -126,9 +126,25 @@ class _FieldsList extends ConsumerWidget {
     final reordered = List<CustomField>.from(topLevel);
     final item = reordered.removeAt(oldIndex);
     reordered.insert(newIndex, item);
-    // Only reorder top-level items. Group children reorder is out of scope
-    // for this batch — cross-group moves land in BATCH 6 Task 16 (long-press
-    // menu). Passing only top-level fields here is intentional.
+    // Top-level reorder only — within-group reorder is handled by each
+    // group's nested ReorderableListView in [_TopLevelFieldItem]. The
+    // notifier scopes display_order per-parent so the two list spaces
+    // don't collide.
+    ref.read(customFieldNotifierProvider.notifier).reorderFields(reordered);
+    Haptics.selection();
+  }
+
+  void _onReorderChildren(
+    WidgetRef ref,
+    String groupId,
+    int oldIndex,
+    int newIndex,
+  ) {
+    if (newIndex > oldIndex) newIndex--;
+    final children = _childrenOf(groupId);
+    final reordered = List<CustomField>.from(children);
+    final item = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, item);
     ref.read(customFieldNotifierProvider.notifier).reorderFields(reordered);
     Haptics.selection();
   }
@@ -160,9 +176,9 @@ class _FieldsList extends ConsumerWidget {
         final isGroup = field.fieldTypeId == 'group';
         final children = isGroup ? _childrenOf(field.id) : <CustomField>[];
 
-        // Groups render as a Column: the group's own row followed by indented
-        // child rows. Children are NOT reorderable in this batch; cross-group
-        // moves land in BATCH 6 Task 16 (long-press menu).
+        // Groups render as a Column: the group's own row followed by a
+        // nested ReorderableListView of children. The outer reorderable
+        // list still owns top-level drags via the parent context.
         return _TopLevelFieldItem(
           key: ValueKey(field.id),
           field: field,
@@ -172,6 +188,8 @@ class _FieldsList extends ConsumerWidget {
           iconForField: _iconForField,
           subtitleForField: _subtitleForField,
           theme: theme,
+          onReorderChildren: (oldIndex, newIndex) =>
+              _onReorderChildren(ref, field.id, oldIndex, newIndex),
         );
       },
     );
@@ -188,6 +206,7 @@ class _TopLevelFieldItem extends StatelessWidget {
     required this.iconForField,
     required this.subtitleForField,
     required this.theme,
+    required this.onReorderChildren,
   });
 
   final CustomField field;
@@ -197,6 +216,7 @@ class _TopLevelFieldItem extends StatelessWidget {
   final IconData Function(CustomField) iconForField;
   final String Function(BuildContext, CustomField) subtitleForField;
   final ThemeData theme;
+  final void Function(int oldIndex, int newIndex) onReorderChildren;
 
   @override
   Widget build(BuildContext context) {
@@ -212,25 +232,39 @@ class _TopLevelFieldItem extends StatelessWidget {
           subtitleForField: subtitleForField,
           theme: theme,
         ),
-        // Indented children (non-reorderable in this batch).
+        // Indented children — nested ReorderableListView so each group can
+        // reorder its own children. Drag handles attach to the nearest
+        // ReorderableListView ancestor, so children grab this inner list
+        // and top-level rows grab the outer one.
         if (children.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final child in children)
-                  _FieldRow(
-                    key: ValueKey(child.id),
-                    field: child,
-                    allFields: allFields,
-                    index: -1, // -1 signals: no drag handle
-                    iconForField: iconForField,
-                    subtitleForField: subtitleForField,
-                    theme: theme,
-                    isChild: true,
-                  ),
-              ],
+            child: ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              itemCount: children.length,
+              onReorder: onReorderChildren,
+              proxyDecorator: (child, _, _) => Material(
+                elevation: 2,
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(12),
+                ),
+                child: child,
+              ),
+              itemBuilder: (context, childIndex) {
+                final child = children[childIndex];
+                return _FieldRow(
+                  key: ValueKey(child.id),
+                  field: child,
+                  allFields: allFields,
+                  index: childIndex,
+                  iconForField: iconForField,
+                  subtitleForField: subtitleForField,
+                  theme: theme,
+                  isChild: true,
+                );
+              },
             ),
           ),
       ],
@@ -488,17 +522,20 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (!widget.isChild)
-            ReorderableDragStartListener(
-              index: widget.index,
-              child: Icon(
-                AppIcons.dragHandle,
-                color: theme.colorScheme.onSurfaceVariant.withValues(
-                  alpha: 0.4,
-                ),
+          // Drag handle for both top-level and nested children. The
+          // ReorderableDragStartListener attaches to the nearest
+          // ReorderableListView ancestor; the outer list owns top-level
+          // rows and each group's inner list owns its own children.
+          ReorderableDragStartListener(
+            index: widget.index,
+            child: Icon(
+              AppIcons.dragHandle,
+              color: theme.colorScheme.onSurfaceVariant.withValues(
+                alpha: 0.4,
               ),
             ),
-          if (!widget.isChild) const SizedBox(width: 8),
+          ),
+          const SizedBox(width: 8),
           Icon(
             AppIcons.chevronRightRounded,
             color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
