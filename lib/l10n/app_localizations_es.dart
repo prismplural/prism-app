@@ -10784,14 +10784,14 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get customFieldSliderModeLabeledDescription =>
-      'Members place themselves on a spectrum with named endpoints.';
+      'A spectrum with named endpoints.';
 
   @override
   String get customFieldSliderModeNumeric => 'Measurement';
 
   @override
   String get customFieldSliderModeNumericDescription =>
-      'Members enter a number on a scale you define.';
+      'A scale with numbers you can define.';
 
   @override
   String get customFieldSliderModeLockNotice =>

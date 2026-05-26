@@ -1377,34 +1377,37 @@ class _SliderConfigSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _SliderModeCard(
-                title: l10n.customFieldSliderModeLabeled,
-                description: l10n.customFieldSliderModeLabeledDescription,
-                icon: AppIcons.tuneOutlined,
-                isSelected: selectedMode == SliderMode.labeled,
-                isDisabled: isEditMode,
-                onTap: isEditMode
-                    ? null
-                    : () => onModeSelected(SliderMode.labeled),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _SliderModeCard(
+                  title: l10n.customFieldSliderModeLabeled,
+                  description: l10n.customFieldSliderModeLabeledDescription,
+                  icon: AppIcons.tuneOutlined,
+                  isSelected: selectedMode == SliderMode.labeled,
+                  isDisabled: isEditMode,
+                  onTap: isEditMode
+                      ? null
+                      : () => onModeSelected(SliderMode.labeled),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _SliderModeCard(
-                title: l10n.customFieldSliderModeNumeric,
-                description: l10n.customFieldSliderModeNumericDescription,
-                icon: AppIcons.tune,
-                isSelected: selectedMode == SliderMode.numeric,
-                isDisabled: isEditMode,
-                onTap: isEditMode
-                    ? null
-                    : () => onModeSelected(SliderMode.numeric),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SliderModeCard(
+                  title: l10n.customFieldSliderModeNumeric,
+                  description: l10n.customFieldSliderModeNumericDescription,
+                  icon: AppIcons.tune,
+                  isSelected: selectedMode == SliderMode.numeric,
+                  isDisabled: isEditMode,
+                  onTap: isEditMode
+                      ? null
+                      : () => onModeSelected(SliderMode.numeric),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         if (isEditMode) ...[
           const SizedBox(height: 8),

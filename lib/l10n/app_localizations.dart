@@ -17072,7 +17072,7 @@ abstract class AppLocalizations {
   /// Description text on the labeled slider mode card
   ///
   /// In en, this message translates to:
-  /// **'Members place themselves on a spectrum with named endpoints.'**
+  /// **'A spectrum with named endpoints.'**
   String get customFieldSliderModeLabeledDescription;
 
   /// Label for the numeric slider mode card
@@ -17084,7 +17084,7 @@ abstract class AppLocalizations {
   /// Description text on the numeric slider mode card
   ///
   /// In en, this message translates to:
-  /// **'Members enter a number on a scale you define.'**
+  /// **'A scale with numbers you can define.'**
   String get customFieldSliderModeNumericDescription;
 
   /// Notice shown in edit mode explaining the slider mode cannot be changed
