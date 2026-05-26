@@ -519,7 +519,7 @@ as Map<String, dynamic>,
 @JsonSerializable()
 
 class SliderConfig implements CustomFieldTypeConfig {
-  const SliderConfig({required this.mode, this.leftLabel, this.rightLabel, this.centerLabel, this.gradientPresetId, this.leftColorHex, this.rightColorHex, this.centerColorHex, this.snapToPositions = true, this.min, this.max, this.step, this.unit, this.showTicks = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _extra = extra,$type = $type ?? 'slider';
+  const SliderConfig({required this.mode, this.leftLabel, this.rightLabel, this.centerLabel, this.gradientPresetId, this.leftColorHex, this.rightColorHex, this.centerColorHex, this.snapToPositions = false, this.min, this.max, this.step, this.unit, this.showTicks = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _extra = extra,$type = $type ?? 'slider';
   factory SliderConfig.fromJson(Map<String, dynamic> json) => _$SliderConfigFromJson(json);
 
  final  SliderMode mode;

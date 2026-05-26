@@ -64,7 +64,7 @@ SliderConfig _$SliderConfigFromJson(Map<String, dynamic> json) => SliderConfig(
   leftColorHex: json['leftColorHex'] as String?,
   rightColorHex: json['rightColorHex'] as String?,
   centerColorHex: json['centerColorHex'] as String?,
-  snapToPositions: json['snapToPositions'] as bool? ?? true,
+  snapToPositions: json['snapToPositions'] as bool? ?? false,
   min: (json['min'] as num?)?.toDouble(),
   max: (json['max'] as num?)?.toDouble(),
   step: (json['step'] as num?)?.toDouble(),

@@ -52,7 +52,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
     String? leftColorHex,
     String? rightColorHex,
     String? centerColorHex,
-    @Default(true) bool snapToPositions,
+    @Default(false) bool snapToPositions,
     double? min,
     double? max,
     double? step,

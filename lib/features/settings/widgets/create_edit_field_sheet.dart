@@ -99,7 +99,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   String? _sliderLeftColorHex;
   String? _sliderRightColorHex;
   String? _sliderCenterColorHex;
-  bool _sliderSnapToPositions = true;
+  bool _sliderSnapToPositions = false;
   bool _sliderShowAdvancedColors = false;
   late final TextEditingController _sliderMinController;
   late final TextEditingController _sliderMaxController;
@@ -148,23 +148,37 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           _sliderLeftLabelController.text.isNotEmpty ||
           _sliderRightLabelController.text.isNotEmpty ||
           _sliderCenterLabelController.text.isNotEmpty ||
-          !_sliderSnapToPositions ||
+          _sliderSnapToPositions ||
           _sliderMinController.text != '0' ||
           _sliderMaxController.text != '10' ||
           _sliderStepController.text != '1' ||
           _sliderUnitController.text.isNotEmpty ||
           _sliderShowTicks;
     }
+    if (existingConfig.mode != _sliderMode) return true;
     String? toNullable(String s) => s.trim().isEmpty ? null : s.trim();
-    return existingConfig.mode != _sliderMode ||
-        existingConfig.leftLabel != toNullable(_sliderLeftLabelController.text) ||
-        existingConfig.rightLabel != toNullable(_sliderRightLabelController.text) ||
-        existingConfig.centerLabel != toNullable(_sliderCenterLabelController.text) ||
-        existingConfig.gradientPresetId != _sliderGradientPresetId ||
-        existingConfig.snapToPositions != _sliderSnapToPositions ||
-        existingConfig.min != double.tryParse(_sliderMinController.text.trim()) ||
-        existingConfig.max != double.tryParse(_sliderMaxController.text.trim()) ||
-        existingConfig.step != double.tryParse(_sliderStepController.text.trim()) ||
+    // Mode is locked in edit mode; only diff the fields that mode actually
+    // uses. The unused side is hydrated to placeholder defaults, so
+    // comparing it would always look dirty.
+    if (_sliderMode == SliderMode.labeled) {
+      return existingConfig.leftLabel !=
+              toNullable(_sliderLeftLabelController.text) ||
+          existingConfig.rightLabel !=
+              toNullable(_sliderRightLabelController.text) ||
+          existingConfig.centerLabel !=
+              toNullable(_sliderCenterLabelController.text) ||
+          existingConfig.gradientPresetId != _sliderGradientPresetId ||
+          existingConfig.leftColorHex != _sliderLeftColorHex ||
+          existingConfig.rightColorHex != _sliderRightColorHex ||
+          existingConfig.centerColorHex != _sliderCenterColorHex ||
+          existingConfig.snapToPositions != _sliderSnapToPositions;
+    }
+    return existingConfig.min !=
+            double.tryParse(_sliderMinController.text.trim()) ||
+        existingConfig.max !=
+            double.tryParse(_sliderMaxController.text.trim()) ||
+        existingConfig.step !=
+            double.tryParse(_sliderStepController.text.trim()) ||
         existingConfig.unit != toNullable(_sliderUnitController.text) ||
         existingConfig.showTicks != _sliderShowTicks;
   }
