@@ -176,12 +176,9 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
           .map((row) => row.read(customFieldValues.id)!)
           .get();
 
-  /// Bulk soft-delete every non-deleted custom field and value, all inside
-  /// a single transaction so the captured IDs and the soft-delete share the
-  /// same snapshot. Returns the IDs that transitioned to tombstoned in this
-  /// call so the caller can emit CRDT sync ops without a Phase-1/Phase-2 race.
-  ///
-  /// Idempotent — calling on already-tombstoned-only data returns empty lists.
+  /// Captures the IDs that transition to tombstoned inside the same
+  /// transaction as the update so the caller can emit CRDT sync ops without
+  /// a snapshot/write race. Returns empty lists when there's nothing active.
   Future<({List<String> fieldIds, List<String> valueIds})>
       softDeleteAllCustomFieldData() async {
     return transaction(() async {
