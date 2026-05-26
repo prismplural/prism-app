@@ -1550,14 +1550,16 @@ class _SliderConfigSection extends StatelessWidget {
               onColorChanged: onLeftColorChanged,
             ),
             const SizedBox(height: 8),
-            if (centerLabelController.text.isNotEmpty) ...[
-              _ColorPickerRow(
-                labelText: l10n.customFieldSliderCenterLabel,
-                colorHex: centerColorHex,
-                onColorChanged: onCenterColorChanged,
-              ),
-              const SizedBox(height: 8),
-            ],
+            _ColorPickerRow(
+              labelText: l10n.customFieldSliderCenterLabel,
+              colorHex: centerColorHex,
+              onColorChanged: onCenterColorChanged,
+              placeholderWhenNull: true,
+              onClear: centerColorHex == null
+                  ? null
+                  : () => onCenterColorChanged(null),
+            ),
+            const SizedBox(height: 8),
             _ColorPickerRow(
               labelText: l10n.customFieldSliderRightLabel,
               colorHex: rightColorHex,
@@ -1867,15 +1869,24 @@ class _ColorPickerRow extends StatelessWidget {
     required this.labelText,
     required this.colorHex,
     required this.onColorChanged,
+    this.placeholderWhenNull = false,
+    this.onClear,
   });
 
   final String labelText;
   final String? colorHex;
   final ValueChanged<String?> onColorChanged;
+  // When true and colorHex is null, render a hollow circle with a + icon
+  // instead of a primary-colored fill — reads as "tap to add" for optional
+  // anchors like the gradient midpoint.
+  final bool placeholderWhenNull;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final showPlaceholder = colorHex == null && placeholderWhenNull;
+
     Color currentColor;
     try {
       currentColor = colorHex != null
@@ -1894,18 +1905,36 @@ class _ColorPickerRow extends StatelessWidget {
             height: 32,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: currentColor,
+              color: showPlaceholder ? Colors.transparent : currentColor,
               border: Border.all(
-                color: theme.colorScheme.outline.withValues(alpha: 0.5),
+                color: theme.colorScheme.outline.withValues(
+                  alpha: showPlaceholder ? 0.7 : 0.5,
+                ),
               ),
             ),
+            child: showPlaceholder
+                ? Icon(
+                    AppIcons.add,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  )
+                : null,
           ),
         ),
         const SizedBox(width: 12),
-        Text(
-          labelText,
-          style: theme.textTheme.bodyMedium,
+        Expanded(
+          child: Text(
+            labelText,
+            style: theme.textTheme.bodyMedium,
+          ),
         ),
+        if (onClear != null && colorHex != null)
+          IconButton(
+            icon: Icon(AppIcons.close, size: 18),
+            tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
+            onPressed: onClear,
+            visualDensity: VisualDensity.compact,
+          ),
       ],
     );
   }
