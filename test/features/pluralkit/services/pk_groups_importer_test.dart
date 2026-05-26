@@ -835,28 +835,15 @@ void main() {
       groupUpdate['entityId'],
       PkGroupsImporter.deriveGroupSyncEntityId('pk-g-1'),
     );
+    // overwriteMetadata: false → only the three PK-linkage columns.
+    // Narrow patch, no `is_deleted` — see `lib/data/sync/field_diff.dart`.
     expect(groupFields.keys.toSet(), {
-      'name',
-      'description',
-      'color_hex',
-      'emoji',
-      'display_order',
-      'parent_group_id',
-      'group_type',
-      'filter_rules',
-      'created_at',
+      'last_seen_from_pk_at',
       'pluralkit_id',
       'pluralkit_uuid',
-      'last_seen_from_pk_at',
-      'sort_state',
-      'is_deleted',
     });
-    expect(groupFields['name'], 'Original');
-    expect(groupFields['description'], isNull);
-    expect(groupFields['color_hex'], isNull);
     expect(groupFields['pluralkit_id'], 'abcde');
     expect(groupFields['pluralkit_uuid'], 'pk-g-1');
-    expect(groupFields['sort_state'], '{"mode":0,"order":[]}');
 
     expect(
       deletes.map((call) => '${call['table']}:${call['entityId']}').toList(),

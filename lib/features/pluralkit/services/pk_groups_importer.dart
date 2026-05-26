@@ -181,11 +181,6 @@ class PkGroupsImporter with SyncRecordMixin {
   }
 
   @visibleForTesting
-  static Map<String, dynamic> groupUpdateSyncFields(MemberGroupRow row) {
-    return groupCreateSyncFields(row);
-  }
-
-  @visibleForTesting
   static Map<String, dynamic> entrySyncFields({
     required String groupId,
     required String memberId,
@@ -300,10 +295,22 @@ class PkGroupsImporter with SyncRecordMixin {
         )..where((g) => g.id.equals(existing.id))).write(updates);
         final updatedRow = await _loadGroupRow(existing.id);
         if (syncEnabled) {
+          // Mirrors the columns the companion above writes — see
+          // `lib/data/sync/field_diff.dart` on why update patches stay narrow.
+          final changedFields = <String, dynamic>{
+            'last_seen_from_pk_at': toSyncUtcOrNull(updatedRow.lastSeenFromPkAt),
+            'pluralkit_id': updatedRow.pluralkitId,
+            'pluralkit_uuid': updatedRow.pluralkitUuid,
+            if (overwriteMetadata) ...{
+              'name': updatedRow.name,
+              'description': updatedRow.description,
+              'color_hex': updatedRow.colorHex,
+            },
+          };
           await _emitUpdate(
             _groupTable,
             deriveGroupSyncEntityId(pk.uuid),
-            groupUpdateSyncFields(updatedRow),
+            changedFields,
           );
           await _emitLegacyAliasDeletesForPkGroup(pk.uuid);
         }

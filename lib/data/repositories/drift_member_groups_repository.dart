@@ -190,7 +190,10 @@ class DriftMemberGroupsRepository
 
     for (final promoted in promotedModels) {
       final stored = await _requireGroupRow(promoted.id);
-      await _syncGroupUpdateIfAllowed(stored);
+      await _syncGroupUpdateIfAllowed(
+        stored,
+        const <String, dynamic>{'parent_group_id': null},
+      );
     }
     if (isDeletedGroupSuppressed) return;
     if (!await _shouldEmitPkBackedGroupSync(group)) return;
@@ -457,13 +460,15 @@ class DriftMemberGroupsRepository
     await _dao.updateGroupSortState(groupId, encoded);
 
     final row = await _dao.getGroupById(groupId);
-    if (row != null &&
-        !await _dao.isGroupSyncSuppressed(groupId) &&
-        await _shouldEmitPkBackedGroupSync(row)) {
-      await syncRecordUpdate(
-        _groupTable,
-        _groupEntityId(row),
-        _groupFields(row),
+    if (row != null) {
+      await _syncGroupUpdateIfAllowed(
+        row,
+        <String, dynamic>{
+          'sort_state': sanitizeSortStateForEmission(
+            row.sortState,
+            contextId: row.id,
+          ),
+        },
       );
     }
 
@@ -491,13 +496,15 @@ class DriftMemberGroupsRepository
     await _dao.updateGroupSortState(groupId, encoded);
 
     final refreshed = await _dao.getGroupById(groupId);
-    if (refreshed != null &&
-        !await _dao.isGroupSyncSuppressed(groupId) &&
-        await _shouldEmitPkBackedGroupSync(refreshed)) {
-      await syncRecordUpdate(
-        _groupTable,
-        _groupEntityId(refreshed),
-        _groupFields(refreshed),
+    if (refreshed != null) {
+      await _syncGroupUpdateIfAllowed(
+        refreshed,
+        <String, dynamic>{
+          'sort_state': sanitizeSortStateForEmission(
+            refreshed.sortState,
+            contextId: refreshed.id,
+          ),
+        },
       );
     }
   }
@@ -541,18 +548,19 @@ class DriftMemberGroupsRepository
     return true;
   }
 
-  /// Emits a parent `member_groups` sync record update after the local
-  /// sort_state column has been mutated. Re-reads the row to capture the
-  /// latest column values for the emit. Honors suppression + PK gating.
+  /// Re-reads [groupId] and emits a `{sort_state}` patch after a local
+  /// sort_state mutation. Honors suppression + PK gating.
   Future<void> _emitGroupSortStateUpdateIfAllowed(String groupId) async {
     final refreshed = await _dao.getGroupById(groupId);
     if (refreshed == null) return;
-    if (await _dao.isGroupSyncSuppressed(groupId)) return;
-    if (!await _shouldEmitPkBackedGroupSync(refreshed)) return;
-    await syncRecordUpdate(
-      _groupTable,
-      _groupEntityId(refreshed),
-      _groupFields(refreshed),
+    await _syncGroupUpdateIfAllowed(
+      refreshed,
+      <String, dynamic>{
+        'sort_state': sanitizeSortStateForEmission(
+          refreshed.sortState,
+          contextId: refreshed.id,
+        ),
+      },
     );
   }
 
@@ -567,13 +575,24 @@ class DriftMemberGroupsRepository
     await _syncLegacyPkGroupAliasDeletes(group);
   }
 
-  Future<void> _syncGroupUpdateIfAllowed(MemberGroupRow group) async {
+  /// Emit a narrow `member_groups` sync update. Honors suppression + PK
+  /// gating + legacy alias emission. `is_deleted` belongs to
+  /// [syncRecordDelete] / [syncRecordCreate]; see `lib/data/sync/field_diff.dart`.
+  Future<void> _syncGroupUpdateIfAllowed(
+    MemberGroupRow group,
+    Map<String, dynamic> changedFields,
+  ) async {
+    assert(
+      !changedFields.containsKey('is_deleted'),
+      'is_deleted must not appear in a member_groups update patch',
+    );
+    if (changedFields.isEmpty) return;
     if (await _dao.isGroupSyncSuppressed(group.id)) return;
     if (!await _shouldEmitPkBackedGroupSync(group)) return;
     await syncRecordUpdate(
       _groupTable,
       _groupEntityId(group),
-      _groupFields(group),
+      changedFields,
     );
     await _syncLegacyPkGroupAliasDeletes(group);
   }

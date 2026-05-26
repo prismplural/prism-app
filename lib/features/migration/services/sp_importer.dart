@@ -751,7 +751,12 @@ class SpImporter {
                   'member_groups',
                   refreshed.id,
                   SyncRecordOpType.update,
-                  DriftMemberGroupsRepository.groupFields(refreshed),
+                  <String, dynamic>{
+                    'sort_state': sanitizeSortStateForEmission(
+                      refreshed.sortState,
+                      contextId: refreshed.id,
+                    ),
+                  },
                 ),
               );
             }

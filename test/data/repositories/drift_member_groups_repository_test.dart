@@ -964,4 +964,157 @@ void main() {
       },
     );
   });
+
+  // Pins the four remaining member-groups update emit paths to narrow
+  // patches so they can't regress to re-broadcasting `is_deleted: false`
+  // and resurrecting a concurrently-deleted row. See
+  // `lib/data/sync/field_diff.dart`.
+  group('narrow-patch update emission (no is_deleted)', () {
+    test('promoteChildrenToRoot emits {parent_group_id: null} per child',
+        () async {
+      await setupRepo();
+      await _seedGroup(db, id: 'parent');
+      await db.into(db.memberGroups).insert(
+            MemberGroupsCompanion.insert(
+              id: 'child-a',
+              name: 'child-a',
+              createdAt: DateTime.utc(2026, 1, 1),
+              parentGroupId: const Value('parent'),
+              sortState: Value(
+                MemberGroupMapper.encodeSortStateForColumn(
+                  GroupSortState.manualEmpty,
+                ),
+              ),
+            ),
+          );
+      await db.into(db.memberGroups).insert(
+            MemberGroupsCompanion.insert(
+              id: 'child-b',
+              name: 'child-b',
+              createdAt: DateTime.utc(2026, 1, 1),
+              parentGroupId: const Value('parent'),
+              sortState: Value(
+                MemberGroupMapper.encodeSortStateForColumn(
+                  GroupSortState.manualEmpty,
+                ),
+              ),
+            ),
+          );
+
+      await repo.promoteChildrenToRoot('parent');
+
+      final childUpdates = repo.updates
+          .where((u) =>
+              u['table'] == 'member_groups' &&
+              (u['entityId'] == 'child-a' || u['entityId'] == 'child-b'))
+          .toList();
+      expect(childUpdates, hasLength(2));
+      for (final update in childUpdates) {
+        final fields = update['fields']! as Map<String, dynamic>;
+        expect(fields, {'parent_group_id': null});
+      }
+    });
+
+    test(
+      '_emitGroupSortStateUpdateIfAllowed via addMemberToGroup emits '
+      '{sort_state} only',
+      () async {
+        await setupRepo(members: [_member(id: 'm1')]);
+        await _seedGroup(
+          db,
+          id: 'g1',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['existing-e0'],
+          ),
+        );
+
+        await repo.addMemberToGroup('g1', 'm1', 'e1');
+
+        final g1Updates = _allGroupUpdates(repo, entityId: 'g1');
+        expect(g1Updates, isNotEmpty);
+        for (final update in g1Updates) {
+          final fields = update['fields']! as Map<String, dynamic>;
+          expect(fields.keys.toSet(), {'sort_state'});
+        }
+      },
+    );
+
+    test(
+      '_emitGroupSortStateUpdateIfAllowed via removeMemberFromGroup emits '
+      '{sort_state} only',
+      () async {
+        await setupRepo(members: [_member(id: 'm1')]);
+        await _seedGroup(
+          db,
+          id: 'g1',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1'],
+          ),
+        );
+        await _seedEntry(db, id: 'e1', groupId: 'g1', memberId: 'm1');
+
+        await repo.removeMemberFromGroup('g1', 'm1');
+
+        final g1Updates = _allGroupUpdates(repo, entityId: 'g1');
+        expect(g1Updates, isNotEmpty);
+        for (final update in g1Updates) {
+          final fields = update['fields']! as Map<String, dynamic>;
+          expect(fields.keys.toSet(), {'sort_state'});
+        }
+      },
+    );
+
+    test('setGroupManualOrderSnapshot emits {sort_state} only', () async {
+      await setupRepo();
+      await _seedGroup(db, id: 'g1');
+      await _seedEntry(db, id: 'e1', groupId: 'g1', memberId: 'm1');
+      await _seedEntry(db, id: 'e2', groupId: 'g1', memberId: 'm2');
+
+      await repo.setGroupManualOrderSnapshot('g1', ['e2', 'e1']);
+
+      final g1Updates = _allGroupUpdates(repo, entityId: 'g1');
+      expect(g1Updates, isNotEmpty);
+      for (final update in g1Updates) {
+        final fields = update['fields']! as Map<String, dynamic>;
+        expect(fields.keys.toSet(), {'sort_state'});
+      }
+    });
+
+    test('setGroupSortMode emits {sort_state} only', () async {
+      await setupRepo();
+      await _seedGroup(
+        db,
+        id: 'g1',
+        sortState: const GroupSortState(
+          mode: GroupSortMode.manual,
+          manualOrder: ['e1', 'e2'],
+        ),
+      );
+
+      await repo.setGroupSortMode('g1', GroupSortMode.nameAsc);
+
+      final g1Updates = _allGroupUpdates(repo, entityId: 'g1');
+      expect(g1Updates, isNotEmpty);
+      for (final update in g1Updates) {
+        final fields = update['fields']! as Map<String, dynamic>;
+        expect(fields.keys.toSet(), {'sort_state'});
+      }
+    });
+  });
+}
+
+/// `member_groups` updates captured by [repo], optionally scoped to [entityId].
+/// Returns all of them so per-op assertions can guard against a stray full-row
+/// update emitted alongside the expected narrow one.
+List<Map<String, Object?>> _allGroupUpdates(
+  _RecordingRepo repo, {
+  String? entityId,
+}) {
+  return repo.updates.where((u) {
+    if (u['table'] != 'member_groups') return false;
+    if (entityId != null && u['entityId'] != entityId) return false;
+    return true;
+  }).toList(growable: false);
 }
