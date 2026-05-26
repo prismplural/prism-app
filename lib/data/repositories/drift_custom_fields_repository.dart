@@ -280,6 +280,30 @@ class DriftCustomFieldsRepository
     await syncRecordDelete(_fieldsTable, id);
   }
 
+  @override
+  Future<void> deleteAllFields() async {
+    // Phase 1: read IDs to emit tombstones for (only non-deleted rows).
+    final fieldIds = await _dao.getNonDeletedFieldIds();
+    final valueIds = await _dao.getNonDeletedValueIds();
+
+    // Phase 2: atomic bulk tombstone in the DB. If the app dies between
+    // phases 2 and 3, the DB is still consistent — tombstones just don't
+    // propagate to peers until next emission attempt (and re-running reset
+    // is idempotent because we re-read non-deleted IDs).
+    await _dao.softDeleteAllCustomFieldData();
+
+    // Phase 3: emit sync tombstones outside the transaction. Sync emissions
+    // are FFI side effects that can't be rolled back, so they live after the
+    // commit. Value tombstones emit before field tombstones so peers process
+    // child deletions before parent deletions (mirrors deleteField ordering).
+    for (final id in valueIds) {
+      await syncRecordDelete(_valuesTable, id);
+    }
+    for (final id in fieldIds) {
+      await syncRecordDelete(_fieldsTable, id);
+    }
+  }
+
   // ── Values ─────────────────────────────────────────────────────────
 
   @override

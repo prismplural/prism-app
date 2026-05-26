@@ -76,6 +76,12 @@ abstract class CustomFieldsRepository {
   /// no children by the depth-1 invariant).
   Future<void> deleteField(String id, {bool deleteChildren = false});
 
+  /// Bulk soft-delete every non-deleted custom field and every non-deleted
+  /// custom field value, emitting CRDT tombstones for each so paired peers
+  /// converge to the same empty state. Idempotent — re-running emits no ops
+  /// for already-tombstoned rows.
+  Future<void> deleteAllFields();
+
   Stream<List<domain.CustomFieldValue>> watchValuesForMember(String memberId);
   Stream<List<domain.CustomFieldValue>> watchValuesForField(String fieldId);
   Future<List<domain.CustomFieldValue>> getAllValues();
