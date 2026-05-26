@@ -17225,11 +17225,11 @@ abstract class AppLocalizations {
   /// **'{name}, {description}'**
   String customFieldSliderSemanticLabelLabeled(String name, String description);
 
-  /// Category heading for gender expression gradient presets
+  /// Category heading for identity gradient presets
   ///
   /// In en, this message translates to:
-  /// **'Gender expression'**
-  String get customFieldSliderCategoryGenderExpression;
+  /// **'Identity'**
+  String get customFieldSliderCategoryIdentity;
 
   /// Category heading for mood/intensity gradient presets
   ///
@@ -17248,6 +17248,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Neutral'**
   String get customFieldSliderCategoryNeutral;
+
+  /// Category heading for palette gradient presets
+  ///
+  /// In en, this message translates to:
+  /// **'Palette'**
+  String get customFieldSliderCategoryPalette;
 
   /// Validation error shown when numeric slider min >= max
   ///
@@ -17270,7 +17276,7 @@ abstract class AppLocalizations {
   /// Label for the femme-masc gradient preset
   ///
   /// In en, this message translates to:
-  /// **'Femme ↔ Masc'**
+  /// **'Femme ↔ Masc presentation'**
   String get sliderGradientPresetFemmeMasc;
 
   /// Label for the soft-hard gradient preset
@@ -17282,14 +17288,8 @@ abstract class AppLocalizations {
   /// Label for the high-low gender gradient preset
   ///
   /// In en, this message translates to:
-  /// **'High gender ↔ Agender'**
+  /// **'Agender ↔ Highly gendered'**
   String get sliderGradientPresetHighLowGender;
-
-  /// Label for the feminine-masculine energy gradient preset
-  ///
-  /// In en, this message translates to:
-  /// **'Feminine ↔ Masculine energy'**
-  String get sliderGradientPresetFeminineMasculineEnergy;
 
   /// Label for the calm-intense gradient preset
   ///
@@ -17338,6 +17338,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Monochrome'**
   String get sliderGradientPresetMonochrome;
+
+  /// Label for the rose-dusk gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Rose dusk'**
+  String get sliderGradientPresetPaletteRoseDusk;
+
+  /// Label for the sage-meadow gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Sage meadow'**
+  String get sliderGradientPresetPaletteSageMeadow;
+
+  /// Label for the last-light gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Last light'**
+  String get sliderGradientPresetPaletteLastLight;
+
+  /// Label for the amber-fire gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Amber fire'**
+  String get sliderGradientPresetPaletteAmberFire;
+
+  /// Label for the mauve-bloom gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Mauve bloom'**
+  String get sliderGradientPresetPaletteMauveBloom;
+
+  /// Label for the warm-ink gradient preset
+  ///
+  /// In en, this message translates to:
+  /// **'Warm ink'**
+  String get sliderGradientPresetPaletteWarmInk;
 
   /// Context menu item to edit a custom field
   ///

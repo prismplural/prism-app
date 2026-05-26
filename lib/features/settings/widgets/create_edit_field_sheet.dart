@@ -1644,12 +1644,14 @@ class _SliderConfigSection extends StatelessWidget {
 
   String _categoryLabel(AppLocalizations l10n, SliderGradientCategory category) {
     return switch (category) {
-      SliderGradientCategory.genderExpression =>
-        l10n.customFieldSliderCategoryGenderExpression,
+      SliderGradientCategory.identity =>
+        l10n.customFieldSliderCategoryIdentity,
       SliderGradientCategory.moodIntensity =>
         l10n.customFieldSliderCategoryMoodIntensity,
       SliderGradientCategory.temperature =>
         l10n.customFieldSliderCategoryTemperature,
+      SliderGradientCategory.palette =>
+        l10n.customFieldSliderCategoryPalette,
       SliderGradientCategory.neutral =>
         l10n.customFieldSliderCategoryNeutral,
     };
@@ -1661,8 +1663,6 @@ class _SliderConfigSection extends StatelessWidget {
       'sliderGradientPresetSoftHard' => l10n.sliderGradientPresetSoftHard,
       'sliderGradientPresetHighLowGender' =>
         l10n.sliderGradientPresetHighLowGender,
-      'sliderGradientPresetFeminineMasculineEnergy' =>
-        l10n.sliderGradientPresetFeminineMasculineEnergy,
       'sliderGradientPresetCalmIntense' =>
         l10n.sliderGradientPresetCalmIntense,
       'sliderGradientPresetSadHappy' => l10n.sliderGradientPresetSadHappy,
@@ -1675,6 +1675,18 @@ class _SliderConfigSection extends StatelessWidget {
         l10n.sliderGradientPresetSolidAccent,
       'sliderGradientPresetMonochrome' =>
         l10n.sliderGradientPresetMonochrome,
+      'sliderGradientPresetPaletteRoseDusk' =>
+        l10n.sliderGradientPresetPaletteRoseDusk,
+      'sliderGradientPresetPaletteSageMeadow' =>
+        l10n.sliderGradientPresetPaletteSageMeadow,
+      'sliderGradientPresetPaletteLastLight' =>
+        l10n.sliderGradientPresetPaletteLastLight,
+      'sliderGradientPresetPaletteAmberFire' =>
+        l10n.sliderGradientPresetPaletteAmberFire,
+      'sliderGradientPresetPaletteMauveBloom' =>
+        l10n.sliderGradientPresetPaletteMauveBloom,
+      'sliderGradientPresetPaletteWarmInk' =>
+        l10n.sliderGradientPresetPaletteWarmInk,
       _ => key,
     };
   }

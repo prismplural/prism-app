@@ -10726,7 +10726,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get customFieldSliderCategoryGenderExpression => 'Gender expression';
+  String get customFieldSliderCategoryIdentity => 'Identity';
 
   @override
   String get customFieldSliderCategoryMoodIntensity => 'Mood / Intensity';
@@ -10736,6 +10736,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get customFieldSliderCategoryNeutral => 'Neutral';
+
+  @override
+  String get customFieldSliderCategoryPalette => 'Palette';
 
   @override
   String get customFieldSliderMinMaxError => 'Max must be greater than min';
@@ -10748,17 +10751,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Min and max must be valid numbers';
 
   @override
-  String get sliderGradientPresetFemmeMasc => 'Femme ↔ Masc';
+  String get sliderGradientPresetFemmeMasc => 'Femme ↔ Masc presentation';
 
   @override
   String get sliderGradientPresetSoftHard => 'Soft ↔ Hard';
 
   @override
-  String get sliderGradientPresetHighLowGender => 'High gender ↔ Agender';
-
-  @override
-  String get sliderGradientPresetFeminineMasculineEnergy =>
-      'Feminine ↔ Masculine energy';
+  String get sliderGradientPresetHighLowGender => 'Agender ↔ Highly gendered';
 
   @override
   String get sliderGradientPresetCalmIntense => 'Calm ↔ Intense';
@@ -10783,6 +10782,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sliderGradientPresetMonochrome => 'Monochrome';
+
+  @override
+  String get sliderGradientPresetPaletteRoseDusk => 'Rose dusk';
+
+  @override
+  String get sliderGradientPresetPaletteSageMeadow => 'Sage meadow';
+
+  @override
+  String get sliderGradientPresetPaletteLastLight => 'Last light';
+
+  @override
+  String get sliderGradientPresetPaletteAmberFire => 'Amber fire';
+
+  @override
+  String get sliderGradientPresetPaletteMauveBloom => 'Mauve bloom';
+
+  @override
+  String get sliderGradientPresetPaletteWarmInk => 'Warm ink';
 
   @override
   String get customFieldMenuEdit => 'Edit';

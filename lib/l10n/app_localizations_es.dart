@@ -10911,16 +10911,20 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get customFieldSliderCategoryGenderExpression => 'Gender expression';
+  String get customFieldSliderCategoryIdentity => 'Identidad';
 
   @override
-  String get customFieldSliderCategoryMoodIntensity => 'Mood / Intensity';
+  String get customFieldSliderCategoryMoodIntensity =>
+      'Estado de ánimo / Intensidad';
 
   @override
-  String get customFieldSliderCategoryTemperature => 'Temperature';
+  String get customFieldSliderCategoryTemperature => 'Temperatura';
 
   @override
   String get customFieldSliderCategoryNeutral => 'Neutral';
+
+  @override
+  String get customFieldSliderCategoryPalette => 'Paleta';
 
   @override
   String get customFieldSliderMinMaxError =>
@@ -10934,41 +10938,55 @@ class AppLocalizationsEs extends AppLocalizations {
       'El mínimo y el máximo deben ser números válidos';
 
   @override
-  String get sliderGradientPresetFemmeMasc => 'Femme ↔ Masc';
+  String get sliderGradientPresetFemmeMasc => 'Femme ↔ Masc (presentación)';
 
   @override
-  String get sliderGradientPresetSoftHard => 'Soft ↔ Hard';
+  String get sliderGradientPresetSoftHard => 'Suave ↔ Duro';
 
   @override
-  String get sliderGradientPresetHighLowGender => 'High gender ↔ Agender';
+  String get sliderGradientPresetHighLowGender => 'Agénero ↔ Muy genérico';
 
   @override
-  String get sliderGradientPresetFeminineMasculineEnergy =>
-      'Feminine ↔ Masculine energy';
+  String get sliderGradientPresetCalmIntense => 'Tranquilo ↔ Intenso';
 
   @override
-  String get sliderGradientPresetCalmIntense => 'Calm ↔ Intense';
+  String get sliderGradientPresetSadHappy => 'Triste ↔ Feliz';
 
   @override
-  String get sliderGradientPresetSadHappy => 'Sad ↔ Happy';
+  String get sliderGradientPresetLowHighEnergy => 'Baja ↔ Alta energía';
 
   @override
-  String get sliderGradientPresetLowHighEnergy => 'Low ↔ High energy';
+  String get sliderGradientPresetSoftBold => 'Suave ↔ Atrevido';
 
   @override
-  String get sliderGradientPresetSoftBold => 'Soft ↔ Bold';
+  String get sliderGradientPresetCoolWarm => 'Frío ↔ Cálido';
 
   @override
-  String get sliderGradientPresetCoolWarm => 'Cool ↔ Warm';
+  String get sliderGradientPresetDayNight => 'Día ↔ Noche';
 
   @override
-  String get sliderGradientPresetDayNight => 'Day ↔ Night';
+  String get sliderGradientPresetSolidAccent => 'Acento sólido';
 
   @override
-  String get sliderGradientPresetSolidAccent => 'Solid accent';
+  String get sliderGradientPresetMonochrome => 'Monocromático';
 
   @override
-  String get sliderGradientPresetMonochrome => 'Monochrome';
+  String get sliderGradientPresetPaletteRoseDusk => 'Atardecer rosado';
+
+  @override
+  String get sliderGradientPresetPaletteSageMeadow => 'Pradera de salvia';
+
+  @override
+  String get sliderGradientPresetPaletteLastLight => 'Última luz';
+
+  @override
+  String get sliderGradientPresetPaletteAmberFire => 'Fuego ámbar';
+
+  @override
+  String get sliderGradientPresetPaletteMauveBloom => 'Florescencia malva';
+
+  @override
+  String get sliderGradientPresetPaletteWarmInk => 'Tinta cálida';
 
   @override
   String get customFieldMenuEdit => 'Edit';

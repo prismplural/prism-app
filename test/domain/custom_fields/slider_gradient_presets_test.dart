@@ -19,7 +19,7 @@ void main() {
       final preset = lookupGradientPreset('femme-masc');
       expect(preset, isNotNull);
       expect(preset!.id, 'femme-masc');
-      expect(preset.category, SliderGradientCategory.genderExpression);
+      expect(preset.category, SliderGradientCategory.identity);
       expect(preset.leftHex, '#F4A6C8');
       expect(preset.rightHex, '#7BA5D8');
     });
