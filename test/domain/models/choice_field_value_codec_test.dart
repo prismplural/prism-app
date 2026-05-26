@@ -44,12 +44,28 @@ void main() {
       expect(cv.other, equals('   '));
     });
 
-    test('ChoiceFieldValue with empty other string encodes to empty (no other key)', () {
+    test('ChoiceFieldValue with empty other string round-trips with the key intact', () {
+      // Empty `other` means the user tapped the Other chip but has not typed
+      // anything yet. The chip must stay selected and the text field must
+      // reopen on next view — the encoded JSON has to preserve that intent
+      // so a `null` (never tapped) is still distinguishable from `''` (tapped,
+      // no text).
       const value = ChoiceFieldValue(optionIds: {'a'}, other: '');
       final encoded = choiceFieldDefinition.valueEncoder(value);
-      // Empty other string must NOT appear in encoded JSON.
       final decoded = jsonDecode(encoded) as Map<String, dynamic>;
-      expect(decoded.containsKey('other'), isFalse);
+      expect(decoded['other'], equals(''));
+      final parsed = choiceFieldDefinition.valueParser(encoded) as ChoiceFieldValue;
+      expect(parsed.other, equals(''));
+    });
+
+    test('ChoiceFieldValue with only Other tapped (no options, empty text) round-trips', () {
+      const value = ChoiceFieldValue(other: '');
+      final encoded = choiceFieldDefinition.valueEncoder(value);
+      // Storage column must hold the JSON so the chip selection survives.
+      expect(encoded, isNot(equals('')));
+      final parsed = choiceFieldDefinition.valueParser(encoded) as ChoiceFieldValue;
+      expect(parsed.other, equals(''));
+      expect(parsed.optionIds, isEmpty);
     });
 
     test('null other does not appear in encoded JSON', () {

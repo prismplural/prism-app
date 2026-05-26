@@ -278,15 +278,17 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
     );
   }
 
-  /// Fix 6: Save the Other text on focus loss, trimming whitespace first.
+  /// Save the Other text on focus loss, trimming whitespace first.
+  ///
+  /// When the trimmed text is empty we persist `other: ''` (not null) so the
+  /// chip stays selected and the text field reopens on next view. The only
+  /// way to deselect is tapping the chip itself.
   void _flushOtherText() {
     final pending = _pendingOtherText;
     _pendingOtherText = null;
     if (pending == null) return;
     final trimmed = pending.trim();
-    unawaited(
-      _save(_currentValue.copyWith(other: trimmed.isEmpty ? null : trimmed)),
-    );
+    unawaited(_save(_currentValue.copyWith(other: trimmed)));
   }
 
   @override
@@ -298,8 +300,11 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget> {
     final theme = Theme.of(context);
     final allowsMultiple = config.allowsMultiple;
     final allowsOther = config.allowsOther;
-    // Fix 8: remove dead `_currentValue.optionIds.contains('__other__')` check.
-    final isOtherSelected = _currentValue.other?.isNotEmpty ?? false;
+    // Selection is keyed on `other != null` — the chip's tap persists an
+    // empty `other` to mark "selected with no text yet" so the text field
+    // opens immediately. Non-null + empty differs from null (never tapped),
+    // and the encoder round-trips both states.
+    final isOtherSelected = _currentValue.other != null;
 
     // Separate active vs deleted options.
     final activeOptions = config.options.where((o) => !o.isDeleted).toList()

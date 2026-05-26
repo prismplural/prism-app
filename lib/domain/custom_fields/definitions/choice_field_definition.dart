@@ -37,12 +37,16 @@ TypedFieldValue _parse(String? raw) {
 
 String _encode(TypedFieldValue value) {
   if (value is! ChoiceFieldValue) return '';
-  if (value.optionIds.isEmpty && (value.other == null || value.other!.isEmpty)) {
+  // "No selection at all" → empty raw value so the storage column doesn't
+  // hold a meaningless `{}`. An empty `other` string is meaningful (the
+  // Other chip was tapped but no text typed yet) and must round-trip; null
+  // means Other was never selected.
+  if (value.optionIds.isEmpty && value.other == null) {
     return '';
   }
   final json = <String, dynamic>{
     'options': value.optionIds.toList()..sort(),
-    if (value.other != null && value.other!.isNotEmpty) 'other': value.other,
+    if (value.other != null) 'other': value.other,
   };
   return jsonEncode(json);
 }
