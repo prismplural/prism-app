@@ -27,6 +27,27 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     )..where((s) => s.id.equals(_singletonId))).getSingle();
   }
 
+  /// Returns the singleton settings row without creating one if absent.
+  ///
+  /// Used by the patch-style [updateSettings] path so a non-existent row
+  /// produces a clean `null` to bail on (rather than implicitly creating a
+  /// default row mid-update). Mirrors `getNoteByIdRow` / `getHabitByIdRow`
+  /// in other DAOs.
+  Future<SystemSettingsData?> getSettingsRow() {
+    return (select(
+      systemSettingsTable,
+    )..where((s) => s.id.equals(_singletonId))).getSingleOrNull();
+  }
+
+  /// Applies a partial companion to the singleton row.
+  ///
+  /// Caller is responsible for building only the columns it wants to
+  /// touch — every other column should be `Value.absent()`. Used by the
+  /// repository's patch-style update path; do not use for fresh-install
+  /// row creation (use [getSettings] for that).
+  Future<void> applyPartialSettings(SystemSettingsTableCompanion companion) =>
+      _updateField(companion);
+
   Stream<SystemSettingsData> watchSettings() {
     // Ensure the singleton row exists before watching
     getSettings();

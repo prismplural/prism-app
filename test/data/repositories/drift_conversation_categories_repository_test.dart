@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/conversation_categories_dao.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_categories_repository.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/conversation_category.dart';
 
 void main() {
@@ -137,6 +138,123 @@ void main() {
     test('returns null for non-existent id', () async {
       final found = await repo.getById('nonexistent');
       expect(found, isNull);
+    });
+  });
+
+  group('update (patch-style emission)', () {
+    final baseTime = DateTime.utc(2026, 5, 1, 12);
+
+    ConversationCategory makeFullCategory({
+      String id = 'c1',
+      String name = 'Original name',
+      int displayOrder = 0,
+      DateTime? createdAt,
+      DateTime? modifiedAt,
+    }) {
+      return ConversationCategory(
+        id: id,
+        name: name,
+        displayOrder: displayOrder,
+        createdAt: createdAt ?? baseTime,
+        modifiedAt: modifiedAt ?? baseTime,
+      );
+    }
+
+    test('emits only the changed fields', () async {
+      await repo.create(makeFullCategory());
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      final later = baseTime.add(const Duration(hours: 1));
+      await repo.update(
+        makeFullCategory(name: 'Renamed', modifiedAt: later),
+      );
+
+      expect(captured, hasLength(1));
+      expect(captured.single.opType, SyncRecordOpType.update);
+      expect(captured.single.table, 'conversation_categories');
+      expect(captured.single.entityId, 'c1');
+      expect(captured.single.fields.keys.toSet(), {'name', 'modified_at'});
+      expect(captured.single.fields['name'], 'Renamed');
+    });
+
+    test('emits nothing when the domain object matches the stored row',
+        () async {
+      await repo.create(makeFullCategory());
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.update(makeFullCategory());
+
+      expect(captured, isEmpty);
+    });
+
+    test('preserves untouched columns in the database', () async {
+      await repo.create(
+        makeFullCategory(name: 'Original name', displayOrder: 7),
+      );
+
+      await repo.update(
+        makeFullCategory(
+          name: 'Renamed',
+          displayOrder: 7,
+          modifiedAt: baseTime.add(const Duration(hours: 1)),
+        ),
+      );
+
+      final row = await dao.getById('c1');
+      expect(row, isNotNull);
+      expect(row!.name, 'Renamed');
+      expect(row.displayOrder, 7);
+      expect(row.createdAt.toUtc(), baseTime);
+    });
+
+    test('silently no-ops on a tombstoned row (does not emit, '
+        'does not resurrect)', () async {
+      await repo.create(makeFullCategory(name: 'Original name'));
+      await repo.delete('c1');
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.update(makeFullCategory(name: 'Attempted edit'));
+
+      expect(captured, isEmpty);
+      final row = await dao.getByIdRow('c1');
+      expect(row, isNotNull);
+      expect(row!.isDeleted, isTrue);
+      expect(row.name, 'Original name');
+    });
+
+    test('silently no-ops when the row does not exist', () async {
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.update(makeFullCategory(id: 'missing'));
+
+      expect(captured, isEmpty);
+      final row = await dao.getByIdRow('missing');
+      expect(row, isNull);
+    });
+
+    test('does not emit is_deleted in the patch', () async {
+      await repo.create(makeFullCategory());
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.update(
+        makeFullCategory(
+          name: 'Renamed',
+          modifiedAt: baseTime.add(const Duration(hours: 1)),
+        ),
+      );
+
+      expect(captured, hasLength(1));
+      expect(captured.single.fields.containsKey('is_deleted'), isFalse);
     });
   });
 

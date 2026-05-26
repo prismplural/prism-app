@@ -43,6 +43,12 @@ class _FakeMemberRepository implements MemberRepository {
   }
 
   @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => throw UnimplementedError();
+
+  @override
   Future<void> deleteMember(String id) async {
     final member = _members[id];
     if (member != null) {

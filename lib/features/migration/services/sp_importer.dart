@@ -876,12 +876,21 @@ class SpImporter {
           conversationCompanions.add(
             ConversationMapper.toCompanion(conversation),
           );
+          final convFields = DriftConversationRepository.conversationFields(
+            conversation,
+          );
+          // Sparse-emit for pre-v25 peers — `conversationFields` deliberately
+          // omits this field (carve-out for the patch-style update flow);
+          // mirror `createConversation`'s inline-emit-when-true contract.
+          if (conversation.includesAllMembers) {
+            convFields['includes_all_members'] = true;
+          }
           conversationEmissions.add(
             CapturedSyncOp(
               'conversations',
               conversation.id,
               SyncRecordOpType.create,
-              DriftConversationRepository.conversationFields(conversation),
+              convFields,
             ),
           );
           await didImportOne();

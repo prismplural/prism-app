@@ -210,6 +210,12 @@ class _FakeMemberRepo implements MemberRepository {
   Future<void> updateMember(domain.Member m) async => _byId[m.id] = m;
 
   @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => throw UnimplementedError();
+
+  @override
   Future<void> deleteMember(String id) async => _byId.remove(id);
 
   @override

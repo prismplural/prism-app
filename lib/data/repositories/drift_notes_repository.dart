@@ -1,8 +1,11 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/notes_dao.dart';
 import 'package:prism_plurality/data/mappers/note_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/sync/field_diff.dart';
 import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/note.dart' as domain;
 import 'package:prism_plurality/domain/repositories/notes_repository.dart';
@@ -64,9 +67,18 @@ class DriftNotesRepository with SyncRecordMixin implements NotesRepository {
 
   @override
   Future<void> updateNote(domain.Note note) async {
-    final companion = NoteMapper.toCompanion(note);
+    final existingRow = await _dao.getNoteById(note.id);
+    if (existingRow == null || existingRow.isDeleted) return;
+
+    final changedFields = diffSyncFields(
+      _noteFieldsFromRow(existingRow),
+      _noteFields(note),
+    );
+    if (changedFields.isEmpty) return;
+
+    final companion = _partialNoteCompanion(changedFields);
     await _dao.updateNote(note.id, companion);
-    await syncRecordUpdate(_table, note.id, _noteFields(note));
+    await syncRecordUpdate(_table, note.id, changedFields);
   }
 
   @override
@@ -80,6 +92,45 @@ class DriftNotesRepository with SyncRecordMixin implements NotesRepository {
   /// pin every emitted DateTime as Z-suffixed UTC.
   @visibleForTesting
   Map<String, dynamic> debugNoteFields(domain.Note n) => _noteFields(n);
+
+  NotesCompanion _partialNoteCompanion(Map<String, dynamic> fields) {
+    return NotesCompanion(
+      title: fields.containsKey('title')
+          ? Value(fields['title'] as String)
+          : const Value.absent(),
+      body: fields.containsKey('body')
+          ? Value(fields['body'] as String)
+          : const Value.absent(),
+      colorHex: fields.containsKey('color_hex')
+          ? Value(fields['color_hex'] as String?)
+          : const Value.absent(),
+      memberId: fields.containsKey('member_id')
+          ? Value(fields['member_id'] as String?)
+          : const Value.absent(),
+      date: fields.containsKey('date')
+          ? Value(parseSyncDateTime(fields['date']))
+          : const Value.absent(),
+      createdAt: fields.containsKey('created_at')
+          ? Value(parseSyncDateTime(fields['created_at']))
+          : const Value.absent(),
+      modifiedAt: fields.containsKey('modified_at')
+          ? Value(parseSyncDateTime(fields['modified_at']))
+          : const Value.absent(),
+    );
+  }
+
+  Map<String, dynamic> _noteFieldsFromRow(NoteRow n) {
+    return {
+      'title': n.title,
+      'body': n.body,
+      'color_hex': n.colorHex,
+      'member_id': n.memberId,
+      'date': toSyncUtc(n.date),
+      'created_at': toSyncUtc(n.createdAt),
+      'modified_at': toSyncUtc(n.modifiedAt),
+      'is_deleted': n.isDeleted,
+    };
+  }
 
   Map<String, dynamic> _noteFields(domain.Note n) => noteFields(n);
 

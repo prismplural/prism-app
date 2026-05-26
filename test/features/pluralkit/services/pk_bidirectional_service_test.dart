@@ -118,6 +118,15 @@ class FakeMemberRepository implements MemberRepository {
   }
 
   @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async {
+    calls.add(Call('updateMemberFields', [id, changedFields]));
+    return 0;
+  }
+
+  @override
   Future<List<domain.Member>> getAllMembers() async => _members.values.toList();
 
   @override

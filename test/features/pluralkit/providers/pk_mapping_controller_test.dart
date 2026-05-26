@@ -89,6 +89,12 @@ class _FakeMemberRepo implements MemberRepository {
   }
 
   @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => throw UnimplementedError();
+
+  @override
   Future<void> deleteMember(String id) async => _byId.remove(id);
   @override
   Future<int> getCount() async => _byId.length;
@@ -1225,6 +1231,15 @@ class _RecordingMemberRepo implements MemberRepository {
   Future<void> updateMember(domain.Member m) async {
     onWrite();
     return _inner.updateMember(m);
+  }
+
+  @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) {
+    onWrite();
+    return _inner.updateMemberFields(id, changedFields);
   }
 
   @override

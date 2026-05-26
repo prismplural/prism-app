@@ -1,10 +1,13 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/database/app_database.dart' as db;
 import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
 import 'package:prism_plurality/data/mappers/conversation_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/sync/field_diff.dart';
 import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/conversation.dart' as domain;
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
@@ -69,22 +72,49 @@ class DriftConversationRepository
   Future<void> createConversation(domain.Conversation conversation) async {
     final companion = ConversationMapper.toCompanion(conversation);
     await _dao.insertConversation(companion);
-    await syncRecordCreate(
-      _table,
-      conversation.id,
-      _conversationFields(conversation),
-    );
+    final fields = _conversationFields(conversation);
+    // Sparse-emit for pre-v25 peers — kept outside `_conversationFields`
+    // because diffSyncFields can't represent sparse semantics. Inline-emit
+    // only when true (matches the pre-migration `conversationFields`
+    // contract for new rows).
+    if (conversation.includesAllMembers) {
+      fields['includes_all_members'] = true;
+    }
+    await syncRecordCreate(_table, conversation.id, fields);
   }
 
   @override
   Future<void> updateConversation(domain.Conversation conversation) async {
-    final companion = ConversationMapper.toCompanion(conversation);
-    await _dao.updateConversation(companion);
-    await syncRecordUpdate(
-      _table,
-      conversation.id,
+    final existingRow = await _dao.getConversationById(conversation.id);
+    if (existingRow == null || existingRow.isDeleted) return;
+
+    final changedFields = diffSyncFields(
+      _conversationFieldsFromRow(existingRow),
       _conversationFields(conversation),
     );
+
+    // Sparse-emit for pre-v25 peers — kept outside the diff helper because
+    // diffSyncFields can't represent sparse semantics. `_conversationFields`
+    // and `_conversationFieldsFromRow` both omit `includes_all_members`, so
+    // the diff can never surface the transition; emit it inline whenever the
+    // boolean changes, mirroring `setIncludesAllMembers`.
+    final previousIncludesAll = existingRow.includesAllMembers;
+    final nextIncludesAll = conversation.includesAllMembers;
+    if (previousIncludesAll != nextIncludesAll) {
+      changedFields['includes_all_members'] = nextIncludesAll;
+    }
+
+    if (changedFields.isEmpty) return;
+
+    final companion = _partialConversationCompanion(
+      conversation.id,
+      changedFields,
+      includesAllMembers: previousIncludesAll != nextIncludesAll
+          ? nextIncludesAll
+          : null,
+    );
+    await _dao.updateConversation(companion);
+    await syncRecordUpdate(_table, conversation.id, changedFields);
   }
 
   @override
@@ -194,13 +224,24 @@ class DriftConversationRepository
 
   @override
   Future<void> updateLastActivity(String id) async {
-    await _dao.updateLastActivity(id);
-    // Fetch the updated conversation to build a full field map.
-    final row = await _dao.getConversationById(id);
-    if (row != null) {
-      final conversation = ConversationMapper.toDomain(row);
-      await syncRecordUpdate(_table, id, _conversationFields(conversation));
-    }
+    // Read BEFORE the DAO write so the diff sees the pre-bump state.
+    // Refetching after the write would over-emit every column (see the
+    // read-after-write trap in the migration plan).
+    final existingRow = await _dao.getConversationById(id);
+    if (existingRow == null || existingRow.isDeleted) return;
+
+    final bumped = ConversationMapper.toDomain(
+      existingRow,
+    ).copyWith(lastActivityAt: DateTime.now());
+    final changedFields = diffSyncFields(
+      _conversationFieldsFromRow(existingRow),
+      _conversationFields(bumped),
+    );
+    if (changedFields.isEmpty) return;
+
+    final companion = _partialConversationCompanion(id, changedFields);
+    await _dao.updateConversation(companion);
+    await syncRecordUpdate(_table, id, changedFields);
   }
 
   /// Visible-for-testing: builds the field map this repository hands to the
@@ -216,12 +257,107 @@ class DriftConversationRepository
   Map<String, dynamic> _conversationFields(domain.Conversation c) =>
       conversationFields(c);
 
+  /// Mirror of [conversationFields] built from a Drift row. Used by the
+  /// patch-style update flow as the "previous" side of the diff.
+  ///
+  /// **Carve-out**: `includes_all_members` is intentionally absent from both
+  /// this helper and [conversationFields]. The on-wire field is sparse-emitted
+  /// (only present when `true`) for pre-v25 peers, and [diffSyncFields] can't
+  /// represent sparse semantics — see `updateConversation` for the inline
+  /// emit handling the false→true / true→false transition.
+  ///
+  /// The "previous" side must encode through the same pipeline as the
+  /// "next" side ([conversationFields]). `lastReadTimestamps` is stored as
+  /// raw JSON via [ConversationMapper.toCompanion] (`.toIso8601String()` with
+  /// no UTC normalization) but emitted via [toSyncUtc] (`.toUtc()`). To keep
+  /// the diff symmetric, parse the stored JSON back through the domain
+  /// mapper and re-encode through `conversationFields`'s timestamp path.
+  Map<String, dynamic> _conversationFieldsFromRow(db.Conversation row) {
+    // Round-trip the row through the domain mapper so the wire encoding
+    // matches `_conversationFields(domain)` exactly. The mapper already
+    // tolerates malformed JSON (logs + falls back to empty), so this is no
+    // worse than the prior whole-row emit path which also went through the
+    // mapper.
+    final domainView = ConversationMapper.toDomain(row);
+    final fields = _conversationFields(domainView);
+    // Override is_deleted from the raw row — `_conversationFields` hard-codes
+    // `false` (it's a "new state" emit), and the previous-side map must
+    // carry the actual stored tombstone bit so a soft-delete diff doesn't
+    // spuriously match `false`. The early-return on `existingRow.isDeleted`
+    // makes this defensive; documenting the contract anyway.
+    fields['is_deleted'] = row.isDeleted;
+    return fields;
+  }
+
+  /// Build a sparse [db.ConversationsCompanion] from a patch map.
+  ///
+  /// [id] is required because the DAO's `updateConversation` asserts
+  /// `companion.id.present`. [includesAllMembers] is plumbed separately
+  /// because it lives outside the diff map (sparse-field carve-out).
+  db.ConversationsCompanion _partialConversationCompanion(
+    String id,
+    Map<String, dynamic> fields, {
+    bool? includesAllMembers,
+  }) {
+    return db.ConversationsCompanion(
+      id: Value(id),
+      createdAt: fields.containsKey('created_at')
+          ? Value(parseSyncDateTime(fields['created_at']))
+          : const Value.absent(),
+      lastActivityAt: fields.containsKey('last_activity_at')
+          ? Value(parseSyncDateTime(fields['last_activity_at']))
+          : const Value.absent(),
+      title: fields.containsKey('title')
+          ? Value(fields['title'] as String?)
+          : const Value.absent(),
+      emoji: fields.containsKey('emoji')
+          ? Value(fields['emoji'] as String?)
+          : const Value.absent(),
+      isDirectMessage: fields.containsKey('is_direct_message')
+          ? Value(fields['is_direct_message'] as bool)
+          : const Value.absent(),
+      creatorId: fields.containsKey('creator_id')
+          ? Value(fields['creator_id'] as String?)
+          : const Value.absent(),
+      participantIds: fields.containsKey('participant_ids')
+          ? Value(fields['participant_ids'] as String)
+          : const Value.absent(),
+      archivedByMemberIds: fields.containsKey('archived_by_member_ids')
+          ? Value(fields['archived_by_member_ids'] as String)
+          : const Value.absent(),
+      mutedByMemberIds: fields.containsKey('muted_by_member_ids')
+          ? Value(fields['muted_by_member_ids'] as String)
+          : const Value.absent(),
+      lastReadTimestamps: fields.containsKey('last_read_timestamps')
+          ? Value(fields['last_read_timestamps'] as String)
+          : const Value.absent(),
+      description: fields.containsKey('description')
+          ? Value(fields['description'] as String?)
+          : const Value.absent(),
+      categoryId: fields.containsKey('category_id')
+          ? Value(fields['category_id'] as String?)
+          : const Value.absent(),
+      displayOrder: fields.containsKey('display_order')
+          ? Value(fields['display_order'] as int)
+          : const Value.absent(),
+      includesAllMembers: includesAllMembers != null
+          ? Value(includesAllMembers)
+          : const Value.absent(),
+    );
+  }
+
   /// Field-map builder for conversation sync emissions.
   ///
   /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
   /// construct byte-identical `fields` payloads when it bypasses
   /// `createConversation()` for the bulk insert. See
   /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
+  ///
+  /// **Note**: `includes_all_members` is *not* included here. It is
+  /// sparse-emitted (only when `true`) directly by `createConversation` and
+  /// `setIncludesAllMembers`, and inline-emitted on transitions by
+  /// `updateConversation`. See `_conversationFieldsFromRow` for the
+  /// rationale.
   static Map<String, dynamic> conversationFields(domain.Conversation c) {
     final lastReadTimestampsJson = jsonEncode(
       c.lastReadTimestamps.map((k, v) => MapEntry(k, toSyncUtc(v))),
@@ -241,9 +377,6 @@ class DriftConversationRepository
       'category_id': c.categoryId,
       'display_order': c.displayOrder,
       'is_deleted': false,
-      // Sparse emit: pre-v25 peers quarantine unknown fields, so only
-      // include includes_all_members when it's true.
-      if (c.includesAllMembers) 'includes_all_members': true,
     };
   }
 }

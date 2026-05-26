@@ -1,8 +1,10 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/core/database/app_database.dart' as db;
 import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
@@ -15,6 +17,8 @@ import 'package:prism_plurality/data/repositories/drift_member_profile_preferenc
 import 'package:prism_plurality/data/repositories/drift_member_groups_repository.dart';
 import 'package:prism_plurality/data/mappers/member_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/sync/field_diff.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/conversation.dart'
     as conversation_domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
@@ -102,13 +106,42 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   @override
   Future<void> updateMember(domain.Member member) async {
     final normalizedMember = _normalizeMember(member);
-    final companion = MemberMapper.toCompanion(normalizedMember);
-    await _dao.updateMember(companion);
-    await syncRecordUpdate(
-      _table,
-      normalizedMember.id,
+    final existingRow = await _dao.getMemberByIdRow(normalizedMember.id);
+    if (existingRow == null || existingRow.isDeleted) return;
+
+    final changedFields = diffSyncFields(
+      _memberFieldsFromRow(existingRow),
       _memberFields(normalizedMember),
     );
+    if (changedFields.isEmpty) return;
+
+    final companion = _partialMemberCompanion(changedFields);
+    final affected = await _dao.updateMemberById(normalizedMember.id, companion);
+    if (affected != 1) return;
+
+    await syncRecordUpdate(_table, normalizedMember.id, changedFields);
+  }
+
+  @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async {
+    final existingRow = await _dao.getMemberByIdRow(id);
+    if (existingRow == null || existingRow.isDeleted) return 0;
+
+    final patch = diffSyncFields(
+      _memberFieldsFromRow(existingRow),
+      _knownMemberFields(changedFields),
+    );
+    if (patch.isEmpty) return 1; // no-op success for an active row
+
+    final companion = _partialMemberCompanion(patch);
+    final affected = await _dao.updateMemberById(id, companion);
+    if (affected != 1) return affected;
+
+    await syncRecordUpdate(_table, id, patch);
+    return affected;
   }
 
   /// Apply freshly-fetched avatar bytes to many members in one Drift batch
@@ -128,20 +161,42 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   Future<void> batchUpdateAvatars(List<domain.Member> membersWithBytes) async {
     if (membersWithBytes.isEmpty) return;
 
-    final normalized = <domain.Member>[];
+    // The DAO writes ONLY `avatar_image_data` for each row (see
+    // `MembersDao.batchUpdateAvatars`). Emit a one-field patch per member
+    // to match what the DAO actually persists. Going through the full
+    // `_memberFields` diff would surface any stale non-avatar field from
+    // the supplied domain object (timezone offset, display order, anything
+    // bumped on another device between the caller's read and this write)
+    // and emit it as a phantom edit — local DB stays correct, but peers
+    // would clobber on those stale columns.
     final bytesById = <String, Uint8List>{};
+    final normalizedIds = <String>[];
     for (final member in membersWithBytes) {
       final n = _normalizeMember(member);
       final bytes = n.avatarImageData;
       if (bytes == null) continue;
-      normalized.add(n);
+
+      final existingRow = await _dao.getMemberByIdRow(n.id);
+      if (existingRow == null || existingRow.isDeleted) continue;
+
+      // Skip rows where the stored avatar already matches — no local write,
+      // no sync emission.
+      final encoded = base64Encode(bytes);
+      if (existingRow.avatarImageData != null &&
+          base64Encode(existingRow.avatarImageData!) == encoded) {
+        continue;
+      }
+
       bytesById[n.id] = bytes;
+      normalizedIds.add(n.id);
     }
     if (bytesById.isEmpty) return;
 
     await _dao.batchUpdateAvatars(bytesById);
-    for (final n in normalized) {
-      await syncRecordUpdate(_table, n.id, _memberFields(n));
+    for (final id in normalizedIds) {
+      await syncRecordUpdate(_table, id, {
+        'avatar_image_data': base64Encode(bytesById[id]!),
+      });
     }
   }
 
@@ -454,4 +509,267 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       'is_deleted': false,
     };
   }
+
+  /// Mirror of [memberFields] keyed off the raw Drift row. Used by the
+  /// patch-style update path to diff the stored row against the
+  /// incoming domain object so the wire-side emission only contains
+  /// fields the writer actually changed.
+  ///
+  /// `board_last_read_at` is intentionally **not** included here. The
+  /// column lives on the members table but is owned by the board-posts
+  /// repo's `markInboxOpenedFor` flow — it routes through
+  /// `updateMemberFields(id, {'board_last_read_at': ...})` and is
+  /// diffed against `previous[key] = null` (absent), which surfaces a
+  /// patch entry on the first write. Keeping it out of the per-domain
+  /// field map prevents `updateMember(domain)` (which lacks the field
+  /// on the domain model) from accidentally clearing it.
+  Map<String, dynamic> _memberFieldsFromRow(db.Member m) {
+    final avatar = m.avatarImageData;
+    return {
+      'name': m.name,
+      'pronouns': m.pronouns,
+      'emoji': m.emoji,
+      'age': m.age,
+      'bio': m.bio,
+      'avatar_image_data': avatar != null ? base64Encode(avatar) : null,
+      'is_active': m.isActive,
+      'created_at': toSyncUtc(m.createdAt),
+      'display_order': m.displayOrder,
+      'is_admin': m.isAdmin,
+      'custom_color_enabled': m.customColorEnabled,
+      'custom_color_hex': m.customColorHex,
+      'parent_system_id': m.parentSystemId,
+      'pluralkit_uuid': m.pluralkitUuid,
+      'pluralkit_id': m.pluralkitId,
+      'pluralkit_display_name': m.pluralkitDisplayName,
+      'markdown_enabled': m.markdownEnabled,
+      'display_name': m.displayName,
+      'birthday': m.birthday,
+      // proxy_tags_json is ORDERED — the user's preferred order matters.
+      // Keep it as the stored text (matches the static memberFields()
+      // builder which does `m.proxyTagsJson` straight through). Do NOT
+      // canonicalize via jsonSet.
+      'proxy_tags_json': m.proxyTagsJson,
+      'pk_banner_url': m.pkBannerUrl,
+      'profile_header_source': m.profileHeaderSource,
+      'profile_header_layout': m.profileHeaderLayout,
+      'profile_header_visible': m.profileHeaderVisible,
+      'name_style_font': m.nameStyleFont,
+      'name_style_bold': m.nameStyleBold,
+      'name_style_italic': m.nameStyleItalic,
+      'name_style_color_mode': m.nameStyleColorMode,
+      'name_style_color_hex': m.nameStyleColorHex,
+      'profile_header_image_data': m.profileHeaderImageData != null
+          ? base64Encode(m.profileHeaderImageData!)
+          : null,
+      'pk_banner_image_data': m.pkBannerImageData != null
+          ? base64Encode(m.pkBannerImageData!)
+          : null,
+      'pk_banner_cached_url': m.pkBannerCachedUrl,
+      'pluralkit_sync_ignored': m.pluralkitSyncIgnored,
+      'is_always_fronting': m.isAlwaysFronting,
+      'is_deleted': m.isDeleted,
+    };
+  }
+
+  /// Allow-list of column keys that the keyed [updateMemberFields]
+  /// entry point accepts. Anything else passed by a caller is silently
+  /// filtered before the diff so a typo'd key doesn't reach the
+  /// partial-companion builder.
+  ///
+  /// `delete_intent_epoch` and `delete_push_started_at` are deliberately
+  /// excluded — they're delete-push bookkeeping, stamped exclusively by
+  /// `stampDeletePushStartedAt` and the unlink flow. Letting the generic
+  /// keyed entry point write them would let a caller smuggle a delete
+  /// intent onto an active member.
+  static const _memberPatchKeys = {
+    'name',
+    'pronouns',
+    'emoji',
+    'age',
+    'bio',
+    'avatar_image_data',
+    'is_active',
+    'created_at',
+    'display_order',
+    'is_admin',
+    'custom_color_enabled',
+    'custom_color_hex',
+    'parent_system_id',
+    'pluralkit_uuid',
+    'pluralkit_id',
+    'pluralkit_display_name',
+    'markdown_enabled',
+    'display_name',
+    'birthday',
+    'proxy_tags_json',
+    'pk_banner_url',
+    'profile_header_source',
+    'profile_header_layout',
+    'profile_header_visible',
+    'name_style_font',
+    'name_style_bold',
+    'name_style_italic',
+    'name_style_color_mode',
+    'name_style_color_hex',
+    'profile_header_image_data',
+    'pk_banner_image_data',
+    'pk_banner_cached_url',
+    'pluralkit_sync_ignored',
+    'is_always_fronting',
+    'board_last_read_at',
+  };
+
+  Map<String, dynamic> _knownMemberFields(Map<String, dynamic> fields) {
+    final out = <String, dynamic>{};
+    for (final entry in fields.entries) {
+      if (_memberPatchKeys.contains(entry.key)) {
+        out[entry.key] = _normalizePatchValue(entry.key, entry.value);
+      }
+    }
+    return out;
+  }
+
+  Object? _normalizePatchValue(String key, Object? value) {
+    if ((key == 'created_at' || key == 'board_last_read_at') &&
+        value is DateTime) {
+      return toSyncUtc(value);
+    }
+    return value;
+  }
+
+  db.MembersCompanion _partialMemberCompanion(Map<String, dynamic> fields) {
+    return db.MembersCompanion(
+      name: fields.containsKey('name')
+          ? Value(fields['name'] as String)
+          : const Value.absent(),
+      pronouns: fields.containsKey('pronouns')
+          ? Value(fields['pronouns'] as String?)
+          : const Value.absent(),
+      emoji: fields.containsKey('emoji')
+          ? Value(fields['emoji'] as String)
+          : const Value.absent(),
+      age: fields.containsKey('age')
+          ? Value(fields['age'] as int?)
+          : const Value.absent(),
+      bio: fields.containsKey('bio')
+          ? Value(fields['bio'] as String?)
+          : const Value.absent(),
+      avatarImageData: fields.containsKey('avatar_image_data')
+          ? Value(_decodeAvatarBlob(fields['avatar_image_data']))
+          : const Value.absent(),
+      isActive: fields.containsKey('is_active')
+          ? Value(fields['is_active'] as bool)
+          : const Value.absent(),
+      createdAt: fields.containsKey('created_at')
+          ? Value(parseSyncDateTime(fields['created_at']))
+          : const Value.absent(),
+      displayOrder: fields.containsKey('display_order')
+          ? Value(fields['display_order'] as int)
+          : const Value.absent(),
+      isAdmin: fields.containsKey('is_admin')
+          ? Value(fields['is_admin'] as bool)
+          : const Value.absent(),
+      customColorEnabled: fields.containsKey('custom_color_enabled')
+          ? Value(fields['custom_color_enabled'] as bool)
+          : const Value.absent(),
+      customColorHex: fields.containsKey('custom_color_hex')
+          ? Value(fields['custom_color_hex'] as String?)
+          : const Value.absent(),
+      parentSystemId: fields.containsKey('parent_system_id')
+          ? Value(fields['parent_system_id'] as String?)
+          : const Value.absent(),
+      pluralkitUuid: fields.containsKey('pluralkit_uuid')
+          ? Value(fields['pluralkit_uuid'] as String?)
+          : const Value.absent(),
+      pluralkitId: fields.containsKey('pluralkit_id')
+          ? Value(fields['pluralkit_id'] as String?)
+          : const Value.absent(),
+      pluralkitDisplayName: fields.containsKey('pluralkit_display_name')
+          ? Value(fields['pluralkit_display_name'] as String?)
+          : const Value.absent(),
+      markdownEnabled: fields.containsKey('markdown_enabled')
+          ? Value(fields['markdown_enabled'] as bool)
+          : const Value.absent(),
+      displayName: fields.containsKey('display_name')
+          ? Value(fields['display_name'] as String?)
+          : const Value.absent(),
+      birthday: fields.containsKey('birthday')
+          ? Value(fields['birthday'] as String?)
+          : const Value.absent(),
+      proxyTagsJson: fields.containsKey('proxy_tags_json')
+          ? Value(fields['proxy_tags_json'] as String?)
+          : const Value.absent(),
+      pkBannerUrl: fields.containsKey('pk_banner_url')
+          ? Value(fields['pk_banner_url'] as String?)
+          : const Value.absent(),
+      profileHeaderSource: fields.containsKey('profile_header_source')
+          ? Value(fields['profile_header_source'] as int)
+          : const Value.absent(),
+      profileHeaderLayout: fields.containsKey('profile_header_layout')
+          ? Value(fields['profile_header_layout'] as int)
+          : const Value.absent(),
+      profileHeaderVisible: fields.containsKey('profile_header_visible')
+          ? Value(fields['profile_header_visible'] as bool)
+          : const Value.absent(),
+      nameStyleFont: fields.containsKey('name_style_font')
+          ? Value(fields['name_style_font'] as int)
+          : const Value.absent(),
+      nameStyleBold: fields.containsKey('name_style_bold')
+          ? Value(fields['name_style_bold'] as bool)
+          : const Value.absent(),
+      nameStyleItalic: fields.containsKey('name_style_italic')
+          ? Value(fields['name_style_italic'] as bool)
+          : const Value.absent(),
+      nameStyleColorMode: fields.containsKey('name_style_color_mode')
+          ? Value(fields['name_style_color_mode'] as int)
+          : const Value.absent(),
+      nameStyleColorHex: fields.containsKey('name_style_color_hex')
+          ? Value(fields['name_style_color_hex'] as String?)
+          : const Value.absent(),
+      profileHeaderImageData: fields.containsKey('profile_header_image_data')
+          ? Value(_decodeAvatarBlob(fields['profile_header_image_data']))
+          : const Value.absent(),
+      pkBannerImageData: fields.containsKey('pk_banner_image_data')
+          ? Value(_decodeAvatarBlob(fields['pk_banner_image_data']))
+          : const Value.absent(),
+      pkBannerCachedUrl: fields.containsKey('pk_banner_cached_url')
+          ? Value(fields['pk_banner_cached_url'] as String?)
+          : const Value.absent(),
+      pluralkitSyncIgnored: fields.containsKey('pluralkit_sync_ignored')
+          ? Value(fields['pluralkit_sync_ignored'] as bool)
+          : const Value.absent(),
+      isAlwaysFronting: fields.containsKey('is_always_fronting')
+          ? Value(fields['is_always_fronting'] as bool)
+          : const Value.absent(),
+      boardLastReadAt: fields.containsKey('board_last_read_at')
+          ? Value(_parseSyncDateTimeOrNull(fields['board_last_read_at']))
+          : const Value.absent(),
+      deleteIntentEpoch: fields.containsKey('delete_intent_epoch')
+          ? Value(fields['delete_intent_epoch'] as int?)
+          : const Value.absent(),
+      deletePushStartedAt: fields.containsKey('delete_push_started_at')
+          ? Value(fields['delete_push_started_at'] as int?)
+          : const Value.absent(),
+    );
+  }
+
+  /// Decode a base64 avatar blob coming off the patch map back into
+  /// bytes for the Drift `avatarImageData` column. The patch map carries
+  /// the field as a base64 string (matching `memberFields` which is
+  /// also the sync wire format); converting it here keeps the call
+  /// sites of `updateMemberFields(id, Map)` agnostic of the encoding.
+  /// Accepts a `Uint8List` directly too in case a caller skips the
+  /// encode/decode round-trip (e.g. an internal Dart caller).
+  Uint8List? _decodeAvatarBlob(Object? value) {
+    if (value == null) return null;
+    if (value is Uint8List) return value;
+    return Uint8List.fromList(base64Decode(value as String));
+  }
+
+  DateTime? _parseSyncDateTimeOrNull(Object? value) {
+    if (value == null) return null;
+    return parseSyncDateTime(value);
+  }
 }
+

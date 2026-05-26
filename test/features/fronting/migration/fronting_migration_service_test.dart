@@ -2780,6 +2780,12 @@ class _ThrowingMemberRepository implements MemberRepository {
   Future<void> updateMember(Member member) => _inner.updateMember(member);
 
   @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) => _inner.updateMemberFields(id, changedFields);
+
+  @override
   Future<void> deleteMember(String id) => _inner.deleteMember(id);
 
   @override
@@ -3083,6 +3089,15 @@ class _SuppressionAssertingMemberRepository implements MemberRepository {
   Future<void> updateMember(Member member) {
     _assertSuppressed('updateMember');
     return _inner.updateMember(member);
+  }
+
+  @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) {
+    _assertSuppressed('updateMemberFields');
+    return _inner.updateMemberFields(id, changedFields);
   }
 
   @override

@@ -798,6 +798,12 @@ class _EarlyFailingMemberRepository implements MemberRepository {
       _inner.updateMember(member);
 
   @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) => _inner.updateMemberFields(id, changedFields);
+
+  @override
   Stream<List<member_domain.Member>> watchActiveMembers() =>
       _inner.watchActiveMembers();
 

@@ -54,6 +54,12 @@ class _EmptyMemberRepo implements MemberRepository {
   Future<void> updateMember(domain.Member m) async {}
 
   @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => 0;
+
+  @override
   Future<void> deleteMember(String id) async {}
 
   @override

@@ -9,6 +9,24 @@ abstract class MemberRepository {
   Stream<domain.Member?> watchMemberById(String id);
   Future<void> createMember(domain.Member member);
   Future<void> updateMember(domain.Member member);
+
+  /// Keyed patch-style update. Apply only the supplied fields to an
+  /// active member row and emit a corresponding per-field sync update.
+  ///
+  /// Returns:
+  ///  * `0` — row missing or tombstoned (no-op, no emission).
+  ///  * `1` — active row patched; emits `syncRecordUpdate` for the
+  ///    fields that actually differ from the stored row. Empty diff
+  ///    returns 1 as a no-op success.
+  ///
+  /// Unknown keys are silently filtered. Modeled on
+  /// `updateHabitFields(id, Map)`; used by the board-posts repo's
+  /// `markInboxOpenedFor` to route `board_last_read_at` writes through
+  /// the members repo without inlining a row read and diff.
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  );
   Future<void> deleteMember(String id);
   Future<List<domain.Member>> getMembersByIds(List<String> ids);
   Stream<List<domain.Member>> watchMembersByIds(List<String> ids);

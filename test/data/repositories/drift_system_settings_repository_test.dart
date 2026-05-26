@@ -6,6 +6,7 @@ import 'package:image/image.dart' as img;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/system_settings_dao.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
 
@@ -17,11 +18,13 @@ import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
 /// propagate the missing fields to other devices.
 void main() {
   late AppDatabase db;
+  late SystemSettingsDao dao;
   late DriftSystemSettingsRepository repo;
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
-    repo = DriftSystemSettingsRepository(SystemSettingsDao(db), null);
+    dao = SystemSettingsDao(db);
+    repo = DriftSystemSettingsRepository(dao, null);
   });
 
   tearDown(() => db.close());
@@ -139,5 +142,96 @@ void main() {
         expect(settings.systemName, 'Prism');
       },
     );
+  });
+
+  group('updateSettings (patch-style emission)', () {
+    // Seeds the singleton row by reading once; subsequent reads return the
+    // same defaults without recreating it.
+    Future<SystemSettings> seed() async {
+      return repo.getSettings();
+    }
+
+    test('emits only the changed fields', () async {
+      final base = await seed();
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.updateSettings(base.copyWith(systemName: 'Renamed'));
+
+      expect(captured, hasLength(1));
+      expect(captured.single.opType, SyncRecordOpType.update);
+      expect(captured.single.table, 'system_settings');
+      expect(captured.single.entityId, 'singleton');
+      // system_settings has no `modified_at` column, so a one-field domain
+      // change emits exactly one key.
+      expect(captured.single.fields.keys.toSet(), {'system_name'});
+      expect(captured.single.fields['system_name'], 'Renamed');
+      expect(captured.single.fields.containsKey('is_deleted'), isFalse);
+    });
+
+    test('emits nothing when domain matches the stored row', () async {
+      final base = await seed();
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.updateSettings(base);
+
+      expect(captured, isEmpty);
+    });
+
+    test('preserves untouched columns in the database', () async {
+      // Seed a non-default column value first so the test can prove the
+      // partial companion leaves it alone.
+      await repo.updateAccentColorHex('#ABCDEF');
+      await repo.updatePollsEnabled(false);
+      final base = await repo.getSettings();
+
+      await repo.updateSettings(base.copyWith(systemName: 'Touched'));
+
+      final row = await dao.getSettings();
+      expect(row.systemName, 'Touched');
+      expect(row.accentColorHex, '#ABCDEF');
+      expect(row.pollsEnabled, isFalse);
+    });
+
+    test('silently no-ops when the row does not exist', () async {
+      // Drop the singleton row entirely to simulate an empty table; the
+      // patch path must bail without creating one.
+      await db
+          .customStatement("DELETE FROM system_settings WHERE id = 'singleton'");
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.updateSettings(const SystemSettings(systemName: 'NoRow'));
+
+      expect(captured, isEmpty);
+      final stillMissing = await dao.getSettingsRow();
+      expect(stillMissing, isNull);
+    });
+
+    test('does not emit is_deleted in the patch', () async {
+      final base = await seed();
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      // Touch several fields so the diff has plenty of opportunity to leak
+      // an `is_deleted` entry.
+      await repo.updateSettings(
+        base.copyWith(
+          systemName: 'Multi',
+          chatEnabled: !base.chatEnabled,
+          themeMode: base.themeMode == AppThemeMode.system
+              ? AppThemeMode.light
+              : AppThemeMode.system,
+        ),
+      );
+
+      expect(captured, hasLength(1));
+      expect(captured.single.fields.containsKey('is_deleted'), isFalse);
+    });
   });
 }

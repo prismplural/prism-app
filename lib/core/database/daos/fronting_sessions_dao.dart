@@ -218,6 +218,16 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
     )..where((s) => s.id.equals(session.id.value))).write(session);
   }
 
+  /// Apply a sparse partial-companion patch to the session with [id].
+  /// Used by the patch-style `updateSession` / `endSession` flow that
+  /// writes only the columns that actually changed, so concurrent peers
+  /// don't get their untouched columns clobbered by a fresh HLC stamp.
+  Future<void> updateSessionById(
+    String id,
+    FrontingSessionsCompanion companion,
+  ) =>
+      (update(frontingSessions)..where((s) => s.id.equals(id))).write(companion);
+
   Future<void> softDeleteSession(String id) =>
       (update(frontingSessions)..where((s) => s.id.equals(id))).write(
         const FrontingSessionsCompanion(isDeleted: Value(true)),

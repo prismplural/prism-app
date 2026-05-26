@@ -10,6 +10,7 @@
 //       all fields including null author_id and null title survive
 //   - audience forward-compat fallback: unknown audience → applied as 'public'
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
@@ -17,6 +18,7 @@ import 'package:prism_plurality/core/database/daos/member_board_posts_dao.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
 import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
 
 // ---------------------------------------------------------------------------
@@ -74,7 +76,11 @@ void main() {
     dao = db.memberBoardPostsDao;
     membersDao = db.membersDao;
     // null sync handle → syncRecord* calls are no-ops (handle == null short-circuits)
-    repo = DriftMemberBoardPostsRepository(dao, membersDao, null);
+    repo = DriftMemberBoardPostsRepository(
+      dao,
+      membersDao,
+      null,
+    );
   });
 
   tearDown(() => db.close());
@@ -236,6 +242,161 @@ void main() {
       expect(row!.audience, 'private');
       expect(row.targetMemberId, 'm1');
     });
+
+    test('refuses to edit a tombstoned post', () async {
+      // Set up: create then soft-delete. The DAO does not filter deleted
+      // rows on read, so a stale caller could otherwise hand us a domain
+      // object carrying isDeleted=true and edit a row that was already
+      // soft-deleted.
+      await repo.createPost(_post(id: 'p1', body: 'original'));
+      await repo.softDeletePost('p1');
+
+      // Attempt an edit against the tombstoned row.
+      final edited = _post(
+        id: 'p1',
+        body: 'attempted edit',
+        isDeleted: true,
+        editedAt: DateTime.utc(2026, 3, 1),
+      );
+      await repo.updatePost(edited);
+
+      // Row stays as the soft-deleted version — body unchanged, tombstone
+      // intact, no resurrection.
+      final row = await dao.getPostById('p1');
+      expect(row, isNotNull);
+      expect(row!.isDeleted, isTrue);
+      expect(row.body, 'original');
+    });
+
+    test('silently no-ops when the post does not exist', () async {
+      // No createPost; the row simply isn't there.
+      final edited = _post(id: 'missing', body: 'ghost edit');
+      await repo.updatePost(edited);
+
+      final row = await dao.getPostById('missing');
+      expect(row, isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // updatePost (patch-style emission)
+  //
+  // Drift-repo migration #6 — `updatePost` reads the stored row, diffs the
+  // domain object against it, writes a sparse companion, and emits a
+  // `syncRecordUpdate` carrying only the changed fields. These tests
+  // exercise the wire-side shape via the SyncRecordMixin capture sink so
+  // the assertions don't depend on a real Rust handle.
+  // -------------------------------------------------------------------------
+
+  group('updatePost (patch-style emission)', () {
+    test('emits only the changed fields', () async {
+      await repo.createPost(_post(id: 'p1', body: 'original'));
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.updatePost(_post(id: 'p1', body: 'updated'));
+
+      expect(captured, hasLength(1));
+      expect(captured.single.opType, SyncRecordOpType.update);
+      expect(captured.single.table, 'member_board_posts');
+      expect(captured.single.entityId, 'p1');
+      expect(captured.single.fields.keys.toSet(), {'body'});
+      expect(captured.single.fields['body'], 'updated');
+      // is_deleted is owned by syncRecordDelete/syncRecordCreate — the
+      // diff helper strips it unconditionally.
+      expect(captured.single.fields.containsKey('is_deleted'), isFalse);
+    });
+
+    test('emits nothing when domain matches stored row', () async {
+      await repo.createPost(_post(id: 'p1'));
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.updatePost(_post(id: 'p1'));
+
+      expect(captured, isEmpty);
+    });
+
+    test('preserves untouched columns in the database', () async {
+      await repo.createPost(
+        _post(
+          id: 'p1',
+          targetMemberId: 'm_target',
+          authorId: 'a_author',
+          title: 'Original title',
+          body: 'original body',
+        ),
+      );
+
+      // Edit body only — title, target, author should be preserved.
+      await repo.updatePost(
+        _post(
+          id: 'p1',
+          targetMemberId: 'm_target',
+          authorId: 'a_author',
+          title: 'Original title',
+          body: 'updated body',
+        ),
+      );
+
+      final row = await dao.getPostById('p1');
+      expect(row, isNotNull);
+      expect(row!.body, 'updated body');
+      expect(row.title, 'Original title');
+      expect(row.targetMemberId, 'm_target');
+      expect(row.authorId, 'a_author');
+    });
+
+    test('null-clearing emits null and writes null to the database',
+        () async {
+      await repo.createPost(
+        _post(
+          id: 'p1',
+          authorId: 'a_author',
+          title: 'Original title',
+        ),
+      );
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.updatePost(
+        _post(
+          id: 'p1',
+          authorId: null, // clearing
+          title: null, // clearing
+        ),
+      );
+
+      expect(captured, hasLength(1));
+      final patch = captured.single.fields;
+      expect(patch.containsKey('author_id'), isTrue);
+      expect(patch['author_id'], isNull);
+      expect(patch.containsKey('title'), isTrue);
+      expect(patch['title'], isNull);
+
+      final row = await dao.getPostById('p1');
+      expect(row!.authorId, isNull);
+      expect(row.title, isNull);
+    });
+
+    test('does not emit is_deleted in the patch', () async {
+      // Even when the domain object would re-state `is_deleted: false`
+      // (which it always does for an active post), the diff helper must
+      // strip it so a peer's tombstone is never clobbered by an
+      // unrelated body edit.
+      await repo.createPost(_post(id: 'p1', body: 'original'));
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.updatePost(_post(id: 'p1', body: 'edited'));
+
+      expect(captured, hasLength(1));
+      expect(captured.single.fields.containsKey('is_deleted'), isFalse);
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -308,13 +469,113 @@ void main() {
     });
 
     test('unknown member id does not throw (member not found is silently skipped)', () async {
-      // MembersDao.updateMember only writes if the member exists;
+      // updateMemberFields returns 0 for missing/tombstoned rows;
       // no exception expected for missing member.
       await expectLater(
         repo.markInboxOpenedFor(['no-such-member']),
         completes,
       );
     });
+
+    test('emits one {board_last_read_at} patch per active fronter', () async {
+      await _insertMember(db, 'm1');
+      await _insertMember(db, 'm2');
+
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.markInboxOpenedFor(['m1', 'm2']);
+
+      // Two single-field patches — one per member — routed through
+      // MemberRepository.updateMemberFields. Each patch must carry only
+      // `board_last_read_at` (no untouched member columns).
+      expect(captured, hasLength(2));
+      for (final op in captured) {
+        expect(op.table, 'members');
+        expect(op.opType, SyncRecordOpType.update);
+        expect(op.fields.keys.toSet(), {'board_last_read_at'});
+        // is_deleted is stripped by the diff helper.
+        expect(op.fields.containsKey('is_deleted'), isFalse);
+      }
+      expect(
+        captured.map((op) => op.entityId).toSet(),
+        {'m1', 'm2'},
+      );
+    });
+
+    test('skips members whose boardLastReadAt is already >= now', () async {
+      // Pre-seed m1 with a future boardLastReadAt — markInboxOpenedFor
+      // must NOT roll it backwards. The filter-null-or-older rule is
+      // enforced atomically at the SQL level by
+      // MembersDao.setBoardLastReadAtIfOlder. Drift stores DateTime
+      // columns as Unix seconds, so we drop sub-second precision on the
+      // seed so the round-tripped read matches exactly.
+      final nowSec = DateTime.fromMillisecondsSinceEpoch(
+        (DateTime.now().millisecondsSinceEpoch ~/ 1000) * 1000,
+        isUtc: true,
+      );
+      final future = nowSec.add(const Duration(hours: 1));
+      await db.into(db.members).insert(
+        MembersCompanion.insert(
+          id: 'm1',
+          name: 'm1',
+          createdAt: DateTime.utc(2026, 1, 1),
+          boardLastReadAt: Value(future),
+        ),
+      );
+      await _insertMember(db, 'm2'); // boardLastReadAt: null
+
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.markInboxOpenedFor(['m1', 'm2']);
+
+      // Only m2's row is patched; m1 is short-circuited.
+      expect(captured, hasLength(1));
+      expect(captured.single.entityId, 'm2');
+      expect(captured.single.fields.keys.toSet(), {'board_last_read_at'});
+
+      // m1's column is left at its future value.
+      final m1 = await membersDao.getMemberById('m1');
+      expect(m1!.boardLastReadAt!.toUtc(), future);
+    });
+
+    test(
+      'concurrent-call race: older now never regresses a newer stamp '
+      '(atomic conditional update)',
+      () async {
+        // Pin the race the conditional DAO update guards against. Simulate
+        // two callers arriving with reversed timing: the LATE-arriving
+        // call carries an OLDER `now` than what's already stored. Without
+        // the SQL-level conditional, that call would clobber the newer
+        // stamp.
+        final older = DateTime.utc(2026, 5, 25, 10, 0);
+        final newer = DateTime.utc(2026, 5, 25, 11, 0);
+
+        await db.into(db.members).insert(
+          MembersCompanion.insert(
+            id: 'm1',
+            name: 'm1',
+            createdAt: DateTime.utc(2026, 1, 1),
+            boardLastReadAt: Value(newer),
+          ),
+        );
+
+        // Caller arrives late with an older `now` — write only if older.
+        final updatedIds = await membersDao.setBoardLastReadAtIfOlder(
+          ['m1'],
+          older,
+        );
+
+        // The row should NOT be in the updated list (current is newer
+        // than `older`), and the stored value should still be `newer`.
+        expect(updatedIds, isEmpty);
+        final m1 = await membersDao.getMemberById('m1');
+        expect(m1!.boardLastReadAt!.toUtc(), newer);
+      },
+    );
   });
 
   // -------------------------------------------------------------------------

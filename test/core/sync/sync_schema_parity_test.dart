@@ -363,7 +363,12 @@ const _repositoryFieldSources = <_RepoFieldSource>[
   _RepoFieldSource(
     tableName: 'conversations',
     file: 'lib/data/repositories/drift_conversation_repository.dart',
-    helperName: '_conversationFields',
+    // The instance helper `_conversationFields` now delegates to the static
+    // `conversationFields` (fat-arrow) so the patch-style migration could
+    // route reads from a Drift row through the same encoder via
+    // `_conversationFieldsFromRow`. The map literal lives on the static
+    // helper; point the scanner at that.
+    helperName: 'conversationFields',
   ),
   _RepoFieldSource(
     tableName: 'chat_messages',
@@ -433,7 +438,13 @@ const _repositoryFieldSources = <_RepoFieldSource>[
   _RepoFieldSource(
     tableName: 'reminders',
     file: 'lib/data/repositories/drift_reminders_repository.dart',
-    helperName: '_fields',
+    // The instance helper `_fields` delegates to the static `reminderFields`
+    // (fat-arrow). The patch-style migration added `_partialReminderCompanion`
+    // and `_reminderFieldsFromRow` between the fat-arrow and the static helper,
+    // so the parity scanner's regex (which extends `[\s\S]*?\)\s*\{` until it
+    // finds an opening brace) latches onto `_partialReminderCompanion`'s body.
+    // Point at the static helper directly — it owns the map literal.
+    helperName: 'reminderFields',
   ),
   _RepoFieldSource(
     tableName: 'friends',
@@ -494,6 +505,26 @@ const _writeOmittedFields = <String, Set<String>>{
   //   but the emit path for each is a discrete syncRecordUpdate, not the bulk
   //   helper.
   'system_settings': {'boards_enabled', 'sp_boards_backfilled_at'},
+  // `includes_all_members` is sparse-emitted (only when `true`) for pre-v25
+  //   peers. The sparse semantics are incompatible with `diffSyncFields`
+  //   (which iterates `next.entries` and would miss a field absent from
+  //   `next`), so the field is carved out of `_conversationFields` /
+  //   `_conversationFieldsFromRow` and emitted inline by `createConversation`,
+  //   `setIncludesAllMembers`, and `updateConversation`'s transition handler.
+  //   See the "Sparse-field carve-out" section of
+  //   docs/plans/2026-05-25-drift-repo-patch-update-migration.md.
+  'conversations': {'includes_all_members'},
+  // PK-link columns are not owned by `updateGroup` — the domain
+  //   `MemberGroup` model doesn't carry them, and they're written via the
+  //   dedicated PluralKit linker code paths (see the PK-link gating helpers
+  //   in drift_member_groups_repository.dart). They appear in the schema
+  //   because peers exchange them on link/unlink, but the standard group
+  //   `_groupFields` helper deliberately omits them.
+  'member_groups': {
+    'pluralkit_id',
+    'pluralkit_uuid',
+    'last_seen_from_pk_at',
+  },
 };
 
 /// Extracts the set of string keys (e.g. `'created_at':`) from the body of a

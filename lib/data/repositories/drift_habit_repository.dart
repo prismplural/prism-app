@@ -8,6 +8,7 @@ import 'package:prism_plurality/data/mappers/habit_mapper.dart';
 import 'package:prism_plurality/data/mappers/habit_completion_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/data/sync/field_diff.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/habit.dart' as domain;
 import 'package:prism_plurality/domain/models/habit_completion.dart' as domain;
 import 'package:prism_plurality/domain/repositories/habit_repository.dart';
@@ -229,10 +230,10 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
           ? Value(fields['is_active'] as bool)
           : const Value.absent(),
       createdAt: fields.containsKey('created_at')
-          ? Value(_parseSyncDateTime(fields['created_at']))
+          ? Value(parseSyncDateTime(fields['created_at']))
           : const Value.absent(),
       modifiedAt: fields.containsKey('modified_at')
-          ? Value(_parseSyncDateTime(fields['modified_at']))
+          ? Value(parseSyncDateTime(fields['modified_at']))
           : const Value.absent(),
       frequency: fields.containsKey('frequency')
           ? Value(fields['frequency'] as String)
@@ -278,7 +279,7 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
   ) {
     return db.HabitCompletionsCompanion(
       completedAt: fields.containsKey('completed_at')
-          ? Value(_parseSyncDateTime(fields['completed_at']))
+          ? Value(parseSyncDateTime(fields['completed_at']))
           : const Value.absent(),
       completedByMemberId: fields.containsKey('completed_by_member_id')
           ? Value(fields['completed_by_member_id'] as String?)
@@ -293,14 +294,9 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
           ? Value(fields['rating'] as int?)
           : const Value.absent(),
       modifiedAt: fields.containsKey('modified_at')
-          ? Value(_parseSyncDateTime(fields['modified_at']))
+          ? Value(parseSyncDateTime(fields['modified_at']))
           : const Value.absent(),
     );
-  }
-
-  DateTime _parseSyncDateTime(Object? value) {
-    if (value is DateTime) return value;
-    return DateTime.parse(value as String);
   }
 
   static const _habitPatchKeys = {

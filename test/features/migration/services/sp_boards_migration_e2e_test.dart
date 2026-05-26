@@ -50,7 +50,11 @@ SpBoardsBackfillService _makeBackfillService(
   FakeSystemSettingsRepository settingsRepo,
 ) {
   final dao = db.memberBoardPostsDao;
-  final repo = DriftMemberBoardPostsRepository(dao, db.membersDao, null);
+  final repo = DriftMemberBoardPostsRepository(
+    dao,
+    db.membersDao,
+    null,
+  );
   return SpBoardsBackfillService(
     db: db,
     boardPostsRepo: repo,
@@ -409,8 +413,11 @@ Future<ImportResult> _runFullImport(
   final convRepo = DriftConversationRepository(db.conversationsDao, null);
   final pollRepo = DriftPollRepository(
       db.pollsDao, db.pollOptionsDao, db.pollVotesDao, null);
-  final boardPostsRepo =
-      DriftMemberBoardPostsRepository(db.memberBoardPostsDao, db.membersDao, null);
+  final boardPostsRepo = DriftMemberBoardPostsRepository(
+    db.memberBoardPostsDao,
+    db.membersDao,
+    null,
+  );
 
   return importer.executeImport(
     db: db,

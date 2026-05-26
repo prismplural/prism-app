@@ -1,9 +1,13 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/database/app_database.dart' as db;
 import 'package:prism_plurality/core/database/daos/chat_messages_dao.dart';
 import 'package:prism_plurality/data/mappers/chat_message_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/sync/field_diff.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/chat_message.dart' as domain;
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 
@@ -80,9 +84,18 @@ class DriftChatMessageRepository
 
   @override
   Future<void> updateMessage(domain.ChatMessage message) async {
-    final companion = ChatMessageMapper.toCompanion(message);
+    final existingRow = await _dao.getMessageById(message.id);
+    if (existingRow == null || existingRow.isDeleted) return;
+
+    final changedFields = diffSyncFields(
+      _messageFieldsFromRow(existingRow),
+      _messageFields(message),
+    );
+    if (changedFields.isEmpty) return;
+
+    final companion = _partialMessageCompanion(message.id, changedFields);
     await _dao.updateMessage(companion);
-    await syncRecordUpdate(_table, message.id, _messageFields(message));
+    await syncRecordUpdate(_table, message.id, changedFields);
   }
 
   @override
@@ -151,6 +164,73 @@ class DriftChatMessageRepository
 
   Map<String, dynamic> _messageFields(domain.ChatMessage m) => messageFields(m);
 
+  /// Mirror of [messageFields] but reading from the stored Drift row.
+  ///
+  /// Pass-through `reactions` as-is (the stored JSON string). Order in
+  /// `reactions` is semantically meaningful (display order / time-of-reaction
+  /// sequence), so we deliberately do NOT canonicalize. See migration plan
+  /// `docs/plans/2026-05-25-drift-repo-patch-update-migration.md`.
+  Map<String, dynamic> _messageFieldsFromRow(db.ChatMessage row) {
+    return {
+      'content': row.content,
+      'timestamp': toSyncUtc(row.timestamp),
+      'is_system_message': row.isSystemMessage,
+      'edited_at': toSyncUtcOrNull(row.editedAt),
+      'author_id': row.authorId,
+      'conversation_id': row.conversationId,
+      'reactions': row.reactions,
+      'reply_to_id': row.replyToId,
+      'reply_to_author_id': row.replyToAuthorId,
+      'reply_to_content': row.replyToContent,
+      'is_deleted': row.isDeleted,
+    };
+  }
+
+  /// Build a sparse `ChatMessagesCompanion` from a patch map.
+  ///
+  /// Always sets `id` (the DAO targets the row by `companion.id`). Every
+  /// other column is absent unless the patch contains its key.
+  db.ChatMessagesCompanion _partialMessageCompanion(
+    String id,
+    Map<String, dynamic> fields,
+  ) {
+    return db.ChatMessagesCompanion(
+      id: Value(id),
+      content: fields.containsKey('content')
+          ? Value(fields['content'] as String)
+          : const Value.absent(),
+      timestamp: fields.containsKey('timestamp')
+          ? Value(parseSyncDateTime(fields['timestamp']))
+          : const Value.absent(),
+      isSystemMessage: fields.containsKey('is_system_message')
+          ? Value(fields['is_system_message'] as bool)
+          : const Value.absent(),
+      editedAt: fields.containsKey('edited_at')
+          ? Value(fields['edited_at'] == null
+              ? null
+              : parseSyncDateTime(fields['edited_at']))
+          : const Value.absent(),
+      authorId: fields.containsKey('author_id')
+          ? Value(fields['author_id'] as String?)
+          : const Value.absent(),
+      conversationId: fields.containsKey('conversation_id')
+          ? Value(fields['conversation_id'] as String)
+          : const Value.absent(),
+      reactions: fields.containsKey('reactions')
+          ? Value(fields['reactions'] as String)
+          : const Value.absent(),
+      replyToId: fields.containsKey('reply_to_id')
+          ? Value(fields['reply_to_id'] as String?)
+          : const Value.absent(),
+      replyToAuthorId: fields.containsKey('reply_to_author_id')
+          ? Value(fields['reply_to_author_id'] as String?)
+          : const Value.absent(),
+      replyToContent: fields.containsKey('reply_to_content')
+          ? Value(fields['reply_to_content'] as String?)
+          : const Value.absent(),
+    );
+  }
+
   /// Field-map builder for chat-message sync emissions.
   ///
   /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
@@ -163,9 +243,9 @@ class DriftChatMessageRepository
     );
     return {
       'content': m.content,
-      'timestamp': m.timestamp.toUtc().toIso8601String(),
+      'timestamp': toSyncUtc(m.timestamp),
       'is_system_message': m.isSystemMessage,
-      'edited_at': m.editedAt?.toUtc().toIso8601String(),
+      'edited_at': toSyncUtcOrNull(m.editedAt),
       'author_id': m.authorId,
       'conversation_id': m.conversationId,
       'reactions': reactionsJson,

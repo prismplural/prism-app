@@ -1,4 +1,7 @@
+import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/database/app_database.dart' as db;
 import 'package:prism_plurality/core/database/daos/poll_options_dao.dart';
 import 'package:prism_plurality/core/database/daos/poll_votes_dao.dart';
 import 'package:prism_plurality/core/database/daos/polls_dao.dart';
@@ -6,6 +9,8 @@ import 'package:prism_plurality/data/mappers/poll_mapper.dart';
 import 'package:prism_plurality/data/mappers/poll_option_mapper.dart';
 import 'package:prism_plurality/data/mappers/poll_vote_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/sync/field_diff.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/poll.dart' as domain;
 import 'package:prism_plurality/domain/models/poll_option.dart' as domain;
 import 'package:prism_plurality/domain/models/poll_vote.dart' as domain;
@@ -95,9 +100,20 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
 
   @override
   Future<void> updatePoll(domain.Poll poll) async {
-    final companion = PollMapper.toCompanion(poll);
-    await _pollsDao.updatePoll(companion);
-    await syncRecordUpdate(_pollTable, poll.id, _pollFields(poll));
+    final existingRow = await _pollsDao.getPollById(poll.id);
+    if (existingRow == null || existingRow.isDeleted) return;
+
+    final changedFields = diffSyncFields(
+      _pollFieldsFromRow(existingRow),
+      _pollFields(poll),
+    );
+    if (changedFields.isEmpty) return;
+
+    final companion = _partialPollCompanion(changedFields);
+    await _pollsDao.updatePoll(
+      companion.copyWith(id: Value(poll.id)),
+    );
+    await syncRecordUpdate(_pollTable, poll.id, changedFields);
   }
 
   @override
@@ -111,13 +127,25 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
 
   @override
   Future<void> closePoll(String id) async {
-    await _pollsDao.closePoll(id);
-    // Fetch the updated poll to build a full field map.
-    final row = await _pollsDao.getPollById(id);
-    if (row != null) {
-      final poll = PollMapper.toDomain(row);
-      await syncRecordUpdate(_pollTable, id, _pollFields(poll));
-    }
+    // Read BEFORE the DAO write to avoid the read-after-write trap: a
+    // post-write fetch would diff a closed row against a closed-state field
+    // map and produce an empty patch. Compute the diff on the pre-write row
+    // against a domain object representing the closed state, then write the
+    // partial companion and emit the patch.
+    final existingRow = await _pollsDao.getPollById(id);
+    if (existingRow == null || existingRow.isDeleted) return;
+    if (existingRow.isClosed) return;
+
+    final previousFields = _pollFieldsFromRow(existingRow);
+    final closedRow = existingRow.copyWith(isClosed: true);
+    final closedFields = _pollFieldsFromRow(closedRow);
+
+    final changedFields = diffSyncFields(previousFields, closedFields);
+    if (changedFields.isEmpty) return;
+
+    final companion = _partialPollCompanion(changedFields);
+    await _pollsDao.updatePoll(companion.copyWith(id: Value(id)));
+    await syncRecordUpdate(_pollTable, id, changedFields);
   }
 
   // Options
@@ -218,6 +246,54 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
     await syncRecordDelete(_pollVoteTable, id);
   }
 
+  /// Visible-for-testing: builds the field map this repository hands to the
+  /// Rust sync engine for create/update.
+  @visibleForTesting
+  Map<String, dynamic> debugPollFields(domain.Poll p) => _pollFields(p);
+
+  db.PollsCompanion _partialPollCompanion(Map<String, dynamic> fields) {
+    return db.PollsCompanion(
+      question: fields.containsKey('question')
+          ? Value(fields['question'] as String)
+          : const Value.absent(),
+      description: fields.containsKey('description')
+          ? Value(fields['description'] as String?)
+          : const Value.absent(),
+      isAnonymous: fields.containsKey('is_anonymous')
+          ? Value(fields['is_anonymous'] as bool)
+          : const Value.absent(),
+      allowsMultipleVotes: fields.containsKey('allows_multiple_votes')
+          ? Value(fields['allows_multiple_votes'] as bool)
+          : const Value.absent(),
+      isClosed: fields.containsKey('is_closed')
+          ? Value(fields['is_closed'] as bool)
+          : const Value.absent(),
+      expiresAt: fields.containsKey('expires_at')
+          ? Value(
+              fields['expires_at'] == null
+                  ? null
+                  : parseSyncDateTime(fields['expires_at']),
+            )
+          : const Value.absent(),
+      createdAt: fields.containsKey('created_at')
+          ? Value(parseSyncDateTime(fields['created_at']))
+          : const Value.absent(),
+    );
+  }
+
+  Map<String, dynamic> _pollFieldsFromRow(db.Poll p) {
+    return {
+      'question': p.question,
+      'description': p.description,
+      'is_anonymous': p.isAnonymous,
+      'allows_multiple_votes': p.allowsMultipleVotes,
+      'is_closed': p.isClosed,
+      'expires_at': toSyncUtcOrNull(p.expiresAt),
+      'created_at': toSyncUtc(p.createdAt),
+      'is_deleted': p.isDeleted,
+    };
+  }
+
   Map<String, dynamic> _pollFields(domain.Poll p) => pollFields(p);
 
   /// Field-map builder for poll sync emissions.
@@ -233,8 +309,8 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
       'is_anonymous': p.isAnonymous,
       'allows_multiple_votes': p.allowsMultipleVotes,
       'is_closed': p.isClosed,
-      'expires_at': p.expiresAt?.toUtc().toIso8601String(),
-      'created_at': p.createdAt.toUtc().toIso8601String(),
+      'expires_at': toSyncUtcOrNull(p.expiresAt),
+      'created_at': toSyncUtc(p.createdAt),
       'is_deleted': false,
     };
   }

@@ -70,6 +70,12 @@ class FakeMemberRepository implements MemberRepository {
   }
 
   @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => throw UnimplementedError();
+
+  @override
   Stream<List<Member>> watchActiveMembers() {
     return Stream.value(
       List.unmodifiable(_members.where((member) => member.isActive)),

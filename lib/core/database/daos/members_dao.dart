@@ -37,6 +37,13 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   Future<Member?> getMemberById(String id) =>
       (select(members)..where((m) => m.id.equals(id))).getSingleOrNull();
 
+  /// Single-row read by ID, including tombstones. Repository writers use
+  /// this to guard sync emission for missing/tombstoned rows. Alias for
+  /// [getMemberById] — same query — provided so the patch-style update
+  /// path reads as `getMemberByIdRow` consistently with peer repos
+  /// (`getHabitByIdRow`, `getCompletionByIdRow`).
+  Future<Member?> getMemberByIdRow(String id) => getMemberById(id);
+
   Stream<Member?> watchMemberById(String id) =>
       (select(members)..where((m) => m.id.equals(id))).watchSingleOrNull();
 
@@ -78,12 +85,56 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     });
   }
 
+  /// Atomic-per-row variant: write `now` into `boardLastReadAt` only for
+  /// active members whose current value is null or strictly older than
+  /// `now`. The conditional `WHERE` is evaluated and the write applied as
+  /// one SQL statement per row, so two concurrent callers cannot regress a
+  /// newer stamp to an older one — the loser's `WHERE` excludes the row
+  /// that already holds the winner's stamp.
+  ///
+  /// Returns the subset of `memberIds` whose row was actually updated, so
+  /// the caller can emit `syncRecordUpdate` only for those members (and
+  /// not waste CRDT ops on rows where the LWW guard already short-
+  /// circuited the local write).
+  Future<List<String>> setBoardLastReadAtIfOlder(
+    List<String> memberIds,
+    DateTime now,
+  ) async {
+    if (memberIds.isEmpty) return const [];
+    final updated = <String>[];
+    await transaction(() async {
+      for (final memberId in memberIds) {
+        final affected =
+            await (update(members)..where(
+                  (m) =>
+                      m.id.equals(memberId) &
+                      m.isDeleted.equals(false) &
+                      (m.boardLastReadAt.isNull() |
+                          m.boardLastReadAt.isSmallerThanValue(now)),
+                ))
+                .write(MembersCompanion(boardLastReadAt: Value(now)));
+        if (affected > 0) updated.add(memberId);
+      }
+    });
+    return updated;
+  }
+
   Future<void> updateMember(MembersCompanion member) {
     assert(member.id.present, 'Member id is required for update');
     return (update(
       members,
     )..where((m) => m.id.equals(member.id.value))).write(member);
   }
+
+  /// Update an active member by ID with a sparse companion. Returns the
+  /// affected row count (0 if the row is tombstoned or missing, 1 on
+  /// success). The `is_deleted = false` predicate is the tombstone
+  /// guard — Drift `write` on a tombstoned row returns 0, letting the
+  /// repository skip sync emission and avoid resurrection.
+  Future<int> updateMemberById(String id, MembersCompanion companion) =>
+      (update(members)
+            ..where((m) => m.id.equals(id) & m.isDeleted.equals(false)))
+          .write(companion);
 
   /// Bulk-update display orders in one SQL statement.
   ///

@@ -78,6 +78,12 @@ class _FakeMemberRepository implements MemberRepository {
   }
 
   @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => throw UnimplementedError();
+
+  @override
   Future<void> deleteMember(String id) async =>
       _members.removeWhere((m) => m.id == id);
 
@@ -436,6 +442,11 @@ class _ThrowingMemberRepository implements MemberRepository {
   @override
   Future<void> updateMember(domain.Member member) =>
       _inner.updateMember(member);
+  @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) => _inner.updateMemberFields(id, changedFields);
   @override
   Stream<List<domain.Member>> watchActiveMembers() =>
       _inner.watchActiveMembers();

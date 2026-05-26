@@ -1,8 +1,11 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/conversation_categories_dao.dart';
 import 'package:prism_plurality/data/mappers/conversation_category_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/sync/field_diff.dart';
 import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/conversation_category.dart'
     as domain;
@@ -43,9 +46,18 @@ class DriftConversationCategoriesRepository
 
   @override
   Future<void> update(domain.ConversationCategory category) async {
-    final companion = ConversationCategoryMapper.toCompanion(category);
+    final existingRow = await _dao.getByIdRow(category.id);
+    if (existingRow == null || existingRow.isDeleted) return;
+
+    final changedFields = diffSyncFields(
+      _categoryFieldsFromRow(existingRow),
+      _fields(category),
+    );
+    if (changedFields.isEmpty) return;
+
+    final companion = _partialCategoryCompanion(changedFields);
     await _dao.updateCategory(category.id, companion);
-    await syncRecordUpdate(_table, category.id, _fields(category));
+    await syncRecordUpdate(_table, category.id, changedFields);
   }
 
   @override
@@ -60,6 +72,35 @@ class DriftConversationCategoriesRepository
   @visibleForTesting
   Map<String, dynamic> debugCategoryFields(domain.ConversationCategory c) =>
       _fields(c);
+
+  ConversationCategoriesCompanion _partialCategoryCompanion(
+    Map<String, dynamic> fields,
+  ) {
+    return ConversationCategoriesCompanion(
+      name: fields.containsKey('name')
+          ? Value(fields['name'] as String)
+          : const Value.absent(),
+      displayOrder: fields.containsKey('display_order')
+          ? Value(fields['display_order'] as int)
+          : const Value.absent(),
+      createdAt: fields.containsKey('created_at')
+          ? Value(parseSyncDateTime(fields['created_at']))
+          : const Value.absent(),
+      modifiedAt: fields.containsKey('modified_at')
+          ? Value(parseSyncDateTime(fields['modified_at']))
+          : const Value.absent(),
+    );
+  }
+
+  Map<String, dynamic> _categoryFieldsFromRow(ConversationCategoryRow row) {
+    return {
+      'name': row.name,
+      'display_order': row.displayOrder,
+      'created_at': toSyncUtc(row.createdAt),
+      'modified_at': toSyncUtc(row.modifiedAt),
+      'is_deleted': row.isDeleted,
+    };
+  }
 
   Map<String, dynamic> _fields(domain.ConversationCategory c) =>
       categoryFields(c);

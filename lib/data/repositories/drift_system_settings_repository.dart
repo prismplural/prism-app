@@ -1,10 +1,13 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/system_settings_dao.dart';
 import 'package:prism_plurality/data/mappers/system_settings_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/sync/field_diff.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart'
     show SleepQuality;
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
@@ -37,13 +40,23 @@ class DriftSystemSettingsRepository
 
   @override
   Future<void> updateSettings(domain.SystemSettings settings) async {
-    final companion = SystemSettingsMapper.toCompanion(settings);
-    await _dao.upsertSettings(companion);
-    await syncRecordUpdate(
-      _table,
-      _settingsEntityId,
+    final existingRow = await _dao.getSettingsRow();
+    // Singletons have no "tombstoned" state to guard against — bail only
+    // when the row is genuinely absent. The settings table has an
+    // `is_deleted` column for parity with other tables, but no code path
+    // marks the singleton row deleted, so the additional `isDeleted` guard
+    // would be dead weight here.
+    if (existingRow == null) return;
+
+    final changedFields = diffSyncFields(
+      _settingsFieldsFromRow(existingRow),
       _settingsFields(settings),
     );
+    if (changedFields.isEmpty) return;
+
+    final companion = _partialSettingsCompanion(changedFields);
+    await _dao.applyPartialSettings(companion);
+    await syncRecordUpdate(_table, _settingsEntityId, changedFields);
   }
 
   // --- Field-level updates ---
@@ -584,6 +597,264 @@ class DriftSystemSettingsRepository
     if (settings.syncNavigationEnabled) {
       await _syncField(fieldName, value);
     }
+  }
+
+  /// Mirror of [_settingsFields] keyed off the raw Drift row.
+  ///
+  /// Used by the patch-style [updateSettings] path: the previous state for
+  /// `diffSyncFields` must use the same key set and encoding as the next
+  /// state, so any column that flows through `_settingsFields` must also
+  /// flow through here. Single-field setters (`updateBoardsEnabled`,
+  /// `updateSpBoardsBackfilledAt`, etc.) own their own emission paths and
+  /// stay out of this map by design.
+  ///
+  /// JSON-encoded columns (`nav_bar_items`, `nav_bar_overflow_items`,
+  /// `chat_badge_preferences`) carry ordered data — pass the stored string
+  /// straight through without canonicalizing.
+  Map<String, dynamic> _settingsFieldsFromRow(SystemSettingsData row) {
+    return {
+      'system_name': row.systemName,
+      'sharing_id': row.sharingId,
+      'show_quick_front': row.showQuickFront,
+      'accent_color_hex': row.accentColorHex,
+      'per_member_accent_colors': row.perMemberAccentColors,
+      'terminology': row.terminology,
+      'custom_terminology': row.customTerminology,
+      'custom_plural_terminology': row.customPluralTerminology,
+      'terminology_use_english': row.terminologyUseEnglish,
+      'fronting_reminders_enabled': row.frontingRemindersEnabled,
+      'fronting_reminder_interval_minutes':
+          row.frontingReminderIntervalMinutes,
+      'theme_mode': row.themeMode,
+      'theme_brightness': row.themeBrightness,
+      'theme_style': row.themeStyle,
+      'theme_corner_style': row.themeCornerStyle,
+      'palette_source': row.paletteSource,
+      'palette_seed_color_hex': row.paletteSeedColorHex,
+      'palette_mood': row.paletteMood,
+      'palette_contrast': row.paletteContrast,
+      'chat_enabled': row.chatEnabled,
+      'polls_enabled': row.pollsEnabled,
+      'habits_enabled': row.habitsEnabled,
+      'sleep_tracking_enabled': row.sleepTrackingEnabled,
+      'gif_search_enabled': row.gifSearchEnabled,
+      'voice_notes_enabled': row.voiceNotesEnabled,
+      'sleep_suggestion_enabled': row.sleepSuggestionEnabled,
+      'sleep_suggestion_hour': row.sleepSuggestionHour,
+      'sleep_suggestion_minute': row.sleepSuggestionMinute,
+      'wake_suggestion_enabled': row.wakeSuggestionEnabled,
+      'wake_suggestion_after_hours': row.wakeSuggestionAfterHours,
+      'locale_override': row.localeOverride,
+      'quick_switch_threshold_seconds': row.quickSwitchThresholdSeconds,
+      'identity_generation': row.identityGeneration,
+      'chat_logs_front': row.chatLogsFront,
+      'sync_theme_enabled': row.syncThemeEnabled,
+      'timing_mode': row.timingMode,
+      'notes_enabled': row.notesEnabled,
+      'pk_group_sync_v2_enabled': row.pkGroupSyncV2Enabled,
+      'system_description': row.systemDescription,
+      'system_color': row.systemColor,
+      'system_tag': row.systemTag,
+      'system_avatar_data': row.systemAvatarData != null
+          ? base64Encode(row.systemAvatarData!)
+          : null,
+      'reminders_enabled': row.remindersEnabled,
+      'habits_badge_enabled': row.habitsBadgeEnabled,
+      'sync_navigation_enabled': row.syncNavigationEnabled,
+      'nav_bar_items': row.navBarItems,
+      'nav_bar_overflow_items': row.navBarOverflowItems,
+      'chat_badge_preferences': row.chatBadgePreferences,
+      'fronting_list_view_mode': row.frontingListViewMode,
+      'add_front_default_behavior': row.addFrontDefaultBehavior,
+      'quick_front_default_behavior': row.quickFrontDefaultBehavior,
+      'auto_promote_long_fronting_sessions': row.autoPromoteLongFrontingSessions,
+      'bio_markdown_enabled': row.bioMarkdownEnabled,
+      'is_deleted': row.isDeleted,
+    };
+  }
+
+  /// Build a sparse [SystemSettingsTableCompanion] from a patch produced
+  /// by `diffSyncFields`. Columns not in the patch stay `Value.absent()`
+  /// so the underlying UPDATE only touches what changed.
+  ///
+  /// JSON columns (`nav_bar_items`, `nav_bar_overflow_items`,
+  /// `chat_badge_preferences`) are stored as JSON strings — pass them
+  /// through as-is. `system_avatar_data` is stored as bytes; the patch
+  /// carries the base64-encoded string used on the sync wire and is
+  /// decoded here to round-trip into the database.
+  SystemSettingsTableCompanion _partialSettingsCompanion(
+    Map<String, dynamic> fields,
+  ) {
+    return SystemSettingsTableCompanion(
+      systemName: fields.containsKey('system_name')
+          ? Value(fields['system_name'] as String?)
+          : const Value.absent(),
+      sharingId: fields.containsKey('sharing_id')
+          ? Value(fields['sharing_id'] as String?)
+          : const Value.absent(),
+      showQuickFront: fields.containsKey('show_quick_front')
+          ? Value(fields['show_quick_front'] as bool)
+          : const Value.absent(),
+      accentColorHex: fields.containsKey('accent_color_hex')
+          ? Value(fields['accent_color_hex'] as String)
+          : const Value.absent(),
+      perMemberAccentColors: fields.containsKey('per_member_accent_colors')
+          ? Value(fields['per_member_accent_colors'] as bool)
+          : const Value.absent(),
+      terminology: fields.containsKey('terminology')
+          ? Value(fields['terminology'] as int)
+          : const Value.absent(),
+      customTerminology: fields.containsKey('custom_terminology')
+          ? Value(fields['custom_terminology'] as String?)
+          : const Value.absent(),
+      customPluralTerminology: fields.containsKey('custom_plural_terminology')
+          ? Value(fields['custom_plural_terminology'] as String?)
+          : const Value.absent(),
+      terminologyUseEnglish: fields.containsKey('terminology_use_english')
+          ? Value(fields['terminology_use_english'] as bool)
+          : const Value.absent(),
+      frontingRemindersEnabled: fields.containsKey('fronting_reminders_enabled')
+          ? Value(fields['fronting_reminders_enabled'] as bool)
+          : const Value.absent(),
+      frontingReminderIntervalMinutes:
+          fields.containsKey('fronting_reminder_interval_minutes')
+          ? Value(fields['fronting_reminder_interval_minutes'] as int)
+          : const Value.absent(),
+      themeMode: fields.containsKey('theme_mode')
+          ? Value(fields['theme_mode'] as int)
+          : const Value.absent(),
+      themeBrightness: fields.containsKey('theme_brightness')
+          ? Value(fields['theme_brightness'] as int)
+          : const Value.absent(),
+      themeStyle: fields.containsKey('theme_style')
+          ? Value(fields['theme_style'] as int)
+          : const Value.absent(),
+      themeCornerStyle: fields.containsKey('theme_corner_style')
+          ? Value(fields['theme_corner_style'] as int)
+          : const Value.absent(),
+      paletteSource: fields.containsKey('palette_source')
+          ? Value(fields['palette_source'] as int)
+          : const Value.absent(),
+      paletteSeedColorHex: fields.containsKey('palette_seed_color_hex')
+          ? Value(fields['palette_seed_color_hex'] as String)
+          : const Value.absent(),
+      paletteMood: fields.containsKey('palette_mood')
+          ? Value(fields['palette_mood'] as int)
+          : const Value.absent(),
+      paletteContrast: fields.containsKey('palette_contrast')
+          ? Value(fields['palette_contrast'] as int)
+          : const Value.absent(),
+      chatEnabled: fields.containsKey('chat_enabled')
+          ? Value(fields['chat_enabled'] as bool)
+          : const Value.absent(),
+      pollsEnabled: fields.containsKey('polls_enabled')
+          ? Value(fields['polls_enabled'] as bool)
+          : const Value.absent(),
+      habitsEnabled: fields.containsKey('habits_enabled')
+          ? Value(fields['habits_enabled'] as bool)
+          : const Value.absent(),
+      sleepTrackingEnabled: fields.containsKey('sleep_tracking_enabled')
+          ? Value(fields['sleep_tracking_enabled'] as bool)
+          : const Value.absent(),
+      gifSearchEnabled: fields.containsKey('gif_search_enabled')
+          ? Value(fields['gif_search_enabled'] as bool)
+          : const Value.absent(),
+      voiceNotesEnabled: fields.containsKey('voice_notes_enabled')
+          ? Value(fields['voice_notes_enabled'] as bool)
+          : const Value.absent(),
+      sleepSuggestionEnabled: fields.containsKey('sleep_suggestion_enabled')
+          ? Value(fields['sleep_suggestion_enabled'] as bool)
+          : const Value.absent(),
+      sleepSuggestionHour: fields.containsKey('sleep_suggestion_hour')
+          ? Value(fields['sleep_suggestion_hour'] as int)
+          : const Value.absent(),
+      sleepSuggestionMinute: fields.containsKey('sleep_suggestion_minute')
+          ? Value(fields['sleep_suggestion_minute'] as int)
+          : const Value.absent(),
+      wakeSuggestionEnabled: fields.containsKey('wake_suggestion_enabled')
+          ? Value(fields['wake_suggestion_enabled'] as bool)
+          : const Value.absent(),
+      wakeSuggestionAfterHours:
+          fields.containsKey('wake_suggestion_after_hours')
+          ? Value(fields['wake_suggestion_after_hours'] as double)
+          : const Value.absent(),
+      localeOverride: fields.containsKey('locale_override')
+          ? Value(fields['locale_override'] as String?)
+          : const Value.absent(),
+      quickSwitchThresholdSeconds:
+          fields.containsKey('quick_switch_threshold_seconds')
+          ? Value(fields['quick_switch_threshold_seconds'] as int)
+          : const Value.absent(),
+      identityGeneration: fields.containsKey('identity_generation')
+          ? Value(fields['identity_generation'] as int)
+          : const Value.absent(),
+      chatLogsFront: fields.containsKey('chat_logs_front')
+          ? Value(fields['chat_logs_front'] as bool)
+          : const Value.absent(),
+      syncThemeEnabled: fields.containsKey('sync_theme_enabled')
+          ? Value(fields['sync_theme_enabled'] as bool)
+          : const Value.absent(),
+      timingMode: fields.containsKey('timing_mode')
+          ? Value(fields['timing_mode'] as int)
+          : const Value.absent(),
+      notesEnabled: fields.containsKey('notes_enabled')
+          ? Value(fields['notes_enabled'] as bool)
+          : const Value.absent(),
+      pkGroupSyncV2Enabled: fields.containsKey('pk_group_sync_v2_enabled')
+          ? Value(fields['pk_group_sync_v2_enabled'] as bool)
+          : const Value.absent(),
+      systemDescription: fields.containsKey('system_description')
+          ? Value(fields['system_description'] as String?)
+          : const Value.absent(),
+      systemColor: fields.containsKey('system_color')
+          ? Value(fields['system_color'] as String?)
+          : const Value.absent(),
+      systemTag: fields.containsKey('system_tag')
+          ? Value(fields['system_tag'] as String?)
+          : const Value.absent(),
+      systemAvatarData: fields.containsKey('system_avatar_data')
+          ? Value(
+              fields['system_avatar_data'] != null
+                  ? base64Decode(fields['system_avatar_data'] as String)
+                  : null,
+            )
+          : const Value.absent(),
+      remindersEnabled: fields.containsKey('reminders_enabled')
+          ? Value(fields['reminders_enabled'] as bool)
+          : const Value.absent(),
+      habitsBadgeEnabled: fields.containsKey('habits_badge_enabled')
+          ? Value(fields['habits_badge_enabled'] as bool)
+          : const Value.absent(),
+      syncNavigationEnabled: fields.containsKey('sync_navigation_enabled')
+          ? Value(fields['sync_navigation_enabled'] as bool)
+          : const Value.absent(),
+      navBarItems: fields.containsKey('nav_bar_items')
+          ? Value(fields['nav_bar_items'] as String)
+          : const Value.absent(),
+      navBarOverflowItems: fields.containsKey('nav_bar_overflow_items')
+          ? Value(fields['nav_bar_overflow_items'] as String)
+          : const Value.absent(),
+      chatBadgePreferences: fields.containsKey('chat_badge_preferences')
+          ? Value(fields['chat_badge_preferences'] as String)
+          : const Value.absent(),
+      frontingListViewMode: fields.containsKey('fronting_list_view_mode')
+          ? Value(fields['fronting_list_view_mode'] as int)
+          : const Value.absent(),
+      addFrontDefaultBehavior: fields.containsKey('add_front_default_behavior')
+          ? Value(fields['add_front_default_behavior'] as int)
+          : const Value.absent(),
+      quickFrontDefaultBehavior:
+          fields.containsKey('quick_front_default_behavior')
+          ? Value(fields['quick_front_default_behavior'] as int)
+          : const Value.absent(),
+      autoPromoteLongFrontingSessions:
+          fields.containsKey('auto_promote_long_fronting_sessions')
+          ? Value(fields['auto_promote_long_fronting_sessions'] as bool)
+          : const Value.absent(),
+      bioMarkdownEnabled: fields.containsKey('bio_markdown_enabled')
+          ? Value(fields['bio_markdown_enabled'] as bool)
+          : const Value.absent(),
+    );
   }
 
   Map<String, dynamic> _settingsFields(domain.SystemSettings s) {

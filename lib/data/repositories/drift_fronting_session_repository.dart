@@ -1,10 +1,13 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/database/app_database.dart' as db;
 import 'package:prism_plurality/core/database/daos/front_session_comments_dao.dart';
 import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/data/mappers/fronting_session_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/sync/field_diff.dart';
 import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
@@ -171,20 +174,40 @@ class DriftFrontingSessionRepository
 
   @override
   Future<void> updateSession(domain.FrontingSession session) async {
-    final companion = FrontingSessionMapper.toCompanion(session);
-    await _dao.updateSession(companion);
-    await syncRecordUpdate(_table, session.id, _sessionFields(session));
+    final existingRow = await _dao.getSessionById(session.id);
+    if (existingRow == null || existingRow.isDeleted) return;
+
+    final changedFields = diffSyncFields(
+      _sessionFieldsFromRow(existingRow),
+      _sessionFields(session),
+    );
+    if (changedFields.isEmpty) return;
+
+    final companion = _partialSessionCompanion(changedFields);
+    await _dao.updateSessionById(session.id, companion);
+    await syncRecordUpdate(_table, session.id, changedFields);
   }
 
   @override
   Future<void> endSession(String id, DateTime endTime) async {
-    await _dao.endSession(id, endTime);
-    // Fetch the updated session to build a full field map for the Rust engine.
-    final row = await _dao.getSessionById(id);
-    if (row != null) {
-      final session = FrontingSessionMapper.toDomain(row);
-      await syncRecordUpdate(_table, id, _sessionFields(session));
-    }
+    // Read BEFORE the DAO write so the diff sees the pre-end state.
+    // Refetching after the write would over-emit columns endSession never
+    // touches (see read-after-write trap in the migration plan).
+    final existingRow = await _dao.getSessionById(id);
+    if (existingRow == null || existingRow.isDeleted) return;
+
+    final endedDomain = FrontingSessionMapper.toDomain(
+      existingRow,
+    ).copyWith(endTime: endTime);
+    final changedFields = diffSyncFields(
+      _sessionFieldsFromRow(existingRow),
+      _sessionFields(endedDomain),
+    );
+    if (changedFields.isEmpty) return;
+
+    final companion = _partialSessionCompanion(changedFields);
+    await _dao.updateSessionById(id, companion);
+    await syncRecordUpdate(_table, id, changedFields);
   }
 
   @override
@@ -295,6 +318,72 @@ class DriftFrontingSessionRepository
 
   Map<String, dynamic> _sessionFields(domain.FrontingSession s) =>
       sessionFields(s);
+
+  /// Mirror of [sessionFields] built from a Drift row. Used by the
+  /// patch-style update flow as the "previous" side of the diff. Columns
+  /// not emitted by [sessionFields] (`co_fronter_ids`, `pk_member_ids_json`,
+  /// the PK-deletion bookkeeping ints) are intentionally omitted here too
+  /// so the diff stays symmetric.
+  Map<String, dynamic> _sessionFieldsFromRow(db.FrontingSession row) {
+    return {
+      'start_time': toSyncUtc(row.startTime),
+      'end_time': toSyncUtcOrNull(row.endTime),
+      'member_id': row.memberId,
+      'notes': row.notes,
+      'confidence': row.confidence,
+      'pluralkit_uuid': row.pluralkitUuid,
+      'pk_import_source': row.pkImportSource,
+      'pk_file_switch_id': row.pkFileSwitchId,
+      'session_type': row.sessionType,
+      'quality': row.quality,
+      'is_health_kit_import': row.isHealthKitImport,
+      'is_deleted': row.isDeleted,
+    };
+  }
+
+  db.FrontingSessionsCompanion _partialSessionCompanion(
+    Map<String, dynamic> fields,
+  ) {
+    return db.FrontingSessionsCompanion(
+      startTime: fields.containsKey('start_time')
+          ? Value(parseSyncDateTime(fields['start_time']))
+          : const Value.absent(),
+      endTime: fields.containsKey('end_time')
+          ? Value(
+              fields['end_time'] == null
+                  ? null
+                  : parseSyncDateTime(fields['end_time']),
+            )
+          : const Value.absent(),
+      memberId: fields.containsKey('member_id')
+          ? Value(fields['member_id'] as String?)
+          : const Value.absent(),
+      notes: fields.containsKey('notes')
+          ? Value(fields['notes'] as String?)
+          : const Value.absent(),
+      confidence: fields.containsKey('confidence')
+          ? Value(fields['confidence'] as int?)
+          : const Value.absent(),
+      pluralkitUuid: fields.containsKey('pluralkit_uuid')
+          ? Value(fields['pluralkit_uuid'] as String?)
+          : const Value.absent(),
+      pkImportSource: fields.containsKey('pk_import_source')
+          ? Value(fields['pk_import_source'] as String?)
+          : const Value.absent(),
+      pkFileSwitchId: fields.containsKey('pk_file_switch_id')
+          ? Value(fields['pk_file_switch_id'] as String?)
+          : const Value.absent(),
+      sessionType: fields.containsKey('session_type')
+          ? Value(fields['session_type'] as int)
+          : const Value.absent(),
+      quality: fields.containsKey('quality')
+          ? Value(fields['quality'] as int?)
+          : const Value.absent(),
+      isHealthKitImport: fields.containsKey('is_health_kit_import')
+          ? Value(fields['is_health_kit_import'] as bool)
+          : const Value.absent(),
+    );
+  }
 
   /// Field-map builder for fronting-session sync emissions.
   ///

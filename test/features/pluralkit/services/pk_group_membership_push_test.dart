@@ -55,6 +55,11 @@ class _FakeMemberRepo implements MemberRepository {
   @override
   Future<void> updateMember(domain.Member m) async => throw UnimplementedError();
   @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => throw UnimplementedError();
+  @override
   Stream<List<domain.Member>> watchActiveMembers() => throw UnimplementedError();
   @override
   Stream<List<domain.Member>> watchAllMembers() => throw UnimplementedError();

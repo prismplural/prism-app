@@ -78,6 +78,14 @@ class _FakeMemberRepository implements MemberRepository {
   }
 
   @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) {
+    throw UnimplementedError();
+  }
+
+  @override
   Stream<List<member_domain.Member>> watchActiveMembers() async* {
     yield _membersById.values.toList();
   }
@@ -382,26 +390,19 @@ void main() {
         reason:
             'PK-backed group edits should sync on the canonical PK entity id.',
       );
+      // Patch-style emission (item #14 migration): only the columns that
+      // actually changed ship, never the whole row. PK-link columns
+      // (`pluralkit_id`, `pluralkit_uuid`, `last_seen_from_pk_at`) and
+      // `is_deleted` are out of the diff path by construction. `emoji`,
+      // `parent_group_id`, `avatar_image_data`, `sort_state`, `created_at`
+      // are unchanged so they MUST NOT appear in the patch.
       expect(update['fields'], {
         'name': 'Renamed locally',
         'description': 'Edited in Prism',
         'color_hex': '#ff00aa',
-        'emoji': null,
-        'avatar_image_data': null,
         'display_order': 7,
-        'parent_group_id': null,
         'group_type': 2,
         'filter_rules': '{"mode":"all"}',
-        'created_at': stored!.createdAt.toUtc().toIso8601String(),
-        'pluralkit_id': 'abcde',
-        'pluralkit_uuid': 'pk-group-1',
-        'last_seen_from_pk_at': stored.lastSeenFromPkAt!
-            .toUtc()
-            .toIso8601String(),
-        // sort_state is part of _groupFields after Batch 3; default is
-        // manual mode with empty order on a freshly seeded group.
-        'sort_state': '{"mode":0,"order":[]}',
-        'is_deleted': false,
       });
     },
   );

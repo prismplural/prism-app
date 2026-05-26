@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
 import 'package:prism_plurality/data/mappers/member_group_entry_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/sync/field_diff.dart';
 import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 import 'package:prism_plurality/domain/models/group_sort_state.dart';
@@ -100,10 +101,34 @@ class DriftMemberGroupsRepository
   @override
   Future<void> updateGroup(domain.MemberGroup group) async {
     final normalized = _normalizeGroup(group);
-    final companion = MemberGroupMapper.toCompanion(normalized);
+    // Read BEFORE the DAO write so the diff sees the pre-update state. The
+    // DAO's `updateGroup` does NOT filter active rows (member_groups_dao.dart
+    // :117), so the `existingRow.isDeleted` guard is load-bearing: without
+    // it, a stale caller could resurrect a tombstoned group.
+    final existingRow = await _dao.getGroupById(normalized.id);
+    if (existingRow == null || existingRow.isDeleted) return;
+
+    final changedFields = diffSyncFields(
+      _groupFieldsFromRow(existingRow),
+      _groupDomainFields(normalized),
+    );
+    if (changedFields.isEmpty) return;
+
+    final companion = _partialGroupCompanion(changedFields);
     await _dao.updateGroup(normalized.id, companion);
+
+    // Preserve the existing PK-link gating + suppression + legacy alias
+    // emission semantics. We must re-read the row because
+    // `_groupEntityId(stored)` / `_syncLegacyPkGroupAliasDeletes(stored)`
+    // need post-write group identity (e.g. if a future writer ever flips
+    // pluralkit_uuid here). For now this is functionally equivalent to using
+    // `existingRow` since the patch never touches PK columns, but the
+    // re-read keeps the helper contract stable.
     final stored = await _requireGroupRow(normalized.id);
-    await _syncGroupUpdateIfAllowed(stored);
+    if (await _dao.isGroupSyncSuppressed(stored.id)) return;
+    if (!await _shouldEmitPkBackedGroupSync(stored)) return;
+    await syncRecordUpdate(_groupTable, _groupEntityId(stored), changedFields);
+    await _syncLegacyPkGroupAliasDeletes(stored);
   }
 
   @override
@@ -700,6 +725,109 @@ class DriftMemberGroupsRepository
 
   Map<String, dynamic> _groupFields(MemberGroupRow row) => groupFields(row);
 
+  /// "Previous" side of the [updateGroup] diff: builds a field map from the
+  /// stored row over the columns [updateGroup] is allowed to write.
+  ///
+  /// The PK-link columns (`pluralkit_id`, `pluralkit_uuid`,
+  /// `last_seen_from_pk_at`) and `is_deleted` are intentionally omitted on
+  /// both sides of the diff — `updateGroup` never touches them, and the
+  /// domain object does not carry them. Including them here would make
+  /// unchanged PK columns look like null-clears against
+  /// [_groupDomainFields].
+  ///
+  /// `sort_state` passes through the stored string verbatim. The to-domain
+  /// helper encodes the structured `GroupSortState` via
+  /// [MemberGroupMapper.encodeSortStateForColumn]; for a clean stored row
+  /// the round-trip is byte-equal, so an unchanged group diffs empty.
+  Map<String, dynamic> _groupFieldsFromRow(MemberGroupRow row) {
+    return {
+      'name': row.name,
+      'description': row.description,
+      'color_hex': row.colorHex,
+      'emoji': row.emoji,
+      'avatar_image_data': row.avatarImageData != null
+          ? base64Encode(row.avatarImageData!)
+          : null,
+      'display_order': row.displayOrder,
+      'parent_group_id': row.parentGroupId,
+      'group_type': row.groupType,
+      'filter_rules': row.filterRules,
+      'created_at': toSyncUtc(row.createdAt),
+      'sort_state': row.sortState,
+      'is_deleted': row.isDeleted,
+    };
+  }
+
+  /// "Next" side of the [updateGroup] diff: builds a field map from the
+  /// domain [domain.MemberGroup] over the same columns as
+  /// [_groupFieldsFromRow]. Mirrors what [MemberGroupMapper.toCompanion]
+  /// would write.
+  Map<String, dynamic> _groupDomainFields(domain.MemberGroup g) {
+    return {
+      'name': g.name,
+      'description': g.description,
+      'color_hex': g.colorHex,
+      'emoji': g.emoji,
+      'avatar_image_data': g.avatarImageData != null
+          ? base64Encode(g.avatarImageData!)
+          : null,
+      'display_order': g.displayOrder,
+      'parent_group_id': g.parentGroupId,
+      'group_type': g.groupType,
+      'filter_rules': g.filterRules,
+      'created_at': toSyncUtc(g.createdAt),
+      'sort_state': MemberGroupMapper.encodeSortStateForColumn(g.sortState),
+      'is_deleted': false,
+    };
+  }
+
+  /// Build a sparse [MemberGroupsCompanion] from a patch map produced by
+  /// [diffSyncFields]. Unmentioned keys stay [Value.absent]. Only the
+  /// columns [updateGroup] is allowed to write are represented here —
+  /// PK-link columns and `is_deleted` are deliberately omitted to keep the
+  /// repository's tombstone/PK semantics owned by their dedicated methods.
+  MemberGroupsCompanion _partialGroupCompanion(Map<String, dynamic> fields) {
+    return MemberGroupsCompanion(
+      name: fields.containsKey('name')
+          ? Value(fields['name'] as String)
+          : const Value.absent(),
+      description: fields.containsKey('description')
+          ? Value(fields['description'] as String?)
+          : const Value.absent(),
+      colorHex: fields.containsKey('color_hex')
+          ? Value(fields['color_hex'] as String?)
+          : const Value.absent(),
+      emoji: fields.containsKey('emoji')
+          ? Value(fields['emoji'] as String?)
+          : const Value.absent(),
+      avatarImageData: fields.containsKey('avatar_image_data')
+          ? Value(
+              fields['avatar_image_data'] == null
+                  ? null
+                  : base64Decode(fields['avatar_image_data'] as String),
+            )
+          : const Value.absent(),
+      displayOrder: fields.containsKey('display_order')
+          ? Value(fields['display_order'] as int)
+          : const Value.absent(),
+      parentGroupId: fields.containsKey('parent_group_id')
+          ? Value(fields['parent_group_id'] as String?)
+          : const Value.absent(),
+      groupType: fields.containsKey('group_type')
+          ? Value(fields['group_type'] as int)
+          : const Value.absent(),
+      filterRules: fields.containsKey('filter_rules')
+          ? Value(fields['filter_rules'] as String?)
+          : const Value.absent(),
+      createdAt: fields.containsKey('created_at')
+          ? Value(parseSyncDateTime(fields['created_at']))
+          : const Value.absent(),
+      sortState: fields.containsKey('sort_state')
+          ? Value(fields['sort_state'] as String)
+          : const Value.absent(),
+    );
+  }
+
   /// Field-map builder for member-group sync emissions.
   ///
   /// Public so the Phase 6 batch capture path in `sp_importer.dart` can
@@ -800,6 +928,12 @@ class _NoopMemberRepository implements MemberRepository {
 
   @override
   Future<void> updateMember(member_domain.Member member) async {}
+
+  @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => 0;
 
   @override
   Stream<List<member_domain.Member>> watchActiveMembers() =>

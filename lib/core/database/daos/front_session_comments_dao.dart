@@ -86,6 +86,11 @@ class FrontSessionCommentsDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(c) => OrderingTerm.asc(c.timestamp)]))
           .get();
 
+  Future<FrontSessionCommentRow?> getCommentByIdRow(String id) =>
+      (select(frontSessionComments)
+            ..where((c) => c.id.equals(id)))
+          .getSingleOrNull();
+
   Future<List<FrontSessionCommentRow>> getActiveCommentsForSession(
     String sessionId, {
     DateTime? atOrAfter,

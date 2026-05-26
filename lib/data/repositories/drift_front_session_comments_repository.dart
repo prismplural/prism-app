@@ -1,8 +1,11 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/front_session_comments_dao.dart';
 import 'package:prism_plurality/data/mappers/front_session_comment_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/sync/field_diff.dart';
 import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/front_session_comment.dart'
     as domain;
@@ -84,9 +87,18 @@ class DriftFrontSessionCommentsRepository
 
   @override
   Future<void> updateComment(domain.FrontSessionComment comment) async {
-    final companion = FrontSessionCommentMapper.toCompanion(comment);
+    final existingRow = await _dao.getCommentByIdRow(comment.id);
+    if (existingRow == null || existingRow.isDeleted) return;
+
+    final changedFields = diffSyncFields(
+      _commentFieldsFromRow(existingRow),
+      _commentFields(comment),
+    );
+    if (changedFields.isEmpty) return;
+
+    final companion = _partialCommentCompanion(changedFields);
     await _dao.updateComment(comment.id, companion);
-    await syncRecordUpdate(_table, comment.id, _commentFields(comment));
+    await syncRecordUpdate(_table, comment.id, changedFields);
   }
 
   @override
@@ -137,6 +149,9 @@ class DriftFrontSessionCommentsRepository
     DateTime? atOrAfter,
   }) async {
     if (fromSessionId == toSessionId) return;
+    // Read pre-write rows so we can diff each comment locally instead of
+    // re-fetching after the bulk SQL write. `getActiveCommentsForSession`
+    // already filters to non-deleted rows.
     final rows = await _dao.getActiveCommentsForSession(
       fromSessionId,
       atOrAfter: atOrAfter,
@@ -151,8 +166,42 @@ class DriftFrontSessionCommentsRepository
       final updated = FrontSessionCommentMapper.toDomain(
         row,
       ).copyWith(sessionId: toSessionId);
-      await syncRecordUpdate(_table, updated.id, _commentFields(updated));
+      final changedFields = diffSyncFields(
+        _commentFieldsFromRow(row),
+        _commentFields(updated),
+      );
+      if (changedFields.isEmpty) continue;
+      await syncRecordUpdate(_table, updated.id, changedFields);
     }
+  }
+
+  FrontSessionCommentsCompanion _partialCommentCompanion(
+    Map<String, dynamic> fields,
+  ) {
+    return FrontSessionCommentsCompanion(
+      sessionId: fields.containsKey('session_id')
+          ? Value(fields['session_id'] as String)
+          : const Value.absent(),
+      body: fields.containsKey('body')
+          ? Value(fields['body'] as String)
+          : const Value.absent(),
+      timestamp: fields.containsKey('timestamp')
+          ? Value(parseSyncDateTime(fields['timestamp']))
+          : const Value.absent(),
+      createdAt: fields.containsKey('created_at')
+          ? Value(parseSyncDateTime(fields['created_at']))
+          : const Value.absent(),
+    );
+  }
+
+  Map<String, dynamic> _commentFieldsFromRow(FrontSessionCommentRow row) {
+    return {
+      'session_id': row.sessionId,
+      'body': row.body,
+      'timestamp': toSyncUtc(row.timestamp),
+      'created_at': toSyncUtc(row.createdAt),
+      'is_deleted': row.isDeleted,
+    };
   }
 
   Map<String, dynamic> _commentFields(domain.FrontSessionComment c) =>

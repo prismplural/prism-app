@@ -181,6 +181,11 @@ class _FakeMemberRepository implements MemberRepository {
   @override
   Future<void> updateMember(domain.Member member) async {}
   @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => 0;
+  @override
   Future<void> deleteMember(String id) async {}
   @override
   Stream<List<domain.Member>> watchAllMembers() => Stream.value(const []);

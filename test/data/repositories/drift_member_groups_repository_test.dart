@@ -9,9 +9,12 @@ import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
 import 'package:prism_plurality/data/repositories/drift_member_groups_repository.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 import 'package:prism_plurality/domain/models/group_sort_state.dart';
 import 'package:prism_plurality/domain/models/member.dart' as member_domain;
+import 'package:prism_plurality/domain/models/member_group.dart'
+    as group_domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 
@@ -125,6 +128,11 @@ class _FakeMemberRepository implements MemberRepository {
   @override
   Future<void> updateMember(member_domain.Member member) async =>
       throw UnimplementedError();
+  @override
+  Future<int> updateMemberFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => throw UnimplementedError();
   @override
   Stream<List<member_domain.Member>> watchActiveMembers() =>
       throw UnimplementedError();
@@ -674,6 +682,285 @@ void main() {
           reason: 'corrupt local row must not propagate to peers',
         );
         expect(warningsSinceBaseline(baseline), 1);
+      },
+    );
+  });
+
+  // ── updateGroup patch-style emission (item #14 of the drift-repo
+  //    diffSyncFields migration plan). The existing _RecordingRepo above
+  //    overrides syncRecord* directly, so the install-sink harness is wired
+  //    here with a fresh vanilla repo so we get exactly the same emission
+  //    path the production app uses (null syncHandle → mixin's install sink
+  //    intercepts pre-FFI). ────────────────────────────────────────────────
+  group('updateGroup patch-style emission', () {
+    late AppDatabase patchDb;
+    late MemberGroupsDao patchDao;
+    late DriftMemberGroupsRepository patchRepo;
+    late List<CapturedSyncOp> captured;
+
+    final baseTime = DateTime.utc(2026, 5, 1, 12);
+
+    Future<void> seedDirect({
+      required String id,
+      String name = 'Original name',
+      String? description,
+      String? colorHex,
+      String? emoji,
+      int displayOrder = 0,
+      String? parentGroupId,
+      int groupType = 0,
+      String? filterRules,
+      String? pluralkitUuid,
+      String? pluralkitId,
+      DateTime? lastSeenFromPkAt,
+      GroupSortState? sortState,
+      bool isDeleted = false,
+    }) {
+      final state = sortState ?? GroupSortState.manualEmpty;
+      return patchDb.into(patchDb.memberGroups).insert(
+            MemberGroupsCompanion.insert(
+              id: id,
+              name: name,
+              description: Value(description),
+              colorHex: Value(colorHex),
+              emoji: Value(emoji),
+              displayOrder: Value(displayOrder),
+              parentGroupId: Value(parentGroupId),
+              groupType: Value(groupType),
+              filterRules: Value(filterRules),
+              createdAt: baseTime,
+              pluralkitId: Value(pluralkitId),
+              pluralkitUuid: Value(pluralkitUuid),
+              lastSeenFromPkAt: Value(lastSeenFromPkAt),
+              isDeleted: Value(isDeleted),
+              sortState: Value(
+                MemberGroupMapper.encodeSortStateForColumn(state),
+              ),
+            ),
+          );
+    }
+
+    group_domain.MemberGroup buildDomain({
+      String id = 'g-patch',
+      String name = 'Original name',
+      String? description,
+      String? colorHex,
+      String? emoji,
+      int displayOrder = 0,
+      String? parentGroupId,
+      int groupType = 0,
+      String? filterRules,
+      DateTime? createdAt,
+      GroupSortState sortState = GroupSortState.manualEmpty,
+    }) {
+      return group_domain.MemberGroup(
+        id: id,
+        name: name,
+        description: description,
+        colorHex: colorHex,
+        emoji: emoji,
+        displayOrder: displayOrder,
+        parentGroupId: parentGroupId,
+        groupType: groupType,
+        filterRules: filterRules,
+        createdAt: createdAt ?? baseTime,
+        sortState: sortState,
+      );
+    }
+
+    setUp(() async {
+      patchDb = AppDatabase(NativeDatabase.memory());
+      patchDao = MemberGroupsDao(patchDb);
+      patchRepo = DriftMemberGroupsRepository(
+        patchDao,
+        null,
+        memberRepository: _FakeMemberRepository(),
+      );
+      captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+    });
+
+    tearDown(() async {
+      await patchDb.close();
+    });
+
+    test('emits only the changed fields', () async {
+      await seedDirect(id: 'g-patch');
+
+      await patchRepo.updateGroup(
+        buildDomain(name: 'Renamed locally'),
+      );
+
+      expect(captured, hasLength(1));
+      expect(captured.single.opType, SyncRecordOpType.update);
+      expect(captured.single.table, 'member_groups');
+      expect(captured.single.entityId, 'g-patch');
+      expect(captured.single.fields, {'name': 'Renamed locally'});
+    });
+
+    test('emits nothing when the domain matches the stored row', () async {
+      await seedDirect(id: 'g-patch');
+
+      await patchRepo.updateGroup(buildDomain());
+
+      expect(captured, isEmpty);
+    });
+
+    test('preserves untouched columns in the database', () async {
+      await seedDirect(
+        id: 'g-patch',
+        description: 'Untouched description',
+        colorHex: '#abcdef',
+        displayOrder: 3,
+        groupType: 1,
+      );
+
+      await patchRepo.updateGroup(
+        buildDomain(
+          name: 'Renamed locally',
+          description: 'Untouched description',
+          colorHex: '#abcdef',
+          displayOrder: 3,
+          groupType: 1,
+        ),
+      );
+
+      final row = await patchDao.getGroupById('g-patch');
+      expect(row, isNotNull);
+      expect(row!.name, 'Renamed locally');
+      expect(row.description, 'Untouched description');
+      expect(row.colorHex, '#abcdef');
+      expect(row.displayOrder, 3);
+      expect(row.groupType, 1);
+    });
+
+    test('null-clearing on a nullable column emits the null patch', () async {
+      await seedDirect(
+        id: 'g-patch',
+        description: 'Has a description',
+        colorHex: '#abcdef',
+      );
+
+      await patchRepo.updateGroup(
+        buildDomain(
+          description: null,
+          colorHex: '#abcdef',
+        ),
+      );
+
+      expect(captured, hasLength(1));
+      expect(captured.single.fields.containsKey('description'), isTrue);
+      expect(captured.single.fields['description'], isNull);
+
+      final row = await patchDao.getGroupById('g-patch');
+      expect(row!.description, isNull);
+      expect(row.colorHex, '#abcdef');
+    });
+
+    test(
+      'silently no-ops on a tombstoned row (no emit, no resurrection)',
+      () async {
+        await seedDirect(id: 'g-patch', isDeleted: true);
+
+        await patchRepo.updateGroup(
+          buildDomain(name: 'Attempted resurrection'),
+        );
+
+        expect(captured, isEmpty);
+        // Stored row stays tombstoned; the active getter therefore returns
+        // null (it filters out deleted rows).
+        final activeRow = await patchDao.getGroupById('g-patch');
+        expect(activeRow, isNull);
+      },
+    );
+
+    test('silently no-ops when the row does not exist', () async {
+      await patchRepo.updateGroup(
+        buildDomain(id: 'missing-group', name: 'Whatever'),
+      );
+
+      expect(captured, isEmpty);
+    });
+
+    test('does not emit is_deleted in the patch', () async {
+      await seedDirect(id: 'g-patch');
+
+      await patchRepo.updateGroup(buildDomain(name: 'Renamed'));
+
+      expect(captured, hasLength(1));
+      expect(
+        captured.single.fields.containsKey('is_deleted'),
+        isFalse,
+        reason:
+            'diffSyncFields strips is_deleted; tombstones/resurrection are '
+            'owned by syncRecordDelete/syncRecordCreate, not update.',
+      );
+    });
+
+    test(
+      'preserves PK-link gating: PK-backed group with v2 disabled does not '
+      'emit even when fields changed',
+      () async {
+        // PK v2 enablement defaults to false on a fresh AppDatabase.
+        await patchDb.systemSettingsDao.getSettings();
+        await patchDb.systemSettingsDao.updatePkGroupSyncV2Enabled(false);
+
+        await seedDirect(
+          id: 'g-patch',
+          pluralkitUuid: 'pk-uuid-1',
+          pluralkitId: 'pk-id-1',
+        );
+
+        await patchRepo.updateGroup(
+          buildDomain(name: 'Renamed locally'),
+        );
+
+        // The DB write happens (so local state is correct), but no sync
+        // emission because the PK-link gate said "hold back".
+        final row = await patchDao.getGroupById('g-patch');
+        expect(row!.name, 'Renamed locally');
+        expect(captured, isEmpty);
+      },
+    );
+
+    test(
+      'sort_state.manualOrder: identical order produces no emission; '
+      'reordered order produces a patch (manualOrder is ORDERED, not a set)',
+      () async {
+        const original = GroupSortState(
+          mode: GroupSortMode.manual,
+          manualOrder: ['a', 'b', 'c'],
+        );
+        await seedDirect(id: 'g-patch', sortState: original);
+
+        // Same order → no diff.
+        await patchRepo.updateGroup(buildDomain(sortState: original));
+        expect(
+          captured,
+          isEmpty,
+          reason:
+              'identical manualOrder must produce no false-positive emission',
+        );
+
+        // Reordered → real edit, should emit a sort_state patch.
+        const reordered = GroupSortState(
+          mode: GroupSortMode.manual,
+          manualOrder: ['c', 'a', 'b'],
+        );
+        await patchRepo.updateGroup(buildDomain(sortState: reordered));
+
+        expect(captured, hasLength(1));
+        expect(captured.single.fields.keys.toSet(), {'sort_state'});
+        final emitted = tryDecodeSortState(
+          captured.single.fields['sort_state'] as String?,
+        )!;
+        expect(
+          emitted.manualOrder,
+          ['c', 'a', 'b'],
+          reason: 'manualOrder is the user-chosen order; reordering is a real '
+              'edit and must ship as a sort_state patch',
+        );
       },
     );
   });

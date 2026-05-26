@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/reminders_dao.dart';
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/reminder.dart';
 
 void main() {
@@ -225,5 +228,202 @@ void main() {
         );
       },
     );
+  });
+
+  group('update (patch-style emission)', () {
+    final baseTime = DateTime.utc(2026, 5, 1, 12);
+
+    Reminder makeBase({
+      String id = 'r1',
+      String name = 'Original name',
+      String message = 'Original message',
+      ReminderTrigger trigger = ReminderTrigger.scheduled,
+      ReminderFrequency frequency = ReminderFrequency.daily,
+      List<int>? weeklyDays,
+      int? intervalDays,
+      String? timeOfDay = '09:00',
+      int? delayHours,
+      String? targetMemberId,
+      bool isActive = true,
+      DateTime? createdAt,
+      DateTime? modifiedAt,
+    }) {
+      return Reminder(
+        id: id,
+        name: name,
+        message: message,
+        trigger: trigger,
+        frequency: frequency,
+        weeklyDays: weeklyDays,
+        intervalDays: intervalDays,
+        timeOfDay: timeOfDay,
+        delayHours: delayHours,
+        targetMemberId: targetMemberId,
+        isActive: isActive,
+        createdAt: createdAt ?? baseTime,
+        modifiedAt: modifiedAt ?? baseTime,
+      );
+    }
+
+    test('emits only the changed fields', () async {
+      await repo.create(makeBase());
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      final later = baseTime.add(const Duration(hours: 1));
+      await repo.update(
+        makeBase(name: 'New name', modifiedAt: later),
+      );
+
+      expect(captured, hasLength(1));
+      expect(captured.single.opType, SyncRecordOpType.update);
+      expect(captured.single.table, 'reminders');
+      expect(captured.single.entityId, 'r1');
+      expect(captured.single.fields.keys.toSet(), {'name', 'modified_at'});
+      expect(captured.single.fields['name'], 'New name');
+      expect(captured.single.fields.containsKey('is_deleted'), isFalse);
+    });
+
+    test('emits nothing when the domain object matches the stored row',
+        () async {
+      await repo.create(makeBase());
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.update(makeBase());
+
+      expect(captured, isEmpty);
+    });
+
+    test('preserves untouched columns in the database', () async {
+      await repo.create(
+        makeBase(
+          targetMemberId: 'm1',
+          timeOfDay: '08:30',
+          weeklyDays: [1, 3, 5],
+          frequency: ReminderFrequency.weekly,
+        ),
+      );
+
+      await repo.update(
+        makeBase(
+          name: 'Renamed',
+          targetMemberId: 'm1',
+          timeOfDay: '08:30',
+          weeklyDays: [1, 3, 5],
+          frequency: ReminderFrequency.weekly,
+          modifiedAt: baseTime.add(const Duration(hours: 1)),
+        ),
+      );
+
+      final row = await dao.getById('r1');
+      expect(row, isNotNull);
+      expect(row!.name, 'Renamed');
+      expect(row.message, 'Original message');
+      expect(row.targetMemberId, 'm1');
+      expect(row.timeOfDay, '08:30');
+      expect(row.frequency, 'weekly');
+      expect(row.weeklyDays, isNotNull);
+      expect(jsonDecode(row.weeklyDays!), [1, 3, 5]);
+      expect(row.isActive, isTrue);
+    });
+
+    test('null-clearing weekly_days emits the null and writes it to the database',
+        () async {
+      await repo.create(
+        makeBase(
+          frequency: ReminderFrequency.weekly,
+          weeklyDays: [1, 3, 5],
+        ),
+      );
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.update(
+        makeBase(
+          frequency: ReminderFrequency.weekly,
+          weeklyDays: null,
+          modifiedAt: baseTime.add(const Duration(hours: 1)),
+        ),
+      );
+
+      expect(captured, hasLength(1));
+      final patch = captured.single.fields;
+      expect(patch.containsKey('weekly_days'), isTrue);
+      expect(patch['weekly_days'], isNull);
+
+      final row = await dao.getById('r1');
+      expect(row!.weeklyDays, isNull);
+    });
+
+    test('silently no-ops on a tombstoned row (does not emit, '
+        'does not resurrect)', () async {
+      await repo.create(makeBase());
+      await repo.delete('r1');
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.update(makeBase(name: 'Attempted edit'));
+
+      expect(captured, isEmpty);
+      // soft-deleted rows are filtered by RemindersDao.getById, so we read
+      // back via watchAll() with `isDeleted` excluded.
+      final all = await repo.watchAll().first;
+      expect(all, isEmpty);
+    });
+
+    test('silently no-ops when the row does not exist', () async {
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.update(makeBase(id: 'missing'));
+
+      expect(captured, isEmpty);
+      final row = await dao.getById('missing');
+      expect(row, isNull);
+    });
+
+    test('reordering weekly_days produces no diff', () async {
+      await repo.create(
+        makeBase(
+          frequency: ReminderFrequency.weekly,
+          weeklyDays: [1, 3, 5],
+        ),
+      );
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.update(
+        makeBase(
+          frequency: ReminderFrequency.weekly,
+          weeklyDays: [5, 1, 3],
+        ),
+      );
+
+      expect(captured, isEmpty);
+    });
+
+    test('does not emit is_deleted in the patch', () async {
+      await repo.create(makeBase());
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.update(
+        makeBase(
+          name: 'Touched',
+          modifiedAt: baseTime.add(const Duration(hours: 1)),
+        ),
+      );
+
+      expect(captured, hasLength(1));
+      expect(captured.single.fields.containsKey('is_deleted'), isFalse);
+    });
   });
 }
