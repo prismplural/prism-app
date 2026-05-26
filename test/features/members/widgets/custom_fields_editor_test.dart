@@ -194,6 +194,9 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   Future<void> deleteValuesForMember(String memberId) async {}
 
   @override
+  Future<void> deleteAllFields() async {}
+
+  @override
   Future<List<CustomFieldValue>> getAllValues() async => const [];
 
   @override
