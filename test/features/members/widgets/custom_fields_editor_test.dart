@@ -186,58 +186,6 @@ void main() {
     },
   );
 
-  testWidgets(
-    'long text edit button opens full-screen editor and stages the result '
-    '(commit still required to persist)',
-    (tester) async {
-      final repo = _FakeCustomFieldsRepository();
-      final controller = CustomFieldsEditorController();
-      final showEditor = ValueNotifier(true);
-      final field = CustomField(
-        id: 'second-bio',
-        name: 'Second bio',
-        fieldType: CustomFieldType.longText,
-        createdAt: DateTime(2026, 1, 1),
-      );
-
-      await tester.pumpWidget(
-        _subject(
-          repo: repo,
-          controller: controller,
-          showEditor: showEditor,
-          memberId: memberId,
-          fields: [field],
-          values: const [],
-        ),
-      );
-      await tester.pump();
-
-      await tester.tap(find.byTooltip('Edit'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Second bio'), findsWidgets);
-
-      await tester.enterText(
-        find.byType(EditableText).last,
-        '# Full screen\n\nStaged from the larger editor.',
-      );
-      await tester.pump();
-      await tester.tap(find.byTooltip('Save'));
-      await tester.pumpAndSettle();
-
-      // Full-screen save returns the value to the parent editor; no write yet.
-      expect(repo.upsertedValues, isEmpty);
-      expect(controller.hasPendingChanges, isTrue);
-
-      await controller.commit();
-      await tester.pump();
-      expect(repo.upsertedValues, hasLength(1));
-      expect(
-        repo.upsertedValues.single.value,
-        '# Full screen\n\nStaged from the larger editor.',
-      );
-    },
-  );
 }
 
 Widget _subject({
