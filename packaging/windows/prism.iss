@@ -43,6 +43,7 @@ SolidCompression=yes
 WizardStyle=modern
 CloseApplications=yes
 RestartApplications=no
+AppMutex=PrismPluralityAppMutex
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription={#AppName} installer
 VersionInfoVersion={#AppVersionInfo}

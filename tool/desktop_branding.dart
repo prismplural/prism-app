@@ -59,6 +59,50 @@ void _check() {
   );
   expect(
     _fileContains(
+      'windows/runner/main.cpp',
+      'kPrismWindowClassName[] = L"PRISM_RUNNER_WIN32_WINDOW"',
+    ),
+    'Windows runner must use a Prism-specific native window class.',
+  );
+  expect(
+    _fileContains(
+      'windows/runner/win32_window.cpp',
+      'kWindowClassName[] = L"PRISM_RUNNER_WIN32_WINDOW"',
+    ),
+    'Windows native window class must match the singleton focus lookup.',
+  );
+  expect(
+    _fileContains(
+      'windows/runner/main.cpp',
+      'CreateMutex(nullptr, TRUE, kPrismAppMutexName)',
+    ),
+    'Windows runner must create the Prism app mutex for installer updates.',
+  );
+  expect(
+    _fileContains(
+      'windows/runner/main.cpp',
+      'FindWindow(kPrismWindowClassName, nullptr)',
+    ),
+    'Windows runner must focus by class instead of mutable window title.',
+  );
+  expect(
+    _fileContains('windows/runner/main.cpp', 'kFocusRetryAttempts = 100'),
+    'Windows runner must briefly wait for first-instance window creation.',
+  );
+  expect(
+    _fileContains('windows/runner/main.cpp', 'CloseHandleIfPresent(app_mutex)'),
+    'Windows runner must focus the existing Prism window on a second launch.',
+  );
+  expect(
+    _fileContains('windows/runner/flutter_window.cpp', 'startup work cannot') &&
+        _fileContains(
+          'windows/runner/flutter_window.cpp',
+          'leave an invisible process holding plugin DLLs',
+        ),
+    'Windows runner must show the host window before Dart startup can block.',
+  );
+  expect(
+    _fileContains(
       'windows/runner/Runner.rc',
       'VALUE "FileDescription", "Prism"',
     ),
@@ -154,6 +198,13 @@ void _check() {
       r'SetupIconFile=..\..\windows\runner\resources\app_icon.ico',
     ),
     'Windows installer must use the Prism icon.',
+  );
+  expect(
+    _fileContains(
+      'packaging/windows/prism.iss',
+      'AppMutex=PrismPluralityAppMutex',
+    ),
+    'Windows installer must check the Prism app mutex before updating files.',
   );
 
   if (failures.isNotEmpty) {
