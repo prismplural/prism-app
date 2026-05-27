@@ -728,6 +728,7 @@ class _ExcludedRow extends StatelessWidget {
         onPressed: onResume,
         label: l10n.pkLinkManagementResume,
         tone: PrismButtonTone.filled,
+        density: PrismControlDensity.compact,
       ),
     );
   }
@@ -794,6 +795,7 @@ class _UnresolvedRow extends StatelessWidget {
                 label: l10n.pkLinkManagementLinkAction,
                 tone: PrismButtonTone.filled,
                 enabled: onLink != null,
+                density: PrismControlDensity.compact,
               ),
               PrismButton(
                 key: ValueKey(
