@@ -9,6 +9,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'core/database/database_encryption.dart';
 import 'core/database/database_provider.dart';
 import 'core/router/app_router.dart';
+import 'core/services/media/orphan_media_reconciler.dart';
 import 'core/services/notification_providers.dart';
 import 'core/services/reminder_scheduler_service.dart';
 import 'core/services/screen_privacy_controller.dart';
@@ -34,6 +35,7 @@ class PrismApp extends ConsumerStatefulWidget {
 
 class _PrismAppState extends ConsumerState<PrismApp> {
   late final AppLifecycleListener _appLifecycleListener;
+  bool _ranOrphanMediaReconcile = false;
 
   @override
   void initState() {
@@ -42,6 +44,29 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _repairPrimaryDatabaseKeySlot();
     });
+  }
+
+  /// Run the on-disk media cache sweep exactly once per app launch, after
+  /// `prismSyncHandleProvider` has resolved (so we don't race a still-loading
+  /// sync layer materializing inbound media). Fires regardless of whether
+  /// the handle is null (no sync configured) or non-null (sync up) — both
+  /// states mean the sync layer is finished with its first init pass.
+  void _maybeRunOrphanMediaReconcile(
+    AsyncValue<ffi.PrismSyncHandle?>? previous,
+    AsyncValue<ffi.PrismSyncHandle?> next,
+  ) {
+    if (_ranOrphanMediaReconcile) return;
+    if (next is AsyncLoading) return;
+    _ranOrphanMediaReconcile = true;
+    unawaited(
+      runOrphanMediaReconcileFromRef(ref).catchError((Object e) {
+        // runOrphanMediaReconcileFromRef already swallows + logs internally;
+        // this catchError is a final safety net so a programmer bug in the
+        // reconcile path can never crash app startup.
+        debugPrint('Orphan media reconcile threw out (non-fatal): $e');
+        return 0;
+      }),
+    );
   }
 
   @override
@@ -110,6 +135,16 @@ class _PrismAppState extends ConsumerState<PrismApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Run the orphan-media reconcile pass once `prismSyncHandleProvider`
+    // has finished its first resolve. Picks up `.enc` files stranded by a
+    // crash mid-_resetChat / _resetAll (DB rows deleted, OS killed the
+    // process before the file-loop completed). Startup-only sweep.
+    ref.listen(prismSyncHandleProvider, _maybeRunOrphanMediaReconcile);
+    // Cover the case where the provider was already resolved before this
+    // build ran — the listener above won't fire for a cached value, so we
+    // peek at the current state and trigger directly.
+    _maybeRunOrphanMediaReconcile(null, ref.read(prismSyncHandleProvider));
+
     // Keep the FFI event stream alive for the lifetime of the app.
     ref.listen(syncEventStreamProvider, (_, _) {});
     // Keep the diagnostic event buffer alive for the lifetime of the app.
