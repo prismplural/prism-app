@@ -492,7 +492,8 @@ void main() {
       expect(await _countRows(reopened, 'polls'), 1);
     });
 
-    test('chat reset clears media_attachments', () async {
+    test('chat reset clears media_attachments + collects on-disk .enc files',
+        () async {
       final harness = await _ResetHarness.create();
       addTearDown(harness.dispose);
 
@@ -535,6 +536,15 @@ void main() {
             ),
           );
 
+      // Seed the on-disk encrypted file that production code would have
+      // written when the message was sent.
+      await harness.mediaCacheDir.create(recursive: true);
+      final encFile = File(
+        p.join(harness.mediaCacheDir.path, 'media-file-abc.enc'),
+      );
+      await encFile.writeAsString('fake-ciphertext');
+      expect(await encFile.exists(), isTrue);
+
       expect(await _countRows(db, 'media_attachments'), 1);
 
       await harness.reset(ResetCategory.chat);
@@ -546,13 +556,155 @@ void main() {
           reason: 'chat reset must delete all media_attachments rows');
       expect(await _countRows(reopened, 'chat_messages'), 0);
       expect(await _countRows(reopened, 'conversations'), 0);
-
-      // On-disk file deletion is exercised by the existing full-reset tests via
-      // the mediaCacheDir seed in seedAllData(); path_provider's
-      // getApplicationSupportDirectory() is not available in unit tests, so the
-      // file-side-effect cannot be directly asserted here without a full
-      // platform-channel mock.
+      expect(
+        await encFile.exists(),
+        isFalse,
+        reason: 'chat reset must collect the on-disk .enc file for every '
+            'media_attachments row it deletes',
+      );
     });
+
+    test(
+      'chat reset captures media_ids inside the transaction '
+      '(no SELECT-then-DELETE race window)',
+      () async {
+        // Regression for the chat-reset hygiene bug closed alongside the
+        // 5cb9b6d9 custom-fields fix: the SELECT that captured media_ids ran
+        // outside the transaction, so a sync-inbound `media_attachments` row
+        // INSERTed between the SELECT and the bulk DELETE would be DB-deleted
+        // (the DELETE is broad: `DELETE FROM media_attachments`) without its
+        // `.enc` file ever being collected — permanent on-disk leak.
+        //
+        // Strategy: install a drift `QueryInterceptor` that records every
+        // statement with a flag for whether it ran inside a transaction.
+        // The structural invariant the fix guarantees is:
+        //   the `SELECT media_id FROM media_attachments` MUST run inside
+        //   the same transaction as the `DELETE FROM media_attachments`.
+        // That single shared snapshot is what makes the .enc cleanup
+        // race-free; verifying it directly is more robust than trying
+        // to provoke an interleaved INSERT (the timing is fragile and
+        // can be lock-serialized away in either direction).
+        final tempDir = await Directory.systemTemp.createTemp(
+          'prism-chat-reset-tx-',
+        );
+        addTearDown(() async {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+        final appDbFile = File(p.join(tempDir.path, 'prism.db'));
+        final mediaCacheDir = Directory(p.join(tempDir.path, 'prism_media'));
+
+        final recorder = _RecordingTxInterceptor();
+        final wrappedExecutor = NativeDatabase(appDbFile)
+            .interceptWith(recorder);
+        final db = AppDatabase(wrappedExecutor);
+        addTearDown(db.close);
+
+        final secureStore = _FakeResetSecureStore();
+        final nativeResetKeys = _FakeNativeResetKeys();
+        final downloadManager = DownloadManager(
+          handle: null,
+          encryption: MediaEncryptionService(),
+          cacheDirOverride: mediaCacheDir,
+        );
+
+        final container = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            systemSettingsRepositoryProvider.overrideWithValue(
+              DriftSystemSettingsRepository(db.systemSettingsDao, null),
+            ),
+            resetSecureStoreProvider.overrideWithValue(secureStore),
+            resetNativeKeysProvider.overrideWithValue(nativeResetKeys),
+            resetDocumentsDirectoryProvider.overrideWith(
+              (ref) async => tempDir,
+            ),
+            resetTemporaryDirectoryProvider.overrideWith(
+              (ref) async => tempDir,
+            ),
+            resetMediaCacheDirectoryProvider.overrideWith(
+              (ref) async => mediaCacheDir,
+            ),
+            resetSyncHandleProvider.overrideWithValue(null),
+            downloadManagerProvider.overrideWithValue(downloadManager),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        // Seed one media_attachments row + its .enc file so the file
+        // cleanup loop has something to do (otherwise the post-reset
+        // observable behavior is indistinguishable between fix and bug).
+        final now = DateTime.utc(2026, 3, 18, 12);
+        await db.into(db.conversations).insert(
+              ConversationsCompanion(
+                id: const Value('conv-tx'),
+                createdAt: Value(now),
+                lastActivityAt: Value(now),
+                participantIds: const Value('[]'),
+              ),
+            );
+        await db.into(db.chatMessages).insert(
+              ChatMessagesCompanion(
+                id: const Value('msg-tx-a'),
+                content: const Value('a'),
+                timestamp: Value(now),
+                conversationId: const Value('conv-tx'),
+              ),
+            );
+        await db.into(db.mediaAttachments).insert(
+              const MediaAttachmentsCompanion(
+                id: Value('att-tx-a'),
+                messageId: Value('msg-tx-a'),
+                mediaId: Value('media-tx-a'),
+                mediaType: Value('image'),
+              ),
+            );
+        await mediaCacheDir.create(recursive: true);
+        await File(p.join(mediaCacheDir.path, 'media-tx-a.enc'))
+            .writeAsString('cipher-a');
+
+        // Clear recorder noise from seeding; only care about reset traffic.
+        recorder.clear();
+
+        await container.read(resetDataNotifierProvider.notifier).reset(
+              ResetCategory.chat,
+            );
+
+        // Find every `SELECT media_id FROM media_attachments` statement
+        // that ran during the reset, and confirm at least one ran inside a
+        // transaction. Pre-fix, the only such SELECT runs at the top-level
+        // executor (inTransaction == false), and this assertion fails.
+        final mediaIdSelects = recorder.events
+            .where((e) =>
+                e.kind == _TxEventKind.runSelect &&
+                e.sql.contains('SELECT media_id FROM media_attachments'))
+            .toList();
+        expect(
+          mediaIdSelects,
+          isNotEmpty,
+          reason: 'chat reset should capture media_ids before deleting rows',
+        );
+        expect(
+          mediaIdSelects.where((e) => e.inTransaction),
+          isNotEmpty,
+          reason: 'chat reset must run the media_id SELECT inside the same '
+              'transaction as the bulk DELETE — otherwise a sync-inbound '
+              'row INSERTed between SELECT and DELETE is DB-deleted but '
+              'its .enc file is never collected (permanent on-disk leak). '
+              'Recorded SELECTs: $mediaIdSelects',
+        );
+
+        // Sanity: the file-side effect (closing HIGH #6 end-to-end) — the
+        // .enc file for the seeded row is gone after the reset.
+        expect(
+          await File(p.join(mediaCacheDir.path, 'media-tx-a.enc')).exists(),
+          isFalse,
+          reason: 'chat reset must collect the .enc file for every row '
+              'it deletes from media_attachments',
+        );
+      },
+    );
 
     test('polls reset clears polls, options, and votes', () async {
       final harness = await _ResetHarness.create();
@@ -2450,6 +2602,9 @@ class _ResetHarness {
         resetNativeKeysProvider.overrideWithValue(nativeResetKeys),
         resetDocumentsDirectoryProvider.overrideWith((ref) async => tempDir),
         resetTemporaryDirectoryProvider.overrideWith((ref) async => tempDir),
+        resetMediaCacheDirectoryProvider.overrideWith(
+          (ref) async => mediaCacheDir,
+        ),
         resetSyncHandleProvider.overrideWithValue(handleOverride),
         if (isAndroidOverride != null)
           resetIsAndroidProvider.overrideWithValue(isAndroidOverride),
@@ -3176,5 +3331,104 @@ class _RecordingResetSyncFfi implements ResetSyncFfi {
     calls.add('disposeHandle');
     handle.dispose();
     onDispose?.call();
+  }
+}
+
+enum _TxEventKind { runSelect, runCustom, beginTx, commitTx, rollbackTx }
+
+class _TxEvent {
+  _TxEvent({
+    required this.kind,
+    required this.sql,
+    required this.inTransaction,
+  });
+
+  final _TxEventKind kind;
+  final String sql;
+  final bool inTransaction;
+
+  @override
+  String toString() =>
+      '_TxEvent(kind=$kind, inTx=$inTransaction, sql=${sql.substring(0, sql.length.clamp(0, 80))})';
+}
+
+/// Records every drift operation with a flag for whether it ran inside a
+/// transaction. Used by the chat-reset regression test to assert the
+/// `SELECT media_id FROM media_attachments` is bracketed by a `BEGIN`/
+/// `COMMIT` pair — the snapshot invariant that closes the
+/// SELECT-then-DELETE race.
+class _RecordingTxInterceptor extends QueryInterceptor {
+  final List<_TxEvent> events = <_TxEvent>[];
+  int _depth = 0;
+
+  void clear() => events.clear();
+
+  bool get _inTx => _depth > 0;
+
+  @override
+  TransactionExecutor beginTransaction(QueryExecutor parent) {
+    _depth += 1;
+    events.add(
+      _TxEvent(kind: _TxEventKind.beginTx, sql: 'BEGIN', inTransaction: _inTx),
+    );
+    return super.beginTransaction(parent);
+  }
+
+  @override
+  Future<void> commitTransaction(TransactionExecutor inner) async {
+    events.add(
+      _TxEvent(
+        kind: _TxEventKind.commitTx,
+        sql: 'COMMIT',
+        inTransaction: _inTx,
+      ),
+    );
+    _depth -= 1;
+    return super.commitTransaction(inner);
+  }
+
+  @override
+  Future<void> rollbackTransaction(TransactionExecutor inner) async {
+    events.add(
+      _TxEvent(
+        kind: _TxEventKind.rollbackTx,
+        sql: 'ROLLBACK',
+        inTransaction: _inTx,
+      ),
+    );
+    _depth -= 1;
+    return super.rollbackTransaction(inner);
+  }
+
+  @override
+  Future<List<Map<String, Object?>>> runSelect(
+    QueryExecutor executor,
+    String statement,
+    List<Object?> args,
+  ) {
+    events.add(
+      _TxEvent(
+        kind: _TxEventKind.runSelect,
+        sql: statement,
+        inTransaction: _inTx,
+      ),
+    );
+    return super.runSelect(executor, statement, args);
+  }
+
+  @override
+  Future<void> runCustom(
+    QueryExecutor executor,
+    String statement,
+    List<Object?> args,
+  ) {
+    events.add(
+      _TxEvent(
+        kind: _TxEventKind.runCustom,
+        sql: statement,
+        inTransaction: _inTx,
+      ),
+    );
+    return super.runCustom(executor, statement, args);
   }
 }

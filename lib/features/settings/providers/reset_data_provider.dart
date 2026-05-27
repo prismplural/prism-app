@@ -107,6 +107,19 @@ final resetTemporaryDirectoryProvider = FutureProvider<Directory>((ref) async {
   return getTemporaryDirectory();
 });
 
+/// Directory where encrypted media files (`<mediaId>.enc`) live on disk.
+///
+/// Production resolves to `<applicationSupport>/prism_media`, matching
+/// [DownloadManager._resolveCacheDir]. Exposed as a provider so tests can
+/// override the path without mocking path_provider's platform channel —
+/// the reset path needs to actually delete files on disk to assert the
+/// file-side-effect, and the chat-reset path otherwise reaches into
+/// `getApplicationSupportDirectory()` directly.
+final resetMediaCacheDirectoryProvider = FutureProvider<Directory>((ref) async {
+  final supportDir = await getApplicationSupportDirectory();
+  return Directory(p.join(supportDir.path, 'prism_media'));
+});
+
 final resetSyncHandleProvider = Provider<ffi.PrismSyncHandle?>((ref) {
   return ref.watch(prismSyncHandleProvider).value;
 });
@@ -233,6 +246,7 @@ final resetFileDeleteObserverProvider = Provider<ResetFileDeleteObserver>((
 ) {
   return (_) {};
 });
+
 
 final fullResetServiceProvider = Provider<FullResetService>((ref) {
   return FullResetService(
@@ -538,14 +552,18 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     final db = ref.read(databaseProvider);
     _log('Resetting chat data');
 
-    // Collect media_id values before the transaction so we can delete the
-    // on-disk encrypted files after the DB rows are gone.
-    final mediaIds = await db
-        .customSelect('SELECT media_id FROM media_attachments')
-        .get()
-        .then((rows) => rows.map((r) => r.read<String>('media_id')).toList());
-
-    await db.transaction(() async {
+    // Capture media_id values INSIDE the same transaction as the bulk
+    // DELETE so a sync-inbound `media_attachments` row that lands between
+    // the read and the delete cannot get DB-deleted without its .enc file
+    // being collected. Mirrors the snapshot fix in 5cb9b6d9 for custom
+    // fields reset.
+    final mediaIds = await db.transaction(() async {
+      final captured = await db
+          .customSelect('SELECT media_id FROM media_attachments')
+          .get()
+          .then(
+            (rows) => rows.map((r) => r.read<String>('media_id')).toList(),
+          );
       // FTS first — the chat_messages_fts_delete trigger does a full FTS
       // table scan per deleted row. Wiping FTS up front makes the trigger
       // a no-op and turns a minutes-long delete into milliseconds on large
@@ -555,6 +573,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       await db.customStatement('DELETE FROM conversation_categories');
       await db.customStatement('DELETE FROM conversations');
       await db.customStatement('DELETE FROM media_attachments');
+      return captured;
     });
     _notifyTableChanges([
       'chat_messages',
@@ -567,11 +586,12 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     // never throw (matches _deleteFileIfExists posture in full_reset_service).
     if (mediaIds.isNotEmpty) {
       try {
-        final supportDir = await getApplicationSupportDirectory();
-        final mediaDir = p.join(supportDir.path, 'prism_media');
+        final mediaDir = await ref.read(
+          resetMediaCacheDirectoryProvider.future,
+        );
         for (final mediaId in mediaIds) {
           if (mediaId.isEmpty) continue;
-          final file = File(p.join(mediaDir, '$mediaId.enc'));
+          final file = File(p.join(mediaDir.path, '$mediaId.enc'));
           try {
             if (await file.exists()) {
               await file.delete();
