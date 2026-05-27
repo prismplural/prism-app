@@ -972,6 +972,52 @@ void main() {
         );
       },
     );
+
+    test(
+      'strict apply progress resets the watchdog before RemoteChanges is delivered',
+      () async {
+        final setup = makeWatchdogContainer();
+        addTearDown(setup.container.dispose);
+
+        final notifier = setup.container.read(devicePairingProvider.notifier);
+        final coordinator = setup.container.read(
+          strictApplyCoordinatorProvider,
+        );
+
+        final outcomeFuture = coordinator.enterStrictMode();
+        const idleTimeout = Duration(milliseconds: 200);
+
+        // The real sync stream applies RemoteChanges inside asyncMap before
+        // downstream listeners see the event. Progress from inside strict apply
+        // must therefore keep the watchdog alive even when no RemoteChanges
+        // event has reached this listener yet.
+        var ticks = 0;
+        final pulseTimer = Timer.periodic(const Duration(milliseconds: 80), (
+          timer,
+        ) {
+          ticks++;
+          coordinator.signalProgress();
+          if (ticks >= 8) {
+            timer.cancel();
+            coordinator.signalBatchComplete();
+          }
+        });
+        addTearDown(pulseTimer.cancel);
+
+        final outcome = await notifier
+            .awaitApplyOutcomeWithWatchdogForTest(
+              handle: const _FakePrismSyncHandle(),
+              outcomeFuture: outcomeFuture,
+              idleTimeout: idleTimeout,
+            )
+            .timeout(const Duration(seconds: 2));
+
+        coordinator.exitStrictMode();
+
+        expect(outcome, isA<ApplyOutcomeSuccess>());
+        expect(ticks, greaterThan(0));
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------

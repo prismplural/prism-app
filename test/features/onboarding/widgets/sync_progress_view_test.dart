@@ -63,6 +63,8 @@ SyncSetupProgressState _stateForPhase(
   Map<String, int> liveCounts = const {},
   bool timedOut = false,
   bool wsConnected = true,
+  int? restoreApplied,
+  int? restoreTotal,
   DateTime? phaseStartedAt,
 }) {
   return SyncSetupProgressState(
@@ -71,6 +73,8 @@ SyncSetupProgressState _stateForPhase(
     phaseStartedAt: phaseStartedAt ?? DateTime.now(),
     timedOut: timedOut,
     wsConnected: wsConnected,
+    restoreApplied: restoreApplied,
+    restoreTotal: restoreTotal,
   );
 }
 
@@ -147,6 +151,38 @@ void main() {
         expect(find.text('Restoring your data'), findsOneWidget);
       },
     );
+
+    testWidgets('restoring with applied/total renders determinate progress', (
+      tester,
+    ) async {
+      final notifier = FakeSyncSetupProgressNotifier();
+      await tester.pumpWidget(
+        _wrap(
+          const SyncProgressView(),
+          notifier: notifier,
+          disableAnimations: true,
+        ),
+      );
+
+      notifier.setStateForTest(
+        _stateForPhase(
+          PairingProgressPhase.restoring,
+          restoreApplied: 3,
+          restoreTotal: 10,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(PrismShimmerBar), findsNothing);
+      final progress = tester.widget<LinearProgressIndicator>(
+        find.byType(LinearProgressIndicator),
+      );
+      expect(progress.value, 0.3);
+      expect(
+        find.text('Unpacking headmates, messages, and notes\n3 of 10'),
+        findsOneWidget,
+      );
+    });
 
     testWidgets('phase 3 (finishing) renders PrismSpinner', (tester) async {
       final notifier = FakeSyncSetupProgressNotifier();

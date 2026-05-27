@@ -172,6 +172,50 @@ void main() {
       expect(applied, ['members/a', 'members/b']);
     });
 
+    test('successful rows emit strict apply progress', () async {
+      final applied = <String>[];
+      final adapter = DriftSyncAdapter(
+        entities: [
+          _fakeEntity(
+            tableName: 'members',
+            shouldFail: (_) => false,
+            appliedIds: applied,
+          ),
+        ],
+      );
+
+      final event = _eventFromChanges([
+        {
+          'table': 'members',
+          'entity_id': 'a',
+          'is_delete': false,
+          'fields': <String, dynamic>{},
+        },
+        {
+          'table': 'members',
+          'entity_id': 'b',
+          'is_delete': false,
+          'fields': <String, dynamic>{},
+        },
+      ]);
+
+      var progressTicks = 0;
+      final result = await applyRemoteChanges(
+        db,
+        adapter,
+        event,
+        strict: true,
+        onProgress: (applied, total) {
+          progressTicks++;
+          expect(total, 2);
+          expect(applied, inInclusiveRange(1, 2));
+        },
+      );
+
+      expect(result.rowsApplied, 2);
+      expect(progressTicks, 2);
+    });
+
     test('unknown tombstones do not abort strict pairing apply', () async {
       final adapter = buildSyncAdapterWithCompletion(db).adapter;
       final idsByTable = {
@@ -236,6 +280,20 @@ void main() {
       final outcome = await future;
       expect(outcome, isA<ApplyOutcomeSuccess>());
       c.exitStrictMode();
+    });
+
+    test('dispose resolves pending outcome with failure', () async {
+      final c = StrictApplyCoordinator();
+      final future = c.enterStrictMode();
+      c.dispose();
+
+      final outcome = await future;
+      expect(outcome, isA<ApplyOutcomeFailure>());
+      expect(
+        (outcome as ApplyOutcomeFailure).failure.message,
+        'Strict apply coordinator disposed',
+      );
+      expect(c.isStrict, isFalse);
     });
 
     test(

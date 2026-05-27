@@ -58,6 +58,21 @@ void main() {
     expect(s.liveCounts, isEmpty);
     expect(s.timedOut, isFalse);
     expect(s.wsConnected, isFalse);
+    expect(s.restoreApplied, isNull);
+    expect(s.restoreTotal, isNull);
+  });
+
+  test('copyWith can clear restore progress fields', () {
+    final initial = SyncSetupProgressState.initial(DateTime(2026));
+    final withProgress = initial.copyWith(restoreApplied: 4, restoreTotal: 10);
+
+    final cleared = withProgress.copyWith(
+      restoreApplied: null,
+      restoreTotal: null,
+    );
+
+    expect(cleared.restoreApplied, isNull);
+    expect(cleared.restoreTotal, isNull);
   });
 
   test('setPhase(downloading) advances and updates phaseStartedAt', () async {
@@ -67,9 +82,9 @@ void main() {
     final before = container.read(syncSetupProgressProvider).phaseStartedAt;
     await Future<void>.delayed(const Duration(milliseconds: 1));
 
-    container.read(syncSetupProgressProvider.notifier).setPhase(
-      PairingProgressPhase.downloading,
-    );
+    container
+        .read(syncSetupProgressProvider.notifier)
+        .setPhase(PairingProgressPhase.downloading);
 
     final s = container.read(syncSetupProgressProvider);
     expect(s.phase, PairingProgressPhase.downloading);
@@ -83,8 +98,9 @@ void main() {
     final notifier = container.read(syncSetupProgressProvider.notifier);
     notifier.setPhase(PairingProgressPhase.downloading);
 
-    final phaseStarted =
-        container.read(syncSetupProgressProvider).phaseStartedAt;
+    final phaseStarted = container
+        .read(syncSetupProgressProvider)
+        .phaseStartedAt;
     notifier.setPhase(PairingProgressPhase.connecting);
 
     final s = container.read(syncSetupProgressProvider);
@@ -149,10 +165,7 @@ void main() {
 
       fake.elapse(const Duration(milliseconds: 400));
 
-      expect(
-        container.read(syncSetupProgressProvider).liveCounts,
-        isEmpty,
-      );
+      expect(container.read(syncSetupProgressProvider).liveCounts, isEmpty);
     });
   });
 
@@ -169,9 +182,9 @@ void main() {
       expect(container.read(syncSetupProgressProvider).liveCounts, isEmpty);
 
       // Advancing phase flushes pending tally immediately.
-      container.read(syncSetupProgressProvider.notifier).setPhase(
-        PairingProgressPhase.downloading,
-      );
+      container
+          .read(syncSetupProgressProvider.notifier)
+          .setPhase(PairingProgressPhase.downloading);
 
       final s = container.read(syncSetupProgressProvider);
       expect(s.phase, PairingProgressPhase.downloading);
@@ -204,6 +217,69 @@ void main() {
     expect(container.read(syncSetupProgressProvider).timedOut, isTrue);
   });
 
+  test('strict apply progress updates restore applied/total', () async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
+
+    final coordinator = container.read(strictApplyCoordinatorProvider);
+    coordinator.enterStrictMode();
+    coordinator.signalProgress(applied: 7, total: 20);
+    await pump();
+
+    final s = container.read(syncSetupProgressProvider);
+    expect(s.restoreApplied, 7);
+    expect(s.restoreTotal, 20);
+    expect(s.restoreProgressFraction, 0.35);
+
+    coordinator.exitStrictMode();
+  });
+
+  test('strict apply progress coalesces subsequent restore updates', () {
+    fakeAsync((fake) {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      final coordinator = container.read(strictApplyCoordinatorProvider);
+      coordinator.enterStrictMode();
+
+      coordinator.signalProgress(applied: 0, total: 100);
+      fake.flushMicrotasks();
+      expect(container.read(syncSetupProgressProvider).restoreApplied, 0);
+
+      coordinator.signalProgress(applied: 1, total: 100);
+      coordinator.signalProgress(applied: 2, total: 100);
+      coordinator.signalProgress(applied: 3, total: 100);
+      fake.flushMicrotasks();
+
+      expect(
+        container.read(syncSetupProgressProvider).restoreApplied,
+        0,
+        reason: 'subsequent progress should wait for the coalescing timer',
+      );
+
+      fake.elapse(const Duration(milliseconds: 99));
+      expect(container.read(syncSetupProgressProvider).restoreApplied, 0);
+
+      fake.elapse(const Duration(milliseconds: 1));
+      expect(container.read(syncSetupProgressProvider).restoreApplied, 3);
+
+      coordinator.exitStrictMode();
+    });
+  });
+
+  test('setRestoreApplyProgress clamps applied to valid bounds', () async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
+
+    final notifier = container.read(syncSetupProgressProvider.notifier);
+    notifier.setRestoreApplyProgress(applied: 30, total: 20);
+
+    final s = container.read(syncSetupProgressProvider);
+    expect(s.restoreApplied, 20);
+    expect(s.restoreTotal, 20);
+    expect(s.restoreProgressFraction, 1.0);
+  });
+
   test('reset returns to fresh state and clears pending tally', () {
     fakeAsync((fake) {
       final container = makeContainer();
@@ -211,12 +287,17 @@ void main() {
 
       final notifier = container.read(syncSetupProgressProvider.notifier);
       notifier.setPhase(PairingProgressPhase.restoring);
+      final coordinator = container.read(strictApplyCoordinatorProvider);
+      coordinator.enterStrictMode();
 
       controller.add(_remoteChanges(['members']));
+      coordinator.signalProgress(applied: 0, total: 10);
+      fake.flushMicrotasks();
+      coordinator.signalProgress(applied: 5, total: 10);
       fake.flushMicrotasks();
 
-      // Pending tally exists but not flushed yet.
-      fake.elapse(const Duration(milliseconds: 100));
+      // Pending tally and restore progress exist but are not flushed yet.
+      fake.elapse(const Duration(milliseconds: 50));
 
       notifier.reset();
 
@@ -224,10 +305,14 @@ void main() {
       expect(s.phase, PairingProgressPhase.connecting);
       expect(s.liveCounts, isEmpty);
       expect(s.timedOut, isFalse);
+      expect(s.restoreApplied, isNull);
+      expect(s.restoreTotal, isNull);
 
       // Elapse past where the old timer would have fired — no late flush.
       fake.elapse(const Duration(milliseconds: 400));
       expect(container.read(syncSetupProgressProvider).liveCounts, isEmpty);
+      expect(container.read(syncSetupProgressProvider).restoreApplied, isNull);
+      coordinator.exitStrictMode();
     });
   });
 

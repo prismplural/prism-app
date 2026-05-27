@@ -7,6 +7,16 @@ import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 
 enum PairingProgressPhase { connecting, downloading, restoring, finishing }
 
+const Object _copyWithUnset = Object();
+const Duration _restoreProgressFlushDelay = Duration(milliseconds: 100);
+
+class _RestoreApplyProgress {
+  const _RestoreApplyProgress({required this.applied, required this.total});
+
+  final int applied;
+  final int total;
+}
+
 @immutable
 class SyncSetupProgressState {
   final PairingProgressPhase phase;
@@ -14,6 +24,8 @@ class SyncSetupProgressState {
   final DateTime phaseStartedAt;
   final bool timedOut;
   final bool wsConnected;
+  final int? restoreApplied;
+  final int? restoreTotal;
 
   const SyncSetupProgressState({
     required this.phase,
@@ -21,6 +33,8 @@ class SyncSetupProgressState {
     required this.phaseStartedAt,
     required this.timedOut,
     required this.wsConnected,
+    this.restoreApplied,
+    this.restoreTotal,
   });
 
   factory SyncSetupProgressState.initial(DateTime now) =>
@@ -32,12 +46,24 @@ class SyncSetupProgressState {
         wsConnected: false,
       );
 
+  bool get hasRestoreProgress =>
+      restoreApplied != null && restoreTotal != null && restoreTotal! > 0;
+
+  double? get restoreProgressFraction {
+    final applied = restoreApplied;
+    final total = restoreTotal;
+    if (applied == null || total == null || total <= 0) return null;
+    return (applied / total).clamp(0.0, 1.0);
+  }
+
   SyncSetupProgressState copyWith({
     PairingProgressPhase? phase,
     Map<String, int>? liveCounts,
     DateTime? phaseStartedAt,
     bool? timedOut,
     bool? wsConnected,
+    Object? restoreApplied = _copyWithUnset,
+    Object? restoreTotal = _copyWithUnset,
   }) {
     return SyncSetupProgressState(
       phase: phase ?? this.phase,
@@ -45,6 +71,12 @@ class SyncSetupProgressState {
       phaseStartedAt: phaseStartedAt ?? this.phaseStartedAt,
       timedOut: timedOut ?? this.timedOut,
       wsConnected: wsConnected ?? this.wsConnected,
+      restoreApplied: identical(restoreApplied, _copyWithUnset)
+          ? this.restoreApplied
+          : restoreApplied as int?,
+      restoreTotal: identical(restoreTotal, _copyWithUnset)
+          ? this.restoreTotal
+          : restoreTotal as int?,
     );
   }
 
@@ -56,6 +88,8 @@ class SyncSetupProgressState {
     if (phaseStartedAt != other.phaseStartedAt) return false;
     if (timedOut != other.timedOut) return false;
     if (wsConnected != other.wsConnected) return false;
+    if (restoreApplied != other.restoreApplied) return false;
+    if (restoreTotal != other.restoreTotal) return false;
     if (liveCounts.length != other.liveCounts.length) return false;
     for (final entry in liveCounts.entries) {
       if (other.liveCounts[entry.key] != entry.value) return false;
@@ -69,18 +103,31 @@ class SyncSetupProgressState {
     phaseStartedAt,
     timedOut,
     wsConnected,
+    restoreApplied,
+    restoreTotal,
     Object.hashAll(liveCounts.entries.map((e) => Object.hash(e.key, e.value))),
   );
 }
 
 class SyncSetupProgressNotifier extends Notifier<SyncSetupProgressState> {
   Timer? _flushTimer;
+  Timer? _restoreProgressTimer;
   final Map<String, int> _pendingTally = {};
+  _RestoreApplyProgress? _pendingRestoreProgress;
 
   @override
   SyncSetupProgressState build() {
     ref.onDispose(() {
       _flushTimer?.cancel();
+      _restoreProgressTimer?.cancel();
+    });
+
+    final strictCoordinator = ref.watch(strictApplyCoordinatorProvider);
+    final progressSubscription = strictCoordinator.progressStream.listen(
+      _onStrictApplyProgress,
+    );
+    ref.onDispose(() {
+      unawaited(progressSubscription.cancel());
     });
 
     ref.listen<AsyncValue<SyncEvent>>(syncEventStreamProvider, (_, next) {
@@ -97,6 +144,7 @@ class SyncSetupProgressNotifier extends Notifier<SyncSetupProgressState> {
     // Why: flush pending tally before phase change so counts from the outgoing
     // phase are committed before the UI re-renders for the new phase.
     _flushPendingTally();
+    _flushPendingRestoreProgress();
     state = state.copyWith(phase: next, phaseStartedAt: DateTime.now());
   }
 
@@ -104,10 +152,30 @@ class SyncSetupProgressNotifier extends Notifier<SyncSetupProgressState> {
     state = state.copyWith(timedOut: true);
   }
 
+  void setRestoreApplyProgress({required int applied, required int total}) {
+    if (total <= 0) return;
+    final normalizedApplied = applied < 0
+        ? 0
+        : applied > total
+        ? total
+        : applied;
+    if (state.restoreApplied == normalizedApplied &&
+        state.restoreTotal == total) {
+      return;
+    }
+    state = state.copyWith(
+      restoreApplied: normalizedApplied,
+      restoreTotal: total,
+    );
+  }
+
   void reset() {
     _flushTimer?.cancel();
     _flushTimer = null;
+    _restoreProgressTimer?.cancel();
+    _restoreProgressTimer = null;
     _pendingTally.clear();
+    _pendingRestoreProgress = null;
     state = SyncSetupProgressState.initial(DateTime.now());
   }
 
@@ -130,6 +198,22 @@ class SyncSetupProgressNotifier extends Notifier<SyncSetupProgressState> {
     }
   }
 
+  void _onStrictApplyProgress(StrictApplyProgress progress) {
+    if (!progress.hasTotal) return;
+    _pendingRestoreProgress = _RestoreApplyProgress(
+      applied: progress.applied!,
+      total: progress.total!,
+    );
+    if (!state.hasRestoreProgress) {
+      _flushPendingRestoreProgress();
+      return;
+    }
+    _restoreProgressTimer ??= Timer(
+      _restoreProgressFlushDelay,
+      _flushPendingRestoreProgress,
+    );
+  }
+
   void _flushPendingTally() {
     _flushTimer?.cancel();
     _flushTimer = null;
@@ -138,6 +222,15 @@ class SyncSetupProgressNotifier extends Notifier<SyncSetupProgressState> {
     _pendingTally.forEach((k, v) => merged[k] = (merged[k] ?? 0) + v);
     _pendingTally.clear();
     state = state.copyWith(liveCounts: Map.unmodifiable(merged));
+  }
+
+  void _flushPendingRestoreProgress() {
+    _restoreProgressTimer?.cancel();
+    _restoreProgressTimer = null;
+    final progress = _pendingRestoreProgress;
+    _pendingRestoreProgress = null;
+    if (progress == null) return;
+    setRestoreApplyProgress(applied: progress.applied, total: progress.total);
   }
 }
 

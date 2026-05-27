@@ -2983,11 +2983,23 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
     if (event.isRemoteChanges) {
       final strict = strictCoordinator.isStrict;
       try {
+        final totalChanges = event.changes.length;
+        if (strict) {
+          // Bootstrap emits one full-snapshot RemoteChanges event; chunking
+          // would need a snapshot-wide denominator.
+          strictCoordinator.signalProgress(applied: 0, total: totalChanges);
+        }
         final result = await applyRemoteChanges(
           db,
           syncAdapter.adapter,
           event,
           strict: strict,
+          onProgress: strict
+              ? (applied, total) => strictCoordinator.signalProgress(
+                  applied: applied,
+                  total: total,
+                )
+              : null,
         );
         if (strict && result.failedTables.isNotEmpty) {
           // Defensive — strict mode should rethrow on first failure.
@@ -3174,6 +3186,15 @@ class ApplyOutcomeFailure extends ApplyOutcome {
   final StackTrace? stackTrace;
 }
 
+class StrictApplyProgress {
+  const StrictApplyProgress({this.applied, this.total});
+
+  final int? applied;
+  final int? total;
+
+  bool get hasTotal => applied != null && total != null && total! > 0;
+}
+
 /// Coordinator for "strict apply" mode during snapshot bootstrap.
 ///
 /// The joiner flow enables strict mode before `bootstrapFromSnapshot` so that
@@ -3190,8 +3211,11 @@ class ApplyOutcomeFailure extends ApplyOutcome {
 class StrictApplyCoordinator {
   bool _strict = false;
   Completer<ApplyOutcome>? _outcome;
+  final StreamController<StrictApplyProgress> _progressController =
+      StreamController<StrictApplyProgress>.broadcast();
 
   bool get isStrict => _strict;
+  Stream<StrictApplyProgress> get progressStream => _progressController.stream;
 
   /// The future that resolves with the bootstrap batch outcome. Only valid
   /// between [enterStrictMode] and [exitStrictMode] — callers should capture
@@ -3229,6 +3253,15 @@ class StrictApplyCoordinator {
     }
   }
 
+  /// Heartbeat while `RemoteChanges` is still applying; downstream listeners
+  /// only receive the event after the batch finishes.
+  void signalProgress({int? applied, int? total}) {
+    if (!_strict || _progressController.isClosed) return;
+    _progressController.add(
+      StrictApplyProgress(applied: applied, total: total),
+    );
+  }
+
   /// Record a successful batch-complete. Idempotent — only the first signal
   /// wins. Called from the sync event stream once the RemoteChanges batch
   /// has applied and [SyncAdapterWithCompletion.completeSyncBatch] has run.
@@ -3238,10 +3271,26 @@ class StrictApplyCoordinator {
       pending.complete(const ApplyOutcomeSuccess());
     }
   }
+
+  void dispose() {
+    final pending = _outcome;
+    _strict = false;
+    _outcome = null;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete(
+        const ApplyOutcomeFailure(
+          StrictApplyFailure(message: 'Strict apply coordinator disposed'),
+        ),
+      );
+    }
+    _progressController.close();
+  }
 }
 
 final strictApplyCoordinatorProvider = Provider<StrictApplyCoordinator>((ref) {
-  return StrictApplyCoordinator();
+  final coordinator = StrictApplyCoordinator();
+  ref.onDispose(coordinator.dispose);
+  return coordinator;
 });
 
 /// Apply a batch of remote changes from a [SyncEvent] to the local Drift
@@ -3266,6 +3315,7 @@ Future<ApplyResult> applyRemoteChanges(
   DriftSyncAdapter adapter,
   SyncEvent event, {
   bool strict = false,
+  void Function(int applied, int total)? onProgress,
 }) async {
   // Apply changes in chunked transactions — each chunk of 20 changes runs
   // inside a single Drift transaction for fewer WAL commits, while per-row
@@ -3304,6 +3354,7 @@ Future<ApplyResult> applyRemoteChanges(
             }
           }
           rowsApplied++;
+          onProgress?.call(rowsApplied, changes.length);
         } catch (e, st) {
           final fieldKeys = (change['fields'] as Map?)?.keys.toList() ?? [];
           if (strict) {

@@ -882,12 +882,8 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       }
 
       if (!fatalSnapshotError) {
-        // PHASE 3 — Dart-side apply. Activity watchdog: 60 s of silence
-        // is treated as failure, but each RemoteChanges / batch-complete
-        // tick resets the timer, so arbitrarily large snapshots still
-        // succeed as long as progress is visible. The watchdog writes
-        // failure into the strict-apply latch, so the single awaiter
-        // below observes whichever event fired first.
+        // PHASE 3 — Dart-side apply. The watchdog fails only after 60 s with
+        // no strict-apply progress or batch completion.
         final applyOutcome = await _awaitApplyOutcomeWithWatchdog(
           handle: handle,
           outcomeFuture: outcomeFuture,
@@ -1181,16 +1177,12 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     return _writeSnapshotApplyCompleteMarker();
   }
 
-  /// Wait for a strict-apply outcome while enforcing an idle (activity)
-  /// watchdog. The watchdog only resets on `RemoteChanges` events — the
-  /// single sync-event variant that represents actual apply progress.
-  /// `SyncCompleted` and `WebSocketStateChanged` are intentionally NOT
-  /// treated as progress: they can fire from auto-sync completions or
-  /// reconnect churn while an apply handler is stuck inside `asyncMap`,
-  /// which would mask a real hang indefinitely.
+  /// Wait for strict apply while enforcing an idle watchdog. Strict-apply row
+  /// progress resets the timer; downstream `RemoteChanges` is only a fallback
+  /// heartbeat because it arrives after the batch applies.
   ///
-  /// Arbitrarily large snapshots still succeed as long as `RemoteChanges`
-  /// keeps firing; [idleTimeout] of silence is treated as failure.
+  /// `SyncCompleted` and `WebSocketStateChanged` are ignored because they can
+  /// come from unrelated auto-sync or reconnect churn.
   ///
   /// On timeout this writes a failure into the pre-registered strict-apply
   /// latch (message prefixed `TIMEOUT:` so the caller can distinguish) and
@@ -1223,12 +1215,15 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     }
 
     // Start the watchdog immediately — if bootstrap already wrote rows to
-    // Rust but the Dart stream never fires, we still want a deadline.
+    // Rust but the Dart stream never starts applying, we still want a deadline.
     resetWatchdog();
 
-    // Only RemoteChanges events represent actual apply progress. See
-    // doc-comment above for why SyncCompleted / WebSocketStateChanged
-    // are excluded.
+    final progressSubscription = coordinator.progressStream.listen((_) {
+      resetWatchdog();
+    });
+
+    // Keep downstream RemoteChanges as a secondary heartbeat for event paths
+    // that bypass strict progress.
     final subscription = ref.listen<AsyncValue<SyncEvent>>(
       syncEventStreamProvider,
       (_, next) {
@@ -1244,6 +1239,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       return await outcomeFuture;
     } finally {
       watchdog?.cancel();
+      await progressSubscription.cancel();
       subscription.close();
     }
   }

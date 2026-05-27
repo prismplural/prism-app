@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/onboarding/widgets/live_count_card.dart
 import 'package:prism_plurality/features/onboarding/widgets/phase_segments.dart';
 import 'package:prism_plurality/features/onboarding/widgets/prism_shimmer_bar.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 /// Top-level Consumer widget that composes the sync-pairing progress UI.
@@ -119,6 +120,9 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
     final showSpinner =
         phase == PairingProgressPhase.connecting ||
         phase == PairingProgressPhase.finishing;
+    final restoreProgressValue = phase == PairingProgressPhase.restoring
+        ? state.restoreProgressFraction
+        : null;
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -139,6 +143,17 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
                       color: theme.colorScheme.primary,
                       size: 48,
                       duration: const Duration(milliseconds: 2400),
+                    )
+                  : restoreProgressValue != null
+                  ? ClipRRect(
+                      key: const ValueKey('restore-progress'),
+                      borderRadius: BorderRadius.circular(
+                        PrismShapes.of(context).radius(6),
+                      ),
+                      child: LinearProgressIndicator(
+                        value: restoreProgressValue,
+                        minHeight: 12,
+                      ),
                     )
                   : const PrismShimmerBar(key: ValueKey('shimmer')),
             ),
@@ -196,17 +211,18 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
   ) {
     final phase = state.phase;
 
-    if (!state.wsConnected &&
-        (phase == PairingProgressPhase.downloading ||
-            phase == PairingProgressPhase.restoring)) {
-      return l10n.onboardingSyncReconnecting;
-    }
-
     if (state.timedOut && phase == PairingProgressPhase.finishing) {
       return l10n.onboardingSyncStillPullingBackground;
     }
 
     if (phase == PairingProgressPhase.restoring) {
+      if (state.hasRestoreProgress) {
+        final progress = l10n.syncSetupSnapshotUploadProgress(
+          '${state.restoreApplied}',
+          '${state.restoreTotal}',
+        );
+        return '${l10n.onboardingSyncPhaseRestoreSubtitle}\n$progress';
+      }
       final phaseElapsed = DateTime.now().difference(state.phaseStartedAt);
       final allZero =
           state.liveCounts.isEmpty ||
@@ -214,6 +230,12 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
       if (allZero && phaseElapsed >= const Duration(seconds: 2)) {
         return l10n.onboardingSyncNoDataToRestore;
       }
+    }
+
+    if (!state.wsConnected &&
+        (phase == PairingProgressPhase.downloading ||
+            phase == PairingProgressPhase.restoring)) {
+      return l10n.onboardingSyncReconnecting;
     }
 
     return switch (phase) {
