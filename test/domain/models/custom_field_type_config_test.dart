@@ -193,6 +193,44 @@ void main() {
       expect(config.extra.containsKey('runtimeType'), isFalse);
     });
 
+    test('unknown keys inside ChoiceOption survive round-trip', () {
+      // Forward-compat: a v29 peer adds a key to ChoiceOption (e.g. iconKey).
+      // A v28 device must preserve that key byte-for-byte on read→write.
+      final json = {
+        'runtimeType': 'choice',
+        'options': <dynamic>[
+          {
+            'id': '1',
+            'label': 'foo',
+            'iconKey': 'bar',
+            'futureField': 42,
+          },
+        ],
+        'allowsMultiple': false,
+        'allowsOther': false,
+      };
+
+      final config = CustomFieldTypeConfigCodec.fromJson(json) as ChoiceConfig;
+      expect(config.options, hasLength(1));
+      expect(config.options.first.id, '1');
+      expect(config.options.first.label, 'foo');
+
+      final reemitted = CustomFieldTypeConfigCodec.toJson(config);
+      final options = reemitted['options'] as List<dynamic>;
+      expect(options, hasLength(1));
+      final opt = options.first as Map<String, dynamic>;
+      expect(
+        opt['iconKey'],
+        'bar',
+        reason: 'Unknown ChoiceOption keys must survive read→write',
+      );
+      expect(
+        opt['futureField'],
+        42,
+        reason: 'Unknown ChoiceOption keys must survive read→write',
+      );
+    });
+
     test('ChoiceConfig with multiple ChoiceOptions round-trips', () {
       final c = ChoiceConfig(
         options: [

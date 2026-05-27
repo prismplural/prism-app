@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 mixin _$ChoiceOption {
 
  String get id;// stable UUID, never label-derived
- String get label; String? get colorHex; int get sortOrder; bool get isDeleted;
+ String get label; String? get colorHex; int get sortOrder; bool get isDeleted;@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra;
 /// Create a copy of ChoiceOption
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +29,16 @@ $ChoiceOptionCopyWith<ChoiceOption> get copyWith => _$ChoiceOptionCopyWithImpl<C
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChoiceOption&&(identical(other.id, id) || other.id == id)&&(identical(other.label, label) || other.label == label)&&(identical(other.colorHex, colorHex) || other.colorHex == colorHex)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder)&&(identical(other.isDeleted, isDeleted) || other.isDeleted == isDeleted));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChoiceOption&&(identical(other.id, id) || other.id == id)&&(identical(other.label, label) || other.label == label)&&(identical(other.colorHex, colorHex) || other.colorHex == colorHex)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder)&&(identical(other.isDeleted, isDeleted) || other.isDeleted == isDeleted)&&const DeepCollectionEquality().equals(other.extra, extra));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,label,colorHex,sortOrder,isDeleted);
+int get hashCode => Object.hash(runtimeType,id,label,colorHex,sortOrder,isDeleted,const DeepCollectionEquality().hash(extra));
 
 @override
 String toString() {
-  return 'ChoiceOption(id: $id, label: $label, colorHex: $colorHex, sortOrder: $sortOrder, isDeleted: $isDeleted)';
+  return 'ChoiceOption(id: $id, label: $label, colorHex: $colorHex, sortOrder: $sortOrder, isDeleted: $isDeleted, extra: $extra)';
 }
 
 
@@ -49,7 +49,7 @@ abstract mixin class $ChoiceOptionCopyWith<$Res>  {
   factory $ChoiceOptionCopyWith(ChoiceOption value, $Res Function(ChoiceOption) _then) = _$ChoiceOptionCopyWithImpl;
 @useResult
 $Res call({
- String id, String label, String? colorHex, int sortOrder, bool isDeleted
+ String id, String label, String? colorHex, int sortOrder, bool isDeleted,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
 });
 
 
@@ -66,14 +66,15 @@ class _$ChoiceOptionCopyWithImpl<$Res>
 
 /// Create a copy of ChoiceOption
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? label = null,Object? colorHex = freezed,Object? sortOrder = null,Object? isDeleted = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? label = null,Object? colorHex = freezed,Object? sortOrder = null,Object? isDeleted = null,Object? extra = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,label: null == label ? _self.label : label // ignore: cast_nullable_to_non_nullable
 as String,colorHex: freezed == colorHex ? _self.colorHex : colorHex // ignore: cast_nullable_to_non_nullable
 as String?,sortOrder: null == sortOrder ? _self.sortOrder : sortOrder // ignore: cast_nullable_to_non_nullable
 as int,isDeleted: null == isDeleted ? _self.isDeleted : isDeleted // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,extra: null == extra ? _self.extra : extra // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,
   ));
 }
 
@@ -158,10 +159,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String label,  String? colorHex,  int sortOrder,  bool isDeleted)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String label,  String? colorHex,  int sortOrder,  bool isDeleted, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ChoiceOption() when $default != null:
-return $default(_that.id,_that.label,_that.colorHex,_that.sortOrder,_that.isDeleted);case _:
+return $default(_that.id,_that.label,_that.colorHex,_that.sortOrder,_that.isDeleted,_that.extra);case _:
   return orElse();
 
 }
@@ -179,10 +180,10 @@ return $default(_that.id,_that.label,_that.colorHex,_that.sortOrder,_that.isDele
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String label,  String? colorHex,  int sortOrder,  bool isDeleted)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String label,  String? colorHex,  int sortOrder,  bool isDeleted, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  $default,) {final _that = this;
 switch (_that) {
 case _ChoiceOption():
-return $default(_that.id,_that.label,_that.colorHex,_that.sortOrder,_that.isDeleted);case _:
+return $default(_that.id,_that.label,_that.colorHex,_that.sortOrder,_that.isDeleted,_that.extra);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -199,10 +200,10 @@ return $default(_that.id,_that.label,_that.colorHex,_that.sortOrder,_that.isDele
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String label,  String? colorHex,  int sortOrder,  bool isDeleted)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String label,  String? colorHex,  int sortOrder,  bool isDeleted, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  $default,) {final _that = this;
 switch (_that) {
 case _ChoiceOption() when $default != null:
-return $default(_that.id,_that.label,_that.colorHex,_that.sortOrder,_that.isDeleted);case _:
+return $default(_that.id,_that.label,_that.colorHex,_that.sortOrder,_that.isDeleted,_that.extra);case _:
   return null;
 
 }
@@ -214,7 +215,7 @@ return $default(_that.id,_that.label,_that.colorHex,_that.sortOrder,_that.isDele
 @JsonSerializable()
 
 class _ChoiceOption implements ChoiceOption {
-  const _ChoiceOption({required this.id, required this.label, this.colorHex, this.sortOrder = 0, this.isDeleted = false});
+  const _ChoiceOption({required this.id, required this.label, this.colorHex, this.sortOrder = 0, this.isDeleted = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}}): _extra = extra;
   factory _ChoiceOption.fromJson(Map<String, dynamic> json) => _$ChoiceOptionFromJson(json);
 
 @override final  String id;
@@ -223,6 +224,13 @@ class _ChoiceOption implements ChoiceOption {
 @override final  String? colorHex;
 @override@JsonKey() final  int sortOrder;
 @override@JsonKey() final  bool isDeleted;
+ final  Map<String, dynamic> _extra;
+@override@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra {
+  if (_extra is EqualUnmodifiableMapView) return _extra;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_extra);
+}
+
 
 /// Create a copy of ChoiceOption
 /// with the given fields replaced by the non-null parameter values.
@@ -237,16 +245,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ChoiceOption&&(identical(other.id, id) || other.id == id)&&(identical(other.label, label) || other.label == label)&&(identical(other.colorHex, colorHex) || other.colorHex == colorHex)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder)&&(identical(other.isDeleted, isDeleted) || other.isDeleted == isDeleted));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ChoiceOption&&(identical(other.id, id) || other.id == id)&&(identical(other.label, label) || other.label == label)&&(identical(other.colorHex, colorHex) || other.colorHex == colorHex)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder)&&(identical(other.isDeleted, isDeleted) || other.isDeleted == isDeleted)&&const DeepCollectionEquality().equals(other._extra, _extra));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,label,colorHex,sortOrder,isDeleted);
+int get hashCode => Object.hash(runtimeType,id,label,colorHex,sortOrder,isDeleted,const DeepCollectionEquality().hash(_extra));
 
 @override
 String toString() {
-  return 'ChoiceOption(id: $id, label: $label, colorHex: $colorHex, sortOrder: $sortOrder, isDeleted: $isDeleted)';
+  return 'ChoiceOption(id: $id, label: $label, colorHex: $colorHex, sortOrder: $sortOrder, isDeleted: $isDeleted, extra: $extra)';
 }
 
 
@@ -257,7 +265,7 @@ abstract mixin class _$ChoiceOptionCopyWith<$Res> implements $ChoiceOptionCopyWi
   factory _$ChoiceOptionCopyWith(_ChoiceOption value, $Res Function(_ChoiceOption) _then) = __$ChoiceOptionCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String label, String? colorHex, int sortOrder, bool isDeleted
+ String id, String label, String? colorHex, int sortOrder, bool isDeleted,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
 });
 
 
@@ -274,14 +282,15 @@ class __$ChoiceOptionCopyWithImpl<$Res>
 
 /// Create a copy of ChoiceOption
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? label = null,Object? colorHex = freezed,Object? sortOrder = null,Object? isDeleted = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? label = null,Object? colorHex = freezed,Object? sortOrder = null,Object? isDeleted = null,Object? extra = null,}) {
   return _then(_ChoiceOption(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,label: null == label ? _self.label : label // ignore: cast_nullable_to_non_nullable
 as String,colorHex: freezed == colorHex ? _self.colorHex : colorHex // ignore: cast_nullable_to_non_nullable
 as String?,sortOrder: null == sortOrder ? _self.sortOrder : sortOrder // ignore: cast_nullable_to_non_nullable
 as int,isDeleted: null == isDeleted ? _self.isDeleted : isDeleted // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,extra: null == extra ? _self._extra : extra // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,
   ));
 }
 

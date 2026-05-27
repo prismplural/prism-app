@@ -78,9 +78,21 @@ class CustomFieldTypeConfigCodec {
 
   /// Decode a JSON object into the sealed variant. Any top-level keys not
   /// recognized by the matched variant are captured into the variant's `extra` map.
+  ///
+  /// For [ChoiceConfig], each nested option is rebuilt via [ChoiceOptionCodec]
+  /// so unknown option-level keys land in the option's own `extra` map (the
+  /// freezed-generated decoder would otherwise drop them).
   static CustomFieldTypeConfig fromJson(Map<String, dynamic> json) {
     final config = CustomFieldTypeConfig.fromJson(json);
-    final known = _knownKeysFor(config);
+    final hydrated = switch (config) {
+      final ChoiceConfig c => c.copyWith(
+        options: ((json['options'] as List<dynamic>?) ?? const <dynamic>[])
+            .map((e) => ChoiceOptionCodec.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      ),
+      _ => config,
+    };
+    final known = _knownKeysFor(hydrated);
     final extra = <String, dynamic>{};
     for (final entry in json.entries) {
       if (entry.key == 'runtimeType') continue;
@@ -88,8 +100,8 @@ class CustomFieldTypeConfigCodec {
         extra[entry.key] = entry.value;
       }
     }
-    if (extra.isEmpty) return config;
-    return switch (config) {
+    if (extra.isEmpty) return hydrated;
+    return switch (hydrated) {
       final ChoiceConfig c => c.copyWith(extra: extra),
       final GroupConfig c => c.copyWith(extra: extra),
       final ScaleConfig c => c.copyWith(extra: extra),
@@ -117,11 +129,16 @@ class CustomFieldTypeConfigCodec {
   }
 
   /// Produces a fully serialized map (all nested objects converted to maps).
+  ///
+  /// Nested [ChoiceOption]s are serialized through [ChoiceOptionCodec] so
+  /// unknown option-level keys (e.g. a v29 peer adding `iconKey`) survive a
+  /// v28 read→write — symmetric with how the top-level codec preserves
+  /// unknown variant-level keys.
   static Map<String, dynamic> _toJsonDeep(CustomFieldTypeConfig config) {
     return switch (config) {
       final ChoiceConfig c => {
         ...c.toJson(),
-        'options': c.options.map((o) => o.toJson()).toList(),
+        'options': c.options.map(ChoiceOptionCodec.toJson).toList(),
       },
       // GroupConfig, ScaleConfig, SliderConfig have no nested freezed objects.
       GroupConfig _ => config.toJson(),
