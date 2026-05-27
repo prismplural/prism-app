@@ -112,10 +112,18 @@ class CustomFieldTypeConfigCodec {
   /// Encode the sealed variant to JSON. The variant's `extra` map is merged
   /// back at the top level so unknown forward-compat keys re-emit intact.
   ///
-  /// Note: nested [ChoiceOption] objects are explicitly serialized via their
-  /// own `toJson()` so the result is a plain `Map<String, dynamic>` that can
-  /// be safely passed back into [fromJson] without a jsonEncode/jsonDecode
-  /// round-trip.
+  /// Extras keys are emitted in alphabetical order so re-encoding is stable
+  /// regardless of the on-disk key order written by the peer. Without this,
+  /// any v29-peer write whose keys do not match the codec's emit order would
+  /// produce a phantom `type_config_json` op on the first v28 read→write —
+  /// the diff would see "changed bytes" even though the logical content is
+  /// identical.
+  ///
+  /// Note: nested [ChoiceOption] objects are explicitly serialized via
+  /// [ChoiceOptionCodec] so the result is a plain `Map<String, dynamic>`
+  /// that can be safely passed back into [fromJson] without a
+  /// jsonEncode/jsonDecode round-trip, and so option-level extras are also
+  /// emitted in stable order.
   static Map<String, dynamic> toJson(CustomFieldTypeConfig config) {
     final base = _toJsonDeep(config);
     final extra = switch (config) {
@@ -125,7 +133,12 @@ class CustomFieldTypeConfigCodec {
       final SliderConfig c => c.extra,
     };
     if (extra.isEmpty) return base;
-    return {...base, ...extra};
+    final sortedExtraKeys = extra.keys.toList()..sort();
+    final out = <String, dynamic>{...base};
+    for (final key in sortedExtraKeys) {
+      out[key] = extra[key];
+    }
+    return out;
   }
 
   /// Produces a fully serialized map (all nested objects converted to maps).

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/choice_option.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
@@ -191,6 +193,90 @@ void main() {
       };
       final config = CustomFieldTypeConfigCodec.fromJson(json) as GroupConfig;
       expect(config.extra.containsKey('runtimeType'), isFalse);
+    });
+
+    test('codec re-encoding is order-independent: two inputs differing only in '
+        'extras-key order produce byte-identical output', () {
+      // The MED bug: a v29 peer may write `type_config_json` with extras keys
+      // ordered before base keys (or in any other order). A v28 device that
+      // reads the row and re-emits must produce the SAME bytes regardless of
+      // input ordering — otherwise an unrelated `updateField` diff sees the
+      // re-encoded blob as "changed" and emits a phantom type_config_json op.
+      //
+      // Parse from JSON STRINGS (not dart literals) so we control on-the-wire
+      // key order. Two inputs, same logical content, different key order →
+      // re-emission must converge to the same string.
+      // Two extras chosen so the order matters: zeta vs alpha.
+      const extrasFirst = '{"zeta":"z","alpha":"a","runtimeType":"slider",'
+          '"mode":"labeled","leftLabel":"A","rightLabel":"B",'
+          '"snapToPositions":true,"showTicks":false}';
+      const extrasLast = '{"runtimeType":"slider","mode":"labeled",'
+          '"leftLabel":"A","rightLabel":"B","snapToPositions":true,'
+          '"showTicks":false,"alpha":"a","zeta":"z"}';
+
+      final outA = jsonEncode(
+        CustomFieldTypeConfigCodec.toJson(
+          CustomFieldTypeConfigCodec.fromJson(
+            jsonDecode(extrasFirst) as Map<String, dynamic>,
+          ),
+        ),
+      );
+      final outB = jsonEncode(
+        CustomFieldTypeConfigCodec.toJson(
+          CustomFieldTypeConfigCodec.fromJson(
+            jsonDecode(extrasLast) as Map<String, dynamic>,
+          ),
+        ),
+      );
+
+      expect(
+        outA,
+        outB,
+        reason: 'Re-encoding must be order-independent so any v29-peer write '
+            'round-trips byte-identically — no phantom sync emits',
+      );
+
+      // And idempotent across N passes.
+      final outA2 = jsonEncode(
+        CustomFieldTypeConfigCodec.toJson(
+          CustomFieldTypeConfigCodec.fromJson(
+            jsonDecode(outA) as Map<String, dynamic>,
+          ),
+        ),
+      );
+      expect(outA2, outA, reason: 'Idempotent across passes');
+    });
+
+    test('codec re-encoding is order-independent for ChoiceConfig with extras '
+        'in both top-level and nested ChoiceOption', () {
+      const a = '{"zeta_top":1,"runtimeType":"choice",'
+          '"options":[{"zeta_opt":"z","id":"1","label":"foo","alpha_opt":"a"}],'
+          '"alpha_top":2,'
+          '"allowsMultiple":false,"allowsOther":false}';
+      const b = '{"runtimeType":"choice","alpha_top":2,'
+          '"options":[{"alpha_opt":"a","id":"1","label":"foo","zeta_opt":"z"}],'
+          '"allowsMultiple":false,"allowsOther":false,"zeta_top":1}';
+
+      final outA = jsonEncode(
+        CustomFieldTypeConfigCodec.toJson(
+          CustomFieldTypeConfigCodec.fromJson(
+            jsonDecode(a) as Map<String, dynamic>,
+          ),
+        ),
+      );
+      final outB = jsonEncode(
+        CustomFieldTypeConfigCodec.toJson(
+          CustomFieldTypeConfigCodec.fromJson(
+            jsonDecode(b) as Map<String, dynamic>,
+          ),
+        ),
+      );
+      expect(
+        outA,
+        outB,
+        reason: 'Order-independent for both top-level extras and nested '
+            'ChoiceOption extras',
+      );
     });
 
     test('unknown keys inside ChoiceOption survive round-trip', () {
