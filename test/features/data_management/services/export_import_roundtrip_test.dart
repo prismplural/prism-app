@@ -300,6 +300,7 @@ void main() {
 
     test('current SystemSettings fields survive roundtrip', () async {
       final backfilledAt = DateTime.utc(2026, 4, 15, 12, 30);
+      await sourceSettingsRepo.getSettings();
       await sourceSettingsRepo.updateSettings(
         SystemSettings(
           systemName: 'Test System',

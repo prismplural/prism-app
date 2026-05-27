@@ -48,15 +48,23 @@ class DriftSystemSettingsRepository
     // would be dead weight here.
     if (existingRow == null) return;
 
+    final changedDbFields = diffSyncFields(
+      _settingsDbFieldsFromRow(existingRow),
+      _settingsDbFields(settings),
+    );
     final changedFields = diffSyncFields(
       _settingsFieldsFromRow(existingRow),
       _settingsFields(settings),
     );
-    if (changedFields.isEmpty) return;
 
-    final companion = _partialSettingsCompanion(changedFields);
-    await _dao.applyPartialSettings(companion);
-    await syncRecordUpdate(_table, _settingsEntityId, changedFields);
+    if (changedDbFields.isNotEmpty) {
+      await _dao.applyPartialSettings(
+        _partialSettingsCompanion(changedDbFields),
+      );
+    }
+    if (changedFields.isNotEmpty) {
+      await syncRecordUpdate(_table, _settingsEntityId, changedFields);
+    }
   }
 
   // --- Field-level updates ---
@@ -599,6 +607,55 @@ class DriftSystemSettingsRepository
     }
   }
 
+  /// Database patch map; includes local fields omitted from sync emission.
+  Map<String, dynamic> _settingsDbFieldsFromRow(SystemSettingsData row) {
+    return {
+      ..._settingsFieldsFromRow(row),
+      'has_completed_onboarding': row.hasCompletedOnboarding,
+      'previous_accent_color_hex': row.previousAccentColorHex,
+      'gif_consent_state': row.gifConsentState,
+      'font_scale': row.fontScale,
+      'font_family': row.fontFamily,
+      'pin_lock_enabled': row.pinLockEnabled,
+      'biometric_lock_enabled': row.biometricLockEnabled,
+      'auto_lock_delay_seconds': row.autoLockDelaySeconds,
+      'display_font_in_app_bar': row.displayFontInAppBar,
+      'default_sleep_quality': row.defaultSleepQuality,
+      'boards_enabled': row.boardsEnabled,
+      'sp_boards_backfilled_at': row.spBoardsBackfilledAt,
+      'members_list_view_mode': row.membersListViewMode,
+      'members_grouped_default_state': row.membersGroupedDefaultState,
+      'members_folder_member_visibility': row.membersFolderMemberVisibility,
+      'members_show_pronouns': row.membersShowPronouns,
+      'members_show_front_buttons': row.membersShowFrontButtons,
+      'members_front_button_behavior': row.membersFrontButtonBehavior,
+    };
+  }
+
+  Map<String, dynamic> _settingsDbFields(domain.SystemSettings s) {
+    return {
+      ..._settingsFields(s),
+      'has_completed_onboarding': s.hasCompletedOnboarding,
+      'previous_accent_color_hex': s.previousAccentColorHex,
+      'gif_consent_state': s.gifConsentState.index,
+      'font_scale': s.fontScale,
+      'font_family': s.fontFamily.index,
+      'pin_lock_enabled': s.pinLockEnabled,
+      'biometric_lock_enabled': s.biometricLockEnabled,
+      'auto_lock_delay_seconds': s.autoLockDelaySeconds,
+      'display_font_in_app_bar': s.displayFontInAppBar,
+      'default_sleep_quality': s.defaultSleepQuality?.name,
+      'boards_enabled': s.boardsEnabled,
+      'sp_boards_backfilled_at': s.spBoardsBackfilledAt,
+      'members_list_view_mode': s.membersListViewMode.index,
+      'members_grouped_default_state': s.membersGroupedDefaultState.index,
+      'members_folder_member_visibility': s.membersFolderMemberVisibility.index,
+      'members_show_pronouns': s.membersShowPronouns,
+      'members_show_front_buttons': s.membersShowFrontButtons,
+      'members_front_button_behavior': s.membersFrontButtonBehavior.index,
+    };
+  }
+
   /// Mirror of [_settingsFields] keyed off the raw Drift row.
   ///
   /// Used by the patch-style [updateSettings] path: the previous state for
@@ -623,8 +680,7 @@ class DriftSystemSettingsRepository
       'custom_plural_terminology': row.customPluralTerminology,
       'terminology_use_english': row.terminologyUseEnglish,
       'fronting_reminders_enabled': row.frontingRemindersEnabled,
-      'fronting_reminder_interval_minutes':
-          row.frontingReminderIntervalMinutes,
+      'fronting_reminder_interval_minutes': row.frontingReminderIntervalMinutes,
       'theme_mode': row.themeMode,
       'theme_brightness': row.themeBrightness,
       'theme_style': row.themeStyle,
@@ -667,7 +723,8 @@ class DriftSystemSettingsRepository
       'fronting_list_view_mode': row.frontingListViewMode,
       'add_front_default_behavior': row.addFrontDefaultBehavior,
       'quick_front_default_behavior': row.quickFrontDefaultBehavior,
-      'auto_promote_long_fronting_sessions': row.autoPromoteLongFrontingSessions,
+      'auto_promote_long_fronting_sessions':
+          row.autoPromoteLongFrontingSessions,
       'bio_markdown_enabled': row.bioMarkdownEnabled,
       'is_deleted': row.isDeleted,
     };
@@ -791,6 +848,9 @@ class DriftSystemSettingsRepository
       chatLogsFront: fields.containsKey('chat_logs_front')
           ? Value(fields['chat_logs_front'] as bool)
           : const Value.absent(),
+      hasCompletedOnboarding: fields.containsKey('has_completed_onboarding')
+          ? Value(fields['has_completed_onboarding'] as bool)
+          : const Value.absent(),
       syncThemeEnabled: fields.containsKey('sync_theme_enabled')
           ? Value(fields['sync_theme_enabled'] as bool)
           : const Value.absent(),
@@ -799,6 +859,9 @@ class DriftSystemSettingsRepository
           : const Value.absent(),
       notesEnabled: fields.containsKey('notes_enabled')
           ? Value(fields['notes_enabled'] as bool)
+          : const Value.absent(),
+      previousAccentColorHex: fields.containsKey('previous_accent_color_hex')
+          ? Value(fields['previous_accent_color_hex'] as String)
           : const Value.absent(),
       pkGroupSyncV2Enabled: fields.containsKey('pk_group_sync_v2_enabled')
           ? Value(fields['pk_group_sync_v2_enabled'] as bool)
@@ -825,6 +888,27 @@ class DriftSystemSettingsRepository
       habitsBadgeEnabled: fields.containsKey('habits_badge_enabled')
           ? Value(fields['habits_badge_enabled'] as bool)
           : const Value.absent(),
+      gifConsentState: fields.containsKey('gif_consent_state')
+          ? Value(fields['gif_consent_state'] as int)
+          : const Value.absent(),
+      fontScale: fields.containsKey('font_scale')
+          ? Value(fields['font_scale'] as double)
+          : const Value.absent(),
+      fontFamily: fields.containsKey('font_family')
+          ? Value(fields['font_family'] as int)
+          : const Value.absent(),
+      pinLockEnabled: fields.containsKey('pin_lock_enabled')
+          ? Value(fields['pin_lock_enabled'] as bool)
+          : const Value.absent(),
+      biometricLockEnabled: fields.containsKey('biometric_lock_enabled')
+          ? Value(fields['biometric_lock_enabled'] as bool)
+          : const Value.absent(),
+      autoLockDelaySeconds: fields.containsKey('auto_lock_delay_seconds')
+          ? Value(fields['auto_lock_delay_seconds'] as int)
+          : const Value.absent(),
+      displayFontInAppBar: fields.containsKey('display_font_in_app_bar')
+          ? Value(fields['display_font_in_app_bar'] as bool)
+          : const Value.absent(),
       syncNavigationEnabled: fields.containsKey('sync_navigation_enabled')
           ? Value(fields['sync_navigation_enabled'] as bool)
           : const Value.absent(),
@@ -836,6 +920,9 @@ class DriftSystemSettingsRepository
           : const Value.absent(),
       chatBadgePreferences: fields.containsKey('chat_badge_preferences')
           ? Value(fields['chat_badge_preferences'] as String)
+          : const Value.absent(),
+      defaultSleepQuality: fields.containsKey('default_sleep_quality')
+          ? Value(fields['default_sleep_quality'] as String?)
           : const Value.absent(),
       frontingListViewMode: fields.containsKey('fronting_list_view_mode')
           ? Value(fields['fronting_list_view_mode'] as int)
@@ -850,6 +937,33 @@ class DriftSystemSettingsRepository
       autoPromoteLongFrontingSessions:
           fields.containsKey('auto_promote_long_fronting_sessions')
           ? Value(fields['auto_promote_long_fronting_sessions'] as bool)
+          : const Value.absent(),
+      boardsEnabled: fields.containsKey('boards_enabled')
+          ? Value(fields['boards_enabled'] as bool)
+          : const Value.absent(),
+      spBoardsBackfilledAt: fields.containsKey('sp_boards_backfilled_at')
+          ? Value(fields['sp_boards_backfilled_at'] as DateTime?)
+          : const Value.absent(),
+      membersListViewMode: fields.containsKey('members_list_view_mode')
+          ? Value(fields['members_list_view_mode'] as int)
+          : const Value.absent(),
+      membersGroupedDefaultState:
+          fields.containsKey('members_grouped_default_state')
+          ? Value(fields['members_grouped_default_state'] as int)
+          : const Value.absent(),
+      membersFolderMemberVisibility:
+          fields.containsKey('members_folder_member_visibility')
+          ? Value(fields['members_folder_member_visibility'] as int)
+          : const Value.absent(),
+      membersShowPronouns: fields.containsKey('members_show_pronouns')
+          ? Value(fields['members_show_pronouns'] as bool)
+          : const Value.absent(),
+      membersShowFrontButtons: fields.containsKey('members_show_front_buttons')
+          ? Value(fields['members_show_front_buttons'] as bool)
+          : const Value.absent(),
+      membersFrontButtonBehavior:
+          fields.containsKey('members_front_button_behavior')
+          ? Value(fields['members_front_button_behavior'] as int)
           : const Value.absent(),
       bioMarkdownEnabled: fields.containsKey('bio_markdown_enabled')
           ? Value(fields['bio_markdown_enabled'] as bool)

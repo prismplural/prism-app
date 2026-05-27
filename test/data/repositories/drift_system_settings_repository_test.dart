@@ -7,6 +7,8 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/system_settings_dao.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart'
+    show SleepQuality;
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
 
@@ -181,6 +183,59 @@ void main() {
       expect(captured, isEmpty);
     });
 
+    test(
+      'persists onboarding completion while syncing only shared fields',
+      () async {
+        final base = await seed();
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        await repo.updateSettings(
+          base.copyWith(
+            systemName: 'Prism Collective',
+            hasCompletedOnboarding: true,
+          ),
+        );
+
+        final settings = await repo.getSettings();
+        expect(settings.systemName, 'Prism Collective');
+        expect(settings.hasCompletedOnboarding, isTrue);
+        expect(captured, hasLength(1));
+        expect(captured.single.fields.keys.toSet(), {'system_name'});
+      },
+    );
+
+    test('persists database-only fields omitted from sync map', () async {
+      final base = await seed();
+      final backfilledAt = DateTime.utc(2026, 5, 20, 12);
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.updateSettings(
+        base.copyWith(
+          displayFontInAppBar: false,
+          defaultSleepQuality: SleepQuality.good,
+          boardsEnabled: true,
+          spBoardsBackfilledAt: backfilledAt,
+          membersShowPronouns: false,
+          membersShowFrontButtons: true,
+          membersFrontButtonBehavior: FrontStartBehavior.replace,
+        ),
+      );
+
+      final settings = await repo.getSettings();
+      expect(settings.displayFontInAppBar, isFalse);
+      expect(settings.defaultSleepQuality, SleepQuality.good);
+      expect(settings.boardsEnabled, isTrue);
+      expect(settings.spBoardsBackfilledAt?.toUtc(), backfilledAt);
+      expect(settings.membersShowPronouns, isFalse);
+      expect(settings.membersShowFrontButtons, isTrue);
+      expect(settings.membersFrontButtonBehavior, FrontStartBehavior.replace);
+      expect(captured, isEmpty);
+    });
+
     test('preserves untouched columns in the database', () async {
       // Seed a non-default column value first so the test can prove the
       // partial companion leaves it alone.
@@ -199,8 +254,9 @@ void main() {
     test('silently no-ops when the row does not exist', () async {
       // Drop the singleton row entirely to simulate an empty table; the
       // patch path must bail without creating one.
-      await db
-          .customStatement("DELETE FROM system_settings WHERE id = 'singleton'");
+      await db.customStatement(
+        "DELETE FROM system_settings WHERE id = 'singleton'",
+      );
       final captured = <CapturedSyncOp>[];
       SyncRecordMixin.installCaptureSinkForTesting(captured.add);
       addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);

@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/database/app_database.dart'
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
@@ -448,6 +449,33 @@ void main() {
       },
     );
 
+    test(
+      'complete persists local-only onboarding flag with real settings repo',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final settingsRepository = DriftSystemSettingsRepository(
+          db.systemSettingsDao,
+          null,
+        );
+        final service = OnboardingCommitService(
+          database: db,
+          settingsRepository: settingsRepository,
+          memberRepository: FakeMemberRepository(),
+          conversationRepository: FakeConversationRepository(),
+          frontingRepository: FakeFrontingSessionRepository(),
+        );
+
+        await service.complete(
+          const OnboardingState(systemName: 'Prism Collective'),
+        );
+
+        final settings = await settingsRepository.getSettings();
+        expect(settings.systemName, 'Prism Collective');
+        expect(settings.hasCompletedOnboarding, isTrue);
+      },
+    );
+
     test('complete writes onboarding fronting default choices', () async {
       final settingsRepository = FakeSystemSettingsRepository();
       final db = AppDatabase(NativeDatabase.memory());
@@ -699,6 +727,44 @@ void main() {
         expect(settingsRepository.settings.hasCompletedOnboarding, isTrue);
         expect(conversationRepository.conversations, isEmpty);
         expect(frontingRepository.sessions, isEmpty);
+      },
+    );
+
+    test(
+      'completeImportedBootstrap persists with real settings repo',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final settingsRepository = DriftSystemSettingsRepository(
+          db.systemSettingsDao,
+          null,
+        );
+        await settingsRepository.getSettings();
+        await settingsRepository.updateSettings(
+          const SystemSettings(
+            systemName: 'Imported Collective',
+            chatEnabled: false,
+            pollsEnabled: false,
+            habitsEnabled: true,
+            hasCompletedOnboarding: false,
+          ),
+        );
+        final service = OnboardingCommitService(
+          database: db,
+          settingsRepository: settingsRepository,
+          memberRepository: FakeMemberRepository(),
+          conversationRepository: FakeConversationRepository(),
+          frontingRepository: FakeFrontingSessionRepository(),
+        );
+
+        await service.completeImportedBootstrap();
+
+        final settings = await settingsRepository.getSettings();
+        expect(settings.systemName, 'Imported Collective');
+        expect(settings.chatEnabled, isFalse);
+        expect(settings.pollsEnabled, isFalse);
+        expect(settings.habitsEnabled, isTrue);
+        expect(settings.hasCompletedOnboarding, isTrue);
       },
     );
 
