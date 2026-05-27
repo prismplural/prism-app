@@ -4429,6 +4429,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncSetupInvalidPairingQr => 'Invalid pairing QR code.';
 
   @override
+  String get syncSetupPasteCodeLink => 'No camera? Paste a code instead';
+
+  @override
+  String get syncSetupPasteCodeTitle => 'Paste a pairing code';
+
+  @override
+  String get syncSetupPasteCodeDescription =>
+      'On the new device, tap \"Copy pairing code\" and send the result to this device (e.g. through a message to yourself), then paste it below.';
+
+  @override
+  String get syncSetupPasteCodeLabel => 'Pairing code';
+
+  @override
+  String get syncSetupPasteCodeHint => 'Paste the code from your other device';
+
+  @override
+  String get syncSetupPasteCodeSubmit => 'Pair';
+
+  @override
+  String get syncSetupPasteCodeInvalidFormat =>
+      'That doesn\'t look like a pairing code — make sure you copied it from the other device\'s Prism app.';
+
+  @override
   String get syncSetupVerifyDescription =>
       'Confirm these words match on the joining device.';
 
@@ -5179,6 +5202,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get onboardingSyncScanInstructions =>
       'On your existing device, open \"Set Up Another Device\" and scan this code.';
+
+  @override
+  String get onboardingSyncCopyPairingCode => 'Copy pairing code';
+
+  @override
+  String get onboardingSyncPairingCodeCopied => 'Pairing code copied';
 
   @override
   String get onboardingSyncWaitingForScan =>

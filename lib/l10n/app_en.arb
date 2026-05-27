@@ -6058,6 +6058,34 @@
   "@syncSetupInvalidPairingQr": {
     "description": "Toast shown when the scanned joiner QR code is invalid"
   },
+  "syncSetupPasteCodeLink": "No camera? Paste a code instead",
+  "@syncSetupPasteCodeLink": {
+    "description": "Fallback link beneath the joiner QR viewfinder that switches to the paste-a-code view."
+  },
+  "syncSetupPasteCodeTitle": "Paste a pairing code",
+  "@syncSetupPasteCodeTitle": {
+    "description": "Title of the camera-less paste fallback view on the initiator desktop."
+  },
+  "syncSetupPasteCodeDescription": "On the new device, tap \"Copy pairing code\" and send the result to this device (e.g. through a message to yourself), then paste it below.",
+  "@syncSetupPasteCodeDescription": {
+    "description": "Helper text on the paste fallback view explaining how the user gets the code over to the desktop."
+  },
+  "syncSetupPasteCodeLabel": "Pairing code",
+  "@syncSetupPasteCodeLabel": {
+    "description": "Label on the multi-line pairing code input."
+  },
+  "syncSetupPasteCodeHint": "Paste the code from your other device",
+  "@syncSetupPasteCodeHint": {
+    "description": "Placeholder shown inside the empty pairing code input."
+  },
+  "syncSetupPasteCodeSubmit": "Pair",
+  "@syncSetupPasteCodeSubmit": {
+    "description": "Primary button label on the paste fallback view; starts the pairing ceremony from the pasted bytes."
+  },
+  "syncSetupPasteCodeInvalidFormat": "That doesn't look like a pairing code — make sure you copied it from the other device's Prism app.",
+  "@syncSetupPasteCodeInvalidFormat": {
+    "description": "Error shown when pasted content has no valid pairing-code substring."
+  },
   "syncSetupVerifyDescription": "Confirm these words match on the joining device.",
   "@syncSetupVerifyDescription": {
     "description": "Instruction text on the existing-device security code verification step"
@@ -6992,6 +7020,14 @@
   "onboardingSyncScanInstructions": "On your existing device, open \"Set Up Another Device\" and scan this code.",
   "@onboardingSyncScanInstructions": {
     "description": "Instructions below the QR code"
+  },
+  "onboardingSyncCopyPairingCode": "Copy pairing code",
+  "@onboardingSyncCopyPairingCode": {
+    "description": "Joiner-side fallback button: copies the QR's base64 contents to the clipboard so the user can paste them on a desktop without a working camera."
+  },
+  "onboardingSyncPairingCodeCopied": "Pairing code copied",
+  "@onboardingSyncPairingCodeCopied": {
+    "description": "Toast shown after the joiner taps the copy pairing code button."
   },
   "onboardingSyncWaitingForScan": "Waiting for other device to scan...",
   "@onboardingSyncWaitingForScan": {

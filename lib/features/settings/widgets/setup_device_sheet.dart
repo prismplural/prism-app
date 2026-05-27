@@ -15,6 +15,7 @@ import 'package:prism_plurality/core/security/pin_buffer.dart';
 import 'package:prism_plurality/core/security/pin_lockout_state.dart';
 import 'package:prism_plurality/core/security/secret_bytes.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
+import 'package:prism_plurality/core/sync/pairing_paste_code.dart';
 import 'package:prism_plurality/core/sync/pairing_sas_display.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
@@ -24,6 +25,7 @@ import 'package:prism_plurality/shared/widgets/numpad_keyboard_listener.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
@@ -161,6 +163,8 @@ enum _InitiatorStep {
   pinPreflight,
   prompt,
   scanning,
+  // Camera-less fallback for the scan step; same token-bytes handoff.
+  pasteCode,
   connecting,
   sasVerification,
   passwordEntry,
@@ -297,6 +301,7 @@ class SetupDeviceSheetContentState
       _InitiatorStep.enterMnemonic ||
       _InitiatorStep.pinPreflight ||
       _InitiatorStep.prompt ||
+      _InitiatorStep.pasteCode ||
       _InitiatorStep.uploadComplete ||
       _InitiatorStep.done => false,
     };
@@ -608,6 +613,13 @@ class SetupDeviceSheetContentState
           setState(() => _joinerScanned = true);
           _startInitiatorCeremony(bytes);
         },
+        onPasteFallback: () =>
+            setState(() => _step = _InitiatorStep.pasteCode),
+      ),
+      _InitiatorStep.pasteCode => _PasteCodeView(
+        onSubmit: _startInitiatorCeremony,
+        onBackToCamera: () =>
+            setState(() => _step = _InitiatorStep.scanning),
       ),
       _InitiatorStep.connecting => Center(
         child: Padding(
@@ -1218,6 +1230,7 @@ class _JoinerQrScannerView extends StatelessWidget {
     required this.error,
     required this.onBack,
     required this.onScanned,
+    required this.onPasteFallback,
   });
 
   final MobileScannerController Function() ensureScanner;
@@ -1225,6 +1238,7 @@ class _JoinerQrScannerView extends StatelessWidget {
   final String? error;
   final VoidCallback onBack;
   final void Function(Uint8List bytes) onScanned;
+  final VoidCallback onPasteFallback;
 
   @override
   Widget build(BuildContext context) {
@@ -1277,6 +1291,18 @@ class _JoinerQrScannerView extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        // Always visible: camera-availability probing is unreliable on
+        // Windows/Linux desktops.
+        Center(
+          child: Semantics(
+            button: true,
+            child: TextButton(
+              onPressed: onPasteFallback,
+              child: Text(context.l10n.syncSetupPasteCodeLink),
+            ),
+          ),
+        ),
         if (error != null) ...[
           const SizedBox(height: 12),
           Text(
@@ -1287,6 +1313,126 @@ class _JoinerQrScannerView extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
         ],
+      ],
+    );
+  }
+}
+
+/// Pastes the joiner's pairing code and hands the decoded bytes to the
+/// existing initiator ceremony — the camera-less twin of `_JoinerQrScannerView`.
+class _PasteCodeView extends StatefulWidget {
+  const _PasteCodeView({
+    required this.onSubmit,
+    required this.onBackToCamera,
+  });
+
+  final void Function(Uint8List tokenBytes) onSubmit;
+  final VoidCallback onBackToCamera;
+
+  @override
+  State<_PasteCodeView> createState() => _PasteCodeViewState();
+}
+
+class _PasteCodeViewState extends State<_PasteCodeView> {
+  final _controller = TextEditingController();
+  String? _error;
+  bool _hadText = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onChanged);
+    // Best-effort scrub of the pasted token before release.
+    _controller.clear();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onChanged() {
+    // Skip rebuilds on cursor/selection moves; only state-affecting changes.
+    var dirty = false;
+    if (_error != null) {
+      _error = null;
+      dirty = true;
+    }
+    final hasText = _hasTextToSubmit;
+    if (hasText != _hadText) {
+      _hadText = hasText;
+      dirty = true;
+    }
+    if (dirty) setState(() {});
+  }
+
+  bool get _hasTextToSubmit => _controller.text.trim().isNotEmpty;
+
+  void _submit() {
+    final bytes = parsePastedPairingCode(_controller.text);
+    if (bytes == null) {
+      setState(() => _error = context.l10n.syncSetupPasteCodeInvalidFormat);
+      return;
+    }
+    widget.onSubmit(bytes);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: PrismButton(
+            label: context.l10n.back,
+            onPressed: widget.onBackToCamera,
+            icon: AppIcons.arrowBackIosNew,
+            tone: PrismButtonTone.subtle,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Icon(AppIcons.paste, color: theme.colorScheme.primary, size: 40),
+        const SizedBox(height: 16),
+        Text(
+          context.l10n.syncSetupPasteCodeTitle,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          context.l10n.syncSetupPasteCodeDescription,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 20),
+        PrismTextField(
+          controller: _controller,
+          labelText: context.l10n.syncSetupPasteCodeLabel,
+          hintText: context.l10n.syncSetupPasteCodeHint,
+          minLines: 3,
+          maxLines: 5,
+          autofocus: true,
+          errorText: _error,
+          // Autocorrect/autocapitalize would corrupt base64.
+          textCapitalization: TextCapitalization.none,
+        ),
+        const SizedBox(height: 20),
+        PrismButton(
+          label: context.l10n.syncSetupPasteCodeSubmit,
+          icon: AppIcons.checkCircle,
+          tone: PrismButtonTone.filled,
+          enabled: _hasTextToSubmit,
+          onPressed: _submit,
+        ),
       ],
     );
   }

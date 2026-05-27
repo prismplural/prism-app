@@ -7529,6 +7529,48 @@ abstract class AppLocalizations {
   /// **'Invalid pairing QR code.'**
   String get syncSetupInvalidPairingQr;
 
+  /// Fallback link beneath the joiner QR viewfinder that switches to the paste-a-code view.
+  ///
+  /// In en, this message translates to:
+  /// **'No camera? Paste a code instead'**
+  String get syncSetupPasteCodeLink;
+
+  /// Title of the camera-less paste fallback view on the initiator desktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a pairing code'**
+  String get syncSetupPasteCodeTitle;
+
+  /// Helper text on the paste fallback view explaining how the user gets the code over to the desktop.
+  ///
+  /// In en, this message translates to:
+  /// **'On the new device, tap \"Copy pairing code\" and send the result to this device (e.g. through a message to yourself), then paste it below.'**
+  String get syncSetupPasteCodeDescription;
+
+  /// Label on the multi-line pairing code input.
+  ///
+  /// In en, this message translates to:
+  /// **'Pairing code'**
+  String get syncSetupPasteCodeLabel;
+
+  /// Placeholder shown inside the empty pairing code input.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste the code from your other device'**
+  String get syncSetupPasteCodeHint;
+
+  /// Primary button label on the paste fallback view; starts the pairing ceremony from the pasted bytes.
+  ///
+  /// In en, this message translates to:
+  /// **'Pair'**
+  String get syncSetupPasteCodeSubmit;
+
+  /// Error shown when pasted content has no valid pairing-code substring.
+  ///
+  /// In en, this message translates to:
+  /// **'That doesn\'t look like a pairing code — make sure you copied it from the other device\'s Prism app.'**
+  String get syncSetupPasteCodeInvalidFormat;
+
   /// Instruction text on the existing-device security code verification step
   ///
   /// In en, this message translates to:
@@ -8789,6 +8831,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'On your existing device, open \"Set Up Another Device\" and scan this code.'**
   String get onboardingSyncScanInstructions;
+
+  /// Joiner-side fallback button: copies the QR's base64 contents to the clipboard so the user can paste them on a desktop without a working camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy pairing code'**
+  String get onboardingSyncCopyPairingCode;
+
+  /// Toast shown after the joiner taps the copy pairing code button.
+  ///
+  /// In en, this message translates to:
+  /// **'Pairing code copied'**
+  String get onboardingSyncPairingCodeCopied;
 
   /// Status text while waiting for QR code scan
   ///

@@ -14,6 +14,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/features/settings/widgets/setup_device_sheet.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
@@ -1669,6 +1670,260 @@ void main() {
             'PIN buffer must be non-empty after preflight view unmounts; '
             'a length of 0 means dispose() cleared the parent\'s buffer (the bug)',
       );
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Camera-less paste fallback
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Builds a structurally-valid encoded `RendezvousToken` for the
+  /// paste-and-pair widget test: version 0x01, 16 B rendezvous_id,
+  /// 32 B commitment, 2 B big-endian url_len = 45, then 45 B URL.
+  /// The parser's shape check requires this layout.
+  Uint8List samplePairingTokenBytes() {
+    const urlLen = 45;
+    final bytes = Uint8List(51 + urlLen);
+    bytes[0] = 0x01;
+    for (var i = 1; i < 49; i++) {
+      bytes[i] = i & 0xff;
+    }
+    bytes[49] = (urlLen >> 8) & 0xff;
+    bytes[50] = urlLen & 0xff;
+    for (var i = 51; i < bytes.length; i++) {
+      bytes[i] = i & 0xff;
+    }
+    return bytes;
+  }
+
+  testWidgets(
+    'paste fallback: link on scanner view navigates to paste view with disabled Pair button',
+    (tester) async {
+      const fakeHandle = _FakePrismSyncHandle();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            pairingCeremonyApiProvider.overrideWith(
+              (ref) => _FakePairingCeremonyApi(),
+            ),
+            prismSyncHandleProvider.overrideWithBuild(
+              (ref, notifier) => fakeHandle,
+            ),
+            syncHealthProvider.overrideWith(_FakeSyncHealthNotifier.new),
+            relayUrlProvider.overrideWithValue(
+              const AsyncValue<String?>.data('https://relay.example.com'),
+            ),
+            syncDeviceIdProvider.overrideWithValue(
+              const AsyncValue<String?>.data('device-123'),
+            ),
+            syncDeviceSecretPresentProvider.overrideWithValue(
+              const AsyncValue<bool>.data(true),
+            ),
+            syncWrappedDekPresentProvider.overrideWithValue(
+              const AsyncValue<bool>.data(true),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Consumer(
+                builder: (context, ref, _) => Scaffold(
+                  body: Center(
+                    child: ElevatedButton(
+                      onPressed: () => SetupDeviceSheet.show(context, ref),
+                      child: const Text('Open'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await _advanceThroughPreflight(tester, tapScanButton: true);
+
+      // Fallback link is visible on the scanner view.
+      expect(
+        find.text('No camera? Paste a code instead'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('No camera? Paste a code instead'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Paste a pairing code'), findsOneWidget);
+
+      // Pair button is disabled when the field is empty; tapping it does
+      // nothing and the view stays put.
+      await tester.tap(find.widgetWithText(PrismButton, 'Pair'));
+      await tester.pumpAndSettle();
+      expect(find.text('Paste a pairing code'), findsOneWidget);
+      expect(find.text('Verify Security Code'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'paste fallback: pasting a valid token advances to SAS verification',
+    (tester) async {
+      const fakeHandle = _FakePrismSyncHandle();
+      Uint8List? capturedTokenBytes;
+      final fakeApi = _FakePairingCeremonyApi(
+        startInitiatorCeremonyHandler:
+            ({required handle, required tokenBytes}) async {
+          capturedTokenBytes = tokenBytes;
+          return jsonEncode({
+            'sas_version': 3,
+            'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
+            'joiner_device_id': 'joiner-dev-xyz',
+          });
+        },
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            pairingCeremonyApiProvider.overrideWith((ref) => fakeApi),
+            prismSyncHandleProvider.overrideWithBuild(
+              (ref, notifier) => fakeHandle,
+            ),
+            syncHealthProvider.overrideWith(_FakeSyncHealthNotifier.new),
+            relayUrlProvider.overrideWithValue(
+              const AsyncValue<String?>.data('https://relay.example.com'),
+            ),
+            syncDeviceIdProvider.overrideWithValue(
+              const AsyncValue<String?>.data('device-123'),
+            ),
+            syncDeviceSecretPresentProvider.overrideWithValue(
+              const AsyncValue<bool>.data(true),
+            ),
+            syncWrappedDekPresentProvider.overrideWithValue(
+              const AsyncValue<bool>.data(true),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Consumer(
+                builder: (context, ref, _) => Scaffold(
+                  body: Center(
+                    child: ElevatedButton(
+                      onPressed: () => SetupDeviceSheet.show(context, ref),
+                      child: const Text('Open'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await _advanceThroughPreflight(tester, tapScanButton: true);
+
+      await tester.tap(find.text('No camera? Paste a code instead'));
+      await tester.pumpAndSettle();
+
+      // Field starts empty; Pair button is disabled.
+      final pairButton = find.widgetWithText(PrismButton, 'Pair');
+      expect(tester.widget<PrismButton>(pairButton).enabled, isFalse);
+
+      // Paste a code surrounded by chat-style context — the parser strips it.
+      final token = samplePairingTokenBytes();
+      final encoded = base64Encode(token);
+      await tester.enterText(
+        find.byType(TextField),
+        "Here's the code: $encoded — thanks!",
+      );
+      await tester.pump();
+
+      expect(tester.widget<PrismButton>(pairButton).enabled, isTrue);
+
+      await tester.tap(pairButton);
+      await tester.pumpAndSettle();
+
+      // The decoded bytes must be what we encoded — not the surrounding text.
+      expect(capturedTokenBytes, token);
+      // We advanced past paste into SAS verification.
+      expect(find.text('Verify Security Code'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'paste fallback: invalid input shows the friendly error and stays on the view',
+    (tester) async {
+      const fakeHandle = _FakePrismSyncHandle();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            pairingCeremonyApiProvider.overrideWith(
+              (ref) => _FakePairingCeremonyApi(),
+            ),
+            prismSyncHandleProvider.overrideWithBuild(
+              (ref, notifier) => fakeHandle,
+            ),
+            syncHealthProvider.overrideWith(_FakeSyncHealthNotifier.new),
+            relayUrlProvider.overrideWithValue(
+              const AsyncValue<String?>.data('https://relay.example.com'),
+            ),
+            syncDeviceIdProvider.overrideWithValue(
+              const AsyncValue<String?>.data('device-123'),
+            ),
+            syncDeviceSecretPresentProvider.overrideWithValue(
+              const AsyncValue<bool>.data(true),
+            ),
+            syncWrappedDekPresentProvider.overrideWithValue(
+              const AsyncValue<bool>.data(true),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Consumer(
+                builder: (context, ref, _) => Scaffold(
+                  body: Center(
+                    child: ElevatedButton(
+                      onPressed: () => SetupDeviceSheet.show(context, ref),
+                      child: const Text('Open'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await _advanceThroughPreflight(tester, tapScanButton: true);
+
+      await tester.tap(find.text('No camera? Paste a code instead'));
+      await tester.pumpAndSettle();
+
+      // Junk input enables Pair (text is non-empty) but rejects on submit.
+      await tester.enterText(find.byType(TextField), '!!! not a code !!!');
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(PrismButton, 'Pair'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining("doesn't look like a pairing code"),
+        findsOneWidget,
+      );
+      expect(find.text('Paste a pairing code'), findsOneWidget);
+      expect(find.text('Verify Security Code'), findsNothing);
     },
   );
 }

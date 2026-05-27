@@ -4507,6 +4507,30 @@ class AppLocalizationsEs extends AppLocalizations {
       'Código QR de emparejamiento no válido.';
 
   @override
+  String get syncSetupPasteCodeLink =>
+      '¿Sin cámara? Pega un código en su lugar';
+
+  @override
+  String get syncSetupPasteCodeTitle => 'Pega un código de emparejamiento';
+
+  @override
+  String get syncSetupPasteCodeDescription =>
+      'En el nuevo dispositivo, toca «Copiar código de emparejamiento» y envía el resultado a este dispositivo (por ejemplo, mediante un mensaje a ti mismo); luego, pégalo abajo.';
+
+  @override
+  String get syncSetupPasteCodeLabel => 'Código de emparejamiento';
+
+  @override
+  String get syncSetupPasteCodeHint => 'Pega el código del otro dispositivo';
+
+  @override
+  String get syncSetupPasteCodeSubmit => 'Emparejar';
+
+  @override
+  String get syncSetupPasteCodeInvalidFormat =>
+      'Esto no parece un código de emparejamiento; asegúrate de haberlo copiado de la app Prism en el otro dispositivo.';
+
+  @override
   String get syncSetupVerifyDescription =>
       'Confirma que estas palabras coincidan en el dispositivo que se une.';
 
@@ -5269,6 +5293,13 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get onboardingSyncScanInstructions =>
       'En tu dispositivo existente, abre «Configurar otro dispositivo» y escanea este código.';
+
+  @override
+  String get onboardingSyncCopyPairingCode => 'Copiar código de emparejamiento';
+
+  @override
+  String get onboardingSyncPairingCodeCopied =>
+      'Código de emparejamiento copiado';
 
   @override
   String get onboardingSyncWaitingForScan =>

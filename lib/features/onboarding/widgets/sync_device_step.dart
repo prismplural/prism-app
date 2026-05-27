@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -20,6 +21,7 @@ import 'package:prism_plurality/shared/widgets/numpad_keyboard_listener.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
 class SyncDeviceStep extends ConsumerStatefulWidget {
@@ -450,6 +452,23 @@ class _ShowingRequestView extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 20),
+          // Camera-less fallback: same bytes as the QR, delivered via any
+          // messaging channel the user already has.
+          PrismButton(
+            label: context.l10n.onboardingSyncCopyPairingCode,
+            icon: AppIcons.copyOutlined,
+            tone: PrismButtonTone.subtle,
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: qrData));
+              if (!context.mounted) return;
+              PrismToast.show(
+                context,
+                message: context.l10n.onboardingSyncPairingCodeCopied,
+                icon: AppIcons.checkCircleOutlineRounded,
+              );
+            },
           ),
           const SizedBox(height: 16),
         ],
