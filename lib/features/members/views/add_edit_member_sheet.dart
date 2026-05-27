@@ -662,7 +662,18 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
 
   Future<void> _save() async {
     if (_saving) return;
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      // Staged custom-field edits survive in the controller; surface that
+      // so the user doesn't tap Save twice and walk away thinking nothing
+      // was saved (or that their custom-field work was lost).
+      if (_customFieldsEditorController.hasPendingChanges && mounted) {
+        PrismToast.error(
+          context,
+          message: context.l10n.memberCustomFieldsPendingNote,
+        );
+      }
+      return;
+    }
 
     setState(() => _saving = true);
 
