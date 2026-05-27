@@ -62,7 +62,9 @@ def beta_registration_token
 end
 
 def scrubbed_flutter_env
-  'env -u BUNDLE_GEMFILE -u BUNDLE_PATH -u BUNDLE_BIN_PATH -u RUBYOPT -u GEM_HOME -u GEM_PATH PATH="/opt/homebrew/bin:$PATH"'
+  # /usr/bin first so xcodebuild's exportArchive picks system rsync; Homebrew
+  # rsync 3.4+ rejects the args Xcode passes and the IPA export fails.
+  'env -u BUNDLE_GEMFILE -u BUNDLE_PATH -u BUNDLE_BIN_PATH -u RUBYOPT -u GEM_HOME -u GEM_PATH PATH="/usr/bin:/opt/homebrew/bin:$PATH"'
 end
 
 def app_version
@@ -100,8 +102,8 @@ def github_release_tag
 end
 
 platform :ios do
-  desc "Build and upload to TestFlight internal testing"
-  lane :internal do
+  desc "Build and upload to TestFlight, distribute to the Prism Private Beta group"
+  lane :beta do
     defines = build_info_defines
     # Unset bundler env vars fastlane injects — they break CocoaPods when
     # flutter invokes pod install with the wrong Ruby gem environment.
@@ -113,9 +115,9 @@ platform :ios do
     upload_to_testflight(
       api_key: asc_api_key,
       ipa: ipa_path,
-      distribute_external: false,
-      notify_external_testers: false,
-      skip_waiting_for_build_processing: true,
+      distribute_external: true,
+      notify_external_testers: true,
+      groups: ["Prism Private Beta"],
     )
   end
 
@@ -140,8 +142,8 @@ platform :ios do
 end
 
 platform :mac do
-  desc "Build and upload to TestFlight internal testing"
-  lane :internal do
+  desc "Build and upload to TestFlight, distribute to the Prism Private Beta group"
+  lane :beta do
     defines = build_info_defines
 
     # flutter build writes dart-defines into macos/Flutter/ephemeral/Flutter-Generated.xcconfig
@@ -167,14 +169,16 @@ platform :mac do
     upload_to_testflight(
       api_key: asc_api_key,
       pkg: pkg_path,
-      skip_waiting_for_build_processing: true,
+      distribute_external: true,
+      notify_external_testers: true,
+      groups: ["Prism Private Beta"],
     )
   end
 end
 
 platform :android do
-  desc "Build and upload to Play Store internal testing track"
-  lane :internal do
+  desc "Build and upload to the Play Store closed beta testing track"
+  lane :beta do
     defines = build_info_defines
     symbols_dir = android_symbols_archive_dir
     dart_symbols_dir = File.join(symbols_dir, "dart")
@@ -219,11 +223,11 @@ platform :android do
     mapping_paths = [native_symbols_zip, r8_mapping].compact.select { |path| File.exist?(path) }
 
     upload_options = {
-      track: "internal",
+      track: "beta",
       aab: aab_path,
       json_key: play_store_json_key,
       package_name: "com.prismplural.prism",
-      release_status: "draft",
+      release_status: "completed",
     }
     upload_options[:mapping_paths] = mapping_paths unless mapping_paths.empty?
 
