@@ -17632,6 +17632,18 @@ abstract class AppLocalizations {
   /// **'Min and max must be valid numbers'**
   String get customFieldSliderNumericRangeError;
 
+  /// Tooltip and screen-reader label for the clear (×) button next to the slider editor
+  ///
+  /// In en, this message translates to:
+  /// **'Clear value'**
+  String get customFieldSliderClearTooltip;
+
+  /// Screen-reader announcement when the slider field has no value (pristine or cleared)
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get customFieldSliderNotSet;
+
   /// Label for the femme-masc gradient preset
   ///
   /// In en, this message translates to:

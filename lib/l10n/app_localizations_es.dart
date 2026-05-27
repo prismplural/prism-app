@@ -11168,6 +11168,12 @@ class AppLocalizationsEs extends AppLocalizations {
       'El mínimo y el máximo deben ser números válidos';
 
   @override
+  String get customFieldSliderClearTooltip => 'Clear value';
+
+  @override
+  String get customFieldSliderNotSet => 'Not set';
+
+  @override
   String get sliderGradientPresetFemmeMasc => 'Femme ↔ Masc (presentación)';
 
   @override

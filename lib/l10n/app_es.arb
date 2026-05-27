@@ -3268,6 +3268,8 @@
   "customFieldSliderMinMaxError": "El máximo debe ser mayor que el mínimo",
   "customFieldSliderStepError": "El paso debe ser mayor que cero",
   "customFieldSliderNumericRangeError": "El mínimo y el máximo deben ser números válidos",
+  "customFieldSliderClearTooltip": "Clear value",
+  "customFieldSliderNotSet": "Not set",
   "sliderGradientPresetFemmeMasc": "Femme ↔ Masc (presentación)",
   "sliderGradientPresetSoftHard": "Suave ↔ Duro",
   "sliderGradientPresetHighLowGender": "Agénero ↔ Muy genérico",
