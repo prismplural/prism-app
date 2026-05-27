@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/views/pk_link_management_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 import '../../../helpers/fake_repositories.dart';
 
@@ -105,10 +106,14 @@ Widget _wrap({
       memberRepositoryProvider.overrideWithValue(repo),
       pkLinkManagementControllerProvider.overrideWith(() => controller),
     ],
-    child: const MaterialApp(
+    child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: [Locale('en')],
-      home: PkLinkManagementScreen(),
+      supportedLocales: const [Locale('en')],
+      // PrismToastHost is required for any test that asserts toast copy —
+      // PrismToast.show is a no-op without the host overlay in the tree.
+      builder: (context, child) =>
+          PrismToastHost(child: child ?? const SizedBox.shrink()),
+      home: const PkLinkManagementScreen(),
     ),
   );
 }
@@ -456,10 +461,112 @@ void main() {
       },
     );
 
-    // The remaining spec'd cases — empty-unmapped toast, confirmation dialog
-    // copy, and the full apply path — depend on mocking the pluralKitSync
-    // service + PkMappingApplier network calls. The existing harness in this
-    // file doesn't cover those, and adding the machinery is out of scope for
-    // Phase 1 (see docs/plans/2026-05-27-pk-change-link-on-synced-rows.md).
+    testWidgets(
+      'tap → empty unmapped roster shows the no-candidates toast',
+      (tester) async {
+        _useTallViewport(tester);
+        addTearDown(PrismToast.resetForTest);
+        // Synced local + the only PK member is the one it's already linked to,
+        // so unmappedPkMembers is empty. Tap Change link must short-circuit
+        // to a toast before the picker opens.
+        final pkAlice = _pk('pk-alice', 'Alice');
+        final alice =
+            _local('l-alice', 'Alice', pkUuid: 'pk-alice', pkId: 'aliceid');
+        final repo = FakeMemberRepository()..seed([alice]);
+        final controller = _FakePkLinkManagementController(
+          _state(locals: [alice], pkMembers: [pkAlice]),
+        );
+
+        await tester.pumpWidget(_wrap(controller: controller, repo: repo));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(
+            const ValueKey('pkLinkManagementChangeLinkButton-l-alice'),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(
+          find.textContaining('No unmapped PluralKit members'),
+          findsOneWidget,
+        );
+
+        PrismToast.dismiss();
+        await tester.pump();
+      },
+    );
+
+    testWidgets(
+      'tap → pick PK target → confirm dialog renders with both names; '
+      'cancel keeps the link unchanged',
+      (tester) async {
+        _useTallViewport(tester);
+        final pkAlice = _pk('pk-alice', 'Alice');
+        final pkSpare = _pk('pk-spare', 'Spare', displayName: 'Spare Display');
+        final alice = _local(
+          'l-alice',
+          'Alice',
+          pkUuid: 'pk-alice',
+          pkId: 'aliceid',
+        );
+        final repo = FakeMemberRepository()..seed([alice]);
+        final controller = _FakePkLinkManagementController(
+          _state(locals: [alice], pkMembers: [pkAlice, pkSpare]),
+        );
+
+        await tester.pumpWidget(_wrap(controller: controller, repo: repo));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(
+            const ValueKey('pkLinkManagementChangeLinkButton-l-alice'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Picker shows the unmapped PK member (Spare). Can't usefully assert
+        // that Alice (the currently-linked PK) is *absent* — the local's
+        // own name is also 'Alice' and stays in the tree under the picker
+        // scrim. The exclusion happens at the state level via
+        // unmappedPkMembers; trust that and move on.
+        expect(find.text('Spare Display'), findsAtLeastNWidgets(1));
+
+        await tester.tap(find.text('Spare Display').first);
+        await tester.pumpAndSettle();
+
+        // Confirm dialog names both sides — title mentions the local, body
+        // mentions the current PK member (Alice).
+        expect(
+          find.text('Change PluralKit link for Alice?'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('Currently linked to Alice'),
+          findsOneWidget,
+        );
+
+        // Cancel — repo state must not change.
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+
+        final after = await repo.getMemberById('l-alice');
+        expect(after?.pluralkitUuid, 'pk-alice');
+        expect(after?.pluralkitId, 'aliceid');
+      },
+    );
+
+    // The full picker → confirm → apply tap-through (verifying the repo
+    // write lands) wedges this harness: pumpAndSettle never returns after
+    // the apply emits PrismToast.success + PluralKitSyncService runs through
+    // its post-link metadata pull. The applier path itself — including
+    // applyPluralKitLink's overwrite semantics on a Synced local — is
+    // already covered end-to-end by test/features/pluralkit/pk_e2e_mapping
+    // _flow_test.dart, which drives the same PkLinkDecision through a
+    // ProviderContainer directly (no widget tree). What the widget tests
+    // above cover is everything up to and including the confirm-or-cancel
+    // decision; the confirm → apply edge is exercised by the integration
+    // suite.
   });
 }
