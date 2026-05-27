@@ -240,52 +240,7 @@ void main() {
     );
   });
 
-  // ── Unsupported field rendering ───────────────────────────────────────────
-  //
-  // TODO(ffi-unblock): These widget tests are intentionally committed but
-  // will NOT compile in CI because the pre-existing FFI compile chain requires
-  // verifyMnemonicPin from a pinned prism-sync version that is not yet
-  // available. When that lands, remove this TODO and enable the tests by
-  // un-commenting the group below.
-  //
-  // The test contract (for when FFI unblocks):
-  //   - Build a CustomField with fieldTypeId='future_type' and pump
-  //     custom_fields_editor.dart (or the CustomFieldsEditor widget).
-  //   - Expect: no crash, the editor renders a graceful placeholder
-  //     (SizedBox.shrink or a "unsupported field type" Text) rather than
-  //     throwing an unhandled exception.
-  //
-  // group('unsupported field rendering', () {
-  //   testWidgets('unknown-type field renders read-only placeholder in editor',
-  //       (tester) async {
-  //     final unknownField = CustomField(
-  //       id: 'unknown-1',
-  //       name: 'Future Field',
-  //       fieldType: CustomFieldType.text,
-  //       fieldTypeId: 'future_type',
-  //       typeConfig: null,
-  //       displayOrder: 0,
-  //       createdAt: DateTime.utc(2026, 5, 25),
-  //     );
-  //
-  //     // NOTE: CustomFieldsEditor requires a ProviderScope + Riverpod providers
-  //     // that transitively pull in the FFI-gated prism-sync handle.
-  //     // This test will fail to compile until verifyMnemonicPin is in the
-  //     // pinned prism-sync version.
-  //     await tester.pumpWidget(ProviderScope(
-  //       child: MaterialApp(
-  //         home: Scaffold(
-  //           body: CustomFieldsEditor(
-  //             memberId: 'test-member',
-  //             fields: [unknownField],
-  //             values: const [],
-  //           ),
-  //         ),
-  //       ),
-  //     ));
-  //
-  //     // No crash is the primary assertion.
-  //     expect(tester.takeException(), isNull);
-  //   });
-  // });
+  // Followup: widget-level coverage for unknown-fieldTypeId rendering
+  // ("no exception when it reaches the renderer"). The mapper-level
+  // round-trip above pins the storage contract.
 }

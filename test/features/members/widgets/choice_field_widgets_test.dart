@@ -27,6 +27,7 @@ import 'package:prism_plurality/features/members/providers/custom_fields_provide
 import 'package:prism_plurality/features/members/widgets/choice_field_widgets.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_editor_scope.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

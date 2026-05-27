@@ -15,8 +15,7 @@
 // - Renders as plain Text('{emoji} {step}/{total}') — inherits parent row's
 //   semantics; no extra wrapper needed.
 //
-// Manual VoiceOver/TalkBack verification pending — pre-existing FFI compile
-// chain blocks widget tests in this directory.
+// Manual VoiceOver/TalkBack verification pending.
 
 import 'dart:async';
 

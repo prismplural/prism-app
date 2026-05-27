@@ -14,8 +14,7 @@
 // - Each visible option chip: Semantics(button: false, label: '{fieldName}, {label}, selected'[, removed]).
 // - Other pill: Semantics(button: false, label: '{fieldName}, Other: {text}').
 //
-// Manual VoiceOver/TalkBack verification pending — pre-existing FFI compile
-// chain blocks widget tests in this directory.
+// Manual VoiceOver/TalkBack verification pending.
 
 import 'dart:async';
 
