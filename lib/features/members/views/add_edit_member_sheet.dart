@@ -127,6 +127,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
   // Animation source view; `_view` is the destination. Both drive the
   // per-child offsets in `_offsetFor`.
   _MemberEditView _viewFrom = _MemberEditView.main;
+  // Edge swipe-back in progress; finger drives the controller directly.
+  bool _swiping = false;
   late final String _initialName;
   late final String _initialPronouns;
   late final String _initialBio;
@@ -262,7 +264,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     _customFieldsScrollController = ScrollController();
     _viewAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 350),
     );
     _viewAnimation = CurvedAnimation(
       parent: _viewAnimationController,
@@ -393,6 +395,54 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
   void _openProxyTags() => _swapView(_MemberEditView.proxyTags);
   void _openCustomFields() => _swapView(_MemberEditView.customFields);
   void _popToMain() => _swapView(_MemberEditView.main);
+
+  // At rest in a detail view, controller=1.0 (_view centered); rightward
+  // drag decrements toward 0.0 (_viewFrom=main centered). On commit we
+  // collapse _view/_viewFrom to main so the state machine matches reality.
+  void _handleSwipeBackStart(DragStartDetails details) {
+    if (_swiping) return;
+    if (_view == _MemberEditView.main) return;
+    if (_viewAnimationController.status != AnimationStatus.completed &&
+        _viewAnimationController.status != AnimationStatus.dismissed) {
+      return;
+    }
+    _swiping = true;
+    FocusScope.of(context).unfocus();
+  }
+
+  void _handleSwipeBackUpdate(DragUpdateDetails details) {
+    if (!_swiping) return;
+    final width = MediaQuery.of(context).size.width;
+    if (width <= 0) return;
+    final delta = (details.primaryDelta ?? 0) / width;
+    _viewAnimationController.value =
+        (_viewAnimationController.value - delta).clamp(0.0, 1.0);
+  }
+
+  void _handleSwipeBackEnd(DragEndDetails details) {
+    if (!_swiping) return;
+    _swiping = false;
+    final velocity = details.primaryVelocity ?? 0;
+    final shouldComplete =
+        _viewAnimationController.value < 0.5 || velocity > 700;
+    if (shouldComplete) {
+      _viewAnimationController.animateTo(0.0).then((_) {
+        if (!mounted) return;
+        setState(() {
+          _viewFrom = _MemberEditView.main;
+          _view = _MemberEditView.main;
+        });
+      });
+    } else {
+      _viewAnimationController.animateTo(1.0);
+    }
+  }
+
+  void _handleSwipeBackCancel() {
+    if (!_swiping) return;
+    _swiping = false;
+    _viewAnimationController.animateTo(1.0);
+  }
 
   Member _previewMember() {
     final name = _nameController.text.trim();
@@ -1011,27 +1061,55 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
                       Expanded(
                         // PrismSheet.showFullScreen gives a fixed-height
                         // viewport, so the stack doesn't need AnimatedSize.
-                        child: AnimatedBuilder(
-                          animation: _viewAnimation,
-                          builder: (context, _) {
-                            return ClipRect(
-                              child: Stack(
-                                clipBehavior: Clip.hardEdge,
-                                children: [
-                                  for (final view in _MemberEditView.values)
-                                    Positioned.fill(
-                                      child: FractionalTranslation(
-                                        translation: _offsetFor(view),
-                                        child: _InactiveWhenHidden(
-                                          visible: view == _view,
-                                          child: _buildViewBody(view),
-                                        ),
-                                      ),
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: AnimatedBuilder(
+                                animation: _viewAnimation,
+                                builder: (context, _) {
+                                  return ClipRect(
+                                    child: Stack(
+                                      clipBehavior: Clip.hardEdge,
+                                      children: [
+                                        for (final view
+                                            in _MemberEditView.values)
+                                          Positioned.fill(
+                                            child: FractionalTranslation(
+                                              translation: _offsetFor(view),
+                                              child: _InactiveWhenHidden(
+                                                visible: view == _view,
+                                                child: _buildViewBody(view),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
-                                ],
+                                  );
+                                },
                               ),
-                            );
-                          },
+                            ),
+                            // Outside the AnimatedBuilder so the gesture
+                            // arena isn't disrupted every animation frame.
+                            if (Theme.of(context).platform ==
+                                TargetPlatform.iOS)
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: 20,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.translucent,
+                                  excludeFromSemantics: true,
+                                  onHorizontalDragStart:
+                                      _handleSwipeBackStart,
+                                  onHorizontalDragUpdate:
+                                      _handleSwipeBackUpdate,
+                                  onHorizontalDragEnd: _handleSwipeBackEnd,
+                                  onHorizontalDragCancel:
+                                      _handleSwipeBackCancel,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ],
@@ -1063,16 +1141,20 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     }
   }
 
-  // Each view is positioned at `index - anchor` units horizontally, where
-  // the anchor lerps from `_viewFrom` to `_view` over the animation. The
-  // visible view ends at 0; off-screen views sit at integer offsets.
+  // Detail views are peers off-screen right; main rests off-screen left
+  // when a detail is active. Lerping each view's position between its
+  // rest in _viewFrom and rest in _view keeps every transition one
+  // screen width regardless of which detail view is involved.
   Offset _offsetFor(_MemberEditView view) {
-    final fromIndex = _viewFrom.index.toDouble();
-    final toIndex = _view.index.toDouble();
-    final viewIndex = view.index.toDouble();
     final t = _viewAnimation.value;
-    final anchor = fromIndex + (toIndex - fromIndex) * t;
-    return Offset(viewIndex - anchor, 0);
+    final from = _restPosition(view, _viewFrom);
+    final to = _restPosition(view, _view);
+    return Offset(from + (to - from) * t, 0);
+  }
+
+  double _restPosition(_MemberEditView view, _MemberEditView active) {
+    if (view == active) return 0.0;
+    return view == _MemberEditView.main ? -1.0 : 1.0;
   }
 
   Widget _buildViewBody(_MemberEditView view) {
@@ -1435,12 +1517,6 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
             onChanged: (_) => setState(() {}),
           ),
         ],
-        if (_showPluralKitSection && widget.isEditing) ...[
-          const SizedBox(height: 16),
-          _MemberEditorPluralKitSection(
-            member: widget.member!,
-          ),
-        ],
         const SizedBox(height: 24),
         Text(
           l10n.memberEditSectionAbout,
@@ -1552,6 +1628,12 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
           value: _isAlwaysFronting,
           onChanged: (v) => setState(() => _isAlwaysFronting = v),
         ),
+        if (_showPluralKitSection && widget.isEditing) ...[
+          const SizedBox(height: 16),
+          _MemberEditorPluralKitSection(
+            member: widget.member!,
+          ),
+        ],
         const SizedBox(height: 32),
       ],
     ];
