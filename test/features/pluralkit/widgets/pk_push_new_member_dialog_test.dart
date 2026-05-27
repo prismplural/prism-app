@@ -50,6 +50,7 @@ class _FakeMemberRepository implements MemberRepository {
 
   final Map<String, Member> _members;
   final List<Member> updates = [];
+  final List<String> excluded = [];
 
   @override
   Future<Member?> getMemberById(String id) async => _members[id];
@@ -58,6 +59,17 @@ class _FakeMemberRepository implements MemberRepository {
   Future<void> updateMember(Member member) async {
     updates.add(member);
     _members[member.id] = member;
+  }
+
+  @override
+  Future<int> excludePluralKitSync(String id) async {
+    excluded.add(id);
+    final existing = _members[id];
+    if (existing == null) return 0;
+    final updated = existing.copyWith(pluralkitSyncIgnored: true);
+    _members[id] = updated;
+    updates.add(updated);
+    return 1;
   }
 
   @override
@@ -182,6 +194,13 @@ void main() {
       expect(repo.updates, hasLength(1));
       expect(repo.updates.single.id, 'm-1');
       expect(repo.updates.single.pluralkitSyncIgnored, isTrue);
+      // PR 2 Part 1.7 site 10: routes through excludePluralKitSync (NOT
+      // generic updateMember). The fake records the call directly.
+      expect(
+        repo.excluded,
+        ['m-1'],
+        reason: '"Keep local" must route through excludePluralKitSync',
+      );
       expect(resolved, isTrue);
       expect(result, isFalse);
     },

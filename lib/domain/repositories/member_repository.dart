@@ -32,6 +32,63 @@ abstract class MemberRepository {
   Stream<List<domain.Member>> watchMembersByIds(List<String> ids);
   Future<int> getCount();
 
+  // -- PR 2 of pluralkit-link-management plan ------------------------------
+
+  /// User-driven (or applier-driven on user-confirmed decisions) link to a
+  /// PluralKit member. Atomically writes the PK link fields supplied in
+  /// [patch] AND sets `pluralkit_sync_ignored` to false. The path used
+  /// whenever the intent is "link this member and (re-)enable sync."
+  ///
+  /// Contract:
+  ///   - [patch] MUST contain at least one of `pluralkit_uuid` /
+  ///     `pluralkit_id` (validated; AssertionError otherwise).
+  ///   - The method ALWAYS injects `pluralkit_sync_ignored=false` into
+  ///     the patch before writing. Callers MAY include
+  ///     `pluralkit_sync_ignored: false` in [patch] (idempotent with the
+  ///     force-injection); callers MUST NOT pass
+  ///     `pluralkit_sync_ignored: true`.
+  ///   - Returns 0 for tombstoned rows.
+  ///   - Patch keys are validated against the same member-field allowlist
+  ///     as `updateMemberFields` (`_memberPatchKeys` in
+  ///     `drift_member_repository.dart`).
+  Future<int> applyPluralKitLink(
+    String memberId,
+    Map<String, dynamic> patch,
+  );
+
+  /// System-driven write of PK identifiers AFTER a push to the PK server
+  /// returned them. Does NOT touch `pluralkit_sync_ignored`; preserves
+  /// whatever the user has set.
+  ///
+  /// Used by post-push writebacks (e.g. `_linkBackLocally` in the one-shot
+  /// push service). If the user excluded the member between push start and
+  /// writeback, the PK identifiers still record locally (so future "Resume
+  /// sync" picks up the established PK identity without re-creating) and
+  /// exclude remains durable.
+  ///
+  /// Contract:
+  ///   - [patch] MUST contain at least one of `pluralkit_uuid` /
+  ///     `pluralkit_id` (validated).
+  ///   - [patch] MUST NOT contain `pluralkit_sync_ignored` (validated).
+  ///   - Returns 0 for tombstoned rows.
+  ///   - Patch keys validated against `_memberPatchKeys`.
+  Future<int> recordPluralKitIdentity(
+    String memberId,
+    Map<String, dynamic> patch,
+  );
+
+  /// User picked "Exclude from PluralKit sync." Sets
+  /// `pluralkit_sync_ignored=true`. Does NOT clear PK link fields — they
+  /// remain as historical metadata and to keep cross-device PK lookups
+  /// from missing the local row.
+  Future<int> excludePluralKitSync(String memberId);
+
+  /// User picked "Resume PluralKit sync." Sets
+  /// `pluralkit_sync_ignored=false`. The only path besides
+  /// [applyPluralKitLink] allowed to transition the flag from true to
+  /// false.
+  Future<int> resumePluralKitSync(String memberId);
+
   // -- Plan 02 (PK deletion push) ------------------------------------------
 
   /// Soft-deleted members that still have a PK link + a stamped intent

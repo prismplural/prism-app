@@ -109,6 +109,59 @@ class _FakeMemberRepo implements MemberRepository {
   ) async => throw UnimplementedError();
 
   @override
+  Future<int> applyPluralKitLink(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final existing = _byId[id];
+    if (existing == null || existing.isDeleted) return 0;
+    _byId[id] = existing.copyWith(
+      pluralkitUuid:
+          patch['pluralkit_uuid'] as String? ?? existing.pluralkitUuid,
+      pluralkitId: patch['pluralkit_id'] as String? ?? existing.pluralkitId,
+      pluralkitDisplayName:
+          patch['pluralkit_display_name'] as String? ??
+              existing.pluralkitDisplayName,
+      pluralkitSyncIgnored: false,
+    );
+    return 1;
+  }
+
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final existing = _byId[id];
+    if (existing == null || existing.isDeleted) return 0;
+    _byId[id] = existing.copyWith(
+      pluralkitUuid:
+          patch['pluralkit_uuid'] as String? ?? existing.pluralkitUuid,
+      pluralkitId: patch['pluralkit_id'] as String? ?? existing.pluralkitId,
+      pluralkitDisplayName:
+          patch['pluralkit_display_name'] as String? ??
+              existing.pluralkitDisplayName,
+    );
+    return 1;
+  }
+
+  @override
+  Future<int> excludePluralKitSync(String id) async {
+    final existing = _byId[id];
+    if (existing == null || existing.isDeleted) return 0;
+    _byId[id] = existing.copyWith(pluralkitSyncIgnored: true);
+    return 1;
+  }
+
+  @override
+  Future<int> resumePluralKitSync(String id) async {
+    final existing = _byId[id];
+    if (existing == null || existing.isDeleted) return 0;
+    _byId[id] = existing.copyWith(pluralkitSyncIgnored: false);
+    return 1;
+  }
+
+  @override
   Future<void> deleteMember(String id) async => _byId.remove(id);
 
   @override

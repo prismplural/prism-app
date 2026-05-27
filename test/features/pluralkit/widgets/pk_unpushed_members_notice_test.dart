@@ -106,6 +106,7 @@ class _FakeMemberRepository implements MemberRepository {
 
   final Map<String, Member> _members;
   final List<Member> updates = [];
+  final List<String> excluded = [];
 
   @override
   Future<Member?> getMemberById(String id) async => _members[id];
@@ -114,6 +115,17 @@ class _FakeMemberRepository implements MemberRepository {
   Future<void> updateMember(Member member) async {
     updates.add(member);
     _members[member.id] = member;
+  }
+
+  @override
+  Future<int> excludePluralKitSync(String id) async {
+    excluded.add(id);
+    final existing = _members[id];
+    if (existing == null) return 0;
+    final updated = existing.copyWith(pluralkitSyncIgnored: true);
+    _members[id] = updated;
+    updates.add(updated);
+    return 1;
   }
 
   @override
@@ -420,6 +432,14 @@ void main() {
       expect(localRepo.updates, hasLength(1));
       expect(localRepo.updates.single.id, 'm-1');
       expect(localRepo.updates.single.pluralkitSyncIgnored, isTrue);
+      // PR 2 Part 1.7 site 9: routes through excludePluralKitSync (NOT
+      // generic updateMember). The fake's excludePluralKitSync impl also
+      // records to `updates` so the row assertions above still hold.
+      expect(
+        localRepo.excluded,
+        ['m-1'],
+        reason: '"Keep local" must route through excludePluralKitSync',
+      );
 
       // Drain PrismToast.success auto-dismiss timer (3s).
       await tester.pump(const Duration(seconds: 5));

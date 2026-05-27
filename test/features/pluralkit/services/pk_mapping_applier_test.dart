@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -49,6 +52,109 @@ class FakeMemberRepo implements MemberRepository {
     String id,
     Map<String, dynamic> changedFields,
   ) async => throw UnimplementedError();
+
+  @override
+  Future<int> applyPluralKitLink(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final existing = _byId[id];
+    if (existing == null) return 0;
+    _byId[id] = _applyPatch(
+      existing,
+      patch,
+    ).copyWith(pluralkitSyncIgnored: false);
+    return 1;
+  }
+
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final existing = _byId[id];
+    if (existing == null) return 0;
+    _byId[id] = _applyPatch(existing, patch);
+    return 1;
+  }
+
+  /// Apply a (possibly full-domain) patch map back onto a Member. Only
+  /// the fields the applier tests actually assert on are mapped; anything
+  /// else passes through silently.
+  domain.Member _applyPatch(
+    domain.Member existing,
+    Map<String, dynamic> patch,
+  ) {
+    return existing.copyWith(
+      name: patch['name'] as String? ?? existing.name,
+      pronouns: patch.containsKey('pronouns')
+          ? patch['pronouns'] as String?
+          : existing.pronouns,
+      bio: patch.containsKey('bio')
+          ? patch['bio'] as String?
+          : existing.bio,
+      birthday: patch.containsKey('birthday')
+          ? patch['birthday'] as String?
+          : existing.birthday,
+      customColorEnabled:
+          patch['custom_color_enabled'] as bool? ??
+              existing.customColorEnabled,
+      customColorHex: patch.containsKey('custom_color_hex')
+          ? patch['custom_color_hex'] as String?
+          : existing.customColorHex,
+      proxyTagsJson: patch.containsKey('proxy_tags_json')
+          ? patch['proxy_tags_json'] as String?
+          : existing.proxyTagsJson,
+      avatarImageData: patch.containsKey('avatar_image_data')
+          ? _bytesOrNull(patch['avatar_image_data'])
+          : existing.avatarImageData,
+      pkBannerUrl: patch.containsKey('pk_banner_url')
+          ? patch['pk_banner_url'] as String?
+          : existing.pkBannerUrl,
+      pkBannerImageData: patch.containsKey('pk_banner_image_data')
+          ? _bytesOrNull(patch['pk_banner_image_data'])
+          : existing.pkBannerImageData,
+      pkBannerCachedUrl: patch.containsKey('pk_banner_cached_url')
+          ? patch['pk_banner_cached_url'] as String?
+          : existing.pkBannerCachedUrl,
+      profileHeaderSource: patch.containsKey('profile_header_source')
+          ? domain.MemberProfileHeaderSource
+              .values[patch['profile_header_source'] as int]
+          : existing.profileHeaderSource,
+      pluralkitUuid: patch.containsKey('pluralkit_uuid')
+          ? patch['pluralkit_uuid'] as String?
+          : existing.pluralkitUuid,
+      pluralkitId: patch.containsKey('pluralkit_id')
+          ? patch['pluralkit_id'] as String?
+          : existing.pluralkitId,
+      pluralkitDisplayName: patch.containsKey('pluralkit_display_name')
+          ? patch['pluralkit_display_name'] as String?
+          : existing.pluralkitDisplayName,
+    );
+  }
+
+  Uint8List? _bytesOrNull(Object? value) {
+    if (value == null) return null;
+    if (value is Uint8List) return value;
+    if (value is String) return base64Decode(value);
+    return null;
+  }
+
+  @override
+  Future<int> excludePluralKitSync(String id) async {
+    final existing = _byId[id];
+    if (existing == null) return 0;
+    _byId[id] = existing.copyWith(pluralkitSyncIgnored: true);
+    return 1;
+  }
+
+  @override
+  Future<int> resumePluralKitSync(String id) async {
+    final existing = _byId[id];
+    if (existing == null) return 0;
+    _byId[id] = existing.copyWith(pluralkitSyncIgnored: false);
+    return 1;
+  }
 
   @override
   Future<void> deleteMember(String id) async => _byId.remove(id);
@@ -200,7 +306,7 @@ void main() {
     expect(updated!.pluralkitUuid, 'u-1');
     expect(updated.pluralkitId, 'abcde');
 
-    final state = await dao.getById('link:u-1');
+    final state = await dao.getById('link:u-1:l1');
     expect(state!.status, 'applied');
   });
 
@@ -682,7 +788,7 @@ void main() {
       final event = capture.events.single;
       expect(event, isA<PkMappingDecisionApplied>());
       final applied = event as PkMappingDecisionApplied;
-      expect(applied.decisionId, 'link:u-1');
+      expect(applied.decisionId, 'link:u-1:l1');
       expect(applied.decisionKind, 'link');
     });
 
@@ -761,7 +867,7 @@ void main() {
       final event = capture.events.single;
       expect(event, isA<PkMappingDecisionFailed>());
       final failed = event as PkMappingDecisionFailed;
-      expect(failed.decisionId, 'link:u-1');
+      expect(failed.decisionId, 'link:u-1:missing');
       expect(failed.decisionKind, 'link');
       expect(failed.error, contains('missing'));
     });
@@ -1033,6 +1139,230 @@ void main() {
       },
     );
   });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // PR 2 — Part 1.7: every PK-link-writing applier path routes through
+  // applyPluralKitLink, and Skip routes through excludePluralKitSync.
+  //
+  // Plan: docs/plans/2026-05-26-pluralkit-link-management.md
+  // ───────────────────────────────────────────────────────────────────────
+
+  group('PR 2: applier routes through new repo methods', () {
+    test('_applyLink uses applyPluralKitLink', () async {
+      final repo = _RecordingMemberRepo([_local(id: 'l1', name: 'Alice')]);
+      final client = FakePluralKitClient();
+      final applier = buildApplier(repo: repo, client: client);
+
+      const pk = PKMember(id: 'abcde', uuid: 'u-1', name: 'Alice');
+      await applier.apply([
+        const PkLinkDecision(localMemberId: 'l1', pkMember: pk),
+      ]);
+
+      expect(repo.applyLinkCalls, hasLength(1));
+      expect(repo.applyLinkCalls.single.memberId, 'l1');
+      expect(repo.recordIdentityCalls, isEmpty);
+      // Excluding excluded keys (delete bookkeeping) — patch carries the
+      // PK identifiers at minimum.
+      final patch = repo.applyLinkCalls.single.patch;
+      expect(patch['pluralkit_uuid'], 'u-1');
+      expect(patch['pluralkit_id'], 'abcde');
+      expect(patch.containsKey('is_deleted'), isFalse);
+      expect(patch.containsKey('delete_intent_epoch'), isFalse);
+      expect(patch.containsKey('delete_push_started_at'), isFalse);
+    });
+
+    test('_applyPushNew main push path uses applyPluralKitLink', () async {
+      final repo = _RecordingMemberRepo([_local(id: 'l1', name: 'Alice')]);
+      final client = FakePluralKitClient(
+        onCreate: (data) => PKMember(
+          id: 'newid',
+          uuid: 'new-uuid',
+          name: data['name'] as String,
+        ),
+      );
+      final applier = buildApplier(repo: repo, client: client);
+
+      await applier.apply([const PkPushNewDecision(localMemberId: 'l1')]);
+
+      expect(repo.applyLinkCalls, hasLength(1));
+      final patch = repo.applyLinkCalls.single.patch;
+      expect(patch['pluralkit_uuid'], 'new-uuid');
+      expect(patch['pluralkit_id'], 'newid');
+    });
+
+    test('_applyPushNew crash-recovery branch uses applyPluralKitLink',
+        () async {
+      // Seed mapping state as if a prior push completed but the local
+      // member write didn't land. The decision id is computed from
+      // localMemberId — `push:l1`.
+      await dao.upsert(
+        PkMappingStateCompanion.insert(
+          id: 'push:l1',
+          decisionType: 'push',
+          pkMemberId: const Value('pkRec'),
+          pkMemberUuid: const Value('uuid-pkRec'),
+          localMemberId: const Value('l1'),
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+      );
+      final repo = _RecordingMemberRepo([_local(id: 'l1', name: 'Alice')]);
+      final client = FakePluralKitClient();
+      final applier = buildApplier(repo: repo, client: client);
+
+      await applier.apply([
+        const PkPushNewDecision(localMemberId: 'l1'),
+      ]);
+
+      // No POST — crash recovery reuses the prior PK identifiers.
+      expect(client.createCallCount, 0);
+      expect(repo.applyLinkCalls, hasLength(1));
+      final patch = repo.applyLinkCalls.single.patch;
+      expect(patch['pluralkit_uuid'], 'uuid-pkRec');
+      expect(patch['pluralkit_id'], 'pkRec');
+    });
+
+    test('_applyPushNew "id exists, uuid missing" completion uses '
+        'applyPluralKitLink', () async {
+      final repo = _RecordingMemberRepo([
+        _local(id: 'l1', name: 'Partial', pluralkitId: 'aaaaa'),
+      ]);
+      final client = _RecordingFakePluralKitClient(
+        members: [const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'A')],
+      );
+      final applier = buildApplier(repo: repo, client: client);
+
+      await applier.apply(
+        [const PkPushNewDecision(localMemberId: 'l1')],
+        resolution: const PkResolutionSnapshot(
+          fetchedPkUuids: {'pk-alice'},
+          fetchedPkIds: {'aaaaa'},
+        ),
+      );
+
+      // Did NOT POST a new PK member — completed the link through
+      // applyPluralKitLink instead.
+      expect(client.createCallCount, 0);
+      expect(repo.applyLinkCalls, hasLength(1));
+      expect(repo.applyLinkCalls.single.patch['pluralkit_uuid'], 'pk-alice');
+      expect(repo.applyLinkCalls.single.patch['pluralkit_id'], 'aaaaa');
+    });
+
+    test('_applyImport repair branch uses applyPluralKitLink', () async {
+      // Seed an existing local with the short PK id only. PK has both
+      // identifiers; import should repair by completing the link via
+      // applyPluralKitLink.
+      final repo = _RecordingMemberRepo([
+        _local(id: 'l1', name: 'Existing', pluralkitId: 'abcde'),
+      ]);
+      final client = FakePluralKitClient();
+      final applier = buildApplier(repo: repo, client: client);
+      const pk = PKMember(id: 'abcde', uuid: 'u-imp', name: 'Imported');
+
+      await applier.apply([const PkImportDecision(pkMember: pk)]);
+
+      expect(repo.applyLinkCalls, hasLength(1));
+      final patch = repo.applyLinkCalls.single.patch;
+      expect(patch['pluralkit_uuid'], 'u-imp');
+      expect(patch['pluralkit_id'], 'abcde');
+    });
+
+    test('Linking an excluded local through the mapping screen clears '
+        'sync_ignored', () async {
+      final repo = _RecordingMemberRepo([
+        _local(id: 'l1', name: 'WasExcluded', ignored: true),
+      ]);
+      final client = FakePluralKitClient();
+      final applier = buildApplier(repo: repo, client: client);
+
+      const pk = PKMember(id: 'abcde', uuid: 'u-1', name: 'PK Name');
+      await applier.apply([
+        const PkLinkDecision(localMemberId: 'l1', pkMember: pk),
+      ]);
+
+      expect(repo.applyLinkCalls, hasLength(1));
+      // The fake's applyPluralKitLink force-injects sync_ignored=false
+      // (mirroring the real repo).
+      final updated = await repo.getMemberById('l1');
+      expect(updated!.pluralkitSyncIgnored, isFalse);
+    });
+
+    test('_applySkip on a local member uses excludePluralKitSync', () async {
+      final repo = _RecordingMemberRepo([_local(id: 'l1', name: 'Alice')]);
+      final client = FakePluralKitClient();
+      final applier = buildApplier(repo: repo, client: client);
+
+      await applier.apply([const PkSkipDecision(localMemberId: 'l1')]);
+
+      expect(repo.excludeCalls, ['l1']);
+      // Updated row reflects the exclude.
+      final updated = await repo.getMemberById('l1');
+      expect(updated!.pluralkitSyncIgnored, isTrue);
+    });
+
+    test(
+      'PkLinkDecision id includes localMemberId so the _applyOne '
+      'alreadyApplied short-circuit cannot silently no-op a Link decision '
+      'targeting the same PK member but a different local (codex review)',
+      () {
+        // Codex review caught: when PkLinkDecision.id was only
+        // `link:${pk.uuid}`, the _applyOne alreadyApplied short-circuit
+        // would skip any later attempt to link the same PK member to a
+        // different local. The Manage PluralKit links screen's "Add link
+        // to existing member" flow can route the user to that scenario
+        // (excluded-linked locals don't count as "mapped" in unmappedPkMembers).
+        // The fix scopes the decision id by local so each (pk, local)
+        // pair has its own pk_mapping_state row.
+        const pk = PKMember(id: 'abcde', uuid: 'u-pk', name: 'PKAlice');
+        const decisionA = PkLinkDecision(localMemberId: 'l1', pkMember: pk);
+        const decisionB = PkLinkDecision(localMemberId: 'l2', pkMember: pk);
+        expect(decisionA.id, 'link:u-pk:l1');
+        expect(decisionB.id, 'link:u-pk:l2');
+        expect(
+          decisionA.id == decisionB.id,
+          isFalse,
+          reason:
+              'Decision ids for same PK + different local must differ so '
+              'the alreadyApplied cache cannot conflate them',
+        );
+      },
+    );
+  });
+}
+
+/// FakeMemberRepo subclass that records calls to PR 2's PK-link methods.
+class _RecordingMemberRepo extends FakeMemberRepo {
+  _RecordingMemberRepo(super.seed);
+
+  final List<({String memberId, Map<String, dynamic> patch})> applyLinkCalls =
+      [];
+  final List<({String memberId, Map<String, dynamic> patch})>
+  recordIdentityCalls = [];
+  final List<String> excludeCalls = [];
+
+  @override
+  Future<int> applyPluralKitLink(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    applyLinkCalls.add((memberId: id, patch: Map.of(patch)));
+    return super.applyPluralKitLink(id, patch);
+  }
+
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    recordIdentityCalls.add((memberId: id, patch: Map.of(patch)));
+    return super.recordPluralKitIdentity(id, patch);
+  }
+
+  @override
+  Future<int> excludePluralKitSync(String id) async {
+    excludeCalls.add(id);
+    return super.excludePluralKitSync(id);
+  }
 }
 
 /// FakePluralKitClient subclass that also records getMembers and updateMember

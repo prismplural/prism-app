@@ -292,7 +292,7 @@ class _PkUnpushedMembersReviewSheetState
       final repo = ref.read(memberRepositoryProvider);
       final member = await repo.getMemberById(memberRef.memberId);
       if (member == null || member.isDeleted) return;
-      await repo.updateMember(member.copyWith(pluralkitSyncIgnored: true));
+      await repo.excludePluralKitSync(member.id);
       if (!mounted) return;
       PrismToast.success(
         context,

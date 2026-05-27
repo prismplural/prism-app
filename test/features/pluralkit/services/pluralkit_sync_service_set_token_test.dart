@@ -198,6 +198,18 @@ class _FakeMemberRepository implements MemberRepository {
     Map<String, dynamic> changedFields,
   ) async => 0;
   @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) async =>
+      0;
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async => 0;
+  @override
+  Future<int> excludePluralKitSync(String id) async => 0;
+  @override
+  Future<int> resumePluralKitSync(String id) async => 0;
+  @override
   Future<void> deleteMember(String id) async {}
   @override
   Stream<List<domain.Member>> watchAllMembers() => Stream.value(const []);
@@ -682,6 +694,61 @@ class _RepushMemberRepo implements MemberRepository {
     String id,
     Map<String, dynamic> changedFields,
   ) async => 0;
+  @override
+  Future<int> applyPluralKitLink(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final existing = _byId[id];
+    if (existing == null) return 0;
+    _byId[id] = existing.copyWith(
+      pluralkitUuid: patch.containsKey('pluralkit_uuid')
+          ? patch['pluralkit_uuid'] as String?
+          : existing.pluralkitUuid,
+      pluralkitId: patch.containsKey('pluralkit_id')
+          ? patch['pluralkit_id'] as String?
+          : existing.pluralkitId,
+      pluralkitDisplayName: patch.containsKey('pluralkit_display_name')
+          ? patch['pluralkit_display_name'] as String?
+          : existing.pluralkitDisplayName,
+      pluralkitSyncIgnored: false,
+    );
+    return 1;
+  }
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final existing = _byId[id];
+    if (existing == null) return 0;
+    _byId[id] = existing.copyWith(
+      pluralkitUuid: patch.containsKey('pluralkit_uuid')
+          ? patch['pluralkit_uuid'] as String?
+          : existing.pluralkitUuid,
+      pluralkitId: patch.containsKey('pluralkit_id')
+          ? patch['pluralkit_id'] as String?
+          : existing.pluralkitId,
+      pluralkitDisplayName: patch.containsKey('pluralkit_display_name')
+          ? patch['pluralkit_display_name'] as String?
+          : existing.pluralkitDisplayName,
+    );
+    return 1;
+  }
+  @override
+  Future<int> excludePluralKitSync(String id) async {
+    final existing = _byId[id];
+    if (existing == null) return 0;
+    _byId[id] = existing.copyWith(pluralkitSyncIgnored: true);
+    return 1;
+  }
+  @override
+  Future<int> resumePluralKitSync(String id) async {
+    final existing = _byId[id];
+    if (existing == null) return 0;
+    _byId[id] = existing.copyWith(pluralkitSyncIgnored: false);
+    return 1;
+  }
   @override
   Future<void> deleteMember(String id) async {
     _byId.remove(id);

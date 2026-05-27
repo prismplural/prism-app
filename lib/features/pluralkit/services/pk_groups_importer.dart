@@ -223,7 +223,14 @@ class PkGroupsImporter with SyncRecordMixin {
     // Resolve members once up front so we know which PK UUIDs are locally
     // available *right now*. The authoritative set (R1) is the PK list, not
     // this map — the map only tells us which PK UUIDs map to a local row.
-    final allMembers = await _memberRepository.getAllMembers();
+    //
+    // Filter excluded locals here once so EVERY downstream consumer
+    // (`pkUuidToLocalMemberId` build, `_processGroup`, remove path at
+    // ~line 461) only sees non-excluded members. Otherwise a single missed
+    // call site could re-attribute, push, or remove an excluded local.
+    final allMembers = (await _memberRepository.getAllMembers())
+        .where((m) => !m.pluralkitSyncIgnored)
+        .toList();
     final pkUuidToLocalMemberId = <String, String>{};
     for (final m in allMembers) {
       final pkUuid = m.pluralkitUuid?.trim();
@@ -369,7 +376,12 @@ class PkGroupsImporter with SyncRecordMixin {
     if (pkGroups.isEmpty) return const PkGroupsImportResult();
     final syncEnabled = await _pkGroupSyncV2Enabled();
 
-    final allMembers = await _memberRepository.getAllMembers();
+    // Filter excluded locals at the fetch site (mirrors importGroups). The
+    // remove path inside `_reconcileMembership` (~line 461 in this file)
+    // must not see them either.
+    final allMembers = (await _memberRepository.getAllMembers())
+        .where((m) => !m.pluralkitSyncIgnored)
+        .toList();
     final pkUuidToLocalMemberId = <String, String>{};
     for (final m in allMembers) {
       final pkUuid = m.pluralkitUuid?.trim();

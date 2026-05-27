@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
+import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
@@ -33,8 +34,17 @@ class PkLinkDecision extends PkMappingDecision {
   final String localMemberId;
   final PKMember pkMember;
   const PkLinkDecision({required this.localMemberId, required this.pkMember});
+
+  /// Include BOTH the PK member uuid AND the local member id so the
+  /// _applyOne `alreadyApplied` short-circuit can't silently no-op a
+  /// later Link of the same PK member to a different local. The Manage
+  /// PluralKit links screen relies on this: if a user excluded L1
+  /// (which was linked to pk-alice) and then links pk-alice to L2 via
+  /// "Add link to existing member", we want the second decision to
+  /// run, not to be skipped because `link:pk-alice` was applied
+  /// before.
   @override
-  String get id => 'link:${pkMember.uuid}';
+  String get id => 'link:${pkMember.uuid}:$localMemberId';
 }
 
 /// Import a PK member as a brand new local member.
@@ -367,7 +377,25 @@ class PkMappingApplier {
           : updated.profileHeaderSource,
     );
 
-    await _members.updateMember(updated);
+    // User-driven link: route through applyPluralKitLink so the write
+    // bypasses Rule A/B (if this local was excluded, the user's explicit
+    // link decision resumes sync). v8's relaxed assert allows the
+    // sync_ignored=false in the full-domain patch.
+    //
+    // Drop delete-bookkeeping keys before passing to the repo: the
+    // `_memberPatchKeys` allowlist (used by applyPluralKitLink's
+    // validator) deliberately excludes them — they're stamped only by
+    // `stampDeletePushStartedAt` and the unlink flow.
+    final patch =
+        Map<String, dynamic>.from(DriftMemberRepository.memberFields(updated))
+          ..removeWhere(
+            (k, _) => const {
+              'is_deleted',
+              'delete_intent_epoch',
+              'delete_push_started_at',
+            }.contains(k),
+          );
+    await _members.applyPluralKitLink(updated.id, patch);
   }
 
   static bool _isNullOrEmpty(String? s) => s == null || s.isEmpty;
@@ -387,12 +415,12 @@ class PkMappingApplier {
     if (existing != null) {
       if (existing.pluralkitUuid != d.pkMember.uuid ||
           existing.pluralkitId != d.pkMember.id) {
-        await _members.updateMember(
-          existing.copyWith(
-            pluralkitUuid: d.pkMember.uuid,
-            pluralkitId: d.pkMember.id,
-          ),
-        );
+        // User picked Import for this PK member; the existing local row was
+        // partially-linked. Resume sync as part of the repair.
+        await _members.applyPluralKitLink(existing.id, {
+          'pluralkit_uuid': d.pkMember.uuid,
+          'pluralkit_id': d.pkMember.id,
+        });
       }
       return;
     }
@@ -478,13 +506,13 @@ class PkMappingApplier {
 
     // Crash-recovery: prior run POSTed but never wrote the local member.
     // pk_mapping_state has the PK id/uuid — reuse them instead of re-POSTing.
+    // User-driven push decision: route through applyPluralKitLink so an
+    // excluded local resumes sync as part of the explicit push.
     if (priorState?.pkMemberId != null && priorState?.pkMemberUuid != null) {
-      await _members.updateMember(
-        local.copyWith(
-          pluralkitId: priorState!.pkMemberId,
-          pluralkitUuid: priorState.pkMemberUuid,
-        ),
-      );
+      await _members.applyPluralKitLink(local.id, {
+        'pluralkit_uuid': priorState!.pkMemberUuid,
+        'pluralkit_id': priorState.pkMemberId,
+      });
       return;
     }
 
@@ -504,9 +532,10 @@ class PkMappingApplier {
         orElse: () => _pkSentinel,
       );
       if (!identical(match, _pkSentinel)) {
-        await _members.updateMember(
-          local.copyWith(pluralkitUuid: match.uuid, pluralkitId: match.id),
-        );
+        await _members.applyPluralKitLink(local.id, {
+          'pluralkit_uuid': match.uuid,
+          'pluralkit_id': match.id,
+        });
         return;
       }
     }
@@ -548,9 +577,13 @@ class PkMappingApplier {
       ),
     );
 
-    await _members.updateMember(
-      local.copyWith(pluralkitId: createdId, pluralkitUuid: createdUuid),
-    );
+    // Main push path: user-driven, so applyPluralKitLink (resumes sync if
+    // the local was excluded — consistent with the push-was-an-explicit-
+    // user-action semantic).
+    await _members.applyPluralKitLink(local.id, {
+      'pluralkit_uuid': createdUuid,
+      'pluralkit_id': createdId,
+    });
   }
 
   Future<void> _applySkip(PkSkipDecision d) async {
@@ -558,7 +591,7 @@ class PkMappingApplier {
       final local = await _members.getMemberById(d.localMemberId!);
       if (local == null) return;
       if (local.pluralkitSyncIgnored) return;
-      await _members.updateMember(local.copyWith(pluralkitSyncIgnored: true));
+      await _members.excludePluralKitSync(local.id);
     }
     // PK-side skip is recorded purely in pk_mapping_state; no local write.
   }

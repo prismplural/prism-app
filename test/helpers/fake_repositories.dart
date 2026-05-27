@@ -76,6 +76,69 @@ class FakeMemberRepository implements MemberRepository {
   ) async => throw UnimplementedError();
 
   @override
+  Future<int> applyPluralKitLink(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final index = _members.indexWhere((existing) => existing.id == id);
+    if (index < 0) return 0;
+    final existing = _members[index];
+    // Mirror the real repo: force-inject sync_ignored=false on link.
+    _members[index] = existing.copyWith(
+      pluralkitUuid: patch.containsKey('pluralkit_uuid')
+          ? patch['pluralkit_uuid'] as String?
+          : existing.pluralkitUuid,
+      pluralkitId: patch.containsKey('pluralkit_id')
+          ? patch['pluralkit_id'] as String?
+          : existing.pluralkitId,
+      pluralkitDisplayName: patch.containsKey('pluralkit_display_name')
+          ? patch['pluralkit_display_name'] as String?
+          : existing.pluralkitDisplayName,
+      pluralkitSyncIgnored: false,
+    );
+    return 1;
+  }
+
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final index = _members.indexWhere((existing) => existing.id == id);
+    if (index < 0) return 0;
+    final existing = _members[index];
+    // Preserves sync_ignored — only writes the identifier fields.
+    _members[index] = existing.copyWith(
+      pluralkitUuid: patch.containsKey('pluralkit_uuid')
+          ? patch['pluralkit_uuid'] as String?
+          : existing.pluralkitUuid,
+      pluralkitId: patch.containsKey('pluralkit_id')
+          ? patch['pluralkit_id'] as String?
+          : existing.pluralkitId,
+      pluralkitDisplayName: patch.containsKey('pluralkit_display_name')
+          ? patch['pluralkit_display_name'] as String?
+          : existing.pluralkitDisplayName,
+    );
+    return 1;
+  }
+
+  @override
+  Future<int> excludePluralKitSync(String id) async {
+    final index = _members.indexWhere((existing) => existing.id == id);
+    if (index < 0) return 0;
+    _members[index] = _members[index].copyWith(pluralkitSyncIgnored: true);
+    return 1;
+  }
+
+  @override
+  Future<int> resumePluralKitSync(String id) async {
+    final index = _members.indexWhere((existing) => existing.id == id);
+    if (index < 0) return 0;
+    _members[index] = _members[index].copyWith(pluralkitSyncIgnored: false);
+    return 1;
+  }
+
+  @override
   Stream<List<Member>> watchActiveMembers() {
     return Stream.value(
       List.unmodifiable(_members.where((member) => member.isActive)),

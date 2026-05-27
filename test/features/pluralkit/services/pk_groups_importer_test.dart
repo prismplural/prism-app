@@ -50,6 +50,26 @@ class _FakeMemberRepo implements MemberRepository {
     Map<String, dynamic> changedFields,
   ) async => throw UnimplementedError();
 
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) async =>
+      throw UnimplementedError();
+
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async => throw UnimplementedError();
+
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> excludePluralKitSync(String id) async => throw UnimplementedError();
+
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> resumePluralKitSync(String id) async => throw UnimplementedError();
+
   @override
   Future<void> deleteMember(String id) async =>
       members.removeWhere((m) => m.id == id);
@@ -1416,4 +1436,220 @@ void _stepFourTests({required AppDatabase Function() getDb}) {
       },
     );
   });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PR 2 — sync_ignored guard at allMembers fetch (Part 1.5).
+  //
+  // Both importGroups and reattribute filter excluded locals at the
+  // allMembers fetch so downstream uses (the pkUuidToLocalMemberId map AND
+  // the remove path in _reconcileMembership) only see non-excluded.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('PR 2: importGroups skips excluded locals', () {
+    test('excluded local does not appear in the pkUuidToLocalMemberId map '
+        '(no insert into the group membership)', () async {
+      final db = getDb();
+      final excluded = domain.Member(
+        id: 'local-excluded',
+        name: 'Excluded',
+        emoji: '?',
+        createdAt: DateTime.utc(2026),
+        pluralkitUuid: 'pk-mem-excluded',
+        pluralkitId: 'eee01',
+        pluralkitSyncIgnored: true,
+      );
+      final active = _member(id: 'local-active', pkUuid: 'pk-mem-active');
+      final repo = _FakeMemberRepo([excluded, active]);
+      final importer = PkGroupsImporter(db: db, memberRepository: repo);
+
+      await importer.importGroups([
+        const PKGroup(
+          id: 'gabcd',
+          uuid: 'pk-g-1',
+          name: 'Group',
+          memberIds: ['pk-mem-excluded', 'pk-mem-active'],
+        ),
+      ]);
+
+      final groups = await db.memberGroupsDao.getAllActiveGroups();
+      expect(groups, hasLength(1));
+      final entries = await db.memberGroupsDao.entriesForGroup(
+        groups.single.id,
+      );
+      // Only the non-excluded local is associated. The excluded member's
+      // PK UUID is deferred (treated as unresolved) because the filter
+      // dropped it before the map build.
+      final memberIds = entries.map((e) => e.memberId).toSet();
+      expect(memberIds, {'local-active'});
+    });
+
+    test('excluded local is not on the remove-path either: existing entry '
+        'for the excluded member stays put when PK omits the corresponding '
+        'PK UUID', () async {
+      final db = getDb();
+      // Seed: existing group + entry for the excluded local.
+      await db.into(db.memberGroups).insert(
+            MemberGroupsCompanion.insert(
+              id: 'g-local',
+              name: 'g-local',
+              createdAt: DateTime.utc(2026, 1, 1),
+              pluralkitUuid: const Value('pk-g-1'),
+            ),
+          );
+      await db.into(db.memberGroupEntries).insert(
+            MemberGroupEntriesCompanion.insert(
+              id: 'e-1',
+              groupId: 'g-local',
+              memberId: 'local-excluded',
+              pkGroupUuid: const Value('pk-g-1'),
+              pkMemberUuid: const Value('pk-mem-excluded'),
+            ),
+          );
+
+      final excluded = domain.Member(
+        id: 'local-excluded',
+        name: 'Excluded',
+        emoji: '?',
+        createdAt: DateTime.utc(2026),
+        pluralkitUuid: 'pk-mem-excluded',
+        pluralkitId: 'eee01',
+        pluralkitSyncIgnored: true,
+      );
+      final repo = _FakeMemberRepo([excluded]);
+      final importer = PkGroupsImporter(db: db, memberRepository: repo);
+
+      // PK now reports the group with NO members. The remove path would
+      // normally tombstone the existing entry — but the excluded local is
+      // filtered out at the fetch so the remove path never considers it.
+      await importer.importGroups([
+        const PKGroup(
+          id: 'gabcd',
+          uuid: 'pk-g-1',
+          name: 'Group',
+          memberIds: [],
+        ),
+      ]);
+
+      final entry = await (db.select(
+        db.memberGroupEntries,
+      )..where((e) => e.id.equals('e-1'))).getSingle();
+      expect(
+        entry.isDeleted,
+        isFalse,
+        reason: 'remove path must not touch entries for excluded locals',
+      );
+    });
+  });
+
+  group('PR 2: reattribute skips excluded locals', () {
+    test('does not insert membership for an excluded local even when PK '
+        'lists their UUID', () async {
+      final db = getDb();
+      // Seed: existing group, no entries yet.
+      await db.into(db.memberGroups).insert(
+            MemberGroupsCompanion.insert(
+              id: 'g-local',
+              name: 'g-local',
+              createdAt: DateTime.utc(2026, 1, 1),
+              pluralkitUuid: const Value('pk-g-1'),
+            ),
+          );
+
+      final excluded = domain.Member(
+        id: 'local-excluded',
+        name: 'Excluded',
+        emoji: '?',
+        createdAt: DateTime.utc(2026),
+        pluralkitUuid: 'pk-mem-excluded',
+        pluralkitId: 'eee01',
+        pluralkitSyncIgnored: true,
+      );
+      final active = _member(id: 'local-active', pkUuid: 'pk-mem-active');
+      final repo = _FakeMemberRepo([excluded, active]);
+      final importer = PkGroupsImporter(db: db, memberRepository: repo);
+
+      final client = _ReattributeFakeClient([
+        const PKGroup(
+          id: 'gabcd',
+          uuid: 'pk-g-1',
+          name: 'Group',
+          memberIds: ['pk-mem-excluded', 'pk-mem-active'],
+        ),
+      ]);
+
+      await importer.reattribute(client);
+
+      final entries = await db.memberGroupsDao.entriesForGroup('g-local');
+      final memberIds = entries.map((e) => e.memberId).toSet();
+      expect(memberIds, {'local-active'},
+          reason: 'excluded local must not be reattributed to the group');
+    });
+  });
+}
+
+/// Minimal PluralKitClient stub for reattribute tests — only getGroups is
+/// invoked, everything else throws.
+class _ReattributeFakeClient implements PluralKitClient {
+  _ReattributeFakeClient(this._groups);
+  final List<PKGroup> _groups;
+
+  @override
+  Future<List<PKGroup>> getGroups({bool withMembers = true}) async => _groups;
+
+  @override
+  String get currentToken => 'fake';
+
+  @override
+  void dispose() {}
+
+  @override
+  Future<PKMember> createMember(Map<String, dynamic> data) =>
+      throw UnimplementedError();
+  @override
+  Future<PKMember> updateMember(String id, Map<String, dynamic> data) =>
+      throw UnimplementedError();
+  @override
+  Future<PKSwitch> createSwitch(
+    List<String> memberIds, {
+    DateTime? timestamp,
+  }) => throw UnimplementedError();
+  @override
+  Future<PKSwitch> updateSwitch(
+    String switchId, {
+    required DateTime timestamp,
+  }) => throw UnimplementedError();
+  @override
+  Future<PKSwitch> updateSwitchMembers(
+    String switchId,
+    List<String> memberIds,
+  ) => throw UnimplementedError();
+  @override
+  Future<void> deleteSwitch(String switchId) => throw UnimplementedError();
+  @override
+  Future<PKSystem> getSystem() => throw UnimplementedError();
+  @override
+  Future<List<PKMember>> getMembers() => throw UnimplementedError();
+  @override
+  Future<PKMember> getMember(String memberRef) => throw UnimplementedError();
+  @override
+  Future<List<PKSwitch>> getSwitches({DateTime? before, int limit = 100}) =>
+      throw UnimplementedError();
+  @override
+  Future<void> deleteMember(String id) => throw UnimplementedError();
+  @override
+  Future<List<int>> downloadBytes(String url) => throw UnimplementedError();
+  @override
+  Future<List<String>> getGroupMembers(String groupRef) async => const [];
+  @override
+  Future<void> addMembersToGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
+  @override
+  Future<void> removeMembersFromGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
+  @override
+  Future<PKSwitch?> getCurrentFronters() => throw UnimplementedError();
 }

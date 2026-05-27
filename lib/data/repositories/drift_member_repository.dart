@@ -106,27 +106,117 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   @override
   Future<void> updateMember(domain.Member member) async {
     final normalizedMember = _normalizeMember(member);
-    final existingRow = await _dao.getMemberByIdRow(normalizedMember.id);
-    if (existingRow == null || existingRow.isDeleted) return;
-
-    final changedFields = diffSyncFields(
-      _memberFieldsFromRow(existingRow),
-      _memberFields(normalizedMember),
+    final patch = _memberFields(normalizedMember);
+    await _updateMemberFieldsWithIntent(
+      normalizedMember.id,
+      patch,
+      allowPluralKitLinkMutation: false,
+      allowResumeSyncIgnored: false,
     );
-    if (changedFields.isEmpty) return;
-
-    final companion = _partialMemberCompanion(changedFields);
-    final affected = await _dao.updateMemberById(normalizedMember.id, companion);
-    if (affected != 1) return;
-
-    await syncRecordUpdate(_table, normalizedMember.id, changedFields);
   }
 
   @override
   Future<int> updateMemberFields(
     String id,
     Map<String, dynamic> changedFields,
+  ) =>
+      _updateMemberFieldsWithIntent(
+        id,
+        changedFields,
+        allowPluralKitLinkMutation: false,
+        allowResumeSyncIgnored: false,
+      );
+
+  @override
+  Future<int> applyPluralKitLink(
+    String memberId,
+    Map<String, dynamic> patch,
   ) async {
+    // Runtime validation (not `assert`) so release builds enforce the
+    // contract — these methods are part of a security boundary the
+    // call-site guards depend on; a buggy caller silently bypassing
+    // intent in production would corrupt the invariant.
+    if (!patch.containsKey('pluralkit_uuid') &&
+        !patch.containsKey('pluralkit_id')) {
+      throw ArgumentError(
+        'applyPluralKitLink requires pluralkit_uuid or pluralkit_id',
+      );
+    }
+    // pluralkit_sync_ignored MAY be present if and only if the value
+    // is false (idempotent with the method's force-injection below).
+    // This allows callers that build their patch via
+    // `member.copyWith(pluralkit_sync_ignored: false, ...)` diffed
+    // against the DB row to pass through without per-site narrow-patch
+    // construction. Rejects `true` because that would contradict the
+    // method's "link AND resume sync" semantic.
+    if (patch.containsKey('pluralkit_sync_ignored') &&
+        patch['pluralkit_sync_ignored'] != false) {
+      throw ArgumentError(
+        'applyPluralKitLink: pluralkit_sync_ignored must be false or absent',
+      );
+    }
+    _validatePkPatchAllowlist(patch);
+    final mergedPatch = {...patch, 'pluralkit_sync_ignored': false};
+    return _updateMemberFieldsWithIntent(
+      memberId,
+      mergedPatch,
+      allowPluralKitLinkMutation: true,
+      allowResumeSyncIgnored: true,
+    );
+  }
+
+  @override
+  Future<int> recordPluralKitIdentity(
+    String memberId,
+    Map<String, dynamic> patch,
+  ) async {
+    // Runtime validation (not `assert`) for the same reason as
+    // applyPluralKitLink above.
+    if (!patch.containsKey('pluralkit_uuid') &&
+        !patch.containsKey('pluralkit_id')) {
+      throw ArgumentError(
+        'recordPluralKitIdentity requires pluralkit_uuid or pluralkit_id',
+      );
+    }
+    if (patch.containsKey('pluralkit_sync_ignored')) {
+      throw ArgumentError(
+        'recordPluralKitIdentity does not change sync state — '
+        'pluralkit_sync_ignored must be absent from the patch',
+      );
+    }
+    _validatePkPatchAllowlist(patch);
+    return _updateMemberFieldsWithIntent(
+      memberId,
+      patch,
+      allowPluralKitLinkMutation: true,
+      allowResumeSyncIgnored: false,
+    );
+  }
+
+  @override
+  Future<int> excludePluralKitSync(String memberId) =>
+      _updateMemberFieldsWithIntent(
+        memberId,
+        {'pluralkit_sync_ignored': true},
+        allowPluralKitLinkMutation: false,
+        allowResumeSyncIgnored: false,
+      );
+
+  @override
+  Future<int> resumePluralKitSync(String memberId) =>
+      _updateMemberFieldsWithIntent(
+        memberId,
+        {'pluralkit_sync_ignored': false},
+        allowPluralKitLinkMutation: false,
+        allowResumeSyncIgnored: true,
+      );
+
+  Future<int> _updateMemberFieldsWithIntent(
+    String id,
+    Map<String, dynamic> changedFields, {
+    required bool allowPluralKitLinkMutation,
+    required bool allowResumeSyncIgnored,
+  }) async {
     final existingRow = await _dao.getMemberByIdRow(id);
     if (existingRow == null || existingRow.isDeleted) return 0;
 
@@ -134,14 +224,111 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       _memberFieldsFromRow(existingRow),
       _knownMemberFields(changedFields),
     );
-    if (patch.isEmpty) return 1; // no-op success for an active row
 
+    if (existingRow.pluralkitSyncIgnored && !allowPluralKitLinkMutation) {
+      _stripPkLinkFields(patch, id);
+    }
+    if (existingRow.pluralkitSyncIgnored && !allowResumeSyncIgnored) {
+      _stripResumeSyncIgnored(patch, id);
+    }
+
+    if (patch.isEmpty) return 1; // no-op success
     final companion = _partialMemberCompanion(patch);
     final affected = await _dao.updateMemberById(id, companion);
     if (affected != 1) return affected;
-
     await syncRecordUpdate(_table, id, patch);
     return affected;
+  }
+
+  void _stripPkLinkFields(Map<String, dynamic> patch, String id) {
+    final stripped = <String>[];
+    for (final key in const [
+      'pluralkit_uuid',
+      'pluralkit_id',
+      // NOTE: pluralkit_display_name is intentionally NOT stripped —
+      // the add/edit member sheet exposes it for editing on excluded
+      // members; stripping would silently no-op the user's edit. It's
+      // cached presentation, not authoritative sync state.
+      'pk_banner_url',
+      'pk_banner_image_data',
+      'pk_banner_cached_url',
+    ]) {
+      // Rule A: on excluded rows, generic updateMember cannot mutate
+      // PK identity / banner fields — including clearing them to null.
+      //
+      // Earlier drafts let null writes pass through, reasoning that a
+      // null clear could only originate from the PkStaleLinkException
+      // path and was therefore "consistent with the user's exclude
+      // intent." Codex review caught the hole: a stale full-domain
+      // updateMember(stale.copyWith(...)) where stale predates the
+      // link can diff into a patch with null PK fields, which would
+      // wipe the link the user wants preserved (so "Resume sync"
+      // picks up the established PK identity without re-creating).
+      //
+      // The PkStaleLinkException clear path at
+      // pk_bidirectional_service.dart:115 is protected upstream by
+      // Part 1.5's call-site guard skipping excluded members before
+      // the catch block runs — so stripping nulls here doesn't break
+      // that legitimate clear.
+      if (patch.containsKey(key)) {
+        patch.remove(key);
+        stripped.add(key);
+      }
+    }
+    // profile_header_source: strip ONLY when patch sets it to
+    // pluralKit. Other sources (prism, custom upload) are user-driven
+    // and pass through.
+    const headerSourceKey = 'profile_header_source';
+    if (patch[headerSourceKey] ==
+        domain.MemberProfileHeaderSource.pluralKit.index) {
+      patch.remove(headerSourceKey);
+      stripped.add(headerSourceKey);
+    }
+    if (stripped.isNotEmpty) {
+      debugPrint(
+        '[PK_REPO] stripped PK writes on excluded member $id: $stripped',
+      );
+    }
+  }
+
+  void _stripResumeSyncIgnored(Map<String, dynamic> patch, String id) {
+    // Rule B: on excluded rows, generic updateMember cannot transition
+    // sync_ignored from true to false. Closes the stale-full-domain
+    // write race where a sync loop's stale Member object carries the
+    // pre-exclude sync_ignored=false value and would otherwise
+    // silently reactivate via diff.
+    //
+    // The check is on `== false` specifically (not just "key present"):
+    // if the patch sets sync_ignored=true, the value matches the
+    // existing DB row, and the diff would not include the key anyway.
+    // Asymmetric with Rule A (which uses null as the explicit-clear
+    // marker) — see Rule A's comment.
+    if (patch['pluralkit_sync_ignored'] == false) {
+      patch.remove('pluralkit_sync_ignored');
+      debugPrint(
+        '[PK_REPO] stripped sync_ignored resume on excluded member $id',
+      );
+    }
+  }
+
+  // applyPluralKitLink and recordPluralKitIdentity accept the full
+  // member-patch allowlist because `_applyLink` and `_importMembers`
+  // intentionally pull PK-side conditional metadata (pronouns, bio,
+  // banner, etc.) in the same atomic write as PK identity. The
+  // method names signal intent ("this write is for PK link state");
+  // the broader allowlist accommodates the per-caller conditional
+  // patches without forcing a split.
+  //
+  // Future callers adding wrong fields (e.g. user-edited name) would
+  // be caught at code review by the method-name mismatch. If that
+  // proves insufficient, a future iteration can introduce a narrower
+  // `_pkLinkPatchKeys` set; not warranted today.
+  void _validatePkPatchAllowlist(Map<String, dynamic> patch) {
+    for (final key in patch.keys) {
+      if (!_memberPatchKeys.contains(key)) {
+        throw ArgumentError('Unknown member patch key: $key');
+      }
+    }
   }
 
   /// Apply freshly-fetched avatar bytes to many members in one Drift batch

@@ -59,6 +59,26 @@ class _FakeMemberRepo implements MemberRepository {
     Map<String, dynamic> changedFields,
   ) async => throw UnimplementedError();
 
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) async =>
+      throw UnimplementedError();
+
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async => throw UnimplementedError();
+
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> excludePluralKitSync(String id) async => throw UnimplementedError();
+
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> resumePluralKitSync(String id) async => throw UnimplementedError();
+
   @override
   Future<void> deleteMember(String id) async =>
       members.removeWhere((m) => m.id == id);

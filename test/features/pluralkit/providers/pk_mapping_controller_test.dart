@@ -95,6 +95,59 @@ class _FakeMemberRepo implements MemberRepository {
   ) async => throw UnimplementedError();
 
   @override
+  Future<int> applyPluralKitLink(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final existing = _byId[id];
+    if (existing == null || existing.isDeleted) return 0;
+    updateCallCount++;
+    _byId[id] = existing.copyWith(
+      pluralkitUuid: patch['pluralkit_uuid'] as String? ?? existing.pluralkitUuid,
+      pluralkitId: patch['pluralkit_id'] as String? ?? existing.pluralkitId,
+      pluralkitDisplayName:
+          patch['pluralkit_display_name'] as String? ??
+              existing.pluralkitDisplayName,
+      pluralkitSyncIgnored: false,
+    );
+    return 1;
+  }
+
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final existing = _byId[id];
+    if (existing == null || existing.isDeleted) return 0;
+    updateCallCount++;
+    _byId[id] = existing.copyWith(
+      pluralkitUuid: patch['pluralkit_uuid'] as String? ?? existing.pluralkitUuid,
+      pluralkitId: patch['pluralkit_id'] as String? ?? existing.pluralkitId,
+      pluralkitDisplayName:
+          patch['pluralkit_display_name'] as String? ??
+              existing.pluralkitDisplayName,
+    );
+    return 1;
+  }
+
+  @override
+  Future<int> excludePluralKitSync(String id) async {
+    final existing = _byId[id];
+    if (existing == null || existing.isDeleted) return 0;
+    _byId[id] = existing.copyWith(pluralkitSyncIgnored: true);
+    return 1;
+  }
+
+  @override
+  Future<int> resumePluralKitSync(String id) async {
+    final existing = _byId[id];
+    if (existing == null || existing.isDeleted) return 0;
+    _byId[id] = existing.copyWith(pluralkitSyncIgnored: false);
+    return 1;
+  }
+
+  @override
   Future<void> deleteMember(String id) async => _byId.remove(id);
   @override
   Future<int> getCount() async => _byId.length;
@@ -1564,6 +1617,30 @@ class _RecordingMemberRepo implements MemberRepository {
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>
       _inner.stampDeletePushStartedAt(id, timestampMs);
+
+  @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) {
+    onWrite();
+    return _inner.applyPluralKitLink(id, patch);
+  }
+
+  @override
+  Future<int> recordPluralKitIdentity(String id, Map<String, dynamic> patch) {
+    onWrite();
+    return _inner.recordPluralKitIdentity(id, patch);
+  }
+
+  @override
+  Future<int> excludePluralKitSync(String id) {
+    onWrite();
+    return _inner.excludePluralKitSync(id);
+  }
+
+  @override
+  Future<int> resumePluralKitSync(String id) {
+    onWrite();
+    return _inner.resumePluralKitSync(id);
+  }
 
   @override
   Future<({domain.Member member, bool wasCreated})>

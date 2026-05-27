@@ -2830,6 +2830,20 @@ class _ThrowingMemberRepository implements MemberRepository {
       _inner.stampDeletePushStartedAt(id, timestampMs);
 
   @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) =>
+      _inner.applyPluralKitLink(id, patch);
+
+  @override
+  Future<int> recordPluralKitIdentity(String id, Map<String, dynamic> patch) =>
+      _inner.recordPluralKitIdentity(id, patch);
+
+  @override
+  Future<int> excludePluralKitSync(String id) => _inner.excludePluralKitSync(id);
+
+  @override
+  Future<int> resumePluralKitSync(String id) => _inner.resumePluralKitSync(id);
+
+  @override
   Future<({Member member, bool wasCreated})>
   ensureUnknownSentinelMember() async {
     throw StateError('Simulated ensureUnknownSentinelMember failure');
@@ -3136,4 +3150,28 @@ class _SuppressionAssertingMemberRepository implements MemberRepository {
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>
       _inner.stampDeletePushStartedAt(id, timestampMs);
+
+  @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) {
+    _assertSuppressed('applyPluralKitLink');
+    return _inner.applyPluralKitLink(id, patch);
+  }
+
+  @override
+  Future<int> recordPluralKitIdentity(String id, Map<String, dynamic> patch) {
+    _assertSuppressed('recordPluralKitIdentity');
+    return _inner.recordPluralKitIdentity(id, patch);
+  }
+
+  @override
+  Future<int> excludePluralKitSync(String id) {
+    _assertSuppressed('excludePluralKitSync');
+    return _inner.excludePluralKitSync(id);
+  }
+
+  @override
+  Future<int> resumePluralKitSync(String id) {
+    _assertSuppressed('resumePluralKitSync');
+    return _inner.resumePluralKitSync(id);
+  }
 }

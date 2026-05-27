@@ -97,7 +97,7 @@ class _PkPushNewMemberDialogBodyState
       final repo = ref.read(memberRepositoryProvider);
       final fresh = await repo.getMemberById(widget.memberId);
       if (fresh != null && !fresh.isDeleted) {
-        await repo.updateMember(fresh.copyWith(pluralkitSyncIgnored: true));
+        await repo.excludePluralKitSync(fresh.id);
       }
       if (!mounted) return;
       navigator.pop(false);

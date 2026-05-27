@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/data/mappers/fronting_session_mapper.dart';
+import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart'
     as storage_config;
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
@@ -703,6 +704,7 @@ class PluralKitSyncService {
           // Preserve the caller's intended ordering on the PK payload.
           final localIdToPkId = <String, String>{};
           for (final m in members) {
+            if (m.pluralkitSyncIgnored) continue;
             final pkId = m.pluralkitId?.trim();
             if (pkId != null && pkId.isNotEmpty) {
               localIdToPkId[m.id] = pkId;
@@ -2493,6 +2495,10 @@ class PluralKitSyncService {
           );
           continue;
         }
+        if (localMember != null && localMember.pluralkitSyncIgnored) {
+          skipped++;
+          continue;
+        }
         final bannerCache = await _bannerCacheService.resolve(
           PkBannerCacheInput(
             currentPkBannerUrl: localMember?.pkBannerUrl,
@@ -2504,34 +2510,50 @@ class PluralKitSyncService {
         );
         if (localMember != null) {
           final hasPkColor = pk.color != null && pk.color!.isNotEmpty;
-          await _memberRepository.updateMember(
-            localMember.copyWith(
-              pronouns: pk.pronouns,
-              bio: pk.description,
-              birthday: pk.birthday,
-              customColorHex: hasPkColor
-                  ? pk.color
-                  : localMember.customColorHex,
-              customColorEnabled: hasPkColor
-                  ? true
-                  : localMember.customColorEnabled,
-              proxyTagsJson: pk.proxyTagsJson ?? localMember.proxyTagsJson,
-              pkBannerUrl: bannerCache.pkBannerUrl,
-              pkBannerImageData: bannerCache.pkBannerImageData,
-              pkBannerCachedUrl: bannerCache.pkBannerCachedUrl,
-              profileHeaderSource:
-                  localMember.profileHeaderSource ==
-                          domain.MemberProfileHeaderSource.prism &&
-                      localMember.profileHeaderImageData == null &&
-                      _hasText(bannerCache.pkBannerUrl)
-                  ? domain.MemberProfileHeaderSource.pluralKit
-                  : localMember.profileHeaderSource,
-              pluralkitUuid: pk.uuid,
-              pluralkitId: pk.id,
-              pluralkitDisplayName: pk.displayName,
-              avatarImageData: avatarData ?? localMember.avatarImageData,
-            ),
+          final updatedMember = localMember.copyWith(
+            pronouns: pk.pronouns,
+            bio: pk.description,
+            birthday: pk.birthday,
+            customColorHex: hasPkColor
+                ? pk.color
+                : localMember.customColorHex,
+            customColorEnabled: hasPkColor
+                ? true
+                : localMember.customColorEnabled,
+            proxyTagsJson: pk.proxyTagsJson ?? localMember.proxyTagsJson,
+            pkBannerUrl: bannerCache.pkBannerUrl,
+            pkBannerImageData: bannerCache.pkBannerImageData,
+            pkBannerCachedUrl: bannerCache.pkBannerCachedUrl,
+            profileHeaderSource:
+                localMember.profileHeaderSource ==
+                        domain.MemberProfileHeaderSource.prism &&
+                    localMember.profileHeaderImageData == null &&
+                    _hasText(bannerCache.pkBannerUrl)
+                ? domain.MemberProfileHeaderSource.pluralKit
+                : localMember.profileHeaderSource,
+            pluralkitUuid: pk.uuid,
+            pluralkitId: pk.id,
+            pluralkitDisplayName: pk.displayName,
+            avatarImageData: avatarData ?? localMember.avatarImageData,
           );
+          // Drop delete-bookkeeping keys before passing to the repo: the
+          // `_memberPatchKeys` allowlist (used by applyPluralKitLink's
+          // validator) deliberately excludes them — they're stamped only
+          // by `stampDeletePushStartedAt` and the unlink flow.
+          // `pluralkit_sync_ignored=false` stays in the patch; v8's
+          // relaxed assert allows it (idempotent with the method's
+          // force-injection).
+          final patch =
+              Map<String, dynamic>.from(
+                DriftMemberRepository.memberFields(updatedMember),
+              )..removeWhere(
+                (k, _) => const {
+                  'is_deleted',
+                  'delete_intent_epoch',
+                  'delete_push_started_at',
+                }.contains(k),
+              );
+          await _memberRepository.applyPluralKitLink(localMember.id, patch);
           updated++;
         } else {
           await _memberRepository.createMember(
@@ -2587,6 +2609,7 @@ class PluralKitSyncService {
     final members = await _memberRepository.getAllMembers();
     final map = <String, String>{};
     for (final m in members) {
+      if (m.pluralkitSyncIgnored) continue;
       final pkId = m.pluralkitId?.trim();
       final pkUuid = m.pluralkitUuid?.trim();
       if (pkId != null &&
@@ -2604,6 +2627,7 @@ class PluralKitSyncService {
     final members = await _memberRepository.getAllMembers();
     final map = <String, String>{};
     for (final m in members) {
+      if (m.pluralkitSyncIgnored) continue;
       final pkUuid = m.pluralkitUuid?.trim();
       if (pkUuid != null && pkUuid.isNotEmpty) {
         map[pkUuid] = m.id;
@@ -3974,6 +3998,7 @@ class PluralKitSyncService {
       final members = await _memberRepository.getAllMembers();
       final localIdToPkId = <String, String>{};
       for (final m in members) {
+        if (m.pluralkitSyncIgnored) continue;
         final pkId = m.pluralkitId?.trim();
         if (pkId != null && pkId.isNotEmpty) {
           localIdToPkId[m.id] = pkId;
@@ -4226,6 +4251,7 @@ class PluralKitSyncService {
     domain.Member member, {
     PkPushService? pushService,
   }) async {
+    if (member.pluralkitSyncIgnored) return false;
     final pkId = member.pluralkitId?.trim();
     if (pkId == null || pkId.isEmpty) return false;
     if (!_state.canAutoSync) return false;

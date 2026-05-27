@@ -85,6 +85,24 @@ class _FakeMemberRepository implements MemberRepository {
     throw UnimplementedError();
   }
 
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) =>
+      throw UnimplementedError();
+
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> recordPluralKitIdentity(String id, Map<String, dynamic> patch) =>
+      throw UnimplementedError();
+
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> excludePluralKitSync(String id) => throw UnimplementedError();
+
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> resumePluralKitSync(String id) => throw UnimplementedError();
+
   @override
   Stream<List<member_domain.Member>> watchActiveMembers() async* {
     yield _membersById.values.toList();

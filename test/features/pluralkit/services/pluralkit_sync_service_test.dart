@@ -23,6 +23,7 @@ import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_switch_cursor.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
 // ---------------------------------------------------------------------------
@@ -280,6 +281,65 @@ class FakeMemberRepository implements MemberRepository {
     String id,
     Map<String, dynamic> changedFields,
   ) async => throw UnimplementedError();
+
+  @override
+  Future<int> applyPluralKitLink(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final existing = _members[id];
+    if (existing == null) return 0;
+    _members[id] = existing.copyWith(
+      pluralkitUuid: patch.containsKey('pluralkit_uuid')
+          ? patch['pluralkit_uuid'] as String?
+          : existing.pluralkitUuid,
+      pluralkitId: patch.containsKey('pluralkit_id')
+          ? patch['pluralkit_id'] as String?
+          : existing.pluralkitId,
+      pluralkitDisplayName: patch.containsKey('pluralkit_display_name')
+          ? patch['pluralkit_display_name'] as String?
+          : existing.pluralkitDisplayName,
+      pluralkitSyncIgnored: false,
+    );
+    return 1;
+  }
+
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final existing = _members[id];
+    if (existing == null) return 0;
+    _members[id] = existing.copyWith(
+      pluralkitUuid: patch.containsKey('pluralkit_uuid')
+          ? patch['pluralkit_uuid'] as String?
+          : existing.pluralkitUuid,
+      pluralkitId: patch.containsKey('pluralkit_id')
+          ? patch['pluralkit_id'] as String?
+          : existing.pluralkitId,
+      pluralkitDisplayName: patch.containsKey('pluralkit_display_name')
+          ? patch['pluralkit_display_name'] as String?
+          : existing.pluralkitDisplayName,
+    );
+    return 1;
+  }
+
+  @override
+  Future<int> excludePluralKitSync(String id) async {
+    final existing = _members[id];
+    if (existing == null) return 0;
+    _members[id] = existing.copyWith(pluralkitSyncIgnored: true);
+    return 1;
+  }
+
+  @override
+  Future<int> resumePluralKitSync(String id) async {
+    final existing = _members[id];
+    if (existing == null) return 0;
+    _members[id] = existing.copyWith(pluralkitSyncIgnored: false);
+    return 1;
+  }
 
   @override
   Future<void> deleteMember(String id) async {
@@ -3075,6 +3135,332 @@ void _registerWs3PrDTests() {
       },
     );
   });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PR 2 — sync_ignored call-site guards (Part 1.5) + applyPluralKitLink
+  // routing (Part 1.7) on the pluralkit_sync_service surfaces.
+  //
+  // Plan: docs/plans/2026-05-26-pluralkit-link-management.md
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('PR 2: _importMembers update branch', () {
+    test('skips excluded locals (call-site guard)', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = _RecordingMemberRepository()
+        ..seed([
+          domain.Member(
+            id: 'l-excluded',
+            name: 'Excluded',
+            createdAt: DateTime.utc(2026),
+            pluralkitUuid: 'pk-uuid-excl',
+            pluralkitId: 'aaaaa',
+            pluralkitSyncIgnored: true,
+          ),
+        ]);
+      final fakeClient = FakePluralKitClient()
+        ..membersToReturn = [
+          const PKMember(
+            id: 'aaaaa',
+            uuid: 'pk-uuid-excl',
+            name: 'Refreshed Excluded',
+            description: 'pulled bio',
+          ),
+        ];
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+      );
+
+      await service.setToken('valid-token');
+      await service.importMembersOnly();
+
+      // Guard fires → no applyPluralKitLink call for the excluded local.
+      expect(
+        memberRepo.applyLinkCalls,
+        isEmpty,
+        reason: 'excluded local must not be re-stamped by _importMembers update',
+      );
+      // And the local row stays as-is (still excluded with its original
+      // PK identity).
+      final after = await memberRepo.getMemberById('l-excluded');
+      expect(after!.pluralkitSyncIgnored, isTrue);
+    });
+
+    test('uses applyPluralKitLink for non-excluded locals', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = _RecordingMemberRepository()
+        ..seed([
+          domain.Member(
+            id: 'l1',
+            name: 'OldName',
+            createdAt: DateTime.utc(2026),
+            pluralkitUuid: 'pk-uuid-1',
+            pluralkitId: 'aaaaa',
+          ),
+        ]);
+      final fakeClient = FakePluralKitClient()
+        ..membersToReturn = [
+          const PKMember(
+            id: 'aaaaa',
+            uuid: 'pk-uuid-1',
+            name: 'NewName',
+            displayName: 'Display Name',
+          ),
+        ];
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+      );
+
+      await service.setToken('valid-token');
+      await service.importMembersOnly();
+
+      expect(memberRepo.applyLinkCalls, hasLength(1));
+      expect(memberRepo.applyLinkCalls.single.memberId, 'l1');
+      // Patch includes the PK identity fields.
+      final patch = memberRepo.applyLinkCalls.single.patch;
+      expect(patch['pluralkit_uuid'], 'pk-uuid-1');
+      expect(patch['pluralkit_id'], 'aaaaa');
+      // Delete-bookkeeping keys are removed before passing to the repo
+      // (per the update path's comment).
+      expect(patch.containsKey('is_deleted'), isFalse);
+      expect(patch.containsKey('delete_intent_epoch'), isFalse);
+      expect(patch.containsKey('delete_push_started_at'), isFalse);
+    });
+  });
+
+  group('PR 2: _buildShortIdToUuidMap / _buildUuidToLocalIdMap skip excluded',
+      () {
+    // These maps feed switch import (resolving PK short IDs → local member
+    // IDs) and live fronter import. Direct testing is awkward — instead we
+    // drive a public path that consumes the maps and assert the excluded
+    // member's identity never surfaces in the post-import state. The
+    // `_doPushPendingSwitches` group below covers the symmetric write
+    // direction (excluded PK ID never gets pushed). Here we use
+    // pushOverrideSwitch as the closest public consumer of the same
+    // exclude-aware "local → PK id" semantic.
+    test('pushOverrideSwitch localIdToPkId build skips excluded', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = FakeMemberRepository()
+        ..seed([
+          domain.Member(
+            id: 'l-active',
+            name: 'Active',
+            createdAt: DateTime.utc(2026),
+            pluralkitId: 'activ',
+            pluralkitUuid: 'uuid-active',
+          ),
+          domain.Member(
+            id: 'l-excluded',
+            name: 'Excluded',
+            createdAt: DateTime.utc(2026),
+            pluralkitId: 'exclu',
+            pluralkitUuid: 'uuid-excluded',
+            pluralkitSyncIgnored: true,
+          ),
+        ]);
+      final fakeClient = FakePluralKitClient();
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+      );
+
+      await service.setToken('valid-token');
+      // Caller asks for both locals to be the new fronters via an override
+      // switch. The excluded member's PK ID must NOT be sent.
+      await service.pushOverrideSwitch(
+        ['l-active', 'l-excluded'],
+        DateTime.utc(2026, 6, 1, 12),
+      );
+
+      expect(fakeClient.createSwitchCalls, hasLength(1));
+      expect(
+        fakeClient.createSwitchCalls.single.memberIds,
+        ['activ'],
+        reason: 'excluded local PK ID must not appear in override switch',
+      );
+    });
+  });
+
+  group('PR 2: pushMemberUpdate', () {
+    test('returns false for excluded locals without a network call',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = FakeMemberRepository();
+      final fakeClient = FakePluralKitClient();
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+      );
+
+      await service.setToken('valid-token');
+
+      final excluded = domain.Member(
+        id: 'l-excluded',
+        name: 'Excluded',
+        createdAt: DateTime.utc(2026),
+        pluralkitId: 'aaaaa',
+        pluralkitUuid: 'uuid-excl',
+        pluralkitSyncIgnored: true,
+      );
+
+      // Use a counting push service to confirm we never reach the network
+      // path.
+      final counted = _CountingPushService();
+      final result = await service.pushMemberUpdate(
+        excluded,
+        pushService: counted,
+      );
+
+      expect(result, isFalse);
+      expect(counted.pushMemberCallCount, 0);
+    });
+  });
+
+  group('PR 2: _doPushPendingSwitches', () {
+    test('localIdToPkId build skips excluded locals — excluded member PK ID '
+        'never appears in pushed switch payload', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = FakeMemberRepository()
+        ..seed([
+          domain.Member(
+            id: 'l-active',
+            name: 'Active',
+            createdAt: DateTime.utc(2026),
+            pluralkitId: 'activ',
+            pluralkitUuid: 'uuid-active',
+          ),
+          domain.Member(
+            id: 'l-excluded',
+            name: 'Excluded',
+            createdAt: DateTime.utc(2026),
+            pluralkitId: 'exclu',
+            pluralkitUuid: 'uuid-excluded',
+            pluralkitSyncIgnored: true,
+          ),
+        ]);
+      // Both members are "actively fronting" locally; the excluded one
+      // must be filtered out at the map-build step so PK never sees its ID.
+      final sessionRepo = FakeFrontingSessionRepository()
+        ..sessions.addAll([
+          domain.FrontingSession(
+            id: 's-a',
+            startTime: DateTime.utc(2026, 6, 1, 12),
+            memberId: 'l-active',
+            sessionType: domain.SessionType.normal,
+          ),
+          domain.FrontingSession(
+            id: 's-x',
+            startTime: DateTime.utc(2026, 6, 1, 12),
+            memberId: 'l-excluded',
+            sessionType: domain.SessionType.normal,
+          ),
+        ]);
+      // PK currently has no fronters, so a push will fire.
+      final fakeClient = FakePluralKitClient()
+        ..currentFrontersToReturn = null;
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+        sessionRepo: sessionRepo,
+      );
+
+      await service.setToken('valid-token');
+      await service.confirmDirection();
+      await service.acknowledgeMapping();
+
+      await service.pushPendingSwitches();
+
+      // createSwitch must include only the active member's PK ID.
+      expect(fakeClient.createSwitchCalls, hasLength(1));
+      expect(
+        fakeClient.createSwitchCalls.single.memberIds,
+        ['activ'],
+        reason:
+            'excluded local PK ID must not appear in the regular push '
+            'pipeline (per v7 fix)',
+      );
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// PR 2 test fakes
+// ---------------------------------------------------------------------------
+
+/// Records calls to the PR 2 PK-link methods so tests can assert routing
+/// (e.g. "the import path uses applyPluralKitLink, not generic updateMember").
+class _RecordingMemberRepository extends FakeMemberRepository {
+  final List<({String memberId, Map<String, dynamic> patch})> applyLinkCalls =
+      [];
+  final List<({String memberId, Map<String, dynamic> patch})>
+  recordIdentityCalls = [];
+  final List<String> excludeCalls = [];
+  final List<String> resumeCalls = [];
+
+  @override
+  Future<int> applyPluralKitLink(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    applyLinkCalls.add((memberId: id, patch: Map.of(patch)));
+    return super.applyPluralKitLink(id, patch);
+  }
+
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    recordIdentityCalls.add((memberId: id, patch: Map.of(patch)));
+    return super.recordPluralKitIdentity(id, patch);
+  }
+
+  @override
+  Future<int> excludePluralKitSync(String id) async {
+    excludeCalls.add(id);
+    return super.excludePluralKitSync(id);
+  }
+
+  @override
+  Future<int> resumePluralKitSync(String id) async {
+    resumeCalls.add(id);
+    return super.resumePluralKitSync(id);
+  }
+}
+
+/// Minimal PkPushService subclass for asserting "we never called the
+/// network." PkPushService is a concrete class (not abstract), so we extend
+/// and override the methods pushMemberUpdate would call.
+class _CountingPushService extends PkPushService {
+  _CountingPushService() : super();
+  int pushMemberCallCount = 0;
+
+  @override
+  Future<String> pushMember(
+    domain.Member member,
+    PluralKitClient client, {
+    PKMember? pkMember,
+    bool includeProxyTags = true,
+  }) async {
+    pushMemberCallCount++;
+    return 'stub';
+  }
 }
 
 // ---------------------------------------------------------------------------

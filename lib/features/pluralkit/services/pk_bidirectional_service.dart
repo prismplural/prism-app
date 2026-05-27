@@ -77,6 +77,15 @@ class PkBidirectionalService {
         continue;
       }
 
+      // User-excluded locals must not flow through push OR pull, even when
+      // they still carry PK identifiers. The repo invariant is the durable
+      // backstop; the guard here makes the skip explicit and avoids any
+      // network work for excluded members.
+      if (local.pluralkitSyncIgnored) {
+        skipped++;
+        continue;
+      }
+
       final needsIdentityRepair =
           !memberMatchesPkMember(local, pk) ||
           local.pluralkitUuid != pk.uuid ||
@@ -104,14 +113,18 @@ class PkBidirectionalService {
               ),
             );
             if (needsIdentityRepair) {
-              await memberRepository.updateMember(local);
+              await memberRepository.applyPluralKitLink(local.id, {
+                'pluralkit_uuid': pk.uuid,
+                'pluralkit_id': pk.id,
+              });
             }
             pushed++;
             continue;
           } on PkStaleLinkException catch (_) {
             // PK deleted the linked member out from under us. Clear the link
             // so the user can re-link via the mapping screen and the next
-            // sync treats this as an unlinked local member.
+            // sync treats this as an unlinked local member. Null writes pass
+            // through Rule A unchanged, so this stays on generic updateMember.
             await memberRepository.updateMember(
               local.copyWith(pluralkitId: null, pluralkitUuid: null),
             );
@@ -138,7 +151,10 @@ class PkBidirectionalService {
       }
 
       if (needsIdentityRepair) {
-        await memberRepository.updateMember(local);
+        await memberRepository.applyPluralKitLink(local.id, {
+          'pluralkit_uuid': pk.uuid,
+          'pluralkit_id': pk.id,
+        });
       }
       skipped++;
     }
@@ -153,12 +169,10 @@ class PkBidirectionalService {
         // New local member — push to PK
         final pkMember = await _pushService.pushMemberFull(local, client);
         // Store both PK identifiers back on the local member.
-        await memberRepository.updateMember(
-          local.copyWith(
-            pluralkitId: pkMember.id,
-            pluralkitUuid: pkMember.uuid,
-          ),
-        );
+        await memberRepository.applyPluralKitLink(local.id, {
+          'pluralkit_uuid': pkMember.uuid,
+          'pluralkit_id': pkMember.id,
+        });
         pushed++;
       }
     }

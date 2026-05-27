@@ -804,6 +804,20 @@ class _EarlyFailingMemberRepository implements MemberRepository {
   ) => _inner.updateMemberFields(id, changedFields);
 
   @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) =>
+      _inner.applyPluralKitLink(id, patch);
+
+  @override
+  Future<int> recordPluralKitIdentity(String id, Map<String, dynamic> patch) =>
+      _inner.recordPluralKitIdentity(id, patch);
+
+  @override
+  Future<int> excludePluralKitSync(String id) => _inner.excludePluralKitSync(id);
+
+  @override
+  Future<int> resumePluralKitSync(String id) => _inner.resumePluralKitSync(id);
+
+  @override
   Stream<List<member_domain.Member>> watchActiveMembers() =>
       _inner.watchActiveMembers();
 

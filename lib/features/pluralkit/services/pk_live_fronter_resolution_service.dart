@@ -64,6 +64,12 @@ class PkLiveFronterResolutionService {
     );
     final linked = await _findExistingLinkedMember(pk);
     if (linked != null) {
+      // Part 1.5 guard: importCurrentFronter is the passive "show me the
+      // current PK fronter, link as needed" path. If the user has
+      // explicitly excluded this local from PK sync, don't resume sync —
+      // just return the existing row. The explicit user action
+      // (`linkCurrentFronterToLocal`) is the only path here that resumes.
+      if (linked.pluralkitSyncIgnored) return linked;
       return _completeIdentityIfNeeded(linked, pk);
     }
 
@@ -156,15 +162,30 @@ class PkLiveFronterResolutionService {
     PKMember pk, {
     bool clearIgnored = false,
   }) async {
-    final next = member.copyWith(
+    // Always include pluralkit_uuid even if it already matches — this
+    // ensures: (1) the patch is never empty (no silent no-op when all
+    // fields already match; sync still resumes via the force-injected
+    // sync_ignored=false), and (2) applyPluralKitLink's "requires uuid
+    // or id" assert always passes. diffSyncFields strips the no-op key
+    // before the actual DB write so we don't bump an HLC on an
+    // unchanged value.
+    final patch = <String, dynamic>{
+      'pluralkit_uuid': pk.uuid,
+      if (member.pluralkitId != pk.id) 'pluralkit_id': pk.id,
+      if (member.pluralkitDisplayName != pk.displayName)
+        'pluralkit_display_name': pk.displayName,
+    };
+    if (clearIgnored) {
+      await _members.applyPluralKitLink(member.id, patch);
+    } else {
+      await _members.recordPluralKitIdentity(member.id, patch);
+    }
+    return member.copyWith(
       pluralkitUuid: pk.uuid,
       pluralkitId: pk.id,
       pluralkitDisplayName: pk.displayName,
       pluralkitSyncIgnored: clearIgnored ? false : member.pluralkitSyncIgnored,
     );
-    if (next == member) return member;
-    await _members.updateMember(next);
-    return next;
   }
 
   Future<Uint8List?> _downloadAvatarBytes(PKMember pk) async {

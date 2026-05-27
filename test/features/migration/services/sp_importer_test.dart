@@ -83,6 +83,26 @@ class _FakeMemberRepository implements MemberRepository {
     Map<String, dynamic> changedFields,
   ) async => throw UnimplementedError();
 
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) async =>
+      throw UnimplementedError();
+
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async => throw UnimplementedError();
+
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> excludePluralKitSync(String id) async => throw UnimplementedError();
+
+  // Stub: not exercised by this test file.
+  @override
+  Future<int> resumePluralKitSync(String id) async => throw UnimplementedError();
+
   @override
   Future<void> deleteMember(String id) async =>
       _members.removeWhere((m) => m.id == id);
@@ -447,6 +467,16 @@ class _ThrowingMemberRepository implements MemberRepository {
     String id,
     Map<String, dynamic> changedFields,
   ) => _inner.updateMemberFields(id, changedFields);
+  @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) =>
+      _inner.applyPluralKitLink(id, patch);
+  @override
+  Future<int> recordPluralKitIdentity(String id, Map<String, dynamic> patch) =>
+      _inner.recordPluralKitIdentity(id, patch);
+  @override
+  Future<int> excludePluralKitSync(String id) => _inner.excludePluralKitSync(id);
+  @override
+  Future<int> resumePluralKitSync(String id) => _inner.resumePluralKitSync(id);
   @override
   Stream<List<domain.Member>> watchActiveMembers() =>
       _inner.watchActiveMembers();

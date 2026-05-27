@@ -65,6 +65,66 @@ class _FakeMemberRepo implements MemberRepository {
   ) async => throw UnimplementedError();
 
   @override
+  Future<int> applyPluralKitLink(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final existing = _byId[id];
+    if (existing == null) return 0;
+    _byId[id] = existing.copyWith(
+      pluralkitUuid: patch.containsKey('pluralkit_uuid')
+          ? patch['pluralkit_uuid'] as String?
+          : existing.pluralkitUuid,
+      pluralkitId: patch.containsKey('pluralkit_id')
+          ? patch['pluralkit_id'] as String?
+          : existing.pluralkitId,
+      pluralkitDisplayName: patch.containsKey('pluralkit_display_name')
+          ? patch['pluralkit_display_name'] as String?
+          : existing.pluralkitDisplayName,
+      pluralkitSyncIgnored: false,
+    );
+    return 1;
+  }
+
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final existing = _byId[id];
+    if (existing == null) return 0;
+    // Preserves sync_ignored — only writes the identifier fields.
+    _byId[id] = existing.copyWith(
+      pluralkitUuid: patch.containsKey('pluralkit_uuid')
+          ? patch['pluralkit_uuid'] as String?
+          : existing.pluralkitUuid,
+      pluralkitId: patch.containsKey('pluralkit_id')
+          ? patch['pluralkit_id'] as String?
+          : existing.pluralkitId,
+      pluralkitDisplayName: patch.containsKey('pluralkit_display_name')
+          ? patch['pluralkit_display_name'] as String?
+          : existing.pluralkitDisplayName,
+    );
+    return 1;
+  }
+
+  @override
+  Future<int> excludePluralKitSync(String id) async {
+    final existing = _byId[id];
+    if (existing == null) return 0;
+    _byId[id] = existing.copyWith(pluralkitSyncIgnored: true);
+    return 1;
+  }
+
+  @override
+  Future<int> resumePluralKitSync(String id) async {
+    final existing = _byId[id];
+    if (existing == null) return 0;
+    _byId[id] = existing.copyWith(pluralkitSyncIgnored: false);
+    return 1;
+  }
+
+  @override
   Future<void> deleteMember(String id) async {
     final m = _byId[id];
     if (m == null) return;
@@ -346,7 +406,13 @@ void main() {
     );
   });
 
-  test('member marked pluralkitSyncIgnored mid-push: aborts local write, marks failed with "Keep local" message', () async {
+  // PR 2 race: user excludes M between push send and writeback. Per the
+  // plan (Part 1.7 site 8 + Part 4 "Post-push writeback race"), the PK
+  // identifiers should still record locally via recordPluralKitIdentity
+  // (sync_ignored stays true), and markApplied still fires.
+  test('member marked pluralkitSyncIgnored mid-push: PK identifiers still '
+      'record locally via recordPluralKitIdentity; sync_ignored stays true; '
+      'markApplied fires', () async {
     final dao = container.read(pkMappingStateDaoProvider);
 
     client.onCreate = (data) {
@@ -362,18 +428,16 @@ void main() {
     expect(result.uuid, 'uuid-alice');
 
     final stored = await memberRepo.getMemberById('m1');
-    expect(stored!.pluralkitSyncIgnored, isTrue);
-    expect(stored.pluralkitId, isNull, reason: 'local write must be skipped');
-    expect(stored.pluralkitUuid, isNull);
+    // PK identifiers landed (recordPluralKitIdentity bypasses Rule A).
+    expect(stored!.pluralkitId, 'abcde');
+    expect(stored.pluralkitUuid, 'uuid-alice');
+    // Exclude marker preserved (recordPluralKitIdentity does not touch
+    // sync_ignored).
+    expect(stored.pluralkitSyncIgnored, isTrue);
 
     final stateRow = await dao.getById('one_shot_push:m1');
-    expect(stateRow!.status, 'failed');
-    expect(stateRow.errorMessage, isNotNull);
-    expect(
-      stateRow.errorMessage!,
-      contains('Keep local'),
-      reason: 'errorMessage should mention "Keep local"',
-    );
+    // Push completed successfully on PK; markApplied fires.
+    expect(stateRow!.status, 'applied');
   });
 
   test('concurrent push attempt for same member throws PkOneShotPushBusyException', () async {
@@ -444,6 +508,40 @@ void main() {
     expect(afterMode, beforeMode,
         reason: 'one-shot push must not touch sync mode');
   });
+
+  // PR 2 Part 1.7 site 8: _linkBackLocally writeback uses
+  // recordPluralKitIdentity (NOT applyPluralKitLink) so the write bypasses
+  // Rule A but preserves Rule B — never transitioning sync_ignored.
+  test('_linkBackLocally uses recordPluralKitIdentity (NOT '
+      'applyPluralKitLink)', () async {
+    final recordingRepo = _RecordingMemberRepo(
+      [_member(id: 'm1', name: 'Alice')],
+    );
+    final localContainer = ProviderContainer(overrides: [
+      databaseProvider.overrideWithValue(db),
+      memberRepositoryProvider.overrideWithValue(recordingRepo),
+      pluralKitSyncServiceProvider.overrideWithValue(syncSvc),
+      frontingMigrationWritesBlockedProvider.overrideWithValue(false),
+    ]);
+    addTearDown(localContainer.dispose);
+
+    client.onCreate = (_) => const PKMember(
+          id: 'abcde',
+          uuid: 'uuid-alice',
+          name: 'Alice',
+        );
+
+    final svc = localContainer.read(pkOneShotPushServiceProvider);
+    await svc.pushSingleMember('m1');
+
+    expect(recordingRepo.recordIdentityCalls, hasLength(1));
+    expect(recordingRepo.applyLinkCalls, isEmpty,
+        reason: 'writeback must not flip sync_ignored');
+    final patch = recordingRepo.recordIdentityCalls.single.patch;
+    expect(patch.keys.toSet(), {'pluralkit_uuid', 'pluralkit_id'});
+    expect(patch['pluralkit_uuid'], 'uuid-alice');
+    expect(patch['pluralkit_id'], 'abcde');
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -479,5 +577,34 @@ class _BlockingClient extends _FakeClient {
   Future<PKMember> createMember(Map<String, dynamic> data) async {
     createCallCount++;
     return _gate.future;
+  }
+}
+
+/// Recording subclass of _FakeMemberRepo that tracks PR 2 PK-link method
+/// calls so tests can assert which method handled a write.
+class _RecordingMemberRepo extends _FakeMemberRepo {
+  _RecordingMemberRepo(super.seed);
+
+  final List<({String memberId, Map<String, dynamic> patch})> applyLinkCalls =
+      [];
+  final List<({String memberId, Map<String, dynamic> patch})>
+  recordIdentityCalls = [];
+
+  @override
+  Future<int> applyPluralKitLink(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    applyLinkCalls.add((memberId: id, patch: Map.of(patch)));
+    return super.applyPluralKitLink(id, patch);
+  }
+
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    recordIdentityCalls.add((memberId: id, patch: Map.of(patch)));
+    return super.recordPluralKitIdentity(id, patch);
   }
 }

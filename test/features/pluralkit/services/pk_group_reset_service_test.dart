@@ -75,6 +75,22 @@ class _FakeMemberRepository implements MemberRepository {
   ) async => 0;
 
   @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) async =>
+      0;
+
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async => 0;
+
+  @override
+  Future<int> excludePluralKitSync(String id) async => 0;
+
+  @override
+  Future<int> resumePluralKitSync(String id) async => 0;
+
+  @override
   Stream<List<member_domain.Member>> watchActiveMembers() async* {
     yield _membersById.values.toList();
   }

@@ -358,6 +358,18 @@ class _FakeMemberRepo implements MemberRepository {
     Map<String, dynamic> changedFields,
   ) async => 0;
   @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) async =>
+      0;
+  @override
+  Future<int> recordPluralKitIdentity(
+    String id,
+    Map<String, dynamic> patch,
+  ) async => 0;
+  @override
+  Future<int> excludePluralKitSync(String id) async => 0;
+  @override
+  Future<int> resumePluralKitSync(String id) async => 0;
+  @override
   Future<void> deleteMember(String id) async {}
   @override
   Stream<List<domain.Member>> watchAllMembers() => Stream.value(const []);
