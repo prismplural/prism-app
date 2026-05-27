@@ -135,27 +135,45 @@ jobs:
         run: dart run tool/desktop_branding.dart check
 
       - name: Stage prism-sync crates for cargokit
-        # The prism_sync plugin's windows/CMakeLists.txt points cargokit at
-        # ../../../../crates/prism-sync-ffi relative to the plugin dir, which
-        # on Unix walks through the .plugin_symlinks symlink into the pub-cache
-        # prism-sync checkout. On Windows, Dart resolves '..' lexically, so the
-        # path lands at windows\flutter\crates\ — which doesn't exist. Drop a
-        # junction there pointing at the real crates dir so cargokit's lookup
-        # of Cargo.toml succeeds.
+        # Cargokit resolves this path lexically on Windows; point it at the
+        # same prism-sync checkout selected by pub get.
         shell: pwsh
         run: |
-          $pubCache = if ($env:PUB_CACHE) { $env:PUB_CACHE } else { "$env:LOCALAPPDATA\Pub\Cache" }
-          $gitCache = Join-Path $pubCache 'git'
-          $sync = Get-ChildItem -Path $gitCache -Directory -Filter 'prism-sync-*' |
-                  Where-Object { Test-Path (Join-Path $_.FullName 'crates\prism-sync-ffi\Cargo.toml') } |
-                  Select-Object -First 1
-          if (-not $sync) {
-            Get-ChildItem $gitCache -Directory | Format-Table -AutoSize
-            throw "prism-sync checkout with crates/prism-sync-ffi not found under $gitCache"
+          $packageConfig = Get-Content '.dart_tool\package_config.json' -Raw | ConvertFrom-Json
+          $syncPackage = $packageConfig.packages |
+            Where-Object { $_.name -eq 'prism_sync' } |
+            Select-Object -First 1
+          if (-not $syncPackage) {
+            throw 'prism_sync not found in package_config.json'
           }
-          $cratesSrc = Join-Path $sync.FullName 'crates'
+
+          $rootUri = [string]$syncPackage.rootUri
+          $syncRoot = if ($rootUri.StartsWith('file:')) {
+            ([System.Uri]$rootUri).LocalPath
+          } else {
+            Resolve-Path (Join-Path '.dart_tool' $rootUri)
+          }
+
+          $syncCheckout = Get-Item -LiteralPath $syncRoot
+          while ($syncCheckout -and -not (Test-Path (Join-Path $syncCheckout.FullName 'crates\prism-sync-ffi\Cargo.toml'))) {
+            $syncCheckout = $syncCheckout.Parent
+          }
+          if (-not $syncCheckout) {
+            throw "prism-sync checkout not found from package root $syncRoot"
+          }
+
+          $cratesSrc = Join-Path $syncCheckout.FullName 'crates'
           $cratesDst = 'windows\flutter\crates'
           New-Item -ItemType Directory -Force -Path 'windows\flutter' | Out-Null
+          if (Test-Path -LiteralPath $cratesDst) {
+            $existing = Get-Item -LiteralPath $cratesDst -Force
+            if ($existing.LinkType -eq 'Junction') {
+              cmd /c "rmdir `"$cratesDst`""
+            } else {
+              Remove-Item -LiteralPath $cratesDst -Recurse -Force
+            }
+          }
+          Write-Host "Using prism-sync crates from $cratesSrc"
           cmd /c "mklink /J `"$cratesDst`" `"$cratesSrc`""
 
       - name: Build Windows release
