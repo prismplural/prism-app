@@ -182,15 +182,32 @@ class DriftCustomFieldsRepository
   /// missing or soft-deleted (`affected != 1`). Prevents phantom sync
   /// updates from a stale UI that patches a row already deleted on disk.
   /// Matches the habit-repo template at drift_habit_repository.dart:80.
+  ///
+  /// Also short-circuits on no-op writes (every key in [changes] already
+  /// equals what's on disk). The DAO `updateField` returns `affected == 1`
+  /// whenever the row exists, so without this guard rename-to-same-name,
+  /// move-to-current-parent, etc. would stamp a fresh per-field HLC and
+  /// clobber a peer's concurrent edit via LWW. Mirrors the diff-then-bail
+  /// shape used by `drift_member_repository.updateMemberFields`.
   Future<void> _writePartial(
     String fieldId,
     Map<String, dynamic> changes,
   ) async {
     if (changes.isEmpty) return;
-    final companion = _partialCustomFieldCompanion(changes);
+    final existingRow = await _dao.getFieldById(fieldId);
+    if (existingRow == null) return;
+    // Compare the patch keys against the on-disk values directly via
+    // `fieldFieldsFromRow` — going through the domain mapper would
+    // re-encode `type_config_json` through the codec and could surface
+    // ordering deltas that aren't real edits. `diffSyncFields` strips
+    // `is_deleted`; callers must not put that key in [changes] anyway.
+    final existingFields = fieldFieldsFromRow(existingRow);
+    final effective = diffSyncFields(existingFields, changes);
+    if (effective.isEmpty) return;
+    final companion = _partialCustomFieldCompanion(effective);
     final affected = await _dao.updateField(fieldId, companion);
     if (affected != 1) return;
-    await syncRecordUpdate(_fieldsTable, fieldId, changes);
+    await syncRecordUpdate(_fieldsTable, fieldId, effective);
   }
 
   /// Validates the depth-1 cap: a field may have a parent, but that parent

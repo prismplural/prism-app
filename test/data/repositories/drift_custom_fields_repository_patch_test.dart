@@ -218,15 +218,62 @@ void main() {
   // future fix flips the assertion and gains a regression gate.
 
   group('sync emission edge cases', () {
-    test('renameField to the current value still emits — no idempotency '
-        'short-circuit (clobbers concurrent peer edit via LWW)', () async {
+    test('renameField to the current value is a no-op '
+        '(equality short-circuit prevents LWW clobber of concurrent edits)',
+        () async {
       // child-1.name == 'Subject' from setUp.
       await repo.renameField('child-1', 'Subject');
 
-      expect(repo.updates, hasLength(1),
-          reason: 'Flip to isEmpty once renameField gains an '
-              'equality short-circuit.');
-      expect(repo.updates.first.fields, {'name': 'Subject'});
+      expect(
+        repo.updates,
+        isEmpty,
+        reason:
+            'Patch paths must short-circuit when the new value equals the '
+            'stored value — otherwise per-field LWW stamps a fresh HLC '
+            'and clobbers a peer\'s concurrent edit.',
+      );
+    });
+
+    test('moveFieldToParent to the current parent is a no-op', () async {
+      // child-1.parentFieldId == 'group-1' from setUp.
+      await repo.moveFieldToParent('child-1', 'group-1');
+
+      expect(
+        repo.updates,
+        isEmpty,
+        reason:
+            'Moving to the existing parent must not emit; LWW would '
+            'otherwise stamp parent_field_id and clobber a peer move.',
+      );
+    });
+
+    test('moveFieldToParent(null) on an already-top-level field is a no-op',
+        () async {
+      // top-1.parentFieldId == null from setUp.
+      await repo.moveFieldToParent('top-1', null);
+
+      expect(
+        repo.updates,
+        isEmpty,
+        reason: 'Clearing parent on a top-level field must not emit.',
+      );
+    });
+
+    test('setFieldDatePrecision to the current value is a no-op', () async {
+      // First set a value, then re-set to the same value.
+      await repo.setFieldDatePrecision('child-1', DatePrecision.month);
+      repo.updates.clear();
+
+      await repo.setFieldDatePrecision('child-1', DatePrecision.month);
+
+      expect(repo.updates, isEmpty);
+    });
+
+    test('setFieldDisplayOrder to the current value is a no-op', () async {
+      // child-1.displayOrder is 0 (DAO default) from setUp.
+      await repo.setFieldDisplayOrder('child-1', 0);
+
+      expect(repo.updates, isEmpty);
     });
 
     test('updateField on a row with non-canonical typeConfigJson key '
