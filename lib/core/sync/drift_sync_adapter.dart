@@ -420,6 +420,41 @@ Future<void> _insertOrUpdateById<T extends Table, D>(
   await (db.update(table)..where(matchesId)).write(companion);
 }
 
+/// Sync-inbound normalization for a `custom_fields.parent_field_id` value.
+///
+/// Returns [Value.absent] when [rawParent] is also absent so an existing
+/// row's column is left untouched. Returns [Value]`(null)` when the
+/// inbound parent reference is invalid (self-cycle or depth-2 nesting)
+/// so a buggy or malicious peer can't plant grandchildren or cycles
+/// into local storage and re-emit them to other peers via per-field
+/// LWW. Otherwise passes the raw value through verbatim — including
+/// missing-parent and non-group-parent references, which sync apply
+/// ordering may resolve later and which render-time promotion
+/// (`lib/features/custom_fields/orphan_promotion.dart`) handles
+/// gracefully in the meantime.
+Future<Value<String?>> _normalizeCustomFieldParentForApply(
+  AppDatabase db, {
+  required String childId,
+  required Value<String?> rawParent,
+}) async {
+  if (!rawParent.present) return rawParent;
+  final parentId = rawParent.value;
+  if (parentId == null) return rawParent;
+  // Self-cycle: a peer asserting parent == self_id would otherwise
+  // render as the field's own child. Always normalize to null.
+  if (parentId == childId) return const Value(null);
+  // Depth-2: parent has its own non-null parent_field_id on disk. The
+  // write-side `moveFieldToParent` rejects this with
+  // DepthLimitExceededException; sync apply mirrors that here.
+  final parentRow = await (db.select(
+    db.customFields,
+  )..where((t) => t.id.equals(parentId))).getSingleOrNull();
+  if (parentRow != null && parentRow.parentFieldId != null) {
+    return const Value(null);
+  }
+  return rawParent;
+}
+
 bool _isRemoteTombstone(Map<String, dynamic> fields) =>
     _asBool(fields['is_deleted']) == true;
 
@@ -3283,12 +3318,33 @@ DriftSyncEntity _customFieldsEntity(
         quarantine: quarantine,
         trackQuarantineWrite: trackQuarantineWrite,
       );
+      // Sync-inbound parent_field_id validation. The write-side
+      // `createField` / `moveFieldToParent` paths enforce depth-1 and
+      // reject self-loops; the sync apply path historically wrote the
+      // value verbatim, letting a buggy or malicious peer plant a
+      // self-cycle or a depth-2 (grandchild) row into local storage and
+      // re-emit it to every other peer. Render-time promotion in
+      // `lib/features/custom_fields/orphan_promotion.dart` hid the
+      // corruption from the UI but the rows still propagated.
+      //
+      // Normalize-to-null over reject to keep peers from wedging each
+      // other: a malformed parent reference becomes a top-level row
+      // (recoverable via a normal move) rather than a stuck apply.
+      // Missing-parent / non-group-parent are tolerated verbatim
+      // because sync apply order is non-deterministic — the parent may
+      // arrive in a later event, and render-time promotion handles the
+      // gap gracefully until then.
+      final parentValue = await _normalizeCustomFieldParentForApply(
+        db,
+        childId: id,
+        rawParent: f.stringFieldNullable('parent_field_id'),
+      );
       final companion = CustomFieldsCompanion(
         id: Value(id),
         name: f.stringField('name'),
         fieldType: f.intField('field_type'),
         fieldTypeId: f.stringFieldNullable('field_type_id'),
-        parentFieldId: f.stringFieldNullable('parent_field_id'),
+        parentFieldId: parentValue,
         typeConfigJson: f.stringFieldNullable('type_config_json'),
         datePrecision: f.intFieldNullable('date_precision'),
         displayOrder: f.intField('display_order'),

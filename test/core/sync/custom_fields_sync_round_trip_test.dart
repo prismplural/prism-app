@@ -115,4 +115,176 @@ void main() {
       });
     },
   );
+
+  // Regression: sync-inbound applyFields wrote `parent_field_id`
+  // verbatim, letting a buggy or malicious peer plant self-cycles or
+  // depth-2 (grandchild) rows into local storage that then re-emit on
+  // the next sync. The write-side `createField` / `moveFieldToParent`
+  // helpers enforce depth-1 and reject self-loops;
+  // `promoteOrphansForRender` hides the corruption from the UI but the
+  // bad rows still propagate. applyFields now normalizes
+  // `parent_field_id` to null on those two cases.
+  group('custom_fields applyFields — parent_field_id validation', () {
+    late AppDatabase db;
+
+    setUp(() {
+      db = AppDatabase(NativeDatabase.memory());
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('self-cycle (parent_field_id == id) is normalized to null',
+        () async {
+      final entity = buildSyncAdapterWithCompletion(db)
+          .adapter
+          .entities
+          .singleWhere((e) => e.tableName == 'custom_fields');
+
+      await entity.applyFields('self-cycle-id', <String, dynamic>{
+        'name': 'Self-Cycle',
+        'field_type': 0,
+        'field_type_id': 'text',
+        'parent_field_id': 'self-cycle-id',
+        'type_config_json': null,
+        'date_precision': null,
+        'display_order': 0,
+        'created_at': DateTime.utc(2026, 5, 25).toIso8601String(),
+        'is_deleted': false,
+      });
+
+      final stored = await (db.select(db.customFields)
+            ..where((t) => t.id.equals('self-cycle-id')))
+          .getSingleOrNull();
+      expect(stored, isNotNull);
+      expect(
+        stored!.parentFieldId,
+        isNull,
+        reason:
+            'self-cycle parent_field_id must be normalized to null so it '
+            'does not re-emit cycles to other peers via per-field LWW',
+      );
+    });
+
+    test('depth-2 (parent has its own parent) is normalized to null',
+        () async {
+      final entity = buildSyncAdapterWithCompletion(db)
+          .adapter
+          .entities
+          .singleWhere((e) => e.tableName == 'custom_fields');
+
+      // Seed a depth-1 chain: root-group → mid (a child of root-group).
+      await db.into(db.customFields).insert(
+        CustomFieldsCompanion.insert(
+          id: 'root-group',
+          name: 'Root Group',
+          fieldType: 0,
+          fieldTypeId: const Value('group'),
+          createdAt: DateTime.utc(2026, 5, 25),
+        ),
+      );
+      await db.into(db.customFields).insert(
+        CustomFieldsCompanion.insert(
+          id: 'mid',
+          name: 'Mid',
+          fieldType: 0,
+          fieldTypeId: const Value('group'),
+          parentFieldId: const Value('root-group'),
+          createdAt: DateTime.utc(2026, 5, 25),
+        ),
+      );
+
+      // Sync arrives asserting `grandchild.parent_field_id = 'mid'`,
+      // which would create a depth-2 row.
+      await entity.applyFields('grandchild', <String, dynamic>{
+        'name': 'Grandchild',
+        'field_type': 0,
+        'field_type_id': 'text',
+        'parent_field_id': 'mid',
+        'type_config_json': null,
+        'date_precision': null,
+        'display_order': 0,
+        'created_at': DateTime.utc(2026, 5, 25).toIso8601String(),
+        'is_deleted': false,
+      });
+
+      final stored = await (db.select(db.customFields)
+            ..where((t) => t.id.equals('grandchild')))
+          .getSingleOrNull();
+      expect(stored, isNotNull);
+      expect(
+        stored!.parentFieldId,
+        isNull,
+        reason:
+            'depth-2 parent_field_id must be normalized to null so the '
+            'row does not propagate grandchild corruption to other peers',
+      );
+    });
+
+    test('valid depth-1 parent is preserved verbatim', () async {
+      final entity = buildSyncAdapterWithCompletion(db)
+          .adapter
+          .entities
+          .singleWhere((e) => e.tableName == 'custom_fields');
+
+      // Seed a top-level group.
+      await db.into(db.customFields).insert(
+        CustomFieldsCompanion.insert(
+          id: 'top-group',
+          name: 'Top Group',
+          fieldType: 0,
+          fieldTypeId: const Value('group'),
+          createdAt: DateTime.utc(2026, 5, 25),
+        ),
+      );
+
+      await entity.applyFields('child', <String, dynamic>{
+        'name': 'Child',
+        'field_type': 0,
+        'field_type_id': 'text',
+        'parent_field_id': 'top-group',
+        'type_config_json': null,
+        'date_precision': null,
+        'display_order': 0,
+        'created_at': DateTime.utc(2026, 5, 25).toIso8601String(),
+        'is_deleted': false,
+      });
+
+      final stored = await (db.select(db.customFields)
+            ..where((t) => t.id.equals('child')))
+          .getSingleOrNull();
+      expect(stored, isNotNull);
+      expect(stored!.parentFieldId, 'top-group');
+    });
+
+    test('missing-parent reference is tolerated verbatim (sync ordering)',
+        () async {
+      // Sync apply order is non-deterministic. The parent row may not
+      // exist locally yet; render-time promotion handles the gap and the
+      // child re-attaches naturally once the parent arrives.
+      final entity = buildSyncAdapterWithCompletion(db)
+          .adapter
+          .entities
+          .singleWhere((e) => e.tableName == 'custom_fields');
+
+      await entity.applyFields('child-missing-parent', <String, dynamic>{
+        'name': 'Child',
+        'field_type': 0,
+        'field_type_id': 'text',
+        'parent_field_id': 'not-yet-synced-parent',
+        'type_config_json': null,
+        'date_precision': null,
+        'display_order': 0,
+        'created_at': DateTime.utc(2026, 5, 25).toIso8601String(),
+        'is_deleted': false,
+      });
+
+      final stored = await (db.select(db.customFields)
+            ..where((t) => t.id.equals('child-missing-parent')))
+          .getSingleOrNull();
+      expect(stored, isNotNull);
+      expect(stored!.parentFieldId, 'not-yet-synced-parent');
+    });
+  });
 }
