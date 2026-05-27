@@ -69,7 +69,7 @@ class _SliderEditorWidget extends ConsumerStatefulWidget {
 
 // Width reserved for the × clear button slot so the slider row never reflows
 // when the button appears or disappears.
-const double _kClearButtonSlotWidth = 32.0;
+const double _kClearButtonSlotSize = 32.0;
 
 class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
     implements PendingFieldEditState {
@@ -160,18 +160,19 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
         final existingId = widget.existingValue?.id;
         if (existingId == null) {
           // Nothing to delete; normalize local state to pristine.
-          setState(() => _state = _state.onCommitSuccess(
+          _state = _state.onCommitSuccess(
             intent: CommitIntent.delete,
             midpoint: _defaultMidpoint(_config()),
-          ));
+          );
+          _controller?.markDirty(this, false);
           return;
         }
         final deleteFailure = await notifier.deleteValue(existingId);
         if (deleteFailure != null) throw deleteFailure;
-        setState(() => _state = _state.onCommitSuccess(
+        _state = _state.onCommitSuccess(
           intent: CommitIntent.delete,
           midpoint: _defaultMidpoint(_config()),
-        ));
+        );
         _controller?.markDirty(this, false);
       case CommitIntent.set:
         final encoded = sliderFieldDefinition.valueEncoder(
@@ -184,10 +185,10 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
           existingId: widget.existingValue?.id,
         );
         if (setFailure != null) throw setFailure;
-        setState(() => _state = _state.onCommitSuccess(
+        _state = _state.onCommitSuccess(
           intent: CommitIntent.set,
           midpoint: _defaultMidpoint(_config()),
-        ));
+        );
         _controller?.markDirty(this, false);
     }
   }
@@ -371,8 +372,8 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
           ),
         ),
         SizedBox(
-          width: _kClearButtonSlotWidth,
-          height: _kClearButtonSlotWidth,
+          width: _kClearButtonSlotSize,
+          height: _kClearButtonSlotSize,
           child: _state.canClear
               ? PrismFieldIconButton(
                   icon: AppIcons.clear,
