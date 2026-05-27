@@ -2,6 +2,8 @@ default_platform(:ios)
 
 require "fileutils"
 require "shellwords"
+require "tmpdir"
+require "yaml"
 
 # Shared App Store Connect API key config
 # Requires env vars: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_FILEPATH
@@ -91,6 +93,28 @@ def latest_file(pattern)
   Dir[pattern].select { |path| File.file?(path) }.max_by { |path| File.mtime(path) }
 end
 
+def release_store_note
+  version_short = app_version.split("+").first
+  notes_root = ENV["PRISM_RELEASE_NOTES_DIR"] ||
+    File.expand_path("../../prism-workspace/docs/release", __dir__)
+  notes_file = File.join(notes_root, "#{version_short}-store-release-notes.md")
+  UI.user_error!("Release notes file not found: #{notes_file}") unless File.exist?(notes_file)
+
+  match = File.read(notes_file, encoding: "UTF-8").match(/\A---\n(.*?)\n---/m)
+  UI.user_error!("No YAML frontmatter in #{notes_file}") unless match
+
+  meta = YAML.safe_load(match[1])
+  note = meta["store_note"]&.strip
+  UI.user_error!("store_note missing from #{notes_file} frontmatter") if note.nil? || note.empty?
+
+  limit = meta["store_note_limit"] || 500
+  if note.length > limit
+    UI.user_error!("store_note in #{notes_file} is #{note.length} chars, over the #{limit} cap")
+  end
+
+  note
+end
+
 def github_release_tag
   tag = ENV["PRISM_GITHUB_RELEASE_TAG"].to_s.strip
   return tag unless tag.empty?
@@ -104,6 +128,7 @@ end
 platform :ios do
   desc "Build and upload to TestFlight, distribute to the Prism Private Beta group"
   lane :beta do
+    note = release_store_note
     defines = build_info_defines
     # Unset bundler env vars fastlane injects — they break CocoaPods when
     # flutter invokes pod install with the wrong Ruby gem environment.
@@ -118,6 +143,7 @@ platform :ios do
       distribute_external: true,
       notify_external_testers: true,
       groups: ["Prism Private Beta"],
+      changelog: note,
     )
   end
 
@@ -144,6 +170,7 @@ end
 platform :mac do
   desc "Build and upload to TestFlight, distribute to the Prism Private Beta group"
   lane :beta do
+    note = release_store_note
     defines = build_info_defines
 
     # flutter build writes dart-defines into macos/Flutter/ephemeral/Flutter-Generated.xcconfig
@@ -172,6 +199,7 @@ platform :mac do
       distribute_external: true,
       notify_external_testers: true,
       groups: ["Prism Private Beta"],
+      changelog: note,
     )
   end
 end
@@ -179,6 +207,7 @@ end
 platform :android do
   desc "Build and upload to the Play Store closed beta testing track"
   lane :beta do
+    note = release_store_note
     defines = build_info_defines
     symbols_dir = android_symbols_archive_dir
     dart_symbols_dir = File.join(symbols_dir, "dart")
@@ -231,7 +260,14 @@ platform :android do
     }
     upload_options[:mapping_paths] = mapping_paths unless mapping_paths.empty?
 
-    upload_to_play_store(**upload_options)
+    # supply takes release notes via a metadata-dir layout; write the
+    # changelog into a tmpdir so nothing persists under fastlane/metadata/.
+    Dir.mktmpdir("prism-supply-metadata") do |meta_dir|
+      changelog_dir = File.join(meta_dir, "en-US", "changelogs")
+      FileUtils.mkdir_p(changelog_dir)
+      File.write(File.join(changelog_dir, "#{app_version.split("+").last}.txt"), note)
+      upload_to_play_store(**upload_options, metadata_path: meta_dir)
+    end
     UI.success("Archived Android symbol files at #{symbols_dir}")
   end
 end
