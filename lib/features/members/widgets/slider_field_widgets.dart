@@ -26,8 +26,11 @@ import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_display_scope.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_editor_scope.dart';
+import 'package:prism_plurality/features/members/widgets/slider_edit_state.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 
 // ─── Editor ───────────────────────────────────────────────────────────────────
 
@@ -64,14 +67,13 @@ class _SliderEditorWidget extends ConsumerStatefulWidget {
       _SliderEditorWidgetState();
 }
 
+// Width reserved for the × clear button slot so the slider row never reflows
+// when the button appears or disappears.
+const double _kClearButtonSlotWidth = 32.0;
+
 class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
     implements PendingFieldEditState {
-  late double _currentValue;
-  // _initialValue == null means no stored value; _touched flips on any
-  // drag-end so we commit the displayed midpoint when the user releases
-  // it as their intentional first value.
-  double? _initialValue;
-  bool _touched = false;
+  late SliderEditState _state;
   CustomFieldsEditorController? _controller;
 
   SliderConfig _config() {
@@ -98,12 +100,11 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
     super.initState();
     final config = _config();
     final parsed = sliderFieldDefinition.valueParser(widget.existingValue?.value);
-    if (parsed is SliderFieldValue && parsed.value != null) {
-      _initialValue = parsed.value;
-      _currentValue = parsed.value!;
+    final parsedValue = (parsed is SliderFieldValue) ? parsed.value : null;
+    if (parsedValue != null) {
+      _state = SliderEditState.loaded(value: parsedValue);
     } else {
-      _initialValue = null;
-      _currentValue = _defaultMidpoint(config);
+      _state = SliderEditState.pristine(midpoint: _defaultMidpoint(config));
     }
   }
 
@@ -127,9 +128,10 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
     final parsed = sliderFieldDefinition.valueParser(widget.existingValue?.value);
     final next = (parsed is SliderFieldValue) ? parsed.value : null;
     setState(() {
-      _initialValue = next;
-      if (next != null) _currentValue = next;
-      _touched = false;
+      _state = _state.onExternalReload(
+        newValue: next,
+        midpoint: _defaultMidpoint(_config()),
+      );
     });
     _controller?.markDirty(this, _isDirty);
   }
@@ -140,10 +142,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
     super.dispose();
   }
 
-  bool get _isDirty {
-    if (!_touched) return false;
-    return _currentValue != _initialValue;
-  }
+  bool get _isDirty => _state.isDirty;
 
   @override
   String get fieldId => widget.field.id;
@@ -153,22 +152,44 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
 
   @override
   Future<void> commitPendingValue() async {
-    if (!_isDirty) return;
-    final encoded = sliderFieldDefinition
-        .valueEncoder(SliderFieldValue(value: _currentValue));
     final notifier = ref.read(customFieldValueNotifierProvider.notifier);
-    final failure = await notifier.setValue(
-      customFieldId: widget.field.id,
-      memberId: widget.memberId,
-      value: encoded,
-      existingId: widget.existingValue?.id,
-    );
-    // On failure: leave _initialValue alone and stay dirty so the bulk-commit
-    // collects the error AND a re-touch re-stages and re-saves cleanly.
-    if (failure != null) throw failure;
-    _initialValue = _currentValue;
-    _touched = false;
-    _controller?.markDirty(this, false);
+    switch (_state.commitIntent) {
+      case CommitIntent.noop:
+        return;
+      case CommitIntent.delete:
+        final existingId = widget.existingValue?.id;
+        if (existingId == null) {
+          // Nothing to delete; normalize local state to pristine.
+          setState(() => _state = _state.onCommitSuccess(
+            intent: CommitIntent.delete,
+            midpoint: _defaultMidpoint(_config()),
+          ));
+          return;
+        }
+        final deleteFailure = await notifier.deleteValue(existingId);
+        if (deleteFailure != null) throw deleteFailure;
+        setState(() => _state = _state.onCommitSuccess(
+          intent: CommitIntent.delete,
+          midpoint: _defaultMidpoint(_config()),
+        ));
+        _controller?.markDirty(this, false);
+      case CommitIntent.set:
+        final encoded = sliderFieldDefinition.valueEncoder(
+          SliderFieldValue(value: _state.currentValue),
+        );
+        final setFailure = await notifier.setValue(
+          customFieldId: widget.field.id,
+          memberId: widget.memberId,
+          value: encoded,
+          existingId: widget.existingValue?.id,
+        );
+        if (setFailure != null) throw setFailure;
+        setState(() => _state = _state.onCommitSuccess(
+          intent: CommitIntent.set,
+          midpoint: _defaultMidpoint(_config()),
+        ));
+        _controller?.markDirty(this, false);
+    }
   }
 
   /// Compute the nearest anchor name + percent for labeled mode.
@@ -260,8 +281,8 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
     final step = isLabeled ? null : config.step;
 
     // Clamp current value to valid range.
-    final clampedValue = _currentValue.isFinite
-        ? _currentValue.clamp(min, max)
+    final clampedValue = _state.currentValue.isFinite
+        ? _state.currentValue.clamp(min, max)
         : min;
 
     final divisions = _divisionsFor(
@@ -319,6 +340,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
         thumbShape: _GlassThumbShape(
           fillColor: _glassFillColorTinted(theme, editorPositionTint),
           borderColor: _glassBorderColor(theme),
+          isUnset: _state.semanticIsUnset,
         ),
         trackShape: trackShape,
         trackHeight: isLabeled ? 8.0 : null,
@@ -329,16 +351,40 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
         max: max,
         divisions: divisions,
         label: indicatorLabel,
-        semanticFormatterCallback: (_) => indicatorLabel,
-        onChanged: (v) => setState(() => _currentValue = v),
+        semanticFormatterCallback: (_) =>
+            _state.semanticIsUnset ? l10n.customFieldSliderNotSet : indicatorLabel,
+        onChanged: (v) => setState(() => _state = _state.onDrag(v)),
         onChangeEnd: (v) {
-          setState(() {
-            _currentValue = v;
-            _touched = true;
-          });
-          _controller?.markDirty(this, _isDirty);
+          setState(() => _state = _state.onDragEnd(v));
+          _controller?.markDirty(this, _state.isDirty);
         },
       ),
+    );
+
+    // Always reserve trailing space for the × button so layout never reflows.
+    final sliderRow = Row(
+      children: [
+        Expanded(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 80),
+            child: slider,
+          ),
+        ),
+        SizedBox(
+          width: _kClearButtonSlotWidth,
+          height: _kClearButtonSlotWidth,
+          child: _state.canClear
+              ? PrismFieldIconButton(
+                  icon: AppIcons.clear,
+                  tooltip: l10n.customFieldSliderClearTooltip,
+                  onPressed: () {
+                    setState(() => _state = _state.onClear());
+                    _controller?.markDirty(this, _state.isDirty);
+                  },
+                )
+              : null,
+        ),
+      ],
     );
 
     return Column(
@@ -352,7 +398,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
           ),
         ),
         const SizedBox(height: 4),
-        slider,
+        sliderRow,
         if (isLabeled) ...[
           const SizedBox(height: 6),
           _SliderLabelRow(config: config),
@@ -948,12 +994,15 @@ class _GlassThumbShape extends SliderComponentShape {
     required this.borderColor,
     this.labelTextStyle,
     this.label,
+    this.isUnset = false,
   });
 
   final Color fillColor;
   final Color borderColor;
   final TextStyle? labelTextStyle;
   final String? label;
+  // When true, the thumb fill is dimmed to ~40% alpha to signal "no value".
+  final bool isUnset;
 
   static const double _bareSize = 22.0;
   static const double _pillHeight = 22.0;
@@ -1008,7 +1057,10 @@ class _GlassThumbShape extends SliderComponentShape {
     final radius = Radius.circular(size.height / 2);
     final rrect = RRect.fromRectAndRadius(rect, radius);
 
-    canvas.drawRRect(rrect, Paint()..color = fillColor);
+    final effectiveFill = isUnset
+        ? fillColor.withValues(alpha: fillColor.a * 0.4)
+        : fillColor;
+    canvas.drawRRect(rrect, Paint()..color = effectiveFill);
     canvas.drawRRect(
       rrect,
       Paint()
