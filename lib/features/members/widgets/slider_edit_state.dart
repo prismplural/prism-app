@@ -1,4 +1,4 @@
-import 'package:meta/meta.dart';
+import 'package:flutter/foundation.dart';
 
 enum CommitIntent { noop, set, delete }
 
@@ -39,7 +39,8 @@ class SliderEditState {
     return CommitIntent.noop;
   }
 
-  SliderEditState onDrag(double v) => copyWith(currentValue: v);
+  SliderEditState onDrag(double v) =>
+      copyWith(currentValue: v, clearedPending: false);
 
   SliderEditState onDragEnd(double v) =>
       copyWith(currentValue: v, touched: true, clearedPending: false);

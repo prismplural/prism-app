@@ -164,6 +164,17 @@ void main() {
       });
     });
 
+    group('onClear then onDrag (no DragEnd yet)', () {
+      test('dragging cancels pending clear without making state dirty', () {
+        final s = SliderEditState.loaded(value: 75).onClear().onDrag(60);
+        expect(s.currentValue, 60.0);
+        expect(s.clearedPending, isFalse);
+        expect(s.touched, isFalse);
+        expect(s.commitIntent, CommitIntent.noop);
+        expect(s.semanticIsUnset, isFalse);
+      });
+    });
+
     group('equality', () {
       test('identical fields are equal', () {
         const a = SliderEditState(currentValue: 50, initialValue: 75, touched: true);
