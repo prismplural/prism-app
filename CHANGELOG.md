@@ -4,6 +4,89 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-26
+
+This release lands a rewritten custom-fields system with new Choice, Group, Scale, and Slider field types and a registry-based architecture that makes future field types additive. It also includes phrase + PIN verification on pairing, broader Simply Plural import compatibility, per-field CRDT patches across the remaining sync repos, and a longer list of chat, fronting, member, and settings improvements.
+
+### Added
+- Choice custom fields. Single- or multi-select with a curated color palette, optional "Other" with inline text, and stable option IDs so renaming an option never invalidates a member's value. Deleted options stay visible on members who had selected them.
+- Group custom fields. Group container with optional title (or pure visual grouping when the title is hidden), card chrome on member profiles, depth-1 cap (no groups inside groups), drag reorder within a group, and a three-action delete dialog (Cancel / Delete them too / Promote to top level).
+- Scale custom fields. Emoji palette (or any custom emoji), 2-10 steps, soft warning when steps exceed 7.
+- Slider custom fields. Two modes set at creation: a labeled spectrum with a gradient (17 presets across identity, palette, mood intensity, temperature, and neutral, or fully custom anchor colors via the color picker) or a numeric scale with min/max/step/unit/ticks. Thumb and value indicator are glass-styled and tint with the gradient at the current position; numeric mode paints the value inside the thumb.
+- Custom field registry + forward-compatible config codec. Unknown future field types and config keys round-trip byte-equal in storage and on the wire, so older builds will not corrupt fields they cannot render.
+- Custom Fields row on the Reset Data screen, with the same CRDT tombstone discipline as the other reset categories.
+- Long-press menu on the Custom Fields settings list plus Move-into / Move-out / Move-to actions on the field detail screen.
+- Phrase + PIN verification for pairing and saved backups. Pairing pre-flights the credential locally before committing to the sync chain, and Settings can verify a saved backup phrase + PIN without performing a restore.
+- Camera-less pairing fallback. The joiner phone exposes a "Copy pairing code" button beneath the QR; the initiator desktop offers a "No camera? Paste a code instead" link that swaps the viewfinder for a multi-line paste field. Pasted text is parsed defensively — long base64-shaped neighbors like PGP signatures and hex hashes are rejected via structural validation. Unblocks pairing for Windows desktops with no camera.
+- Member edit sheet: proxy tags and custom fields now collapse to tappable summary rows that slide into in-sheet detail views, so long member forms no longer scroll past those sections to reach the rest of the form.
+- Manage PluralKit links screen. Reached from PluralKit settings; lists members in three sections (Synced, Excluded, Unresolved) and offers Refresh from PluralKit, "Add link to existing member" (a two-step search-driven flow), and per-row Exclude / Resume / Link actions. Distinguishes a PluralKit fetch failure from being offline.
+- PluralKit section on the member edit sheet. Visible whenever the member has PK fields set, has been excluded from PluralKit sync, or PluralKit is paired with push enabled. Shows the link state and exposes Exclude / Resume / Link from inside the sheet.
+- PluralKit link recovery for members with unresolved PK fields. Members imported from Simply Plural can inherit pkId values that don't resolve in your PluralKit system; those locals are now selectable in PluralKit Link rows again (with a muted caption explaining), and applying a mapping pushes them as new instead of failing a PATCH against a missing id.
+- Change link action on Manage PluralKit links. The Synced row now has a Change link button so you can re-point a local at a different PluralKit member without excluding and re-linking. A confirm dialog names both the current and the new PK member before applying.
+- iOS edge swipe-back works in the new in-sheet detail views (proxy tags, custom fields, PluralKit).
+- Startup orphan-media reconciler. If a reset crashes between the database row delete and the encrypted media file unlink, the stranded `.enc` files were stuck on disk forever. Prism now sweeps `prism_media/` on startup and deletes encrypted media files that no longer have a row claiming them (including soft-deleted rows, so sync-pending tombstones still keep their file). Best-effort, per-file try/catch, never blocks startup. Behind a kill switch.
+- Reminder suppress-window preference under Fronting reminders, so reminders stay quiet for a configurable window after a recent switch.
+- Change message author from the chat long-press menu.
+- Small text in chat. Discord-style `-# small text` lines render at reduced size, and the same MarkdownText surface supports them across Prism.
+- Search member groups by name in the members search, plus expanded shared search terms.
+- Hide total member count locally as a privacy preference.
+- Synced preference storage primitive used by future per-member and per-system preferences.
+
+### Changed
+- Custom field value edits stage locally and commit when you save the member, instead of persisting on every interaction (focus blur, chip tap, slider drag-end). Cancelling a member edit now reaches the discard confirmation, and dismissing without saving drops the staged values cleanly. Choice's in-flight Other-field typing is included in the dirty check.
+- Bulk save of staged custom-field edits is best-effort. If one field's save fails, the member row update and the remaining fields still go through; the failed field stays dirty so tapping Save again retries it. A toast names the failed field, or reports the count when several fail.
+- If the member edit sheet's form validation fails (e.g. empty name) while custom-field edits are staged, a toast names that the staged edits are still pending and will commit on the next successful save.
+- PluralKit-excluded members are now locked down at the repository layer: stale full-domain writes to an excluded member can't silently re-enable sync or overwrite its PluralKit identity columns. Four intent-explicit repository methods (applyPluralKitLink, recordPluralKitIdentity, excludePluralKitSync, resumePluralKitSync) cover the legitimate mutations. Failures route through a localized error toast instead of leaking raw English platform text.
+- Custom field type picker in the create/edit sheet is registry-driven. Edit mode only shows the chips you can switch to (short text - long text) and locks the rest.
+- Custom field updates emit per-field patches instead of full-row updates. The remaining repos that still re-emitted the full row on edit (across members, conversations, posts, polls, reminders, friends, sessions, habits, and more) now diff against the pre-write row and emit only the changed columns. The per-field CRDT in prism-sync gives each column its own clock, so emitting unchanged columns was clobbering peer edits on those columns.
+- Member-groups updates no longer carry `is_deleted` in their sync emit, so a concurrent local edit cannot resurrect a group a peer just deleted. Member-group-entries follow the same rule: the PluralKit groups importer's reconcile no longer writes the delete flag on the revive branch.
+- PluralKit settings reorganized: Import from PluralKit and Sync recent stay as primary buttons; Recover history from pk;export, Map new members, and Manage member links collapse into one section card of list rows.
+- PluralKit card on the member edit sheet now sits at the bottom of the Settings section instead of above "About."
+- In-sheet detail-view animations smoothed out — slide duration and curve tightened, and each transition is exactly one screen width regardless of which detail you're moving to or from.
+- Inline "Custom fields" header dropped from the in-sheet custom-fields editor; the detail view's top bar already shows the section name.
+- Inline action buttons in Manage PluralKit links (Exclude, Resume, Link, Change link) now render at compact density so paired rows match visually.
+- Custom field rename-to-same-name and move-to-current-parent now short-circuit instead of emitting a sync update. Without this, a no-op write was stamping a fresh per-field clock and could overwrite a peer's concurrent edit to the same column.
+- Unknown future custom-field config keys, including new keys inside Choice options, round-trip byte-equal in storage and on the wire. The codec emits unknown extras in canonical alphabetical order so re-encoding is deterministic across builds.
+- Slider editor uses the real color picker for "Custom" gradient anchors, exposes the center anchor color even when no center label is set, and the scale editor exposes "Custom emoji" as a first-class button rather than an Advanced disclosure.
+- Slider snap-to-positions defaults off for new labeled sliders, and the show-tick-marks toggle is now wired to actual divisions on both editor and display.
+- Slider gradient preset library reworked: identity (renamed from gender expression, recolored to break the pink/blue stereotype), palette (new category, 6 presets), mood intensity (now includes the soft/hard pairing), temperature, and neutral. Total 17 presets across 5 categories.
+- Standalone slider (outside a group) now uses the stacked group-style layout with a small bold header above the full-width track instead of being squeezed into the compact value column. Anchor labels sit directly under the visible track endpoints.
+- Quick Front shows all current fronters, with a scroll chevron and edge fade when the list overflows.
+- Period delete in fronting opens the same strategy dialog as session delete, so the choice between hide-only and hide-and-data is consistent.
+- Ending an always-fronting session asks for confirmation.
+- DM list tiles and chat search previews strip raw markdown markers so previews read as plain text.
+- Empty avatar emoji slots show a member-color fallback.
+- Member profile banner action labels are clearer.
+- Theme palette surface colors are enriched so light and dark palette surfaces feel less flat.
+- Reorderable lists in the four screens that already drew a custom drag handle (custom fields, groups, system management, navigation layout) no longer also draw the default desktop handle next to it.
+
+### Fixed
+- Custom field choice picker preview rendered raw JSON for "Members who filled this field" — it now resolves to human-readable labels. The compact widget Other chip is restored. Full a11y semantics on choice chips.
+- Custom field Other chip opens its text field on the first tap. The empty-other round-trip was silently dropped before.
+- Custom field group children render with consistent labels, side-by-side compact layout for short types, and quieter chrome (no double labels, no duplicate registry icons).
+- Custom field detail screen icon and type label dispatch through the registry, so scale, slider, and group fields no longer fall back to a "Short text" label.
+- Standalone slider rendering: a slider outside a group no longer shows its field name twice (once in the row's left column and once above the slider), and read-only numeric sliders now show their current value as a real Text widget instead of relying on the value-indicator popup that Flutter skips for read-only sliders.
+- Custom field reset has no race window — IDs are captured inside the same transaction as the bulk tombstone update, and the Reset Data row stays disabled until the loaded provider has resolved.
+- Chat reset captures the snapshot of `media_id` values inside the same transaction as the bulk-DELETE on `media_attachments`, so a sync-inbound row that lands between the snapshot and the delete can't leave its encrypted `.enc` file stranded on disk.
+- Custom-field editor state is preserved across navigating into and out of the in-sheet detail view. A widget-tree shape change in the visibility toggle was previously destroying and rebuilding every editor descendant on every nav, taking staged in-flight edits with it.
+- Change-author popup on a chat message auto-detects direction based on available space. Messages near the bottom of the chat used to collapse the popup to about one row tall; it now opens upward when there's more room above.
+- Custom-field sync apply normalizes invalid `parent_field_id` values. A buggy or malicious peer can no longer plant grandchildren or self-cycles by writing an invalid parent reference through sync; depth-1 violations and self-cycles are silently normalized to null on apply.
+- Unsaved-changes guard no longer leaves modal sheets stuck after a Discard confirmation. Cancelling a member edit no longer persists dirty in-flight text from custom field inputs.
+- Auth no longer relocks Prism after a successful Face ID unlock.
+- Changing the sync PIN no longer resets the app unlock PIN.
+- PluralKit group entries that arrived before their parent group was materialized are now recovered on the next sync pass.
+- Sync pairing separates the disconnect and replace flows so reconfiguring a paired device cannot accidentally orphan registry state.
+- Simply Plural import tolerates more legacy export shapes: Firebase Timestamp values in date fields, ARGB and short-hex color encodings, pre-v3 custom field definitions, the legacy fronters collection, non-standard maps in `member.info`, extended fallback chain for note dates, and front rows missing `startTime`. SP mention tokens are rewritten into Prism chat mentions.
+- Chat preserves send order for messages that share the same wall-clock second.
+- Habit notifications use one-shot scheduling so iOS honors `notBefore` correctly.
+- Member-reset and chat-reset cleanup is more thorough. Member reset now also clears `member_profile_preference_values`, nulls dangling member references, and clears every member-id column. Chat reset clears `media_attachments` and orphan media files.
+- Records can clear emojis without leaving a stale value.
+- Mobile bottom nav stays hidden on subroutes that have their own bottom UI.
+- Dialog actions stay visible when the dialog body overflows.
+- Stack view banner actions on the members list lay out without overlapping at large text sizes.
+- Imports dedup polls, options, and votes against existing tombstones.
+- Onboarding completion persists reliably through the new per-field settings update path, so finishing onboarding can't be undone by a later settings write.
+
 ## [0.9.4] - 2026-05-22
 
 This patch release fixes Simply Plural import handling for current exports,
