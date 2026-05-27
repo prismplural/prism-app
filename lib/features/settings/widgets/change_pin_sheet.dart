@@ -370,8 +370,10 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
     }
 
     typed_data.Uint8List? newPinBytes;
+    typed_data.Uint8List? appLockPinBytes;
     try {
       newPinBytes = _newPin.consumeBytesAndClear();
+      appLockPinBytes = typed_data.Uint8List.fromList(newPinBytes);
       _confirmPin.clear();
       await service.changePassword(
         newPassword: newPinBytes,
@@ -382,7 +384,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
       // Also update the local app-lock PIN hash so that the unlock PIN
       // stays in sync with the sync encryption PIN.
       final pinService = ref.read(pinLockServiceProvider);
-      await pinService.storePinBytes(newPinBytes);
+      await pinService.storePinBytes(appLockPinBytes);
 
       if (!mounted) return;
       setState(() {
@@ -403,6 +405,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
       });
     } finally {
       newPinBytes?.fillRange(0, newPinBytes.length, 0);
+      appLockPinBytes?.fillRange(0, appLockPinBytes.length, 0);
       _newPin.clear();
       _confirmPin.clear();
       _verifiedCurrentPin.clear();
