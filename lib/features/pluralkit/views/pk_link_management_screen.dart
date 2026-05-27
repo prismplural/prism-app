@@ -653,6 +653,7 @@ class _SyncedRow extends StatelessWidget {
         onPressed: onExclude,
         label: l10n.pkLinkManagementExclude,
         tone: PrismButtonTone.subtle,
+        density: PrismControlDensity.compact,
       ),
     );
   }
@@ -801,6 +802,7 @@ class _UnresolvedRow extends StatelessWidget {
                 onPressed: onExclude,
                 label: l10n.pkLinkManagementExclude,
                 tone: PrismButtonTone.subtle,
+                density: PrismControlDensity.compact,
               ),
             ],
           ),

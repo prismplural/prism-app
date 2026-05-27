@@ -10292,7 +10292,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pkLinkManagementSectionUnresolved => 'Unresolved links';
 
   @override
-  String get pkLinkManagementExclude => 'Exclude from sync';
+  String get pkLinkManagementExclude => 'Exclude';
 
   @override
   String get pkLinkManagementResume => 'Resume sync';

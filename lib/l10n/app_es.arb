@@ -3321,7 +3321,7 @@
   "@pkLinkManagementSectionUnresolved": {
     "description": "Section header on the Manage PluralKit links screen for members whose stored PluralKit fields don't resolve against the current system."
   },
-  "pkLinkManagementExclude": "Exclude from sync",
+  "pkLinkManagementExclude": "Exclude",
   "@pkLinkManagementExclude": {
     "description": "Action button on the Manage PluralKit links screen that excludes a member from PluralKit sync."
   },

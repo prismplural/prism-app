@@ -16491,7 +16491,7 @@ abstract class AppLocalizations {
   /// Action button on the Manage PluralKit links screen that excludes a member from PluralKit sync.
   ///
   /// In en, this message translates to:
-  /// **'Exclude from sync'**
+  /// **'Exclude'**
   String get pkLinkManagementExclude;
 
   /// Action button on the Manage PluralKit links screen that resumes sync on an excluded member.
