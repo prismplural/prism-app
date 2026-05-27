@@ -232,20 +232,30 @@ class _GroupChildEntry {
   final CustomFieldRenderer renderer;
 }
 
-/// Compact `Name | Value` for short single-line types; stacked header +
-/// body for everything else. Long text skips the parent header — markdown
-/// bodies usually carry their own.
+/// Compact `Name | Value` for fields whose effective layout is compact;
+/// stacked header + body for everything else. Long text skips the parent
+/// header — markdown bodies usually carry their own.
+///
+/// The compact/stacked decision flows through [effectiveDisplayLayout], so
+/// in-group rendering matches the standalone choice for the same field.
 class _GroupChildDisplay extends StatelessWidget {
   const _GroupChildDisplay({required this.entry});
 
   final _GroupChildEntry entry;
 
-  static const _compactTypeIds = <String>{'text', 'color', 'date'};
   static const _headerlessTypeIds = <String>{'long_text'};
 
-  bool get _isCompact => _compactTypeIds.contains(entry.child.fieldTypeId);
   bool get _isHeaderless =>
       _headerlessTypeIds.contains(entry.child.fieldTypeId);
+
+  bool get _isCompact {
+    if (_isHeaderless) return false;
+    return effectiveDisplayLayout(
+          fieldTypeId: entry.child.fieldTypeId,
+          typeConfig: entry.child.typeConfig,
+        ) ==
+        DisplayLayout.compact;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -276,14 +286,11 @@ class _GroupChildDisplay extends StatelessWidget {
               fit: FlexFit.tight,
               child: DefaultTextStyle.merge(
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
-                textAlign: TextAlign.end,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: entry.renderer.displayBuilder(
-                    context,
-                    entry.child,
-                    entry.value,
-                  ),
+                textAlign: TextAlign.start,
+                child: entry.renderer.displayBuilder(
+                  context,
+                  entry.child,
+                  entry.value,
                 ),
               ),
             ),

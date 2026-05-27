@@ -10832,6 +10832,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Larger scales may be cramped on small screens';
 
   @override
+  String get customFieldScaleLayoutHeading => 'Layout';
+
+  @override
+  String get customFieldScaleLayoutAuto => 'Auto';
+
+  @override
+  String get customFieldScaleLayoutCompact => 'Compact';
+
+  @override
+  String get customFieldScaleLayoutStacked => 'Stacked';
+
+  @override
+  String get customFieldScaleLayoutSuggestStacked =>
+      'Stacked layout reads better with this many steps';
+
+  @override
   String get customFieldScaleClearTooltip => 'Clear rating';
 
   @override

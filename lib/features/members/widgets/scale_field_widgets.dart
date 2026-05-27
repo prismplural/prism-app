@@ -377,14 +377,14 @@ class _ScaleDisplayWidget extends StatelessWidget {
               final isActive = (i + 1) <= selectedStep;
               return RepaintBoundary(
                 child: SizedBox(
-                  width: 48,
-                  height: 48,
+                  width: 32,
+                  height: 32,
                   child: Center(
                     child: Opacity(
                       opacity: isActive ? 1.0 : 0.4,
                       child: Text(
                         emoji,
-                        style: const TextStyle(fontSize: 24),
+                        style: const TextStyle(fontSize: 18),
                       ),
                     ),
                   ),

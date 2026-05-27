@@ -44,6 +44,10 @@ ScaleConfig _$ScaleConfigFromJson(Map<String, dynamic> json) => ScaleConfig(
   stepLabels: (json['stepLabels'] as List<dynamic>?)
       ?.map((e) => e as String)
       .toList(),
+  displayLayout: $enumDecodeNullable(
+    _$DisplayLayoutEnumMap,
+    json['displayLayout'],
+  ),
   $type: json['runtimeType'] as String?,
 );
 
@@ -52,8 +56,14 @@ Map<String, dynamic> _$ScaleConfigToJson(ScaleConfig instance) =>
       'emoji': instance.emoji,
       'steps': instance.steps,
       'stepLabels': instance.stepLabels,
+      'displayLayout': _$DisplayLayoutEnumMap[instance.displayLayout],
       'runtimeType': instance.$type,
     };
+
+const _$DisplayLayoutEnumMap = {
+  DisplayLayout.compact: 'compact',
+  DisplayLayout.stacked: 'stacked',
+};
 
 SliderConfig _$SliderConfigFromJson(Map<String, dynamic> json) => SliderConfig(
   mode: $enumDecode(_$SliderModeEnumMap, json['mode']),

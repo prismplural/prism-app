@@ -17386,6 +17386,36 @@ abstract class AppLocalizations {
   /// **'Larger scales may be cramped on small screens'**
   String get customFieldScaleStepsHelpMany;
 
+  /// Section heading for the scale field layout choice (auto/compact/stacked) in field settings
+  ///
+  /// In en, this message translates to:
+  /// **'Layout'**
+  String get customFieldScaleLayoutHeading;
+
+  /// Layout choice meaning 'use the type-aware default' (currently compact for scale)
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get customFieldScaleLayoutAuto;
+
+  /// Layout choice: label-left, emojis-right on one row
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get customFieldScaleLayoutCompact;
+
+  /// Layout choice: label above, emojis on their own row below
+  ///
+  /// In en, this message translates to:
+  /// **'Stacked'**
+  String get customFieldScaleLayoutStacked;
+
+  /// Soft suggestion shown below the layout chooser when steps > 5 and layout is not stacked
+  ///
+  /// In en, this message translates to:
+  /// **'Stacked layout reads better with this many steps'**
+  String get customFieldScaleLayoutSuggestStacked;
+
   /// Tooltip for the × clear button in the scale field editor
   ///
   /// In en, this message translates to:

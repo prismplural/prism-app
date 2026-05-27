@@ -89,6 +89,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   // Scale config state — mutable copy for the UI.
   String _scaleEmoji = '⭐';
   int _scaleSteps = 5;
+  // null = Auto; resolved by effectiveDisplayLayout at render time.
+  DisplayLayout? _scaleDisplayLayout;
   // Whether the "Advanced: any emoji" input is visible.
   bool _scaleShowCustomEmojiInput = false;
   late final TextEditingController _scaleCustomEmojiController;
@@ -137,10 +139,13 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   bool get _isScaleDirty {
     final existingConfig = widget.field?.typeConfig;
     if (existingConfig is! ScaleConfig || _selectedTypeId != 'scale') {
-      return _scaleEmoji != '⭐' || _scaleSteps != 5;
+      return _scaleEmoji != '⭐' ||
+          _scaleSteps != 5 ||
+          _scaleDisplayLayout != null;
     }
     return existingConfig.emoji != _scaleEmoji ||
-        existingConfig.steps != _scaleSteps;
+        existingConfig.steps != _scaleSteps ||
+        existingConfig.displayLayout != _scaleDisplayLayout;
   }
 
   bool get _isSliderDirty {
@@ -247,6 +252,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         final config = f.typeConfig! as ScaleConfig;
         _scaleEmoji = config.emoji;
         _scaleSteps = config.steps;
+        _scaleDisplayLayout = config.displayLayout;
         _scaleShowCustomEmojiInput = !kScaleEmojiPalette.contains(config.emoji);
         if (_scaleShowCustomEmojiInput) {
           _scaleCustomEmojiController.text = config.emoji;
@@ -410,8 +416,23 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   // ── Scale helpers ───────────────────────────────────────────────────
 
   /// Build the current [ScaleConfig] from UI state.
+  ///
+  /// Preserves the existing config's `extra` (forward-compat keys from
+  /// future peers) via copyWith when editing.
   ScaleConfig _buildScaleConfig() {
-    return ScaleConfig(emoji: _scaleEmoji, steps: _scaleSteps);
+    final existing = widget.field?.typeConfig;
+    if (existing is ScaleConfig) {
+      return existing.copyWith(
+        emoji: _scaleEmoji,
+        steps: _scaleSteps,
+        displayLayout: _scaleDisplayLayout,
+      );
+    }
+    return ScaleConfig(
+      emoji: _scaleEmoji,
+      steps: _scaleSteps,
+      displayLayout: _scaleDisplayLayout,
+    );
   }
 
   // ── Group helpers ───────────────────────────────────────────────────
@@ -822,6 +843,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                       _ScaleConfigSection(
                         selectedEmoji: _scaleEmoji,
                         steps: _scaleSteps,
+                        displayLayout: _scaleDisplayLayout,
                         showCustomEmojiInput: _scaleShowCustomEmojiInput,
                         customEmojiController: _scaleCustomEmojiController,
                         onEmojiSelected: (e) =>
@@ -832,6 +854,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         ),
                         onStepsChanged: (v) =>
                             setState(() => _scaleSteps = v),
+                        onDisplayLayoutChanged: (v) =>
+                            setState(() => _scaleDisplayLayout = v),
                       ),
                     ],
 
@@ -1139,22 +1163,28 @@ class _ScaleConfigSection extends StatelessWidget {
   const _ScaleConfigSection({
     required this.selectedEmoji,
     required this.steps,
+    required this.displayLayout,
     required this.showCustomEmojiInput,
     required this.customEmojiController,
     required this.onEmojiSelected,
     required this.onToggleCustomEmoji,
     required this.onStepsChanged,
+    required this.onDisplayLayoutChanged,
   });
 
   final String selectedEmoji;
   final int steps;
+  final DisplayLayout? displayLayout;
   final bool showCustomEmojiInput;
   final TextEditingController customEmojiController;
   final ValueChanged<String> onEmojiSelected;
   final VoidCallback onToggleCustomEmoji;
   final ValueChanged<int> onStepsChanged;
+  final ValueChanged<DisplayLayout?> onDisplayLayoutChanged;
 
   static const int _softWarnThreshold = 7;
+  // Five 32dp boxes fit a typical phone value column; 6+ start to wrap.
+  static const int _layoutSuggestStackedAbove = 5;
 
   @override
   Widget build(BuildContext context) {
@@ -1235,6 +1265,46 @@ class _ScaleConfigSection extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             l10n.customFieldScaleStepsHelpMany,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 24),
+
+        // ── Layout chooser ────────────────────────────────────────────
+        Text(
+          l10n.customFieldScaleLayoutHeading,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<DisplayLayout?>(
+          segments: [
+            ButtonSegment(
+              value: null,
+              label: Text(l10n.customFieldScaleLayoutAuto),
+            ),
+            ButtonSegment(
+              value: DisplayLayout.compact,
+              label: Text(l10n.customFieldScaleLayoutCompact),
+            ),
+            ButtonSegment(
+              value: DisplayLayout.stacked,
+              label: Text(l10n.customFieldScaleLayoutStacked),
+            ),
+          ],
+          selected: {displayLayout},
+          showSelectedIcon: false,
+          onSelectionChanged: (s) => onDisplayLayoutChanged(s.first),
+        ),
+        if (steps > _layoutSuggestStackedAbove &&
+            displayLayout != DisplayLayout.stacked) ...[
+          const SizedBox(height: 4),
+          Text(
+            l10n.customFieldScaleLayoutSuggestStacked,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

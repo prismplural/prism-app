@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
+import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_display_scope.dart';
@@ -94,11 +95,6 @@ class CustomFieldsDisplay extends ConsumerWidget {
     );
   }
 
-  // Types whose display widgets need a full-width vertical layout (header
-  // above body) instead of the 2-column compact row. Sliders have visible
-  // tracks + label rows that don't fit in a value column.
-  static const _stackedTypeIds = <String>{'slider'};
-
   List<Widget> _buildItemWidgets(List<_TopLevelItem> items) {
     final widgets = <Widget>[];
     var compactRun = <_FieldValueEntry>[];
@@ -119,7 +115,13 @@ class CustomFieldsDisplay extends ConsumerWidget {
       }
 
       final entry = item.entry!;
-      if (_stackedTypeIds.contains(entry.field.fieldTypeId)) {
+      // Stacked layout: explicit per-field choice (scale config), or
+      // type-default (slider). See `effectiveDisplayLayout`.
+      final layout = effectiveDisplayLayout(
+        fieldTypeId: entry.field.fieldTypeId,
+        typeConfig: entry.field.typeConfig,
+      );
+      if (layout == DisplayLayout.stacked) {
         flushCompactRun();
         if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
         widgets.add(_FieldValueStacked(entry: entry));
@@ -276,7 +278,7 @@ class _FieldValueRow extends StatelessWidget {
             child: _FieldValueBody(
               entry: entry,
               textStyle: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
-              textAlign: TextAlign.end,
+              textAlign: TextAlign.start,
             ),
           ),
         ],

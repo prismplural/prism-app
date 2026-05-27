@@ -7,6 +7,28 @@ part 'custom_field_type_config.g.dart';
 
 enum SliderMode { labeled, numeric }
 
+/// How a custom field's value renders on profile screens.
+///
+/// `compact` — label and value on the same row (label-left, value column right).
+/// `stacked` — label on its own row above the value, full width below.
+///
+/// Null on a config = "use the type-aware default" (see
+/// [effectiveDisplayLayout]).
+enum DisplayLayout { compact, stacked }
+
+/// Per-field override (only `ScaleConfig` carries one today) wins over the
+/// type-aware default. Sliders always stack; everything else defaults to compact.
+DisplayLayout effectiveDisplayLayout({
+  String? fieldTypeId,
+  CustomFieldTypeConfig? typeConfig,
+}) {
+  if (typeConfig is ScaleConfig && typeConfig.displayLayout != null) {
+    return typeConfig.displayLayout!;
+  }
+  if (fieldTypeId == 'slider') return DisplayLayout.stacked;
+  return DisplayLayout.compact;
+}
+
 /// Type-specific config for new custom field types (choice, group, scale, slider).
 ///
 /// Legacy types (text, color, date, longText) do NOT get a variant — their
@@ -38,6 +60,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
     @Default('⭐') String emoji,
     @Default(5) int steps,
     List<String>? stepLabels,
+    DisplayLayout? displayLayout,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
     Map<String, dynamic> extra,
@@ -166,7 +189,13 @@ class CustomFieldTypeConfigCodec {
     return switch (config) {
       ChoiceConfig _ => const {'runtimeType', 'options', 'allowsMultiple', 'allowsOther'},
       GroupConfig _ => const {'runtimeType', 'icon', 'hideTitleOnProfile'},
-      ScaleConfig _ => const {'runtimeType', 'emoji', 'steps', 'stepLabels'},
+      ScaleConfig _ => const {
+        'runtimeType',
+        'emoji',
+        'steps',
+        'stepLabels',
+        'displayLayout',
+      },
       SliderConfig _ => const {
         'runtimeType',
         'mode',
