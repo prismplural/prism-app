@@ -141,6 +141,16 @@ class PkMappingState {
   /// loop (the existing percent-based label already covers that phase).
   final String? statusText;
 
+  /// PK member UUIDs returned by the most recent fetch. Used together with
+  /// [fetchedPkIds] by [hasResolvablePluralKitLink] to decide whether a
+  /// local's stored `pluralkitUuid` / `pluralkitId` resolves against the
+  /// currently-paired PK system.
+  final Set<String> fetchedPkUuids;
+
+  /// PK member short IDs returned by the most recent fetch. Companion to
+  /// [fetchedPkUuids].
+  final Set<String> fetchedPkIds;
+
   const PkMappingState({
     this.pkMembers = const [],
     this.localMembers = const [],
@@ -152,6 +162,8 @@ class PkMappingState {
     this.error,
     this.phase = PkMappingPhase.applyingDecisions,
     this.statusText,
+    this.fetchedPkUuids = const {},
+    this.fetchedPkIds = const {},
   });
 
   PkMappingState copyWith({
@@ -165,6 +177,8 @@ class PkMappingState {
     String? error,
     PkMappingPhase? phase,
     String? statusText,
+    Set<String>? fetchedPkUuids,
+    Set<String>? fetchedPkIds,
     bool clearError = false,
     bool clearResults = false,
     bool clearStatusText = false,
@@ -180,6 +194,8 @@ class PkMappingState {
       error: clearError ? null : (error ?? this.error),
       phase: phase ?? this.phase,
       statusText: clearStatusText ? null : (statusText ?? this.statusText),
+      fetchedPkUuids: fetchedPkUuids ?? this.fetchedPkUuids,
+      fetchedPkIds: fetchedPkIds ?? this.fetchedPkIds,
     );
   }
 
@@ -192,13 +208,23 @@ class PkMappingState {
     return ids;
   }
 
-  /// Local members that are not already linked to PK and not consumed
-  /// by any current link decision — candidates for the "Local members to push"
-  /// section.
+  /// Local members that don't currently resolve against the PK fetch and
+  /// aren't already consumed by a Link decision — candidates for the
+  /// "Local members to push" section. Includes both truly-unlinked locals
+  /// (no PK fields) and unresolved-link locals (PK fields set but pointing
+  /// at a member not in the current PK system).
   List<domain.Member> get unlinkedLocals {
     final consumed = linkedLocalIds;
     return localMembers
-        .where((m) => !hasPluralKitLink(m) && !consumed.contains(m.id))
+        .where(
+          (m) =>
+              !hasResolvablePluralKitLink(
+                m,
+                fetchedPkUuids: fetchedPkUuids,
+                fetchedPkIds: fetchedPkIds,
+              ) &&
+              !consumed.contains(m.id),
+        )
         .toList();
   }
 }
@@ -222,26 +248,62 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
     final allLocalsIncludingDeleted = await memberRepo
         .getAllMembersIncludingDeleted();
     final locals = allLocals.where((m) => !m.pluralkitSyncIgnored).toList();
-    final linkedPkUuids = {
+
+    // Snapshot the PK identifiers returned by the current fetch — used by
+    // hasResolvablePluralKitLink below and by the applier later to decide
+    // whether a local's stored PK fields point at a member that actually
+    // exists in the connected system.
+    final fetchedPkUuids = {for (final pk in pkMembers) pk.uuid};
+    final fetchedPkIds = {for (final pk in pkMembers) pk.id};
+
+    // A local "already maps" a PK member only when its PK fields RESOLVE
+    // against the current fetch. Stale PK fields inherited from a prior
+    // different-system import (e.g. via Simply Plural) must NOT cause the
+    // matching PK member to be hidden from the screen.
+    final resolvedPkUuids = {
       for (final m in allLocalsIncludingDeleted)
-        if (m.pluralkitUuid != null && m.pluralkitUuid!.trim().isNotEmpty)
+        if (hasResolvablePluralKitLink(
+              m,
+              fetchedPkUuids: fetchedPkUuids,
+              fetchedPkIds: fetchedPkIds,
+            ) &&
+            m.pluralkitUuid != null &&
+            m.pluralkitUuid!.trim().isNotEmpty)
           m.pluralkitUuid!.trim(),
     };
-    final linkedPkIds = {
+    final resolvedPkIds = {
       for (final m in allLocalsIncludingDeleted)
-        if (m.pluralkitId != null && m.pluralkitId!.trim().isNotEmpty)
+        if (hasResolvablePluralKitLink(
+              m,
+              fetchedPkUuids: fetchedPkUuids,
+              fetchedPkIds: fetchedPkIds,
+            ) &&
+            m.pluralkitId != null &&
+            m.pluralkitId!.trim().isNotEmpty)
           m.pluralkitId!.trim(),
     };
     final unmappedPkMembers = pkMembers
         .where(
           (pk) =>
-              !linkedPkUuids.contains(pk.uuid) && !linkedPkIds.contains(pk.id),
+              !resolvedPkUuids.contains(pk.uuid) &&
+              !resolvedPkIds.contains(pk.id),
         )
         .toList();
 
-    // Exclude already-linked locals from mapping choices entirely — they're
-    // considered done.
-    final unlinkedLocals = locals.where((m) => !hasPluralKitLink(m)).toList();
+    // Locals without a current-system PK link — candidates for the
+    // "Local members to push" section. Includes both truly-unlinked locals
+    // (no PK fields) and unresolved-link locals (stale PK fields from a
+    // prior different-system pairing). Excluded members are already filtered
+    // out above.
+    final unlinkedLocals = locals
+        .where(
+          (m) => !hasResolvablePluralKitLink(
+            m,
+            fetchedPkUuids: fetchedPkUuids,
+            fetchedPkIds: fetchedPkIds,
+          ),
+        )
+        .toList();
 
     final suggestions = const PkMemberMatcher().suggest(
       unlinkedLocals,
@@ -265,10 +327,21 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       }
     }
 
-    // Default each un-consumed unlinked local to push-new.
+    // Default decision for un-consumed unlinked locals: split by whether the
+    // local already had PK fields set.
+    //   - Truly-unlinked local (no PK fields): default to PushNew (existing
+    //     behavior).
+    //   - Unresolved-link local (PK fields set but pointing at a member not
+    //     in the current PK system): default to Skip. The user already
+    //     touched these PK fields once via a prior import; don't auto-push
+    //     without explicit consent. Section-2 caption surfaces the override
+    //     affordance.
     final localDecisions = <String, PkMappingDecision>{};
     for (final m in unlinkedLocals) {
-      if (!consumedLocalIds.contains(m.id)) {
+      if (consumedLocalIds.contains(m.id)) continue;
+      if (hasPluralKitLink(m)) {
+        localDecisions[m.id] = PkSkipDecision(localMemberId: m.id);
+      } else {
         localDecisions[m.id] = PkPushNewDecision(localMemberId: m.id);
       }
     }
@@ -286,13 +359,16 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       localMembers: locals,
       decisionsByPkUuid: pkDecisions,
       decisionsByLocalId: localDecisions,
+      fetchedPkUuids: fetchedPkUuids,
+      fetchedPkIds: fetchedPkIds,
     );
   }
 
   /// Update the decision for a PK member. If the decision is a Link, drop
   /// the push decision that was defaulted for that local. If the decision
-  /// moves away from Link, restore the local to the push/skip pool (default
-  /// to Push).
+  /// moves away from Link, restore the local to the push/skip pool with the
+  /// same asymmetric default as [build]: truly-unlinked locals default to
+  /// Push; locals with unresolved PK fields default to Skip.
   void setPkDecision(String pkUuid, PkMappingDecision decision) {
     final current = state.value;
     if (current == null) return;
@@ -305,15 +381,30 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
     );
 
     // If prior was a Link, the local was removed from newLocal. Restore it
-    // with a default push decision unless it's now linked elsewhere.
+    // with a default decision unless it's now linked elsewhere.
     if (prior is PkLinkDecision) {
       final stillLinked = newPk.values.any(
         (d) => d is PkLinkDecision && d.localMemberId == prior.localMemberId,
       );
       if (!stillLinked) {
-        newLocal[prior.localMemberId] = PkPushNewDecision(
-          localMemberId: prior.localMemberId,
+        final localMember = current.localMembers.firstWhere(
+          (m) => m.id == prior.localMemberId,
+          orElse: () => current.localMembers.first,
         );
+        // Asymmetric default mirrors build(): if the local already carries
+        // PK fields they didn't resolve (otherwise the local wouldn't be a
+        // push candidate), default to Skip to avoid an unintended new-PK-
+        // member POST.
+        if (current.localMembers.any((m) => m.id == prior.localMemberId) &&
+            hasPluralKitLink(localMember)) {
+          newLocal[prior.localMemberId] = PkSkipDecision(
+            localMemberId: prior.localMemberId,
+          );
+        } else {
+          newLocal[prior.localMemberId] = PkPushNewDecision(
+            localMemberId: prior.localMemberId,
+          );
+        }
       }
     }
 
@@ -462,10 +553,21 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
         ...current.decisionsByLocalId.values,
       ];
 
+      // Snapshot the current PK fetch for the applier so the push-new path
+      // can distinguish "already linked" from "stale PK fields from a prior
+      // different-system import" — see PkMappingApplier.apply doc.
+      final resolution = PkResolutionSnapshot(
+        fetchedPkUuids: current.fetchedPkUuids,
+        fetchedPkIds: current.fetchedPkIds,
+      );
+
       // Phase 1: per-decision loop.
       final results = <PkApplyResult>[];
       for (var i = 0; i < decisions.length; i++) {
-        final r = await applier.apply([decisions[i]]);
+        final r = await applier.apply(
+          [decisions[i]],
+          resolution: resolution,
+        );
         if (!ref.mounted) return null;
         results.addAll(r);
         final next = state.value;

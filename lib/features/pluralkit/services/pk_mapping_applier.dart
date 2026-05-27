@@ -78,6 +78,28 @@ class PkApplyResult {
   });
 }
 
+/// Snapshot of PK identifiers the caller has just fetched from PluralKit.
+///
+/// Used by [PkMappingApplier.apply] so the applier can distinguish a local's
+/// "already linked to a PK member that exists in the current system" state
+/// from "carries stale PK fields that don't resolve" — the latter must NOT
+/// short-circuit the push-new path.
+class PkResolutionSnapshot {
+  final Set<String> fetchedPkUuids;
+  final Set<String> fetchedPkIds;
+  const PkResolutionSnapshot({
+    required this.fetchedPkUuids,
+    required this.fetchedPkIds,
+  });
+
+  /// True if [local]'s PK fields resolve against this snapshot.
+  bool resolvesLocal(domain.Member local) => hasResolvablePluralKitLink(
+        local,
+        fetchedPkUuids: fetchedPkUuids,
+        fetchedPkIds: fetchedPkIds,
+      );
+}
+
 /// Applies a batch of [PkMappingDecision] items idempotently.
 ///
 /// For each decision:
@@ -116,15 +138,31 @@ class PkMappingApplier {
        _uuid = uuid ?? const Uuid(),
        _now = now ?? DateTime.now;
 
-  Future<List<PkApplyResult>> apply(List<PkMappingDecision> decisions) async {
+  /// Apply a batch of [decisions].
+  ///
+  /// [resolution] is the just-fetched PK member snapshot. When supplied,
+  /// `_applyPushNew`'s "already linked" idempotency check and the
+  /// "complete pluralkitId-only link" branch consult it so that locals with
+  /// stale PK fields (e.g. inherited from a Simply Plural import against a
+  /// different PK system) are pushed as new instead of being silently
+  /// skipped or paired against a non-existent PK ID. Callers that don't
+  /// have a fresh snapshot (e.g. tests, ad-hoc invocations) may omit it,
+  /// preserving today's behavior.
+  Future<List<PkApplyResult>> apply(
+    List<PkMappingDecision> decisions, {
+    PkResolutionSnapshot? resolution,
+  }) async {
     final results = <PkApplyResult>[];
     for (final decision in decisions) {
-      results.add(await _applyOne(decision));
+      results.add(await _applyOne(decision, resolution: resolution));
     }
     return results;
   }
 
-  Future<PkApplyResult> _applyOne(PkMappingDecision decision) async {
+  Future<PkApplyResult> _applyOne(
+    PkMappingDecision decision, {
+    PkResolutionSnapshot? resolution,
+  }) async {
     final existing = await _state.getById(decision.id);
     if (existing != null && existing.status == 'applied') {
       return PkApplyResult(
@@ -142,7 +180,7 @@ class PkMappingApplier {
         case PkImportDecision():
           await _applyImport(decision);
         case PkPushNewDecision():
-          await _applyPushNew(decision, existing);
+          await _applyPushNew(decision, existing, resolution: resolution);
         case PkSkipDecision():
           await _applySkip(decision);
       }
@@ -420,14 +458,23 @@ class PkMappingApplier {
 
   Future<void> _applyPushNew(
     PkPushNewDecision d,
-    PkMappingStateData? priorState,
-  ) async {
+    PkMappingStateData? priorState, {
+    PkResolutionSnapshot? resolution,
+  }) async {
     final local = await _members.getMemberById(d.localMemberId);
     if (local == null) {
       throw StateError('Local member ${d.localMemberId} not found');
     }
-    // Idempotent: if already has a PK ID, no-op.
-    if (_hasText(local.pluralkitId) && _hasText(local.pluralkitUuid)) return;
+    // Idempotent: skip only when already linked to a PK member that resolves
+    // in the caller's snapshot. An unresolved link (stale PK fields from a
+    // prior different-system import) does NOT count — fall through to push
+    // as new. The `?? true` preserves today's behavior for non-mapping
+    // callers that don't supply a snapshot.
+    if (_hasText(local.pluralkitId) &&
+        _hasText(local.pluralkitUuid) &&
+        (resolution?.resolvesLocal(local) ?? true)) {
+      return;
+    }
 
     // Crash-recovery: prior run POSTed but never wrote the local member.
     // pk_mapping_state has the PK id/uuid — reuse them instead of re-POSTing.
@@ -441,11 +488,16 @@ class PkMappingApplier {
       return;
     }
 
-    // If pluralkitId exists but uuid missing, fetch to complete the pairing.
+    // If pluralkitId exists but uuid missing, fetch to complete the pairing —
+    // but only when the existing id resolves against the caller's snapshot.
+    // If the id is stale (snapshot doesn't contain it), fall through to push
+    // as new instead of hitting the network to look up a member that no
+    // longer exists in the connected system.
     final existingPkId = local.pluralkitId?.trim();
     if (existingPkId != null &&
         existingPkId.isNotEmpty &&
-        !_hasText(local.pluralkitUuid)) {
+        !_hasText(local.pluralkitUuid) &&
+        (resolution == null || resolution.fetchedPkIds.contains(existingPkId))) {
       final members = await _client.getMembers();
       final match = members.firstWhere(
         (m) => m.id == existingPkId,
@@ -461,7 +513,21 @@ class PkMappingApplier {
 
     // Push through PkPushService (handles queue + rate limits) to get the ID,
     // then fetch the full PKMember object for the UUID.
-    final created = await _pushService.pushMemberFull(local, _client);
+    //
+    // If we reach here with stale PK fields (the resolution snapshot let us
+    // past the early return precisely so we could push-as-new for an
+    // unresolved-link local), strip them first. PkPushService treats any
+    // non-empty pluralkitId as a PATCH target — a stale id would 404 (or
+    // worse, hit a different user's member with the same id) instead of
+    // creating the new PK member the recovery flow promised.
+    final memberToPush =
+        (resolution != null &&
+                (_hasText(local.pluralkitId) ||
+                    _hasText(local.pluralkitUuid)) &&
+                !resolution.resolvesLocal(local))
+            ? local.copyWith(pluralkitId: null, pluralkitUuid: null)
+            : local;
+    final created = await _pushService.pushMemberFull(memberToPush, _client);
     final createdId = created.id;
     final createdUuid = created.uuid;
 

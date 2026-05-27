@@ -10385,9 +10385,28 @@ class AppLocalizationsEs extends AppLocalizations {
     int pushed,
     int skipped,
     int failed,
+    int unresolvedCleared,
   ) {
-    return '$linked vinculados, $imported importados, $pushed enviados, $skipped omitidos, $failed fallidos';
+    String _temp0 = intl.Intl.pluralLogic(
+      unresolvedCleared,
+      locale: localeName,
+      other: ', $unresolvedCleared vínculos no resueltos limpiados',
+      zero: '',
+    );
+    return '$linked vinculados, $imported importados, $pushed enviados, $skipped omitidos, $failed fallidos$_temp0';
   }
+
+  @override
+  String get pkMappingRowUnresolvedCandidateCaption =>
+      'Estaba vinculado con un miembro de PluralKit que ya no está en este sistema';
+
+  @override
+  String get pkMappingRowNoCandidatesCaption =>
+      'Sin candidatos — importar como nuevo o abrir Administrar vínculos para resolver';
+
+  @override
+  String get pkMappingSectionToPushUnresolvedCaption =>
+      'Estaba vinculado con un miembro de PluralKit que ya no está en este sistema. Predeterminado a Saltar — cambia a Enviar si deseas crear un nuevo miembro de PluralKit.';
 
   @override
   String get pkMappingErrorsHeader => 'Errores';

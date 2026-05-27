@@ -828,4 +828,241 @@ void main() {
       },
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // PR 1 (mapping recovery): PkResolutionSnapshot threading into _applyPushNew.
+  //
+  // The snapshot tells the applier "these are the PK identifiers in the
+  // currently-paired system." `_applyPushNew`'s two idempotency shortcuts
+  // (already-linked, id-only completion) consult it so stale PK fields from
+  // a prior different-system import don't silently no-op the user's Push
+  // decision.
+  // ---------------------------------------------------------------------------
+
+  group('PR 1: _applyPushNew honors PkResolutionSnapshot', () {
+    test(
+      'stale PK fields + Push + snapshot excluding those fields → applier '
+      'POSTs a new PK member (does not PATCH the stale ID)',
+      () async {
+        // Local carries PK fields from a prior different-system import. The
+        // snapshot does NOT contain them — the "already linked" idempotency
+        // shortcut MUST NOT fire (which would silently no-op the user's
+        // Push decision). The applier must also clear the stale PK fields
+        // before calling pushMemberFull; otherwise PkPushService would
+        // treat any non-empty pluralkitId as a PATCH target and 404
+        // against the stale id, breaking the recovery flow.
+        final repo = FakeMemberRepo([
+          _local(
+            id: 'l1',
+            name: 'Stale',
+            pluralkitId: 'zzzzz',
+            pluralkitUuid: 'pk-old',
+          ),
+        ]);
+        final client = _RecordingFakePluralKitClient(
+          onCreate: (data) => PKMember(
+            id: 'newid',
+            uuid: 'new-uuid',
+            name: data['name'] as String,
+          ),
+        );
+        final applier = buildApplier(repo: repo, client: client);
+
+        final results = await applier.apply(
+          [const PkPushNewDecision(localMemberId: 'l1')],
+          resolution: const PkResolutionSnapshot(
+            fetchedPkUuids: {'pk-alice'},
+            fetchedPkIds: {'aaaaa'},
+          ),
+        );
+
+        expect(results.single.outcome, PkApplyOutcome.applied);
+        // Must POST, not PATCH: a PATCH on the stale 'zzzzz' would 404.
+        expect(
+          client.createCallCount,
+          1,
+          reason: 'Stale-link Push must take the POST (create) path',
+        );
+        expect(
+          client.updateMemberCallCount,
+          0,
+          reason: 'Stale-link Push must NOT PATCH the stale pluralkitId',
+        );
+        // The payload sent to PK must not carry the stale id either.
+        expect(
+          client.createdPayloads.single.containsKey('id'),
+          isFalse,
+          reason:
+              'PK create payload must not include the stale pluralkitId',
+        );
+        // pk_mapping_state recorded the push as applied.
+        final pushState = await dao.getById('push:l1');
+        expect(pushState!.status, 'applied');
+        // Local should now have the freshly-created PK identity, not the
+        // stale one.
+        final updated = await repo.getMemberById('l1');
+        expect(updated!.pluralkitId, 'newid');
+        expect(updated.pluralkitUuid, 'new-uuid');
+      },
+    );
+
+    test(
+      'resolved PK fields + Push + snapshot including them → no-ops',
+      () async {
+        // Local IS linked to a PK member that's in the snapshot. Today's
+        // behavior preserved: no push, no overwrite.
+        final repo = FakeMemberRepo([
+          _local(
+            id: 'l1',
+            name: 'Alice',
+            pluralkitId: 'aaaaa',
+            pluralkitUuid: 'pk-alice',
+          ),
+        ]);
+        final client = FakePluralKitClient();
+        final applier = buildApplier(repo: repo, client: client);
+
+        final results = await applier.apply(
+          [const PkPushNewDecision(localMemberId: 'l1')],
+          resolution: const PkResolutionSnapshot(
+            fetchedPkUuids: {'pk-alice'},
+            fetchedPkIds: {'aaaaa'},
+          ),
+        );
+
+        expect(results.single.outcome, PkApplyOutcome.applied);
+        expect(
+          client.createCallCount,
+          0,
+          reason:
+              'Already-linked local that resolves in the snapshot must not '
+              'be re-pushed',
+        );
+        final updated = await repo.getMemberById('l1');
+        expect(updated!.pluralkitId, 'aaaaa');
+        expect(updated.pluralkitUuid, 'pk-alice');
+      },
+    );
+
+    test(
+      'pluralkitId set + uuid empty + snapshot NOT containing the id → push '
+      'as new (does NOT call client.getMembers)',
+      () async {
+        // The "id exists, uuid missing" completion branch must respect the
+        // snapshot. If the id is stale (not in snapshot), fall through to
+        // push as new — do NOT call getMembers() to look up a member that
+        // no longer exists in the connected system.
+        final repo = FakeMemberRepo([
+          _local(id: 'l1', name: 'Stale', pluralkitId: 'zzzzz'),
+        ]);
+        final client = _RecordingFakePluralKitClient(
+          onCreate: (data) => PKMember(
+            id: 'newid',
+            uuid: 'new-uuid',
+            name: data['name'] as String,
+          ),
+        );
+        final applier = buildApplier(repo: repo, client: client);
+
+        final results = await applier.apply(
+          [const PkPushNewDecision(localMemberId: 'l1')],
+          resolution: const PkResolutionSnapshot(
+            fetchedPkUuids: {'pk-alice'},
+            fetchedPkIds: {'aaaaa'},
+          ),
+        );
+
+        expect(results.single.outcome, PkApplyOutcome.applied);
+        expect(
+          client.getMembersCallCount,
+          0,
+          reason:
+              'Stale id must not trigger a getMembers() lookup for a member '
+              'that no longer exists in the connected system',
+        );
+        // Applier reached the push service (either PATCH or POST depending
+        // on how the push service routes a stale-id local; both are valid
+        // "did not short-circuit" outcomes).
+        expect(
+          client.createCallCount + client.updateMemberCallCount,
+          greaterThanOrEqualTo(1),
+          reason: 'Push must reach the push service',
+        );
+      },
+    );
+
+    test(
+      'pluralkitId set + uuid empty + snapshot containing the id → completes '
+      'link via fetch-and-complete path',
+      () async {
+        // The id is fresh (snapshot contains it). The applier should call
+        // getMembers, find the matching PK member, and complete the link
+        // by writing its UUID locally. No POST.
+        final repo = FakeMemberRepo([
+          _local(id: 'l1', name: 'Alice', pluralkitId: 'aaaaa'),
+        ]);
+        final client = _RecordingFakePluralKitClient(
+          members: [
+            const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice'),
+          ],
+        );
+        final applier = buildApplier(repo: repo, client: client);
+
+        final results = await applier.apply(
+          [const PkPushNewDecision(localMemberId: 'l1')],
+          resolution: const PkResolutionSnapshot(
+            fetchedPkUuids: {'pk-alice'},
+            fetchedPkIds: {'aaaaa'},
+          ),
+        );
+
+        expect(results.single.outcome, PkApplyOutcome.applied);
+        expect(
+          client.getMembersCallCount,
+          1,
+          reason: 'Fresh id must trigger getMembers() to complete the link',
+        );
+        expect(
+          client.createCallCount,
+          0,
+          reason: 'No POST when the id resolves to an existing PK member',
+        );
+        final updated = await repo.getMemberById('l1');
+        expect(updated!.pluralkitId, 'aaaaa');
+        expect(updated.pluralkitUuid, 'pk-alice');
+      },
+    );
+  });
+}
+
+/// FakePluralKitClient subclass that also records getMembers and updateMember
+/// call counts so the PR 1 tests can assert the "id-only completion" branch
+/// was (or wasn't) taken AND the push-vs-no-op path.
+class _RecordingFakePluralKitClient extends FakePluralKitClient {
+  _RecordingFakePluralKitClient({
+    super.members,
+    super.onCreate,
+  });
+
+  int getMembersCallCount = 0;
+  int updateMemberCallCount = 0;
+
+  @override
+  Future<List<PKMember>> getMembers() async {
+    getMembersCallCount++;
+    return super.getMembers();
+  }
+
+  @override
+  Future<PKMember> updateMember(String id, Map<String, dynamic> data) async {
+    updateMemberCallCount++;
+    // Override the base fake's strict `data['name'] as String` cast: in
+    // PATCH payloads the name key is omitted when unchanged, which would
+    // crash the base. Return a synthetic PK member instead.
+    return PKMember(
+      id: id,
+      uuid: 'existing-uuid',
+      name: (data['name'] as String?) ?? 'patched',
+    );
+  }
 }

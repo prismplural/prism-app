@@ -608,18 +608,26 @@ void main() {
   });
 
   test(
-    'build: empty PK system + no unlinked locals auto-acknowledges',
+    'build: every local resolves to a fetched PK member auto-acknowledges',
     () async {
-      // PK has no members; every local is already linked.
+      // Every local resolves against the (non-empty) PK fetch — there is
+      // genuinely nothing to decide. (PR 1 changed "linked" semantics so an
+      // empty PK fetch + a local with stale PK fields no longer counts as
+      // "already linked"; the local instead becomes an unresolved-link
+      // candidate in the push pool. To still exercise the auto-acknowledge
+      // path, the PK fetch must contain the local's link target.)
       final emptyRepo = _FakeMemberRepo([
         domain.Member(
           id: 'l1',
           name: 'Alice',
           createdAt: DateTime(2026),
           pluralkitUuid: 'pk-alice',
+          pluralkitId: 'aaaaa',
         ),
       ]);
-      final emptyClient = _FakeClient([]);
+      final emptyClient = _FakeClient([
+        const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice'),
+      ]);
       final emptySync = PluralKitSyncService(
         memberRepository: emptyRepo,
         frontingSessionRepository: _NoopFrontingSessionRepo(),
@@ -1210,6 +1218,275 @@ void main() {
         }
       },
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // PR 1 (mapping recovery): unresolved-link locals + resolution snapshot.
+  //
+  // Locals carrying PK fields that don't resolve against the currently-paired
+  // PK system must surface as link candidates AND as Skip-defaulted entries in
+  // the "Local members to push" section (rather than being silently filtered
+  // out as already-linked). PK members matching only an unresolved local must
+  // still appear in the screen so the user can recover by linking.
+  // ---------------------------------------------------------------------------
+
+  group('PR 1 recovery: unresolved-link locals', () {
+    test(
+      'unresolved-link local appears as a candidate for matching PK members',
+      () async {
+        // l1 carries PK fields that point at a member NOT in the current PK
+        // fetch (sys-1 returns aaaaa/pk-alice and ddddd/pk-dana). The applier
+        // and screen must treat l1 as linkable to either of those PK members.
+        final unresolvedRepo = _FakeMemberRepo([
+          _local('l1', 'Stale', pkUuid: 'pk-old', pkId: 'zzzzz'),
+          _local('l2', 'Bob'),
+        ]);
+        final svc = PluralKitSyncService(
+          memberRepository: unresolvedRepo,
+          frontingSessionRepository: _NoopFrontingSessionRepo(),
+          syncDao: PluralKitSyncDao(db),
+          bus: PkSyncEventBus(),
+          clientFactory: (_) => client,
+          tokenOverride: 'fake',
+        );
+        await svc.setToken('fake');
+
+        final localContainer = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            memberRepositoryProvider.overrideWithValue(unresolvedRepo),
+            pluralKitSyncServiceProvider.overrideWithValue(svc),
+          ],
+        );
+        addTearDown(localContainer.dispose);
+
+        final s = await localContainer.read(
+          pkMappingControllerProvider.future,
+        );
+
+        // l1 (unresolved-link) and l2 (truly-unlinked) must both be
+        // candidates — neither is filtered out by hasResolvablePluralKitLink.
+        expect(
+          s.unlinkedLocals.map((m) => m.id),
+          containsAll(['l1', 'l2']),
+          reason:
+              'Unresolved-link local must appear in unlinkedLocals so PK '
+              'rows can offer it as a Link target',
+        );
+      },
+    );
+
+    test('resolved-linked local is excluded from candidates', () async {
+      // l1 is linked to pk-alice which IS in the current fetch — it must NOT
+      // appear as a candidate for another PK member's row.
+      final resolvedRepo = _FakeMemberRepo([
+        _local('l1', 'Alice', pkUuid: 'pk-alice', pkId: 'aaaaa'),
+        _local('l2', 'Bob'),
+      ]);
+      final svc = PluralKitSyncService(
+        memberRepository: resolvedRepo,
+        frontingSessionRepository: _NoopFrontingSessionRepo(),
+        syncDao: PluralKitSyncDao(db),
+        bus: PkSyncEventBus(),
+        clientFactory: (_) => client,
+        tokenOverride: 'fake',
+      );
+      await svc.setToken('fake');
+
+      final localContainer = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          memberRepositoryProvider.overrideWithValue(resolvedRepo),
+          pluralKitSyncServiceProvider.overrideWithValue(svc),
+        ],
+      );
+      addTearDown(localContainer.dispose);
+
+      final s = await localContainer.read(pkMappingControllerProvider.future);
+
+      expect(
+        s.unlinkedLocals.map((m) => m.id),
+        isNot(contains('l1')),
+        reason: 'Resolved-link local must be excluded from candidates',
+      );
+      expect(s.unlinkedLocals.map((m) => m.id), contains('l2'));
+    });
+
+    test(
+      'PK member matching only an unresolved local is shown in the screen',
+      () async {
+        // l1's stored PK fields point at zzzzz/pk-old, NOT pk-alice/aaaaa.
+        // pk-alice must still appear in unmappedPkMembers (it isn't filtered
+        // out as "already mapped") so the user can pick l1 as the link
+        // target in pk-alice's row.
+        final unresolvedRepo = _FakeMemberRepo([
+          _local('l1', 'Whoever', pkUuid: 'pk-old', pkId: 'zzzzz'),
+        ]);
+        final svc = PluralKitSyncService(
+          memberRepository: unresolvedRepo,
+          frontingSessionRepository: _NoopFrontingSessionRepo(),
+          syncDao: PluralKitSyncDao(db),
+          bus: PkSyncEventBus(),
+          clientFactory: (_) => client,
+          tokenOverride: 'fake',
+        );
+        await svc.setToken('fake');
+
+        final localContainer = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            memberRepositoryProvider.overrideWithValue(unresolvedRepo),
+            pluralKitSyncServiceProvider.overrideWithValue(svc),
+          ],
+        );
+        addTearDown(localContainer.dispose);
+
+        final s = await localContainer.read(
+          pkMappingControllerProvider.future,
+        );
+
+        // pk-alice + pk-dana are the fetch; neither is consumed by a
+        // resolved local link.
+        expect(
+          s.pkMembers.map((m) => m.uuid),
+          containsAll(['pk-alice', 'pk-dana']),
+          reason:
+              'PK members the unresolved local does not actually resolve to '
+              'must remain in unmappedPkMembers',
+        );
+      },
+    );
+
+    test(
+      'build populates fetchedPkUuids and fetchedPkIds from the fetch',
+      () async {
+        // Validates that the controller surfaces the snapshot identifiers
+        // it would later pass to applier.apply(). The applier's behavior is
+        // covered separately in pk_mapping_applier_test.dart.
+        final s = await container.read(pkMappingControllerProvider.future);
+
+        expect(s.fetchedPkUuids, {'pk-alice', 'pk-dana'});
+        expect(s.fetchedPkIds, {'aaaaa', 'ddddd'});
+      },
+    );
+
+    test(
+      'apply pushes truly-unlinked local (snapshot wiring reaches applier)',
+      () async {
+        // End-to-end proof that the controller threads PkResolutionSnapshot
+        // through to the applier: a local with NO PK fields that the user
+        // chose to Push gets a real createMember call (not the
+        // already-linked no-op). Uses a truly-unlinked local so the
+        // assertion is about the createMember POST rather than the
+        // push-service's PATCH-vs-POST routing for stale ids.
+        final pushRepo = _FakeMemberRepo([_local('l1', 'Fresh')]);
+        final pushClient = _FakeClient([
+          const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice'),
+        ]);
+        final svc = PluralKitSyncService(
+          memberRepository: pushRepo,
+          frontingSessionRepository: _NoopFrontingSessionRepo(),
+          syncDao: PluralKitSyncDao(db),
+          bus: PkSyncEventBus(),
+          clientFactory: (_) => pushClient,
+          tokenOverride: 'fake',
+        );
+        await svc.setToken('fake');
+        await svc.confirmDirection();
+
+        final localContainer = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            memberRepositoryProvider.overrideWithValue(pushRepo),
+            pluralKitSyncServiceProvider.overrideWithValue(svc),
+          ],
+        );
+        addTearDown(localContainer.dispose);
+
+        await localContainer.read(pkMappingControllerProvider.future);
+        final ctrl = localContainer.read(
+          pkMappingControllerProvider.notifier,
+        );
+
+        await ctrl.apply();
+
+        expect(
+          pushClient.createCallCount,
+          1,
+          reason:
+              'Truly-unlinked local with PushNew default must be pushed '
+              'via createMember',
+        );
+      },
+    );
+  });
+
+  group('PR 1 recovery: default decisions for push pool', () {
+    test('unresolved-link local defaults to PkSkipDecision', () async {
+      final unresolvedRepo = _FakeMemberRepo([
+        _local('l1', 'Stale', pkUuid: 'pk-old', pkId: 'zzzzz'),
+      ]);
+      final svc = PluralKitSyncService(
+        memberRepository: unresolvedRepo,
+        frontingSessionRepository: _NoopFrontingSessionRepo(),
+        syncDao: PluralKitSyncDao(db),
+        bus: PkSyncEventBus(),
+        clientFactory: (_) => client,
+        tokenOverride: 'fake',
+      );
+      await svc.setToken('fake');
+
+      final localContainer = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          memberRepositoryProvider.overrideWithValue(unresolvedRepo),
+          pluralKitSyncServiceProvider.overrideWithValue(svc),
+        ],
+      );
+      addTearDown(localContainer.dispose);
+
+      final s = await localContainer.read(pkMappingControllerProvider.future);
+
+      expect(
+        s.decisionsByLocalId['l1'],
+        isA<PkSkipDecision>(),
+        reason:
+            'Unresolved-link local must default to Skip — user already '
+            'touched these PK fields once; don\'t auto-push without consent',
+      );
+    });
+
+    test('truly-unlinked local defaults to PkPushNewDecision', () async {
+      // Existing behavior preserved: locals with no PK fields still default
+      // to PushNew so first-time setup keeps working.
+      final pushRepo = _FakeMemberRepo([_local('l1', 'Fresh')]);
+      final svc = PluralKitSyncService(
+        memberRepository: pushRepo,
+        frontingSessionRepository: _NoopFrontingSessionRepo(),
+        syncDao: PluralKitSyncDao(db),
+        bus: PkSyncEventBus(),
+        clientFactory: (_) => client,
+        tokenOverride: 'fake',
+      );
+      await svc.setToken('fake');
+
+      final localContainer = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          memberRepositoryProvider.overrideWithValue(pushRepo),
+          pluralKitSyncServiceProvider.overrideWithValue(svc),
+        ],
+      );
+      addTearDown(localContainer.dispose);
+
+      final s = await localContainer.read(pkMappingControllerProvider.future);
+
+      expect(
+        s.decisionsByLocalId['l1'],
+        isA<PkPushNewDecision>(),
+        reason: 'Truly-unlinked local must default to PushNew',
+      );
+    });
   });
 }
 

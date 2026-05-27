@@ -279,7 +279,9 @@ void main() {
     testWidgets(
       'locals already linked via pluralkitUuid never appear as options at all',
       (tester) async {
-        // l1 is already linked (pluralkitUuid set); l2 is unlinked.
+        // l1 is already linked (pluralkitUuid set AND resolves against the
+        // fetch); l2 is unlinked. Post-PR1 "linked" requires resolution
+        // against the current fetch — fetchedPkUuids must contain l1's uuid.
         final pkDana = _pk('pk-dana', 'Dana');
         final locals = [
           _local('l1', 'Alice', pkUuid: 'pk-alice'),
@@ -293,6 +295,8 @@ void main() {
           decisionsByLocalId: {
             'l2': const PkPushNewDecision(localMemberId: 'l2'),
           },
+          fetchedPkUuids: const {'pk-alice', 'pk-dana'},
+          fetchedPkIds: const {'aaaaa', 'pk-da'},
         );
 
         final controller = _FakePkMappingController(state);
@@ -300,7 +304,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // The Dana row's select should offer l2 but NOT l1 — l1 is filtered
-        // by the screen (where m.pluralkitUuid == null).
+        // by the screen (hasResolvablePluralKitLink is true for l1).
         final selects = _selectsFor(tester);
         final pkSelect = selects.first;
         final values = pkSelect.items.map((i) => i.value).toList();
@@ -325,12 +329,19 @@ void main() {
         // as "already mapped" and unlinkedLocals is empty too. Before the fix
         // the screen fell through to the data branch with no rows between the
         // intro and the footer buttons, which read as a broken screen.
+        //
+        // Post-PR1, the test must seed `fetchedPkUuids` with the local's
+        // PK uuid so `hasResolvablePluralKitLink` returns true — otherwise
+        // the local would be classified as unresolved-link and shown in the
+        // push pool instead of the empty state.
         final alreadyLinked = _local('l1', 'Alice', pkUuid: 'pk-alice');
         final state = PkMappingState(
           pkMembers: const [],
           localMembers: [alreadyLinked],
           decisionsByPkUuid: const {},
           decisionsByLocalId: const {},
+          fetchedPkUuids: const {'pk-alice'},
+          fetchedPkIds: const {'pk-al'},
         );
 
         final controller = _FakePkMappingController(state);
@@ -838,5 +849,246 @@ void main() {
             'preserving the original compact design.',
       );
     });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PR 1 (mapping recovery): caption + apply-summary disclosure.
+  // ---------------------------------------------------------------------------
+
+  group('PR 1 recovery: row captions', () {
+    testWidgets(
+      'unresolved-candidate caption appears as subtitle under the PK row '
+      'dropdown item',
+      (tester) async {
+        // l1 carries PK fields (pk-old/zzzzz) that do NOT resolve in the
+        // current fetch (pk-alice/aaaaa). The PK row's dropdown item for l1
+        // must surface the muted caption so the user sees the Link will
+        // overwrite stale fields.
+        final pkAlice = _pk('pk-alice', 'Alice');
+        final unresolvedLocal = domain.Member(
+          id: 'l1',
+          name: 'Stale',
+          createdAt: DateTime(2026),
+          pluralkitUuid: 'pk-old',
+          pluralkitId: 'zzzzz',
+        );
+
+        final state = PkMappingState(
+          pkMembers: [pkAlice],
+          localMembers: [unresolvedLocal],
+          decisionsByPkUuid: {pkAlice.uuid: PkImportDecision(pkMember: pkAlice)},
+          fetchedPkUuids: const {'pk-alice'},
+          fetchedPkIds: const {'aaaaa'},
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        final pkSelect = _selectsFor(tester).firstWhere(
+          (s) => s.value == kPkRowImportSentinel,
+        );
+        final l1Item = pkSelect.items.firstWhere((i) => i.value == 'l1');
+        expect(
+          l1Item.subtitle,
+          'Was linked to a PluralKit member no longer in this system',
+          reason:
+              'Unresolved-candidate item must show the muted caption '
+              'explaining the overwrite',
+        );
+      },
+    );
+
+    testWidgets(
+      'resolved local has no unresolved-candidate caption',
+      (tester) async {
+        // l2 has no PK fields at all → no caption.
+        final pkAlice = _pk('pk-alice', 'Alice');
+        final locals = [_local('l2', 'Bob')];
+
+        final state = PkMappingState(
+          pkMembers: [pkAlice],
+          localMembers: locals,
+          decisionsByPkUuid: {pkAlice.uuid: PkImportDecision(pkMember: pkAlice)},
+          fetchedPkUuids: const {'pk-alice'},
+          fetchedPkIds: const {'aaaaa'},
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        final pkSelect = _selectsFor(tester).firstWhere(
+          (s) => s.value == kPkRowImportSentinel,
+        );
+        final l2Item = pkSelect.items.firstWhere((i) => i.value == 'l2');
+        expect(l2Item.subtitle, isNull);
+      },
+    );
+
+    testWidgets(
+      '"No candidates" caption appears under PK row with zero linkable locals',
+      (tester) async {
+        // PK row has Alice + Bob, but the only local is already linked to
+        // pk-alice (resolves) → no linkable members at all. Bob's row must
+        // surface the recovery hint.
+        final pkBob = _pk('pk-bob', 'Bob');
+        final linkedLocal = domain.Member(
+          id: 'l1',
+          name: 'Alice',
+          createdAt: DateTime(2026),
+          pluralkitUuid: 'pk-alice',
+          pluralkitId: 'aaaaa',
+        );
+
+        final state = PkMappingState(
+          pkMembers: [pkBob],
+          localMembers: [linkedLocal],
+          decisionsByPkUuid: {pkBob.uuid: PkImportDecision(pkMember: pkBob)},
+          fetchedPkUuids: const {'pk-alice', 'pk-bob'},
+          fetchedPkIds: const {'aaaaa', 'pk-bo'},
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('No candidates — import as new or open Manage links to '
+              'resolve'),
+          findsOneWidget,
+          reason:
+              'PK row with zero linkable locals must show the recovery '
+              'hint inline',
+        );
+      },
+    );
+
+    testWidgets(
+      'section-2 unresolved caption appears under unresolved-link local row '
+      'defaulted to Skip',
+      (tester) async {
+        // unresolved-link local defaulted to Skip surfaces the muted
+        // explanation + Push-override hint below its name.
+        final unresolvedLocal = domain.Member(
+          id: 'l1',
+          name: 'Stale',
+          createdAt: DateTime(2026),
+          pluralkitUuid: 'pk-old',
+          pluralkitId: 'zzzzz',
+        );
+
+        final state = PkMappingState(
+          pkMembers: const [],
+          localMembers: [unresolvedLocal],
+          decisionsByLocalId: {
+            'l1': const PkSkipDecision(localMemberId: 'l1'),
+          },
+          fetchedPkUuids: const {'pk-alice'},
+          fetchedPkIds: const {'aaaaa'},
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.textContaining('Defaulting to Skip'),
+          findsOneWidget,
+          reason:
+              'Unresolved-link local on Skip must show the asymmetric '
+              'default explanation',
+        );
+      },
+    );
+  });
+
+  group('PR 1 recovery: apply summary unresolvedCleared clause', () {
+    testWidgets(
+      '"cleared N unresolved links" appears when an unresolved local is '
+      'pushed',
+      (tester) async {
+        // l1 had stale PK fields; a Push decision succeeds → its stale
+        // fields are now overwritten → unresolvedCleared = 1.
+        //
+        // Stage state with `lastResults` already populated so the screen
+        // renders the post-apply ResultsSummary directly. Avoids racing the
+        // Applied-outcome pop in _MappingBody._apply.
+        final unresolvedLocal = domain.Member(
+          id: 'l1',
+          name: 'Stale',
+          createdAt: DateTime(2026),
+          pluralkitUuid: 'pk-old',
+          pluralkitId: 'zzzzz',
+        );
+        final results = <PkApplyResult>[
+          const PkApplyResult(
+            decision: PkPushNewDecision(localMemberId: 'l1'),
+            outcome: PkApplyOutcome.applied,
+          ),
+        ];
+        final state = PkMappingState(
+          pkMembers: const [],
+          localMembers: [unresolvedLocal],
+          decisionsByLocalId: {
+            'l1': const PkPushNewDecision(localMemberId: 'l1'),
+          },
+          fetchedPkUuids: const {'pk-alice'},
+          fetchedPkIds: const {'aaaaa'},
+          lastResults: results,
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.textContaining('cleared 1 unresolved links'),
+          findsOneWidget,
+          reason: 'Apply summary must surface the cleared count when > 0',
+        );
+      },
+    );
+
+    testWidgets(
+      'cleared-unresolved clause is OMITTED when N == 0',
+      (tester) async {
+        // No local had stale PK fields → the clause must not appear in the
+        // rendered summary.
+        final freshLocal = _local('l1', 'Fresh');
+        final results = <PkApplyResult>[
+          const PkApplyResult(
+            decision: PkPushNewDecision(localMemberId: 'l1'),
+            outcome: PkApplyOutcome.applied,
+          ),
+        ];
+        final state = PkMappingState(
+          pkMembers: const [],
+          localMembers: [freshLocal],
+          decisionsByLocalId: {
+            'l1': const PkPushNewDecision(localMemberId: 'l1'),
+          },
+          // No stale locals → no unresolvedCleared.
+          fetchedPkUuids: const {'pk-alice'},
+          fetchedPkIds: const {'aaaaa'},
+          lastResults: results,
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.textContaining('cleared'),
+          findsNothing,
+          reason:
+              'Clause must be omitted when no unresolved links were cleared',
+        );
+        // Sanity: summary IS visible. The summary line includes the full
+        // counter prefix; check for "1 pushed" specifically to avoid the
+        // "Push to PK" row label collision.
+        expect(find.textContaining('1 pushed'), findsOneWidget);
+      },
+    );
   });
 }

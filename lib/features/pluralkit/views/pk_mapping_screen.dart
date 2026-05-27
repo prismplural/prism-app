@@ -264,7 +264,7 @@ class _MappingBody extends ConsumerWidget {
         // -- Results summary --
         if (state.lastResults != null) ...[
           const SizedBox(height: 24),
-          _ResultsSummary(results: state.lastResults!),
+          _ResultsSummary(results: state.lastResults!, state: state),
         ],
 
         if (state.error != null) ...[
@@ -384,8 +384,14 @@ class _PkMemberRow extends ConsumerWidget {
       if (d is PkLinkDecision) consumedElsewhere.add(d.localMemberId);
     }
 
+    bool isLinkCandidate(domain.Member m) => !hasResolvablePluralKitLink(
+          m,
+          fetchedPkUuids: state.fetchedPkUuids,
+          fetchedPkIds: state.fetchedPkIds,
+        );
+
     final linkableMembers = state.localMembers
-        .where((m) => !hasPluralKitLink(m) && !consumedElsewhere.contains(m.id))
+        .where((m) => isLinkCandidate(m) && !consumedElsewhere.contains(m.id))
         .toList(growable: false);
 
     final items = <PrismSelectItem<String>>[
@@ -399,10 +405,15 @@ class _PkMemberRow extends ConsumerWidget {
         label: l10n.pkMappingOptionSkip,
         leading: Icon(AppIcons.linkOff),
       ),
-      for (final local in state.localMembers.where((m) => !hasPluralKitLink(m)))
+      for (final local in state.localMembers.where(isLinkCandidate))
         PrismSelectItem(
           value: local.id,
           label: l10n.pkMappingOptionLink(local.name),
+          // Surface stale PK fields inline so the user understands that a
+          // Link here will overwrite the unresolved fields on this local.
+          subtitle: hasPluralKitLink(local)
+              ? l10n.pkMappingRowUnresolvedCandidateCaption
+              : null,
           leading: MemberAvatar(
             memberName: local.name,
             emoji: local.emoji,
@@ -428,6 +439,19 @@ class _PkMemberRow extends ConsumerWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
+        // No locals available to link this PK member to — surface the
+        // recovery hint so users understand "Import as new" or the manage
+        // screen are their options.
+        if (linkableMembers.isEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            l10n.pkMappingRowNoCandidatesCaption,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
       ],
     );
 
@@ -495,6 +519,18 @@ class _LocalMemberRow extends ConsumerWidget {
     final l10n = context.l10n;
     final decision = state.decisionsByLocalId[localMember.id];
     final isPush = decision is PkPushNewDecision;
+    final isSkip = decision is PkSkipDecision;
+    // Unresolved-link locals carry PK fields that don't match any fetched PK
+    // member. Build() defaults these to Skip; surface a caption explaining
+    // the asymmetric default and the Push override path. Truly-unlinked
+    // locals the user manually switched to Skip don't get this caption.
+    final isUnresolvedLink = hasPluralKitLink(localMember) &&
+        !hasResolvablePluralKitLink(
+          localMember,
+          fetchedPkUuids: state.fetchedPkUuids,
+          fetchedPkIds: state.fetchedPkIds,
+        );
+    final showUnresolvedSkipCaption = isUnresolvedLink && isSkip;
 
     final nameRow = Row(
       children: [
@@ -508,7 +544,22 @@ class _LocalMemberRow extends ConsumerWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(localMember.name, style: theme.textTheme.bodyLarge),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(localMember.name, style: theme.textTheme.bodyLarge),
+              if (showUnresolvedSkipCaption) ...[
+                const SizedBox(height: 2),
+                Text(
+                  l10n.pkMappingSectionToPushUnresolvedCaption,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ],
     );
@@ -609,8 +660,9 @@ class _ResponsiveMappingRow extends StatelessWidget {
 }
 
 class _ResultsSummary extends StatelessWidget {
-  const _ResultsSummary({required this.results});
+  const _ResultsSummary({required this.results, required this.state});
   final List<PkApplyResult> results;
+  final PkMappingState state;
 
   @override
   Widget build(BuildContext context) {
@@ -622,7 +674,23 @@ class _ResultsSummary extends StatelessWidget {
     int pushed = 0;
     int skipped = 0;
     int failed = 0;
+    int unresolvedCleared = 0;
     final failures = <PkApplyResult>[];
+
+    // Pre-apply snapshot of locals whose PK fields didn't resolve against
+    // the fetched PK system. Successful Link / PushNew decisions on these
+    // locals overwrite the stale fields — count them so the summary can
+    // surface "cleared N unresolved links".
+    final unresolvedLocalIds = <String>{
+      for (final m in state.localMembers)
+        if (hasPluralKitLink(m) &&
+            !hasResolvablePluralKitLink(
+              m,
+              fetchedPkUuids: state.fetchedPkUuids,
+              fetchedPkIds: state.fetchedPkIds,
+            ))
+          m.id,
+    };
 
     for (final r in results) {
       if (r.outcome == PkApplyOutcome.failed) {
@@ -631,12 +699,14 @@ class _ResultsSummary extends StatelessWidget {
         continue;
       }
       switch (r.decision) {
-        case PkLinkDecision():
+        case PkLinkDecision(:final localMemberId):
           linked++;
+          if (unresolvedLocalIds.contains(localMemberId)) unresolvedCleared++;
         case PkImportDecision():
           imported++;
-        case PkPushNewDecision():
+        case PkPushNewDecision(:final localMemberId):
           pushed++;
+          if (unresolvedLocalIds.contains(localMemberId)) unresolvedCleared++;
         case PkSkipDecision():
           skipped++;
       }
@@ -654,6 +724,7 @@ class _ResultsSummary extends StatelessWidget {
               pushed,
               skipped,
               failed,
+              unresolvedCleared,
             ),
             style: theme.textTheme.bodyMedium,
           ),

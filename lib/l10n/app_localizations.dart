@@ -16361,17 +16361,36 @@ abstract class AppLocalizations {
   /// **'Don\'t push'**
   String get pkMappingOptionDontPush;
 
-  /// Summary line shown after applying PK mapping decisions.
+  /// Summary line shown after applying PK mapping decisions. The 'cleared N unresolved links' clause is only included when unresolvedCleared > 0.
   ///
   /// In en, this message translates to:
-  /// **'{linked} linked, {imported} imported, {pushed} pushed, {skipped} skipped, {failed} failed'**
+  /// **'{linked} linked, {imported} imported, {pushed} pushed, {skipped} skipped, {failed} failed{unresolvedCleared, plural, =0{} other{, cleared {unresolvedCleared} unresolved links}}'**
   String pkMappingResultsSummary(
     int linked,
     int imported,
     int pushed,
     int skipped,
     int failed,
+    int unresolvedCleared,
   );
+
+  /// Muted caption shown under a local member in the PK-row link dropdown when the local carries stale PK fields (linked to a member not in the currently-paired PluralKit system). Linking will overwrite those stale fields.
+  ///
+  /// In en, this message translates to:
+  /// **'Was linked to a PluralKit member no longer in this system'**
+  String get pkMappingRowUnresolvedCandidateCaption;
+
+  /// Caption shown under a PK member row when no local member is available to link to. Steers the user toward 'Import as new' or the future Manage screen.
+  ///
+  /// In en, this message translates to:
+  /// **'No candidates — import as new or open Manage links to resolve'**
+  String get pkMappingRowNoCandidatesCaption;
+
+  /// Section-2 (Local members to push) caption shown under a local that carries unresolved PK fields and has been defaulted to Skip. Explains the asymmetric default and how to override.
+  ///
+  /// In en, this message translates to:
+  /// **'Was linked to a PluralKit member no longer in this system. Defaulting to Skip — change to Push if you want to create a new PluralKit member.'**
+  String get pkMappingSectionToPushUnresolvedCaption;
 
   /// Header above the per-row failure list in the PK mapping results card.
   ///
