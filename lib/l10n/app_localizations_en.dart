@@ -10301,6 +10301,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pkLinkManagementLinkAction => 'Link to PluralKit member…';
 
   @override
+  String get pkLinkManagementChangeLinkAction => 'Change link';
+
+  @override
+  String get pkLinkManagementChangeLinkNoCandidatesCaption =>
+      'No unmapped PluralKit members — exclude another link first.';
+
+  @override
+  String pkLinkManagementChangeLinkConfirmTitle(String localName) {
+    return 'Change PluralKit link for $localName?';
+  }
+
+  @override
+  String pkLinkManagementChangeLinkConfirmMessage(
+    String currentPkName,
+    String currentPkId,
+    String termSingularLower,
+  ) {
+    return 'Currently linked to $currentPkName ($currentPkId). The new link will replace it. Switch history already imported from the old PluralKit member stays attributed to this $termSingularLower.';
+  }
+
+  @override
+  String get pkLinkManagementChangeLinkConfirmAction => 'Change link';
+
+  @override
   String get pkLinkManagementUnresolvedCaption =>
       'Stored PK ID is no longer in your PluralKit system';
 

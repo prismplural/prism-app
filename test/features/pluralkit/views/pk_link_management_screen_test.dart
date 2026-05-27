@@ -357,4 +357,109 @@ void main() {
       },
     );
   });
+
+  group('PkLinkManagementScreen — Change link on Synced rows', () {
+    testWidgets(
+      'Synced row renders both Change link and Exclude buttons',
+      (tester) async {
+        _useTallViewport(tester);
+        final pkAlice = _pk('pk-alice', 'Alice');
+        // Add an unmapped PK candidate so Change link is enabled.
+        final pkSpare = _pk('pk-spare', 'Spare');
+        final alice =
+            _local('l-alice', 'Alice', pkUuid: 'pk-alice', pkId: 'aliceid');
+        final repo = FakeMemberRepository()..seed([alice]);
+        final controller = _FakePkLinkManagementController(
+          _state(locals: [alice], pkMembers: [pkAlice, pkSpare]),
+        );
+
+        await tester.pumpWidget(_wrap(controller: controller, repo: repo));
+        await tester.pumpAndSettle();
+
+        final changeLink = tester.widget<PrismButton>(
+          find.byKey(
+            const ValueKey('pkLinkManagementChangeLinkButton-l-alice'),
+          ),
+        );
+        expect(changeLink.enabled, isTrue);
+        expect(changeLink.label, 'Change link');
+
+        // Exclude button remains under the same key as before.
+        expect(
+          find.byKey(const ValueKey('pkLinkManagementExcludeButton-l-alice')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'Change link is disabled when offline (isConnected: false)',
+      (tester) async {
+        _useTallViewport(tester);
+        final alice =
+            _local('l-alice', 'Alice', pkUuid: 'pk-alice', pkId: 'aliceid');
+        final repo = FakeMemberRepository()..seed([alice]);
+        final controller = _FakePkLinkManagementController(
+          _state(locals: [alice], isConnected: false),
+        );
+
+        await tester.pumpWidget(_wrap(controller: controller, repo: repo));
+        await tester.pumpAndSettle();
+
+        final changeLink = tester.widget<PrismButton>(
+          find.byKey(
+            const ValueKey('pkLinkManagementChangeLinkButton-l-alice'),
+          ),
+        );
+        expect(changeLink.enabled, isFalse);
+      },
+    );
+
+    testWidgets(
+      'Change link is disabled on fetch error (isConnected: true, fetchError set)',
+      (tester) async {
+        _useTallViewport(tester);
+        final pkAlice = _pk('pk-alice', 'Alice');
+        final alice =
+            _local('l-alice', 'Alice', pkUuid: 'pk-alice', pkId: 'aliceid');
+        final repo = FakeMemberRepository()..seed([alice]);
+        // Build state directly so we can set fetchError — the _state() helper
+        // doesn't expose it. isConnected stays true so the Synced row still
+        // renders (Synced bucketing falls back to hasPluralKitLink when
+        // isConnected resolves to "offline" via fetchError). hasFreshFetch
+        // returns false because fetchError != null, which is what gates
+        // onChangeLink in the parent.
+        final pkUuids = {pkAlice.uuid};
+        final pkIds = {pkAlice.id};
+        final controller = _FakePkLinkManagementController(
+          PkLinkManagementState(
+            localMembers: [alice],
+            pkMembers: const [],
+            isConnected: true,
+            fetchedPkUuids: pkUuids,
+            fetchedPkIds: pkIds,
+            pkMembersByUuid: {pkAlice.uuid: pkAlice},
+            pkMembersById: {pkAlice.id: pkAlice},
+            fetchError: Exception('boom'),
+          ),
+        );
+
+        await tester.pumpWidget(_wrap(controller: controller, repo: repo));
+        await tester.pumpAndSettle();
+
+        final changeLink = tester.widget<PrismButton>(
+          find.byKey(
+            const ValueKey('pkLinkManagementChangeLinkButton-l-alice'),
+          ),
+        );
+        expect(changeLink.enabled, isFalse);
+      },
+    );
+
+    // The remaining spec'd cases — empty-unmapped toast, confirmation dialog
+    // copy, and the full apply path — depend on mocking the pluralKitSync
+    // service + PkMappingApplier network calls. The existing harness in this
+    // file doesn't cover those, and adding the machinery is out of scope for
+    // Phase 1 (see docs/plans/2026-05-27-pk-change-link-on-synced-rows.md).
+  });
 }

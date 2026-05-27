@@ -16506,6 +16506,40 @@ abstract class AppLocalizations {
   /// **'Link to PluralKit member…'**
   String get pkLinkManagementLinkAction;
 
+  /// Action button on Synced rows of the Manage PluralKit links screen that opens a search to re-point a local member at a different PluralKit member.
+  ///
+  /// In en, this message translates to:
+  /// **'Change link'**
+  String get pkLinkManagementChangeLinkAction;
+
+  /// Toast shown when the user taps Change link but every PluralKit member is already linked to another local.
+  ///
+  /// In en, this message translates to:
+  /// **'No unmapped PluralKit members — exclude another link first.'**
+  String get pkLinkManagementChangeLinkNoCandidatesCaption;
+
+  /// Title of the confirmation dialog before overwriting a resolved PluralKit link on a Synced row.
+  ///
+  /// In en, this message translates to:
+  /// **'Change PluralKit link for {localName}?'**
+  String pkLinkManagementChangeLinkConfirmTitle(String localName);
+
+  /// Body of the confirmation dialog before overwriting a resolved PluralKit link on a Synced row.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently linked to {currentPkName} ({currentPkId}). The new link will replace it. Switch history already imported from the old PluralKit member stays attributed to this {termSingularLower}.'**
+  String pkLinkManagementChangeLinkConfirmMessage(
+    String currentPkName,
+    String currentPkId,
+    String termSingularLower,
+  );
+
+  /// Destructive-confirm button label in the Change PluralKit link dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Change link'**
+  String get pkLinkManagementChangeLinkConfirmAction;
+
   /// Caption shown under members in the Unresolved section of the Manage PluralKit links screen.
   ///
   /// In en, this message translates to:

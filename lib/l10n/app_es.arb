@@ -3333,6 +3333,32 @@
   "@pkLinkManagementLinkAction": {
     "description": "Action button on the Manage PluralKit links screen that opens a search to link a local member to a PluralKit member."
   },
+  "pkLinkManagementChangeLinkAction": "Change link",
+  "@pkLinkManagementChangeLinkAction": {
+    "description": "Action button on Synced rows of the Manage PluralKit links screen that opens a search to re-point a local member at a different PluralKit member."
+  },
+  "pkLinkManagementChangeLinkNoCandidatesCaption": "No unmapped PluralKit members — exclude another link first.",
+  "@pkLinkManagementChangeLinkNoCandidatesCaption": {
+    "description": "Toast shown when the user taps Change link but every PluralKit member is already linked to another local."
+  },
+  "pkLinkManagementChangeLinkConfirmTitle": "Change PluralKit link for {localName}?",
+  "@pkLinkManagementChangeLinkConfirmTitle": {
+    "description": "Title of the confirmation dialog before overwriting a resolved PluralKit link on a Synced row.",
+    "placeholders": { "localName": { "type": "String" } }
+  },
+  "pkLinkManagementChangeLinkConfirmMessage": "Currently linked to {currentPkName} ({currentPkId}). The new link will replace it. Switch history already imported from the old PluralKit member stays attributed to this {termSingularLower}.",
+  "@pkLinkManagementChangeLinkConfirmMessage": {
+    "description": "Body of the confirmation dialog before overwriting a resolved PluralKit link on a Synced row.",
+    "placeholders": {
+      "currentPkName": { "type": "String" },
+      "currentPkId": { "type": "String" },
+      "termSingularLower": { "type": "String" }
+    }
+  },
+  "pkLinkManagementChangeLinkConfirmAction": "Change link",
+  "@pkLinkManagementChangeLinkConfirmAction": {
+    "description": "Destructive-confirm button label in the Change PluralKit link dialog."
+  },
   "pkLinkManagementUnresolvedCaption": "Stored PK ID is no longer in your PluralKit system",
   "@pkLinkManagementUnresolvedCaption": {
     "description": "Caption shown under members in the Unresolved section of the Manage PluralKit links screen."

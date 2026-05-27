@@ -11,12 +11,14 @@ import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.d
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -303,6 +305,61 @@ class _ManagementBody extends ConsumerWidget {
     await _applyLink(context, ref, local: local, pkMember: pkPicked);
   }
 
+  /// Re-points a Synced local at a different PK member. Picker is restricted
+  /// to `unmappedPkMembers` (matches `_showRowLinkSearch`); a confirm dialog
+  /// names both the old and the new PK member because overwriting a resolved
+  /// link is destructive.
+  Future<void> _showChangeLinkFlow(
+    BuildContext context,
+    WidgetRef ref,
+    domain.Member local,
+  ) async {
+    final l10n = context.l10n;
+    final unmapped = state.unmappedPkMembers;
+    if (unmapped.isEmpty) {
+      PrismToast.show(
+        context,
+        message: l10n.pkLinkManagementChangeLinkNoCandidatesCaption,
+      );
+      return;
+    }
+
+    final pkPicked = await _pickPkMember(
+      context: context,
+      candidates: unmapped,
+      title: l10n.pkLinkManagementChangeLinkAction,
+    );
+    if (!context.mounted || pkPicked == null) return;
+
+    // Resolve the current PK member from the local's stored fields so the
+    // confirm dialog can name both sides. Fall back to the stored short ID
+    // when the PK fetch doesn't carry the entry (shouldn't happen for a
+    // Synced row but is cheap to guard).
+    final currentPkUuid = local.pluralkitUuid?.trim();
+    final currentPkId = local.pluralkitId?.trim() ?? '';
+    final current = (currentPkUuid != null && currentPkUuid.isNotEmpty)
+        ? state.pkMembersByUuid[currentPkUuid]
+        : (currentPkId.isNotEmpty ? state.pkMembersById[currentPkId] : null);
+    final currentDisplay =
+        current?.displayName ?? current?.name ?? currentPkId;
+    final terms = readTerminology(context, ref);
+
+    final confirmed = await PrismDialog.confirm(
+      context: context,
+      title: l10n.pkLinkManagementChangeLinkConfirmTitle(local.name),
+      message: l10n.pkLinkManagementChangeLinkConfirmMessage(
+        currentDisplay,
+        currentPkId,
+        terms.singularLower,
+      ),
+      confirmLabel: l10n.pkLinkManagementChangeLinkConfirmAction,
+      destructive: true,
+    );
+    if (!context.mounted || !confirmed) return;
+
+    await _applyLink(context, ref, local: local, pkMember: pkPicked);
+  }
+
   /// Opens the top-level "Add link to existing member" flow: search all
   /// locals → second sheet with the unmapped PK members. Selecting a PK
   /// member routes through `applyPluralKitLink` (resumes sync for excluded,
@@ -523,6 +580,9 @@ class _ManagementBody extends ConsumerWidget {
                     local: m,
                     pkMember: _pkMemberFor(m),
                     isConnected: state.isConnected,
+                    onChangeLink: state.hasFreshFetch
+                        ? () => _showChangeLinkFlow(context, ref, m)
+                        : null,
                     onExclude: () => _exclude(context, ref, m),
                   ),
               ],
@@ -615,12 +675,17 @@ class _SyncedRow extends StatelessWidget {
     required this.local,
     required this.pkMember,
     required this.isConnected,
+    required this.onChangeLink,
     required this.onExclude,
   });
 
   final domain.Member local;
   final PKMember? pkMember;
   final bool isConnected;
+
+  /// Nullable so the parent can disable Change link when the fetch is stale
+  /// (offline or fetch-failed) — picking a target needs a fresh PK roster.
+  final VoidCallback? onChangeLink;
   final VoidCallback onExclude;
 
   @override
@@ -642,18 +707,40 @@ class _SyncedRow extends StatelessWidget {
         size: 36,
       ),
       title: Text(local.name),
-      subtitle: Text(
-        subtitleText,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-      trailing: PrismButton(
-        key: ValueKey('pkLinkManagementExcludeButton-${local.id}'),
-        onPressed: onExclude,
-        label: l10n.pkLinkManagementExclude,
-        tone: PrismButtonTone.subtle,
-        density: PrismControlDensity.compact,
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            subtitleText,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              PrismButton(
+                key: ValueKey(
+                  'pkLinkManagementChangeLinkButton-${local.id}',
+                ),
+                onPressed: onChangeLink ?? () {},
+                label: l10n.pkLinkManagementChangeLinkAction,
+                tone: PrismButtonTone.filled,
+                density: PrismControlDensity.compact,
+                enabled: onChangeLink != null,
+              ),
+              PrismButton(
+                key: ValueKey('pkLinkManagementExcludeButton-${local.id}'),
+                onPressed: onExclude,
+                label: l10n.pkLinkManagementExclude,
+                tone: PrismButtonTone.subtle,
+                density: PrismControlDensity.compact,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
