@@ -18,11 +18,11 @@ class CustomFieldsEditorController extends ChangeNotifier {
   }
 
   void unregister(PendingFieldEditState state) {
+    // No notifyListeners(): unregister runs from State.dispose() chains
+    // where a listener-side setState() asserts "widget tree was locked".
+    // The host re-reads hasPendingChanges on its next rebuild.
     final wasDirty = _dirty.remove(state) ?? false;
-    if (wasDirty) {
-      _dirtyCount--;
-      if (_dirtyCount == 0) notifyListeners();
-    }
+    if (wasDirty) _dirtyCount--;
   }
 
   void markDirty(PendingFieldEditState state, bool dirty) {

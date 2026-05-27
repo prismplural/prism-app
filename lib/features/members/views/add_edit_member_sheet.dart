@@ -1677,6 +1677,11 @@ class _ProxyTagDraft {
 
 /// Off-screen-but-mounted views are isolated from pointer, focus, and
 /// screen-reader traversal so they don't interfere with the active view.
+///
+/// The wrapper chain stays constant; only the boolean inputs flip. A
+/// shape-toggling implementation (e.g. `visible ? child : IgnorePointer(...)`)
+/// would change every descendant's parent chain on navigation, dropping the
+/// element/state tree — including any in-flight staged custom-field edits.
 class _InactiveWhenHidden extends StatelessWidget {
   const _InactiveWhenHidden({required this.visible, required this.child});
 
@@ -1685,9 +1690,16 @@ class _InactiveWhenHidden extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (visible) return child;
+    final inactive = !visible;
     return IgnorePointer(
-      child: ExcludeFocus(child: ExcludeSemantics(child: child)),
+      ignoring: inactive,
+      child: ExcludeFocus(
+        excluding: inactive,
+        child: ExcludeSemantics(
+          excluding: inactive,
+          child: child,
+        ),
+      ),
     );
   }
 }

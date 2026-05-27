@@ -186,6 +186,117 @@ void main() {
     },
   );
 
+  testWidgets(
+    'staged edit survives a visibility toggle on the editor wrapper '
+    '(in-sheet detail-view navigation must not destroy descendant state)',
+    (tester) async {
+      // The host's `_InactiveWhenHidden` must keep its wrapper shape constant
+      // across visibility toggles; a `visible ? child : IgnorePointer(...)`
+      // shape-toggle would drop descendant State on every navigation and take
+      // staged custom-field edits with it.
+      final repo = _FakeCustomFieldsRepository();
+      final controller = CustomFieldsEditorController();
+      final field = CustomField(
+        id: 'field-a',
+        name: 'Alpha',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'text',
+        createdAt: DateTime(2026, 1, 1),
+      );
+      final inactive = ValueNotifier<bool>(false);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            customFieldsRepositoryProvider.overrideWithValue(repo),
+            customFieldsProvider.overrideWithValue(AsyncValue.data([field])),
+            memberCustomFieldValuesProvider(
+              memberId,
+            ).overrideWithValue(const AsyncValue.data([])),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Scaffold(
+              body: ValueListenableBuilder<bool>(
+                valueListenable: inactive,
+                builder: (context, isInactive, _) {
+                  return IgnorePointer(
+                    ignoring: isInactive,
+                    child: ExcludeFocus(
+                      excluding: isInactive,
+                      child: ExcludeSemantics(
+                        excluding: isInactive,
+                        child: CustomFieldsEditor(
+                          memberId: memberId,
+                          controller: controller,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(EditableText), 'staged');
+      await tester.pump();
+      expect(controller.hasPendingChanges, isTrue);
+
+      // Toggle the wrapper off and back on (mirrors navigating to main view
+      // and back to the detail view). State must survive — if the wrapper
+      // changed shape instead of toggling booleans, this would drop the
+      // staged edit and the dirty flag.
+      inactive.value = true;
+      await tester.pumpAndSettle();
+      inactive.value = false;
+      await tester.pumpAndSettle();
+
+      expect(controller.hasPendingChanges, isTrue);
+
+      final failures = await controller.commit();
+      await tester.pump();
+      expect(failures, isEmpty);
+      expect(repo.upsertedValues, hasLength(1));
+      expect(repo.upsertedValues.single.customFieldId, 'field-a');
+      expect(repo.upsertedValues.single.value, 'staged');
+    },
+  );
+
+  test(
+    'unregister() does not call notifyListeners — runs from dispose chains '
+    'where the framework is locked and setState would assert',
+    () {
+      final controller = CustomFieldsEditorController();
+      var notifyCount = 0;
+      controller.addListener(() => notifyCount++);
+
+      final state = _StubEditState('field-x');
+      controller.register(state);
+      controller.markDirty(state, true);
+      expect(notifyCount, 1);
+
+      controller.unregister(state);
+      expect(notifyCount, 1);
+      expect(controller.hasPendingChanges, isFalse);
+    },
+  );
+}
+
+class _StubEditState implements PendingFieldEditState {
+  _StubEditState(this.fieldId);
+
+  @override
+  final String fieldId;
+
+  @override
+  String get fieldDisplayName => fieldId;
+
+  @override
+  Future<void> commitPendingValue() async {}
 }
 
 Widget _subject({
