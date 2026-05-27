@@ -23,6 +23,7 @@ void main() {
       id: 'second-bio',
       name: 'Second bio',
       fieldType: CustomFieldType.longText,
+      fieldTypeId: 'long_text',
       createdAt: DateTime(2026, 1, 1),
     );
 
@@ -64,6 +65,7 @@ void main() {
       id: 'second-bio',
       name: 'Second bio',
       fieldType: CustomFieldType.longText,
+      fieldTypeId: 'long_text',
       createdAt: DateTime(2026, 1, 1),
     );
 
@@ -92,6 +94,97 @@ void main() {
     await controller.commit();
     expect(repo.upsertedValues, hasLength(1));
   });
+
+  testWidgets(
+    'commit() is best-effort: a failure on one field does not block the rest '
+    'and the failed field stays dirty so a retry re-stages cleanly',
+    (tester) async {
+      // Three text fields. The fake repo throws when asked to write
+      // 'field-b'. Expect a/c to land and b to surface as a failure with
+      // its dirty flag preserved.
+      final repo = _FakeCustomFieldsRepository()
+        ..failOnFieldId = 'field-b';
+      final controller = CustomFieldsEditorController();
+      final showEditor = ValueNotifier(true);
+      final fields = [
+        CustomField(
+          id: 'field-a',
+          name: 'Alpha',
+          fieldType: CustomFieldType.text,
+          fieldTypeId: 'text',
+          createdAt: DateTime(2026, 1, 1),
+        ),
+        CustomField(
+          id: 'field-b',
+          name: 'Beta',
+          fieldType: CustomFieldType.text,
+          fieldTypeId: 'text',
+          createdAt: DateTime(2026, 1, 1),
+        ),
+        CustomField(
+          id: 'field-c',
+          name: 'Gamma',
+          fieldType: CustomFieldType.text,
+          fieldTypeId: 'text',
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      ];
+
+      await tester.pumpWidget(
+        _subject(
+          repo: repo,
+          controller: controller,
+          showEditor: showEditor,
+          memberId: memberId,
+          fields: fields,
+          values: const [],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Stage all three.
+      final editables = find.byType(EditableText);
+      expect(editables, findsNWidgets(3));
+      await tester.enterText(editables.at(0), 'one');
+      await tester.enterText(editables.at(1), 'two');
+      await tester.enterText(editables.at(2), 'three');
+      await tester.pump();
+      expect(controller.hasPendingChanges, isTrue);
+
+      final failures = await controller.commit();
+      await tester.pump();
+
+      // Two writes landed; the middle one is recorded as a failure.
+      expect(repo.upsertedValues.map((v) => v.customFieldId), {
+        'field-a',
+        'field-c',
+      });
+      expect(failures.keys, ['field-b']);
+      expect(failures['field-b'], isA<Exception>());
+
+      // The failed field stays dirty so the next save retries it; the two
+      // successful fields are clean.
+      expect(controller.hasPendingChanges, isTrue);
+      expect(controller.displayNameFor('field-b'), 'Beta');
+
+      // Touch field-b again (re-stage) and let the repo accept it on retry.
+      repo.failOnFieldId = null;
+      // Re-trigger a change without altering the visible text: the simplest
+      // path is to type the same value (the listener fires on every change).
+      // Type a transient char then back to 'two' to force the dirty marker.
+      await tester.enterText(editables.at(1), 'two-edit');
+      await tester.pump();
+      final retryFailures = await controller.commit();
+      await tester.pump();
+      expect(retryFailures, isEmpty);
+      // Repo now has 3 writes total: a, c (from first commit) + b (retry).
+      expect(
+        repo.upsertedValues.map((v) => v.customFieldId).toList(),
+        ['field-a', 'field-c', 'field-b'],
+      );
+      expect(controller.hasPendingChanges, isFalse);
+    },
+  );
 
   testWidgets(
     'long text edit button opens full-screen editor and stages the result '
@@ -186,6 +279,10 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   final upsertedValues = <CustomFieldValue>[];
   final deletedValueIds = <String>[];
 
+  /// When non-null, [upsertValue] throws for values targeting this field id.
+  /// Used by the partial-failure test to simulate one editor failing mid-bulk.
+  String? failOnFieldId;
+
   @override
   Future<void> createField(CustomField field) async {}
 
@@ -244,6 +341,9 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
 
   @override
   Future<void> upsertValue(CustomFieldValue value) async {
+    if (failOnFieldId != null && value.customFieldId == failOnFieldId) {
+      throw Exception('forced failure for ${value.customFieldId}');
+    }
     upsertedValues.add(value);
   }
 
