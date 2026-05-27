@@ -1301,18 +1301,10 @@ void main() {
     });
 
     test(
-      'PkLinkDecision id includes localMemberId so the _applyOne '
-      'alreadyApplied short-circuit cannot silently no-op a Link decision '
-      'targeting the same PK member but a different local (codex review)',
+      'PkLinkDecision id is scoped by (pk uuid, local id) so the '
+      'alreadyApplied short-circuit cannot conflate two Links of the '
+      'same PK member to different locals',
       () {
-        // Codex review caught: when PkLinkDecision.id was only
-        // `link:${pk.uuid}`, the _applyOne alreadyApplied short-circuit
-        // would skip any later attempt to link the same PK member to a
-        // different local. The Manage PluralKit links screen's "Add link
-        // to existing member" flow can route the user to that scenario
-        // (excluded-linked locals don't count as "mapped" in unmappedPkMembers).
-        // The fix scopes the decision id by local so each (pk, local)
-        // pair has its own pk_mapping_state row.
         const pk = PKMember(id: 'abcde', uuid: 'u-pk', name: 'PKAlice');
         const decisionA = PkLinkDecision(localMemberId: 'l1', pkMember: pk);
         const decisionB = PkLinkDecision(localMemberId: 'l2', pkMember: pk);

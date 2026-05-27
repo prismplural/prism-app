@@ -242,34 +242,25 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
 
   void _stripPkLinkFields(Map<String, dynamic> patch, String id) {
     final stripped = <String>[];
+    // Rule A: on excluded rows, generic updateMember cannot mutate PK
+    // identity or banner fields — including null clears. A stale
+    // full-domain updateMember(stale.copyWith(...)) where `stale`
+    // predates the link would otherwise wipe the link the exclude is
+    // supposed to preserve. The PkStaleLinkException clear at
+    // pk_bidirectional_service.dart:115 is upstream-guarded by the
+    // per-local sync_ignored skip, so it doesn't reach here on
+    // excluded rows.
+    //
+    // pluralkit_display_name is intentionally NOT stripped: the
+    // add/edit member sheet exposes it for user editing on excluded
+    // members.
     for (final key in const [
       'pluralkit_uuid',
       'pluralkit_id',
-      // NOTE: pluralkit_display_name is intentionally NOT stripped —
-      // the add/edit member sheet exposes it for editing on excluded
-      // members; stripping would silently no-op the user's edit. It's
-      // cached presentation, not authoritative sync state.
       'pk_banner_url',
       'pk_banner_image_data',
       'pk_banner_cached_url',
     ]) {
-      // Rule A: on excluded rows, generic updateMember cannot mutate
-      // PK identity / banner fields — including clearing them to null.
-      //
-      // Earlier drafts let null writes pass through, reasoning that a
-      // null clear could only originate from the PkStaleLinkException
-      // path and was therefore "consistent with the user's exclude
-      // intent." Codex review caught the hole: a stale full-domain
-      // updateMember(stale.copyWith(...)) where stale predates the
-      // link can diff into a patch with null PK fields, which would
-      // wipe the link the user wants preserved (so "Resume sync"
-      // picks up the established PK identity without re-creating).
-      //
-      // The PkStaleLinkException clear path at
-      // pk_bidirectional_service.dart:115 is protected upstream by
-      // Part 1.5's call-site guard skipping excluded members before
-      // the catch block runs — so stripping nulls here doesn't break
-      // that legitimate clear.
       if (patch.containsKey(key)) {
         patch.remove(key);
         stripped.add(key);
@@ -295,14 +286,9 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     // Rule B: on excluded rows, generic updateMember cannot transition
     // sync_ignored from true to false. Closes the stale-full-domain
     // write race where a sync loop's stale Member object carries the
-    // pre-exclude sync_ignored=false value and would otherwise
-    // silently reactivate via diff.
-    //
-    // The check is on `== false` specifically (not just "key present"):
-    // if the patch sets sync_ignored=true, the value matches the
-    // existing DB row, and the diff would not include the key anyway.
-    // Asymmetric with Rule A (which uses null as the explicit-clear
-    // marker) — see Rule A's comment.
+    // pre-exclude sync_ignored=false and would silently reactivate
+    // via diff. `== false` not `containsKey` because true is always a
+    // no-op against an already-excluded row.
     if (patch['pluralkit_sync_ignored'] == false) {
       patch.remove('pluralkit_sync_ignored');
       debugPrint(
@@ -311,18 +297,11 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     }
   }
 
-  // applyPluralKitLink and recordPluralKitIdentity accept the full
-  // member-patch allowlist because `_applyLink` and `_importMembers`
-  // intentionally pull PK-side conditional metadata (pronouns, bio,
-  // banner, etc.) in the same atomic write as PK identity. The
-  // method names signal intent ("this write is for PK link state");
-  // the broader allowlist accommodates the per-caller conditional
-  // patches without forcing a split.
-  //
-  // Future callers adding wrong fields (e.g. user-edited name) would
-  // be caught at code review by the method-name mismatch. If that
-  // proves insufficient, a future iteration can introduce a narrower
-  // `_pkLinkPatchKeys` set; not warranted today.
+  // PK-link methods accept the full member-patch allowlist because
+  // `_applyLink` and `_importMembers` intentionally pull PK-side
+  // conditional metadata (pronouns, bio, banner) in the same atomic
+  // write as identity. The method names signal intent; misuse is
+  // caught at review.
   void _validatePkPatchAllowlist(Map<String, dynamic> patch) {
     for (final key in patch.keys) {
       if (!_memberPatchKeys.contains(key)) {

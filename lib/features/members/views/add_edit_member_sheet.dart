@@ -9,9 +9,19 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/birthday.dart';
 import 'package:prism_plurality/features/members/utils/proxy_tag.dart';
+import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
+import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
+import 'package:prism_plurality/features/pluralkit/views/pk_link_management_screen.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_push_new_member_dialog.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -197,6 +207,28 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     // value can ride along with the auto-push that creates the PK member.
     // Pull-only is excluded — a local value would just be clobbered on first
     // pull, which would surprise the user.
+    final pkState = ref.watch(pluralKitSyncProvider);
+    if (!pkState.isConnected) return false;
+    return ref.watch(pkSyncDirectionProvider).pushEnabled;
+  }
+
+  /// Whether the editor sheet's "PluralKit" section renders. Reads live
+  /// state via memberByIdProvider so visibility tracks Resume / Exclude
+  /// actions taken inside the sheet.
+  bool get _showPluralKitSection {
+    final original = widget.member;
+    if (original != null) {
+      final live = ref.watch(memberByIdProvider(original.id)).maybeWhen(
+            data: (m) => m,
+            orElse: () => null,
+          ) ??
+          original;
+      if (_hasText(live.pluralkitUuid) ||
+          _hasText(live.pluralkitId) ||
+          live.pluralkitSyncIgnored) {
+        return true;
+      }
+    }
     final pkState = ref.watch(pluralKitSyncProvider);
     if (!pkState.isConnected) return false;
     return ref.watch(pkSyncDirectionProvider).pushEnabled;
@@ -1403,6 +1435,12 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
             onChanged: (_) => setState(() {}),
           ),
         ],
+        if (_showPluralKitSection && widget.isEditing) ...[
+          const SizedBox(height: 16),
+          _MemberEditorPluralKitSection(
+            member: widget.member!,
+          ),
+        ],
         const SizedBox(height: 24),
         Text(
           l10n.memberEditSectionAbout,
@@ -1840,4 +1878,264 @@ class _BirthdayField extends StatelessWidget {
       ],
     );
   }
+}
+class _MemberEditorPluralKitSection extends ConsumerWidget {
+  const _MemberEditorPluralKitSection({required this.member});
+
+  final Member member;
+
+  Future<void> _exclude(BuildContext context, WidgetRef ref) async {
+    await ref.read(memberRepositoryProvider).excludePluralKitSync(member.id);
+    // Refresh the management controller so the manage screen / other surfaces
+    // pick up the new state next time they render.
+    ref.invalidate(pkLinkManagementControllerProvider);
+  }
+
+  Future<void> _resume(BuildContext context, WidgetRef ref) async {
+    await ref.read(memberRepositoryProvider).resumePluralKitSync(member.id);
+    ref.invalidate(pkLinkManagementControllerProvider);
+  }
+
+  Future<void> _link(
+    BuildContext context,
+    WidgetRef ref,
+    PkLinkManagementState? state,
+  ) async {
+    final l10n = context.l10n;
+    final unmapped = state?.unmappedPkMembers ?? const <PKMember>[];
+    if (unmapped.isEmpty) {
+      PrismToast.show(
+        context,
+        message: l10n.pkMappingRowNoCandidatesCaption,
+      );
+      return;
+    }
+
+    final pkPicked = await _pickPkMemberInEditor(
+      context: context,
+      candidates: unmapped,
+      title: l10n.memberEditorPluralKitLinkAction,
+    );
+    if (!context.mounted || pkPicked == null) return;
+
+    final syncService = ref.read(pluralKitSyncServiceProvider);
+    final client = await syncService.buildClientIgnoringMappingGate();
+    if (!context.mounted) {
+      client?.dispose();
+      return;
+    }
+    if (client == null) {
+      PrismToast.error(
+        context,
+        message: l10n.pkLinkManagementOfflineCaption,
+      );
+      return;
+    }
+    try {
+      final memberRepo = ref.read(memberRepositoryProvider);
+      final db = ref.read(databaseProvider);
+      final bus = ref.read(pkSyncEventBusProvider);
+      final applier = PkMappingApplier(
+        members: memberRepo,
+        state: PkMappingStateDao(db),
+        pushService: const PkPushService(),
+        client: client,
+        bus: bus,
+      );
+      final resolution = state != null
+          ? PkResolutionSnapshot(
+              fetchedPkUuids: state.fetchedPkUuids,
+              fetchedPkIds: state.fetchedPkIds,
+            )
+          : null;
+      final results = await applier.apply(
+        [PkLinkDecision(localMemberId: member.id, pkMember: pkPicked)],
+        resolution: resolution,
+      );
+      if (!context.mounted) return;
+      final failure = results.firstWhere(
+        (r) => r.outcome == PkApplyOutcome.failed,
+        orElse: () => results.first,
+      );
+      if (failure.outcome == PkApplyOutcome.failed) {
+        PrismToast.error(
+          context,
+          message: failure.error ?? l10n.pkMappingUnknownError,
+        );
+        return;
+      }
+      PrismToast.success(
+        context,
+        message: l10n.memberEditorPluralKitLinkedAs(
+          pkPicked.displayName ?? pkPicked.name,
+        ),
+      );
+    } finally {
+      client.dispose();
+    }
+    ref.invalidate(pkLinkManagementControllerProvider);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+
+    // Re-read the latest member row from the watched provider so the section
+    // reflects exclude/resume writes without needing to close and reopen the
+    // sheet. Falls back to the constructor-supplied member until the watch
+    // resolves.
+    final liveMember = ref.watch(memberByIdProvider(member.id)).maybeWhen(
+          data: (m) => m ?? member,
+          orElse: () => member,
+        );
+
+    final stateAsync = ref.watch(pkLinkManagementControllerProvider);
+    final state = stateAsync.maybeWhen(
+      data: (s) => s,
+      orElse: () => null,
+    );
+    final pkConnected = ref.watch(pluralKitSyncProvider).isConnected;
+    final pushEnabled = ref.watch(pkSyncDirectionProvider).pushEnabled;
+
+    final hasLink = hasPluralKitLink(liveMember);
+    final excluded = liveMember.pluralkitSyncIgnored;
+    final resolves = state != null &&
+        hasResolvablePluralKitLink(
+          liveMember,
+          fetchedPkUuids: state.fetchedPkUuids,
+          fetchedPkIds: state.fetchedPkIds,
+        );
+
+    PKMember? resolved;
+    if (state != null && hasLink) {
+      final uuid = liveMember.pluralkitUuid?.trim();
+      if (uuid != null && uuid.isNotEmpty) {
+        resolved = state.pkMembersByUuid[uuid];
+      }
+      final id = liveMember.pluralkitId?.trim();
+      if (resolved == null && id != null && id.isNotEmpty) {
+        resolved = state.pkMembersById[id];
+      }
+    }
+    final pkName = resolved?.displayName ?? resolved?.name;
+    final pkId = liveMember.pluralkitId?.trim().isNotEmpty == true
+        ? liveMember.pluralkitId!.trim()
+        : liveMember.pluralkitUuid?.trim() ?? '';
+
+    // Pick summary copy. Six states per the plan.
+    final String summary;
+    if (excluded && hasLink && resolves && pkName != null) {
+      summary = l10n.memberEditorPluralKitExcludedLinked(pkName);
+    } else if (excluded && hasLink) {
+      summary = l10n.memberEditorPluralKitExcludedUnresolved(pkId);
+    } else if (excluded) {
+      summary = l10n.memberEditorPluralKitExcludedUnlinked;
+    } else if (hasLink && resolves && pkName != null) {
+      summary = l10n.memberEditorPluralKitLinkedAs(pkName);
+    } else if (hasLink) {
+      summary = l10n.memberEditorPluralKitLinkedToUnresolved(pkId);
+    } else {
+      summary = l10n.memberEditorPluralKitNotLinked;
+    }
+
+    // Pick action — drives the trailing button.
+    Widget? actionButton;
+    if (excluded) {
+      actionButton = PrismButton(
+        key: const ValueKey('memberEditorPluralKitResumeButton'),
+        onPressed: () => _resume(context, ref),
+        label: l10n.memberEditorPluralKitResumeAction,
+        tone: PrismButtonTone.filled,
+      );
+    } else if (hasLink && !resolves) {
+      // Unresolved link, not excluded — exclude is the only safe action
+      // before we know what to re-link to. The Manage screen carries the
+      // row-level Link UI; we keep the editor sheet focused.
+      actionButton = PrismButton(
+        key: const ValueKey('memberEditorPluralKitExcludeButton'),
+        onPressed: () => _exclude(context, ref),
+        label: l10n.memberEditorPluralKitExcludeAction,
+        tone: PrismButtonTone.subtle,
+      );
+    } else if (hasLink) {
+      actionButton = PrismButton(
+        key: const ValueKey('memberEditorPluralKitExcludeButton'),
+        onPressed: () => _exclude(context, ref),
+        label: l10n.memberEditorPluralKitExcludeAction,
+        tone: PrismButtonTone.subtle,
+      );
+    } else if (pkConnected && pushEnabled) {
+      // Unlinked + connected + push enabled — the only state where Link is
+      // the natural next step from the editor sheet.
+      actionButton = PrismButton(
+        key: const ValueKey('memberEditorPluralKitLinkButton'),
+        onPressed: () => _link(context, ref, state),
+        label: l10n.memberEditorPluralKitLinkAction,
+        tone: PrismButtonTone.filled,
+      );
+    }
+
+    return PrismSectionCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.memberEditorPluralKitSection,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            summary,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (actionButton != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(width: double.infinity, child: actionButton),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Editor-sheet flavor of the [PkLinkManagementScreen]'s PK-member picker.
+/// Wraps the picked PK member up via a synthetic `Member` row so the
+/// existing member search sheet can render it without a PK-aware variant.
+Future<PKMember?> _pickPkMemberInEditor({
+  required BuildContext context,
+  required List<PKMember> candidates,
+  required String title,
+}) async {
+  final byKey = <String, PKMember>{
+    for (final pk in candidates) '__pk__${pk.uuid}': pk,
+  };
+  final synthetic = [
+    for (final pk in candidates)
+      Member(
+        id: '__pk__${pk.uuid}',
+        name: pk.name,
+        displayName: pk.displayName,
+        emoji: '',
+        createdAt: DateTime.now(),
+        pluralkitUuid: pk.uuid,
+        pluralkitId: pk.id,
+      ),
+  ];
+  final result = await MemberSearchSheet.showSingle(
+    context,
+    members: synthetic,
+    termPlural: context.l10n.settingsTerminologyOptionMembers,
+    title: title,
+  );
+  if (result is MemberSearchResultSelected) {
+    return byKey[result.memberId];
+  }
+  return null;
 }

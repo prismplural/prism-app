@@ -175,16 +175,13 @@ class PkOneShotPushService {
   ///   `getMemberById` does NOT filter tombstones, so this is the real case
   /// - another path linked the member in the meantime (`hasPluralKitLink`)
   ///
-  /// If the user picked "Keep local" mid-push (`pluralkitSyncIgnored == true`)
-  /// the writeback still records the PK identifiers via
-  /// `recordPluralKitIdentity` — that method bypasses Rule A (the writeback
-  /// is allowed) but never transitions sync_ignored from true to false. The
-  /// local row knows the PK identity even though sync stays excluded; future
-  /// "Resume sync" picks up the established identity without re-creating.
-  /// markApplied still fires (the push completed successfully on PK).
+  /// If the user picked "Keep local" mid-push the writeback records the
+  /// PK identifiers via `recordPluralKitIdentity` so a future "Resume sync"
+  /// picks up the established identity without re-creating, while
+  /// `pluralkitSyncIgnored` stays true.
   ///
   /// In abort cases the PK member stays created server-side (orphaned) —
-  /// that's the documented v1 hazard. Cleanup is a separate ticket.
+  /// documented v1 hazard; cleanup is a separate ticket.
   Future<void> _linkBackLocally(String memberId, PKMember pk) async {
     final repo = _ref.read(memberRepositoryProvider);
     final mappingState = _ref.read(pkMappingStateDaoProvider);
@@ -205,22 +202,16 @@ class PkOneShotPushService {
       return;
     }
 
-    // Write ONLY the PK identifiers. Do NOT touch `pluralkitSyncIgnored`
-    // — writing `false` here would race a concurrent Keep-local set.
-    // recordPluralKitIdentity preserves the anti-race semantic atomically:
-    // it bypasses Rule A (the writeback is allowed) but never transitions
-    // sync_ignored from true to false. If the user excluded mid-push,
-    // the PK identifier records and sync_ignored stays true.
+    // recordPluralKitIdentity (not applyPluralKitLink): writes the PK
+    // identifiers without touching `pluralkitSyncIgnored`, so a
+    // concurrent Keep-local set isn't clobbered.
     final affected = await repo.recordPluralKitIdentity(fresh.id, {
       'pluralkit_uuid': pk.uuid,
       'pluralkit_id': pk.id,
     });
     if (affected == 0) {
-      // Row was hard-deleted (or tombstoned) between our `getMemberById`
-      // above and the write. The PK member exists on the server but
-      // Prism has no local row to point at it — record this as a failure
-      // so cleanup tooling can surface the orphan rather than silently
-      // mark the push complete.
+      // Row tombstoned between getMemberById and write — PK has the
+      // member, Prism doesn't. Surface as failed so cleanup notices.
       await mappingState.markFailed(
         stateId,
         'Local member ${fresh.id} disappeared during push; PK member orphaned.',

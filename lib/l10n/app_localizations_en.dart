@@ -10265,6 +10265,124 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pkMappingUnknownError => 'unknown error';
 
   @override
+  String get pkLinkManagementTitle => 'Manage PluralKit links';
+
+  @override
+  String get pkLinkManagementEntryRowTitle => 'Manage member links';
+
+  @override
+  String get pkLinkManagementEntryRowSubtitle =>
+      'Exclude or resume sync, fix unresolved links, or link an existing member.';
+
+  @override
+  String get pkLinkManagementSectionSynced => 'Synced with PluralKit';
+
+  @override
+  String get pkLinkManagementSectionExcluded => 'Excluded from sync';
+
+  @override
+  String get pkLinkManagementSectionUnresolved => 'Unresolved links';
+
+  @override
+  String get pkLinkManagementExclude => 'Exclude from sync';
+
+  @override
+  String get pkLinkManagementResume => 'Resume sync';
+
+  @override
+  String get pkLinkManagementLinkAction => 'Link to PluralKit member…';
+
+  @override
+  String get pkLinkManagementUnresolvedCaption =>
+      'Stored PK ID is no longer in your PluralKit system';
+
+  @override
+  String get pkLinkManagementOfflineCaption => 'Connect to PluralKit to manage';
+
+  @override
+  String get pkLinkManagementOfflineRowCaption => 'Linked (offline)';
+
+  @override
+  String get pkLinkManagementFetchFailedCaption =>
+      'Couldn\'t load PluralKit members. Tap Refresh to retry.';
+
+  @override
+  String pkLinkManagementLinkFailed(String pkName) {
+    return 'Couldn\'t link to $pkName. The PluralKit member may already be linked to another local member, or PluralKit may be unreachable. Check Settings if this persists.';
+  }
+
+  @override
+  String get pkLinkManagementRefresh => 'Refresh from PluralKit';
+
+  @override
+  String get pkLinkManagementAddLinkAction => 'Add link to existing member';
+
+  @override
+  String pkLinkManagementMemberStateLinked(String pkName) {
+    return 'Linked to $pkName';
+  }
+
+  @override
+  String pkLinkManagementMemberStateExcludedLinked(String pkName) {
+    return 'Excluded — was linked to $pkName';
+  }
+
+  @override
+  String get pkLinkManagementMemberStateExcludedUnlinked =>
+      'Excluded — not linked';
+
+  @override
+  String pkLinkManagementMemberStateUnresolved(String pkId) {
+    return 'Linked to $pkId (not in current system)';
+  }
+
+  @override
+  String get pkLinkManagementMemberStateNotLinked => 'Not linked';
+
+  @override
+  String get pkLinkManagementEmptyCount => 'No members to manage yet.';
+
+  @override
+  String get memberEditorPluralKitSection => 'PluralKit';
+
+  @override
+  String memberEditorPluralKitLinkedAs(String pkName) {
+    return 'Linked as $pkName';
+  }
+
+  @override
+  String memberEditorPluralKitLinkedToUnresolved(String pkId) {
+    return 'Linked to $pkId (not in your current PluralKit system)';
+  }
+
+  @override
+  String memberEditorPluralKitExcludedLinked(String pkName) {
+    return 'Excluded from sync — was linked as $pkName';
+  }
+
+  @override
+  String memberEditorPluralKitExcludedUnresolved(String pkId) {
+    return 'Excluded from sync — was linked to $pkId (not in current system)';
+  }
+
+  @override
+  String get memberEditorPluralKitExcludedUnlinked =>
+      'Excluded from sync — not linked';
+
+  @override
+  String get memberEditorPluralKitNotLinked => 'Not linked';
+
+  @override
+  String get memberEditorPluralKitExcludeAction =>
+      'Exclude from PluralKit sync';
+
+  @override
+  String get memberEditorPluralKitResumeAction => 'Resume PluralKit sync';
+
+  @override
+  String get memberEditorPluralKitLinkAction => 'Link to PluralKit member…';
+
+  @override
   String get secretKeyTitle => 'Your Secret Key';
 
   @override

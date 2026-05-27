@@ -16440,6 +16440,198 @@ abstract class AppLocalizations {
   /// **'unknown error'**
   String get pkMappingUnknownError;
 
+  /// Top-bar title on the Manage PluralKit links screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage PluralKit links'**
+  String get pkLinkManagementTitle;
+
+  /// Title on the row in the PluralKit setup screen that navigates to the Manage PluralKit links screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage member links'**
+  String get pkLinkManagementEntryRowTitle;
+
+  /// Subtitle on the row in the PluralKit setup screen that navigates to the Manage PluralKit links screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Exclude or resume sync, fix unresolved links, or link an existing member.'**
+  String get pkLinkManagementEntryRowSubtitle;
+
+  /// Section header on the Manage PluralKit links screen for members whose PluralKit fields resolve in the current fetch and sync is active.
+  ///
+  /// In en, this message translates to:
+  /// **'Synced with PluralKit'**
+  String get pkLinkManagementSectionSynced;
+
+  /// Section header on the Manage PluralKit links screen for members the user has excluded from PluralKit sync.
+  ///
+  /// In en, this message translates to:
+  /// **'Excluded from sync'**
+  String get pkLinkManagementSectionExcluded;
+
+  /// Section header on the Manage PluralKit links screen for members whose stored PluralKit fields don't resolve against the current system.
+  ///
+  /// In en, this message translates to:
+  /// **'Unresolved links'**
+  String get pkLinkManagementSectionUnresolved;
+
+  /// Action button on the Manage PluralKit links screen that excludes a member from PluralKit sync.
+  ///
+  /// In en, this message translates to:
+  /// **'Exclude from sync'**
+  String get pkLinkManagementExclude;
+
+  /// Action button on the Manage PluralKit links screen that resumes sync on an excluded member.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume sync'**
+  String get pkLinkManagementResume;
+
+  /// Action button on the Manage PluralKit links screen that opens a search to link a local member to a PluralKit member.
+  ///
+  /// In en, this message translates to:
+  /// **'Link to PluralKit member…'**
+  String get pkLinkManagementLinkAction;
+
+  /// Caption shown under members in the Unresolved section of the Manage PluralKit links screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Stored PK ID is no longer in your PluralKit system'**
+  String get pkLinkManagementUnresolvedCaption;
+
+  /// Caption shown at the top of the Manage PluralKit links screen when the user is not connected to PluralKit. Link actions are disabled in this state.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to PluralKit to manage'**
+  String get pkLinkManagementOfflineCaption;
+
+  /// Caption shown on Synced section rows when the user is not connected to PluralKit.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked (offline)'**
+  String get pkLinkManagementOfflineRowCaption;
+
+  /// Caption shown at the top of the Manage PluralKit links screen when the user is connected to PluralKit but the most recent fetch failed (network error, server error). Refresh stays enabled in this state.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load PluralKit members. Tap Refresh to retry.'**
+  String get pkLinkManagementFetchFailedCaption;
+
+  /// Generic error toast when a Link decision from the Manage PluralKit links screen fails. The raw cause is logged via debugPrint; this user-facing message is intentionally generic to avoid surfacing English StateError text from the applier.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t link to {pkName}. The PluralKit member may already be linked to another local member, or PluralKit may be unreachable. Check Settings if this persists.'**
+  String pkLinkManagementLinkFailed(String pkName);
+
+  /// Top-of-screen action on the Manage PluralKit links screen that re-fetches members from PluralKit.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh from PluralKit'**
+  String get pkLinkManagementRefresh;
+
+  /// Top-of-screen action on the Manage PluralKit links screen that opens a search over all local members to add a PluralKit link.
+  ///
+  /// In en, this message translates to:
+  /// **'Add link to existing member'**
+  String get pkLinkManagementAddLinkAction;
+
+  /// Subtitle row label in the 'Add link to existing member' search for a local already linked to a resolved PluralKit member.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked to {pkName}'**
+  String pkLinkManagementMemberStateLinked(String pkName);
+
+  /// Subtitle row label in the 'Add link to existing member' search for a local that is excluded from sync but had been linked to a resolved PK member.
+  ///
+  /// In en, this message translates to:
+  /// **'Excluded — was linked to {pkName}'**
+  String pkLinkManagementMemberStateExcludedLinked(String pkName);
+
+  /// Subtitle row label in the 'Add link to existing member' search for a local that is excluded from sync and has no PK fields.
+  ///
+  /// In en, this message translates to:
+  /// **'Excluded — not linked'**
+  String get pkLinkManagementMemberStateExcludedUnlinked;
+
+  /// Subtitle row label in the 'Add link to existing member' search for a local whose PK fields don't resolve in the current PluralKit system.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked to {pkId} (not in current system)'**
+  String pkLinkManagementMemberStateUnresolved(String pkId);
+
+  /// Subtitle row label in the 'Add link to existing member' search for a local with no PK fields and not excluded.
+  ///
+  /// In en, this message translates to:
+  /// **'Not linked'**
+  String get pkLinkManagementMemberStateNotLinked;
+
+  /// Subtitle on the empty state of the Manage PluralKit links screen when there are no members in any of the three sections.
+  ///
+  /// In en, this message translates to:
+  /// **'No members to manage yet.'**
+  String get pkLinkManagementEmptyCount;
+
+  /// Section header in the member editor sheet's Edit tab for the PluralKit link controls.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit'**
+  String get memberEditorPluralKitSection;
+
+  /// Summary line in the editor sheet's PluralKit section for a synced, resolved member.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked as {pkName}'**
+  String memberEditorPluralKitLinkedAs(String pkName);
+
+  /// Summary line in the editor sheet's PluralKit section for a non-excluded member whose PK fields don't resolve in the current PluralKit system.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked to {pkId} (not in your current PluralKit system)'**
+  String memberEditorPluralKitLinkedToUnresolved(String pkId);
+
+  /// Summary line in the editor sheet's PluralKit section for an excluded member whose PK fields resolve.
+  ///
+  /// In en, this message translates to:
+  /// **'Excluded from sync — was linked as {pkName}'**
+  String memberEditorPluralKitExcludedLinked(String pkName);
+
+  /// Summary line in the editor sheet's PluralKit section for an excluded member whose PK fields don't resolve in the current PluralKit system.
+  ///
+  /// In en, this message translates to:
+  /// **'Excluded from sync — was linked to {pkId} (not in current system)'**
+  String memberEditorPluralKitExcludedUnresolved(String pkId);
+
+  /// Summary line in the editor sheet's PluralKit section for an excluded member with no PK fields.
+  ///
+  /// In en, this message translates to:
+  /// **'Excluded from sync — not linked'**
+  String get memberEditorPluralKitExcludedUnlinked;
+
+  /// Summary line in the editor sheet's PluralKit section for a non-excluded member without PK fields.
+  ///
+  /// In en, this message translates to:
+  /// **'Not linked'**
+  String get memberEditorPluralKitNotLinked;
+
+  /// Action button in the editor sheet's PluralKit section that excludes this member from PluralKit sync.
+  ///
+  /// In en, this message translates to:
+  /// **'Exclude from PluralKit sync'**
+  String get memberEditorPluralKitExcludeAction;
+
+  /// Action button in the editor sheet's PluralKit section that resumes sync on this excluded member.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume PluralKit sync'**
+  String get memberEditorPluralKitResumeAction;
+
+  /// Action button in the editor sheet's PluralKit section that opens a search to link this member to a PluralKit member.
+  ///
+  /// In en, this message translates to:
+  /// **'Link to PluralKit member…'**
+  String get memberEditorPluralKitLinkAction;
+
   /// Top bar title on the Secret Key reveal screen during setup.
   ///
   /// In en, this message translates to:

@@ -1124,16 +1124,14 @@ void main() {
 
     test('Null-clearing PK fields on excluded member is stripped by Rule A',
         () async {
-      // Codex review (round 3) caught that letting null writes through
-      // on excluded rows opened a hole: a stale full-domain
-      // `updateMember(stale.copyWith(...))` where `stale` predates the
-      // link would diff into a patch with null PK fields, wiping the
-      // link the exclude was supposed to preserve. Rule A now strips
-      // PK keys regardless of value on excluded rows.
-      //
-      // The PkStaleLinkException clear at pk_bidirectional_service.dart:115
-      // is unaffected because Part 1.5's call-site guard skips excluded
-      // members before the catch block runs.
+      // Rule A strips PK keys regardless of value on excluded rows.
+      // A stale full-domain updateMember(stale.copyWith(...)) where
+      // `stale` predates the link would otherwise diff into a patch
+      // with null PK fields and wipe the link the exclude preserves.
+      // The PkStaleLinkException null-clear at
+      // pk_bidirectional_service.dart:115 is guarded upstream by the
+      // per-local sync_ignored skip so this stripping doesn't
+      // double-bounce that path.
       await seedExcludedLinked();
       final captured = <CapturedSyncOp>[];
       SyncRecordMixin.installCaptureSinkForTesting(captured.add);

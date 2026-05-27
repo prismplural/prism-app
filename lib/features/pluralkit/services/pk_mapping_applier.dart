@@ -35,14 +35,9 @@ class PkLinkDecision extends PkMappingDecision {
   final PKMember pkMember;
   const PkLinkDecision({required this.localMemberId, required this.pkMember});
 
-  /// Include BOTH the PK member uuid AND the local member id so the
-  /// _applyOne `alreadyApplied` short-circuit can't silently no-op a
-  /// later Link of the same PK member to a different local. The Manage
-  /// PluralKit links screen relies on this: if a user excluded L1
-  /// (which was linked to pk-alice) and then links pk-alice to L2 via
-  /// "Add link to existing member", we want the second decision to
-  /// run, not to be skipped because `link:pk-alice` was applied
-  /// before.
+  /// Scoped by (pk uuid, local id) so the `alreadyApplied`
+  /// short-circuit can't conflate two Links of the same PK member
+  /// to different locals.
   @override
   String get id => 'link:${pkMember.uuid}:$localMemberId';
 }
@@ -543,12 +538,8 @@ class PkMappingApplier {
     // Push through PkPushService (handles queue + rate limits) to get the ID,
     // then fetch the full PKMember object for the UUID.
     //
-    // If we reach here with stale PK fields (the resolution snapshot let us
-    // past the early return precisely so we could push-as-new for an
-    // unresolved-link local), strip them first. PkPushService treats any
-    // non-empty pluralkitId as a PATCH target — a stale id would 404 (or
-    // worse, hit a different user's member with the same id) instead of
-    // creating the new PK member the recovery flow promised.
+    // Strip stale PK fields before push: PkPushService PATCHes when
+    // pluralkitId is set, which would 404 against a non-resolving id.
     final memberToPush =
         (resolution != null &&
                 (_hasText(local.pluralkitId) ||

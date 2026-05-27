@@ -16,6 +16,7 @@ import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/pluralkit/views/pk_file_import_screen.dart';
+import 'package:prism_plurality/features/pluralkit/views/pk_link_management_screen.dart';
 import 'package:prism_plurality/features/pluralkit/views/pk_mapping_screen.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_direction_picker.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_summary_card.dart';
@@ -423,6 +424,16 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     ).push(MaterialPageRoute<void>(builder: (_) => const PkMappingScreen()));
   }
 
+  Future<void> _openLinkManagementScreen() async {
+    // Invalidate so the management screen fetches fresh PK data and locals.
+    ref.invalidate(pkLinkManagementControllerProvider);
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const PkLinkManagementScreen(),
+      ),
+    );
+  }
+
   Future<void> _importFromPK() async {
     await _loadPersistedSyncPreferences();
     if (!mounted) return;
@@ -591,6 +602,23 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               icon: AppIcons.people,
               tone: PrismButtonTone.outlined,
               expanded: true,
+            ),
+            const SizedBox(height: 8),
+            PrismSectionCard(
+              padding: EdgeInsets.zero,
+              child: PrismListRow(
+                key: const ValueKey('pkLinkManagementEntryRow'),
+                leading: Icon(
+                  AppIcons.link,
+                  color: theme.colorScheme.primary,
+                ),
+                title: Text(context.l10n.pkLinkManagementEntryRowTitle),
+                subtitle: Text(
+                  context.l10n.pkLinkManagementEntryRowSubtitle,
+                ),
+                showChevron: true,
+                onTap: _openLinkManagementScreen,
+              ),
             ),
           ],
 

@@ -2053,7 +2053,6 @@
   "sharingVerified": "Verificado",
   "sharingWhatToShare": "Qué compartir",
   "sharingYourDisplayName": "Tu nombre de pantalla",
-
   "remindersTitle": "Recordatorios",
   "remindersLoadError": "Error: {error}",
   "remindersEmptyTitle": "Sin recordatorios",
@@ -2271,7 +2270,6 @@
   "settingsTerminologyCustomPluralHint": "p. ej. fragmentos",
   "settingsTerminologyPreviewLabel": "Vista previa",
   "terminologyEnglishOptionsLabel": "En inglés",
-
   "navHome": "Inicio",
   "navChat": "Chat",
   "navHabits": "Hábitos",
@@ -2301,7 +2299,6 @@
   "logPastSleep": "Registrar sueño pasado",
   "longPressForOptionsHint": "Mantén pulsado para más opciones",
   "cancelHistoricalSleep": "Cancelar",
-
   "onboardingWelcomeTitle": "Tu sistema, juntes.",
   "onboardingWelcomeSubtitle": "Fronting, chat, notas, hábitos y decisiones en un solo lugar privado.",
   "onboardingWelcomeSyncLink": "Empareja con otro dispositivo mediante Prism Sync",
@@ -2342,7 +2339,6 @@
   "onboardingWhosFrontingSubtitle": "Toca a quienes están aquí ahora.",
   "onboardingCompleteTitle": "Listo cuando tú lo estés",
   "onboardingCompleteSubtitle": "Tu sistema está configurado. Esto es lo que puedes explorar.",
-
   "terminologyAddButton": "Agregar {term}",
   "terminologySearchHint": "Buscar {term}...",
   "terminologyEmptyTitle": "Sin {term} aún",
@@ -2357,7 +2353,6 @@
   "terminologyLoadError": "Error al cargar {term}: {error}",
   "terminologyAddFirstSubtitle": "Agrega tu primer {term} del sistema para comenzar",
   "pollsVotingAsSelectPrompt": "Selecciona un {term} para votar",
-
   "onboardingPinSetupTitle": "Establece tu PIN",
   "onboardingPinSetupSubtitle": "Usarás este PIN de 6 dígitos para bloquear Prism y recuperar el acceso si lo necesitas.",
   "onboardingRecoveryPhraseTitle": "Guarda tu frase de recuperación",
@@ -2463,7 +2458,6 @@
   "onboardingSyncPhaseAnnouncement": "Ahora: {phase}",
   "onboardingSyncRestoredSummary": "Se restauraron {members} miembros y {messages} mensajes.",
   "onboardingPhaseSegmentsSemantics": "Paso {current} de {total}",
-
   "pkProfileDisclosureTitle": "¿Importar tu perfil de sistema desde PluralKit?",
   "pkProfileDisclosureSubtitle": "Solo copiaremos lo que marques.",
   "pkProfileDisclosureImport": "Importar selección",
@@ -2473,87 +2467,134 @@
   "pkProfileFieldTag": "Etiqueta del sistema",
   "pkProfileFieldAvatar": "Avatar del sistema",
   "pkProfileFieldOverwriteHint": "Prism ya tiene un valor — marca para sobrescribir.",
-
   "migrationCfStepTitle": "Frentes personalizados",
   "migrationCfStepExplainer": "Simply Plural tiene frentes personalizados (Co-fronting, Dormido y otros). Prism no los maneja como estados de primera clase. Elige qué hacer con cada uno.",
   "migrationCfResetDefaults": "Restablecer valores predeterminados",
   "migrationCfBack": "Atrás",
   "migrationCfContinue": "Continuar",
-
   "migrationCfOptionMember": "Importar como {termSingularLower}",
   "migrationCfOptionNote": "Fusionar en notas",
   "migrationCfOptionSleep": "Convertir en sueño",
   "migrationCfOptionSkip": "Omitir",
-
   "migrationCfOptionMemberDesc": "Crea {termSingularLower} con este nombre. Las entradas del historial al frente se guardan como sesiones de {termSingularLower}.",
   "migrationCfOptionNoteDesc": "No se crea ningún integrante. El nombre del frente personalizado se añade a las notas de las sesiones que lo mencionan.",
   "migrationCfOptionSleepDesc": "Las entradas del historial al frente en las que éste es el fronter principal se convierten en sesiones de sueño.",
   "migrationCfOptionSkipDesc": "Sin integrante y sin nota. Las sesiones sin otro fronter se descartan.",
-
   "migrationCfReasonSleepName": "El nombre coincide con palabras clave de sueño",
   "migrationCfReasonZeroUsage": "Nunca se usa en el historial al frente ni en temporizadores",
   "migrationCfReasonCoFronterOnly": "Solo se usa como co-fronter",
   "migrationCfReasonPrimaryHeavy": "Se usa principalmente como fronter primario",
   "migrationCfReasonFallback": "Uso variado — lo más seguro es conservarlo como nota",
-
   "migrationCfUsageSummary": "{primary, plural, =0{Nunca primario} =1{1 primario} other{{primary} primarios}} · {coFront, plural, =0{0 co-front} =1{1 co-front} other{{coFront} co-front}} · {timers, plural, =0{0 temporizadores} =1{1 temporizador} other{{timers} temporizadores}}",
   "@migrationCfUsageSummary": {
     "placeholders": {
-      "primary": { "type": "int" },
-      "coFront": { "type": "int" },
-      "timers": { "type": "int" }
+      "primary": {
+        "type": "int"
+      },
+      "coFront": {
+        "type": "int"
+      },
+      "timers": {
+        "type": "int"
+      }
     }
   },
-
   "migrationCfPreviewBreakdown": "{asMember, plural, =1{1 como integrante} other{{asMember} como integrantes}} · {asSleep, plural, =1{1 como sueño} other{{asSleep} como sueño}} · {asNote, plural, =1{1 nota} other{{asNote} notas}} · {asSkip, plural, =1{1 omitido} other{{asSkip} omitidos}}",
   "@migrationCfPreviewBreakdown": {
     "placeholders": {
-      "asMember": { "type": "int" },
-      "asSleep": { "type": "int" },
-      "asNote": { "type": "int" },
-      "asSkip": { "type": "int" }
+      "asMember": {
+        "type": "int"
+      },
+      "asSleep": {
+        "type": "int"
+      },
+      "asNote": {
+        "type": "int"
+      },
+      "asSkip": {
+        "type": "int"
+      }
     }
   },
-
   "migrationWarnCfDroppedEntries": "{count, plural, =1{Se descartó 1 entrada del historial al frente (el principal era un frente personalizado omitido sin co-fronters).} other{Se descartaron {count} entradas del historial al frente (el principal era un frente personalizado omitido sin co-fronters).}}",
   "@migrationWarnCfDroppedEntries": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "migrationWarnCfSleepCoFrontersDiscarded": "{count, plural, =1{1 sesión en modo sueño tenía co-fronters que fueron descartados.} other{{count} sesiones en modo sueño tenían co-fronters que fueron descartados.}}",
   "@migrationWarnCfSleepCoFrontersDiscarded": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "migrationWarnCfSleepCoFronterAsNote": "{count, plural, =1{1 sesión al frente tenía un frente personalizado de sueño como co-fronter; se conservó solo como nota.} other{{count} sesiones al frente tenían un frente personalizado de sueño como co-fronter; se conservaron solo como nota.}}",
   "@migrationWarnCfSleepCoFronterAsNote": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "migrationWarnCfSleepOverlap": "{count, plural, =1{1 sesión de sueño se solapa con otras sesiones en tu cronología — resuélvelo en la pestaña Al frente.} other{{count} sesiones de sueño se solapan con otras sesiones en tu cronología — resuélvelo en la pestaña Al frente.}}",
   "@migrationWarnCfSleepOverlap": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "migrationWarnCfCommentsDropped": "{count, plural, =1{Se descartó 1 comentario (adjunto a sesiones de frentes personalizados omitidas).} other{Se descartaron {count} comentarios (adjuntos a sesiones de frentes personalizados omitidas).}}",
   "@migrationWarnCfCommentsDropped": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "migrationWarnCfStaleMembers": "{count, plural, =1{1 frente personalizado importado previamente ya no se importa como integrante; el registro del integrante existente permanece — elimínalo manualmente si quieres quitarlo.} other{{count} frentes personalizados importados previamente ya no se importan como integrantes; los registros de integrantes existentes permanecen — elimínalos manualmente si quieres quitarlos.}}",
   "@migrationWarnCfStaleMembers": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "migrationWarnCfDeletedRefs": "{count, plural, =1{1 referencia del historial al frente apuntaba a un frente personalizado eliminado en SP — se trató como nota.} other{{count} referencias del historial al frente apuntaban a frentes personalizados eliminados en SP — se trataron como notas.}}",
   "@migrationWarnCfDeletedRefs": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "migrationWarnCfSleepClamped": "{count, plural, =1{1 entrada de sueño abierta en SP se limitó a 24 h.} other{{count} entradas de sueño abiertas en SP se limitaron a 24 h.}}",
   "@migrationWarnCfSleepClamped": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "migrationWarnCfTimersAdjusted": "{count, plural, =1{1 temporizador apuntaba a un frente personalizado que no se importó como integrante — se descartó el objetivo o se eliminó el temporizador.} other{{count} temporizadores apuntaban a frentes personalizados que no se importaron como integrantes — se descartó el objetivo o se eliminaron los temporizadores.}}",
   "@migrationWarnCfTimersAdjusted": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "migrationWarnCfSleepDedup": "{count, plural, =1{1 entrada de sueño duplicada de SP se combinó.} other{{count} entradas de sueño duplicadas de SP se combinaron.}}",
   "@migrationWarnCfSleepDedup": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "frontingUpgradeTitle": "Actualización del frente",
   "@frontingUpgradeTitle": {
@@ -2778,17 +2819,14 @@
   "@frontingUpgradeBannerMessage": {
     "description": "Home-screen banner message when migration cleanup needs to be resumed"
   },
-
   "frontingUpgradeResumeCleanupHeadline": "Terminar la migración",
   "frontingUpgradeResumeCleanupBody": "Un intento anterior terminó la migración de datos pero no pudo completar el restablecimiento de sincronización. Toca abajo para terminar — solo se actualizan las credenciales de sincronización, no se tocan tus datos.",
   "frontingUpgradeResumeCleanupButton": "Terminar la migración",
-
   "frontingUpgradePkTokenDialogTitle": "Token de PluralKit",
   "frontingUpgradePkTokenDialogMessage": "Importa el historial de fronts de PluralKit ahora. El token se usa una sola vez y no activa la sincronización con PluralKit.",
   "frontingUpgradePkTokenLabel": "Token de PluralKit",
   "frontingUpgradePkTokenHint": "Pega tu token de PluralKit",
   "frontingUpgradePkTokenImport": "Importar",
-
   "frontingUpgradePkImportButton": "Importar con token de PluralKit",
   "frontingUpgradePkImportIdle": "El historial de PluralKit se puede reimportar aquí con un token temporal. El token se usa una sola vez y la sincronización con PluralKit permanece desactivada.",
   "frontingUpgradePkImportRunning": "Reimportando el historial de PluralKit...",
@@ -2796,23 +2834,28 @@
   "frontingUpgradePkImportTombstoneLine": "{count, plural, =1{Se conservó 1 registro eliminado para respetar la eliminación local.} other{Se conservaron {count} registros eliminados para respetar la eliminación local.}}",
   "@frontingUpgradePkImportTombstoneLine": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "frontingUpgradePkImportZeroLengthLine": "{count, plural, =1{Se omitió 1 cierre de duración cero (PluralKit registró una entrada y una salida en el mismo instante).} other{Se omitieron {count} cierres de duración cero (PluralKit registró entradas y salidas en el mismo instante).}}",
   "@frontingUpgradePkImportZeroLengthLine": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "frontingUpgradePkImportNeedsToken": "No se encontró un token de PluralKit guardado. Puedes importar con un token temporal sin activar la sincronización con PluralKit.",
   "frontingUpgradePkImportFailed": "La reimportación de PluralKit falló: {error}",
   "@frontingUpgradePkImportFailed": {
     "placeholders": {
-      "error": { "type": "String" }
+      "error": {
+        "type": "String"
+      }
     }
   },
-
   "pkFileImportMembersLabel": "{termPlural}",
   "pkFileImportGroupsLabel": "Grupos",
   "pkFileImportFrontingSessionsLabel": "Cambios encontrados (no importados)",
@@ -2825,7 +2868,9 @@
   "pkFileImportFrontingImportedNoteWithNewer": "El historial de fronts se importó por la ruta de PluralKit con token, así Prism puede seguir usando los IDs canónicos de los cambios. Prism también importó {count} cambios nuevos desde PluralKit que no estaban en la exportación.",
   "@pkFileImportFrontingImportedNoteWithNewer": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "pkFileImportFrontingNotImportedNote": "El historial de fronts no se importó porque la exportación y la API de PluralKit no coincidieron de forma segura.",
@@ -2836,61 +2881,78 @@
   "pkFileImportCompleteHeading": "Importación completa",
   "pkFileImportSwitchesCreatedLabel": "Cambios creados",
   "pkFileImportSwitchesSkippedLabel": "Cambios encontrados (no importados)",
-
   "frontingAlwaysPresentLabel": "Siempre presente · {duration}",
   "@frontingAlwaysPresentLabel": {
     "placeholders": {
-      "duration": { "type": "String" }
+      "duration": {
+        "type": "String"
+      }
     }
   },
   "frontingLongRunningLabel": "Larga duración · {duration}",
   "@frontingLongRunningLabel": {
     "placeholders": {
-      "duration": { "type": "String" }
+      "duration": {
+        "type": "String"
+      }
     }
   },
   "frontingMixedPinnedLabel": "Siempre presente + larga duración · {duration}",
   "@frontingMixedPinnedLabel": {
     "placeholders": {
-      "duration": { "type": "String" }
+      "duration": {
+        "type": "String"
+      }
     }
   },
   "frontingAlwaysPresentSemantics": "Siempre al frente: {names}, {duration}",
   "@frontingAlwaysPresentSemantics": {
     "placeholders": {
-      "names": { "type": "String" },
-      "duration": { "type": "String" }
+      "names": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
     }
   },
   "frontingLongRunningSemantics": "Frentes de larga duración: {names}, {duration}. Doble toque para ver detalles.",
   "@frontingLongRunningSemantics": {
     "placeholders": {
-      "names": { "type": "String" },
-      "duration": { "type": "String" }
+      "names": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
     }
   },
   "frontingAlwaysPresentDurationWeeks": "{weeks, plural, =1{1 semana} other{{weeks} semanas}}",
   "@frontingAlwaysPresentDurationWeeks": {
     "placeholders": {
-      "weeks": { "type": "int" }
+      "weeks": {
+        "type": "int"
+      }
     }
   },
   "frontingAlwaysPresentDurationDays": "{days, plural, =1{1 día} other{{days} días}}",
   "@frontingAlwaysPresentDurationDays": {
     "placeholders": {
-      "days": { "type": "int" }
+      "days": {
+        "type": "int"
+      }
     }
   },
   "frontingAlwaysPresentDurationHours": "{hours, plural, =1{1 hora} other{{hours} horas}}",
   "@frontingAlwaysPresentDurationHours": {
     "placeholders": {
-      "hours": { "type": "int" }
+      "hours": {
+        "type": "int"
+      }
     }
   },
-
   "frontingAddFrontModeAdditive": "Agregar al co-frente",
   "frontingAddFrontModeReplace": "Reemplazar actual",
-
   "settingsFrontingSessionDisplaySectionTitle": "Visualización de sesiones y comportamiento del frente",
   "settingsFrontingListViewModeLabel": "Vista de la lista de sesiones",
   "settingsFrontingListViewModeCombinedPeriods": "Períodos combinados",
@@ -2948,14 +3010,18 @@
   "@boardsComposeRecipientPublicMember": {
     "description": "Recipient picker option: post is public and addressed to a specific member.",
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "boardsComposeRecipientPrivateMember": "{name} (privado)",
   "@boardsComposeRecipientPrivateMember": {
     "description": "Recipient picker option: post is private and addressed to a specific member.",
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "boardsComposeAddTitle": "+ Agregar título",
@@ -2974,14 +3040,18 @@
   "@boardsComposeConsequencePrivate": {
     "description": "Consequence text shown when composing a private post to a named member.",
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "boardsComposeConsequencePublicMember": "El perfil de {name} y el feed público mostrarán esto.",
   "@boardsComposeConsequencePublicMember": {
     "description": "Consequence text shown when composing a public post directed at a named member.",
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "boardsComposeConsequencePublicEveryone": "Todos en tu sistema verán esto en el feed público.",
@@ -3162,7 +3232,6 @@
   "pkPushNewMemberDialogKeepLocal": "Mantener local",
   "pkPushNewMemberDialogSuccess": "{name} se envió a PluralKit.",
   "pkPushNewMemberDialogError": "No se pudo enviar a {name} a PluralKit: {error}",
-
   "verifyBackupRowTitle": "Verificar copia de seguridad",
   "verifyBackupRowSubtitle": "Comprueba que las palabras guardadas coinciden con esta instalación",
   "verifyBackupScreenTitle": "Verificar copia de seguridad",
@@ -3216,5 +3285,171 @@
   "sliderGradientPresetPaletteLastLight": "Última luz",
   "sliderGradientPresetPaletteAmberFire": "Fuego ámbar",
   "sliderGradientPresetPaletteMauveBloom": "Florescencia malva",
-  "sliderGradientPresetPaletteWarmInk": "Tinta cálida"
+  "sliderGradientPresetPaletteWarmInk": "Tinta cálida",
+  "pkLinkManagementTitle": "Manage PluralKit links",
+  "@pkLinkManagementTitle": {
+    "description": "Top-bar title on the Manage PluralKit links screen."
+  },
+  "pkLinkManagementEntryRowTitle": "Manage member links",
+  "@pkLinkManagementEntryRowTitle": {
+    "description": "Title on the row in the PluralKit setup screen that navigates to the Manage PluralKit links screen."
+  },
+  "pkLinkManagementEntryRowSubtitle": "Exclude or resume sync, fix unresolved links, or link an existing member.",
+  "@pkLinkManagementEntryRowSubtitle": {
+    "description": "Subtitle on the row in the PluralKit setup screen that navigates to the Manage PluralKit links screen."
+  },
+  "pkLinkManagementSectionSynced": "Synced with PluralKit",
+  "@pkLinkManagementSectionSynced": {
+    "description": "Section header on the Manage PluralKit links screen for members whose PluralKit fields resolve in the current fetch and sync is active."
+  },
+  "pkLinkManagementSectionExcluded": "Excluded from sync",
+  "@pkLinkManagementSectionExcluded": {
+    "description": "Section header on the Manage PluralKit links screen for members the user has excluded from PluralKit sync."
+  },
+  "pkLinkManagementSectionUnresolved": "Unresolved links",
+  "@pkLinkManagementSectionUnresolved": {
+    "description": "Section header on the Manage PluralKit links screen for members whose stored PluralKit fields don't resolve against the current system."
+  },
+  "pkLinkManagementExclude": "Exclude from sync",
+  "@pkLinkManagementExclude": {
+    "description": "Action button on the Manage PluralKit links screen that excludes a member from PluralKit sync."
+  },
+  "pkLinkManagementResume": "Resume sync",
+  "@pkLinkManagementResume": {
+    "description": "Action button on the Manage PluralKit links screen that resumes sync on an excluded member."
+  },
+  "pkLinkManagementLinkAction": "Link to PluralKit member…",
+  "@pkLinkManagementLinkAction": {
+    "description": "Action button on the Manage PluralKit links screen that opens a search to link a local member to a PluralKit member."
+  },
+  "pkLinkManagementUnresolvedCaption": "Stored PK ID is no longer in your PluralKit system",
+  "@pkLinkManagementUnresolvedCaption": {
+    "description": "Caption shown under members in the Unresolved section of the Manage PluralKit links screen."
+  },
+  "pkLinkManagementOfflineCaption": "Connect to PluralKit to manage",
+  "@pkLinkManagementOfflineCaption": {
+    "description": "Caption shown at the top of the Manage PluralKit links screen when the user is not connected to PluralKit. Link actions are disabled in this state."
+  },
+  "pkLinkManagementOfflineRowCaption": "Linked (offline)",
+  "@pkLinkManagementOfflineRowCaption": {
+    "description": "Caption shown on Synced section rows when the user is not connected to PluralKit."
+  },
+  "pkLinkManagementFetchFailedCaption": "Couldn't load PluralKit members. Tap Refresh to retry.",
+  "@pkLinkManagementFetchFailedCaption": {
+    "description": "Caption shown at the top of the Manage PluralKit links screen when the user is connected to PluralKit but the most recent fetch failed (network error, server error). Refresh stays enabled in this state."
+  },
+  "pkLinkManagementLinkFailed": "Couldn't link to {pkName}. The PluralKit member may already be linked to another local member, or PluralKit may be unreachable. Check Settings if this persists.",
+  "@pkLinkManagementLinkFailed": {
+    "description": "Generic error toast when a Link decision from the Manage PluralKit links screen fails. The raw cause is logged via debugPrint; this user-facing message is intentionally generic to avoid surfacing English StateError text from the applier.",
+    "placeholders": {
+      "pkName": {"type": "String"}
+    }
+  },
+  "pkLinkManagementRefresh": "Refresh from PluralKit",
+  "@pkLinkManagementRefresh": {
+    "description": "Top-of-screen action on the Manage PluralKit links screen that re-fetches members from PluralKit."
+  },
+  "pkLinkManagementAddLinkAction": "Add link to existing member",
+  "@pkLinkManagementAddLinkAction": {
+    "description": "Top-of-screen action on the Manage PluralKit links screen that opens a search over all local members to add a PluralKit link."
+  },
+  "pkLinkManagementMemberStateLinked": "Linked to {pkName}",
+  "@pkLinkManagementMemberStateLinked": {
+    "description": "Subtitle row label in the 'Add link to existing member' search for a local already linked to a resolved PluralKit member.",
+    "placeholders": {
+      "pkName": {
+        "type": "String"
+      }
+    }
+  },
+  "pkLinkManagementMemberStateExcludedLinked": "Excluded — was linked to {pkName}",
+  "@pkLinkManagementMemberStateExcludedLinked": {
+    "description": "Subtitle row label in the 'Add link to existing member' search for a local that is excluded from sync but had been linked to a resolved PK member.",
+    "placeholders": {
+      "pkName": {
+        "type": "String"
+      }
+    }
+  },
+  "pkLinkManagementMemberStateExcludedUnlinked": "Excluded — not linked",
+  "@pkLinkManagementMemberStateExcludedUnlinked": {
+    "description": "Subtitle row label in the 'Add link to existing member' search for a local that is excluded from sync and has no PK fields."
+  },
+  "pkLinkManagementMemberStateUnresolved": "Linked to {pkId} (not in current system)",
+  "@pkLinkManagementMemberStateUnresolved": {
+    "description": "Subtitle row label in the 'Add link to existing member' search for a local whose PK fields don't resolve in the current PluralKit system.",
+    "placeholders": {
+      "pkId": {
+        "type": "String"
+      }
+    }
+  },
+  "pkLinkManagementMemberStateNotLinked": "Not linked",
+  "@pkLinkManagementMemberStateNotLinked": {
+    "description": "Subtitle row label in the 'Add link to existing member' search for a local with no PK fields and not excluded."
+  },
+  "pkLinkManagementEmptyCount": "No members to manage yet.",
+  "@pkLinkManagementEmptyCount": {
+    "description": "Subtitle on the empty state of the Manage PluralKit links screen when there are no members in any of the three sections."
+  },
+  "memberEditorPluralKitSection": "PluralKit",
+  "@memberEditorPluralKitSection": {
+    "description": "Section header in the member editor sheet's Edit tab for the PluralKit link controls."
+  },
+  "memberEditorPluralKitLinkedAs": "Linked as {pkName}",
+  "@memberEditorPluralKitLinkedAs": {
+    "description": "Summary line in the editor sheet's PluralKit section for a synced, resolved member.",
+    "placeholders": {
+      "pkName": {
+        "type": "String"
+      }
+    }
+  },
+  "memberEditorPluralKitLinkedToUnresolved": "Linked to {pkId} (not in your current PluralKit system)",
+  "@memberEditorPluralKitLinkedToUnresolved": {
+    "description": "Summary line in the editor sheet's PluralKit section for a non-excluded member whose PK fields don't resolve in the current PluralKit system.",
+    "placeholders": {
+      "pkId": {
+        "type": "String"
+      }
+    }
+  },
+  "memberEditorPluralKitExcludedLinked": "Excluded from sync — was linked as {pkName}",
+  "@memberEditorPluralKitExcludedLinked": {
+    "description": "Summary line in the editor sheet's PluralKit section for an excluded member whose PK fields resolve.",
+    "placeholders": {
+      "pkName": {
+        "type": "String"
+      }
+    }
+  },
+  "memberEditorPluralKitExcludedUnresolved": "Excluded from sync — was linked to {pkId} (not in current system)",
+  "@memberEditorPluralKitExcludedUnresolved": {
+    "description": "Summary line in the editor sheet's PluralKit section for an excluded member whose PK fields don't resolve in the current PluralKit system.",
+    "placeholders": {
+      "pkId": {
+        "type": "String"
+      }
+    }
+  },
+  "memberEditorPluralKitExcludedUnlinked": "Excluded from sync — not linked",
+  "@memberEditorPluralKitExcludedUnlinked": {
+    "description": "Summary line in the editor sheet's PluralKit section for an excluded member with no PK fields."
+  },
+  "memberEditorPluralKitNotLinked": "Not linked",
+  "@memberEditorPluralKitNotLinked": {
+    "description": "Summary line in the editor sheet's PluralKit section for a non-excluded member without PK fields."
+  },
+  "memberEditorPluralKitExcludeAction": "Exclude from PluralKit sync",
+  "@memberEditorPluralKitExcludeAction": {
+    "description": "Action button in the editor sheet's PluralKit section that excludes this member from PluralKit sync."
+  },
+  "memberEditorPluralKitResumeAction": "Resume PluralKit sync",
+  "@memberEditorPluralKitResumeAction": {
+    "description": "Action button in the editor sheet's PluralKit section that resumes sync on this excluded member."
+  },
+  "memberEditorPluralKitLinkAction": "Link to PluralKit member…",
+  "@memberEditorPluralKitLinkAction": {
+    "description": "Action button in the editor sheet's PluralKit section that opens a search to link this member to a PluralKit member."
+  }
 }

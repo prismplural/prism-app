@@ -158,6 +158,10 @@ class MemberSearchSheet extends StatefulWidget {
 
   /// Show in single-select mode. Never returns `null` — maps a dismissed sheet
   /// to [MemberSearchResultDismissed].
+  ///
+  /// [trailingBuilder] is forwarded to the sheet so callers (e.g. the Manage
+  /// PluralKit links screen's "Add link to existing member" flow) can render
+  /// per-row state captions in the trailing slot.
   static Future<MemberSearchSingleResult> showSingle(
     BuildContext context, {
     required List<Member> members,
@@ -165,6 +169,7 @@ class MemberSearchSheet extends StatefulWidget {
     String? title,
     List<MemberSearchGroup> groups = const [],
     List<MemberSearchSpecialRow> specialRows = const [],
+    Widget? Function(Member member)? trailingBuilder,
   }) async {
     final result = await PrismSheet.showFullScreen<MemberSearchSingleResult>(
       context: context,
@@ -174,6 +179,7 @@ class MemberSearchSheet extends StatefulWidget {
         title: title,
         groups: groups,
         specialRows: specialRows,
+        trailingBuilder: trailingBuilder,
         scrollController: scrollController,
       ),
     );
