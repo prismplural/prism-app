@@ -79,8 +79,9 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
     final newVal = widget.existingValue?.value ?? '';
     final oldVal = oldWidget.existingValue?.value ?? '';
     if (newVal == oldVal) return;
-    // External update (sync stream). Adopt as the new baseline, but never
-    // clobber the visible text while the user is focused — their save wins.
+    // External update (sync stream). LWW for 0.10.0: focused user keeps
+    // their in-progress text and wins on save; unfocused user's staged
+    // edit is silently overwritten. Pinned by field_input_widget_test.dart.
     _initialValue = newVal;
     if (!_focusNode.hasFocus && _textController.text != newVal) {
       _textController.text = newVal;
