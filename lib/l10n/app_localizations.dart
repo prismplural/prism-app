@@ -14679,12 +14679,6 @@ abstract class AppLocalizations {
   /// **'Could not load auto-sync settings.'**
   String get pluralkitAutoSyncLoadFailed;
 
-  /// Button label to re-open the PK member mapping flow
-  ///
-  /// In en, this message translates to:
-  /// **'Re-run member mapping'**
-  String get pluralkitRerunMemberMapping;
-
   /// Button label to import a PluralKit pk;export JSON file
   ///
   /// In en, this message translates to:
@@ -16457,6 +16451,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Exclude or resume sync, fix unresolved links, or link an existing member.'**
   String get pkLinkManagementEntryRowSubtitle;
+
+  /// Title on the row in the PluralKit setup screen that opens the mapping wizard for newly added members on either side.
+  ///
+  /// In en, this message translates to:
+  /// **'Map new members'**
+  String get pkMapNewMembersEntryRowTitle;
+
+  /// Subtitle on the row in the PluralKit setup screen that opens the mapping wizard for newly added members on either side.
+  ///
+  /// In en, this message translates to:
+  /// **'Import new PluralKit members or push new local members.'**
+  String get pkMapNewMembersEntryRowSubtitle;
+
+  /// Subtitle on the row in the PluralKit setup screen that opens the pk;export file import flow.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore switch history from a PluralKit data export.'**
+  String get pkImportFromFileEntryRowSubtitle;
 
   /// Section header on the Manage PluralKit links screen for members whose PluralKit fields resolve in the current fetch and sync is active.
   ///

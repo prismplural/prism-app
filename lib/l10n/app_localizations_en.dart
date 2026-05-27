@@ -8986,9 +8986,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Could not load auto-sync settings.';
 
   @override
-  String get pluralkitRerunMemberMapping => 'Re-run member mapping';
-
-  @override
   String get pluralkitImportFromFile => 'Recover history from pk;export';
 
   @override
@@ -10273,6 +10270,17 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get pkLinkManagementEntryRowSubtitle =>
       'Exclude or resume sync, fix unresolved links, or link an existing member.';
+
+  @override
+  String get pkMapNewMembersEntryRowTitle => 'Map new members';
+
+  @override
+  String get pkMapNewMembersEntryRowSubtitle =>
+      'Import new PluralKit members or push new local members.';
+
+  @override
+  String get pkImportFromFileEntryRowSubtitle =>
+      'Restore switch history from a PluralKit data export.';
 
   @override
   String get pkLinkManagementSectionSynced => 'Synced with PluralKit';

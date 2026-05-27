@@ -2395,7 +2395,6 @@
   "pluralkitAutoSyncDescription": "Mientras Prism esté abierto, consulta PluralKit para ver nuevos cambios de frente cada cierto intervalo. Se pausa en segundo plano.",
   "pluralkitAutoSyncIntervalLabel": "Consultar cada",
   "pluralkitAutoSyncLoadFailed": "No se pudieron cargar los ajustes de auto-sincronización.",
-  "pluralkitRerunMemberMapping": "Volver a vincular integrantes",
   "pluralkitImportFromFile": "Recuperar historial desde pk;export",
   "pluralkitMappingBannerTitle": "Un paso más: vincula a tus {termPluralLower}",
   "pluralkitMappingBannerBody": "Estás conectado. Antes de activar la sincronización, empareja cada miembro de PluralKit con {termSingularLower} de Prism — o impórtalos como nuevos. Esto evita duplicados y mantiene el historial de fronts ligado a la persona correcta.",
@@ -3297,6 +3296,18 @@
   "pkLinkManagementEntryRowSubtitle": "Exclude or resume sync, fix unresolved links, or link an existing member.",
   "@pkLinkManagementEntryRowSubtitle": {
     "description": "Subtitle on the row in the PluralKit setup screen that navigates to the Manage PluralKit links screen."
+  },
+  "pkMapNewMembersEntryRowTitle": "Map new members",
+  "@pkMapNewMembersEntryRowTitle": {
+    "description": "Title on the row in the PluralKit setup screen that opens the mapping wizard for newly added members on either side."
+  },
+  "pkMapNewMembersEntryRowSubtitle": "Import new PluralKit members or push new local members.",
+  "@pkMapNewMembersEntryRowSubtitle": {
+    "description": "Subtitle on the row in the PluralKit setup screen that opens the mapping wizard for newly added members on either side."
+  },
+  "pkImportFromFileEntryRowSubtitle": "Restore switch history from a PluralKit data export.",
+  "@pkImportFromFileEntryRowSubtitle": {
+    "description": "Subtitle on the row in the PluralKit setup screen that opens the pk;export file import flow."
   },
   "pkLinkManagementSectionSynced": "Synced with PluralKit",
   "@pkLinkManagementSectionSynced": {

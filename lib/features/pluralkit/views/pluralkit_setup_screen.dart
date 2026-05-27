@@ -595,31 +595,8 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               _buildSyncProgress(syncState, theme)
             else
               _buildSyncActions(syncState, theme),
-            const SizedBox(height: 8),
-            PrismButton(
-              label: context.l10n.pluralkitRerunMemberMapping,
-              onPressed: _openMappingScreen,
-              icon: AppIcons.people,
-              tone: PrismButtonTone.outlined,
-              expanded: true,
-            ),
-            const SizedBox(height: 8),
-            PrismSectionCard(
-              padding: EdgeInsets.zero,
-              child: PrismListRow(
-                key: const ValueKey('pkLinkManagementEntryRow'),
-                leading: Icon(
-                  AppIcons.link,
-                  color: theme.colorScheme.primary,
-                ),
-                title: Text(context.l10n.pkLinkManagementEntryRowTitle),
-                subtitle: Text(
-                  context.l10n.pkLinkManagementEntryRowSubtitle,
-                ),
-                showChevron: true,
-                onTap: _openLinkManagementScreen,
-              ),
-            ),
+            const SizedBox(height: 16),
+            _buildSyncNavigationRows(theme),
           ],
 
           // -- Section 4: Sync Summary --
@@ -830,15 +807,6 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           expanded: true,
           enabled: canSync,
         ),
-        const SizedBox(height: 8),
-        PrismButton(
-          onPressed: _importFromFile,
-          icon: AppIcons.fileUploadOutlined,
-          label: context.l10n.pluralkitImportFromFile,
-          tone: PrismButtonTone.outlined,
-          expanded: true,
-          enabled: !syncState.isSyncing,
-        ),
         if (syncState.syncStatus.isNotEmpty && !syncState.isSyncing) ...[
           const SizedBox(height: 8),
           Text(
@@ -849,6 +817,43 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildSyncNavigationRows(ThemeData theme) {
+    return PrismSectionCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          PrismListRow(
+            key: const ValueKey('pkLinkManagementEntryRow'),
+            leading: Icon(AppIcons.link, color: theme.colorScheme.primary),
+            title: Text(context.l10n.pkLinkManagementEntryRowTitle),
+            subtitle: Text(context.l10n.pkLinkManagementEntryRowSubtitle),
+            showChevron: true,
+            onTap: _openLinkManagementScreen,
+          ),
+          PrismListRow(
+            key: const ValueKey('pkMapNewMembersEntryRow'),
+            leading: Icon(AppIcons.people, color: theme.colorScheme.primary),
+            title: Text(context.l10n.pkMapNewMembersEntryRowTitle),
+            subtitle: Text(context.l10n.pkMapNewMembersEntryRowSubtitle),
+            showChevron: true,
+            onTap: _openMappingScreen,
+          ),
+          PrismListRow(
+            key: const ValueKey('pkImportFromFileEntryRow'),
+            leading: Icon(
+              AppIcons.fileUploadOutlined,
+              color: theme.colorScheme.primary,
+            ),
+            title: Text(context.l10n.pluralkitImportFromFile),
+            subtitle: Text(context.l10n.pkImportFromFileEntryRowSubtitle),
+            showChevron: true,
+            onTap: _importFromFile,
+          ),
+        ],
+      ),
     );
   }
 

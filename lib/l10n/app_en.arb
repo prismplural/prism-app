@@ -9890,10 +9890,6 @@
   "@pluralkitAutoSyncLoadFailed": {
     "description": "Shown when PluralKit auto-poll settings fail to load"
   },
-  "pluralkitRerunMemberMapping": "Re-run member mapping",
-  "@pluralkitRerunMemberMapping": {
-    "description": "Button label to re-open the PK member mapping flow"
-  },
   "pluralkitImportFromFile": "Recover history from pk;export",
   "@pluralkitImportFromFile": {
     "description": "Button label to import a PluralKit pk;export JSON file"
@@ -11083,6 +11079,18 @@
   "pkLinkManagementEntryRowSubtitle": "Exclude or resume sync, fix unresolved links, or link an existing member.",
   "@pkLinkManagementEntryRowSubtitle": {
     "description": "Subtitle on the row in the PluralKit setup screen that navigates to the Manage PluralKit links screen."
+  },
+  "pkMapNewMembersEntryRowTitle": "Map new members",
+  "@pkMapNewMembersEntryRowTitle": {
+    "description": "Title on the row in the PluralKit setup screen that opens the mapping wizard for newly added members on either side."
+  },
+  "pkMapNewMembersEntryRowSubtitle": "Import new PluralKit members or push new local members.",
+  "@pkMapNewMembersEntryRowSubtitle": {
+    "description": "Subtitle on the row in the PluralKit setup screen that opens the mapping wizard for newly added members on either side."
+  },
+  "pkImportFromFileEntryRowSubtitle": "Restore switch history from a PluralKit data export.",
+  "@pkImportFromFileEntryRowSubtitle": {
+    "description": "Subtitle on the row in the PluralKit setup screen that opens the pk;export file import flow."
   },
   "pkLinkManagementSectionSynced": "Synced with PluralKit",
   "@pkLinkManagementSectionSynced": {

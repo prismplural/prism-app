@@ -7,8 +7,6 @@ import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_editor_scope.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_renderers.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 export 'package:prism_plurality/features/members/widgets/custom_field_editor_scope.dart'
     show CustomFieldsEditorController, CustomFieldEditorScope, PendingFieldEditState;
@@ -56,9 +54,6 @@ class CustomFieldsEditor extends ConsumerWidget {
     List<CustomField> fields,
     List<CustomFieldValue> values,
   ) {
-    final theme = Theme.of(context);
-    final l10n = context.l10n;
-
     final valueMap = <String, CustomFieldValue>{
       for (final v in values) v.customFieldId: v,
     };
@@ -66,29 +61,8 @@ class CustomFieldsEditor extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Icon(
-              AppIcons.tuneOutlined,
-              size: 18,
-              color: theme.colorScheme.primary,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              l10n.memberSectionCustomFields,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        // Only render top-level fields (parentFieldId == null). Group fields
-        // are responsible for rendering their own children. Children with a
-        // non-null parentFieldId are skipped here; the group renderer pulls
-        // them back in from the same flat provider stream.
+        // Top-level fields only — group renderers pull their children from the
+        // same provider stream.
         for (final field in fields.where((f) => f.parentFieldId == null)) ...[
           _buildFieldEditor(context, field, valueMap[field.id]),
           const SizedBox(height: 12),
