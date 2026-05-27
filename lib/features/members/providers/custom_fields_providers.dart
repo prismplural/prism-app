@@ -241,32 +241,55 @@ class CustomFieldValueNotifier extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
-  Future<void> setValue({
+  /// Writes [value] for ([customFieldId], [memberId]) via the repository.
+  ///
+  /// Returns the caught error (or `null` on success). Callers MUST check the
+  /// return value: the member edit sheet's bulk-commit path uses this to
+  /// surface per-field failures via toast and keep the failed editor dirty
+  /// so a retry re-stages cleanly. `AsyncValue.guard` would otherwise swallow
+  /// the error into state with no UI signal.
+  Future<Object?> setValue({
     required String customFieldId,
     required String memberId,
     required String value,
     String? existingId,
   }) async {
+    Object? failure;
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
-      final existing = existingId == null
-          ? await repo.getValueForField(customFieldId, memberId)
-          : null;
-      final fieldValue = CustomFieldValue(
-        id: existingId ?? existing?.id ?? _uuid.v4(),
-        customFieldId: customFieldId,
-        memberId: memberId,
-        value: value,
-      );
-      await repo.upsertValue(fieldValue);
+      try {
+        final existing = existingId == null
+            ? await repo.getValueForField(customFieldId, memberId)
+            : null;
+        final fieldValue = CustomFieldValue(
+          id: existingId ?? existing?.id ?? _uuid.v4(),
+          customFieldId: customFieldId,
+          memberId: memberId,
+          value: value,
+        );
+        await repo.upsertValue(fieldValue);
+      } catch (e) {
+        failure = e;
+        rethrow;
+      }
     });
+    return failure;
   }
 
-  Future<void> deleteValue(String id) async {
+  /// Deletes the value at [id]. Returns the caught error (or `null`) — see
+  /// [setValue] for why the bulk-commit path must check the return value.
+  Future<Object?> deleteValue(String id) async {
+    Object? failure;
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
-      await repo.deleteValue(id);
+      try {
+        await repo.deleteValue(id);
+      } catch (e) {
+        failure = e;
+        rethrow;
+      }
     });
+    return failure;
   }
 
   Future<void> deleteValuesForMember(String memberId) async {

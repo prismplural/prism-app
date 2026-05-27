@@ -104,24 +104,34 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
   }
 
   @override
+  String get fieldId => widget.field.id;
+
+  @override
+  String get fieldDisplayName => widget.field.name;
+
+  @override
   Future<void> commitPendingValue() async {
     final value = _textController.text.trim();
     if (value == _initialValue.trim()) return;
 
     final notifier = ref.read(customFieldValueNotifierProvider.notifier);
+    Object? failure;
     if (value.isEmpty) {
       final existingId = widget.existingValue?.id;
       if (existingId != null) {
-        await notifier.deleteValue(existingId);
+        failure = await notifier.deleteValue(existingId);
       }
     } else {
-      await notifier.setValue(
+      failure = await notifier.setValue(
         customFieldId: widget.field.id,
         memberId: widget.memberId,
         value: value,
         existingId: widget.existingValue?.id,
       );
     }
+    // On failure: leave _initialValue alone and stay dirty so the bulk-commit
+    // collects the error AND a re-touch re-stages and re-saves cleanly.
+    if (failure != null) throw failure;
     _initialValue = value;
     _controller?.markDirty(this, false);
   }

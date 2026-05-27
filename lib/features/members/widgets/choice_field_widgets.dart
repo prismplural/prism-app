@@ -168,6 +168,12 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
   }
 
   @override
+  String get fieldId => widget.field.id;
+
+  @override
+  String get fieldDisplayName => widget.field.name;
+
+  @override
   Future<void> commitPendingValue() async {
     // Flush unblurred Other text (Save tapped with keyboard still up).
     final pendingOther = _pendingOtherText;
@@ -178,19 +184,23 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
     if (_currentValue == _initialValue) return;
     final encoded = choiceFieldDefinition.valueEncoder(_currentValue);
     final notifier = ref.read(customFieldValueNotifierProvider.notifier);
+    Object? failure;
     if (encoded.isEmpty) {
       final existingId = widget.existingValue?.id;
       if (existingId != null) {
-        await notifier.deleteValue(existingId);
+        failure = await notifier.deleteValue(existingId);
       }
     } else {
-      await notifier.setValue(
+      failure = await notifier.setValue(
         customFieldId: widget.field.id,
         memberId: widget.memberId,
         value: encoded,
         existingId: widget.existingValue?.id,
       );
     }
+    // On failure: leave _initialValue alone and stay dirty so the bulk-commit
+    // collects the error AND a re-touch re-stages and re-saves cleanly.
+    if (failure != null) throw failure;
     _initialValue = _currentValue;
     _controller?.markDirty(this, false);
   }

@@ -691,6 +691,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         : formatBirthdayWire(_birthday!, hideYear: _birthdayHideYear);
     final proxyTagsJson = _proxyTagsJson();
 
+    Map<String, Object> customFieldFailures = const {};
     try {
       final notifier = ref.read(membersNotifierProvider.notifier);
 
@@ -727,7 +728,11 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
             await _maybeAskAlwaysFrontingSessionChoice(updated);
         if (!mounted || alwaysFrontingSessionChoice == null) return;
 
-        await _customFieldsEditorController.commit();
+        // Best-effort: a partial custom-field failure must NOT block the
+        // member row write. Otherwise fields 1..N-1 land + emit but the
+        // member's own columns and field N never persist, leaving peers and
+        // the local profile out of sync with what the user sees.
+        customFieldFailures = await _customFieldsEditorController.commit();
         await notifier.updateMember(
           updated,
           endPreviousAlwaysFrontingSessions:
@@ -736,7 +741,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
               alwaysFrontingSessionChoice.sessionIdsToEnd,
         );
       } else {
-        await _customFieldsEditorController.commit();
+        customFieldFailures = await _customFieldsEditorController.commit();
         await notifier.createMember(
           id: _memberId,
           name: name,
@@ -799,8 +804,16 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
       }
 
       if (mounted) {
-        Haptics.success();
-        Navigator.of(context).pop(true);
+        if (customFieldFailures.isEmpty) {
+          Haptics.success();
+          Navigator.of(context).pop(true);
+        } else {
+          // Member row + (count - failures.length) custom fields persisted.
+          // Show a non-fatal toast naming the failures and keep the sheet
+          // open — the failed editors stayed dirty so the user can retry by
+          // tapping Save again.
+          _showCustomFieldFailureToast(customFieldFailures);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -815,6 +828,41 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  void _showCustomFieldFailureToast(Map<String, Object> failures) {
+    final l10n = context.l10n;
+    if (failures.length == 1) {
+      final fieldId = failures.keys.single;
+      // Look up the field's display name via the staged-edit controller's
+      // own registry — it's the same provider the editors render from, so
+      // the name we show matches the row the user just tried to save.
+      final name = _customFieldsEditorController.displayNameFor(fieldId) ??
+          _customFieldNameFromProvider(fieldId);
+      PrismToast.error(
+        context,
+        message: l10n.memberSavePartialFailureSingle(name ?? fieldId),
+      );
+    } else {
+      PrismToast.error(
+        context,
+        message: l10n.memberSavePartialFailureMultiple(failures.length),
+      );
+    }
+  }
+
+  /// Fallback display-name lookup when the editor's state is no longer
+  /// registered (e.g. detail view was dismissed before _save resolved).
+  String? _customFieldNameFromProvider(String fieldId) {
+    return ref.read(topLevelCustomFieldsProvider).maybeWhen(
+          data: (fields) {
+            for (final f in fields) {
+              if (f.id == fieldId) return f.name;
+            }
+            return null;
+          },
+          orElse: () => null,
+        );
   }
 
   @override

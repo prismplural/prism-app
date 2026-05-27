@@ -141,26 +141,36 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget>
   }
 
   @override
+  String get fieldId => widget.field.id;
+
+  @override
+  String get fieldDisplayName => widget.field.name;
+
+  @override
   Future<void> commitPendingValue() async {
     if (_step == _initialStep) return;
     final notifier = ref.read(customFieldValueNotifierProvider.notifier);
     final step = _step;
+    Object? failure;
     if (step == null || step < 1) {
       final existingId = widget.existingValue?.id;
       if (existingId != null) {
-        await notifier.deleteValue(existingId);
+        failure = await notifier.deleteValue(existingId);
       }
     } else {
       final encoded = scaleFieldDefinition.valueEncoder(
         ScaleFieldValue(step: step),
       );
-      await notifier.setValue(
+      failure = await notifier.setValue(
         customFieldId: widget.field.id,
         memberId: widget.memberId,
         value: encoded,
         existingId: widget.existingValue?.id,
       );
     }
+    // On failure: leave _initialStep alone and stay dirty so the bulk-commit
+    // collects the error AND a re-touch re-stages and re-saves cleanly.
+    if (failure != null) throw failure;
     _initialStep = _step;
     _controller?.markDirty(this, false);
   }

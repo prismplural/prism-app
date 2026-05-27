@@ -38,10 +38,38 @@ class CustomFieldsEditorController extends ChangeNotifier {
     }
   }
 
-  Future<void> commit() async {
-    for (final state in _dirty.keys.toList()) {
-      await state.commitPendingValue();
+  /// Looks up the display name for [fieldId] among currently-registered
+  /// editors. Returns `null` if no editor for the field is registered
+  /// (e.g. the user dismissed the custom-fields detail view before [commit]
+  /// resolved); callers should fall back to a provider lookup.
+  String? displayNameFor(String fieldId) {
+    for (final state in _dirty.keys) {
+      if (state.fieldId == fieldId) return state.fieldDisplayName;
     }
+    return null;
+  }
+
+  /// Best-effort flush. Iterates every staged field and writes it through the
+  /// value notifier. A failure on one field does NOT short-circuit the rest;
+  /// instead, the caught exception is collected into the returned map (keyed
+  /// by `state.fieldId`). On success the editor clears its own dirty flag via
+  /// [markDirty]; on failure dirty remains set so a re-touch + retry re-stages
+  /// and re-saves cleanly.
+  ///
+  /// Callers MUST surface the returned map — silently dropping failures here
+  /// would let the member-row save succeed while custom-field writes for
+  /// fields 2..N never landed, producing a partial state that's invisible to
+  /// the user and divergent from peers.
+  Future<Map<String, Object>> commit() async {
+    final failures = <String, Object>{};
+    for (final state in _dirty.keys.toList()) {
+      try {
+        await state.commitPendingValue();
+      } catch (e) {
+        failures[state.fieldId] = e;
+      }
+    }
+    return failures;
   }
 
   // No-op: staged edits are local state, so dropping the editor is enough.
@@ -52,6 +80,17 @@ class CustomFieldsEditorController extends ChangeNotifier {
 /// Implemented by per-field editor State classes so the controller can flush
 /// their staged value on [commit].
 abstract class PendingFieldEditState {
+  /// Stable identifier for the underlying [CustomField]. Used by [
+  /// CustomFieldsEditorController.commit] to key the failures map and by the
+  /// host to look up a display name for a partial-failure toast.
+  String get fieldId;
+
+  /// User-visible name for the underlying field. The host shows this in the
+  /// `"Saved, but couldn't save <field>"` toast when a single field failed;
+  /// for multiple failures the host falls back to a count. Implementations
+  /// should return `widget.field.name`.
+  String get fieldDisplayName;
+
   Future<void> commitPendingValue();
 }
 

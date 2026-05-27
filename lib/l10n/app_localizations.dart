@@ -6257,6 +6257,24 @@ abstract class AppLocalizations {
   /// **'Error saving {term}: {error}'**
   String memberErrorSaving(String term, Object error);
 
+  /// Toast when a member is saved successfully but one custom field write failed. The field stays dirty so the user can retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved, but couldn\'t save {fieldName} — try again.'**
+  String memberSavePartialFailureSingle(String fieldName);
+
+  /// Toast when a member is saved successfully but multiple custom field writes failed. The fields stay dirty so the user can retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved, but couldn\'t save {count} fields — try again.'**
+  String memberSavePartialFailureMultiple(int count);
+
+  /// Toast shown when form validation fails AND custom field edits are still staged. Reassures the user that their custom field work was not lost.
+  ///
+  /// In en, this message translates to:
+  /// **'Your custom field changes are still pending — fix the errors above and tap Save.'**
+  String get memberCustomFieldsPendingNote;
+
   /// Age displayed on member detail screen
   ///
   /// In en, this message translates to:

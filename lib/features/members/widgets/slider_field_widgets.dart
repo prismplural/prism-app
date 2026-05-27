@@ -146,17 +146,26 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
   }
 
   @override
+  String get fieldId => widget.field.id;
+
+  @override
+  String get fieldDisplayName => widget.field.name;
+
+  @override
   Future<void> commitPendingValue() async {
     if (!_isDirty) return;
     final encoded = sliderFieldDefinition
         .valueEncoder(SliderFieldValue(value: _currentValue));
     final notifier = ref.read(customFieldValueNotifierProvider.notifier);
-    await notifier.setValue(
+    final failure = await notifier.setValue(
       customFieldId: widget.field.id,
       memberId: widget.memberId,
       value: encoded,
       existingId: widget.existingValue?.id,
     );
+    // On failure: leave _initialValue alone and stay dirty so the bulk-commit
+    // collects the error AND a re-touch re-stages and re-saves cleanly.
+    if (failure != null) throw failure;
     _initialValue = _currentValue;
     _touched = false;
     _controller?.markDirty(this, false);

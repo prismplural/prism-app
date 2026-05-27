@@ -3641,6 +3641,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String memberSavePartialFailureSingle(String fieldName) {
+    return 'Saved, but couldn\'t save $fieldName — try again.';
+  }
+
+  @override
+  String memberSavePartialFailureMultiple(int count) {
+    return 'Saved, but couldn\'t save $count fields — try again.';
+  }
+
+  @override
+  String get memberCustomFieldsPendingNote =>
+      'Your custom field changes are still pending — fix the errors above and tap Save.';
+
+  @override
   String memberAgeDisplay(int age) {
     return 'Age $age';
   }
