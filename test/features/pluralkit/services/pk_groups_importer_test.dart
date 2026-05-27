@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
@@ -1304,6 +1305,114 @@ void _stepFourTests({required AppDatabase Function() getDb}) {
         // Confirm DB is empty — no group, no entry.
         final groups = await (db.select(db.memberGroups)).get();
         expect(groups, isEmpty);
+      },
+    );
+
+    // Regression: per-field LWW stamped a fresh HLC on `is_deleted: false`
+    // in the membership-revive update emit, which could resurrect a row a
+    // peer had concurrently deleted. Same shape as commit 94f5d950 for
+    // member_groups, which missed member_group_entries. Uses the
+    // installCaptureSinkForTesting pattern (not the constructor-level
+    // recordUpdateOverride) so the emit goes through the real
+    // SyncRecordMixin pipeline — the override pattern would replace it
+    // wholesale and miss any regression in the dispatch layer itself.
+    test(
+      'PK membership revive update does NOT carry is_deleted '
+      '(regression: per-field LWW resurrection of soft-deleted entries)',
+      () async {
+        final db = getDb();
+        // Seed: PK-backed group + a soft-deleted entry for member-1. The
+        // tombstone's id MUST match the deterministic id the importer
+        // derives — that's how `existedBefore == true` triggers the revive
+        // (update) emit path.
+        const pkGroupUuid = 'pk-g-revive';
+        const pkMemberUuid = 'pk-mem-revive';
+        final groupId = PkGroupsImporter.deriveGroupId(pkGroupUuid);
+        final entryId = PkGroupsImporter.deriveEntryId(
+          pkGroupUuid,
+          pkMemberUuid,
+        );
+
+        await db
+            .into(db.memberGroups)
+            .insert(
+              MemberGroupsCompanion.insert(
+                id: groupId,
+                name: 'Revive',
+                createdAt: DateTime.utc(2026, 1, 1),
+                pluralkitUuid: const Value(pkGroupUuid),
+              ),
+            );
+        // Seed as a soft-deleted push_add tombstone — that's the scenario
+        // where `entriesForGroupForReconcile` returns the row AND the
+        // reconcile path falls through to the revive (`existedBefore=true`)
+        // emit branch. (push_remove tombstones are filtered out by the
+        // pendingRemovalMemberIds skip; active rows are skipped by the
+        // existingActiveMemberIds check.)
+        await db
+            .into(db.memberGroupEntries)
+            .insert(
+              MemberGroupEntriesCompanion.insert(
+                id: entryId,
+                groupId: groupId,
+                memberId: 'local-revive',
+                pkGroupUuid: const Value(pkGroupUuid),
+                pkMemberUuid: const Value(pkMemberUuid),
+                isDeleted: const Value(true),
+                pendingPkOp: const Value('push_add'),
+              ),
+            );
+
+        final repo = _FakeMemberRepo([
+          _member(id: 'local-revive', pkUuid: pkMemberUuid),
+        ]);
+        final importer = PkGroupsImporter(db: db, memberRepository: repo);
+
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        await importer.importGroups([
+          const PKGroup(
+            id: 'gabcd',
+            uuid: pkGroupUuid,
+            name: 'Revive',
+            memberIds: [pkMemberUuid],
+          ),
+        ]);
+
+        // Filter to the entry's sync ops (the group emits its own).
+        final entryOps = captured
+            .where(
+              (op) =>
+                  op.table == 'member_group_entries' &&
+                  op.entityId == entryId,
+            )
+            .toList();
+        expect(
+          entryOps,
+          hasLength(1),
+          reason: 'Exactly one membership emit per reconciled entry.',
+        );
+
+        final op = entryOps.single;
+        // The fix is satisfied by EITHER (a) emitting a create on the
+        // revive branch OR (b) emitting an update whose patch does not
+        // carry is_deleted. Accept both shapes; reject only the buggy
+        // "update with is_deleted: false" emit.
+        if (op.opType == SyncRecordOpType.update) {
+          expect(
+            op.fields.containsKey('is_deleted'),
+            isFalse,
+            reason:
+                'Update patch must not carry is_deleted on the revive '
+                'path — per-field LWW would stamp a fresh HLC and '
+                'resurrect a row a peer concurrently deleted (same bug '
+                'fixed for member_groups in commit 94f5d950).',
+          );
+        } else {
+          expect(op.opType, SyncRecordOpType.create);
+        }
       },
     );
   });

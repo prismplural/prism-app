@@ -601,7 +601,15 @@ class PkGroupsImporter with SyncRecordMixin {
         pkMemberUuid: entry.pkMemberUuid,
       );
       if (entry.existedBefore) {
-        await _emitUpdate(_entryTable, entry.id, fields);
+        // Revive of a locally soft-deleted entry: strip `is_deleted` from the
+        // update patch so per-field LWW can't stamp a fresh HLC on
+        // `is_deleted: false` and resurrect a row a peer concurrently
+        // deleted. Mirrors the member_groups fix in commit 94f5d950 — see
+        // `lib/data/sync/field_diff.dart` for why update patches stay narrow.
+        await _emitUpdate(_entryTable, entry.id, {
+          for (final entry in fields.entries)
+            if (entry.key != 'is_deleted') entry.key: entry.value,
+        });
       } else {
         await _emitCreate(_entryTable, entry.id, fields);
       }
