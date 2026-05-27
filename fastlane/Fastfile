@@ -5,6 +5,16 @@ require "shellwords"
 require "tmpdir"
 require "yaml"
 
+# Resolve a config path that may be absolute, ~ relative, or relative to the
+# repo root (so ASC_KEY_FILEPATH=AuthKey_X.p8 works in CI checkouts too).
+def expand_config_path(path)
+  expanded = File.expand_path(path)
+  return expanded if File.exist?(expanded)
+
+  app_relative = File.expand_path(path, File.expand_path("..", __dir__))
+  File.exist?(app_relative) ? app_relative : expanded
+end
+
 # Shared App Store Connect API key config
 # Requires env vars: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_FILEPATH
 def asc_api_key
@@ -12,7 +22,7 @@ def asc_api_key
     key_id: ENV["ASC_KEY_ID"],
     issuer_id: ENV["ASC_ISSUER_ID"],
   }
-  params[:key_filepath] = ENV["ASC_KEY_FILEPATH"] if ENV["ASC_KEY_FILEPATH"]
+  params[:key_filepath] = expand_config_path(ENV["ASC_KEY_FILEPATH"]) if ENV["ASC_KEY_FILEPATH"]
   app_store_connect_api_key(**params)
 end
 
@@ -125,6 +135,109 @@ def github_release_tag
   "v#{app_version.split("+").first}"
 end
 
+def apple_team_id
+  team_id = ENV["PRISM_APPLE_TEAM_ID"].to_s.strip
+  team_id.empty? ? "GF2W9X3Y6L" : team_id
+end
+
+def developer_id_signing_certificate
+  certificate = ENV["PRISM_MAC_DEVELOPER_ID_APPLICATION"].to_s.strip
+  certificate.empty? ? "Developer ID Application" : certificate
+end
+
+def mac_developer_id_xcargs
+  Shellwords.join([
+    "-allowProvisioningUpdates",
+    "DEVELOPMENT_TEAM=#{apple_team_id}",
+    "CODE_SIGN_STYLE=Automatic",
+    "CODE_SIGN_IDENTITY=#{developer_id_signing_certificate}",
+    "ENABLE_HARDENED_RUNTIME=YES",
+  ])
+end
+
+# Build the xcrun notarytool credential args. Prefers a keychain profile
+# (xcrun notarytool store-credentials), falls back to ASC API key env vars,
+# then to an Apple ID + app-specific password pair.
+def notarytool_args
+  profile = ENV["PRISM_NOTARY_KEYCHAIN_PROFILE"].to_s.strip
+  return Shellwords.join(["--keychain-profile", profile]) unless profile.empty?
+
+  key_id = (ENV["PRISM_NOTARY_KEY_ID"] || ENV["ASC_KEY_ID"]).to_s.strip
+  issuer_id = (ENV["PRISM_NOTARY_ISSUER_ID"] || ENV["ASC_ISSUER_ID"]).to_s.strip
+  key_filepath = (ENV["PRISM_NOTARY_KEY_FILEPATH"] || ENV["ASC_KEY_FILEPATH"]).to_s.strip
+  unless key_id.empty? || key_filepath.empty?
+    args = ["--key", expand_config_path(key_filepath), "--key-id", key_id]
+    args += ["--issuer", issuer_id] unless issuer_id.empty?
+    return Shellwords.join(args)
+  end
+
+  apple_id = (ENV["PRISM_NOTARY_APPLE_ID"] || ENV["FASTLANE_USER"]).to_s.strip
+  password = (ENV["PRISM_NOTARY_PASSWORD"] || ENV["FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD"]).to_s.strip
+  unless apple_id.empty? || password.empty?
+    return Shellwords.join(["--apple-id", apple_id, "--team-id", apple_team_id, "--password", password])
+  end
+
+  UI.user_error!(
+    "No notarization credentials found. Set PRISM_NOTARY_KEYCHAIN_PROFILE, " \
+    "or ASC_KEY_ID/ASC_ISSUER_ID/ASC_KEY_FILEPATH, " \
+    "or PRISM_NOTARY_APPLE_ID/PRISM_NOTARY_PASSWORD."
+  )
+end
+
+def exported_mac_app_path(output_directory)
+  apps = Dir[File.join(output_directory, "*.app")]
+  apps = Dir[File.join(output_directory, "**", "*.app")] if apps.empty?
+  app_path = apps.first
+  UI.user_error!("No exported .app found in #{output_directory}") unless app_path
+  app_path
+end
+
+def create_macos_dmg(app_path, dmg_path, volume_name)
+  staging_dir = File.expand_path("../build/macos/dmg-staging", __dir__)
+  staged_app = File.join(staging_dir, "Prism.app")
+
+  FileUtils.rm_rf(staging_dir)
+  FileUtils.mkdir_p(staging_dir)
+  FileUtils.cp_r(app_path, staged_app)
+  FileUtils.ln_s("/Applications", File.join(staging_dir, "Applications"))
+  FileUtils.mkdir_p(File.dirname(dmg_path))
+  FileUtils.rm_f(dmg_path)
+
+  sh(
+    "hdiutil create " \
+    "-volname #{Shellwords.escape(volume_name)} " \
+    "-srcfolder #{Shellwords.escape(staging_dir)} " \
+    "-ov -format UDZO " \
+    "#{Shellwords.escape(dmg_path)}"
+  )
+end
+
+def notarize_and_staple(path)
+  timeout = ENV["PRISM_NOTARY_TIMEOUT"].to_s.strip
+  timeout_arg = timeout.empty? ? "" : " --timeout #{Shellwords.escape(timeout)}"
+
+  sh("xcrun notarytool submit #{Shellwords.escape(path)} #{notarytool_args} --wait#{timeout_arg}")
+  sh("xcrun stapler staple #{Shellwords.escape(path)}")
+  sh("xcrun stapler validate #{Shellwords.escape(path)}")
+end
+
+def write_sha256_file(path)
+  checksum_path = "#{path}.sha256"
+  sh(
+    "cd #{Shellwords.escape(File.dirname(path))} && " \
+    "shasum -a 256 #{Shellwords.escape(File.basename(path))} > " \
+    "#{Shellwords.escape(File.basename(checksum_path))}"
+  )
+  checksum_path
+end
+
+def github_release_upload(paths)
+  tag = github_release_tag
+  escaped_paths = paths.map { |path| Shellwords.escape(path) }.join(" ")
+  sh("cd .. && gh release upload #{Shellwords.escape(tag)} #{escaped_paths} --clobber")
+  tag
+end
+
 platform :ios do
   desc "Build and upload to TestFlight, distribute to the Prism Private Beta group"
   lane :beta do
@@ -159,10 +272,9 @@ platform :ios do
     FileUtils.mkdir_p(artifact_dir)
     sh("cd .. && #{scrubbed_flutter_env} flutter build ios --release --no-codesign #{defines}")
     sh("cd .. && scripts/package_unsigned_ipa.sh #{Shellwords.escape(ipa_path)}")
-    sh("cd #{Shellwords.escape(artifact_dir)} && shasum -a 256 #{Shellwords.escape(File.basename(ipa_path))} > #{Shellwords.escape(File.basename(checksum_path))}")
+    write_sha256_file(ipa_path)
 
-    tag = github_release_tag
-    sh("cd .. && gh release upload #{Shellwords.escape(tag)} #{Shellwords.escape(ipa_path)} #{Shellwords.escape(checksum_path)} --clobber")
+    tag = github_release_upload([ipa_path, checksum_path])
     UI.success("Uploaded iOS sideload IPA to GitHub release #{tag}")
   end
 end
@@ -201,6 +313,45 @@ platform :mac do
       groups: ["Prism Private Beta"],
       changelog: note,
     )
+  end
+
+  desc "Build signed/notarized Developer ID DMG and upload it to the GitHub release"
+  lane :sideload do
+    defines = build_metadata_defines.join(" ")
+    version = app_version
+    git_rev = `git rev-parse --short HEAD`.strip
+    export_dir = File.expand_path("../build/macos/developer-id/export", __dir__)
+    artifact_dir = File.expand_path("../build/release-artifacts/macos", __dir__)
+    dmg_path = File.join(artifact_dir, "Prism-#{version}-#{git_rev}-macos-developer-id.dmg")
+
+    # flutter build writes dart-defines into macos/Flutter/ephemeral/Flutter-Generated.xcconfig
+    # so the subsequent xcodebuild archive picks them up without re-specifying them.
+    sh("cd .. && #{scrubbed_flutter_env} flutter build macos --release #{defines}")
+
+    FileUtils.rm_rf(export_dir)
+    build_mac_app(
+      workspace: "macos/Runner.xcworkspace",
+      scheme: "Runner",
+      configuration: "Release",
+      export_method: "developer-id",
+      export_options: File.expand_path("macos_developer_id_export_options.plist", __dir__),
+      export_team_id: apple_team_id,
+      output_directory: export_dir,
+      skip_package_pkg: true,
+      codesigning_identity: developer_id_signing_certificate,
+      xcargs: mac_developer_id_xcargs,
+    )
+
+    app_path = exported_mac_app_path(export_dir)
+    sh("codesign --verify --deep --strict --verbose=2 #{Shellwords.escape(app_path)}")
+
+    create_macos_dmg(app_path, dmg_path, "Prism #{version.split("+").first}")
+    notarize_and_staple(dmg_path)
+    sh("spctl --assess --type open --context context:primary-signature --verbose=4 #{Shellwords.escape(dmg_path)}")
+
+    checksum_path = write_sha256_file(dmg_path)
+    tag = github_release_upload([dmg_path, checksum_path])
+    UI.success("Uploaded macOS Developer ID DMG to GitHub release #{tag}")
   end
 end
 

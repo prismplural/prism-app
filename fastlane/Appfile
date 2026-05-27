@@ -2,6 +2,10 @@ app_identifier "com.prismplural.prism"
 
 # App Store Connect API key (set via environment or api_key_path lane)
 # Set ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_FILEPATH env vars
+#
+# mac sideload notarization reuses ASC_KEY_ID/ASC_ISSUER_ID/ASC_KEY_FILEPATH
+# when present. Alternatively, set PRISM_NOTARY_KEYCHAIN_PROFILE to a profile
+# created by `xcrun notarytool store-credentials`.
 
 # Google Play service account
 # Defaults to ~/.config/prism/play-store-key.json; override with PLAY_STORE_JSON_KEY
