@@ -67,8 +67,7 @@ class _SliderEditorWidget extends ConsumerStatefulWidget {
       _SliderEditorWidgetState();
 }
 
-// Width reserved for the × clear button slot so the slider row never reflows
-// when the button appears or disappears.
+// Reserved trailing slot so the slider row stays stable when × toggles.
 const double _kClearButtonSlotSize = 32.0;
 
 class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
@@ -368,7 +367,6 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
       ),
     );
 
-    // Always reserve trailing space for the × button so layout never reflows.
     final sliderRow = Row(
       children: [
         Expanded(
@@ -1008,7 +1006,7 @@ class _GlassThumbShape extends SliderComponentShape {
   final Color borderColor;
   final TextStyle? labelTextStyle;
   final String? label;
-  // When true, the thumb fill is dimmed to ~40% alpha to signal "no value".
+  // Dims the thumb fill to ~40% alpha to signal "no value".
   final bool isUnset;
 
   static const double _bareSize = 22.0;
