@@ -554,6 +554,7 @@ class DataImportService {
                 age: h.age,
                 bio: h.notes,
                 avatarImageData: h.avatarImageData,
+                pkAvatarCachedUrl: h.pkAvatarCachedUrl,
                 isActive: h.isActive,
                 createdAt: DateTime.parse(h.createdAt),
                 displayOrder: h.displayOrder,
@@ -1509,11 +1510,8 @@ class DataImportService {
 
         final allOptionRows = await db.pollOptionsDao
             .getAllOptionsIncludingDeleted();
-        final existingOptionIds = <String>{
-          for (final o in allOptionRows) o.id,
-        };
-        final allVoteRows = await db.pollVotesDao
-            .getAllVotesIncludingDeleted();
+        final existingOptionIds = <String>{for (final o in allOptionRows) o.id};
+        final allVoteRows = await db.pollVotesDao.getAllVotesIncludingDeleted();
         final existingVoteIds = <String>{for (final v in allVoteRows) v.id};
         for (final o in export.pollOptions) {
           if (existingOptionIds.contains(o.id)) continue;

@@ -8,6 +8,7 @@ class Members extends Table {
   IntColumn get age => integer().nullable()();
   TextColumn get bio => text().nullable()();
   BlobColumn get avatarImageData => blob().nullable()();
+  TextColumn get pkAvatarCachedUrl => text().nullable()();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
   DateTimeColumn get createdAt => dateTime()();
   IntColumn get displayOrder => integer().withDefault(const Constant(0))();

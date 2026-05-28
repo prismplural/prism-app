@@ -520,11 +520,7 @@ const _writeOmittedFields = <String, Set<String>>{
   //   in drift_member_groups_repository.dart). They appear in the schema
   //   because peers exchange them on link/unlink, but the standard group
   //   `_groupFields` helper deliberately omits them.
-  'member_groups': {
-    'pluralkit_id',
-    'pluralkit_uuid',
-    'last_seen_from_pk_at',
-  },
+  'member_groups': {'pluralkit_id', 'pluralkit_uuid', 'last_seen_from_pk_at'},
 };
 
 /// Extracts the set of string keys (e.g. `'created_at':`) from the body of a
@@ -638,6 +634,7 @@ Future<void> _seedDummyRows(AppDatabase db) async {
           name: 'Test Member',
           createdAt: now,
           avatarImageData: Value(Uint8List.fromList([1, 2, 3])),
+          pkAvatarCachedUrl: const Value('https://example.invalid/avatar.png'),
           pkBannerUrl: const Value('https://example.invalid/banner.png'),
           profileHeaderSource: const Value(0),
           profileHeaderLayout: const Value(1),

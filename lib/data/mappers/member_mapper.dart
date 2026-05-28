@@ -17,6 +17,7 @@ class MemberMapper {
       avatarImageData: row.avatarImageData != null
           ? Uint8List.fromList(row.avatarImageData!)
           : null,
+      pkAvatarCachedUrl: row.pkAvatarCachedUrl,
       isActive: row.isActive,
       createdAt: row.createdAt,
       displayOrder: row.displayOrder,
@@ -80,6 +81,7 @@ class MemberMapper {
       age: Value(model.age),
       bio: Value(model.bio),
       avatarImageData: Value(model.avatarImageData),
+      pkAvatarCachedUrl: Value(model.pkAvatarCachedUrl),
       isActive: Value(model.isActive),
       createdAt: Value(model.createdAt),
       displayOrder: Value(model.displayOrder),

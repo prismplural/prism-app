@@ -1396,6 +1396,7 @@ DriftSyncEntity _membersEntity(
         'avatar_image_data': r.avatarImageData != null
             ? base64Encode(r.avatarImageData!)
             : null,
+        'pk_avatar_cached_url': r.pkAvatarCachedUrl,
         'is_active': r.isActive,
         'created_at': _dateTimeToSyncString(r.createdAt),
         'display_order': r.displayOrder,
@@ -1491,6 +1492,7 @@ DriftSyncEntity _membersEntity(
         age: f.intFieldNullable('age'),
         bio: f.stringFieldNullable('bio'),
         avatarImageData: f.blobFieldNullable('avatar_image_data'),
+        pkAvatarCachedUrl: f.stringFieldNullable('pk_avatar_cached_url'),
         isActive: f.boolField('is_active'),
         createdAt: f.dateTimeField('created_at'),
         displayOrder: f.intField('display_order'),
@@ -1576,6 +1578,7 @@ DriftSyncEntity _membersEntity(
         'avatar_image_data': row.avatarImageData != null
             ? base64Encode(row.avatarImageData!)
             : null,
+        'pk_avatar_cached_url': row.pkAvatarCachedUrl,
         'is_active': row.isActive,
         'created_at': _dateTimeToSyncString(row.createdAt),
         'display_order': row.displayOrder,

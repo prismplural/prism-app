@@ -99,10 +99,10 @@ class PkResolutionSnapshot {
 
   /// True if [local]'s PK fields resolve against this snapshot.
   bool resolvesLocal(domain.Member local) => hasResolvablePluralKitLink(
-        local,
-        fetchedPkUuids: fetchedPkUuids,
-        fetchedPkIds: fetchedPkIds,
-      );
+    local,
+    fetchedPkUuids: fetchedPkUuids,
+    fetchedPkIds: fetchedPkIds,
+  );
 }
 
 /// Applies a batch of [PkMappingDecision] items idempotently.
@@ -346,8 +346,13 @@ class PkMappingApplier {
     if (local.avatarImageData == null && pk.avatarUrl != null) {
       final bytes = await _downloadAvatarBytes(pk.avatarUrl!);
       if (bytes != null) {
-        updated = updated.copyWith(avatarImageData: bytes);
+        updated = updated.copyWith(
+          avatarImageData: bytes,
+          pkAvatarCachedUrl: pk.avatarUrl,
+        );
       }
+    } else if (local.pkAvatarCachedUrl == null && _hasText(pk.avatarUrl)) {
+      updated = updated.copyWith(pkAvatarCachedUrl: pk.avatarUrl);
     }
 
     final bannerCache = await _bannerCacheService.resolve(
@@ -451,6 +456,7 @@ class PkMappingApplier {
       birthday: d.pkMember.birthday,
       proxyTagsJson: d.pkMember.proxyTagsJson,
       avatarImageData: avatarBytes,
+      pkAvatarCachedUrl: avatarBytes != null ? d.pkMember.avatarUrl : null,
       pkBannerUrl: bannerCache.pkBannerUrl,
       profileHeaderSource: _hasText(bannerCache.pkBannerUrl)
           ? domain.MemberProfileHeaderSource.pluralKit
@@ -520,7 +526,8 @@ class PkMappingApplier {
     if (existingPkId != null &&
         existingPkId.isNotEmpty &&
         !_hasText(local.pluralkitUuid) &&
-        (resolution == null || resolution.fetchedPkIds.contains(existingPkId))) {
+        (resolution == null ||
+            resolution.fetchedPkIds.contains(existingPkId))) {
       final members = await _client.getMembers();
       final match = members.firstWhere(
         (m) => m.id == existingPkId,
@@ -542,11 +549,10 @@ class PkMappingApplier {
     // pluralkitId is set, which would 404 against a non-resolving id.
     final memberToPush =
         (resolution != null &&
-                (_hasText(local.pluralkitId) ||
-                    _hasText(local.pluralkitUuid)) &&
-                !resolution.resolvesLocal(local))
-            ? local.copyWith(pluralkitId: null, pluralkitUuid: null)
-            : local;
+            (_hasText(local.pluralkitId) || _hasText(local.pluralkitUuid)) &&
+            !resolution.resolvesLocal(local))
+        ? local.copyWith(pluralkitId: null, pluralkitUuid: null)
+        : local;
     final created = await _pushService.pushMemberFull(memberToPush, _client);
     final createdId = created.id;
     final createdUuid = created.uuid;

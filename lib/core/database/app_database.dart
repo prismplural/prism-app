@@ -102,7 +102,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 28;
+  int get schemaVersion => 29;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -767,7 +767,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (current == 27 && to >= 28) {
         // Idempotent — dev/test seeders may already have the columns.
-        final cols = await customSelect('PRAGMA table_info(custom_fields)').get();
+        final cols = await customSelect(
+          'PRAGMA table_info(custom_fields)',
+        ).get();
         final names = cols.map((r) => r.read<String>('name')).toSet();
         if (!names.contains('field_type_id')) {
           await migrator.addColumn(customFields, customFields.fieldTypeId);
@@ -797,6 +799,14 @@ class AppDatabase extends _$AppDatabase {
           'ON custom_fields(parent_field_id) WHERE parent_field_id IS NOT NULL',
         );
         current = 28;
+      }
+      if (current == 28 && to >= 29) {
+        final cols = await customSelect('PRAGMA table_info(members)').get();
+        final names = cols.map((r) => r.read<String>('name')).toSet();
+        if (!names.contains('pk_avatar_cached_url')) {
+          await migrator.addColumn(members, members.pkAvatarCachedUrl);
+        }
+        current = 29;
       }
       if (current != to) {
         throw UnsupportedError(

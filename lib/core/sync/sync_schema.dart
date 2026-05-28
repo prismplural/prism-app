@@ -21,6 +21,7 @@ const String prismSyncSchema = '''
         "age": "Int",
         "bio": "String",
         "avatar_image_data": "Blob",
+        "pk_avatar_cached_url": "String",
         "is_active": "Bool",
         "created_at": "DateTime",
         "display_order": "Int",

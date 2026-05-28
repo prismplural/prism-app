@@ -76,10 +76,7 @@ class FakeMemberRepository implements MemberRepository {
   ) async => throw UnimplementedError();
 
   @override
-  Future<int> applyPluralKitLink(
-    String id,
-    Map<String, dynamic> patch,
-  ) async {
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) async {
     final index = _members.indexWhere((existing) => existing.id == id);
     if (index < 0) return 0;
     final existing = _members[index];
@@ -94,6 +91,9 @@ class FakeMemberRepository implements MemberRepository {
       pluralkitDisplayName: patch.containsKey('pluralkit_display_name')
           ? patch['pluralkit_display_name'] as String?
           : existing.pluralkitDisplayName,
+      pkAvatarCachedUrl: patch.containsKey('pk_avatar_cached_url')
+          ? patch['pk_avatar_cached_url'] as String?
+          : existing.pkAvatarCachedUrl,
       pluralkitSyncIgnored: false,
     );
     return 1;
@@ -118,6 +118,9 @@ class FakeMemberRepository implements MemberRepository {
       pluralkitDisplayName: patch.containsKey('pluralkit_display_name')
           ? patch['pluralkit_display_name'] as String?
           : existing.pluralkitDisplayName,
+      pkAvatarCachedUrl: patch.containsKey('pk_avatar_cached_url')
+          ? patch['pk_avatar_cached_url'] as String?
+          : existing.pkAvatarCachedUrl,
     );
     return 1;
   }

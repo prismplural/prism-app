@@ -31,6 +31,7 @@ abstract class Member with _$Member {
     String? bio,
     @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)
     Uint8List? avatarImageData,
+    String? pkAvatarCachedUrl,
     @Default(true) bool isActive,
     required DateTime createdAt,
     @Default(0) int displayOrder,

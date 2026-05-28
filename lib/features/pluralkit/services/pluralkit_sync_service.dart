@@ -23,6 +23,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_live_fronters_notic
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_bidirectional_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_avatar_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_fronting_switch_matcher.dart';
@@ -461,6 +462,7 @@ class PluralKitSyncService {
   final PluralKitClient Function(String token)? _clientFactory;
   final String? _tokenOverride;
   final PkGroupsImporter? _groupsImporter;
+  final PkAvatarCacheService _avatarCacheService;
   final PkBannerCacheService _bannerCacheService;
   final PkSyncEventBus _bus;
 
@@ -478,6 +480,7 @@ class PluralKitSyncService {
     PluralKitClient Function(String token)? clientFactory,
     String? tokenOverride,
     PkGroupsImporter? groupsImporter,
+    PkAvatarCacheService? avatarCacheService,
     PkBannerCacheService? bannerCacheService,
   }) : _memberRepository = memberRepository,
        _frontingSessionRepository = frontingSessionRepository,
@@ -488,6 +491,7 @@ class PluralKitSyncService {
        _clientFactory = clientFactory,
        _tokenOverride = tokenOverride,
        _groupsImporter = groupsImporter,
+       _avatarCacheService = avatarCacheService ?? PkAvatarCacheService(),
        _bannerCacheService = bannerCacheService ?? PkBannerCacheService(),
        _bus = bus;
 
@@ -515,8 +519,7 @@ class PluralKitSyncService {
     return (await storage_config.safeSecureRead(
       _pkTokenKey,
       storage: _secureStorage,
-    ))
-        .value;
+    )).value;
   }
 
   PluralKitClient _makeClient(String token) => _clientFactory != null
@@ -893,10 +896,7 @@ class PluralKitSyncService {
   /// Skip/Link decisions keyed by the previous session's local member IDs
   /// would otherwise silently skip or link members the user never saw.
   Future<void> clearToken() async {
-    await storage_config.safeSecureDelete(
-      _pkTokenKey,
-      storage: _secureStorage,
-    );
+    await storage_config.safeSecureDelete(_pkTokenKey, storage: _secureStorage);
     await _syncDao.upsertSyncState(
       const PluralKitSyncStateCompanion(
         id: Value('pk_config'),
@@ -2481,11 +2481,6 @@ class PluralKitSyncService {
         continue;
       }
 
-      Uint8List? avatarData;
-      if (pk.avatarUrl != null && pk.avatarUrl!.isNotEmpty) {
-        avatarData = await fetchAvatarBytes(pk.avatarUrl!);
-      }
-
       try {
         if (localMember?.isDeleted == true) {
           debugPrint(
@@ -2499,6 +2494,13 @@ class PluralKitSyncService {
           skipped++;
           continue;
         }
+        final avatarCache = await _avatarCacheService.resolve(
+          PkAvatarCacheInput(
+            currentAvatarImageData: localMember?.avatarImageData,
+            currentPkAvatarCachedUrl: localMember?.pkAvatarCachedUrl,
+            incomingAvatarUrl: pk.avatarUrl,
+          ),
+        );
         final bannerCache = await _bannerCacheService.resolve(
           PkBannerCacheInput(
             currentPkBannerUrl: localMember?.pkBannerUrl,
@@ -2514,9 +2516,7 @@ class PluralKitSyncService {
             pronouns: pk.pronouns,
             bio: pk.description,
             birthday: pk.birthday,
-            customColorHex: hasPkColor
-                ? pk.color
-                : localMember.customColorHex,
+            customColorHex: hasPkColor ? pk.color : localMember.customColorHex,
             customColorEnabled: hasPkColor
                 ? true
                 : localMember.customColorEnabled,
@@ -2534,7 +2534,8 @@ class PluralKitSyncService {
             pluralkitUuid: pk.uuid,
             pluralkitId: pk.id,
             pluralkitDisplayName: pk.displayName,
-            avatarImageData: avatarData ?? localMember.avatarImageData,
+            avatarImageData: avatarCache.avatarImageData,
+            pkAvatarCachedUrl: avatarCache.pkAvatarCachedUrl,
           );
           // Drop delete-bookkeeping keys before passing to the repo: the
           // `_memberPatchKeys` allowlist (used by applyPluralKitLink's
@@ -2578,7 +2579,8 @@ class PluralKitSyncService {
               pluralkitUuid: pk.uuid,
               pluralkitId: pk.id,
               pluralkitDisplayName: pk.displayName,
-              avatarImageData: avatarData,
+              avatarImageData: avatarCache.avatarImageData,
+              pkAvatarCachedUrl: avatarCache.pkAvatarCachedUrl,
             ),
           );
           created++;

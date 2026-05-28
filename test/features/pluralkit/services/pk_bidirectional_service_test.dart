@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_avatar_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_bidirectional_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
@@ -127,10 +130,7 @@ class FakeMemberRepository implements MemberRepository {
   }
 
   @override
-  Future<int> applyPluralKitLink(
-    String id,
-    Map<String, dynamic> patch,
-  ) async {
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) async {
     calls.add(Call('applyPluralKitLink', [id, patch]));
     final existing = _members[id];
     if (existing == null) return 0;
@@ -253,6 +253,8 @@ domain.Member _localMember({
   String? pluralkitDisplayName,
   String? birthday,
   String? proxyTagsJson,
+  Uint8List? avatarImageData,
+  String? pkAvatarCachedUrl,
   bool pluralkitSyncIgnored = false,
 }) {
   return domain.Member(
@@ -268,6 +270,8 @@ domain.Member _localMember({
     pluralkitDisplayName: pluralkitDisplayName,
     birthday: birthday,
     proxyTagsJson: proxyTagsJson,
+    avatarImageData: avatarImageData,
+    pkAvatarCachedUrl: pkAvatarCachedUrl,
     pluralkitSyncIgnored: pluralkitSyncIgnored,
     createdAt: DateTime(2026, 1, 1),
   );
@@ -283,6 +287,7 @@ PKMember _pkMember({
   String? color,
   String? birthday,
   String? proxyTagsJson,
+  String? avatarUrl,
 }) {
   return PKMember(
     id: id,
@@ -294,6 +299,7 @@ PKMember _pkMember({
     color: color,
     birthday: birthday,
     proxyTagsJson: proxyTagsJson,
+    avatarUrl: avatarUrl,
   );
 }
 
@@ -394,9 +400,10 @@ void main() {
       // site 5). The PK identifiers land on the local row via that method.
       final applyCall = fakeRepo.calls.firstWhere(
         (c) => c.method == 'applyPluralKitLink',
-        orElse: () =>
-            throw StateError('expected applyPluralKitLink call, got: '
-                '${fakeRepo.calls.map((c) => c.method).toList()}'),
+        orElse: () => throw StateError(
+          'expected applyPluralKitLink call, got: '
+          '${fakeRepo.calls.map((c) => c.method).toList()}',
+        ),
       );
       final patch = applyCall.args[1] as Map<String, dynamic>;
       expect(patch['pluralkit_id'], 'pk001');
@@ -605,6 +612,83 @@ void main() {
           fakeRepo.calls.firstWhere((c) => c.method == 'updateMember').args[0]
               as domain.Member;
       expect(written.proxyTagsJson, '[{"prefix":"A:","suffix":null}]');
+    });
+
+    test('baselines legacy avatar URL without replacing local bytes', () async {
+      final localAvatar = Uint8List.fromList([1, 2, 3]);
+      final local = _localMember(
+        id: 'local-1',
+        pluralkitId: 'pk001',
+        avatarImageData: localAvatar,
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        avatarUrl: 'https://cdn.example/avatar.png',
+      );
+      final avatarService = PkAvatarCacheService(
+        fetcher: (_) async => fail('legacy avatar should not refetch'),
+        normalizer: (bytes) => bytes,
+      );
+
+      await PkBidirectionalService(
+        pushService: const PkPushService(),
+        avatarCacheService: avatarService,
+      ).syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pullOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      final written =
+          fakeRepo.calls.firstWhere((c) => c.method == 'updateMember').args[0]
+              as domain.Member;
+      expect(written.avatarImageData, localAvatar);
+      expect(written.pkAvatarCachedUrl, 'https://cdn.example/avatar.png');
+    });
+
+    test('pulls avatar bytes when the PK avatar URL changes', () async {
+      final oldAvatar = Uint8List.fromList([1, 2, 3]);
+      final newAvatar = Uint8List.fromList([9, 8, 7]);
+      final local = _localMember(
+        id: 'local-1',
+        pluralkitId: 'pk001',
+        avatarImageData: oldAvatar,
+        pkAvatarCachedUrl: 'https://cdn.example/old.png',
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        avatarUrl: 'https://cdn.example/new.png',
+      );
+      final avatarService = PkAvatarCacheService(
+        fetcher: (url) async {
+          expect(url, 'https://cdn.example/new.png');
+          return newAvatar;
+        },
+        normalizer: (bytes) => bytes,
+      );
+
+      await PkBidirectionalService(
+        pushService: const PkPushService(),
+        avatarCacheService: avatarService,
+      ).syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pullOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      final written =
+          fakeRepo.calls.firstWhere((c) => c.method == 'updateMember').args[0]
+              as domain.Member;
+      expect(written.avatarImageData, newAvatar);
+      expect(written.pkAvatarCachedUrl, 'https://cdn.example/new.png');
     });
 
     test(
@@ -1411,53 +1495,55 @@ void main() {
   });
 
   group('PR 2: PkStaleLinkException clear path', () {
-    test('still uses generic updateMember on non-excluded (clears nulls)',
-        () async {
-      final local = _localMember(
-        id: 'local-1',
-        name: 'WillStale',
-        pluralkitId: 'pk001',
-        pluralkitUuid: 'uuid-pk001',
-        bio: 'local has newer bio',
-      );
-      final pk = _pkMember(
-        id: 'pk001',
-        uuid: 'uuid-pk001',
-        name: 'WillStale',
-        // bio stays absent so local would push.
-      );
+    test(
+      'still uses generic updateMember on non-excluded (clears nulls)',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          name: 'WillStale',
+          pluralkitId: 'pk001',
+          pluralkitUuid: 'uuid-pk001',
+          bio: 'local has newer bio',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          uuid: 'uuid-pk001',
+          name: 'WillStale',
+          // bio stays absent so local would push.
+        );
 
-      final staleService = PkBidirectionalService(
-        pushService: _StaleLinkOnPushService(),
-      );
+        final staleService = PkBidirectionalService(
+          pushService: _StaleLinkOnPushService(),
+        );
 
-      final summary = await staleService.syncMembers(
-        localMembers: [local],
-        pkMembers: [pk],
-        fieldConfigs: {},
-        direction: PkSyncDirection.pushOnly,
-        lastSyncDate: null,
-        memberRepository: fakeRepo,
-        client: fakeClient,
-      );
+        final summary = await staleService.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pushOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
 
-      expect(summary.membersSkipped, 1);
-      // Clear path went through generic updateMember (NOT through one of
-      // the PK-link-specific methods).
-      final updateCalls = fakeRepo.calls
-          .where((c) => c.method == 'updateMember')
-          .map((c) => c.args[0] as domain.Member)
-          .toList();
-      expect(updateCalls, hasLength(1));
-      expect(updateCalls.single.pluralkitId, isNull);
-      expect(updateCalls.single.pluralkitUuid, isNull);
-      // No applyPluralKitLink — Rule A's null-handling fix means we don't
-      // need the bypass.
-      expect(
-        fakeRepo.calls.where((c) => c.method == 'applyPluralKitLink'),
-        isEmpty,
-      );
-    });
+        expect(summary.membersSkipped, 1);
+        // Clear path went through generic updateMember (NOT through one of
+        // the PK-link-specific methods).
+        final updateCalls = fakeRepo.calls
+            .where((c) => c.method == 'updateMember')
+            .map((c) => c.args[0] as domain.Member)
+            .toList();
+        expect(updateCalls, hasLength(1));
+        expect(updateCalls.single.pluralkitId, isNull);
+        expect(updateCalls.single.pluralkitUuid, isNull);
+        // No applyPluralKitLink — Rule A's null-handling fix means we don't
+        // need the bypass.
+        expect(
+          fakeRepo.calls.where((c) => c.method == 'applyPluralKitLink'),
+          isEmpty,
+        );
+      },
+    );
 
     test('clear path on excluded member writes nulls through (v6 '
         'null-handling fix)', () async {
@@ -1512,49 +1598,51 @@ void main() {
   });
 
   group('PR 2: metadata-only _applyPkChanges writes', () {
-    test('non-excluded local with PK-pulled bio uses generic updateMember',
-        () async {
-      final local = _localMember(
-        id: 'local-1',
-        name: 'Same',
-        pluralkitId: 'pk001',
-        pluralkitUuid: 'uuid-pk001',
-      );
-      // PK has a new bio; pull-direction default for description is
-      // bidirectional, so it pulls.
-      final pk = _pkMember(
-        id: 'pk001',
-        uuid: 'uuid-pk001',
-        name: 'Same',
-        description: 'PK bio',
-      );
+    test(
+      'non-excluded local with PK-pulled bio uses generic updateMember',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          name: 'Same',
+          pluralkitId: 'pk001',
+          pluralkitUuid: 'uuid-pk001',
+        );
+        // PK has a new bio; pull-direction default for description is
+        // bidirectional, so it pulls.
+        final pk = _pkMember(
+          id: 'pk001',
+          uuid: 'uuid-pk001',
+          name: 'Same',
+          description: 'PK bio',
+        );
 
-      await service.syncMembers(
-        localMembers: [local],
-        pkMembers: [pk],
-        fieldConfigs: {},
-        direction: PkSyncDirection.pullOnly,
-        lastSyncDate: null,
-        memberRepository: fakeRepo,
-        client: fakeClient,
-      );
+        await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pullOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
 
-      // Metadata writes go through generic updateMember — NOT
-      // applyPluralKitLink / recordPluralKitIdentity (those are
-      // identity-write methods).
-      final updateCalls = fakeRepo.calls
-          .where((c) => c.method == 'updateMember')
-          .toList();
-      expect(updateCalls, isNotEmpty);
-      expect(
-        fakeRepo.calls.where((c) => c.method == 'applyPluralKitLink'),
-        isEmpty,
-      );
-      expect(
-        fakeRepo.calls.where((c) => c.method == 'recordPluralKitIdentity'),
-        isEmpty,
-      );
-    });
+        // Metadata writes go through generic updateMember — NOT
+        // applyPluralKitLink / recordPluralKitIdentity (those are
+        // identity-write methods).
+        final updateCalls = fakeRepo.calls
+            .where((c) => c.method == 'updateMember')
+            .toList();
+        expect(updateCalls, isNotEmpty);
+        expect(
+          fakeRepo.calls.where((c) => c.method == 'applyPluralKitLink'),
+          isEmpty,
+        );
+        expect(
+          fakeRepo.calls.where((c) => c.method == 'recordPluralKitIdentity'),
+          isEmpty,
+        );
+      },
+    );
 
     test('excluded local with PK-pulled bio is skipped entirely (Part 1.5 '
         'guard); the metadata write never lands', () async {

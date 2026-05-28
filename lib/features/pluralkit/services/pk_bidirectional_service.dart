@@ -4,6 +4,7 @@ import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_avatar_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
@@ -16,12 +17,15 @@ import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 /// or pushes (Prism -> PK, via `PkPushService`).
 class PkBidirectionalService {
   final PkPushService _pushService;
+  final PkAvatarCacheService _avatarCacheService;
   final PkBannerCacheService _bannerCacheService;
 
   PkBidirectionalService({
     PkPushService? pushService,
+    PkAvatarCacheService? avatarCacheService,
     PkBannerCacheService? bannerCacheService,
   }) : _pushService = pushService ?? const PkPushService(),
+       _avatarCacheService = avatarCacheService ?? PkAvatarCacheService(),
        _bannerCacheService = bannerCacheService ?? PkBannerCacheService();
 
   /// Sync members bidirectionally.
@@ -326,6 +330,22 @@ class PkBidirectionalService {
         updated = updated.copyWith(proxyTagsJson: pk.proxyTagsJson);
         changed = true;
       }
+    }
+
+    final avatarCache = await _avatarCacheService.resolve(
+      PkAvatarCacheInput(
+        currentAvatarImageData: local.avatarImageData,
+        currentPkAvatarCachedUrl: local.pkAvatarCachedUrl,
+        incomingAvatarUrl: pk.avatarUrl,
+      ),
+    );
+    if (updated.avatarImageData != avatarCache.avatarImageData ||
+        updated.pkAvatarCachedUrl != avatarCache.pkAvatarCachedUrl) {
+      updated = updated.copyWith(
+        avatarImageData: avatarCache.avatarImageData,
+        pkAvatarCachedUrl: avatarCache.pkAvatarCachedUrl,
+      );
+      changed = true;
     }
 
     final bannerCache = await _bannerCacheService.resolve(

@@ -540,6 +540,7 @@ void main() {
         name: 'Ada',
         emoji: '✨',
         avatarImageData: Uint8List.fromList([1, 2, 3]),
+        pkAvatarCachedUrl: 'https://example.invalid/avatar.png',
         isActive: true,
         createdAt: DateTime.utc(2026, 3, 18),
         displayOrder: 1,
@@ -577,6 +578,10 @@ void main() {
       expect(back['pluralkit_sync_ignored'], isTrue);
       expect(back['pluralkit_id'], 'ada');
       expect(back['pluralkit_uuid'], 'uuid-ada');
+      expect(
+        back['pk_avatar_cached_url'],
+        'https://example.invalid/avatar.png',
+      );
       expect(back['pk_banner_url'], 'https://example.invalid/banner.png');
       expect(back['profile_header_source'], 0);
       expect(back['profile_header_layout'], 1);
@@ -634,6 +639,8 @@ void main() {
       expect(back['birthday'], isNull);
       expect(back.containsKey('proxy_tags_json'), isTrue);
       expect(back['proxy_tags_json'], isNull);
+      expect(back.containsKey('pk_avatar_cached_url'), isTrue);
+      expect(back['pk_avatar_cached_url'], isNull);
       expect(back.containsKey('pk_banner_url'), isTrue);
       expect(back['profile_header_visible'], isTrue);
       expect(back['pk_banner_url'], isNull);
@@ -1233,6 +1240,7 @@ const _remoteCreatePayloads = <String, Map<String, dynamic>>{
     'age': 33,
     'bio': 'bio',
     'avatar_image_data': 'AQID',
+    'pk_avatar_cached_url': 'https://example.invalid/avatar.png',
     'is_active': true,
     'created_at': _remoteIso,
     'display_order': 1,

@@ -77,6 +77,18 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         type: DriftSqlType.blob,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _pkAvatarCachedUrlMeta = const VerificationMeta(
+    'pkAvatarCachedUrl',
+  );
+  @override
+  late final GeneratedColumn<String> pkAvatarCachedUrl =
+      GeneratedColumn<String>(
+        'pk_avatar_cached_url',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _isActiveMeta = const VerificationMeta(
     'isActive',
   );
@@ -480,6 +492,7 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     age,
     bio,
     avatarImageData,
+    pkAvatarCachedUrl,
     isActive,
     createdAt,
     displayOrder,
@@ -568,6 +581,15 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         avatarImageData.isAcceptableOrUnknown(
           data['avatar_image_data']!,
           _avatarImageDataMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pk_avatar_cached_url')) {
+      context.handle(
+        _pkAvatarCachedUrlMeta,
+        pkAvatarCachedUrl.isAcceptableOrUnknown(
+          data['pk_avatar_cached_url']!,
+          _pkAvatarCachedUrlMeta,
         ),
       );
     }
@@ -883,6 +905,10 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         DriftSqlType.blob,
         data['${effectivePrefix}avatar_image_data'],
       ),
+      pkAvatarCachedUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_avatar_cached_url'],
+      ),
       isActive: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
@@ -1028,6 +1054,7 @@ class Member extends DataClass implements Insertable<Member> {
   final int? age;
   final String? bio;
   final Uint8List? avatarImageData;
+  final String? pkAvatarCachedUrl;
   final bool isActive;
   final DateTime createdAt;
   final int displayOrder;
@@ -1068,6 +1095,7 @@ class Member extends DataClass implements Insertable<Member> {
     this.age,
     this.bio,
     this.avatarImageData,
+    this.pkAvatarCachedUrl,
     required this.isActive,
     required this.createdAt,
     required this.displayOrder,
@@ -1118,6 +1146,9 @@ class Member extends DataClass implements Insertable<Member> {
     }
     if (!nullToAbsent || avatarImageData != null) {
       map['avatar_image_data'] = Variable<Uint8List>(avatarImageData);
+    }
+    if (!nullToAbsent || pkAvatarCachedUrl != null) {
+      map['pk_avatar_cached_url'] = Variable<String>(pkAvatarCachedUrl);
     }
     map['is_active'] = Variable<bool>(isActive);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -1201,6 +1232,9 @@ class Member extends DataClass implements Insertable<Member> {
       avatarImageData: avatarImageData == null && nullToAbsent
           ? const Value.absent()
           : Value(avatarImageData),
+      pkAvatarCachedUrl: pkAvatarCachedUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkAvatarCachedUrl),
       isActive: Value(isActive),
       createdAt: Value(createdAt),
       displayOrder: Value(displayOrder),
@@ -1281,6 +1315,9 @@ class Member extends DataClass implements Insertable<Member> {
       age: serializer.fromJson<int?>(json['age']),
       bio: serializer.fromJson<String?>(json['bio']),
       avatarImageData: serializer.fromJson<Uint8List?>(json['avatarImageData']),
+      pkAvatarCachedUrl: serializer.fromJson<String?>(
+        json['pkAvatarCachedUrl'],
+      ),
       isActive: serializer.fromJson<bool>(json['isActive']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       displayOrder: serializer.fromJson<int>(json['displayOrder']),
@@ -1346,6 +1383,7 @@ class Member extends DataClass implements Insertable<Member> {
       'age': serializer.toJson<int?>(age),
       'bio': serializer.toJson<String?>(bio),
       'avatarImageData': serializer.toJson<Uint8List?>(avatarImageData),
+      'pkAvatarCachedUrl': serializer.toJson<String?>(pkAvatarCachedUrl),
       'isActive': serializer.toJson<bool>(isActive),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'displayOrder': serializer.toJson<int>(displayOrder),
@@ -1391,6 +1429,7 @@ class Member extends DataClass implements Insertable<Member> {
     Value<int?> age = const Value.absent(),
     Value<String?> bio = const Value.absent(),
     Value<Uint8List?> avatarImageData = const Value.absent(),
+    Value<String?> pkAvatarCachedUrl = const Value.absent(),
     bool? isActive,
     DateTime? createdAt,
     int? displayOrder,
@@ -1433,6 +1472,9 @@ class Member extends DataClass implements Insertable<Member> {
     avatarImageData: avatarImageData.present
         ? avatarImageData.value
         : this.avatarImageData,
+    pkAvatarCachedUrl: pkAvatarCachedUrl.present
+        ? pkAvatarCachedUrl.value
+        : this.pkAvatarCachedUrl,
     isActive: isActive ?? this.isActive,
     createdAt: createdAt ?? this.createdAt,
     displayOrder: displayOrder ?? this.displayOrder,
@@ -1501,6 +1543,9 @@ class Member extends DataClass implements Insertable<Member> {
       avatarImageData: data.avatarImageData.present
           ? data.avatarImageData.value
           : this.avatarImageData,
+      pkAvatarCachedUrl: data.pkAvatarCachedUrl.present
+          ? data.pkAvatarCachedUrl.value
+          : this.pkAvatarCachedUrl,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       displayOrder: data.displayOrder.present
@@ -1600,6 +1645,7 @@ class Member extends DataClass implements Insertable<Member> {
           ..write('age: $age, ')
           ..write('bio: $bio, ')
           ..write('avatarImageData: $avatarImageData, ')
+          ..write('pkAvatarCachedUrl: $pkAvatarCachedUrl, ')
           ..write('isActive: $isActive, ')
           ..write('createdAt: $createdAt, ')
           ..write('displayOrder: $displayOrder, ')
@@ -1645,6 +1691,7 @@ class Member extends DataClass implements Insertable<Member> {
     age,
     bio,
     $driftBlobEquality.hash(avatarImageData),
+    pkAvatarCachedUrl,
     isActive,
     createdAt,
     displayOrder,
@@ -1692,6 +1739,7 @@ class Member extends DataClass implements Insertable<Member> {
             other.avatarImageData,
             this.avatarImageData,
           ) &&
+          other.pkAvatarCachedUrl == this.pkAvatarCachedUrl &&
           other.isActive == this.isActive &&
           other.createdAt == this.createdAt &&
           other.displayOrder == this.displayOrder &&
@@ -1740,6 +1788,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
   final Value<int?> age;
   final Value<String?> bio;
   final Value<Uint8List?> avatarImageData;
+  final Value<String?> pkAvatarCachedUrl;
   final Value<bool> isActive;
   final Value<DateTime> createdAt;
   final Value<int> displayOrder;
@@ -1781,6 +1830,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.age = const Value.absent(),
     this.bio = const Value.absent(),
     this.avatarImageData = const Value.absent(),
+    this.pkAvatarCachedUrl = const Value.absent(),
     this.isActive = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.displayOrder = const Value.absent(),
@@ -1823,6 +1873,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.age = const Value.absent(),
     this.bio = const Value.absent(),
     this.avatarImageData = const Value.absent(),
+    this.pkAvatarCachedUrl = const Value.absent(),
     this.isActive = const Value.absent(),
     required DateTime createdAt,
     this.displayOrder = const Value.absent(),
@@ -1867,6 +1918,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Expression<int>? age,
     Expression<String>? bio,
     Expression<Uint8List>? avatarImageData,
+    Expression<String>? pkAvatarCachedUrl,
     Expression<bool>? isActive,
     Expression<DateTime>? createdAt,
     Expression<int>? displayOrder,
@@ -1909,6 +1961,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
       if (age != null) 'age': age,
       if (bio != null) 'bio': bio,
       if (avatarImageData != null) 'avatar_image_data': avatarImageData,
+      if (pkAvatarCachedUrl != null) 'pk_avatar_cached_url': pkAvatarCachedUrl,
       if (isActive != null) 'is_active': isActive,
       if (createdAt != null) 'created_at': createdAt,
       if (displayOrder != null) 'display_order': displayOrder,
@@ -1962,6 +2015,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Value<int?>? age,
     Value<String?>? bio,
     Value<Uint8List?>? avatarImageData,
+    Value<String?>? pkAvatarCachedUrl,
     Value<bool>? isActive,
     Value<DateTime>? createdAt,
     Value<int>? displayOrder,
@@ -2004,6 +2058,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
       age: age ?? this.age,
       bio: bio ?? this.bio,
       avatarImageData: avatarImageData ?? this.avatarImageData,
+      pkAvatarCachedUrl: pkAvatarCachedUrl ?? this.pkAvatarCachedUrl,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       displayOrder: displayOrder ?? this.displayOrder,
@@ -2064,6 +2119,9 @@ class MembersCompanion extends UpdateCompanion<Member> {
     }
     if (avatarImageData.present) {
       map['avatar_image_data'] = Variable<Uint8List>(avatarImageData.value);
+    }
+    if (pkAvatarCachedUrl.present) {
+      map['pk_avatar_cached_url'] = Variable<String>(pkAvatarCachedUrl.value);
     }
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
@@ -2187,6 +2245,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
           ..write('age: $age, ')
           ..write('bio: $bio, ')
           ..write('avatarImageData: $avatarImageData, ')
+          ..write('pkAvatarCachedUrl: $pkAvatarCachedUrl, ')
           ..write('isActive: $isActive, ')
           ..write('createdAt: $createdAt, ')
           ..write('displayOrder: $displayOrder, ')
@@ -25662,6 +25721,7 @@ typedef $$MembersTableCreateCompanionBuilder =
       Value<int?> age,
       Value<String?> bio,
       Value<Uint8List?> avatarImageData,
+      Value<String?> pkAvatarCachedUrl,
       Value<bool> isActive,
       required DateTime createdAt,
       Value<int> displayOrder,
@@ -25705,6 +25765,7 @@ typedef $$MembersTableUpdateCompanionBuilder =
       Value<int?> age,
       Value<String?> bio,
       Value<Uint8List?> avatarImageData,
+      Value<String?> pkAvatarCachedUrl,
       Value<bool> isActive,
       Value<DateTime> createdAt,
       Value<int> displayOrder,
@@ -25781,6 +25842,11 @@ class $$MembersTableFilterComposer
 
   ColumnFilters<Uint8List> get avatarImageData => $composableBuilder(
     column: $table.avatarImageData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkAvatarCachedUrl => $composableBuilder(
+    column: $table.pkAvatarCachedUrl,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -25989,6 +26055,11 @@ class $$MembersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get pkAvatarCachedUrl => $composableBuilder(
+    column: $table.pkAvatarCachedUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isActive => $composableBuilder(
     column: $table.isActive,
     builder: (column) => ColumnOrderings(column),
@@ -26182,6 +26253,11 @@ class $$MembersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get pkAvatarCachedUrl => $composableBuilder(
+    column: $table.pkAvatarCachedUrl,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
 
@@ -26368,6 +26444,7 @@ class $$MembersTableTableManager
                 Value<int?> age = const Value.absent(),
                 Value<String?> bio = const Value.absent(),
                 Value<Uint8List?> avatarImageData = const Value.absent(),
+                Value<String?> pkAvatarCachedUrl = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> displayOrder = const Value.absent(),
@@ -26409,6 +26486,7 @@ class $$MembersTableTableManager
                 age: age,
                 bio: bio,
                 avatarImageData: avatarImageData,
+                pkAvatarCachedUrl: pkAvatarCachedUrl,
                 isActive: isActive,
                 createdAt: createdAt,
                 displayOrder: displayOrder,
@@ -26452,6 +26530,7 @@ class $$MembersTableTableManager
                 Value<int?> age = const Value.absent(),
                 Value<String?> bio = const Value.absent(),
                 Value<Uint8List?> avatarImageData = const Value.absent(),
+                Value<String?> pkAvatarCachedUrl = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 required DateTime createdAt,
                 Value<int> displayOrder = const Value.absent(),
@@ -26493,6 +26572,7 @@ class $$MembersTableTableManager
                 age: age,
                 bio: bio,
                 avatarImageData: avatarImageData,
+                pkAvatarCachedUrl: pkAvatarCachedUrl,
                 isActive: isActive,
                 createdAt: createdAt,
                 displayOrder: displayOrder,

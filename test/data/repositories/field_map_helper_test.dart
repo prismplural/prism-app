@@ -105,6 +105,7 @@ void main() {
         // extras dropped. Spot-check that none of the optional PK fields leak.
         expect(fields.containsKey('pluralkit_id'), isTrue);
         expect(fields.containsKey('pluralkit_uuid'), isTrue);
+        expect(fields.containsKey('pk_avatar_cached_url'), isTrue);
       },
     );
   });

@@ -238,6 +238,7 @@ void main() {
         age: 30,
         bio: 'Bio',
         avatarImageData: avatarBytes,
+        pkAvatarCachedUrl: 'https://cdn.example/member/avatar.png',
         isActive: true,
         createdAt: now,
         displayOrder: 2,

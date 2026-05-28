@@ -366,6 +366,7 @@ class V1Headmate {
     this.age,
     this.notes,
     this.profilePhotoData,
+    this.pkAvatarCachedUrl,
     this.isActive = true,
     required this.createdAt,
     this.displayOrder = 0,
@@ -404,6 +405,7 @@ class V1Headmate {
   final int? age;
   final String? notes;
   final String? profilePhotoData; // base64
+  final String? pkAvatarCachedUrl;
   final bool isActive;
   final String createdAt;
   final int displayOrder;
@@ -443,6 +445,7 @@ class V1Headmate {
     if (age != null) 'age': age,
     if (notes != null) 'notes': notes,
     if (profilePhotoData != null) 'profilePhotoData': profilePhotoData,
+    if (pkAvatarCachedUrl != null) 'pkAvatarCachedUrl': pkAvatarCachedUrl,
     'isActive': isActive,
     'createdAt': createdAt,
     'displayOrder': displayOrder,
@@ -485,6 +488,7 @@ class V1Headmate {
     age: json['age'] as int?,
     notes: json['notes'] as String?,
     profilePhotoData: json['profilePhotoData'] as String?,
+    pkAvatarCachedUrl: json['pkAvatarCachedUrl'] as String?,
     isActive: json['isActive'] as bool? ?? true,
     createdAt: json['createdAt'] as String,
     displayOrder: json['displayOrder'] as int? ?? 0,

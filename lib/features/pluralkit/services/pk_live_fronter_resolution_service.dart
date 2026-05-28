@@ -74,6 +74,7 @@ class PkLiveFronterResolutionService {
     }
 
     final avatarData = includeAvatar ? await _downloadAvatarBytes(pk) : null;
+    final avatarUrl = _blankToNull(pk.avatarUrl);
     final member = domain.Member(
       id: _uuid.v4(),
       name: pk.name,
@@ -82,6 +83,7 @@ class PkLiveFronterResolutionService {
       pluralkitUuid: pk.uuid,
       pluralkitDisplayName: pk.displayName,
       avatarImageData: avatarData,
+      pkAvatarCachedUrl: avatarData != null ? avatarUrl : null,
     );
     await _members.createMember(member);
     return member;

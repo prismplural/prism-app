@@ -472,6 +472,7 @@ void main() {
             name: 'Header Member',
             emoji: '*',
             createdAt: createdAt,
+            pkAvatarCachedUrl: 'https://cdn.example.com/member/avatar.png',
             pkBannerUrl: 'https://cdn.example.com/member/banner.png',
             profileHeaderSource: MemberProfileHeaderSource.pluralKit,
             profileHeaderLayout: MemberProfileHeaderLayout.classicOverlap,
@@ -512,6 +513,10 @@ void main() {
         expect(exported.profileHeaderImageData, base64Encode(prismHeader));
         expect(exported.pkBannerImageData, base64Encode(pkBanner));
         expect(
+          exported.pkAvatarCachedUrl,
+          'https://cdn.example.com/member/avatar.png',
+        );
+        expect(
           exported.pkBannerCachedUrl,
           'https://cdn.example.com/member/banner.png',
         );
@@ -544,6 +549,10 @@ void main() {
         expect(imported.nameStyleColorHex, '#112233');
         expect(imported.profileHeaderImageData, prismHeader);
         expect(imported.pkBannerImageData, pkBanner);
+        expect(
+          imported.pkAvatarCachedUrl,
+          'https://cdn.example.com/member/avatar.png',
+        );
         expect(
           imported.pkBannerCachedUrl,
           'https://cdn.example.com/member/banner.png',

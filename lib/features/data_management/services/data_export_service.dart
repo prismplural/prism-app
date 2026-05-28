@@ -453,6 +453,7 @@ class DataExportService {
     profilePhotoData: m.avatarImageData != null
         ? base64Encode(m.avatarImageData!)
         : null,
+    pkAvatarCachedUrl: m.pkAvatarCachedUrl,
     isActive: m.isActive,
     createdAt: m.createdAt.toUtc().toIso8601String(),
     displayOrder: m.displayOrder,
@@ -745,8 +746,9 @@ class DataExportService {
     // a backup round-trip even if the running app doesn't understand them.
     String? typeConfigJson;
     if (f.typeConfig != null) {
-      typeConfigJson =
-          jsonEncode(CustomFieldTypeConfigCodec.toJson(f.typeConfig!));
+      typeConfigJson = jsonEncode(
+        CustomFieldTypeConfigCodec.toJson(f.typeConfig!),
+      );
     } else if (f.unknownTypeConfigRaw != null) {
       // Forward-compat: preserve raw bytes for unknown future types.
       typeConfigJson = f.unknownTypeConfigRaw;

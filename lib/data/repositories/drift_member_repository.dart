@@ -119,13 +119,12 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   Future<int> updateMemberFields(
     String id,
     Map<String, dynamic> changedFields,
-  ) =>
-      _updateMemberFieldsWithIntent(
-        id,
-        changedFields,
-        allowPluralKitLinkMutation: false,
-        allowResumeSyncIgnored: false,
-      );
+  ) => _updateMemberFieldsWithIntent(
+    id,
+    changedFields,
+    allowPluralKitLinkMutation: false,
+    allowResumeSyncIgnored: false,
+  );
 
   @override
   Future<int> applyPluralKitLink(
@@ -257,6 +256,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     for (final key in const [
       'pluralkit_uuid',
       'pluralkit_id',
+      'pk_avatar_cached_url',
       'pk_banner_url',
       'pk_banner_image_data',
       'pk_banner_cached_url',
@@ -640,6 +640,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       'age': m.age,
       'bio': m.bio,
       'avatar_image_data': avatar != null ? base64Encode(avatar) : null,
+      'pk_avatar_cached_url': m.pkAvatarCachedUrl,
       'is_active': m.isActive,
       'created_at': m.createdAt.toUtc().toIso8601String(),
       'display_order': m.displayOrder,
@@ -698,6 +699,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       'age': m.age,
       'bio': m.bio,
       'avatar_image_data': avatar != null ? base64Encode(avatar) : null,
+      'pk_avatar_cached_url': m.pkAvatarCachedUrl,
       'is_active': m.isActive,
       'created_at': toSyncUtc(m.createdAt),
       'display_order': m.displayOrder,
@@ -755,6 +757,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     'age',
     'bio',
     'avatar_image_data',
+    'pk_avatar_cached_url',
     'is_active',
     'created_at',
     'display_order',
@@ -823,6 +826,9 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
           : const Value.absent(),
       avatarImageData: fields.containsKey('avatar_image_data')
           ? Value(_decodeAvatarBlob(fields['avatar_image_data']))
+          : const Value.absent(),
+      pkAvatarCachedUrl: fields.containsKey('pk_avatar_cached_url')
+          ? Value(fields['pk_avatar_cached_url'] as String?)
           : const Value.absent(),
       isActive: fields.containsKey('is_active')
           ? Value(fields['is_active'] as bool)
@@ -938,4 +944,3 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     return parseSyncDateTime(value);
   }
 }
-

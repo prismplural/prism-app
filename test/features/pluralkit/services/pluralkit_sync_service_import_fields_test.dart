@@ -21,6 +21,7 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_avatar_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
@@ -228,6 +229,111 @@ void main() {
         expect(rows.single.pluralkitUuid, 'u-alice');
       },
     );
+
+    test(
+      'update: records PK avatar URL without replacing legacy local avatar',
+      () async {
+        final localAvatar = Uint8List.fromList([10, 80, 160]);
+        const pkAvatarUrl = 'https://cdn.example.com/avatar.png';
+        await db.membersDao.insertMember(
+          MembersCompanion.insert(
+            id: 'local-with-prism-avatar',
+            name: 'Local Alice',
+            createdAt: DateTime(2026),
+            pluralkitId: const Value('aaaaa'),
+            pluralkitUuid: const Value('u-alice'),
+            avatarImageData: Value(localAvatar),
+          ),
+        );
+
+        final service = PluralKitSyncService(
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository: DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+          ),
+          syncDao: db.pluralKitSyncDao,
+          bus: PkSyncEventBus(),
+          tokenOverride: 't',
+          avatarCacheService: PkAvatarCacheService(
+            fetcher: (_) async => fail('same legacy URL should not refetch'),
+            normalizer: (bytes) => bytes,
+          ),
+          clientFactory: (_) => _mockClient(
+            system: {'id': 'sys1', 'name': 'Test'},
+            members: [
+              {
+                'id': 'aaaaa',
+                'uuid': 'u-alice',
+                'name': 'Alice',
+                'avatar_url': pkAvatarUrl,
+              },
+            ],
+          ),
+          bannerCacheService: _testBannerCacheService(),
+        );
+
+        await service.importMembersOnly();
+
+        final row = (await db.membersDao.getAllMembers()).single;
+        expect(row.avatarImageData, localAvatar);
+        expect(row.pkAvatarCachedUrl, pkAvatarUrl);
+      },
+    );
+
+    test('update: changed PK avatar URL pulls new avatar bytes', () async {
+      final oldAvatar = Uint8List.fromList([1, 1, 1]);
+      final newAvatar = Uint8List.fromList([9, 8, 7]);
+      const oldUrl = 'https://cdn.example.com/old-avatar.png';
+      const newUrl = 'https://cdn.example.com/new-avatar.png';
+      await db.membersDao.insertMember(
+        MembersCompanion.insert(
+          id: 'local-with-pk-avatar',
+          name: 'Local Alice',
+          createdAt: DateTime(2026),
+          pluralkitId: const Value('aaaaa'),
+          pluralkitUuid: const Value('u-alice'),
+          avatarImageData: Value(oldAvatar),
+          pkAvatarCachedUrl: const Value(oldUrl),
+        ),
+      );
+
+      final service = PluralKitSyncService(
+        memberRepository: DriftMemberRepository(db.membersDao, null),
+        frontingSessionRepository: DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        ),
+        syncDao: db.pluralKitSyncDao,
+        bus: PkSyncEventBus(),
+        tokenOverride: 't',
+        avatarCacheService: PkAvatarCacheService(
+          fetcher: (url) async {
+            expect(url, newUrl);
+            return newAvatar;
+          },
+          normalizer: (bytes) => bytes,
+        ),
+        clientFactory: (_) => _mockClient(
+          system: {'id': 'sys1', 'name': 'Test'},
+          members: [
+            {
+              'id': 'aaaaa',
+              'uuid': 'u-alice',
+              'name': 'Alice',
+              'avatar_url': newUrl,
+            },
+          ],
+        ),
+        bannerCacheService: _testBannerCacheService(),
+      );
+
+      await service.importMembersOnly();
+
+      final row = (await db.membersDao.getAllMembers()).single;
+      expect(row.avatarImageData, newAvatar);
+      expect(row.pkAvatarCachedUrl, newUrl);
+    });
 
     test(
       'update: missing proxy_tags on subsequent import preserves local value',
