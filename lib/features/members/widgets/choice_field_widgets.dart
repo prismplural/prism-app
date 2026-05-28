@@ -352,17 +352,16 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
     final activeOptions = config.options.where((o) => !o.isDeleted).toList()
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     // Deleted options that are still selected for this member.
-    final deletedButSelected = config.options.where(
-      (o) => o.isDeleted && _currentValue.optionIds.contains(o.id),
-    ).toList();
+    final deletedButSelected = config.options
+        .where((o) => o.isDeleted && _currentValue.optionIds.contains(o.id))
+        .toList();
 
     final chips = <Widget>[
       for (final option in activeOptions)
         _buildOptionChip(context, theme, config, option, allowsMultiple),
       for (final option in deletedButSelected)
         _buildDeletedOptionChip(context, theme, option),
-      if (allowsOther)
-        _buildOtherChip(context, theme, isOtherSelected),
+      if (allowsOther) _buildOtherChip(context, theme, isOtherSelected),
     ];
 
     return Column(
@@ -413,8 +412,9 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
   ) {
     final l10n = context.l10n;
     final isSelected = _currentValue.optionIds.contains(option.id);
-    final color =
-        option.colorHex != null ? AppColors.fromHex(option.colorHex!) : null;
+    final color = option.colorHex != null
+        ? AppColors.fromHex(option.colorHex!)
+        : null;
 
     final popupKey = _popupKeyFor(option.id);
     // Fix 3: spec-mandated Semantics for option chips in the editor.
@@ -432,37 +432,37 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
       itemBuilder: (ctx, index, close) {
         return switch (index) {
           0 => PrismListRow(
-              dense: true,
-              leading: Icon(AppIcons.edit, size: 20),
-              title: Text(l10n.customFieldChoiceEditMenuLabel),
-              onTap: () {
-                close();
-                unawaited(_editOptionLabel(context, config, option));
-              },
-            ),
+            dense: true,
+            leading: Icon(AppIcons.edit, size: 20),
+            title: Text(l10n.customFieldChoiceEditMenuLabel),
+            onTap: () {
+              close();
+              unawaited(_editOptionLabel(context, config, option));
+            },
+          ),
           1 => PrismListRow(
-              dense: true,
-              leading: Icon(AppIcons.palette, size: 20),
-              title: Text(l10n.customFieldChoiceChangeColorMenuLabel),
-              onTap: () {
-                close();
-                unawaited(_cycleOptionColor(context, config, option));
-              },
-            ),
+            dense: true,
+            leading: Icon(AppIcons.palette, size: 20),
+            title: Text(l10n.customFieldChoiceChangeColorMenuLabel),
+            onTap: () {
+              close();
+              unawaited(_cycleOptionColor(context, config, option));
+            },
+          ),
           _ => PrismListRow(
-              dense: true,
-              destructive: true,
-              leading: Icon(
-                AppIcons.delete,
-                size: 20,
-                color: theme.colorScheme.error,
-              ),
-              title: Text(l10n.customFieldChoiceDeleteMenuLabel),
-              onTap: () {
-                close();
-                unawaited(_deleteOption(context, config, option));
-              },
+            dense: true,
+            destructive: true,
+            leading: Icon(
+              AppIcons.delete,
+              size: 20,
+              color: theme.colorScheme.error,
             ),
+            title: Text(l10n.customFieldChoiceDeleteMenuLabel),
+            onTap: () {
+              close();
+              unawaited(_deleteOption(context, config, option));
+            },
+          ),
         };
       },
       child: Semantics(
@@ -549,6 +549,27 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
 
 // ─── Display ──────────────────────────────────────────────────────────────────
 
+List<ChoiceOption> _selectedOptionsInSettingsOrder(
+  ChoiceConfig config,
+  ChoiceFieldValue value,
+) {
+  final selectedIds = value.optionIds;
+  final indexedOptions = <MapEntry<int, ChoiceOption>>[];
+  for (var i = 0; i < config.options.length; i++) {
+    final option = config.options[i];
+    if (selectedIds.contains(option.id)) {
+      indexedOptions.add(MapEntry(i, option));
+    }
+  }
+  return (indexedOptions..sort((a, b) {
+        final sortOrderCompare = a.value.sortOrder.compareTo(b.value.sortOrder);
+        if (sortOrderCompare != 0) return sortOrderCompare;
+        return a.key.compareTo(b.key);
+      }))
+      .map((entry) => entry.value)
+      .toList();
+}
+
 /// Builds the read-only display chip row for a Choice field value.
 Widget buildChoiceDisplay(
   BuildContext context,
@@ -573,22 +594,18 @@ class _ChoiceDisplayWidget extends StatelessWidget {
     }
 
     final parsed = choiceFieldDefinition.valueParser(value.value);
-    final choiceValue =
-        parsed is ChoiceFieldValue ? parsed : const ChoiceFieldValue();
+    final choiceValue = parsed is ChoiceFieldValue
+        ? parsed
+        : const ChoiceFieldValue();
 
     if (choiceValue.optionIds.isEmpty &&
         (choiceValue.other == null || choiceValue.other!.isEmpty)) {
       return const SizedBox.shrink();
     }
 
-    // Build a lookup map for fast access.
-    final optionMap = {for (final o in config.options) o.id: o};
-
     final chips = <Widget>[];
 
-    for (final id in choiceValue.optionIds.toList()..sort()) {
-      final option = optionMap[id];
-      if (option == null) continue;
+    for (final option in _selectedOptionsInSettingsOrder(config, choiceValue)) {
       final color = option.colorHex != null
           ? AppColors.fromHex(option.colorHex!)
           : null;
@@ -627,11 +644,7 @@ class _ChoiceDisplayWidget extends StatelessWidget {
           button: false,
           label: '${field.name}, $otherLabel',
           excludeSemantics: true,
-          child: PrismChip(
-            label: otherLabel,
-            selected: true,
-            onTap: null,
-          ),
+          child: PrismChip(label: otherLabel, selected: true, onTap: null),
         ),
       );
     }
@@ -672,29 +685,18 @@ class _ChoiceCompactWidget extends StatelessWidget {
     }
 
     final parsed = choiceFieldDefinition.valueParser(value.value);
-    final choiceValue =
-        parsed is ChoiceFieldValue ? parsed : const ChoiceFieldValue();
+    final choiceValue = parsed is ChoiceFieldValue
+        ? parsed
+        : const ChoiceFieldValue();
 
-    // Build resolved label list (preserving a deterministic order).
-    // resolvedLabels and resolvedOptions are parallel: each index corresponds
-    // to either a ChoiceOption or the trailing Other text.
-    final optionMap = {for (final o in config.options) o.id: o};
     final resolvedLabels = <String>[];
     final resolvedOptions = <ChoiceOption>[];
 
-    for (final id in choiceValue.optionIds.toList()..sort()) {
-      final option = optionMap[id];
-      if (option != null) {
-        resolvedLabels.add(option.label);
-        resolvedOptions.add(option);
-      }
+    for (final option in _selectedOptionsInSettingsOrder(config, choiceValue)) {
+      resolvedLabels.add(option.label);
+      resolvedOptions.add(option);
     }
-    // Fix 2: Other was previously only added to resolvedLabels (not resolvedOptions),
-    // making the "else" branch in the chip-render loop unreachable. Now we track
-    // whether Other is present via a separate bool and iterate resolvedLabels
-    // (not resolvedOptions) for the visible count.
-    final hasOther =
-        choiceValue.other != null && choiceValue.other!.isNotEmpty;
+    final hasOther = choiceValue.other != null && choiceValue.other!.isNotEmpty;
     if (hasOther) {
       resolvedLabels.add(l10n.customFieldChoiceOtherPrefix(choiceValue.other!));
     }
@@ -708,20 +710,19 @@ class _ChoiceCompactWidget extends StatelessWidget {
           final overflow = resolvedLabels.length > _maxVisibleChips
               ? '+${resolvedLabels.length - _maxVisibleChips} more'
               : null;
-          final visibleLabels = resolvedLabels.take(_maxVisibleChips).join(', ');
+          final visibleLabels = resolvedLabels
+              .take(_maxVisibleChips)
+              .join(', ');
           final fullText = overflow != null
               ? '$visibleLabels, $overflow'
               : visibleLabels;
           return Text(fullText, overflow: TextOverflow.ellipsis);
         }
 
-        // Fix 2: iterate by resolvedLabels.length (not resolvedOptions.length)
-        // so Other at the end of the list actually gets rendered as a chip.
         final visibleCount = resolvedLabels.length.clamp(0, _maxVisibleChips);
-        final overflow =
-            resolvedLabels.length > _maxVisibleChips
-                ? resolvedLabels.length - _maxVisibleChips
-                : 0;
+        final overflow = resolvedLabels.length > _maxVisibleChips
+            ? resolvedLabels.length - _maxVisibleChips
+            : 0;
 
         final chips = <Widget>[
           for (var i = 0; i < visibleCount; i++)

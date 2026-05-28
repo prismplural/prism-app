@@ -13,6 +13,8 @@
 // The tests below cover the WIDGET layer contracts per spec Task 8 §4.
 // Each group documents its pattern even when the test can't be driven headlessly.
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -196,7 +198,11 @@ void main() {
       // widget-tree: all PrismChip widgets have selected == false.
       final chips = tester.widgetList<PrismChip>(find.byType(PrismChip));
       for (final chip in chips) {
-        expect(chip.selected, isFalse, reason: 'All chips should be unselected');
+        expect(
+          chip.selected,
+          isFalse,
+          reason: 'All chips should be unselected',
+        );
       }
     });
   });
@@ -407,10 +413,7 @@ void main() {
         await controller.commit();
         await tester.pump();
         expect(repo.upsertedValues, hasLength(1));
-        expect(
-          repo.upsertedValues.last.value,
-          contains('"Dragonfruit"'),
-        );
+        expect(repo.upsertedValues.last.value, contains('"Dragonfruit"'));
       },
     );
   });
@@ -436,10 +439,12 @@ void main() {
 
         // It must be wrapped in Opacity (faded) — find an Opacity with < 1.0
         final opacityWidgets = tester
-            .widgetList<Opacity>(find.ancestor(
-              of: find.text('Dragon Fruit'),
-              matching: find.byType(Opacity),
-            ))
+            .widgetList<Opacity>(
+              find.ancestor(
+                of: find.text('Dragon Fruit'),
+                matching: find.byType(Opacity),
+              ),
+            )
             .toList();
         expect(
           opacityWidgets.any((o) => o.opacity < 1.0),
@@ -464,6 +469,33 @@ void main() {
 
       expect(find.text('Apples'), findsOneWidget);
       expect(find.text('Bananas'), findsOneWidget);
+    });
+
+    testWidgets('renders selected options in settings order', (tester) async {
+      final options = List.generate(50, (index) {
+        final reverseId = (49 - index).toString().padLeft(2, '0');
+        return _option('id-$reverseId', 'Option ${index + 1}', order: index);
+      });
+      final field = _choiceField(options: options);
+      final encodedIds = options.map((option) => option.id).toList()..sort();
+      final value = _value(jsonEncode({'options': encodedIds}));
+
+      await tester.pumpWidget(_displaySubject(field: field, value: value));
+      await tester.pump();
+
+      final chipLabels = tester
+          .widgetList<PrismChip>(find.byType(PrismChip))
+          .map((chip) => chip.label)
+          .toList();
+
+      expect(chipLabels.take(5), [
+        'Option 1',
+        'Option 2',
+        'Option 3',
+        'Option 4',
+        'Option 5',
+      ]);
+      expect(chipLabels.last, 'Option 50');
     });
 
     testWidgets('chips are not interactive (no FilterChip selection state)', (
@@ -528,30 +560,54 @@ void main() {
       expect(find.text('+2 more'), findsOneWidget);
     });
 
-    testWidgets(
-      'falls back to plain text in narrow context (< 200px)',
-      (tester) async {
-        final field = _choiceField(
-          options: [
-            _option('a', 'Apples'),
-            _option('b', 'Bananas'),
-            _option('c', 'Cherries'),
-            _option('d', 'Dates'),
-          ],
-        );
-        final value = _value('{"options":["a","b","c","d"]}');
+    testWidgets('uses settings order before applying visible chip limit', (
+      tester,
+    ) async {
+      final options = List.generate(50, (index) {
+        final reverseId = (49 - index).toString().padLeft(2, '0');
+        return _option('id-$reverseId', 'Option ${index + 1}', order: index);
+      });
+      final field = _choiceField(options: options);
+      final encodedIds = options.map((option) => option.id).toList()..sort();
+      final value = _value(jsonEncode({'options': encodedIds}));
 
-        await tester.pumpWidget(
-          _compactSubject(field: field, value: value, width: 120),
-        );
-        await tester.pump();
+      await tester.pumpWidget(
+        _compactSubject(field: field, value: value, width: 500),
+      );
+      await tester.pump();
 
-        // In narrow context there should be no PrismChip widgets.
-        // A Text widget with the compact plain-text representation is rendered
-        // directly instead.
-        expect(find.byType(PrismChip), findsNothing);
-      },
-    );
+      final chipLabels = tester
+          .widgetList<PrismChip>(find.byType(PrismChip))
+          .map((chip) => chip.label)
+          .toList();
+
+      expect(chipLabels, ['Option 1', 'Option 2', 'Option 3']);
+      expect(find.text('+47 more'), findsOneWidget);
+    });
+
+    testWidgets('falls back to plain text in narrow context (< 200px)', (
+      tester,
+    ) async {
+      final field = _choiceField(
+        options: [
+          _option('a', 'Apples'),
+          _option('b', 'Bananas'),
+          _option('c', 'Cherries'),
+          _option('d', 'Dates'),
+        ],
+      );
+      final value = _value('{"options":["a","b","c","d"]}');
+
+      await tester.pumpWidget(
+        _compactSubject(field: field, value: value, width: 120),
+      );
+      await tester.pump();
+
+      // In narrow context there should be no PrismChip widgets.
+      // A Text widget with the compact plain-text representation is rendered
+      // directly instead.
+      expect(find.byType(PrismChip), findsNothing);
+    });
   });
 
   // ─── Long-press menu pattern documentation ───────────────────────────────────
