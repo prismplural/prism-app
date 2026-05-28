@@ -338,6 +338,59 @@ void main() {
       expect(back.options[1].isDeleted, isTrue);
       expect(back.options[1].colorHex, '#00ff00');
     });
+
+    // -------------------------------------------------------------------------
+    // gradientColorsHex tests (new multi-color gradient support)
+    // -------------------------------------------------------------------------
+
+    test('SliderConfig with gradientColorsHex round-trips (5 colors) and extra is empty', () {
+      const c = SliderConfig(
+        mode: SliderMode.labeled,
+        gradientColorsHex: ['#112233', '#445566', '#778899', '#aabbcc', '#ddeeff'],
+      );
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as SliderConfig;
+      expect(back.gradientColorsHex, ['#112233', '#445566', '#778899', '#aabbcc', '#ddeeff']);
+      expect(back.extra, isEmpty, reason: 'gradientColorsHex must be a known key — not land in extra');
+    });
+
+    test('SliderConfig old data (no gradientColorsHex) decodes with null', () {
+      final json = {
+        'runtimeType': 'slider',
+        'mode': 'labeled',
+        'leftColorHex': '#ff0000',
+        'rightColorHex': '#0000ff',
+        'centerColorHex': '#00ff00',
+      };
+      final config = CustomFieldTypeConfigCodec.fromJson(json) as SliderConfig;
+      expect(config.gradientColorsHex, isNull);
+      // Re-encoding: nullable list fields are emitted as null (same as stepLabels
+      // on ScaleConfig). The key is present but null — it must NOT land in extra.
+      final reemitted = CustomFieldTypeConfigCodec.toJson(config);
+      expect(reemitted['gradientColorsHex'], isNull,
+          reason: 'null gradientColorsHex should be emitted as null, not as extra');
+      expect(config.extra, isEmpty,
+          reason: 'gradientColorsHex must be recognized as a known key even when absent from input');
+    });
+
+    test('SliderConfig with gradientColorsHex: decode→encode→decode is a fixed point', () {
+      final original = {
+        'runtimeType': 'slider',
+        'mode': 'labeled',
+        'gradientColorsHex': ['#112233', '#445566', '#778899'],
+        'leftLabel': 'Start',
+        'rightLabel': 'End',
+        'snapToPositions': false,
+        'showTicks': false,
+      };
+      final pass1 = CustomFieldTypeConfigCodec.toJson(
+        CustomFieldTypeConfigCodec.fromJson(original),
+      );
+      final pass2 = CustomFieldTypeConfigCodec.toJson(
+        CustomFieldTypeConfigCodec.fromJson(pass1),
+      );
+      expect(pass2, pass1, reason: 'Re-encoding must be a fixed point');
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -602,6 +655,7 @@ void main() {
         'leftColorHex',
         'rightColorHex',
         'centerColorHex',
+        'gradientColorsHex',
         'snapToPositions',
         'min',
         'max',
@@ -619,6 +673,7 @@ void main() {
           'leftColorHex': null,
           'rightColorHex': null,
           'centerColorHex': null,
+          'gradientColorsHex': null,
           'snapToPositions': false,
           'min': null,
           'max': null,

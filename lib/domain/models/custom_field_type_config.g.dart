@@ -78,6 +78,9 @@ SliderConfig _$SliderConfigFromJson(Map<String, dynamic> json) => SliderConfig(
   leftColorHex: json['leftColorHex'] as String?,
   rightColorHex: json['rightColorHex'] as String?,
   centerColorHex: json['centerColorHex'] as String?,
+  gradientColorsHex: (json['gradientColorsHex'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
   snapToPositions: json['snapToPositions'] as bool? ?? false,
   min: (json['min'] as num?)?.toDouble(),
   max: (json['max'] as num?)?.toDouble(),
@@ -98,6 +101,7 @@ Map<String, dynamic> _$SliderConfigToJson(SliderConfig instance) =>
       'leftColorHex': instance.leftColorHex,
       'rightColorHex': instance.rightColorHex,
       'centerColorHex': instance.centerColorHex,
+      'gradientColorsHex': instance.gradientColorsHex,
       'snapToPositions': instance.snapToPositions,
       'min': instance.min,
       'max': instance.max,
