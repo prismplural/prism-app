@@ -11729,6 +11729,14 @@
   "@customFieldGroupShowTitleSubtitle": {
     "description": "Sub-label under the show-title toggle explaining what hiding the title means"
   },
+  "customFieldShowTitleLabel": "Show title on profiles",
+  "@customFieldShowTitleLabel": {
+    "description": "Toggle label in the field editor sheet (all field types) that controls whether the field's label renders next to its value on member profiles"
+  },
+  "customFieldShowTitleSubtitle": "Hide to render the value without a label.",
+  "@customFieldShowTitleSubtitle": {
+    "description": "Sub-label under the show-title toggle for any custom field type, explaining what hiding the title means"
+  },
   "customFieldGroupUntitledFallback": "Untitled group",
   "@customFieldGroupUntitledFallback": {
     "description": "Fallback label for a group whose name is empty; shown in the settings list and on the detail screen so users can still find/edit it"

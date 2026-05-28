@@ -10863,6 +10863,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Hide to use the group as a visual container only.';
 
   @override
+  String get customFieldShowTitleLabel => 'Show title on profiles';
+
+  @override
+  String get customFieldShowTitleSubtitle =>
+      'Hide to render the value without a label.';
+
+  @override
   String get customFieldGroupUntitledFallback => 'Untitled group';
 
   @override

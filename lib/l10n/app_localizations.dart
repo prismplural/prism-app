@@ -17422,6 +17422,18 @@ abstract class AppLocalizations {
   /// **'Hide to use the group as a visual container only.'**
   String get customFieldGroupShowTitleSubtitle;
 
+  /// Toggle label in the field editor sheet (all field types) that controls whether the field's label renders next to its value on member profiles
+  ///
+  /// In en, this message translates to:
+  /// **'Show title on profiles'**
+  String get customFieldShowTitleLabel;
+
+  /// Sub-label under the show-title toggle for any custom field type, explaining what hiding the title means
+  ///
+  /// In en, this message translates to:
+  /// **'Hide to render the value without a label.'**
+  String get customFieldShowTitleSubtitle;
+
   /// Fallback label for a group whose name is empty; shown in the settings list and on the detail screen so users can still find/edit it
   ///
   /// In en, this message translates to:

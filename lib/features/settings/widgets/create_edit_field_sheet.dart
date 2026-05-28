@@ -111,8 +111,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   late final TextEditingController _sliderUnitController;
   bool _sliderShowTicks = false;
 
-  // Group config state.
-  bool _groupHideTitleOnProfile = false;
+  // Shared show-title-on-profile toggle (applies to all types).
+  bool _hideTitleOnProfile = false;
 
   bool _saving = false;
   late final String _initialName;
@@ -123,18 +123,10 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       _nameController.text != _initialName ||
       _selectedTypeId != _initialTypeId ||
       _selectedPrecision != _initialPrecision ||
+      _hideTitleOnProfile != effectiveHideTitleOnProfile(widget.field?.typeConfig) ||
       (_selectedTypeId == 'choice' && _isChoiceDirty) ||
       (_selectedTypeId == 'scale' && _isScaleDirty) ||
-      (_selectedTypeId == 'slider' && _isSliderDirty) ||
-      (_selectedTypeId == 'group' && _isGroupDirty);
-
-  bool get _isGroupDirty {
-    final existingConfig = widget.field?.typeConfig;
-    if (existingConfig is! GroupConfig || _selectedTypeId != 'group') {
-      return _groupHideTitleOnProfile;
-    }
-    return existingConfig.hideTitleOnProfile != _groupHideTitleOnProfile;
-  }
+      (_selectedTypeId == 'slider' && _isSliderDirty);
 
   bool get _isScaleDirty {
     final existingConfig = widget.field?.typeConfig;
@@ -258,11 +250,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           _scaleCustomEmojiController.text = config.emoji;
         }
       }
-      // Hydrate group config from existing field.
-      if (f.typeConfig is GroupConfig) {
-        final config = f.typeConfig! as GroupConfig;
-        _groupHideTitleOnProfile = config.hideTitleOnProfile;
-      }
+      // Hydrate shared show-title toggle from existing field (works for all types).
+      _hideTitleOnProfile = effectiveHideTitleOnProfile(f.typeConfig);
       // Hydrate slider config from existing field.
       if (f.typeConfig is SliderConfig) {
         final config = f.typeConfig! as SliderConfig;
@@ -416,12 +405,14 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         options: synced,
         allowsMultiple: _choiceAllowsMultiple,
         allowsOther: _choiceAllowsOther,
+        hideTitleOnProfile: _hideTitleOnProfile,
       );
     }
     return ChoiceConfig(
       options: synced,
       allowsMultiple: _choiceAllowsMultiple,
       allowsOther: _choiceAllowsOther,
+      hideTitleOnProfile: _hideTitleOnProfile,
     );
   }
 
@@ -438,12 +429,14 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         emoji: _scaleEmoji,
         steps: _scaleSteps,
         displayLayout: _scaleDisplayLayout,
+        hideTitleOnProfile: _hideTitleOnProfile,
       );
     }
     return ScaleConfig(
       emoji: _scaleEmoji,
       steps: _scaleSteps,
       displayLayout: _scaleDisplayLayout,
+      hideTitleOnProfile: _hideTitleOnProfile,
     );
   }
 
@@ -453,9 +446,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   GroupConfig _buildGroupConfig() {
     final existing = widget.field?.typeConfig;
     if (existing is GroupConfig) {
-      return existing.copyWith(hideTitleOnProfile: _groupHideTitleOnProfile);
+      return existing.copyWith(hideTitleOnProfile: _hideTitleOnProfile);
     }
-    return GroupConfig(hideTitleOnProfile: _groupHideTitleOnProfile);
+    return GroupConfig(hideTitleOnProfile: _hideTitleOnProfile);
   }
 
   // ── Slider helpers ──────────────────────────────────────────────────
@@ -467,7 +460,21 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
 
   /// Build the current [SliderConfig] from UI state.
   SliderConfig _buildSliderConfig() {
+    final existing = widget.field?.typeConfig;
     if (_sliderMode == SliderMode.labeled) {
+      if (existing is SliderConfig) {
+        return existing.copyWith(
+          leftLabel: _sliderTextToNull(_sliderLeftLabelController),
+          rightLabel: _sliderTextToNull(_sliderRightLabelController),
+          centerLabel: _sliderTextToNull(_sliderCenterLabelController),
+          gradientPresetId: _sliderGradientPresetId,
+          leftColorHex: _sliderLeftColorHex,
+          rightColorHex: _sliderRightColorHex,
+          centerColorHex: _sliderCenterColorHex,
+          snapToPositions: _sliderSnapToPositions,
+          hideTitleOnProfile: _hideTitleOnProfile,
+        );
+      }
       return SliderConfig(
         mode: SliderMode.labeled,
         leftLabel: _sliderTextToNull(_sliderLeftLabelController),
@@ -478,8 +485,19 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         rightColorHex: _sliderRightColorHex,
         centerColorHex: _sliderCenterColorHex,
         snapToPositions: _sliderSnapToPositions,
+        hideTitleOnProfile: _hideTitleOnProfile,
       );
     } else {
+      if (existing is SliderConfig) {
+        return existing.copyWith(
+          min: double.tryParse(_sliderMinController.text.trim()) ?? 0,
+          max: double.tryParse(_sliderMaxController.text.trim()) ?? 10,
+          step: double.tryParse(_sliderStepController.text.trim()) ?? 1,
+          unit: _sliderTextToNull(_sliderUnitController),
+          showTicks: _sliderShowTicks,
+          hideTitleOnProfile: _hideTitleOnProfile,
+        );
+      }
       return SliderConfig(
         mode: SliderMode.numeric,
         min: double.tryParse(_sliderMinController.text.trim()) ?? 0,
@@ -487,8 +505,44 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         step: double.tryParse(_sliderStepController.text.trim()) ?? 1,
         unit: _sliderTextToNull(_sliderUnitController),
         showTicks: _sliderShowTicks,
+        hideTitleOnProfile: _hideTitleOnProfile,
       );
     }
+  }
+
+  // ── Legacy-type minimal config helpers ──────────────────────────────────────
+
+  /// Returns null if default (no title hidden, no extra) — avoids storing a
+  /// typeConfig row for plain text fields that haven't changed any display setting.
+  TextConfig? _buildTextConfig() {
+    final existing = widget.field?.typeConfig;
+    final extra = existing is TextConfig ? existing.extra : const <String, dynamic>{};
+    if (!_hideTitleOnProfile && extra.isEmpty) return null;
+    return TextConfig(hideTitleOnProfile: _hideTitleOnProfile, extra: extra);
+  }
+
+  /// Returns null when at default — see [_buildTextConfig].
+  ColorConfig? _buildColorConfig() {
+    final existing = widget.field?.typeConfig;
+    final extra = existing is ColorConfig ? existing.extra : const <String, dynamic>{};
+    if (!_hideTitleOnProfile && extra.isEmpty) return null;
+    return ColorConfig(hideTitleOnProfile: _hideTitleOnProfile, extra: extra);
+  }
+
+  /// Returns null when at default — see [_buildTextConfig].
+  DateConfig? _buildDateConfig() {
+    final existing = widget.field?.typeConfig;
+    final extra = existing is DateConfig ? existing.extra : const <String, dynamic>{};
+    if (!_hideTitleOnProfile && extra.isEmpty) return null;
+    return DateConfig(hideTitleOnProfile: _hideTitleOnProfile, extra: extra);
+  }
+
+  /// Returns null when at default — see [_buildTextConfig].
+  LongTextConfig? _buildLongTextConfig() {
+    final existing = widget.field?.typeConfig;
+    final extra = existing is LongTextConfig ? existing.extra : const <String, dynamic>{};
+    if (!_hideTitleOnProfile && extra.isEmpty) return null;
+    return LongTextConfig(hideTitleOnProfile: _hideTitleOnProfile, extra: extra);
   }
 
   // ── Slider numeric validation ───────────────────────────────────────
@@ -571,6 +625,10 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         'scale' => _buildScaleConfig(),
         'slider' => _buildSliderConfig(),
         'group' => _buildGroupConfig(),
+        'text' => _buildTextConfig(),
+        'color' => _buildColorConfig(),
+        'date' => _buildDateConfig(),
+        'long_text' => _buildLongTextConfig(),
         _ => null,
       };
 
@@ -871,17 +929,6 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                       ),
                     ],
 
-                    // Group config
-                    if (_selectedTypeId == 'group') ...[
-                      const SizedBox(height: 24),
-                      _GroupConfigSection(
-                        hideTitleOnProfile: _groupHideTitleOnProfile,
-                        onHideTitleChanged: (v) => setState(
-                          () => _groupHideTitleOnProfile = v,
-                        ),
-                      ),
-                    ],
-
                     // Slider config
                     if (_selectedTypeId == 'slider') ...[
                       const SizedBox(height: 24),
@@ -919,6 +966,14 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         onLabelChanged: () => setState(() {}),
                       ),
                     ],
+
+                    const SizedBox(height: 24),
+                    const _DisplaySectionHeader(),
+                    _ShowTitleConfigSection(
+                      hideTitleOnProfile: _hideTitleOnProfile,
+                      onHideTitleChanged: (v) =>
+                          setState(() => _hideTitleOnProfile = v),
+                    ),
 
                     const SizedBox(height: 32),
                   ],
@@ -2182,10 +2237,38 @@ class _DuplicateWarningChip extends StatelessWidget {
   }
 }
 
-// ── Group config section ────────────────────────────────────────────────────
+// ── Display section header ──────────────────────────────────────────────────
 
-class _GroupConfigSection extends StatelessWidget {
-  const _GroupConfigSection({
+class _DisplaySectionHeader extends StatelessWidget {
+  const _DisplaySectionHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 1),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Text(
+            'Display',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Shared show-title toggle (all field types) ──────────────────────────────
+
+class _ShowTitleConfigSection extends StatelessWidget {
+  const _ShowTitleConfigSection({
     required this.hideTitleOnProfile,
     required this.onHideTitleChanged,
   });
@@ -2198,25 +2281,20 @@ class _GroupConfigSection extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = context.l10n;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          value: !hideTitleOnProfile,
-          onChanged: (v) => onHideTitleChanged(!v),
-          title: Text(
-            l10n.customFieldGroupShowTitleLabel,
-            style: theme.textTheme.bodyMedium,
-          ),
-          subtitle: Text(
-            l10n.customFieldGroupShowTitleSubtitle,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      value: !hideTitleOnProfile,
+      onChanged: (v) => onHideTitleChanged(!v),
+      title: Text(
+        l10n.customFieldShowTitleLabel,
+        style: theme.textTheme.bodyMedium,
+      ),
+      subtitle: Text(
+        l10n.customFieldShowTitleSubtitle,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
         ),
-      ],
+      ),
     );
   }
 }
