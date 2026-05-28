@@ -29,10 +29,11 @@ DisplayLayout effectiveDisplayLayout({
   return DisplayLayout.compact;
 }
 
-/// Type-specific config for new custom field types (choice, group, scale, slider).
+/// Type-specific config for all custom field types.
 ///
-/// Legacy types (text, color, date, longText) do NOT get a variant — their
-/// `typeConfigJson` column stays NULL in storage.
+/// Legacy types (text, color, date, longText) previously had no variant — their
+/// `typeConfigJson` column was NULL in storage. They now have minimal variants
+/// holding just `hideTitleOnProfile` (+ `extra` for forward-compat).
 ///
 /// Serialization caveat: plain freezed JSON drops unknown top-level keys.
 /// Use [CustomFieldTypeConfigCodec] (see below) — NOT [_$CustomFieldTypeConfigFromJson]
@@ -43,6 +44,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
     @Default(<ChoiceOption>[]) List<ChoiceOption> options,
     @Default(false) bool allowsMultiple,
     @Default(false) bool allowsOther,
+    @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
     Map<String, dynamic> extra,
@@ -61,6 +63,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
     @Default(5) int steps,
     List<String>? stepLabels,
     DisplayLayout? displayLayout,
+    @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
     Map<String, dynamic> extra,
@@ -81,10 +84,45 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
     double? step,
     String? unit,
     @Default(false) bool showTicks,
+    @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
     Map<String, dynamic> extra,
   }) = SliderConfig;
+
+  /// Minimal variant for text fields. Previously typeConfigJson was always NULL;
+  /// now written when hideTitleOnProfile is set (or to preserve forward-compat extras).
+  const factory CustomFieldTypeConfig.text({
+    @Default(false) bool hideTitleOnProfile,
+    @Default(<String, dynamic>{})
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    Map<String, dynamic> extra,
+  }) = TextConfig;
+
+  /// Minimal variant for color fields. See [TextConfig] note above.
+  const factory CustomFieldTypeConfig.color({
+    @Default(false) bool hideTitleOnProfile,
+    @Default(<String, dynamic>{})
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    Map<String, dynamic> extra,
+  }) = ColorConfig;
+
+  /// Minimal variant for date fields. See [TextConfig] note above.
+  /// Note: date precision is stored in its own top-level column, unrelated to this.
+  const factory CustomFieldTypeConfig.date({
+    @Default(false) bool hideTitleOnProfile,
+    @Default(<String, dynamic>{})
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    Map<String, dynamic> extra,
+  }) = DateConfig;
+
+  /// Minimal variant for long_text fields. See [TextConfig] note above.
+  const factory CustomFieldTypeConfig.longText({
+    @Default(false) bool hideTitleOnProfile,
+    @Default(<String, dynamic>{})
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    Map<String, dynamic> extra,
+  }) = LongTextConfig;
 
   factory CustomFieldTypeConfig.fromJson(Map<String, dynamic> json) =>
       _$CustomFieldTypeConfigFromJson(json);
@@ -129,6 +167,10 @@ class CustomFieldTypeConfigCodec {
       final GroupConfig c => c.copyWith(extra: extra),
       final ScaleConfig c => c.copyWith(extra: extra),
       final SliderConfig c => c.copyWith(extra: extra),
+      final TextConfig c => c.copyWith(extra: extra),
+      final ColorConfig c => c.copyWith(extra: extra),
+      final DateConfig c => c.copyWith(extra: extra),
+      final LongTextConfig c => c.copyWith(extra: extra),
     };
   }
 
@@ -154,6 +196,10 @@ class CustomFieldTypeConfigCodec {
       final GroupConfig c => c.extra,
       final ScaleConfig c => c.extra,
       final SliderConfig c => c.extra,
+      final TextConfig c => c.extra,
+      final ColorConfig c => c.extra,
+      final DateConfig c => c.extra,
+      final LongTextConfig c => c.extra,
     };
     if (extra.isEmpty) return base;
     final sortedExtraKeys = extra.keys.toList()..sort();
@@ -176,18 +222,32 @@ class CustomFieldTypeConfigCodec {
         ...c.toJson(),
         'options': c.options.map(ChoiceOptionCodec.toJson).toList(),
       },
-      // GroupConfig, ScaleConfig, SliderConfig have no nested freezed objects.
+      // All other variants have no nested freezed objects.
       GroupConfig _ => config.toJson(),
       ScaleConfig _ => config.toJson(),
       SliderConfig _ => config.toJson(),
+      TextConfig _ => config.toJson(),
+      ColorConfig _ => config.toJson(),
+      DateConfig _ => config.toJson(),
+      LongTextConfig _ => config.toJson(),
     };
   }
 
   /// Known top-level keys for the matched variant (everything else goes in extra).
   /// Update this when adding new fields to a variant.
+  ///
+  // INVARIANT: every freezed field on a variant MUST appear in its set here.
+  // Missing a key causes round-trip to duplicate it into both the typed field
+  // and `extra`.
   static Set<String> _knownKeysFor(CustomFieldTypeConfig config) {
     return switch (config) {
-      ChoiceConfig _ => const {'runtimeType', 'options', 'allowsMultiple', 'allowsOther'},
+      ChoiceConfig _ => const {
+        'runtimeType',
+        'options',
+        'allowsMultiple',
+        'allowsOther',
+        'hideTitleOnProfile',
+      },
       GroupConfig _ => const {'runtimeType', 'icon', 'hideTitleOnProfile'},
       ScaleConfig _ => const {
         'runtimeType',
@@ -195,6 +255,7 @@ class CustomFieldTypeConfigCodec {
         'steps',
         'stepLabels',
         'displayLayout',
+        'hideTitleOnProfile',
       },
       SliderConfig _ => const {
         'runtimeType',
@@ -212,7 +273,27 @@ class CustomFieldTypeConfigCodec {
         'step',
         'unit',
         'showTicks',
+        'hideTitleOnProfile',
       },
+      TextConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
+      ColorConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
+      DateConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
+      LongTextConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
     };
   }
 }
+
+/// Read [hideTitleOnProfile] from any variant; returns false for null
+/// (no typeConfig at all). Mirror of [effectiveDisplayLayout].
+bool effectiveHideTitleOnProfile(CustomFieldTypeConfig? config) =>
+    switch (config) {
+      null => false,
+      final ChoiceConfig c => c.hideTitleOnProfile,
+      final GroupConfig c => c.hideTitleOnProfile,
+      final ScaleConfig c => c.hideTitleOnProfile,
+      final SliderConfig c => c.hideTitleOnProfile,
+      final TextConfig c => c.hideTitleOnProfile,
+      final ColorConfig c => c.hideTitleOnProfile,
+      final DateConfig c => c.hideTitleOnProfile,
+      final LongTextConfig c => c.hideTitleOnProfile,
+    };

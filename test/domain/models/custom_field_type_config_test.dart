@@ -339,4 +339,333 @@ void main() {
       expect(back.options[1].colorHex, '#00ff00');
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // hideTitleOnProfile field on existing and new variants
+  // ---------------------------------------------------------------------------
+  group('hideTitleOnProfile — new variants and extended fields', () {
+    test('TextConfig round-trips with hideTitleOnProfile: true', () {
+      const c = TextConfig(hideTitleOnProfile: true);
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as TextConfig;
+      expect(back, c);
+      expect(back.hideTitleOnProfile, isTrue);
+    });
+
+    test('TextConfig round-trips with hideTitleOnProfile: false (default)', () {
+      const c = TextConfig();
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as TextConfig;
+      expect(back, c);
+      expect(back.hideTitleOnProfile, isFalse);
+    });
+
+    test('ColorConfig round-trips with hideTitleOnProfile: true', () {
+      const c = ColorConfig(hideTitleOnProfile: true);
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as ColorConfig;
+      expect(back, c);
+      expect(back.hideTitleOnProfile, isTrue);
+    });
+
+    test('ColorConfig round-trips with hideTitleOnProfile: false', () {
+      const c = ColorConfig();
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as ColorConfig;
+      expect(back, c);
+      expect(back.hideTitleOnProfile, isFalse);
+    });
+
+    test('DateConfig round-trips with hideTitleOnProfile: true', () {
+      const c = DateConfig(hideTitleOnProfile: true);
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as DateConfig;
+      expect(back, c);
+      expect(back.hideTitleOnProfile, isTrue);
+    });
+
+    test('DateConfig round-trips with hideTitleOnProfile: false', () {
+      const c = DateConfig();
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as DateConfig;
+      expect(back, c);
+      expect(back.hideTitleOnProfile, isFalse);
+    });
+
+    test('LongTextConfig round-trips with hideTitleOnProfile: true', () {
+      const c = LongTextConfig(hideTitleOnProfile: true);
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as LongTextConfig;
+      expect(back, c);
+      expect(back.hideTitleOnProfile, isTrue);
+    });
+
+    test('LongTextConfig round-trips with hideTitleOnProfile: false', () {
+      const c = LongTextConfig();
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as LongTextConfig;
+      expect(back, c);
+      expect(back.hideTitleOnProfile, isFalse);
+    });
+
+    test('ChoiceConfig round-trips with hideTitleOnProfile: true', () {
+      final c = ChoiceConfig(
+        hideTitleOnProfile: true,
+        options: [const ChoiceOption(id: 'o1', label: 'Opt', sortOrder: 0)],
+      );
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as ChoiceConfig;
+      expect(back, c);
+      expect(back.hideTitleOnProfile, isTrue);
+    });
+
+    test('ScaleConfig round-trips with hideTitleOnProfile: true', () {
+      const c = ScaleConfig(hideTitleOnProfile: true);
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as ScaleConfig;
+      expect(back, c);
+      expect(back.hideTitleOnProfile, isTrue);
+    });
+
+    test('SliderConfig round-trips with hideTitleOnProfile: true', () {
+      const c = SliderConfig(
+        mode: SliderMode.labeled,
+        hideTitleOnProfile: true,
+      );
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as SliderConfig;
+      expect(back, c);
+      expect(back.hideTitleOnProfile, isTrue);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // effectiveHideTitleOnProfile helper
+  // ---------------------------------------------------------------------------
+  group('effectiveHideTitleOnProfile', () {
+    test('null config returns false', () {
+      expect(effectiveHideTitleOnProfile(null), isFalse);
+    });
+
+    test('GroupConfig with hideTitleOnProfile: true returns true', () {
+      expect(
+        effectiveHideTitleOnProfile(const GroupConfig(hideTitleOnProfile: true)),
+        isTrue,
+      );
+    });
+
+    test('GroupConfig with hideTitleOnProfile: false returns false', () {
+      expect(
+        effectiveHideTitleOnProfile(const GroupConfig()),
+        isFalse,
+      );
+    });
+
+    test('TextConfig with hideTitleOnProfile: true returns true', () {
+      expect(
+        effectiveHideTitleOnProfile(const TextConfig(hideTitleOnProfile: true)),
+        isTrue,
+      );
+    });
+
+    test('ColorConfig with hideTitleOnProfile: true returns true', () {
+      expect(
+        effectiveHideTitleOnProfile(const ColorConfig(hideTitleOnProfile: true)),
+        isTrue,
+      );
+    });
+
+    test('DateConfig with hideTitleOnProfile: true returns true', () {
+      expect(
+        effectiveHideTitleOnProfile(const DateConfig(hideTitleOnProfile: true)),
+        isTrue,
+      );
+    });
+
+    test('LongTextConfig with hideTitleOnProfile: true returns true', () {
+      expect(
+        effectiveHideTitleOnProfile(
+          const LongTextConfig(hideTitleOnProfile: true),
+        ),
+        isTrue,
+      );
+    });
+
+    test('ChoiceConfig with hideTitleOnProfile: false returns false', () {
+      expect(
+        effectiveHideTitleOnProfile(ChoiceConfig()),
+        isFalse,
+      );
+    });
+
+    test('ScaleConfig with hideTitleOnProfile: false returns false', () {
+      expect(effectiveHideTitleOnProfile(const ScaleConfig()), isFalse);
+    });
+
+    test('SliderConfig with hideTitleOnProfile: true returns true', () {
+      expect(
+        effectiveHideTitleOnProfile(
+          const SliderConfig(mode: SliderMode.labeled, hideTitleOnProfile: true),
+        ),
+        isTrue,
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Combinatorial: known fields must NOT appear in extra after round-trip
+  // (codec-correctness footgun guard — catches any variant missing a key in
+  // _knownKeysFor that would silently duplicate the field into both the typed
+  // field and `extra`).
+  // ---------------------------------------------------------------------------
+  group('known fields are NOT duplicated into extra — combinatorial', () {
+    Map<String, dynamic> makeJson(
+      String runtimeType,
+      Map<String, dynamic> fields,
+    ) => {'runtimeType': runtimeType, ...fields};
+
+    void assertNoExtraLeakage(
+      String label,
+      Map<String, dynamic> json,
+    ) {
+      final config = CustomFieldTypeConfigCodec.fromJson(json);
+      final extra = switch (config) {
+        final ChoiceConfig c => c.extra,
+        final GroupConfig c => c.extra,
+        final ScaleConfig c => c.extra,
+        final SliderConfig c => c.extra,
+        final TextConfig c => c.extra,
+        final ColorConfig c => c.extra,
+        final DateConfig c => c.extra,
+        final LongTextConfig c => c.extra,
+      };
+      expect(
+        extra,
+        isEmpty,
+        reason: 'Known key in $label must not appear in extra',
+      );
+    }
+
+    // ChoiceConfig known keys
+    test('ChoiceConfig — each known key individually stays out of extra', () {
+      for (final key in ['options', 'allowsMultiple', 'allowsOther', 'hideTitleOnProfile']) {
+        final json = makeJson('choice', {
+          'options': <dynamic>[],
+          'allowsMultiple': false,
+          'allowsOther': false,
+          'hideTitleOnProfile': false,
+          // Ensure the specific key is present
+        });
+        json[key] = json[key]; // already set; just confirm it's there
+        assertNoExtraLeakage('ChoiceConfig/$key', json);
+      }
+    });
+
+    // GroupConfig known keys
+    test('GroupConfig — each known key individually stays out of extra', () {
+      for (final key in ['icon', 'hideTitleOnProfile']) {
+        final json = makeJson('group', {'icon': null, 'hideTitleOnProfile': false});
+        json[key] = json[key];
+        assertNoExtraLeakage('GroupConfig/$key', json);
+      }
+    });
+
+    // ScaleConfig known keys
+    test('ScaleConfig — each known key individually stays out of extra', () {
+      for (final key in [
+        'emoji',
+        'steps',
+        'stepLabels',
+        'displayLayout',
+        'hideTitleOnProfile',
+      ]) {
+        final json = makeJson('scale', {
+          'emoji': '⭐',
+          'steps': 5,
+          'stepLabels': null,
+          'displayLayout': null,
+          'hideTitleOnProfile': false,
+        });
+        json[key] = json[key];
+        assertNoExtraLeakage('ScaleConfig/$key', json);
+      }
+    });
+
+    // SliderConfig known keys
+    test('SliderConfig — each known key individually stays out of extra', () {
+      for (final key in [
+        'mode',
+        'leftLabel',
+        'rightLabel',
+        'centerLabel',
+        'gradientPresetId',
+        'leftColorHex',
+        'rightColorHex',
+        'centerColorHex',
+        'snapToPositions',
+        'min',
+        'max',
+        'step',
+        'unit',
+        'showTicks',
+        'hideTitleOnProfile',
+      ]) {
+        final json = makeJson('slider', {
+          'mode': 'labeled',
+          'leftLabel': null,
+          'rightLabel': null,
+          'centerLabel': null,
+          'gradientPresetId': null,
+          'leftColorHex': null,
+          'rightColorHex': null,
+          'centerColorHex': null,
+          'snapToPositions': false,
+          'min': null,
+          'max': null,
+          'step': null,
+          'unit': null,
+          'showTicks': false,
+          'hideTitleOnProfile': false,
+        });
+        json[key] = json[key];
+        assertNoExtraLeakage('SliderConfig/$key', json);
+      }
+    });
+
+    // TextConfig known keys
+    test('TextConfig — each known key individually stays out of extra', () {
+      for (final key in ['hideTitleOnProfile']) {
+        final json = makeJson('text', {'hideTitleOnProfile': false});
+        json[key] = json[key];
+        assertNoExtraLeakage('TextConfig/$key', json);
+      }
+    });
+
+    // ColorConfig known keys
+    test('ColorConfig — each known key individually stays out of extra', () {
+      for (final key in ['hideTitleOnProfile']) {
+        final json = makeJson('color', {'hideTitleOnProfile': false});
+        json[key] = json[key];
+        assertNoExtraLeakage('ColorConfig/$key', json);
+      }
+    });
+
+    // DateConfig known keys
+    test('DateConfig — each known key individually stays out of extra', () {
+      for (final key in ['hideTitleOnProfile']) {
+        final json = makeJson('date', {'hideTitleOnProfile': false});
+        json[key] = json[key];
+        assertNoExtraLeakage('DateConfig/$key', json);
+      }
+    });
+
+    // LongTextConfig known keys
+    test('LongTextConfig — each known key individually stays out of extra', () {
+      for (final key in ['hideTitleOnProfile']) {
+        final json = makeJson('longText', {'hideTitleOnProfile': false});
+        json[key] = json[key];
+        assertNoExtraLeakage('LongTextConfig/$key', json);
+      }
+    });
+  });
 }

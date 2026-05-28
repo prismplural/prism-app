@@ -31,6 +31,22 @@ CustomFieldTypeConfig _$CustomFieldTypeConfigFromJson(
           return SliderConfig.fromJson(
             json
           );
+                case 'text':
+          return TextConfig.fromJson(
+            json
+          );
+                case 'color':
+          return ColorConfig.fromJson(
+            json
+          );
+                case 'date':
+          return DateConfig.fromJson(
+            json
+          );
+                case 'longText':
+          return LongTextConfig.fromJson(
+            json
+          );
         
           default:
             throw CheckedFromJsonException(
@@ -46,7 +62,7 @@ CustomFieldTypeConfig _$CustomFieldTypeConfigFromJson(
 /// @nodoc
 mixin _$CustomFieldTypeConfig {
 
-@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra;
+ bool get hideTitleOnProfile;@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra;
 /// Create a copy of CustomFieldTypeConfig
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -59,16 +75,16 @@ $CustomFieldTypeConfigCopyWith<CustomFieldTypeConfig> get copyWith => _$CustomFi
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CustomFieldTypeConfig&&const DeepCollectionEquality().equals(other.extra, extra));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CustomFieldTypeConfig&&(identical(other.hideTitleOnProfile, hideTitleOnProfile) || other.hideTitleOnProfile == hideTitleOnProfile)&&const DeepCollectionEquality().equals(other.extra, extra));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(extra));
+int get hashCode => Object.hash(runtimeType,hideTitleOnProfile,const DeepCollectionEquality().hash(extra));
 
 @override
 String toString() {
-  return 'CustomFieldTypeConfig(extra: $extra)';
+  return 'CustomFieldTypeConfig(hideTitleOnProfile: $hideTitleOnProfile, extra: $extra)';
 }
 
 
@@ -79,7 +95,7 @@ abstract mixin class $CustomFieldTypeConfigCopyWith<$Res>  {
   factory $CustomFieldTypeConfigCopyWith(CustomFieldTypeConfig value, $Res Function(CustomFieldTypeConfig) _then) = _$CustomFieldTypeConfigCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
+ bool hideTitleOnProfile,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
 });
 
 
@@ -96,9 +112,10 @@ class _$CustomFieldTypeConfigCopyWithImpl<$Res>
 
 /// Create a copy of CustomFieldTypeConfig
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? extra = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? hideTitleOnProfile = null,Object? extra = null,}) {
   return _then(_self.copyWith(
-extra: null == extra ? _self.extra : extra // ignore: cast_nullable_to_non_nullable
+hideTitleOnProfile: null == hideTitleOnProfile ? _self.hideTitleOnProfile : hideTitleOnProfile // ignore: cast_nullable_to_non_nullable
+as bool,extra: null == extra ? _self.extra : extra // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,
   ));
 }
@@ -120,14 +137,18 @@ extension CustomFieldTypeConfigPatterns on CustomFieldTypeConfig {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( ChoiceConfig value)?  choice,TResult Function( GroupConfig value)?  group,TResult Function( ScaleConfig value)?  scale,TResult Function( SliderConfig value)?  slider,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( ChoiceConfig value)?  choice,TResult Function( GroupConfig value)?  group,TResult Function( ScaleConfig value)?  scale,TResult Function( SliderConfig value)?  slider,TResult Function( TextConfig value)?  text,TResult Function( ColorConfig value)?  color,TResult Function( DateConfig value)?  date,TResult Function( LongTextConfig value)?  longText,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case ChoiceConfig() when choice != null:
 return choice(_that);case GroupConfig() when group != null:
 return group(_that);case ScaleConfig() when scale != null:
 return scale(_that);case SliderConfig() when slider != null:
-return slider(_that);case _:
+return slider(_that);case TextConfig() when text != null:
+return text(_that);case ColorConfig() when color != null:
+return color(_that);case DateConfig() when date != null:
+return date(_that);case LongTextConfig() when longText != null:
+return longText(_that);case _:
   return orElse();
 
 }
@@ -145,14 +166,18 @@ return slider(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( ChoiceConfig value)  choice,required TResult Function( GroupConfig value)  group,required TResult Function( ScaleConfig value)  scale,required TResult Function( SliderConfig value)  slider,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( ChoiceConfig value)  choice,required TResult Function( GroupConfig value)  group,required TResult Function( ScaleConfig value)  scale,required TResult Function( SliderConfig value)  slider,required TResult Function( TextConfig value)  text,required TResult Function( ColorConfig value)  color,required TResult Function( DateConfig value)  date,required TResult Function( LongTextConfig value)  longText,}){
 final _that = this;
 switch (_that) {
 case ChoiceConfig():
 return choice(_that);case GroupConfig():
 return group(_that);case ScaleConfig():
 return scale(_that);case SliderConfig():
-return slider(_that);}
+return slider(_that);case TextConfig():
+return text(_that);case ColorConfig():
+return color(_that);case DateConfig():
+return date(_that);case LongTextConfig():
+return longText(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
 ///
@@ -166,14 +191,18 @@ return slider(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( ChoiceConfig value)?  choice,TResult? Function( GroupConfig value)?  group,TResult? Function( ScaleConfig value)?  scale,TResult? Function( SliderConfig value)?  slider,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( ChoiceConfig value)?  choice,TResult? Function( GroupConfig value)?  group,TResult? Function( ScaleConfig value)?  scale,TResult? Function( SliderConfig value)?  slider,TResult? Function( TextConfig value)?  text,TResult? Function( ColorConfig value)?  color,TResult? Function( DateConfig value)?  date,TResult? Function( LongTextConfig value)?  longText,}){
 final _that = this;
 switch (_that) {
 case ChoiceConfig() when choice != null:
 return choice(_that);case GroupConfig() when group != null:
 return group(_that);case ScaleConfig() when scale != null:
 return scale(_that);case SliderConfig() when slider != null:
-return slider(_that);case _:
+return slider(_that);case TextConfig() when text != null:
+return text(_that);case ColorConfig() when color != null:
+return color(_that);case DateConfig() when date != null:
+return date(_that);case LongTextConfig() when longText != null:
+return longText(_that);case _:
   return null;
 
 }
@@ -190,13 +219,17 @@ return slider(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  choice,TResult Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  group,TResult Function( String emoji,  int steps,  List<String>? stepLabels,  DisplayLayout? displayLayout, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  scale,TResult Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  slider,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  choice,TResult Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  group,TResult Function( String emoji,  int steps,  List<String>? stepLabels,  DisplayLayout? displayLayout,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  scale,TResult Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  slider,TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  text,TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  color,TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  date,TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  longText,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case ChoiceConfig() when choice != null:
-return choice(_that.options,_that.allowsMultiple,_that.allowsOther,_that.extra);case GroupConfig() when group != null:
+return choice(_that.options,_that.allowsMultiple,_that.allowsOther,_that.hideTitleOnProfile,_that.extra);case GroupConfig() when group != null:
 return group(_that.icon,_that.hideTitleOnProfile,_that.extra);case ScaleConfig() when scale != null:
-return scale(_that.emoji,_that.steps,_that.stepLabels,_that.displayLayout,_that.extra);case SliderConfig() when slider != null:
-return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_that.gradientPresetId,_that.leftColorHex,_that.rightColorHex,_that.centerColorHex,_that.snapToPositions,_that.min,_that.max,_that.step,_that.unit,_that.showTicks,_that.extra);case _:
+return scale(_that.emoji,_that.steps,_that.stepLabels,_that.displayLayout,_that.hideTitleOnProfile,_that.extra);case SliderConfig() when slider != null:
+return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_that.gradientPresetId,_that.leftColorHex,_that.rightColorHex,_that.centerColorHex,_that.snapToPositions,_that.min,_that.max,_that.step,_that.unit,_that.showTicks,_that.hideTitleOnProfile,_that.extra);case TextConfig() when text != null:
+return text(_that.hideTitleOnProfile,_that.extra);case ColorConfig() when color != null:
+return color(_that.hideTitleOnProfile,_that.extra);case DateConfig() when date != null:
+return date(_that.hideTitleOnProfile,_that.extra);case LongTextConfig() when longText != null:
+return longText(_that.hideTitleOnProfile,_that.extra);case _:
   return orElse();
 
 }
@@ -214,13 +247,17 @@ return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  choice,required TResult Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  group,required TResult Function( String emoji,  int steps,  List<String>? stepLabels,  DisplayLayout? displayLayout, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  scale,required TResult Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  slider,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  choice,required TResult Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  group,required TResult Function( String emoji,  int steps,  List<String>? stepLabels,  DisplayLayout? displayLayout,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  scale,required TResult Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  slider,required TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  text,required TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  color,required TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  date,required TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  longText,}) {final _that = this;
 switch (_that) {
 case ChoiceConfig():
-return choice(_that.options,_that.allowsMultiple,_that.allowsOther,_that.extra);case GroupConfig():
+return choice(_that.options,_that.allowsMultiple,_that.allowsOther,_that.hideTitleOnProfile,_that.extra);case GroupConfig():
 return group(_that.icon,_that.hideTitleOnProfile,_that.extra);case ScaleConfig():
-return scale(_that.emoji,_that.steps,_that.stepLabels,_that.displayLayout,_that.extra);case SliderConfig():
-return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_that.gradientPresetId,_that.leftColorHex,_that.rightColorHex,_that.centerColorHex,_that.snapToPositions,_that.min,_that.max,_that.step,_that.unit,_that.showTicks,_that.extra);}
+return scale(_that.emoji,_that.steps,_that.stepLabels,_that.displayLayout,_that.hideTitleOnProfile,_that.extra);case SliderConfig():
+return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_that.gradientPresetId,_that.leftColorHex,_that.rightColorHex,_that.centerColorHex,_that.snapToPositions,_that.min,_that.max,_that.step,_that.unit,_that.showTicks,_that.hideTitleOnProfile,_that.extra);case TextConfig():
+return text(_that.hideTitleOnProfile,_that.extra);case ColorConfig():
+return color(_that.hideTitleOnProfile,_that.extra);case DateConfig():
+return date(_that.hideTitleOnProfile,_that.extra);case LongTextConfig():
+return longText(_that.hideTitleOnProfile,_that.extra);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -234,13 +271,17 @@ return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  choice,TResult? Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  group,TResult? Function( String emoji,  int steps,  List<String>? stepLabels,  DisplayLayout? displayLayout, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  scale,TResult? Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  slider,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  choice,TResult? Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  group,TResult? Function( String emoji,  int steps,  List<String>? stepLabels,  DisplayLayout? displayLayout,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  scale,TResult? Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  slider,TResult? Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  text,TResult? Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  color,TResult? Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  date,TResult? Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  longText,}) {final _that = this;
 switch (_that) {
 case ChoiceConfig() when choice != null:
-return choice(_that.options,_that.allowsMultiple,_that.allowsOther,_that.extra);case GroupConfig() when group != null:
+return choice(_that.options,_that.allowsMultiple,_that.allowsOther,_that.hideTitleOnProfile,_that.extra);case GroupConfig() when group != null:
 return group(_that.icon,_that.hideTitleOnProfile,_that.extra);case ScaleConfig() when scale != null:
-return scale(_that.emoji,_that.steps,_that.stepLabels,_that.displayLayout,_that.extra);case SliderConfig() when slider != null:
-return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_that.gradientPresetId,_that.leftColorHex,_that.rightColorHex,_that.centerColorHex,_that.snapToPositions,_that.min,_that.max,_that.step,_that.unit,_that.showTicks,_that.extra);case _:
+return scale(_that.emoji,_that.steps,_that.stepLabels,_that.displayLayout,_that.hideTitleOnProfile,_that.extra);case SliderConfig() when slider != null:
+return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_that.gradientPresetId,_that.leftColorHex,_that.rightColorHex,_that.centerColorHex,_that.snapToPositions,_that.min,_that.max,_that.step,_that.unit,_that.showTicks,_that.hideTitleOnProfile,_that.extra);case TextConfig() when text != null:
+return text(_that.hideTitleOnProfile,_that.extra);case ColorConfig() when color != null:
+return color(_that.hideTitleOnProfile,_that.extra);case DateConfig() when date != null:
+return date(_that.hideTitleOnProfile,_that.extra);case LongTextConfig() when longText != null:
+return longText(_that.hideTitleOnProfile,_that.extra);case _:
   return null;
 
 }
@@ -252,7 +293,7 @@ return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_tha
 @JsonSerializable()
 
 class ChoiceConfig implements CustomFieldTypeConfig {
-  const ChoiceConfig({final  List<ChoiceOption> options = const <ChoiceOption>[], this.allowsMultiple = false, this.allowsOther = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _options = options,_extra = extra,$type = $type ?? 'choice';
+  const ChoiceConfig({final  List<ChoiceOption> options = const <ChoiceOption>[], this.allowsMultiple = false, this.allowsOther = false, this.hideTitleOnProfile = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _options = options,_extra = extra,$type = $type ?? 'choice';
   factory ChoiceConfig.fromJson(Map<String, dynamic> json) => _$ChoiceConfigFromJson(json);
 
  final  List<ChoiceOption> _options;
@@ -264,6 +305,7 @@ class ChoiceConfig implements CustomFieldTypeConfig {
 
 @JsonKey() final  bool allowsMultiple;
 @JsonKey() final  bool allowsOther;
+@override@JsonKey() final  bool hideTitleOnProfile;
  final  Map<String, dynamic> _extra;
 @override@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra {
   if (_extra is EqualUnmodifiableMapView) return _extra;
@@ -289,16 +331,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChoiceConfig&&const DeepCollectionEquality().equals(other._options, _options)&&(identical(other.allowsMultiple, allowsMultiple) || other.allowsMultiple == allowsMultiple)&&(identical(other.allowsOther, allowsOther) || other.allowsOther == allowsOther)&&const DeepCollectionEquality().equals(other._extra, _extra));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChoiceConfig&&const DeepCollectionEquality().equals(other._options, _options)&&(identical(other.allowsMultiple, allowsMultiple) || other.allowsMultiple == allowsMultiple)&&(identical(other.allowsOther, allowsOther) || other.allowsOther == allowsOther)&&(identical(other.hideTitleOnProfile, hideTitleOnProfile) || other.hideTitleOnProfile == hideTitleOnProfile)&&const DeepCollectionEquality().equals(other._extra, _extra));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_options),allowsMultiple,allowsOther,const DeepCollectionEquality().hash(_extra));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_options),allowsMultiple,allowsOther,hideTitleOnProfile,const DeepCollectionEquality().hash(_extra));
 
 @override
 String toString() {
-  return 'CustomFieldTypeConfig.choice(options: $options, allowsMultiple: $allowsMultiple, allowsOther: $allowsOther, extra: $extra)';
+  return 'CustomFieldTypeConfig.choice(options: $options, allowsMultiple: $allowsMultiple, allowsOther: $allowsOther, hideTitleOnProfile: $hideTitleOnProfile, extra: $extra)';
 }
 
 
@@ -309,7 +351,7 @@ abstract mixin class $ChoiceConfigCopyWith<$Res> implements $CustomFieldTypeConf
   factory $ChoiceConfigCopyWith(ChoiceConfig value, $Res Function(ChoiceConfig) _then) = _$ChoiceConfigCopyWithImpl;
 @override @useResult
 $Res call({
- List<ChoiceOption> options, bool allowsMultiple, bool allowsOther,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
+ List<ChoiceOption> options, bool allowsMultiple, bool allowsOther, bool hideTitleOnProfile,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
 });
 
 
@@ -326,11 +368,12 @@ class _$ChoiceConfigCopyWithImpl<$Res>
 
 /// Create a copy of CustomFieldTypeConfig
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? options = null,Object? allowsMultiple = null,Object? allowsOther = null,Object? extra = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? options = null,Object? allowsMultiple = null,Object? allowsOther = null,Object? hideTitleOnProfile = null,Object? extra = null,}) {
   return _then(ChoiceConfig(
 options: null == options ? _self._options : options // ignore: cast_nullable_to_non_nullable
 as List<ChoiceOption>,allowsMultiple: null == allowsMultiple ? _self.allowsMultiple : allowsMultiple // ignore: cast_nullable_to_non_nullable
 as bool,allowsOther: null == allowsOther ? _self.allowsOther : allowsOther // ignore: cast_nullable_to_non_nullable
+as bool,hideTitleOnProfile: null == hideTitleOnProfile ? _self.hideTitleOnProfile : hideTitleOnProfile // ignore: cast_nullable_to_non_nullable
 as bool,extra: null == extra ? _self._extra : extra // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,
   ));
@@ -347,7 +390,7 @@ class GroupConfig implements CustomFieldTypeConfig {
   factory GroupConfig.fromJson(Map<String, dynamic> json) => _$GroupConfigFromJson(json);
 
  final  String? icon;
-@JsonKey() final  bool hideTitleOnProfile;
+@override@JsonKey() final  bool hideTitleOnProfile;
  final  Map<String, dynamic> _extra;
 @override@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra {
   if (_extra is EqualUnmodifiableMapView) return _extra;
@@ -426,7 +469,7 @@ as Map<String, dynamic>,
 @JsonSerializable()
 
 class ScaleConfig implements CustomFieldTypeConfig {
-  const ScaleConfig({this.emoji = '⭐', this.steps = 5, final  List<String>? stepLabels, this.displayLayout, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _stepLabels = stepLabels,_extra = extra,$type = $type ?? 'scale';
+  const ScaleConfig({this.emoji = '⭐', this.steps = 5, final  List<String>? stepLabels, this.displayLayout, this.hideTitleOnProfile = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _stepLabels = stepLabels,_extra = extra,$type = $type ?? 'scale';
   factory ScaleConfig.fromJson(Map<String, dynamic> json) => _$ScaleConfigFromJson(json);
 
 @JsonKey() final  String emoji;
@@ -441,6 +484,7 @@ class ScaleConfig implements CustomFieldTypeConfig {
 }
 
  final  DisplayLayout? displayLayout;
+@override@JsonKey() final  bool hideTitleOnProfile;
  final  Map<String, dynamic> _extra;
 @override@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra {
   if (_extra is EqualUnmodifiableMapView) return _extra;
@@ -466,16 +510,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ScaleConfig&&(identical(other.emoji, emoji) || other.emoji == emoji)&&(identical(other.steps, steps) || other.steps == steps)&&const DeepCollectionEquality().equals(other._stepLabels, _stepLabels)&&(identical(other.displayLayout, displayLayout) || other.displayLayout == displayLayout)&&const DeepCollectionEquality().equals(other._extra, _extra));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ScaleConfig&&(identical(other.emoji, emoji) || other.emoji == emoji)&&(identical(other.steps, steps) || other.steps == steps)&&const DeepCollectionEquality().equals(other._stepLabels, _stepLabels)&&(identical(other.displayLayout, displayLayout) || other.displayLayout == displayLayout)&&(identical(other.hideTitleOnProfile, hideTitleOnProfile) || other.hideTitleOnProfile == hideTitleOnProfile)&&const DeepCollectionEquality().equals(other._extra, _extra));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,emoji,steps,const DeepCollectionEquality().hash(_stepLabels),displayLayout,const DeepCollectionEquality().hash(_extra));
+int get hashCode => Object.hash(runtimeType,emoji,steps,const DeepCollectionEquality().hash(_stepLabels),displayLayout,hideTitleOnProfile,const DeepCollectionEquality().hash(_extra));
 
 @override
 String toString() {
-  return 'CustomFieldTypeConfig.scale(emoji: $emoji, steps: $steps, stepLabels: $stepLabels, displayLayout: $displayLayout, extra: $extra)';
+  return 'CustomFieldTypeConfig.scale(emoji: $emoji, steps: $steps, stepLabels: $stepLabels, displayLayout: $displayLayout, hideTitleOnProfile: $hideTitleOnProfile, extra: $extra)';
 }
 
 
@@ -486,7 +530,7 @@ abstract mixin class $ScaleConfigCopyWith<$Res> implements $CustomFieldTypeConfi
   factory $ScaleConfigCopyWith(ScaleConfig value, $Res Function(ScaleConfig) _then) = _$ScaleConfigCopyWithImpl;
 @override @useResult
 $Res call({
- String emoji, int steps, List<String>? stepLabels, DisplayLayout? displayLayout,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
+ String emoji, int steps, List<String>? stepLabels, DisplayLayout? displayLayout, bool hideTitleOnProfile,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
 });
 
 
@@ -503,13 +547,14 @@ class _$ScaleConfigCopyWithImpl<$Res>
 
 /// Create a copy of CustomFieldTypeConfig
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? emoji = null,Object? steps = null,Object? stepLabels = freezed,Object? displayLayout = freezed,Object? extra = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? emoji = null,Object? steps = null,Object? stepLabels = freezed,Object? displayLayout = freezed,Object? hideTitleOnProfile = null,Object? extra = null,}) {
   return _then(ScaleConfig(
 emoji: null == emoji ? _self.emoji : emoji // ignore: cast_nullable_to_non_nullable
 as String,steps: null == steps ? _self.steps : steps // ignore: cast_nullable_to_non_nullable
 as int,stepLabels: freezed == stepLabels ? _self._stepLabels : stepLabels // ignore: cast_nullable_to_non_nullable
 as List<String>?,displayLayout: freezed == displayLayout ? _self.displayLayout : displayLayout // ignore: cast_nullable_to_non_nullable
-as DisplayLayout?,extra: null == extra ? _self._extra : extra // ignore: cast_nullable_to_non_nullable
+as DisplayLayout?,hideTitleOnProfile: null == hideTitleOnProfile ? _self.hideTitleOnProfile : hideTitleOnProfile // ignore: cast_nullable_to_non_nullable
+as bool,extra: null == extra ? _self._extra : extra // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,
   ));
 }
@@ -521,7 +566,7 @@ as Map<String, dynamic>,
 @JsonSerializable()
 
 class SliderConfig implements CustomFieldTypeConfig {
-  const SliderConfig({required this.mode, this.leftLabel, this.rightLabel, this.centerLabel, this.gradientPresetId, this.leftColorHex, this.rightColorHex, this.centerColorHex, this.snapToPositions = false, this.min, this.max, this.step, this.unit, this.showTicks = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _extra = extra,$type = $type ?? 'slider';
+  const SliderConfig({required this.mode, this.leftLabel, this.rightLabel, this.centerLabel, this.gradientPresetId, this.leftColorHex, this.rightColorHex, this.centerColorHex, this.snapToPositions = false, this.min, this.max, this.step, this.unit, this.showTicks = false, this.hideTitleOnProfile = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _extra = extra,$type = $type ?? 'slider';
   factory SliderConfig.fromJson(Map<String, dynamic> json) => _$SliderConfigFromJson(json);
 
  final  SliderMode mode;
@@ -538,6 +583,7 @@ class SliderConfig implements CustomFieldTypeConfig {
  final  double? step;
  final  String? unit;
 @JsonKey() final  bool showTicks;
+@override@JsonKey() final  bool hideTitleOnProfile;
  final  Map<String, dynamic> _extra;
 @override@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra {
   if (_extra is EqualUnmodifiableMapView) return _extra;
@@ -563,16 +609,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SliderConfig&&(identical(other.mode, mode) || other.mode == mode)&&(identical(other.leftLabel, leftLabel) || other.leftLabel == leftLabel)&&(identical(other.rightLabel, rightLabel) || other.rightLabel == rightLabel)&&(identical(other.centerLabel, centerLabel) || other.centerLabel == centerLabel)&&(identical(other.gradientPresetId, gradientPresetId) || other.gradientPresetId == gradientPresetId)&&(identical(other.leftColorHex, leftColorHex) || other.leftColorHex == leftColorHex)&&(identical(other.rightColorHex, rightColorHex) || other.rightColorHex == rightColorHex)&&(identical(other.centerColorHex, centerColorHex) || other.centerColorHex == centerColorHex)&&(identical(other.snapToPositions, snapToPositions) || other.snapToPositions == snapToPositions)&&(identical(other.min, min) || other.min == min)&&(identical(other.max, max) || other.max == max)&&(identical(other.step, step) || other.step == step)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.showTicks, showTicks) || other.showTicks == showTicks)&&const DeepCollectionEquality().equals(other._extra, _extra));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SliderConfig&&(identical(other.mode, mode) || other.mode == mode)&&(identical(other.leftLabel, leftLabel) || other.leftLabel == leftLabel)&&(identical(other.rightLabel, rightLabel) || other.rightLabel == rightLabel)&&(identical(other.centerLabel, centerLabel) || other.centerLabel == centerLabel)&&(identical(other.gradientPresetId, gradientPresetId) || other.gradientPresetId == gradientPresetId)&&(identical(other.leftColorHex, leftColorHex) || other.leftColorHex == leftColorHex)&&(identical(other.rightColorHex, rightColorHex) || other.rightColorHex == rightColorHex)&&(identical(other.centerColorHex, centerColorHex) || other.centerColorHex == centerColorHex)&&(identical(other.snapToPositions, snapToPositions) || other.snapToPositions == snapToPositions)&&(identical(other.min, min) || other.min == min)&&(identical(other.max, max) || other.max == max)&&(identical(other.step, step) || other.step == step)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.showTicks, showTicks) || other.showTicks == showTicks)&&(identical(other.hideTitleOnProfile, hideTitleOnProfile) || other.hideTitleOnProfile == hideTitleOnProfile)&&const DeepCollectionEquality().equals(other._extra, _extra));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,mode,leftLabel,rightLabel,centerLabel,gradientPresetId,leftColorHex,rightColorHex,centerColorHex,snapToPositions,min,max,step,unit,showTicks,const DeepCollectionEquality().hash(_extra));
+int get hashCode => Object.hash(runtimeType,mode,leftLabel,rightLabel,centerLabel,gradientPresetId,leftColorHex,rightColorHex,centerColorHex,snapToPositions,min,max,step,unit,showTicks,hideTitleOnProfile,const DeepCollectionEquality().hash(_extra));
 
 @override
 String toString() {
-  return 'CustomFieldTypeConfig.slider(mode: $mode, leftLabel: $leftLabel, rightLabel: $rightLabel, centerLabel: $centerLabel, gradientPresetId: $gradientPresetId, leftColorHex: $leftColorHex, rightColorHex: $rightColorHex, centerColorHex: $centerColorHex, snapToPositions: $snapToPositions, min: $min, max: $max, step: $step, unit: $unit, showTicks: $showTicks, extra: $extra)';
+  return 'CustomFieldTypeConfig.slider(mode: $mode, leftLabel: $leftLabel, rightLabel: $rightLabel, centerLabel: $centerLabel, gradientPresetId: $gradientPresetId, leftColorHex: $leftColorHex, rightColorHex: $rightColorHex, centerColorHex: $centerColorHex, snapToPositions: $snapToPositions, min: $min, max: $max, step: $step, unit: $unit, showTicks: $showTicks, hideTitleOnProfile: $hideTitleOnProfile, extra: $extra)';
 }
 
 
@@ -583,7 +629,7 @@ abstract mixin class $SliderConfigCopyWith<$Res> implements $CustomFieldTypeConf
   factory $SliderConfigCopyWith(SliderConfig value, $Res Function(SliderConfig) _then) = _$SliderConfigCopyWithImpl;
 @override @useResult
 $Res call({
- SliderMode mode, String? leftLabel, String? rightLabel, String? centerLabel, String? gradientPresetId, String? leftColorHex, String? rightColorHex, String? centerColorHex, bool snapToPositions, double? min, double? max, double? step, String? unit, bool showTicks,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
+ SliderMode mode, String? leftLabel, String? rightLabel, String? centerLabel, String? gradientPresetId, String? leftColorHex, String? rightColorHex, String? centerColorHex, bool snapToPositions, double? min, double? max, double? step, String? unit, bool showTicks, bool hideTitleOnProfile,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
 });
 
 
@@ -600,7 +646,7 @@ class _$SliderConfigCopyWithImpl<$Res>
 
 /// Create a copy of CustomFieldTypeConfig
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? mode = null,Object? leftLabel = freezed,Object? rightLabel = freezed,Object? centerLabel = freezed,Object? gradientPresetId = freezed,Object? leftColorHex = freezed,Object? rightColorHex = freezed,Object? centerColorHex = freezed,Object? snapToPositions = null,Object? min = freezed,Object? max = freezed,Object? step = freezed,Object? unit = freezed,Object? showTicks = null,Object? extra = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? mode = null,Object? leftLabel = freezed,Object? rightLabel = freezed,Object? centerLabel = freezed,Object? gradientPresetId = freezed,Object? leftColorHex = freezed,Object? rightColorHex = freezed,Object? centerColorHex = freezed,Object? snapToPositions = null,Object? min = freezed,Object? max = freezed,Object? step = freezed,Object? unit = freezed,Object? showTicks = null,Object? hideTitleOnProfile = null,Object? extra = null,}) {
   return _then(SliderConfig(
 mode: null == mode ? _self.mode : mode // ignore: cast_nullable_to_non_nullable
 as SliderMode,leftLabel: freezed == leftLabel ? _self.leftLabel : leftLabel // ignore: cast_nullable_to_non_nullable
@@ -616,6 +662,331 @@ as double?,max: freezed == max ? _self.max : max // ignore: cast_nullable_to_non
 as double?,step: freezed == step ? _self.step : step // ignore: cast_nullable_to_non_nullable
 as double?,unit: freezed == unit ? _self.unit : unit // ignore: cast_nullable_to_non_nullable
 as String?,showTicks: null == showTicks ? _self.showTicks : showTicks // ignore: cast_nullable_to_non_nullable
+as bool,hideTitleOnProfile: null == hideTitleOnProfile ? _self.hideTitleOnProfile : hideTitleOnProfile // ignore: cast_nullable_to_non_nullable
+as bool,extra: null == extra ? _self._extra : extra // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class TextConfig implements CustomFieldTypeConfig {
+  const TextConfig({this.hideTitleOnProfile = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _extra = extra,$type = $type ?? 'text';
+  factory TextConfig.fromJson(Map<String, dynamic> json) => _$TextConfigFromJson(json);
+
+@override@JsonKey() final  bool hideTitleOnProfile;
+ final  Map<String, dynamic> _extra;
+@override@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra {
+  if (_extra is EqualUnmodifiableMapView) return _extra;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_extra);
+}
+
+
+@JsonKey(name: 'runtimeType')
+final String $type;
+
+
+/// Create a copy of CustomFieldTypeConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$TextConfigCopyWith<TextConfig> get copyWith => _$TextConfigCopyWithImpl<TextConfig>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$TextConfigToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is TextConfig&&(identical(other.hideTitleOnProfile, hideTitleOnProfile) || other.hideTitleOnProfile == hideTitleOnProfile)&&const DeepCollectionEquality().equals(other._extra, _extra));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,hideTitleOnProfile,const DeepCollectionEquality().hash(_extra));
+
+@override
+String toString() {
+  return 'CustomFieldTypeConfig.text(hideTitleOnProfile: $hideTitleOnProfile, extra: $extra)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $TextConfigCopyWith<$Res> implements $CustomFieldTypeConfigCopyWith<$Res> {
+  factory $TextConfigCopyWith(TextConfig value, $Res Function(TextConfig) _then) = _$TextConfigCopyWithImpl;
+@override @useResult
+$Res call({
+ bool hideTitleOnProfile,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
+});
+
+
+
+
+}
+/// @nodoc
+class _$TextConfigCopyWithImpl<$Res>
+    implements $TextConfigCopyWith<$Res> {
+  _$TextConfigCopyWithImpl(this._self, this._then);
+
+  final TextConfig _self;
+  final $Res Function(TextConfig) _then;
+
+/// Create a copy of CustomFieldTypeConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? hideTitleOnProfile = null,Object? extra = null,}) {
+  return _then(TextConfig(
+hideTitleOnProfile: null == hideTitleOnProfile ? _self.hideTitleOnProfile : hideTitleOnProfile // ignore: cast_nullable_to_non_nullable
+as bool,extra: null == extra ? _self._extra : extra // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class ColorConfig implements CustomFieldTypeConfig {
+  const ColorConfig({this.hideTitleOnProfile = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _extra = extra,$type = $type ?? 'color';
+  factory ColorConfig.fromJson(Map<String, dynamic> json) => _$ColorConfigFromJson(json);
+
+@override@JsonKey() final  bool hideTitleOnProfile;
+ final  Map<String, dynamic> _extra;
+@override@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra {
+  if (_extra is EqualUnmodifiableMapView) return _extra;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_extra);
+}
+
+
+@JsonKey(name: 'runtimeType')
+final String $type;
+
+
+/// Create a copy of CustomFieldTypeConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$ColorConfigCopyWith<ColorConfig> get copyWith => _$ColorConfigCopyWithImpl<ColorConfig>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$ColorConfigToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ColorConfig&&(identical(other.hideTitleOnProfile, hideTitleOnProfile) || other.hideTitleOnProfile == hideTitleOnProfile)&&const DeepCollectionEquality().equals(other._extra, _extra));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,hideTitleOnProfile,const DeepCollectionEquality().hash(_extra));
+
+@override
+String toString() {
+  return 'CustomFieldTypeConfig.color(hideTitleOnProfile: $hideTitleOnProfile, extra: $extra)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $ColorConfigCopyWith<$Res> implements $CustomFieldTypeConfigCopyWith<$Res> {
+  factory $ColorConfigCopyWith(ColorConfig value, $Res Function(ColorConfig) _then) = _$ColorConfigCopyWithImpl;
+@override @useResult
+$Res call({
+ bool hideTitleOnProfile,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
+});
+
+
+
+
+}
+/// @nodoc
+class _$ColorConfigCopyWithImpl<$Res>
+    implements $ColorConfigCopyWith<$Res> {
+  _$ColorConfigCopyWithImpl(this._self, this._then);
+
+  final ColorConfig _self;
+  final $Res Function(ColorConfig) _then;
+
+/// Create a copy of CustomFieldTypeConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? hideTitleOnProfile = null,Object? extra = null,}) {
+  return _then(ColorConfig(
+hideTitleOnProfile: null == hideTitleOnProfile ? _self.hideTitleOnProfile : hideTitleOnProfile // ignore: cast_nullable_to_non_nullable
+as bool,extra: null == extra ? _self._extra : extra // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class DateConfig implements CustomFieldTypeConfig {
+  const DateConfig({this.hideTitleOnProfile = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _extra = extra,$type = $type ?? 'date';
+  factory DateConfig.fromJson(Map<String, dynamic> json) => _$DateConfigFromJson(json);
+
+@override@JsonKey() final  bool hideTitleOnProfile;
+ final  Map<String, dynamic> _extra;
+@override@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra {
+  if (_extra is EqualUnmodifiableMapView) return _extra;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_extra);
+}
+
+
+@JsonKey(name: 'runtimeType')
+final String $type;
+
+
+/// Create a copy of CustomFieldTypeConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$DateConfigCopyWith<DateConfig> get copyWith => _$DateConfigCopyWithImpl<DateConfig>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$DateConfigToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DateConfig&&(identical(other.hideTitleOnProfile, hideTitleOnProfile) || other.hideTitleOnProfile == hideTitleOnProfile)&&const DeepCollectionEquality().equals(other._extra, _extra));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,hideTitleOnProfile,const DeepCollectionEquality().hash(_extra));
+
+@override
+String toString() {
+  return 'CustomFieldTypeConfig.date(hideTitleOnProfile: $hideTitleOnProfile, extra: $extra)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $DateConfigCopyWith<$Res> implements $CustomFieldTypeConfigCopyWith<$Res> {
+  factory $DateConfigCopyWith(DateConfig value, $Res Function(DateConfig) _then) = _$DateConfigCopyWithImpl;
+@override @useResult
+$Res call({
+ bool hideTitleOnProfile,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
+});
+
+
+
+
+}
+/// @nodoc
+class _$DateConfigCopyWithImpl<$Res>
+    implements $DateConfigCopyWith<$Res> {
+  _$DateConfigCopyWithImpl(this._self, this._then);
+
+  final DateConfig _self;
+  final $Res Function(DateConfig) _then;
+
+/// Create a copy of CustomFieldTypeConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? hideTitleOnProfile = null,Object? extra = null,}) {
+  return _then(DateConfig(
+hideTitleOnProfile: null == hideTitleOnProfile ? _self.hideTitleOnProfile : hideTitleOnProfile // ignore: cast_nullable_to_non_nullable
+as bool,extra: null == extra ? _self._extra : extra // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class LongTextConfig implements CustomFieldTypeConfig {
+  const LongTextConfig({this.hideTitleOnProfile = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _extra = extra,$type = $type ?? 'longText';
+  factory LongTextConfig.fromJson(Map<String, dynamic> json) => _$LongTextConfigFromJson(json);
+
+@override@JsonKey() final  bool hideTitleOnProfile;
+ final  Map<String, dynamic> _extra;
+@override@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra {
+  if (_extra is EqualUnmodifiableMapView) return _extra;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_extra);
+}
+
+
+@JsonKey(name: 'runtimeType')
+final String $type;
+
+
+/// Create a copy of CustomFieldTypeConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$LongTextConfigCopyWith<LongTextConfig> get copyWith => _$LongTextConfigCopyWithImpl<LongTextConfig>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$LongTextConfigToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is LongTextConfig&&(identical(other.hideTitleOnProfile, hideTitleOnProfile) || other.hideTitleOnProfile == hideTitleOnProfile)&&const DeepCollectionEquality().equals(other._extra, _extra));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,hideTitleOnProfile,const DeepCollectionEquality().hash(_extra));
+
+@override
+String toString() {
+  return 'CustomFieldTypeConfig.longText(hideTitleOnProfile: $hideTitleOnProfile, extra: $extra)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $LongTextConfigCopyWith<$Res> implements $CustomFieldTypeConfigCopyWith<$Res> {
+  factory $LongTextConfigCopyWith(LongTextConfig value, $Res Function(LongTextConfig) _then) = _$LongTextConfigCopyWithImpl;
+@override @useResult
+$Res call({
+ bool hideTitleOnProfile,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
+});
+
+
+
+
+}
+/// @nodoc
+class _$LongTextConfigCopyWithImpl<$Res>
+    implements $LongTextConfigCopyWith<$Res> {
+  _$LongTextConfigCopyWithImpl(this._self, this._then);
+
+  final LongTextConfig _self;
+  final $Res Function(LongTextConfig) _then;
+
+/// Create a copy of CustomFieldTypeConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? hideTitleOnProfile = null,Object? extra = null,}) {
+  return _then(LongTextConfig(
+hideTitleOnProfile: null == hideTitleOnProfile ? _self.hideTitleOnProfile : hideTitleOnProfile // ignore: cast_nullable_to_non_nullable
 as bool,extra: null == extra ? _self._extra : extra // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,
   ));
