@@ -2313,7 +2313,7 @@ class _GradientSwatchRow extends StatelessWidget {
                                     child: Icon(
                                       Icons.close,
                                       size: 14,
-                                      color: theme.colorScheme.error,
+                                      color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                 ),
