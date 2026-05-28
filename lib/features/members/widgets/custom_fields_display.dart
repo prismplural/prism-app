@@ -28,15 +28,22 @@ class CustomFieldsDisplay extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fieldsAsync = ref.watch(topLevelCustomFieldsProvider);
+    // Raw fields (children included) are needed to tell whether a group has
+    // any child worth rendering — see _buildContent's empty-group skip.
+    final allFieldsAsync = ref.watch(customFieldsProvider);
     final valuesAsync = ref.watch(memberCustomFieldValuesProvider(memberId));
 
     return fieldsAsync.when(
       loading: () => const SizedBox.shrink(),
       error: (_, _) => const SizedBox.shrink(),
-      data: (fields) => valuesAsync.when(
+      data: (fields) => allFieldsAsync.when(
         loading: () => const SizedBox.shrink(),
         error: (_, _) => const SizedBox.shrink(),
-        data: (values) => _buildContent(context, fields, values),
+        data: (allFields) => valuesAsync.when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, _) => const SizedBox.shrink(),
+          data: (values) => _buildContent(context, fields, allFields, values),
+        ),
       ),
     );
   }
@@ -44,6 +51,7 @@ class CustomFieldsDisplay extends ConsumerWidget {
   Widget _buildContent(
     BuildContext context,
     List<CustomField> fields,
+    List<CustomField> allFields,
     List<CustomFieldValue> values,
   ) {
     final valueMap = <String, CustomFieldValue>{
@@ -63,7 +71,16 @@ class CustomFieldsDisplay extends ConsumerWidget {
     final items = <_TopLevelItem>[];
     for (final field in topLevelFields) {
       if (field.fieldTypeId == 'group') {
-        items.add(_TopLevelItem.group(field));
+        // Skip groups that would render nothing. _GroupDisplayWidget returns
+        // SizedBox.shrink() when no child has a value, but the surrounding
+        // layout still reserves a gap for the slot — leaving a phantom double
+        // gap between the group's neighbors. Don't emit the slot at all.
+        final hasRenderableChild = allFields.any(
+          (f) =>
+              f.parentFieldId == field.id &&
+              (valueMap[f.id]?.value.isNotEmpty ?? false),
+        );
+        if (hasRenderableChild) items.add(_TopLevelItem.group(field));
       } else {
         final value = valueMap[field.id];
         if (value != null && value.value.isNotEmpty) {

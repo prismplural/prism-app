@@ -403,6 +403,59 @@ void main() {
       semanticsHandle.dispose();
     },
   );
+
+  testWidgets(
+    'an empty group reserves no space between its neighbors',
+    (tester) async {
+      // A group whose only child has no value renders nothing. It must not
+      // leave a phantom gap: total height with the empty group present must
+      // equal the height without it.
+      final before = CustomField(
+        id: 'a',
+        name: 'Before',
+        fieldType: CustomFieldType.longText,
+        createdAt: DateTime(2026, 1, 1),
+      );
+      final group = CustomField(
+        id: 'g',
+        name: 'Empty Group',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'group',
+        typeConfig: const GroupConfig(),
+        createdAt: DateTime(2026, 1, 1),
+      );
+      final groupChild = CustomField(
+        id: 'gc',
+        name: 'Child',
+        fieldType: CustomFieldType.text,
+        parentFieldId: 'g',
+        createdAt: DateTime(2026, 1, 1),
+      );
+      final after = CustomField(
+        id: 'b',
+        name: 'After',
+        fieldType: CustomFieldType.longText,
+        createdAt: DateTime(2026, 1, 1),
+      );
+      final values = [value('a', 'aa'), value('b', 'bb')];
+
+      await tester.pumpWidget(
+        subject(fields: [before, group, groupChild, after], values: values),
+      );
+      await tester.pump();
+      final withGroup = tester
+          .getSize(find.byType(CustomFieldsDisplay))
+          .height;
+
+      await tester.pumpWidget(subject(fields: [before, after], values: values));
+      await tester.pump();
+      final withoutGroup = tester
+          .getSize(find.byType(CustomFieldsDisplay))
+          .height;
+
+      expect(withGroup, withoutGroup);
+    },
+  );
 }
 
 TextSpan? _findTextSpanWithPlainText(WidgetTester tester, String text) {
