@@ -10774,6 +10774,92 @@ class AppLocalizationsEs extends AppLocalizations {
   String get spAvatarZipFailedTitle => 'No se pudo importar el ZIP de avatares';
 
   @override
+  String get spImportWarningsTitle => 'Your data is in.';
+
+  @override
+  String get spImportWarningsSubtitle => 'Here’s what to know:';
+
+  @override
+  String spImportWarningsShowAll(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Show all $count more',
+      one: 'Show 1 more',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get spImportWarningsRetry => 'Retry';
+
+  @override
+  String get spImportWarningsRetrying => 'Retrying…';
+
+  @override
+  String spImportWarningsCountSemantics(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count warnings in this category',
+      one: '1 warning in this category',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get spImportWarningsAvatarsHeadline => 'Avatar downloads';
+
+  @override
+  String get spImportWarningsAvatarsExplanation =>
+      'Simply Plural is shutting down and these URLs no longer load. Pair this import with an avatar ZIP export to keep the pixels.';
+
+  @override
+  String get spImportWarningsMissingReferencesHeadline =>
+      'Sessions missing a member';
+
+  @override
+  String get spImportWarningsMissingReferencesExplanation =>
+      'These imported fine — they just don’t have a member attached, because that member was deleted in Simply Plural before the export.';
+
+  @override
+  String get spImportWarningsCustomFrontAdjustmentsHeadline =>
+      'Custom front adjustments';
+
+  @override
+  String get spImportWarningsCustomFrontAdjustmentsExplanation =>
+      'Some sleep sessions were clamped or merged, or custom fronts were handled as notes.';
+
+  @override
+  String get spImportWarningsEncryptedMessagesHeadline =>
+      'Encrypted chat messages';
+
+  @override
+  String get spImportWarningsEncryptedMessagesExplanation =>
+      'Some chat messages were still encrypted in this export and couldn’t be imported.';
+
+  @override
+  String get spImportWarningsDataQualityHeadline => 'Data quality drops';
+
+  @override
+  String get spImportWarningsDataQualityExplanation =>
+      'Some records were missing required fields in the source export and were skipped.';
+
+  @override
+  String get spImportWarningsSyncEmissionHeadline => 'Sync emissions';
+
+  @override
+  String get spImportWarningsSyncEmissionExplanation =>
+      'Some imported entries didn’t sync to other devices automatically. Local data is correct; peers may be missing these until you edit them or re-run sync.';
+
+  @override
+  String get spImportWarningsOtherHeadline => 'Other';
+
+  @override
+  String get spImportWarningsOtherExplanation =>
+      'These warnings don’t match a known category. If anything looks unexpected, send them to support.';
+
+  @override
   String get pkUnpushedMembersBannerTitle =>
       'Miembros locales que no están en PluralKit';
 

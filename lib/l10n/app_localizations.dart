@@ -16990,6 +16990,126 @@ abstract class AppLocalizations {
   /// **'Could not import avatar ZIP'**
   String get spAvatarZipFailedTitle;
 
+  /// Heading shown above the grouped SP import warning summary. Leads with reassurance.
+  ///
+  /// In en, this message translates to:
+  /// **'Your data is in.'**
+  String get spImportWarningsTitle;
+
+  /// Subtitle shown below the title on the grouped SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Here’s what to know:'**
+  String get spImportWarningsSubtitle;
+
+  /// Button label to expand a warning category beyond the first 10 items.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Show 1 more} other{Show all {count} more}}'**
+  String spImportWarningsShowAll(int count);
+
+  /// Button label to retry avatar downloads on the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get spImportWarningsRetry;
+
+  /// Button label shown while avatar downloads are being retried.
+  ///
+  /// In en, this message translates to:
+  /// **'Retrying…'**
+  String get spImportWarningsRetrying;
+
+  /// Accessibility label for the warning count chip on a category tile.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 warning in this category} other{{count} warnings in this category}}'**
+  String spImportWarningsCountSemantics(int count);
+
+  /// Category headline for avatar download failures in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar downloads'**
+  String get spImportWarningsAvatarsHeadline;
+
+  /// Plain-language explanation for avatar download failures in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Simply Plural is shutting down and these URLs no longer load. Pair this import with an avatar ZIP export to keep the pixels.'**
+  String get spImportWarningsAvatarsExplanation;
+
+  /// Category headline for missing-reference warnings in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Sessions missing a member'**
+  String get spImportWarningsMissingReferencesHeadline;
+
+  /// Plain-language explanation for missing-reference warnings in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'These imported fine — they just don’t have a member attached, because that member was deleted in Simply Plural before the export.'**
+  String get spImportWarningsMissingReferencesExplanation;
+
+  /// Category headline for custom-front adjustment warnings in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom front adjustments'**
+  String get spImportWarningsCustomFrontAdjustmentsHeadline;
+
+  /// Plain-language explanation for custom-front adjustment warnings in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Some sleep sessions were clamped or merged, or custom fronts were handled as notes.'**
+  String get spImportWarningsCustomFrontAdjustmentsExplanation;
+
+  /// Category headline for encrypted message warnings in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted chat messages'**
+  String get spImportWarningsEncryptedMessagesHeadline;
+
+  /// Plain-language explanation for encrypted message warnings in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Some chat messages were still encrypted in this export and couldn’t be imported.'**
+  String get spImportWarningsEncryptedMessagesExplanation;
+
+  /// Category headline for data-quality warnings in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Data quality drops'**
+  String get spImportWarningsDataQualityHeadline;
+
+  /// Plain-language explanation for data-quality warnings in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Some records were missing required fields in the source export and were skipped.'**
+  String get spImportWarningsDataQualityExplanation;
+
+  /// Category headline for sync-emission warnings in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync emissions'**
+  String get spImportWarningsSyncEmissionHeadline;
+
+  /// Plain-language explanation for sync-emission warnings in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Some imported entries didn’t sync to other devices automatically. Local data is correct; peers may be missing these until you edit them or re-run sync.'**
+  String get spImportWarningsSyncEmissionExplanation;
+
+  /// Category headline for unclassified warnings in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get spImportWarningsOtherHeadline;
+
+  /// Plain-language explanation for unclassified warnings in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'These warnings don’t match a known category. If anything looks unexpected, send them to support.'**
+  String get spImportWarningsOtherExplanation;
+
   /// Title of the banner shown on the fronting screen when local Prism members exist that haven't been pushed to PluralKit.
   ///
   /// In en, this message translates to:
