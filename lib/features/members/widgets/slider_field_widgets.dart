@@ -748,21 +748,10 @@ class _GradientSliderTrackShape extends RoundedRectSliderTrackShape {
 
   List<Color> _buildStops() {
     final key = '${leftColor.toARGB32()}_${centerColor?.toARGB32()}_${rightColor.toARGB32()}';
-    return _colorCache.putIfAbsent(key, () {
-      final center = centerColor;
-      if (center == null) {
-        // 11 stops: left → right.
-        return [
-          for (var i = 0; i <= 10; i++) lerpHsl(leftColor, rightColor, i / 10),
-        ];
-      } else {
-        // 6 stops left → center, 5 stops center → right (11 total).
-        return [
-          for (var i = 0; i <= 5; i++) lerpHsl(leftColor, center, i / 5),
-          for (var i = 1; i <= 5; i++) lerpHsl(center, rightColor, i / 5),
-        ];
-      }
-    });
+    return _colorCache.putIfAbsent(
+      key,
+      () => sliderGradientStops(leftColor, centerColor, rightColor),
+    );
   }
 
   @override
@@ -818,12 +807,9 @@ class _GradientSliderTrackShape extends RoundedRectSliderTrackShape {
 
     // Full-width gradient over the entire track.
     final stops = _buildStops();
-    final stopPositions = [
-      for (var i = 0; i < stops.length; i++) i / (stops.length - 1),
-    ];
     final gradient = LinearGradient(
       colors: stops,
-      stops: stopPositions,
+      stops: sliderGradientStopPositions(stops),
     );
     final paint = Paint()
       ..shader = gradient.createShader(trackRect)
@@ -862,19 +848,10 @@ class _MiniTrackPainter extends CustomPainter {
 
   List<Color> _buildStops() {
     final key = '${leftColor.toARGB32()}_${centerColor?.toARGB32()}_${rightColor.toARGB32()}';
-    return _colorCache.putIfAbsent(key, () {
-      final center = centerColor;
-      if (center == null) {
-        return [
-          for (var i = 0; i <= 10; i++) lerpHsl(leftColor, rightColor, i / 10),
-        ];
-      } else {
-        return [
-          for (var i = 0; i <= 5; i++) lerpHsl(leftColor, center, i / 5),
-          for (var i = 1; i <= 5; i++) lerpHsl(center, rightColor, i / 5),
-        ];
-      }
-    });
+    return _colorCache.putIfAbsent(
+      key,
+      () => sliderGradientStops(leftColor, centerColor, rightColor),
+    );
   }
 
   @override
@@ -898,12 +875,9 @@ class _MiniTrackPainter extends CustomPainter {
       Paint fillPaint;
       if (isGradient && leftColor != rightColor) {
         final stops = _buildStops();
-        final stopPositions = [
-          for (var i = 0; i < stops.length; i++) i / (stops.length - 1),
-        ];
         final gradient = LinearGradient(
           colors: stops,
-          stops: stopPositions,
+          stops: sliderGradientStopPositions(stops),
         );
         fillPaint = Paint()
           ..shader = gradient.createShader(trackRect)

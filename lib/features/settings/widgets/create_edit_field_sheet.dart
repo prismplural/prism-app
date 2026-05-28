@@ -1873,6 +1873,8 @@ class _GradientPresetChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final leftColor = AppColors.fromHex(preset.leftHex);
+    final centerColor =
+        preset.centerHex == null ? null : AppColors.fromHex(preset.centerHex!);
     final rightColor = AppColors.fromHex(preset.rightHex);
 
     return GestureDetector(
@@ -1887,10 +1889,23 @@ class _GradientPresetChip extends StatelessWidget {
                 height: 24,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  gradient: leftColor == rightColor
+                  gradient:
+                      leftColor == rightColor && centerColor == null
                       ? null
-                      : LinearGradient(colors: [leftColor, rightColor]),
-                  color: leftColor == rightColor ? leftColor : null,
+                      : () {
+                          final stops = sliderGradientStops(
+                            leftColor,
+                            centerColor,
+                            rightColor,
+                          );
+                          return LinearGradient(
+                            colors: stops,
+                            stops: sliderGradientStopPositions(stops),
+                          );
+                        }(),
+                  color: leftColor == rightColor && centerColor == null
+                      ? leftColor
+                      : null,
                   border: Border.all(
                     color: isSelected
                         ? theme.colorScheme.primary
@@ -2084,8 +2099,10 @@ class _CustomGradientChip extends StatelessWidget {
     final left = _parse(leftColorHex, fallback);
     final right = _parse(rightColorHex, fallback);
     final center = centerColorHex == null ? null : _parse(centerColorHex, left);
+    final stops = sliderGradientStops(left, center, right);
     final gradient = LinearGradient(
-      colors: center == null ? [left, right] : [left, center, right],
+      colors: stops,
+      stops: sliderGradientStopPositions(stops),
     );
 
     return InkWell(

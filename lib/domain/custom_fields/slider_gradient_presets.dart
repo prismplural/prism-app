@@ -191,3 +191,20 @@ Color lerpHsl(Color a, Color b, double t) {
   return HSLColor.fromAHSL(1.0, h, s.clamp(0.0, 1.0), l.clamp(0.0, 1.0))
       .toColor();
 }
+
+/// Canonical [lerpHsl]-sampled stops shared by every slider render site
+/// (track shape, mini track, config preview chips) so they can't diverge.
+/// Pair with [sliderGradientStopPositions].
+List<Color> sliderGradientStops(Color left, Color? center, Color right) {
+  if (center == null) {
+    return [for (var i = 0; i <= 10; i++) lerpHsl(left, right, i / 10)];
+  }
+  return [
+    for (var i = 0; i <= 5; i++) lerpHsl(left, center, i / 5),
+    for (var i = 1; i <= 5; i++) lerpHsl(center, right, i / 5),
+  ];
+}
+
+/// Evenly spaced stop positions matching a [sliderGradientStops] list.
+List<double> sliderGradientStopPositions(List<Color> stops) =>
+    [for (var i = 0; i < stops.length; i++) i / (stops.length - 1)];

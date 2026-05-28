@@ -114,4 +114,42 @@ void main() {
       expect(hsl.hue, greaterThan(240.0));
     });
   });
+
+  group('sliderGradientStops', () {
+    const left = Color(0xFFFF0000);
+    const center = Color(0xFF00FF00);
+    const right = Color(0xFF0000FF);
+
+    test('two-color ramp yields 11 stops ending at the endpoints', () {
+      final stops = sliderGradientStops(left, null, right);
+      expect(stops.length, 11);
+      expect(stops.first, left);
+      expect(stops.last, right);
+    });
+
+    test('three-color ramp yields 11 stops passing through center', () {
+      final stops = sliderGradientStops(left, center, right);
+      expect(stops.length, 11);
+      expect(stops.first, left);
+      expect(stops[5], center); // center lands on the middle stop
+      expect(stops.last, right);
+    });
+
+    test('midpoint matches lerpHsl, not the sRGB midpoint', () {
+      // This is the preview-vs-render parity guarantee: the preview chips
+      // must sample the gradient with lerpHsl, never a plain sRGB blend.
+      final stops = sliderGradientStops(left, null, right);
+      expect(stops[5], lerpHsl(left, right, 0.5));
+      expect(stops[5], isNot(Color.lerp(left, right, 0.5)));
+    });
+
+    test('stop positions are evenly spaced and span 0..1', () {
+      final stops = sliderGradientStops(left, center, right);
+      final positions = sliderGradientStopPositions(stops);
+      expect(positions.length, stops.length);
+      expect(positions.first, 0.0);
+      expect(positions.last, 1.0);
+      expect(positions[5], closeTo(0.5, 1e-9));
+    });
+  });
 }
