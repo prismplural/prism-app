@@ -121,10 +121,17 @@ class CustomFieldsDisplay extends ConsumerWidget {
         fieldTypeId: entry.field.fieldTypeId,
         typeConfig: entry.field.typeConfig,
       );
+      final hideTitle = effectiveHideTitleOnProfile(entry.field.typeConfig);
       if (layout == DisplayLayout.stacked) {
         flushCompactRun();
         if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
-        widgets.add(_FieldValueStacked(entry: entry));
+        widgets.add(_FieldValueStacked(entry: entry, hideTitle: hideTitle));
+        continue;
+      }
+      if (hideTitle) {
+        flushCompactRun();
+        if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
+        widgets.add(_FieldValueCard(entry: entry, hideTitle: true));
         continue;
       }
       if (entry.isCompact) {
@@ -288,9 +295,10 @@ class _FieldValueRow extends StatelessWidget {
 }
 
 class _FieldValueCard extends StatelessWidget {
-  const _FieldValueCard({required this.entry});
+  const _FieldValueCard({required this.entry, this.hideTitle = false});
 
   final _FieldValueEntry entry;
+  final bool hideTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -298,54 +306,79 @@ class _FieldValueCard extends StatelessWidget {
     final headerBgColor = theme.colorScheme.onSurface.withValues(alpha: 0.04);
     final dividerColor = theme.colorScheme.onSurface.withValues(alpha: 0.07);
 
-    return PrismSurface(
+    final surface = PrismSurface(
       tone: PrismSurfaceTone.subtle,
       padding: EdgeInsets.zero,
       borderRadius: 8,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: headerBgColor,
-              border: Border(bottom: BorderSide(color: dividerColor, width: 1)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: Row(
-                children: [
-                  Icon(
-                    _iconForField(entry.field),
-                    size: 16,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      entry.field.name,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        height: 1.25,
-                      ),
+      child: hideTitle
+          ? Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+              child: _FieldValueBody(
+                entry: entry,
+                textStyle: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  height: 1.45,
+                ),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: headerBgColor,
+                    border: Border(
+                      bottom: BorderSide(color: dividerColor, width: 1),
                     ),
                   ),
-                ],
-              ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _iconForField(entry.field),
+                          size: 16,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            entry.field.name,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              height: 1.25,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+                  child: _FieldValueBody(
+                    entry: entry,
+                    textStyle: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
-            child: _FieldValueBody(
-              entry: entry,
-              textStyle: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurface,
-                height: 1.45,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
+
+    if (hideTitle) {
+      return Semantics(
+        container: true,
+        label: entry.field.name,
+        child: surface,
+      );
+    }
+    return surface;
   }
 
   IconData _iconForField(CustomField field) {
@@ -360,33 +393,45 @@ class _FieldValueCard extends StatelessWidget {
 /// of the compact 2-column layout is too narrow for the track + label row.
 /// Matches the visual treatment used by group children of the same types.
 class _FieldValueStacked extends StatelessWidget {
-  const _FieldValueStacked({required this.entry});
+  const _FieldValueStacked({required this.entry, this.hideTitle = false});
 
   final _FieldValueEntry entry;
+  final bool hideTitle;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SizedBox(
+    final card = SizedBox(
       width: double.infinity,
       child: PrismSectionCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              entry.field.name,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                height: 1.25,
+            if (!hideTitle) ...[
+              Text(
+                entry.field.name,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
+            ],
             _FieldValueBody(entry: entry),
           ],
         ),
       ),
     );
+
+    if (hideTitle) {
+      return Semantics(
+        container: true,
+        label: entry.field.name,
+        child: card,
+      );
+    }
+    return card;
   }
 }
 

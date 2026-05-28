@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/custom_field.dart';
+import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
@@ -147,6 +148,174 @@ void main() {
     expect(find.text('Second bio'), findsWidgets);
     expect(_hasRichTextContaining(tester, 'FINAL_SENTINEL'), isTrue);
   });
+
+  // ── hideTitleOnProfile tests ────────────────────────────────────────────────
+
+  testWidgets(
+    'hidden-title text field with a value: name and icon hidden, value + semantics only',
+    (tester) async {
+      final semanticsHandle = tester.ensureSemantics();
+      const fieldName = 'Secret Role';
+      final hiddenField = CustomField(
+        id: 'ht1',
+        name: fieldName,
+        fieldType: CustomFieldType.text,
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const TextConfig(hideTitleOnProfile: true),
+      );
+
+      await tester.pumpWidget(
+        subject(
+          fields: [hiddenField],
+          values: [value('ht1', 'Protector')],
+        ),
+      );
+      await tester.pump();
+
+      // The field name must NOT be visible as a Text widget.
+      expect(find.text(fieldName), findsNothing);
+
+      // The value IS rendered.
+      expect(_hasRichTextContaining(tester, 'Protector'), isTrue);
+
+      // No type-icon affordance — a hidden-title field renders value-only.
+      expect(find.byType(Icon), findsNothing);
+
+      // The semantics tree must include a node labelled with the field name
+      // so screen readers can announce it. The merged label includes both the
+      // Semantics.label and the child text ("Secret Role\nProtector"), so
+      // match by regex prefix.
+      expect(
+        find.bySemanticsLabel(RegExp(fieldName)),
+        findsWidgets,
+        reason: 'Semantics wrapper must carry the field name as its label',
+      );
+
+      semanticsHandle.dispose();
+    },
+  );
+
+  testWidgets(
+    'hidden-title text field with empty value renders nothing',
+    (tester) async {
+      final hiddenField = CustomField(
+        id: 'ht2',
+        name: 'Hidden Empty',
+        fieldType: CustomFieldType.text,
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const TextConfig(hideTitleOnProfile: true),
+      );
+
+      // No value provided for this field — the display should emit nothing.
+      await tester.pumpWidget(
+        subject(fields: [hiddenField], values: []),
+      );
+      await tester.pump();
+
+      expect(find.byType(PrismSurface), findsNothing);
+      expect(find.byType(PrismSectionCard), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'mixed run: two normal compact fields group together, hidden-title field renders separately',
+    (tester) async {
+      const normalName1 = 'Role';
+      const normalName2 = 'Mood';
+      const hiddenName = 'Inner Note';
+
+      final normalField1 = CustomField(
+        id: 'n1',
+        name: normalName1,
+        fieldType: CustomFieldType.text,
+        createdAt: DateTime(2026, 1, 1),
+      );
+      final normalField2 = CustomField(
+        id: 'n2',
+        name: normalName2,
+        fieldType: CustomFieldType.text,
+        createdAt: DateTime(2026, 1, 1),
+      );
+      final hiddenField = CustomField(
+        id: 'ht3',
+        name: hiddenName,
+        fieldType: CustomFieldType.text,
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const TextConfig(hideTitleOnProfile: true),
+      );
+
+      await tester.pumpWidget(
+        subject(
+          // Order: normal, normal, hidden — so first two form a compact run.
+          fields: [normalField1, normalField2, hiddenField],
+          values: [
+            value('n1', 'Protector'),
+            value('n2', 'Calm'),
+            value('ht3', 'Quiet observer'),
+          ],
+        ),
+      );
+      await tester.pump();
+
+      // The two normal names are visible.
+      expect(find.text(normalName1), findsOneWidget);
+      expect(find.text(normalName2), findsOneWidget);
+
+      // The hidden field's name is NOT visible.
+      expect(find.text(hiddenName), findsNothing);
+
+      // There are two surfaces: one PrismSectionCard (compact group for the two
+      // normal fields) + one PrismSurface (hidden-title card). The hidden-title
+      // card is a separate PrismSurface, not inside the compact group.
+      expect(find.byType(PrismSectionCard), findsOneWidget);
+      expect(find.byType(PrismSurface), findsAtLeast(1));
+    },
+  );
+
+  testWidgets(
+    'hidden-title scale field (stacked layout): no bold title text, body still renders',
+    (tester) async {
+      // Scale is chosen because it is the only non-slider type that can be
+      // forced into DisplayLayout.stacked via its ScaleConfig.displayLayout
+      // field. This lets us test the _FieldValueStacked hideTitle path without
+      // needing to supply a slider-specific value format.
+      final semanticsHandle = tester.ensureSemantics();
+      const fieldName = 'Mood Scale';
+      final scaleField = CustomField(
+        id: 'sc1',
+        name: fieldName,
+        fieldType: CustomFieldType.text, // legacy enum; fieldTypeId drives routing
+        fieldTypeId: 'scale',
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const ScaleConfig(
+          hideTitleOnProfile: true,
+          displayLayout: DisplayLayout.stacked,
+        ),
+      );
+
+      // Scale values are stored as "N/max" integers; "3" is a valid raw value.
+      await tester.pumpWidget(
+        subject(
+          fields: [scaleField],
+          values: [value('sc1', '3')],
+        ),
+      );
+      await tester.pump();
+
+      // The bold title Text with the field name must not appear.
+      expect(find.text(fieldName), findsNothing);
+
+      // The card itself is rendered (some widget in the tree).
+      expect(find.byType(PrismSectionCard), findsOneWidget);
+
+      // Semantics label carries the field name for accessibility.
+      // The merged label may include both the Semantics.label and child content
+      // so match by regex rather than exact string.
+      expect(find.bySemanticsLabel(RegExp(fieldName)), findsWidgets);
+
+      semanticsHandle.dispose();
+    },
+  );
 }
 
 TextSpan? _findTextSpanWithPlainText(WidgetTester tester, String text) {
