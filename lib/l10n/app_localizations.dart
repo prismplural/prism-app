@@ -17831,55 +17831,55 @@ abstract class AppLocalizations {
   /// Label for the femme-masc gradient preset
   ///
   /// In en, this message translates to:
-  /// **'Femme ↔ Masc presentation'**
+  /// **'Femme ↔︎ Masc presentation'**
   String get sliderGradientPresetFemmeMasc;
 
   /// Label for the soft-hard gradient preset
   ///
   /// In en, this message translates to:
-  /// **'Soft ↔ Hard'**
+  /// **'Soft ↔︎ Hard'**
   String get sliderGradientPresetSoftHard;
 
   /// Label for the high-low gender gradient preset
   ///
   /// In en, this message translates to:
-  /// **'Agender ↔ Highly gendered'**
+  /// **'Agender ↔︎ Highly gendered'**
   String get sliderGradientPresetHighLowGender;
 
   /// Label for the calm-intense gradient preset
   ///
   /// In en, this message translates to:
-  /// **'Calm ↔ Intense'**
+  /// **'Calm ↔︎ Intense'**
   String get sliderGradientPresetCalmIntense;
 
   /// Label for the sad-happy gradient preset
   ///
   /// In en, this message translates to:
-  /// **'Sad ↔ Happy'**
+  /// **'Sad ↔︎ Happy'**
   String get sliderGradientPresetSadHappy;
 
   /// Label for the low-high energy gradient preset
   ///
   /// In en, this message translates to:
-  /// **'Low ↔ High energy'**
+  /// **'Low ↔︎ High energy'**
   String get sliderGradientPresetLowHighEnergy;
 
   /// Label for the soft-bold gradient preset
   ///
   /// In en, this message translates to:
-  /// **'Soft ↔ Bold'**
+  /// **'Soft ↔︎ Bold'**
   String get sliderGradientPresetSoftBold;
 
   /// Label for the cool-warm gradient preset
   ///
   /// In en, this message translates to:
-  /// **'Cool ↔ Warm'**
+  /// **'Cool ↔︎ Warm'**
   String get sliderGradientPresetCoolWarm;
 
   /// Label for the day-night gradient preset
   ///
   /// In en, this message translates to:
-  /// **'Day ↔ Night'**
+  /// **'Day ↔︎ Night'**
   String get sliderGradientPresetDayNight;
 
   /// Label for the solid-accent gradient preset (single color, no gradient)

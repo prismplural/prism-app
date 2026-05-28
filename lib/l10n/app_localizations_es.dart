@@ -11297,31 +11297,31 @@ class AppLocalizationsEs extends AppLocalizations {
   String get customFieldSliderNotSet => 'Sin valor';
 
   @override
-  String get sliderGradientPresetFemmeMasc => 'Femme ↔ Masc (presentación)';
+  String get sliderGradientPresetFemmeMasc => 'Femme ↔︎ Masc (presentación)';
 
   @override
-  String get sliderGradientPresetSoftHard => 'Suave ↔ Duro';
+  String get sliderGradientPresetSoftHard => 'Suave ↔︎ Duro';
 
   @override
-  String get sliderGradientPresetHighLowGender => 'Agénero ↔ Muy genérico';
+  String get sliderGradientPresetHighLowGender => 'Agénero ↔︎ Muy genérico';
 
   @override
-  String get sliderGradientPresetCalmIntense => 'Tranquilo ↔ Intenso';
+  String get sliderGradientPresetCalmIntense => 'Tranquilo ↔︎ Intenso';
 
   @override
-  String get sliderGradientPresetSadHappy => 'Triste ↔ Feliz';
+  String get sliderGradientPresetSadHappy => 'Triste ↔︎ Feliz';
 
   @override
-  String get sliderGradientPresetLowHighEnergy => 'Baja ↔ Alta energía';
+  String get sliderGradientPresetLowHighEnergy => 'Baja ↔︎ Alta energía';
 
   @override
-  String get sliderGradientPresetSoftBold => 'Suave ↔ Atrevido';
+  String get sliderGradientPresetSoftBold => 'Suave ↔︎ Atrevido';
 
   @override
-  String get sliderGradientPresetCoolWarm => 'Frío ↔ Cálido';
+  String get sliderGradientPresetCoolWarm => 'Frío ↔︎ Cálido';
 
   @override
-  String get sliderGradientPresetDayNight => 'Día ↔ Noche';
+  String get sliderGradientPresetDayNight => 'Día ↔︎ Noche';
 
   @override
   String get sliderGradientPresetSolidAccent => 'Acento sólido';
