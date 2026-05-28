@@ -207,7 +207,7 @@ class GroupDisplayWidget extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   for (var i = 0; i < childEntries.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 16),
+                    if (i > 0) const SizedBox(height: 8),
                     _GroupChildDisplay(entry: childEntries[i]),
                   ],
                 ],
@@ -391,7 +391,7 @@ class _GroupCard extends StatelessWidget {
     final headerBgColor = theme.colorScheme.onSurface.withValues(alpha: 0.04);
     final dividerColor = theme.colorScheme.onSurface.withValues(alpha: 0.07);
 
-    return Semantics(
+    final card = Semantics(
       container: true,
       label: semanticsLabel,
       child: PrismSurface(
@@ -444,6 +444,7 @@ class _GroupCard extends StatelessWidget {
         ),
       ),
     );
+    return SizedBox(width: double.infinity, child: card);
   }
 }
 

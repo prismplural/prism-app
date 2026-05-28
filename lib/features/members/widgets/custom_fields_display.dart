@@ -240,6 +240,7 @@ class _CompactFieldGroup extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: PrismSectionCard(
+        padding: EdgeInsets.zero,
         child: Column(
           children: [
             for (var i = 0; i < entries.length; i++) ...[
@@ -371,14 +372,15 @@ class _FieldValueCard extends StatelessWidget {
             ),
     );
 
+    final sized = SizedBox(width: double.infinity, child: surface);
     if (hideTitle) {
       return Semantics(
         container: true,
         label: entry.field.name,
-        child: surface,
+        child: sized,
       );
     }
-    return surface;
+    return sized;
   }
 
   IconData _iconForField(CustomField field) {

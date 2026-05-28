@@ -196,6 +196,36 @@ void main() {
   );
 
   testWidgets(
+    'hidden-title field card stretches to the full available width',
+    (tester) async {
+      // One short "Other" chip is far narrower than the viewport, so a card
+      // without a full-width constraint shrink-wraps to it. Regression guard.
+      final choiceField = CustomField(
+        id: 'cw1',
+        name: 'Options',
+        fieldType: CustomFieldType.text, // legacy enum; fieldTypeId drives routing
+        fieldTypeId: 'choice',
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const ChoiceConfig(hideTitleOnProfile: true),
+      );
+
+      await tester.pumpWidget(
+        subject(
+          fields: [choiceField],
+          values: [value('cw1', '{"other":"hi"}')],
+        ),
+      );
+      await tester.pump();
+
+      // Measure against the Scaffold: the scroll view shrink-wraps to its
+      // content, so it would collapse with the card and mask the bug.
+      final cardWidth = tester.getSize(find.byType(PrismSurface)).width;
+      final scaffoldWidth = tester.getSize(find.byType(Scaffold)).width;
+      expect(cardWidth, scaffoldWidth);
+    },
+  );
+
+  testWidgets(
     'hidden-title text field with empty value renders nothing',
     (tester) async {
       final hiddenField = CustomField(
