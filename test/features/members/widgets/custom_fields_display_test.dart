@@ -794,6 +794,97 @@ void main() {
 
     expect(withGroup, withoutGroup);
   });
+
+  // ── N-color gradient render seam tests ─────────────────────────────────────
+
+  test('resolveTrackColors: 4-color gradientColorsHex resolves to 4 colors', () {
+    const config = SliderConfig(
+      mode: SliderMode.labeled,
+      gradientColorsHex: ['#FF0000', '#00FF00', '#0000FF', '#FFFF00'],
+    );
+    final colors = resolveTrackColorsForTest(config);
+    expect(colors, isNotNull);
+    expect(colors!.length, 4);
+  });
+
+  test('resolveTrackColors: empty gradientColorsHex falls through to legacy', () {
+    const config = SliderConfig(
+      mode: SliderMode.labeled,
+      gradientColorsHex: [],
+      leftColorHex: '#FF0000',
+      rightColorHex: '#0000FF',
+    );
+    final colors = resolveTrackColorsForTest(config);
+    // Must fall through to legacy left/right, not produce an empty list.
+    expect(colors, isNotNull);
+    expect(colors!.length, 2);
+  });
+
+  test(
+    'resolveTrackColors: empty gradientColorsHex with no legacy hex returns null',
+    () {
+      const config = SliderConfig(
+        mode: SliderMode.labeled,
+        gradientColorsHex: [],
+      );
+      final colors = resolveTrackColorsForTest(config);
+      expect(colors, isNull);
+    },
+  );
+
+  test(
+    'resolveTrackColors: single-element gradientColorsHex falls through to legacy',
+    () {
+      const config = SliderConfig(
+        mode: SliderMode.labeled,
+        gradientColorsHex: ['#FF0000'],
+        leftColorHex: '#00FF00',
+        rightColorHex: '#0000FF',
+      );
+      final colors = resolveTrackColorsForTest(config);
+      // Single-element is not a valid gradient; must fall through to legacy.
+      expect(colors, isNotNull);
+      expect(colors!.length, 2);
+    },
+  );
+
+  test(
+    'resolveTrackColors: preset is authoritative even when gradientColorsHex is set',
+    () {
+      // 'sad-happy' preset is blue → yellow (2-color, no center).
+      const config = SliderConfig(
+        mode: SliderMode.labeled,
+        gradientPresetId: 'sad-happy',
+        gradientColorsHex: ['#FF0000', '#00FF00', '#0000FF', '#FFFF00'],
+      );
+      final colors = resolveTrackColorsForTest(config);
+      // Must produce exactly 2 colors from the preset, not 4 from the hex list.
+      expect(colors, isNotNull);
+      expect(colors!.length, 2);
+    },
+  );
+
+  test(
+    'sameTrackColors: changing only an interior color returns false (repaint fires)',
+    () {
+      const r = Color(0xFFFF0000);
+      const g = Color(0xFF00FF00);
+      const b = Color(0xFF0000FF);
+      const y = Color(0xFFFFFF00);
+
+      final colorsA = [r, g, b, y];
+      final colorsB = [r, Color(0xFF123456), b, y]; // only interior changed
+
+      expect(sameTrackColorsForTest(colorsA, colorsA), isTrue);
+      expect(sameTrackColorsForTest(colorsA, colorsB), isFalse);
+    },
+  );
+
+  test('sameTrackColors: null inputs behave correctly', () {
+    expect(sameTrackColorsForTest(null, null), isTrue);
+    expect(sameTrackColorsForTest(null, [const Color(0xFFFF0000)]), isFalse);
+    expect(sameTrackColorsForTest([const Color(0xFFFF0000)], null), isFalse);
+  });
 }
 
 TextSpan? _findTextSpanWithPlainText(WidgetTester tester, String text) {

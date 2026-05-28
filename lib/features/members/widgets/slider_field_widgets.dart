@@ -15,6 +15,7 @@
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -295,11 +296,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
     final trackColors = isLabeled ? _resolveTrackColors(config) : null;
 
     final trackShape = isLabeled && trackColors != null
-        ? _GradientSliderTrackShape(
-            leftColor: trackColors.left,
-            centerColor: trackColors.center,
-            rightColor: trackColors.right,
-          )
+        ? _GradientSliderTrackShape(colors: trackColors.colors)
         : null;
 
     // No outer Semantics(label:) wrap here: the visible Text(field.name) above
@@ -850,11 +847,7 @@ class _RenderSliderDisplayTrack extends RenderBox {
   SliderTrackShape? _trackShape() {
     final colors = trackColors;
     if (!isLabeled || colors == null) return null;
-    return _GradientSliderTrackShape(
-      leftColor: colors.left,
-      centerColor: colors.center,
-      rightColor: colors.right,
-    );
+    return _GradientSliderTrackShape(colors: colors.colors);
   }
 
   SliderThemeData _displayTheme(SliderComponentShape thumbShape) {
@@ -941,7 +934,7 @@ class _RenderSliderDisplayTrack extends RenderBox {
 bool _sameTrackColors(_TrackColors? a, _TrackColors? b) {
   if (identical(a, b)) return true;
   if (a == null || b == null) return false;
-  return a.left == b.left && a.center == b.center && a.right == b.right;
+  return listEquals(a.colors, b.colors);
 }
 
 // ─── Compact ──────────────────────────────────────────────────────────────────
@@ -1015,9 +1008,8 @@ class _SliderCompactWidget extends StatelessWidget {
           child: CustomPaint(
             painter: _MiniTrackPainter(
               fraction: fraction,
-              leftColor: trackColors?.left ?? theme.colorScheme.primary,
-              centerColor: trackColors?.center,
-              rightColor: trackColors?.right ?? theme.colorScheme.primary,
+              colors: trackColors?.colors ??
+                  [theme.colorScheme.primary, theme.colorScheme.primary],
               isGradient: isLabeled,
               trackColor: theme.colorScheme.primary,
               backgroundColor: theme.colorScheme.surfaceContainerHighest,
@@ -1070,25 +1062,18 @@ class _SliderCompactWidget extends StatelessWidget {
 /// Gradient colors are computed with 11 HSL-sampled stops for smooth hue
 /// travel, then cached by the color tuple to avoid per-build allocations.
 class _GradientSliderTrackShape extends RoundedRectSliderTrackShape {
-  const _GradientSliderTrackShape({
-    required this.leftColor,
-    this.centerColor,
-    required this.rightColor,
-  });
+  const _GradientSliderTrackShape({required this.colors});
 
-  final Color leftColor;
-  final Color? centerColor;
-  final Color rightColor;
+  final List<Color> colors;
 
-  /// Cache keyed by a string representation of the color tuple.
+  /// Cache keyed by all colors in the list.
   static final Map<String, List<Color>> _colorCache = {};
 
   List<Color> _buildStops() {
-    final key =
-        '${leftColor.toARGB32()}_${centerColor?.toARGB32()}_${rightColor.toARGB32()}';
+    final key = colors.map((c) => c.toARGB32()).join('_');
     return _colorCache.putIfAbsent(
       key,
-      () => sliderGradientStops(leftColor, centerColor, rightColor),
+      () => sliderGradientStopsFromList(colors),
     );
   }
 
@@ -1130,10 +1115,10 @@ class _GradientSliderTrackShape extends RoundedRectSliderTrackShape {
       isDiscrete: isDiscrete,
     );
 
-    // Solid accent: both colors equal — paint as solid fill.
-    if (leftColor == rightColor && centerColor == null) {
+    // Solid: all colors equal — paint as solid fill.
+    if (colors.every((c) => c == colors.first)) {
       final paint = Paint()
-        ..color = leftColor
+        ..color = colors.first
         ..style = PaintingStyle.fill;
       final radius = Radius.circular(trackRect.height / 2);
       context.canvas.drawRRect(
@@ -1163,18 +1148,14 @@ class _GradientSliderTrackShape extends RoundedRectSliderTrackShape {
 class _MiniTrackPainter extends CustomPainter {
   const _MiniTrackPainter({
     required this.fraction,
-    required this.leftColor,
-    this.centerColor,
-    required this.rightColor,
+    required this.colors,
     required this.isGradient,
     required this.trackColor,
     required this.backgroundColor,
   });
 
   final double fraction;
-  final Color leftColor;
-  final Color? centerColor;
-  final Color rightColor;
+  final List<Color> colors;
   final bool isGradient;
   final Color trackColor;
   final Color backgroundColor;
@@ -1182,11 +1163,10 @@ class _MiniTrackPainter extends CustomPainter {
   static final Map<String, List<Color>> _colorCache = {};
 
   List<Color> _buildStops() {
-    final key =
-        '${leftColor.toARGB32()}_${centerColor?.toARGB32()}_${rightColor.toARGB32()}';
+    final key = colors.map((c) => c.toARGB32()).join('_');
     return _colorCache.putIfAbsent(
       key,
-      () => sliderGradientStops(leftColor, centerColor, rightColor),
+      () => sliderGradientStopsFromList(colors),
     );
   }
 
@@ -1219,7 +1199,7 @@ class _MiniTrackPainter extends CustomPainter {
         trackHeight,
       );
       Paint fillPaint;
-      if (isGradient && leftColor != rightColor) {
+      if (isGradient && !colors.every((c) => c == colors.first)) {
         final stops = _buildStops();
         final gradient = LinearGradient(
           colors: stops,
@@ -1230,20 +1210,21 @@ class _MiniTrackPainter extends CustomPainter {
           ..style = PaintingStyle.fill;
       } else {
         fillPaint = Paint()
-          ..color = isGradient ? leftColor : trackColor
+          ..color = isGradient ? colors.first : trackColor
           ..style = PaintingStyle.fill;
       }
       canvas.drawRRect(RRect.fromRectAndRadius(fillRect, radius), fillPaint);
     }
 
-    // Dot at current position.
+    // Dot at current position. Sample the N-color gradient at [fraction] so
+    // that interior hues are correct for > 2-color gradients.
     final dotX = math.max(
       dotRadius,
       math.min(size.width - dotRadius, size.width * fraction),
     );
     final dotPaint = Paint()
       ..color = isGradient
-          ? lerpHsl(leftColor, rightColor, fraction)
+          ? _sampleGradientColors(colors, fraction)
           : trackColor
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(dotX, trackY), dotRadius, dotPaint);
@@ -1258,9 +1239,7 @@ class _MiniTrackPainter extends CustomPainter {
   @override
   bool shouldRepaint(_MiniTrackPainter old) =>
       old.fraction != fraction ||
-      old.leftColor != leftColor ||
-      old.centerColor != centerColor ||
-      old.rightColor != rightColor ||
+      !listEquals(old.colors, colors) ||
       old.isGradient != isGradient;
 }
 
@@ -1292,18 +1271,26 @@ Color _glassShadowColor(ThemeData theme) {
   return theme.colorScheme.shadow.withValues(alpha: isDark ? 0.36 : 0.22);
 }
 
+/// Sample an N-color list at [t] ∈ [0..1] using HSL interpolation.
+///
+/// The color list is divided into (N-1) equal segments; [t] selects a segment
+/// and then interpolates within it. Works correctly for 2, 3, and N ≥ 4 colors.
+Color _sampleGradientColors(List<Color> colors, double t) {
+  assert(colors.isNotEmpty);
+  if (colors.length == 1) return colors[0];
+  final clamped = t.clamp(0.0, 1.0);
+  final segments = colors.length - 1;
+  final segIndex = (clamped * segments).floor().clamp(0, segments - 1);
+  final segT = (clamped * segments - segIndex).clamp(0.0, 1.0);
+  return lerpHsl(colors[segIndex], colors[segIndex + 1], segT);
+}
+
 /// Sample the gradient at the given fraction [0..1] using the same HSL
 /// interpolation as the track shape. Returns null if there's no gradient
 /// to sample (numeric mode, missing colors).
 Color? _gradientColorAt(_TrackColors? trackColors, double fraction) {
   if (trackColors == null) return null;
-  final t = fraction.clamp(0.0, 1.0);
-  final center = trackColors.center;
-  if (center == null) {
-    return lerpHsl(trackColors.left, trackColors.right, t);
-  }
-  if (t < 0.5) return lerpHsl(trackColors.left, center, t * 2);
-  return lerpHsl(center, trackColors.right, (t - 0.5) * 2);
+  return _sampleGradientColors(trackColors.colors, fraction);
 }
 
 /// Blend a track-position color into the base glass fill so the thumb
@@ -1585,16 +1572,41 @@ int? _divisionsFor({
 }
 
 /// Resolved track colors from a [SliderConfig].
+///
+/// [colors] is the authoritative N-color list. The legacy getters [left],
+/// [center], [right] are kept so all existing call-sites continue to compile
+/// unchanged.
 class _TrackColors {
-  const _TrackColors({required this.left, this.center, required this.right});
-  final Color left;
-  final Color? center;
-  final Color right;
+  /// Primary constructor — takes the full color list directly.
+  const _TrackColors.fromList(this.colors) : assert(colors.length >= 1);
+
+  /// Convenience constructor that mirrors the old 3-arg API. Builds the list
+  /// as `[left, center, right]` (or `[left, right]` when center is null) so
+  /// callers that still have discrete colors can construct easily.
+  factory _TrackColors({
+    required Color left,
+    Color? center,
+    required Color right,
+  }) {
+    final list =
+        center != null ? [left, center, right] : [left, right];
+    return _TrackColors.fromList(list);
+  }
+
+  final List<Color> colors;
+
+  Color get left => colors.first;
+  Color? get center => colors.length == 3 ? colors[1] : null;
+  Color get right => colors.last;
 }
 
-/// Resolve the track colors from a [SliderConfig]. Known presets are
-/// authoritative; custom hex colors apply only when the config is in the
-/// synthetic custom-gradient state (`gradientPresetId == null`).
+/// Resolve the track colors from a [SliderConfig]. Priority:
+///   1. Known preset (authoritative even if [gradientColorsHex] is also set).
+///   2. [gradientColorsHex], when non-null and has ≥ 2 entries.
+///      A non-null but empty or 1-element list falls through to legacy.
+///      (Single-color would be a degenerate gradient; fall through is safer.)
+///   3. Legacy [leftColorHex] / [rightColorHex] (+ optional center).
+///   4. null — no gradient.
 _TrackColors? _resolveTrackColors(SliderConfig config) {
   final preset = lookupGradientPreset(config.gradientPresetId);
   if (preset != null) {
@@ -1607,6 +1619,14 @@ _TrackColors? _resolveTrackColors(SliderConfig config) {
     );
   }
 
+  // N-color path: gradientColorsHex must have at least 2 entries to be usable
+  // as a gradient. Empty or single-element lists fall through to legacy.
+  final hexList = config.gradientColorsHex;
+  if (hexList != null && hexList.length >= 2) {
+    final colorList = hexList.map(AppColors.fromHex).toList(growable: false);
+    return _TrackColors.fromList(colorList);
+  }
+
   if (config.leftColorHex != null && config.rightColorHex != null) {
     return _TrackColors(
       left: AppColors.fromHex(config.leftColorHex!),
@@ -1617,4 +1637,20 @@ _TrackColors? _resolveTrackColors(SliderConfig config) {
     );
   }
   return null;
+}
+
+// ─── Test seams ───────────────────────────────────────────────────────────────
+
+/// Exposes [_resolveTrackColors] to widget tests without making the internal
+/// class public. Returns the resolved color list, or null if unresolved.
+@visibleForTesting
+List<Color>? resolveTrackColorsForTest(SliderConfig config) =>
+    _resolveTrackColors(config)?.colors;
+
+/// Exposes [_sameTrackColors] comparison (via color lists) to widget tests.
+@visibleForTesting
+bool sameTrackColorsForTest(List<Color>? a, List<Color>? b) {
+  final ta = a == null ? null : _TrackColors.fromList(a);
+  final tb = b == null ? null : _TrackColors.fromList(b);
+  return _sameTrackColors(ta, tb);
 }
