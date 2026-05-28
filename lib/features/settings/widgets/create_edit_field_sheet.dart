@@ -400,12 +400,24 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   }
 
   /// Build the current [ChoiceConfig] from UI state.
+  ///
+  /// Preserves the existing config's `extra` (forward-compat keys from
+  /// future peers) via copyWith when editing — matches [_buildScaleConfig]
+  /// and [_buildGroupConfig].
   ChoiceConfig _buildChoiceConfig() {
     // Sync all labels from controllers.
     final synced = _choiceOptions.map((o) {
       final label = _optionControllers[o.id]?.text ?? o.label;
       return o.copyWith(label: label);
     }).toList();
+    final existing = widget.field?.typeConfig;
+    if (existing is ChoiceConfig) {
+      return existing.copyWith(
+        options: synced,
+        allowsMultiple: _choiceAllowsMultiple,
+        allowsOther: _choiceAllowsOther,
+      );
+    }
     return ChoiceConfig(
       options: synced,
       allowsMultiple: _choiceAllowsMultiple,

@@ -229,6 +229,53 @@ void main() {
       expect(config.allowsOther, isTrue);
     });
 
+    testWidgets(
+        'editing a choice field preserves forward-compat extra keys on save',
+        (tester) async {
+      _useTallViewport(tester);
+      // A field written by a future peer carrying an unknown config key in
+      // `extra`. Editing an unrelated toggle must NOT drop it.
+      final existingField = CustomField(
+        id: 'field-1',
+        name: 'Mood',
+        fieldType: CustomFieldType.choice,
+        displayOrder: 0,
+        createdAt: DateTime.utc(2026, 1, 1),
+        fieldTypeId: 'choice',
+        typeConfig: const CustomFieldTypeConfig.choice(
+          options: [
+            ChoiceOption(
+              id: 'opt-a',
+              label: 'Happy',
+              colorHex: '#E57373',
+              sortOrder: 0,
+            ),
+          ],
+          extra: {'futureFlag': true},
+        ),
+      );
+
+      final notifier = _FakeCustomFieldNotifier();
+      await tester.pumpWidget(
+        _buildSheet(field: existingField, notifier: notifier),
+      );
+      await tester.pumpAndSettle();
+
+      // Flip an unrelated toggle so the config is considered changed and the
+      // writeTypedConfig patch fires.
+      await tester.tap(find.text('Allow multiple selections'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.check));
+      await tester.pumpAndSettle();
+
+      final written = notifier.lastWrittenConfig as ChoiceConfig?;
+      expect(written, isNotNull);
+      expect(written!.allowsMultiple, isTrue);
+      expect(written.extra['futureFlag'], isTrue,
+          reason: 'forward-compat extra must survive an edit-and-save');
+    });
+
     testWidgets('color cycle rotates through palette', (tester) async {
       _useTallViewport(tester);
       await tester.pumpWidget(_buildSheet());
