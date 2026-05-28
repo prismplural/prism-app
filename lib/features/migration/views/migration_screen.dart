@@ -18,6 +18,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/sp_import_warning_summary.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
@@ -1151,46 +1152,13 @@ class _CompleteView extends StatelessWidget {
 
         if (result.warnings.isNotEmpty) ...[
           const SizedBox(height: 16),
-          PrismSurface(
-            fillColor: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
-            borderColor: theme.colorScheme.error.withValues(alpha: 0.3),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.migrationWarnings(result.warnings.length),
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ...result.warnings.map(
-                  (w) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      w,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onErrorContainer,
-                      ),
-                    ),
-                  ),
-                ),
-                if (result.hasAvatarDownloadFailures) ...[
-                  const SizedBox(height: 12),
-                  PrismButton(
-                    onPressed: () {
-                      ref
-                          .read(importerProvider.notifier)
-                          .retryAvatarDownloads();
-                    },
-                    icon: AppIcons.refresh,
-                    label: context.l10n.dataManagementRetry,
-                    tone: PrismButtonTone.outlined,
-                  ),
-                ],
-              ],
-            ),
+          SpImportWarningSummary(
+            warnings: result.warnings,
+            onRetryAvatars: result.hasAvatarDownloadFailures
+                ? () => ref.read(importerProvider.notifier).retryAvatarDownloads()
+                : null,
+            retryInProgress: ref.watch(importerProvider).step ==
+                ImportState.downloadingAvatars,
           ),
         ],
 
