@@ -31,6 +31,15 @@ class AnalyticsRangeNotifier extends Notifier<AnalyticsDateRange> {
 
   void setRange(DateTimeRange range, {bool isAllTime = false}) =>
       state = AnalyticsDateRange(range: range, isAllTime: isAllTime);
+
+  /// Marks the range "all time". The concrete start is derived from the
+  /// earliest session in [frontingAnalyticsProvider] so it tracks imports and
+  /// deletes; the stored range is a placeholder. Synchronous so a slow DB read
+  /// can't land after a newer selection and clobber it.
+  void selectAllTime() {
+    final now = DateTime.now();
+    setRange(DateTimeRange(start: now, end: now), isAllTime: true);
+  }
 }
 
 final analyticsRangeProvider =
@@ -60,8 +69,20 @@ final frontingAnalyticsProvider = FutureProvider<FrontingAnalytics>((
   ref,
 ) async {
   ref.watch(frontingTableTickerProvider);
-  final range = ref.watch(analyticsRangeProvider).range;
+  final selected = ref.watch(analyticsRangeProvider);
   final dao = ref.watch(frontingSessionsDaoProvider);
+
+  // Derive "all time" from the earliest live session each rebuild so imports
+  // and deletes self-correct instead of stranding a stale start.
+  var range = selected.range;
+  if (selected.isAllTime) {
+    final earliest = await dao.getEarliestSessionStart();
+    final now = DateTime.now();
+    range = DateTimeRange(
+      start: earliest ?? now.subtract(const Duration(days: 30)),
+      end: now,
+    );
+  }
 
   final results = await Future.wait([
     dao.getSessionsInRange(range.start, range.end),

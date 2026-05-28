@@ -344,6 +344,17 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
           .watch();
 
+  /// Earliest non-deleted session start (any type), or null when no live rows
+  /// exist. Anchors the "All" analytics range to the first real record.
+  Future<DateTime?> getEarliestSessionStart() async {
+    final minStart = frontingSessions.startTime.min();
+    final query = selectOnly(frontingSessions)
+      ..where(frontingSessions.isDeleted.equals(false))
+      ..addColumns([minStart]);
+    final row = await query.getSingle();
+    return row.read(minStart);
+  }
+
   Future<int> getCount() async {
     final count = countAll();
     final query = selectOnly(frontingSessions)
