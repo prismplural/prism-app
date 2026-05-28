@@ -167,7 +167,10 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           existingConfig.centerLabel !=
               toNullable(_sliderCenterLabelController.text) ||
           existingConfig.gradientPresetId != _sliderGradientPresetId ||
-          !listEquals(existingConfig.gradientColorsHex, _sliderGradientColors) ||
+          !listEquals(
+            _gradientColorsFromConfig(existingConfig),
+            _sliderGradientColors,
+          ) ||
           existingConfig.snapToPositions != _sliderSnapToPositions;
     }
     return existingConfig.min !=
@@ -260,18 +263,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         _sliderGradientPresetId = config.gradientPresetId;
         // Hydrate gradient colors: prefer gradientColorsHex, fall back to
         // legacy left/center/right, then 2-color default.
-        if (config.gradientColorsHex != null &&
-            config.gradientColorsHex!.length >= 2) {
-          _sliderGradientColors = List<String>.from(config.gradientColorsHex!);
-        } else {
-          final legacy = [
-            config.leftColorHex,
-            config.centerColorHex,
-            config.rightColorHex,
-          ].whereType<String>().toList();
-          _sliderGradientColors =
-              legacy.length >= 2 ? legacy : _defaultGradientColors();
-        }
+        _sliderGradientColors = _gradientColorsFromConfig(config);
         _sliderSnapToPositions = config.snapToPositions;
         _sliderMinController.text = config.min?.toString() ?? '0';
         _sliderMaxController.text = config.max?.toString() ?? '10';
@@ -482,6 +474,23 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   /// Build the current [SliderConfig] from UI state.
   /// Default two-color gradient when no existing colors are available.
   static List<String> _defaultGradientColors() => ['#E89BB8', '#8FAA9A'];
+
+  /// The gradient color list a config hydrates to: prefer `gradientColorsHex`,
+  /// fall back to legacy left/center/right, then a 2-color default. Used by both
+  /// hydration and the dirty-check so an unedited existing field reads as clean
+  /// (a pre-migration config has null `gradientColorsHex` but legacy colors).
+  static List<String> _gradientColorsFromConfig(SliderConfig config) {
+    if (config.gradientColorsHex != null &&
+        config.gradientColorsHex!.length >= 2) {
+      return List<String>.from(config.gradientColorsHex!);
+    }
+    final legacy = [
+      config.leftColorHex,
+      config.centerColorHex,
+      config.rightColorHex,
+    ].whereType<String>().toList();
+    return legacy.length >= 2 ? legacy : _defaultGradientColors();
+  }
 
   /// Mirror [_sliderGradientColors] into the three legacy fields for old-client
   /// compatibility. Center is only set when the list has ≥ 3 colors.
