@@ -4,10 +4,11 @@
 //   visible Text(field.name) above labels the surrounding row.
 // - semanticFormatterCallback announces the value: labeled mode reads
 //   '{anchorName}, {percent}%'; numeric mode reads '{value}{unit}'.
-// - showValueIndicator: always keeps the bubble visible for sighted users.
+// - showValueIndicator: always keeps the editor bubble visible for sighted users.
 //
-// Display: same Slider with onChanged: null. Compact: Row of painted track +
-// Text suffix, announced via the parent row's label.
+// Display: static render object that paints the same track/thumb without
+// Slider state or tickers. Compact: Row of painted track + Text suffix,
+// announced via the parent row's label.
 //
 // Manual VoiceOver/TalkBack verification pending (FFI compile chain blocks
 // widget tests in this directory).
@@ -98,7 +99,9 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
   void initState() {
     super.initState();
     final config = _config();
-    final parsed = sliderFieldDefinition.valueParser(widget.existingValue?.value);
+    final parsed = sliderFieldDefinition.valueParser(
+      widget.existingValue?.value,
+    );
     final parsedValue = (parsed is SliderFieldValue) ? parsed.value : null;
     if (parsedValue != null) {
       _state = SliderEditState.loaded(value: parsedValue);
@@ -124,7 +127,9 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
     final newRaw = widget.existingValue?.value ?? '';
     final oldRaw = oldWidget.existingValue?.value ?? '';
     if (newRaw == oldRaw) return;
-    final parsed = sliderFieldDefinition.valueParser(widget.existingValue?.value);
+    final parsed = sliderFieldDefinition.valueParser(
+      widget.existingValue?.value,
+    );
     final next = (parsed is SliderFieldValue) ? parsed.value : null;
     setState(() {
       _state = _state.onExternalReload(
@@ -170,7 +175,9 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
         final deleteFailure = await notifier.deleteValue(existingId);
         if (deleteFailure != null) throw deleteFailure;
         if (!mounted) return;
-        if (!identical(_state, priorStateDelete)) return; // user edited mid-flight; let next cycle handle it
+        if (!identical(_state, priorStateDelete)) {
+          return; // user edited mid-flight; let next cycle handle it
+        }
         _state = _state.onCommitSuccess(
           intent: CommitIntent.delete,
           midpoint: _defaultMidpoint(_config()),
@@ -189,7 +196,9 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
         );
         if (setFailure != null) throw setFailure;
         if (!mounted) return;
-        if (!identical(_state, priorStateSet)) return; // user edited mid-flight; let next cycle handle it
+        if (!identical(_state, priorStateSet)) {
+          return; // user edited mid-flight; let next cycle handle it
+        }
         _state = _state.onCommitSuccess(
           intent: CommitIntent.set,
           midpoint: _defaultMidpoint(_config()),
@@ -214,9 +223,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
     }
 
     // Exactly on center: use centered variant.
-    if (center != null &&
-        anchorName == center &&
-        (value - 50.0).abs() < 0.5) {
+    if (center != null && anchorName == center && (value - 50.0).abs() < 0.5) {
       return l10n.customFieldSliderValueLabelCentered(anchorName, percent);
     }
 
@@ -285,9 +292,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
         : _numericValueIndicator(clampedValue, config);
 
     // Build gradient colors for labeled mode.
-    final trackColors = isLabeled
-        ? _resolveTrackColors(config)
-        : null;
+    final trackColors = isLabeled ? _resolveTrackColors(config) : null;
 
     final trackShape = isLabeled && trackColors != null
         ? _GradientSliderTrackShape(
@@ -326,6 +331,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
         thumbShape: _GlassThumbShape(
           fillColor: _glassFillColorTinted(theme, editorPositionTint),
           borderColor: _glassBorderColor(theme),
+          shadowColor: _glassShadowColor(theme),
           isUnset: _state.semanticIsUnset,
         ),
         trackShape: trackShape,
@@ -337,8 +343,9 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
         max: max,
         divisions: divisions,
         label: indicatorLabel,
-        semanticFormatterCallback: (_) =>
-            _state.semanticIsUnset ? l10n.customFieldSliderNotSet : indicatorLabel,
+        semanticFormatterCallback: (_) => _state.semanticIsUnset
+            ? l10n.customFieldSliderNotSet
+            : indicatorLabel,
         onChanged: (v) => setState(() => _state = _state.onDrag(v)),
         onChangeEnd: (v) {
           setState(() => _state = _state.onDragEnd(v));
@@ -443,43 +450,23 @@ class _SliderDisplayWidget extends StatelessWidget {
 
     final trackColors = isLabeled ? _resolveTrackColors(config) : null;
 
-    final trackShape = isLabeled && trackColors != null
-        ? _GradientSliderTrackShape(
-            leftColor: trackColors.left,
-            centerColor: trackColors.center,
-            rightColor: trackColors.right,
-          )
-        : null;
-
     final indicatorLabel = _indicatorLabel(clampedValue, config, context);
-
-    final divisions = _divisionsFor(
-      isLabeled: isLabeled,
-      config: config,
-      min: min,
-      max: max,
-      step: isLabeled ? null : config.step,
-    );
 
     // Parent containers (groups, compact rows, value cards) label children
     // themselves; skip our internal label when they do.
     final showInternalLabel = !CustomFieldDisplayScope.labelHandledFor(context);
 
     // Glass thumb, tinted by the gradient color at the current position.
-    // Numeric mode paints the value text inside the thumb since Flutter's
-    // built-in ShowValueIndicator skips painting for read-only sliders.
     final valueFraction = (max > min)
         ? ((clampedValue - min) / (max - min)).clamp(0.0, 1.0)
         : 0.0;
     final positionTint = _gradientColorAt(trackColors, valueFraction);
-    final thumbShape = _GlassThumbShape(
-      fillColor: _glassFillColorTinted(theme, positionTint),
-      borderColor: _glassBorderColor(theme),
-      labelTextStyle: theme.textTheme.labelSmall?.copyWith(
-        fontWeight: FontWeight.w600,
-        color: theme.colorScheme.onSurface,
-      ),
-      label: isLabeled ? null : indicatorLabel,
+    final divisions = _divisionsFor(
+      isLabeled: isLabeled,
+      config: config,
+      min: min,
+      max: max,
+      step: isLabeled ? null : config.step,
     );
 
     return Column(
@@ -495,26 +482,22 @@ class _SliderDisplayWidget extends StatelessWidget {
           ),
           const SizedBox(height: 4),
         ],
-        // No outer Semantics(label:) wrap — see _SliderEditorWidgetState.build
-        // for rationale. The visible Text(field.name) above (or the
-        // group-level header) provides the label;
-        // semanticFormatterCallback announces the current value.
-        SliderTheme(
-          data: theme.sliderTheme.copyWith(
-            showValueIndicator: ShowValueIndicator.never,
-            thumbShape: thumbShape,
-            trackShape: trackShape,
-            trackHeight: isLabeled ? 8.0 : null,
-            overlayShape: SliderComponentShape.noOverlay,
-          ),
-          child: Slider(
-            value: clampedValue,
-            min: min,
-            max: max,
+        Semantics(
+          container: true,
+          value: indicatorLabel,
+          child: _SliderDisplayTrack(
+            fraction: valueFraction,
             divisions: divisions,
-            label: indicatorLabel,
-            semanticFormatterCallback: (_) => indicatorLabel,
-            onChanged: null, // read-only
+            isLabeled: isLabeled,
+            trackColors: trackColors,
+            thumbFillColor: _glassFillColorTinted(theme, positionTint),
+            thumbBorderColor: _glassBorderColor(theme),
+            thumbShadowColor: _glassShadowColor(theme),
+            thumbLabel: isLabeled ? null : indicatorLabel,
+            thumbLabelStyle: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
           ),
         ),
         if (isLabeled) ...[
@@ -554,6 +537,411 @@ class _SliderDisplayWidget extends StatelessWidget {
     }
     return len;
   }
+}
+
+@visibleForTesting
+Widget buildSliderDisplayPixelHarness({
+  required SliderConfig config,
+  required double value,
+  required String indicatorLabel,
+}) {
+  return Builder(
+    builder: (context) {
+      final theme = Theme.of(context);
+      final isLabeled = config.mode == SliderMode.labeled;
+      final min = isLabeled ? 0.0 : (config.min ?? 0.0);
+      final max = isLabeled ? 100.0 : (config.max ?? 10.0);
+      final fraction = (max > min)
+          ? ((value - min) / (max - min)).clamp(0.0, 1.0)
+          : 0.0;
+      final trackColors = isLabeled ? _resolveTrackColors(config) : null;
+      final positionTint = _gradientColorAt(trackColors, fraction);
+      final divisions = _divisionsFor(
+        isLabeled: isLabeled,
+        config: config,
+        min: min,
+        max: max,
+        step: isLabeled ? null : config.step,
+      );
+      return _SliderDisplayTrack(
+        fraction: fraction,
+        divisions: divisions,
+        isLabeled: isLabeled,
+        trackColors: trackColors,
+        thumbFillColor: _glassFillColorTinted(theme, positionTint),
+        thumbBorderColor: _glassBorderColor(theme),
+        thumbShadowColor: _glassShadowColor(theme),
+        thumbLabel: isLabeled ? null : indicatorLabel,
+        thumbLabelStyle: theme.textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.onSurface,
+        ),
+      );
+    },
+  );
+}
+
+class _SliderDisplayTrack extends LeafRenderObjectWidget {
+  const _SliderDisplayTrack({
+    required this.fraction,
+    required this.divisions,
+    required this.isLabeled,
+    required this.trackColors,
+    required this.thumbFillColor,
+    required this.thumbBorderColor,
+    required this.thumbShadowColor,
+    this.thumbLabel,
+    this.thumbLabelStyle,
+  });
+
+  final double fraction;
+  final int? divisions;
+  final bool isLabeled;
+  final _TrackColors? trackColors;
+  final Color thumbFillColor;
+  final Color thumbBorderColor;
+  final Color thumbShadowColor;
+  final String? thumbLabel;
+  final TextStyle? thumbLabelStyle;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderSliderDisplayTrack(
+      fraction: fraction,
+      divisions: divisions,
+      isLabeled: isLabeled,
+      trackColors: trackColors,
+      thumbFillColor: thumbFillColor,
+      thumbBorderColor: thumbBorderColor,
+      thumbShadowColor: thumbShadowColor,
+      thumbLabel: thumbLabel,
+      thumbLabelStyle: thumbLabelStyle,
+      sliderTheme: SliderTheme.of(context),
+      theme: Theme.of(context),
+      textDirection: Directionality.of(context),
+    );
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderSliderDisplayTrack renderObject,
+  ) {
+    renderObject.update(
+      fraction: fraction,
+      divisions: divisions,
+      isLabeled: isLabeled,
+      trackColors: trackColors,
+      thumbFillColor: thumbFillColor,
+      thumbBorderColor: thumbBorderColor,
+      thumbShadowColor: thumbShadowColor,
+      thumbLabel: thumbLabel,
+      thumbLabelStyle: thumbLabelStyle,
+      sliderTheme: SliderTheme.of(context),
+      theme: Theme.of(context),
+      textDirection: Directionality.of(context),
+    );
+  }
+}
+
+class _RenderSliderDisplayTrack extends RenderBox {
+  _RenderSliderDisplayTrack({
+    required this.fraction,
+    required this.divisions,
+    required this.isLabeled,
+    required this.trackColors,
+    required this.thumbFillColor,
+    required this.thumbBorderColor,
+    required this.thumbShadowColor,
+    required this.sliderTheme,
+    required this.theme,
+    required this.textDirection,
+    this.thumbLabel,
+    this.thumbLabelStyle,
+  });
+
+  double fraction;
+  int? divisions;
+  bool isLabeled;
+  _TrackColors? trackColors;
+  Color thumbFillColor;
+  Color thumbBorderColor;
+  Color thumbShadowColor;
+  SliderThemeData sliderTheme;
+  ThemeData theme;
+  String? thumbLabel;
+  TextStyle? thumbLabelStyle;
+  TextDirection textDirection;
+
+  static const double _sliderHeight = 48.0;
+
+  void update({
+    required double fraction,
+    required int? divisions,
+    required bool isLabeled,
+    required _TrackColors? trackColors,
+    required Color thumbFillColor,
+    required Color thumbBorderColor,
+    required Color thumbShadowColor,
+    required SliderThemeData sliderTheme,
+    required ThemeData theme,
+    required TextDirection textDirection,
+    String? thumbLabel,
+    TextStyle? thumbLabelStyle,
+  }) {
+    final changed =
+        this.fraction != fraction ||
+        this.divisions != divisions ||
+        this.isLabeled != isLabeled ||
+        !_sameTrackColors(this.trackColors, trackColors) ||
+        this.thumbFillColor != thumbFillColor ||
+        this.thumbBorderColor != thumbBorderColor ||
+        this.thumbShadowColor != thumbShadowColor ||
+        this.sliderTheme != sliderTheme ||
+        this.theme != theme ||
+        this.textDirection != textDirection ||
+        this.thumbLabel != thumbLabel ||
+        this.thumbLabelStyle != thumbLabelStyle;
+    if (!changed) return;
+
+    this.fraction = fraction;
+    this.divisions = divisions;
+    this.isLabeled = isLabeled;
+    this.trackColors = trackColors;
+    this.thumbFillColor = thumbFillColor;
+    this.thumbBorderColor = thumbBorderColor;
+    this.thumbShadowColor = thumbShadowColor;
+    this.sliderTheme = sliderTheme;
+    this.theme = theme;
+    this.textDirection = textDirection;
+    this.thumbLabel = thumbLabel;
+    this.thumbLabelStyle = thumbLabelStyle;
+    markNeedsPaint();
+  }
+
+  @override
+  double computeMinIntrinsicHeight(double width) => _sliderHeight;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _sliderHeight;
+
+  @override
+  void performLayout() {
+    final width = constraints.hasBoundedWidth
+        ? constraints.maxWidth
+        : constraints.constrainWidth();
+    size = constraints.constrain(Size(width, _sliderHeight));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final thumbShape = _GlassThumbShape(
+      fillColor: thumbFillColor,
+      borderColor: thumbBorderColor,
+      shadowColor: thumbShadowColor,
+      label: thumbLabel,
+      labelTextStyle: thumbLabelStyle,
+    );
+    final displayTheme = _displayTheme(thumbShape);
+    final trackShape =
+        displayTheme.trackShape ?? const RoundedRectSliderTrackShape();
+    final isDiscrete = divisions != null;
+    final thumbCenter = offset + Offset(size.width * fraction, size.height / 2);
+
+    trackShape.paint(
+      context,
+      offset,
+      parentBox: this,
+      sliderTheme: displayTheme,
+      enableAnimation: kAlwaysDismissedAnimation,
+      textDirection: textDirection,
+      thumbCenter: thumbCenter,
+      isDiscrete: isDiscrete,
+      isEnabled: false,
+    );
+    _paintTickMarks(
+      context: context,
+      offset: offset,
+      displayTheme: displayTheme,
+      trackShape: trackShape,
+      thumbCenter: thumbCenter,
+    );
+    thumbShape.paint(
+      context,
+      thumbCenter,
+      activationAnimation: kAlwaysDismissedAnimation,
+      enableAnimation: kAlwaysDismissedAnimation,
+      isDiscrete: isDiscrete,
+      labelPainter: _emptyLabelPainter(),
+      parentBox: this,
+      sliderTheme: displayTheme,
+      textDirection: textDirection,
+      value: fraction,
+      textScaleFactor: 1,
+      sizeWithOverflow: size,
+    );
+  }
+
+  void _paintTickMarks({
+    required PaintingContext context,
+    required Offset offset,
+    required SliderThemeData displayTheme,
+    required SliderTrackShape trackShape,
+    required Offset thumbCenter,
+  }) {
+    final tickDivisions = divisions;
+    final tickMarkShape = displayTheme.tickMarkShape;
+    if (tickDivisions == null ||
+        tickMarkShape == null ||
+        identical(tickMarkShape, SliderTickMarkShape.noTickMark)) {
+      return;
+    }
+
+    final trackRect = trackShape.getPreferredRect(
+      parentBox: this,
+      offset: offset,
+      sliderTheme: displayTheme,
+      isEnabled: false,
+      isDiscrete: true,
+    );
+    final tickMarkWidth = tickMarkShape
+        .getPreferredSize(isEnabled: false, sliderTheme: displayTheme)
+        .width;
+    final discreteTrackPadding = trackRect.height;
+    final adjustedTrackWidth = trackRect.width - discreteTrackPadding;
+    if (adjustedTrackWidth <= 0) return;
+    // Flutter skips all tick marks when they are too dense. Profile display keeps
+    // showTicks visible by sampling dense ranges while preserving both endpoints.
+    final minTickSpacing = math.max(3.0 * tickMarkWidth, 1.0);
+    final tickStride = math.max(
+      1,
+      (minTickSpacing * tickDivisions / adjustedTrackWidth).ceil(),
+    );
+
+    final dy = trackRect.center.dy;
+    void paintTick(int index) {
+      final value = index / tickDivisions;
+      final dx =
+          trackRect.left +
+          value * adjustedTrackWidth +
+          discreteTrackPadding / 2;
+      tickMarkShape.paint(
+        context,
+        Offset(dx, dy),
+        parentBox: this,
+        sliderTheme: displayTheme,
+        enableAnimation: kAlwaysDismissedAnimation,
+        textDirection: textDirection,
+        thumbCenter: thumbCenter,
+        isEnabled: false,
+      );
+    }
+
+    var lastPainted = -1;
+    for (var i = 0; i <= tickDivisions; i += tickStride) {
+      paintTick(i);
+      lastPainted = i;
+    }
+    if (lastPainted != tickDivisions) {
+      paintTick(tickDivisions);
+    }
+  }
+
+  SliderTrackShape? _trackShape() {
+    final colors = trackColors;
+    if (!isLabeled || colors == null) return null;
+    return _GradientSliderTrackShape(
+      leftColor: colors.left,
+      centerColor: colors.center,
+      rightColor: colors.right,
+    );
+  }
+
+  SliderThemeData _displayTheme(SliderComponentShape thumbShape) {
+    final colors = theme.colorScheme;
+    // Mirror Slider's current defaulting so the static renderer stays visually
+    // identical to the disabled Slider it replaces.
+    // ignore: deprecated_member_use
+    final year2023 = sliderTheme.year2023 ?? true;
+    final material3 = theme.useMaterial3;
+    final defaultTrackHeight = material3 ? (year2023 ? 4.0 : 16.0) : 4.0;
+    final defaultInactiveTrackColor = material3
+        ? (year2023
+              ? colors.surfaceContainerHighest
+              : colors.secondaryContainer)
+        : colors.primary.withValues(alpha: 0.24);
+    final defaultDisabledActiveOpacity = material3 ? 0.38 : 0.32;
+    final SliderTrackShape defaultTrackShape = material3 && !year2023
+        ? const GappedSliderTrackShape()
+        : const RoundedRectSliderTrackShape();
+    final SliderTickMarkShape defaultTickMarkShape = material3 && !year2023
+        ? const RoundSliderTickMarkShape(tickMarkRadius: 2.0)
+        : const RoundSliderTickMarkShape();
+    final defaultActiveTickMarkColor = material3
+        ? (year2023
+              ? colors.onPrimary.withValues(alpha: 0.38)
+              : colors.onPrimary)
+        : colors.onPrimary.withValues(alpha: 0.54);
+    final defaultInactiveTickMarkColor = material3
+        ? (year2023
+              ? colors.onSurfaceVariant.withValues(alpha: 0.38)
+              : colors.onSecondaryContainer)
+        : colors.primary.withValues(alpha: 0.54);
+    final defaultDisabledActiveTickMarkColor = material3
+        ? (year2023
+              ? colors.onSurface.withValues(alpha: 0.38)
+              : colors.onInverseSurface)
+        : colors.onPrimary.withValues(alpha: 0.12);
+    final defaultDisabledInactiveTickMarkColor = material3
+        ? (year2023
+              ? colors.onSurface.withValues(alpha: 0.38)
+              : colors.onSurface)
+        : colors.onSurface.withValues(alpha: 0.12);
+
+    return sliderTheme.copyWith(
+      showValueIndicator: ShowValueIndicator.never,
+      thumbShape: thumbShape,
+      trackShape: _trackShape() ?? sliderTheme.trackShape ?? defaultTrackShape,
+      tickMarkShape: sliderTheme.tickMarkShape ?? defaultTickMarkShape,
+      trackHeight: isLabeled
+          ? 8.0
+          : (sliderTheme.trackHeight ?? defaultTrackHeight),
+      trackGap: sliderTheme.trackGap ?? (material3 && !year2023 ? 6.0 : null),
+      overlayShape: SliderComponentShape.noOverlay,
+      activeTrackColor: sliderTheme.activeTrackColor ?? colors.primary,
+      inactiveTrackColor:
+          sliderTheme.inactiveTrackColor ?? defaultInactiveTrackColor,
+      disabledActiveTrackColor:
+          sliderTheme.disabledActiveTrackColor ??
+          colors.onSurface.withValues(alpha: defaultDisabledActiveOpacity),
+      disabledInactiveTrackColor:
+          sliderTheme.disabledInactiveTrackColor ??
+          colors.onSurface.withValues(alpha: 0.12),
+      activeTickMarkColor:
+          sliderTheme.activeTickMarkColor ?? defaultActiveTickMarkColor,
+      inactiveTickMarkColor:
+          sliderTheme.inactiveTickMarkColor ?? defaultInactiveTickMarkColor,
+      disabledActiveTickMarkColor:
+          sliderTheme.disabledActiveTickMarkColor ??
+          defaultDisabledActiveTickMarkColor,
+      disabledInactiveTickMarkColor:
+          sliderTheme.disabledInactiveTickMarkColor ??
+          defaultDisabledInactiveTickMarkColor,
+    );
+  }
+
+  TextPainter _emptyLabelPainter() {
+    return TextPainter(
+      text: const TextSpan(text: ''),
+      textDirection: textDirection,
+    )..layout();
+  }
+}
+
+bool _sameTrackColors(_TrackColors? a, _TrackColors? b) {
+  if (identical(a, b)) return true;
+  if (a == null || b == null) return false;
+  return a.left == b.left && a.center == b.center && a.right == b.right;
 }
 
 // ─── Compact ──────────────────────────────────────────────────────────────────
@@ -696,7 +1084,8 @@ class _GradientSliderTrackShape extends RoundedRectSliderTrackShape {
   static final Map<String, List<Color>> _colorCache = {};
 
   List<Color> _buildStops() {
-    final key = '${leftColor.toARGB32()}_${centerColor?.toARGB32()}_${rightColor.toARGB32()}';
+    final key =
+        '${leftColor.toARGB32()}_${centerColor?.toARGB32()}_${rightColor.toARGB32()}';
     return _colorCache.putIfAbsent(
       key,
       () => sliderGradientStops(leftColor, centerColor, rightColor),
@@ -765,10 +1154,7 @@ class _GradientSliderTrackShape extends RoundedRectSliderTrackShape {
       ..style = PaintingStyle.fill;
 
     final radius = Radius.circular(trackRect.height / 2);
-    context.canvas.drawRRect(
-      RRect.fromRectAndRadius(trackRect, radius),
-      paint,
-    );
+    context.canvas.drawRRect(RRect.fromRectAndRadius(trackRect, radius), paint);
   }
 }
 
@@ -796,7 +1182,8 @@ class _MiniTrackPainter extends CustomPainter {
   static final Map<String, List<Color>> _colorCache = {};
 
   List<Color> _buildStops() {
-    final key = '${leftColor.toARGB32()}_${centerColor?.toARGB32()}_${rightColor.toARGB32()}';
+    final key =
+        '${leftColor.toARGB32()}_${centerColor?.toARGB32()}_${rightColor.toARGB32()}';
     return _colorCache.putIfAbsent(
       key,
       () => sliderGradientStops(leftColor, centerColor, rightColor),
@@ -808,7 +1195,12 @@ class _MiniTrackPainter extends CustomPainter {
     const trackHeight = 4.0;
     const dotRadius = 5.0;
     final trackY = size.height / 2;
-    final trackRect = Rect.fromLTWH(0, trackY - trackHeight / 2, size.width, trackHeight);
+    final trackRect = Rect.fromLTWH(
+      0,
+      trackY - trackHeight / 2,
+      size.width,
+      trackHeight,
+    );
     const radius = Radius.circular(trackHeight / 2);
 
     // Background track.
@@ -820,7 +1212,12 @@ class _MiniTrackPainter extends CustomPainter {
     // Filled portion.
     final fillWidth = size.width * fraction;
     if (fillWidth > 0) {
-      final fillRect = Rect.fromLTWH(0, trackY - trackHeight / 2, fillWidth, trackHeight);
+      final fillRect = Rect.fromLTWH(
+        0,
+        trackY - trackHeight / 2,
+        fillWidth,
+        trackHeight,
+      );
       Paint fillPaint;
       if (isGradient && leftColor != rightColor) {
         final stops = _buildStops();
@@ -836,14 +1233,14 @@ class _MiniTrackPainter extends CustomPainter {
           ..color = isGradient ? leftColor : trackColor
           ..style = PaintingStyle.fill;
       }
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(fillRect, radius),
-        fillPaint,
-      );
+      canvas.drawRRect(RRect.fromRectAndRadius(fillRect, radius), fillPaint);
     }
 
     // Dot at current position.
-    final dotX = math.max(dotRadius, math.min(size.width - dotRadius, size.width * fraction));
+    final dotX = math.max(
+      dotRadius,
+      math.min(size.width - dotRadius, size.width * fraction),
+    );
     final dotPaint = Paint()
       ..color = isGradient
           ? lerpHsl(leftColor, rightColor, fraction)
@@ -890,6 +1287,11 @@ Color _glassBorderColor(ThemeData theme) {
   );
 }
 
+Color _glassShadowColor(ThemeData theme) {
+  final isDark = theme.brightness == Brightness.dark;
+  return theme.colorScheme.shadow.withValues(alpha: isDark ? 0.36 : 0.22);
+}
+
 /// Sample the gradient at the given fraction [0..1] using the same HSL
 /// interpolation as the track shape. Returns null if there's no gradient
 /// to sample (numeric mode, missing colors).
@@ -909,17 +1311,17 @@ Color? _gradientColorAt(_TrackColors? trackColors, double fraction) {
 Color _glassFillColorTinted(ThemeData theme, Color? positionTint) {
   final base = _glassFillColor(theme);
   if (positionTint == null) return base;
-  return Color.alphaBlend(positionTint.withValues(alpha: 0.45), base);
+  return Color.alphaBlend(positionTint.withValues(alpha: 0.32), base);
 }
 
-/// Glass-styled slider thumb: translucent rounded pill with a hairline
-/// border. When [label] is non-null the thumb expands horizontally to fit
-/// the text — used by the read-only display widget for numeric mode, since
-/// Flutter's [ShowValueIndicator] doesn't paint for disabled sliders.
+/// Glass-styled slider thumb: translucent rounded pill with a hairline border.
+/// Read-only profile values use the same shape so the static renderer preserves
+/// the former disabled [Slider] geometry without creating a [Slider] state object.
 class _GlassThumbShape extends SliderComponentShape {
   const _GlassThumbShape({
     required this.fillColor,
     required this.borderColor,
+    required this.shadowColor,
     this.labelTextStyle,
     this.label,
     this.isUnset = false,
@@ -927,6 +1329,7 @@ class _GlassThumbShape extends SliderComponentShape {
 
   final Color fillColor;
   final Color borderColor;
+  final Color shadowColor;
   final TextStyle? labelTextStyle;
   final String? label;
   // Dims the thumb fill to ~40% alpha to signal "no value".
@@ -984,6 +1387,14 @@ class _GlassThumbShape extends SliderComponentShape {
     );
     final radius = Radius.circular(size.height / 2);
     final rrect = RRect.fromRectAndRadius(rect, radius);
+    final shadowRect = rrect.shift(const Offset(0, 1)).inflate(1);
+
+    canvas.drawRRect(
+      shadowRect,
+      Paint()
+        ..color = shadowColor
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
 
     final effectiveFill = isUnset
         ? fillColor.withValues(alpha: fillColor.a * 0.4)
@@ -1008,8 +1419,8 @@ class _GlassThumbShape extends SliderComponentShape {
 }
 
 /// Glass-styled value indicator (the popup that floats above the thumb while
-/// dragging). Used by the editor widget; the display widget hides the
-/// built-in indicator and paints the value directly in [_GlassThumbShape].
+/// dragging). Used only by the editor widget; read-only profile values use a
+/// lightweight custom painter.
 class _GlassValueIndicatorShape extends SliderComponentShape {
   const _GlassValueIndicatorShape({
     required this.fillColor,
@@ -1146,8 +1557,10 @@ String? attributedSliderAnchorLabel(double value, SliderConfig config) {
     if (config.centerLabel != null) config.centerLabel,
     config.rightLabel,
   ];
-  final bucket =
-      (value / 100.0 * labels.length).floor().clamp(0, labels.length - 1);
+  final bucket = (value / 100.0 * labels.length).floor().clamp(
+    0,
+    labels.length - 1,
+  );
   return labels[bucket];
 }
 
@@ -1173,11 +1586,7 @@ int? _divisionsFor({
 
 /// Resolved track colors from a [SliderConfig].
 class _TrackColors {
-  const _TrackColors({
-    required this.left,
-    this.center,
-    required this.right,
-  });
+  const _TrackColors({required this.left, this.center, required this.right});
   final Color left;
   final Color? center;
   final Color right;

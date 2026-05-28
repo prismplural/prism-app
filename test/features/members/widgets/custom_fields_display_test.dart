@@ -8,6 +8,7 @@ import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
+import 'package:prism_plurality/features/members/widgets/slider_field_widgets.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
@@ -43,6 +44,7 @@ void main() {
         id: id,
         name: name ?? 'Field $id',
         fieldType: type,
+        fieldTypeId: _fieldTypeIdFor(type),
         createdAt: DateTime(2026, 1, 1),
       );
 
@@ -79,6 +81,356 @@ void main() {
 
     expect(find.byType(MarkdownBody), findsOneWidget);
     expect(find.text('Field long'), findsOneWidget);
+  });
+
+  testWidgets(
+    'read-only slider fields do not instantiate Material Slider controls',
+    (tester) async {
+      final fields = List.generate(
+        24,
+        (i) => CustomField(
+          id: 'slider-$i',
+          name: 'Slider $i',
+          fieldType: CustomFieldType.text,
+          fieldTypeId: 'slider',
+          displayOrder: i,
+          createdAt: DateTime(2026, 1, 1),
+          typeConfig: const SliderConfig(
+            mode: SliderMode.labeled,
+            leftLabel: 'Low',
+            rightLabel: 'High',
+            gradientPresetId: 'sad-happy',
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        subject(
+          fields: fields,
+          values: [
+            for (var i = 0; i < fields.length; i++)
+              value(fields[i].id, '${(i * 4) % 101}'),
+          ],
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byType(Slider),
+        findsNothing,
+        reason:
+            'Profile display is read-only; many full Slider controls '
+            'make slider-heavy profiles expensive to scroll.',
+      );
+    },
+  );
+
+  testWidgets('read-only slider semantics does not duplicate visible label', (
+    tester,
+  ) async {
+    final semanticsHandle = tester.ensureSemantics();
+
+    final sliderField = CustomField(
+      id: 'slider-mood',
+      name: 'Mood',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'slider',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const SliderConfig(
+        mode: SliderMode.labeled,
+        leftLabel: 'Low',
+        rightLabel: 'High',
+        gradientPresetId: 'sad-happy',
+      ),
+    );
+
+    await tester.pumpWidget(
+      subject(fields: [sliderField], values: [value(sliderField.id, '64')]),
+    );
+    await tester.pump();
+
+    expect(find.text('Mood'), findsOneWidget);
+    expect(find.bySemanticsLabel('Mood'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == null &&
+            widget.properties.value == 'High, 64%',
+      ),
+      findsOneWidget,
+    );
+
+    semanticsHandle.dispose();
+  });
+
+  testWidgets(
+    'static slider renderer preserves track/thumb geometry and tick variants',
+    (tester) async {
+      const labeledConfig = SliderConfig(
+        mode: SliderMode.labeled,
+        leftLabel: 'Low',
+        rightLabel: 'High',
+        gradientPresetId: 'sad-happy',
+      );
+      await _expectStaticSliderPaintGeometry(
+        tester,
+        config: labeledConfig,
+        value: 64,
+        indicatorLabel: 'High, 64%',
+        expectedTrackRRect: RRect.fromLTRBR(
+          0,
+          20,
+          320,
+          28,
+          const Radius.circular(4),
+        ),
+        expectedThumbRRect: RRect.fromLTRBR(
+          193.8,
+          13,
+          215.8,
+          35,
+          const Radius.circular(11),
+        ),
+        expectedTickCenters: const [],
+        expectedTickRadius: 0,
+      );
+
+      const numericConfig = SliderConfig(
+        mode: SliderMode.numeric,
+        min: 0,
+        max: 10,
+        step: 1,
+        unit: 'x',
+      );
+      await _expectStaticSliderPaintGeometry(
+        tester,
+        config: numericConfig,
+        value: 6,
+        indicatorLabel: '6x',
+        expectedTrackRRect: RRect.fromLTRBR(
+          0,
+          21,
+          194,
+          27,
+          const Radius.circular(3),
+        ),
+        expectedThumbRRect: RRect.fromLTRBR(
+          170.5,
+          13,
+          213.5,
+          35,
+          const Radius.circular(11),
+        ),
+        expectedTickCenters: const [],
+        expectedTickRadius: 0,
+      );
+
+      const labeledSnapConfig = SliderConfig(
+        mode: SliderMode.labeled,
+        leftLabel: 'Low',
+        rightLabel: 'High',
+        gradientPresetId: 'sad-happy',
+        snapToPositions: true,
+      );
+      await _expectStaticSliderPaintGeometry(
+        tester,
+        config: labeledSnapConfig,
+        value: 50,
+        indicatorLabel: 'High, 50%',
+        expectedTrackRRect: RRect.fromLTRBR(
+          0,
+          20,
+          320,
+          28,
+          const Radius.circular(4),
+        ),
+        expectedThumbRRect: RRect.fromLTRBR(
+          149,
+          13,
+          171,
+          35,
+          const Radius.circular(11),
+        ),
+        expectedTickCenters: const [
+          Offset(4, 24),
+          Offset(160, 24),
+          Offset(316, 24),
+        ],
+        expectedTickRadius: 2,
+      );
+
+      const labeledCenterSnapConfig = SliderConfig(
+        mode: SliderMode.labeled,
+        leftLabel: 'Low',
+        centerLabel: 'Mid',
+        rightLabel: 'High',
+        gradientPresetId: 'sad-happy',
+        snapToPositions: true,
+      );
+      await _expectStaticSliderPaintGeometry(
+        tester,
+        config: labeledCenterSnapConfig,
+        value: 75,
+        indicatorLabel: 'High, 75%',
+        expectedTrackRRect: RRect.fromLTRBR(
+          0,
+          20,
+          320,
+          28,
+          const Radius.circular(4),
+        ),
+        expectedThumbRRect: RRect.fromLTRBR(
+          229,
+          13,
+          251,
+          35,
+          const Radius.circular(11),
+        ),
+        expectedTickCenters: const [
+          Offset(4, 24),
+          Offset(82, 24),
+          Offset(160, 24),
+          Offset(238, 24),
+          Offset(316, 24),
+        ],
+        expectedTickRadius: 2,
+      );
+
+      const numericTicksConfig = SliderConfig(
+        mode: SliderMode.numeric,
+        min: 0,
+        max: 10,
+        step: 2,
+        unit: 'x',
+        showTicks: true,
+      );
+      await _expectStaticSliderPaintGeometry(
+        tester,
+        config: numericTicksConfig,
+        value: 6,
+        indicatorLabel: '6x',
+        expectedTrackRRect: RRect.fromLTRBR(
+          0,
+          21,
+          194,
+          27,
+          const Radius.circular(3),
+        ),
+        expectedThumbRRect: RRect.fromLTRBR(
+          170.5,
+          13,
+          213.5,
+          35,
+          const Radius.circular(11),
+        ),
+        expectedTickCenters: const [
+          Offset(2, 24),
+          Offset(65.2, 24),
+          Offset(128.4, 24),
+          Offset(191.6, 24),
+          Offset(254.8, 24),
+          Offset(318, 24),
+        ],
+        expectedTickRadius: 1,
+      );
+
+      const denseNumericTicksConfig = SliderConfig(
+        mode: SliderMode.numeric,
+        min: 0,
+        max: 100,
+        step: 1,
+        showTicks: true,
+      );
+      await _expectStaticSliderPaintGeometry(
+        tester,
+        config: denseNumericTicksConfig,
+        value: 41,
+        indicatorLabel: '41',
+        expectedTrackRRect: RRect.fromLTRBR(
+          0,
+          21,
+          133.2,
+          27,
+          const Radius.circular(3),
+        ),
+        expectedThumbRRect: RRect.fromLTRBR(
+          109.7,
+          13,
+          152.7,
+          35,
+          const Radius.circular(11),
+        ),
+        expectedTickCenters: const [Offset(2, 24), Offset(318, 24)],
+        expectedTickRadius: 1,
+        expectedTickCount: 51,
+      );
+    },
+  );
+
+  testWidgets('slider label variants render expected profile label rows', (
+    tester,
+  ) async {
+    final noCenter = CustomField(
+      id: 'slider-no-center',
+      name: 'No center',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'slider',
+      displayOrder: 0,
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const SliderConfig(
+        mode: SliderMode.labeled,
+        leftLabel: 'Low anchor only',
+        rightLabel: 'High anchor only',
+        gradientPresetId: 'sad-happy',
+      ),
+    );
+    final withCenter = CustomField(
+      id: 'slider-with-center',
+      name: 'With center',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'slider',
+      displayOrder: 1,
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const SliderConfig(
+        mode: SliderMode.labeled,
+        leftLabel: 'Left edge label',
+        centerLabel: 'Middle label',
+        rightLabel: 'Right edge label',
+        gradientPresetId: 'sad-happy',
+      ),
+    );
+    final noLabels = CustomField(
+      id: 'slider-no-labels',
+      name: 'No labels',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'slider',
+      displayOrder: 2,
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const SliderConfig(
+        mode: SliderMode.labeled,
+        gradientPresetId: 'sad-happy',
+      ),
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [noCenter, withCenter, noLabels],
+        values: [
+          value(noCenter.id, '25'),
+          value(withCenter.id, '50'),
+          value(noLabels.id, '75'),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Low anchor only'), findsOneWidget);
+    expect(find.text('High anchor only'), findsOneWidget);
+    expect(find.text('Middle label'), findsOneWidget);
+    expect(find.text('Left edge label'), findsOneWidget);
+    expect(find.text('Right edge label'), findsOneWidget);
+    expect(find.text(''), findsNothing);
   });
 
   testWidgets('short text stays grouped even with long names and values', (
@@ -165,10 +517,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        subject(
-          fields: [hiddenField],
-          values: [value('ht1', 'Protector')],
-        ),
+        subject(fields: [hiddenField], values: [value('ht1', 'Protector')]),
       );
       await tester.pump();
 
@@ -195,57 +544,51 @@ void main() {
     },
   );
 
-  testWidgets(
-    'hidden-title field card stretches to the full available width',
-    (tester) async {
-      // One short "Other" chip is far narrower than the viewport, so a card
-      // without a full-width constraint shrink-wraps to it. Regression guard.
-      final choiceField = CustomField(
-        id: 'cw1',
-        name: 'Options',
-        fieldType: CustomFieldType.text, // legacy enum; fieldTypeId drives routing
-        fieldTypeId: 'choice',
-        createdAt: DateTime(2026, 1, 1),
-        typeConfig: const ChoiceConfig(hideTitleOnProfile: true),
-      );
+  testWidgets('hidden-title field card stretches to the full available width', (
+    tester,
+  ) async {
+    // One short "Other" chip is far narrower than the viewport, so a card
+    // without a full-width constraint shrink-wraps to it. Regression guard.
+    final choiceField = CustomField(
+      id: 'cw1',
+      name: 'Options',
+      fieldType:
+          CustomFieldType.text, // legacy enum; fieldTypeId drives routing
+      fieldTypeId: 'choice',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const ChoiceConfig(hideTitleOnProfile: true),
+    );
 
-      await tester.pumpWidget(
-        subject(
-          fields: [choiceField],
-          values: [value('cw1', '{"other":"hi"}')],
-        ),
-      );
-      await tester.pump();
+    await tester.pumpWidget(
+      subject(fields: [choiceField], values: [value('cw1', '{"other":"hi"}')]),
+    );
+    await tester.pump();
 
-      // Measure against the Scaffold: the scroll view shrink-wraps to its
-      // content, so it would collapse with the card and mask the bug.
-      final cardWidth = tester.getSize(find.byType(PrismSurface)).width;
-      final scaffoldWidth = tester.getSize(find.byType(Scaffold)).width;
-      expect(cardWidth, scaffoldWidth);
-    },
-  );
+    // Measure against the Scaffold: the scroll view shrink-wraps to its
+    // content, so it would collapse with the card and mask the bug.
+    final cardWidth = tester.getSize(find.byType(PrismSurface)).width;
+    final scaffoldWidth = tester.getSize(find.byType(Scaffold)).width;
+    expect(cardWidth, scaffoldWidth);
+  });
 
-  testWidgets(
-    'hidden-title text field with empty value renders nothing',
-    (tester) async {
-      final hiddenField = CustomField(
-        id: 'ht2',
-        name: 'Hidden Empty',
-        fieldType: CustomFieldType.text,
-        createdAt: DateTime(2026, 1, 1),
-        typeConfig: const TextConfig(hideTitleOnProfile: true),
-      );
+  testWidgets('hidden-title text field with empty value renders nothing', (
+    tester,
+  ) async {
+    final hiddenField = CustomField(
+      id: 'ht2',
+      name: 'Hidden Empty',
+      fieldType: CustomFieldType.text,
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const TextConfig(hideTitleOnProfile: true),
+    );
 
-      // No value provided for this field — the display should emit nothing.
-      await tester.pumpWidget(
-        subject(fields: [hiddenField], values: []),
-      );
-      await tester.pump();
+    // No value provided for this field — the display should emit nothing.
+    await tester.pumpWidget(subject(fields: [hiddenField], values: []));
+    await tester.pump();
 
-      expect(find.byType(PrismSurface), findsNothing);
-      expect(find.byType(PrismSectionCard), findsNothing);
-    },
-  );
+    expect(find.byType(PrismSurface), findsNothing);
+    expect(find.byType(PrismSectionCard), findsNothing);
+  });
 
   testWidgets(
     'mixed run: two normal compact fields group together, hidden-title field renders separately',
@@ -314,7 +657,8 @@ void main() {
       final scaleField = CustomField(
         id: 'sc1',
         name: fieldName,
-        fieldType: CustomFieldType.text, // legacy enum; fieldTypeId drives routing
+        fieldType:
+            CustomFieldType.text, // legacy enum; fieldTypeId drives routing
         fieldTypeId: 'scale',
         createdAt: DateTime(2026, 1, 1),
         typeConfig: const ScaleConfig(
@@ -325,10 +669,7 @@ void main() {
 
       // Scale values are stored as "N/max" integers; "3" is a valid raw value.
       await tester.pumpWidget(
-        subject(
-          fields: [scaleField],
-          values: [value('sc1', '3')],
-        ),
+        subject(fields: [scaleField], values: [value('sc1', '3')]),
       );
       await tester.pump();
 
@@ -351,7 +692,7 @@ void main() {
     'group child with hideTitleOnProfile hides its own label, sibling keeps it',
     (tester) async {
       // Per-child opt-out inside a group, independent of the group's own
-      // toggle. Regression for the codex P2: child title was always shown.
+      // toggle. Regression: child title was always shown.
       final group = CustomField(
         id: 'grp',
         name: 'My Group',
@@ -404,58 +745,55 @@ void main() {
     },
   );
 
-  testWidgets(
-    'an empty group reserves no space between its neighbors',
-    (tester) async {
-      // A group whose only child has no value renders nothing. It must not
-      // leave a phantom gap: total height with the empty group present must
-      // equal the height without it.
-      final before = CustomField(
-        id: 'a',
-        name: 'Before',
-        fieldType: CustomFieldType.longText,
-        createdAt: DateTime(2026, 1, 1),
-      );
-      final group = CustomField(
-        id: 'g',
-        name: 'Empty Group',
-        fieldType: CustomFieldType.text,
-        fieldTypeId: 'group',
-        typeConfig: const GroupConfig(),
-        createdAt: DateTime(2026, 1, 1),
-      );
-      final groupChild = CustomField(
-        id: 'gc',
-        name: 'Child',
-        fieldType: CustomFieldType.text,
-        parentFieldId: 'g',
-        createdAt: DateTime(2026, 1, 1),
-      );
-      final after = CustomField(
-        id: 'b',
-        name: 'After',
-        fieldType: CustomFieldType.longText,
-        createdAt: DateTime(2026, 1, 1),
-      );
-      final values = [value('a', 'aa'), value('b', 'bb')];
+  testWidgets('an empty group reserves no space between its neighbors', (
+    tester,
+  ) async {
+    // A group whose only child has no value renders nothing. It must not
+    // leave a phantom gap: total height with the empty group present must
+    // equal the height without it.
+    final before = CustomField(
+      id: 'a',
+      name: 'Before',
+      fieldType: CustomFieldType.longText,
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final group = CustomField(
+      id: 'g',
+      name: 'Empty Group',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      typeConfig: const GroupConfig(),
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final groupChild = CustomField(
+      id: 'gc',
+      name: 'Child',
+      fieldType: CustomFieldType.text,
+      parentFieldId: 'g',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final after = CustomField(
+      id: 'b',
+      name: 'After',
+      fieldType: CustomFieldType.longText,
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final values = [value('a', 'aa'), value('b', 'bb')];
 
-      await tester.pumpWidget(
-        subject(fields: [before, group, groupChild, after], values: values),
-      );
-      await tester.pump();
-      final withGroup = tester
-          .getSize(find.byType(CustomFieldsDisplay))
-          .height;
+    await tester.pumpWidget(
+      subject(fields: [before, group, groupChild, after], values: values),
+    );
+    await tester.pump();
+    final withGroup = tester.getSize(find.byType(CustomFieldsDisplay)).height;
 
-      await tester.pumpWidget(subject(fields: [before, after], values: values));
-      await tester.pump();
-      final withoutGroup = tester
-          .getSize(find.byType(CustomFieldsDisplay))
-          .height;
+    await tester.pumpWidget(subject(fields: [before, after], values: values));
+    await tester.pump();
+    final withoutGroup = tester
+        .getSize(find.byType(CustomFieldsDisplay))
+        .height;
 
-      expect(withGroup, withoutGroup);
-    },
-  );
+    expect(withGroup, withoutGroup);
+  });
 }
 
 TextSpan? _findTextSpanWithPlainText(WidgetTester tester, String text) {
@@ -488,3 +826,116 @@ bool _hasRichTextContaining(WidgetTester tester, String text) {
   }
   return false;
 }
+
+Future<void> _expectStaticSliderPaintGeometry(
+  WidgetTester tester, {
+  required SliderConfig config,
+  required double value,
+  required String indicatorLabel,
+  required RRect expectedTrackRRect,
+  required RRect expectedThumbRRect,
+  required List<Offset> expectedTickCenters,
+  required double expectedTickRadius,
+  int? expectedTickCount,
+}) async {
+  final sliderKey = GlobalKey();
+  const sliderWidth = 320;
+  const sliderHeight = 48;
+
+  await tester.pumpWidget(
+    MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: const [Locale('en')],
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            key: sliderKey,
+            width: sliderWidth.toDouble(),
+            height: sliderHeight.toDouble(),
+            child: buildSliderDisplayPixelHarness(
+              config: config,
+              value: value,
+              indicatorLabel: indicatorLabel,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pump(const Duration(milliseconds: 100));
+
+  expect(
+    find.byKey(sliderKey),
+    paintsExactlyCountTimes(
+      #drawCircle,
+      expectedTickCount ?? expectedTickCenters.length,
+    ),
+  );
+
+  final pattern = paints..something(_rrectPaint(expectedTrackRRect));
+  for (final tickCenter in expectedTickCenters) {
+    pattern.something(_circlePaint(tickCenter, radius: expectedTickRadius));
+  }
+  pattern
+    ..something(_rrectPaint(expectedThumbRRect))
+    ..something(
+      _rrectPaint(
+        expectedThumbRRect,
+        strokeWidth: 1,
+        style: PaintingStyle.stroke,
+      ),
+    );
+
+  expect(find.byKey(sliderKey), pattern);
+}
+
+PaintPatternPredicate _circlePaint(Offset expected, {required double radius}) {
+  return (methodName, arguments) {
+    if (methodName != #drawCircle) return false;
+    return _offsetCloseTo(arguments[0] as Offset, expected) &&
+        _doubleCloseTo(arguments[1] as double, radius);
+  };
+}
+
+PaintPatternPredicate _rrectPaint(
+  RRect expected, {
+  double? strokeWidth,
+  PaintingStyle? style,
+}) {
+  return (methodName, arguments) {
+    if (methodName != #drawRRect) return false;
+    if (!_rrectCloseTo(arguments.first as RRect, expected)) return false;
+    final paint = arguments[1] as Paint;
+    return (strokeWidth == null || paint.strokeWidth == strokeWidth) &&
+        (style == null || paint.style == style);
+  };
+}
+
+bool _offsetCloseTo(Offset actual, Offset expected) =>
+    _doubleCloseTo(actual.dx, expected.dx) &&
+    _doubleCloseTo(actual.dy, expected.dy);
+
+bool _rrectCloseTo(RRect actual, RRect expected) =>
+    _doubleCloseTo(actual.left, expected.left) &&
+    _doubleCloseTo(actual.top, expected.top) &&
+    _doubleCloseTo(actual.right, expected.right) &&
+    _doubleCloseTo(actual.bottom, expected.bottom) &&
+    _doubleCloseTo(actual.tlRadiusX, expected.tlRadiusX) &&
+    _doubleCloseTo(actual.tlRadiusY, expected.tlRadiusY) &&
+    _doubleCloseTo(actual.trRadiusX, expected.trRadiusX) &&
+    _doubleCloseTo(actual.trRadiusY, expected.trRadiusY) &&
+    _doubleCloseTo(actual.blRadiusX, expected.blRadiusX) &&
+    _doubleCloseTo(actual.blRadiusY, expected.blRadiusY) &&
+    _doubleCloseTo(actual.brRadiusX, expected.brRadiusX) &&
+    _doubleCloseTo(actual.brRadiusY, expected.brRadiusY);
+
+bool _doubleCloseTo(double actual, double expected) =>
+    (actual - expected).abs() < 0.05;
+
+String _fieldTypeIdFor(CustomFieldType type) => switch (type) {
+  CustomFieldType.text => 'text',
+  CustomFieldType.color => 'color',
+  CustomFieldType.date => 'date',
+  CustomFieldType.longText => 'long_text',
+  CustomFieldType.choice => 'choice',
+};
