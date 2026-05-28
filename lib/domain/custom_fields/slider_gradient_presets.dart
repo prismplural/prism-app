@@ -241,5 +241,8 @@ List<Color> sliderGradientStops(Color left, Color? center, Color right) =>
         : sliderGradientStopsFromList([left, center, right]);
 
 /// Evenly spaced stop positions matching a [sliderGradientStops] list.
-List<double> sliderGradientStopPositions(List<Color> stops) =>
-    [for (var i = 0; i < stops.length; i++) i / (stops.length - 1)];
+/// A single-stop list maps to `[0.0]` (dividing by `length - 1` would be NaN).
+List<double> sliderGradientStopPositions(List<Color> stops) {
+  if (stops.length <= 1) return [for (var i = 0; i < stops.length; i++) 0.0];
+  return [for (var i = 0; i < stops.length; i++) i / (stops.length - 1)];
+}

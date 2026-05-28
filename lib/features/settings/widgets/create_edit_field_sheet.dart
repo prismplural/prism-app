@@ -2250,14 +2250,17 @@ class _GradientSwatchRow extends StatelessWidget {
                     final updated = List<String>.from(colors)..add(newHex);
                     onColorsChanged(updated);
                     Haptics.selection();
-                    // Open the edit picker for the newly added swatch.
-                    await Future<void>.delayed(Duration.zero);
-                    if (context.mounted) {
-                      await _openSwatchMenu(
-                        context,
-                        updated.length - 1,
-                        newHex,
-                      );
+                    // Open the color picker for the newly added swatch directly
+                    // against `updated` — _openSwatchMenu would close over the
+                    // stale (pre-add) `colors` and index out of range.
+                    final picked = await _showSwatchColorPicker(
+                      context,
+                      _parse(newHex, fallback),
+                    );
+                    if (picked != null) {
+                      final withPick = List<String>.from(updated)
+                        ..[updated.length - 1] = picked;
+                      onColorsChanged(withPick);
                     }
                   },
                   child: Tooltip(
