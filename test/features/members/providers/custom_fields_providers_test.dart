@@ -23,9 +23,9 @@ class _RecordingCustomFieldsDao extends CustomFieldsDao {
   }
 
   @override
-  Future<void> updateField(String id, db.CustomFieldsCompanion companion) async {
+  Future<int> updateField(String id, db.CustomFieldsCompanion companion) {
     rowUpdateCalls++;
-    await super.updateField(id, companion);
+    return super.updateField(id, companion);
   }
 }
 

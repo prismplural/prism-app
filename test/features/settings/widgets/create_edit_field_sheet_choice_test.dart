@@ -35,13 +35,14 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
   Future<void> build() async {}
 
   @override
-  Future<void> createField({
+  Future<Object?> createField({
     required String name,
     required CustomFieldType fieldType,
     DatePrecision? datePrecision,
     int displayOrder = 0,
     String? fieldTypeId,
     CustomFieldTypeConfig? typeConfig,
+    String? parentFieldId,
   }) async {
     lastCreated = CustomField(
       id: 'created-id',
@@ -52,21 +53,25 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
       createdAt: DateTime(2026),
       fieldTypeId: fieldTypeId,
       typeConfig: typeConfig,
+      parentFieldId: parentFieldId,
     );
+    return null;
   }
 
   @override
-  Future<void> updateField(CustomField field) async {
+  Future<Object?> updateField(CustomField field) async {
     lastUpdated = field;
+    return null;
   }
 
   @override
-  Future<void> writeTypedConfig(
+  Future<Object?> writeTypedConfig(
     String fieldId,
     CustomFieldTypeConfig newConfig,
   ) async {
     lastWrittenConfigFieldId = fieldId;
     lastWrittenConfig = newConfig;
+    return null;
   }
 }
 
