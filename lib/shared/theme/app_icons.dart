@@ -91,6 +91,7 @@ abstract final class AppIcons {
   static final fileUploadOutlined = PhosphorIcons.fileArrowUp();
   static final importExport = PhosphorIcons.arrowsDownUp();
   static final dragHandle = PhosphorIcons.dotsSixVertical();
+  static final dragHandleHorizontal = PhosphorIcons.dotsSix();
   static final filterList = PhosphorIcons.funnel();
   static final sortList = PhosphorIcons.sortAscending();
   static final gridView = PhosphorIcons.squaresFour();

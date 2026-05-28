@@ -2332,9 +2332,10 @@ class _GradientSwatchRow extends StatelessWidget {
                           width: 48,
                           height: 24,
                           child: Icon(
-                            Icons.drag_handle,
+                            AppIcons.dragHandleHorizontal,
                             size: 20,
-                            color: theme.colorScheme.onSurfaceVariant,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.4),
                           ),
                         ),
                       ),
