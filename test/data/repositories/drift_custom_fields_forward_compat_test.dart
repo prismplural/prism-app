@@ -16,6 +16,7 @@ import 'package:prism_plurality/core/database/daos/custom_fields_dao.dart';
 import 'package:prism_plurality/data/mappers/custom_field_mapper.dart';
 import 'package:prism_plurality/data/repositories/drift_custom_fields_repository.dart';
 import 'package:prism_plurality/domain/custom_fields/orphan_promotion.dart';
+import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 
 // ---------------------------------------------------------------------------
@@ -243,4 +244,90 @@ void main() {
   // Followup: widget-level coverage for unknown-fieldTypeId rendering
   // ("no exception when it reaches the renderer"). The mapper-level
   // round-trip above pins the storage contract.
+
+  // ── type_config_json forward compat (unknown runtimeType) ─────────────────
+  //
+  // Adding 4 new known variants (TextConfig / ColorConfig / DateConfig /
+  // LongTextConfig) must NOT accidentally start swallowing unrecognised
+  // runtimeType values. These tests pin the preservation contract.
+
+  group('type_config_json forward compat (unknown runtimeType)', () {
+    test(
+      'unknown runtimeType is preserved verbatim after new variants land',
+      () async {
+        // Raw JSON simulating a row written by an even-newer build that
+        // introduced a type this build will never know about.
+        const rawJson = '{"runtimeType":"futureType","foo":1}';
+
+        await database.into(database.customFields).insert(
+          CustomFieldsCompanion.insert(
+            id: 'future1',
+            name: 'Future Field',
+            fieldType: 0,
+            fieldTypeId: const Value('futureType'),
+            typeConfigJson: const Value(rawJson),
+            createdAt: DateTime.utc(2026, 5, 25),
+          ),
+        );
+
+        final row = await database.customFieldsDao.getFieldById('future1');
+        expect(row, isNotNull);
+        final domain = CustomFieldMapper.toDomain(row!);
+
+        // The codec throws for 'futureType' → caught → unknownTypeConfigRaw.
+        expect(domain.typeConfig, isNull,
+            reason:
+                'unknown runtimeType must degrade to null typeConfig, not throw');
+        expect(domain.unknownTypeConfigRaw, rawJson,
+            reason: 'unknown runtimeType raw bytes must be preserved verbatim');
+
+        // toCompanion must echo back the original raw bytes (no mutation).
+        final companion = CustomFieldMapper.toCompanion(domain);
+        expect(companion.typeConfigJson.value, rawJson,
+            reason:
+                'toCompanion must re-emit unknownTypeConfigRaw byte-for-byte');
+      },
+    );
+
+    test(
+      'known new variant TextConfig decodes to first-class TextConfig (not unknownTypeConfigRaw)',
+      () async {
+        // Simulate a row written by this build (or an identical one) carrying
+        // the new TextConfig variant with hideTitleOnProfile = true.
+        const rawJson = '{"runtimeType":"text","hideTitleOnProfile":true}';
+
+        await database.into(database.customFields).insert(
+          CustomFieldsCompanion.insert(
+            id: 'text1',
+            name: 'Pronouns',
+            fieldType: 0,
+            fieldTypeId: const Value('text'),
+            typeConfigJson: const Value(rawJson),
+            createdAt: DateTime.utc(2026, 5, 25),
+          ),
+        );
+
+        final row = await database.customFieldsDao.getFieldById('text1');
+        expect(row, isNotNull);
+        final domain = CustomFieldMapper.toDomain(row!);
+
+        // Must produce a typed TextConfig, NOT fall into unknownTypeConfigRaw.
+        expect(domain.unknownTypeConfigRaw, isNull,
+            reason: 'TextConfig is a known variant — must not land in unknownTypeConfigRaw');
+        expect(domain.typeConfig, isA<TextConfig>(),
+            reason: 'runtimeType "text" must decode to TextConfig');
+        final textConfig = domain.typeConfig! as TextConfig;
+        expect(textConfig.hideTitleOnProfile, isTrue,
+            reason: 'hideTitleOnProfile:true must survive toDomain');
+
+        // Round-trip via toCompanion must preserve the flag.
+        final companion = CustomFieldMapper.toCompanion(domain);
+        final reEncoded = companion.typeConfigJson.value;
+        expect(reEncoded, isNotNull,
+            reason: 'toCompanion must produce non-null typeConfigJson for TextConfig');
+        expect(reEncoded, contains('"hideTitleOnProfile":true'),
+            reason: 'hideTitleOnProfile:true must survive toDomain → toCompanion');
+      },
+    );
+  });
 }

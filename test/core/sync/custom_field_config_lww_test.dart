@@ -39,6 +39,18 @@ class _SilentRepo extends DriftCustomFieldsRepository {
 // Helpers
 // ---------------------------------------------------------------------------
 
+CustomField _textField({required String id, bool hideTitleOnProfile = false}) {
+  return CustomField(
+    id: id,
+    name: 'Bio',
+    fieldType: CustomFieldType.text,
+    fieldTypeId: 'text',
+    typeConfig: TextConfig(hideTitleOnProfile: hideTitleOnProfile),
+    displayOrder: 0,
+    createdAt: DateTime.utc(2026, 5, 25),
+  );
+}
+
 CustomField _choiceField({required String id}) {
   return CustomField(
     id: id,
@@ -178,5 +190,71 @@ void main() {
       final options = decoded['options'] as List<dynamic>;
       expect((options[0] as Map<String, dynamic>)['label'], 'Apricot');
     });
+  });
+
+  // ── TextConfig LWW invariant ──────────────────────────────────────────────
+  //
+  // New minimal variants (TextConfig / ColorConfig / etc.) must round-trip
+  // their `hideTitleOnProfile` flag through writeTypedConfig / getFieldById,
+  // and a later write of `false` must fully replace an earlier `true`
+  // (whole-config LWW, no per-key merge).
+
+  group('TextConfig LWW invariant', () {
+    late AppDatabase db2;
+    late _SilentRepo repo2;
+
+    setUp(() async {
+      db2 = AppDatabase(NativeDatabase.memory());
+      repo2 = _SilentRepo(db2.customFieldsDao);
+      await repo2.createField(_textField(id: 't1', hideTitleOnProfile: false));
+    });
+
+    tearDown(() => db2.close());
+
+    test(
+      'writeTypedConfig persists TextConfig(hideTitleOnProfile: true) and reads back',
+      () async {
+        await repo2.writeTypedConfig(
+          't1',
+          const TextConfig(hideTitleOnProfile: true),
+        );
+
+        final field = await repo2.getFieldById('t1');
+        expect(field, isNotNull);
+        expect(field!.typeConfig, isA<TextConfig>(),
+            reason: 'should decode back to TextConfig, not unknownTypeConfigRaw');
+        expect(
+          (field.typeConfig! as TextConfig).hideTitleOnProfile,
+          isTrue,
+          reason: 'hideTitleOnProfile:true must survive writeTypedConfig → getFieldById',
+        );
+      },
+    );
+
+    test(
+      'later writeTypedConfig(false) wins over earlier writeTypedConfig(true) — whole-config LWW',
+      () async {
+        // Earlier write: hideTitleOnProfile = true.
+        await repo2.writeTypedConfig(
+          't1',
+          const TextConfig(hideTitleOnProfile: true),
+        );
+        final afterTrue = await repo2.getFieldById('t1');
+        expect((afterTrue!.typeConfig! as TextConfig).hideTitleOnProfile, isTrue);
+
+        // Later write: hideTitleOnProfile = false.  Must replace entire blob.
+        await repo2.writeTypedConfig(
+          't1',
+          const TextConfig(hideTitleOnProfile: false),
+        );
+        final afterFalse = await repo2.getFieldById('t1');
+        expect(
+          (afterFalse!.typeConfig! as TextConfig).hideTitleOnProfile,
+          isFalse,
+          reason:
+              'second write of false must fully overwrite first write of true (whole-config LWW)',
+        );
+      },
+    );
   });
 }
