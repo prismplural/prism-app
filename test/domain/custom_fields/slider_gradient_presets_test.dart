@@ -152,4 +152,126 @@ void main() {
       expect(positions[5], closeTo(0.5, 1e-9));
     });
   });
+
+  group('sliderGradientStopsFromList', () {
+    const red = Color(0xFFFF0000);
+    const green = Color(0xFF00FF00);
+    const blue = Color(0xFF0000FF);
+    const yellow = Color(0xFFFFFF00);
+    const cyan = Color(0xFF00FFFF);
+    const magenta = Color(0xFFFF00FF);
+
+    // ── Edge: single color ────────────────────────────────────────────────
+    test('single color returns a non-empty list containing that color', () {
+      final stops = sliderGradientStopsFromList([red]);
+      expect(stops, isNotEmpty);
+      expect(stops.every((c) => c.toARGB32() == red.toARGB32()), isTrue);
+    });
+
+    // ── 2-color: byte-identical to old sliderGradientStops(a, null, b) ───
+    test('2-color output is byte-identical to sliderGradientStops(a, null, b)', () {
+      final expected = sliderGradientStops(red, null, blue);
+      final actual = sliderGradientStopsFromList([red, blue]);
+      expect(actual.length, expected.length);
+      for (var i = 0; i < expected.length; i++) {
+        expect(
+          actual[i].toARGB32(),
+          equals(expected[i].toARGB32()),
+          reason: 'stop $i differs',
+        );
+      }
+    });
+
+    // ── 3-color: byte-identical to old sliderGradientStops(a, b, c) ──────
+    test('3-color output is byte-identical to sliderGradientStops(a, b, c)', () {
+      final expected = sliderGradientStops(red, green, blue);
+      final actual = sliderGradientStopsFromList([red, green, blue]);
+      expect(actual.length, expected.length);
+      for (var i = 0; i < expected.length; i++) {
+        expect(
+          actual[i].toARGB32(),
+          equals(expected[i].toARGB32()),
+          reason: 'stop $i differs',
+        );
+      }
+    });
+
+    // ── 4-color ───────────────────────────────────────────────────────────
+    test('4-color: 16 stops, endpoints exact, each input at even 1/3 positions', () {
+      final stops = sliderGradientStopsFromList([red, green, blue, yellow]);
+      // (4-1)*5 + 1 = 16
+      expect(stops.length, 16);
+      expect(stops.first.toARGB32(), red.toARGB32());
+      expect(stops.last.toARGB32(), yellow.toARGB32());
+      // Segment boundaries land at indices 0, 5, 10, 15
+      expect(stops[0].toARGB32(), red.toARGB32());
+      expect(stops[5].toARGB32(), green.toARGB32());
+      expect(stops[10].toARGB32(), blue.toARGB32());
+      expect(stops[15].toARGB32(), yellow.toARGB32());
+    });
+
+    test('4-color: sliderGradientStopPositions is evenly spaced 0..1', () {
+      final stops = sliderGradientStopsFromList([red, green, blue, yellow]);
+      final positions = sliderGradientStopPositions(stops);
+      expect(positions.first, 0.0);
+      expect(positions.last, 1.0);
+      final step = 1.0 / (stops.length - 1);
+      for (var i = 0; i < positions.length; i++) {
+        expect(positions[i], closeTo(i * step, 1e-9));
+      }
+    });
+
+    // ── 5-color ───────────────────────────────────────────────────────────
+    test('5-color: 21 stops, endpoints exact, input colors at segment boundaries', () {
+      final colors = [red, green, blue, yellow, cyan];
+      final stops = sliderGradientStopsFromList(colors);
+      // (5-1)*5 + 1 = 21
+      expect(stops.length, 21);
+      expect(stops.first.toARGB32(), red.toARGB32());
+      expect(stops.last.toARGB32(), cyan.toARGB32());
+      // Boundaries: 0, 5, 10, 15, 20
+      expect(stops[5].toARGB32(), green.toARGB32());
+      expect(stops[10].toARGB32(), blue.toARGB32());
+      expect(stops[15].toARGB32(), yellow.toARGB32());
+    });
+
+    test('5-color: sliderGradientStopPositions is evenly spaced 0..1', () {
+      final stops = sliderGradientStopsFromList([red, green, blue, yellow, cyan]);
+      final positions = sliderGradientStopPositions(stops);
+      expect(positions.first, 0.0);
+      expect(positions.last, 1.0);
+      final step = 1.0 / (stops.length - 1);
+      for (var i = 0; i < positions.length; i++) {
+        expect(positions[i], closeTo(i * step, 1e-9));
+      }
+    });
+
+    // ── 6-color ───────────────────────────────────────────────────────────
+    test('6-color: 26 stops, endpoints exact, input colors at segment boundaries', () {
+      final colors = [red, green, blue, yellow, cyan, magenta];
+      final stops = sliderGradientStopsFromList(colors);
+      // (6-1)*5 + 1 = 26
+      expect(stops.length, 26);
+      expect(stops.first.toARGB32(), red.toARGB32());
+      expect(stops.last.toARGB32(), magenta.toARGB32());
+      // Boundaries: 0, 5, 10, 15, 20, 25
+      expect(stops[5].toARGB32(), green.toARGB32());
+      expect(stops[10].toARGB32(), blue.toARGB32());
+      expect(stops[15].toARGB32(), yellow.toARGB32());
+      expect(stops[20].toARGB32(), cyan.toARGB32());
+    });
+
+    test('6-color: sliderGradientStopPositions is evenly spaced 0..1', () {
+      final stops = sliderGradientStopsFromList(
+        [red, green, blue, yellow, cyan, magenta],
+      );
+      final positions = sliderGradientStopPositions(stops);
+      expect(positions.first, 0.0);
+      expect(positions.last, 1.0);
+      final step = 1.0 / (stops.length - 1);
+      for (var i = 0; i < positions.length; i++) {
+        expect(positions[i], closeTo(i * step, 1e-9));
+      }
+    });
+  });
 }

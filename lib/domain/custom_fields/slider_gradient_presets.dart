@@ -192,18 +192,53 @@ Color lerpHsl(Color a, Color b, double t) {
       .toColor();
 }
 
+/// N-color stop builder: generalizes gradient sampling to any number of colors.
+///
+/// - 1 color  → returns `[color]`.
+/// - 2 colors → 11 stops (byte-identical to `sliderGradientStops(a, null, b)`).
+/// - 3 colors → 11 stops (byte-identical to `sliderGradientStops(a, b, c)`).
+/// - N >= 4   → (N-1) × 5 + 1 stops; each segment is sampled at 5 sub-steps
+///              via [lerpHsl], with shared boundary stops deduplicated, so
+///              every input color appears exactly once at an evenly-spaced
+///              position.
+///
+/// Pair with [sliderGradientStopPositions].
+List<Color> sliderGradientStopsFromList(List<Color> colors) {
+  assert(colors.isNotEmpty, 'colors must not be empty');
+  if (colors.length == 1) return [colors[0]];
+  if (colors.length == 2) {
+    return [for (var i = 0; i <= 10; i++) lerpHsl(colors[0], colors[1], i / 10)];
+  }
+  if (colors.length == 3) {
+    return [
+      for (var i = 0; i <= 5; i++) lerpHsl(colors[0], colors[1], i / 5),
+      for (var i = 1; i <= 5; i++) lerpHsl(colors[1], colors[2], i / 5),
+    ];
+  }
+  // N >= 4: sample each consecutive pair with 5 sub-steps (6 points per
+  // segment), then drop the first point of each segment after the first to
+  // avoid duplicating the shared boundary.  Total: (N-1)*5 + 1 stops.
+  const stepsPerSegment = 5;
+  final result = <Color>[];
+  for (var seg = 0; seg < colors.length - 1; seg++) {
+    final start = seg == 0 ? 0 : 1;
+    for (var i = start; i <= stepsPerSegment; i++) {
+      result.add(lerpHsl(colors[seg], colors[seg + 1], i / stepsPerSegment));
+    }
+  }
+  return result;
+}
+
 /// Canonical [lerpHsl]-sampled stops shared by every slider render site
 /// (track shape, mini track, config preview chips) so they can't diverge.
 /// Pair with [sliderGradientStopPositions].
-List<Color> sliderGradientStops(Color left, Color? center, Color right) {
-  if (center == null) {
-    return [for (var i = 0; i <= 10; i++) lerpHsl(left, right, i / 10)];
-  }
-  return [
-    for (var i = 0; i <= 5; i++) lerpHsl(left, center, i / 5),
-    for (var i = 1; i <= 5; i++) lerpHsl(center, right, i / 5),
-  ];
-}
+///
+/// Thin shim over [sliderGradientStopsFromList]; the 3-arg signature is
+/// preserved so all existing callers compile unchanged.
+List<Color> sliderGradientStops(Color left, Color? center, Color right) =>
+    center == null
+        ? sliderGradientStopsFromList([left, right])
+        : sliderGradientStopsFromList([left, center, right]);
 
 /// Evenly spaced stop positions matching a [sliderGradientStops] list.
 List<double> sliderGradientStopPositions(List<Color> stops) =>
