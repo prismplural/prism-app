@@ -167,8 +167,11 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
           _controller?.markDirty(this, false);
           return;
         }
+        final priorStateDelete = _state;
         final deleteFailure = await notifier.deleteValue(existingId);
         if (deleteFailure != null) throw deleteFailure;
+        if (!mounted) return;
+        if (!identical(_state, priorStateDelete)) return; // user edited mid-flight; let next cycle handle it
         _state = _state.onCommitSuccess(
           intent: CommitIntent.delete,
           midpoint: _defaultMidpoint(_config()),
@@ -178,6 +181,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
         final encoded = sliderFieldDefinition.valueEncoder(
           SliderFieldValue(value: _state.currentValue),
         );
+        final priorStateSet = _state;
         final setFailure = await notifier.setValue(
           customFieldId: widget.field.id,
           memberId: widget.memberId,
@@ -185,6 +189,8 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
           existingId: widget.existingValue?.id,
         );
         if (setFailure != null) throw setFailure;
+        if (!mounted) return;
+        if (!identical(_state, priorStateSet)) return; // user edited mid-flight; let next cycle handle it
         _state = _state.onCommitSuccess(
           intent: CommitIntent.set,
           midpoint: _defaultMidpoint(_config()),

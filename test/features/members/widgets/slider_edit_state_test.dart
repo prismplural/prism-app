@@ -78,11 +78,13 @@ void main() {
     });
 
     group('onClear on pristine (no initialValue)', () {
-      test('clearedPending true but isDirty false, noop intent', () {
+      test('normalizes to pristine — clearedPending false, isDirty false, noop intent, canClear false', () {
         final s = SliderEditState.pristine(midpoint: 50).onClear();
-        expect(s.clearedPending, isTrue);
+        expect(s.clearedPending, isFalse);
+        expect(s.touched, isFalse);
         expect(s.initialValue, isNull);
         expect(s.isDirty, isFalse);
+        expect(s.canClear, isFalse);
         expect(s.commitIntent, CommitIntent.noop);
       });
     });
@@ -129,6 +131,8 @@ void main() {
         expect(s.touched, isFalse);
         expect(s.clearedPending, isFalse);
         expect(s.isDirty, isFalse);
+        expect(s.canClear, isTrue);
+        expect(s.semanticIsUnset, isFalse);
       });
     });
 
@@ -151,6 +155,41 @@ void main() {
             .onExternalReload(newValue: null, midpoint: 50);
         expect(s.currentValue, 50.0);
         expect(s.initialValue, isNull);
+      });
+    });
+
+    group('onCommitSuccess with noop intent', () {
+      test('is a no-op — returns state equal to input', () {
+        final s = SliderEditState.loaded(value: 60);
+        final result = s.onCommitSuccess(intent: CommitIntent.noop, midpoint: 50);
+        expect(result, equals(s));
+        expect(identical(result, s), isTrue);
+      });
+    });
+
+    group('onExternalReload while mid-edit (touched + dirty)', () {
+      test('discards local edit, server value wins', () {
+        final s = SliderEditState.loaded(value: 60)
+            .onDragEnd(80)
+            .onExternalReload(newValue: 30, midpoint: 50);
+        expect(s.currentValue, 30.0);
+        expect(s.initialValue, 30.0);
+        expect(s.touched, isFalse);
+        expect(s.clearedPending, isFalse);
+        expect(s.isDirty, isFalse);
+      });
+    });
+
+    group('pristine → drag → clear hides the × button', () {
+      test('canClear false after clearing a drag on pristine state', () {
+        final s = SliderEditState.pristine(midpoint: 50).onDragEnd(80).onClear();
+        expect(s.canClear, isFalse);
+        expect(s.clearedPending, isFalse);
+        expect(s.touched, isFalse);
+        expect(s.isDirty, isFalse);
+        expect(s.commitIntent, CommitIntent.noop);
+        expect(s.currentValue, 80.0);
+        expect(s.semanticIsUnset, isTrue);
       });
     });
 

@@ -45,7 +45,9 @@ class SliderEditState {
   SliderEditState onDragEnd(double v) =>
       copyWith(currentValue: v, touched: true, clearedPending: false);
 
-  SliderEditState onClear() => copyWith(touched: false, clearedPending: true);
+  SliderEditState onClear() => initialValue == null
+      ? copyWith(touched: false, clearedPending: false)
+      : copyWith(touched: false, clearedPending: true);
 
   SliderEditState onCommitSuccess({
     required CommitIntent intent,
