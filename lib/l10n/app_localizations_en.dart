@@ -10870,6 +10870,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Hide to render the value without a label.';
 
   @override
+  String get customFieldDisplaySectionHeader => 'Display';
+
+  @override
   String get customFieldGroupUntitledFallback => 'Untitled group';
 
   @override

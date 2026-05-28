@@ -17434,6 +17434,12 @@ abstract class AppLocalizations {
   /// **'Hide to render the value without a label.'**
   String get customFieldShowTitleSubtitle;
 
+  /// Small section header in the field editor sheet above presentation options like the show-title toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Display'**
+  String get customFieldDisplaySectionHeader;
+
   /// Fallback label for a group whose name is empty; shown in the settings list and on the detail screen so users can still find/edit it
   ///
   /// In en, this message translates to:

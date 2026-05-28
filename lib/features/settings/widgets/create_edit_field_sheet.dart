@@ -2258,7 +2258,7 @@ class _DisplaySectionHeader extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 4),
           child: Text(
-            'Display',
+            context.l10n.customFieldDisplaySectionHeader,
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w600,

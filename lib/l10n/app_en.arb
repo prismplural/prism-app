@@ -11737,6 +11737,10 @@
   "@customFieldShowTitleSubtitle": {
     "description": "Sub-label under the show-title toggle for any custom field type, explaining what hiding the title means"
   },
+  "customFieldDisplaySectionHeader": "Display",
+  "@customFieldDisplaySectionHeader": {
+    "description": "Small section header in the field editor sheet above presentation options like the show-title toggle"
+  },
   "customFieldGroupUntitledFallback": "Untitled group",
   "@customFieldGroupUntitledFallback": {
     "description": "Fallback label for a group whose name is empty; shown in the settings list and on the detail screen so users can still find/edit it"

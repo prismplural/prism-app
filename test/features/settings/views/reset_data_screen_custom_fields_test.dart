@@ -72,6 +72,9 @@ class _FakeCustomFieldsRepository implements repo_iface.CustomFieldsRepository {
   ) async {}
 
   @override
+  Future<void> clearTypedConfig(String fieldId) async {}
+
+  @override
   Future<void> moveFieldToParent(String fieldId, String? newParentId) async {}
 
   @override
