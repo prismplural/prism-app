@@ -708,6 +708,54 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   Widget build(BuildContext context) {
+    // Re-check once async lock settings resolve.
+    if (!_pinCheckResolved) {
+      ref.listen(systemSettingsProvider, (_, _) => _checkInitialLock());
+      ref.listen(isPinSetProvider, (_, _) => _checkInitialLock());
+    }
+
+    // Keep the app-lock sync preference alive.
+    ref.watch(hardLockSyncOnAppLockProvider);
+
+    // Keep revoke/auth-failure cleanup alive behind privacy gates.
+    ref.watch(syncStatusProvider);
+
+    final syncHealth = ref.watch(syncHealthProvider);
+
+    // Only present sync sheets after PIN state resolves and unlocks.
+    ref.listen<SyncHealthState>(syncHealthProvider, (prev, next) {
+      if (next == SyncHealthState.needsPassword &&
+          prev != SyncHealthState.needsPassword &&
+          !_locked &&
+          _pinCheckResolved) {
+        _showPasswordSheetIfNeeded(context, ref);
+      }
+      if (next == SyncHealthState.needsRewrap &&
+          prev != SyncHealthState.needsRewrap &&
+          !_locked &&
+          _pinCheckResolved) {
+        _showRewrapSheetIfNeeded(context, ref);
+      }
+    });
+
+    // Redact member/fronting routes until auth/privacy gates clear.
+    if (!_pinCheckResolved) {
+      return const _OpaquePrivacyGate();
+    }
+
+    if (_locked) {
+      return PinInputScreen(mode: PinInputMode.unlock, onSuccess: _unlockApp);
+    }
+
+    if (syncHealth == SyncHealthState.needsPassword) {
+      _showPasswordSheetIfNeeded(context, ref);
+      return const _OpaquePrivacyGate();
+    }
+
+    if (syncHealth == SyncHealthState.needsRewrap) {
+      _showRewrapSheetIfNeeded(context, ref);
+    }
+
     final width = MediaQuery.sizeOf(context).width;
     final isDesktop = shouldBeDesktop(width, currentlyDesktop: _wasDesktop);
     _wasDesktop = isDesktop;
@@ -721,19 +769,6 @@ class _AppShellState extends ConsumerState<AppShell>
       ...configuredPrimaryTabs,
       ...configuredOverflowTabs,
     ];
-
-    // Retry the initial PIN check when providers resolve (handles cold start
-    // where providers were still loading during _checkInitialLock).
-    if (!_pinCheckResolved) {
-      ref.listen(systemSettingsProvider, (_, _) => _checkInitialLock());
-      ref.listen(isPinSetProvider, (_, _) => _checkInitialLock());
-    }
-
-    // Keep syncStatusProvider alive so DeviceRevoked events are received.
-    ref.watch(syncStatusProvider);
-
-    // Keep the local privacy preference loaded for app-lock decisions.
-    ref.watch(hardLockSyncOnAppLockProvider);
 
     // Watch the raw mode too, not only the collapsed gate: loading and
     // notStarted both collapse to `needsModal`, so without this watch the
@@ -780,34 +815,6 @@ class _AppShellState extends ConsumerState<AppShell>
         pkSync.pushMemberUpdate(m);
       }
     });
-
-    // Show password sheet when sync needs the user's password — but not
-    // while the PIN lock overlay is up (or still resolving), otherwise the
-    // root modal sheet renders above the lock screen.
-    ref.listen<SyncHealthState>(syncHealthProvider, (prev, next) {
-      if (next == SyncHealthState.needsPassword &&
-          prev != SyncHealthState.needsPassword &&
-          !_locked &&
-          _pinCheckResolved) {
-        _showPasswordSheetIfNeeded(context, ref);
-      }
-      if (next == SyncHealthState.needsRewrap &&
-          prev != SyncHealthState.needsRewrap &&
-          !_locked &&
-          _pinCheckResolved) {
-        _showRewrapSheetIfNeeded(context, ref);
-      }
-    });
-    if (!_locked &&
-        _pinCheckResolved &&
-        ref.read(syncHealthProvider) == SyncHealthState.needsPassword) {
-      _showPasswordSheetIfNeeded(context, ref);
-    }
-    if (!_locked &&
-        _pinCheckResolved &&
-        ref.read(syncHealthProvider) == SyncHealthState.needsRewrap) {
-      _showRewrapSheetIfNeeded(context, ref);
-    }
 
     // Show the per-member fronting upgrade modal post-unlock.  Mirrors
     // the password-sheet trigger above: only fires once the PIN check
@@ -1044,34 +1051,6 @@ class _AppShellState extends ConsumerState<AppShell>
       );
     }
 
-    // PIN lock overlay — sits above everything including the nav bar.
-    // Also show an opaque barrier while the initial PIN check is resolving
-    // so that app content is never visible before we know the lock state.
-    if (_locked) {
-      return Stack(
-        children: [
-          shell,
-          Positioned.fill(
-            child: PinInputScreen(
-              mode: PinInputMode.unlock,
-              onSuccess: _unlockApp,
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (!_pinCheckResolved) {
-      return Stack(
-        children: [
-          shell,
-          Positioned.fill(
-            child: ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
-          ),
-        ],
-      );
-    }
-
     return shell;
   }
 
@@ -1131,6 +1110,18 @@ class _AppShellState extends ConsumerState<AppShell>
         _frontingUpgradeSheetShowing = false;
       });
     });
+  }
+}
+
+class _OpaquePrivacyGate extends StatelessWidget {
+  const _OpaquePrivacyGate();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: const SizedBox.expand(),
+    );
   }
 }
 

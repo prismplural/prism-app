@@ -325,6 +325,26 @@ void main() {
 
     expect(find.text('Enter PIN'), findsOneWidget);
   });
+
+  testWidgets('sync password gate redacts shell before unlock', (tester) async {
+    var syncStatusBuilds = 0;
+
+    await _pumpContractApp(
+      tester,
+      initialLocation: AppRoutePaths.members,
+      syncHealthState: SyncHealthState.needsPassword,
+      onSyncStatusBuild: () => syncStatusBuilds++,
+    );
+
+    expect(find.text('Enter your PIN'), findsOneWidget);
+    expect(find.text(_membersRootTitle), findsNothing);
+    _expectNavBar(tester, isVisible: false, reason: 'sync password gate');
+    expect(
+      syncStatusBuilds,
+      greaterThan(0),
+      reason: 'revoke/auth-failure cleanup must stay live behind the gate',
+    );
+  });
 }
 
 Future<GoRouter> _pumpContractApp(
@@ -332,6 +352,8 @@ Future<GoRouter> _pumpContractApp(
   String initialLocation = AppRoutePaths.home,
   Stream<SystemSettings>? settingsStream,
   bool isPinSet = false,
+  SyncHealthState syncHealthState = SyncHealthState.healthy,
+  VoidCallback? onSyncStatusBuild,
 }) async {
   tester.view.physicalSize = const Size(400, 800);
   tester.view.devicePixelRatio = 1.0;
@@ -364,7 +386,12 @@ Future<GoRouter> _pumpContractApp(
           (ref) => settingsStream ?? Stream.value(const SystemSettings()),
         ),
         isPinSetProvider.overrideWith((ref) async => isPinSet),
-        syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
+        syncStatusProvider.overrideWith(
+          () => _FakeSyncStatusNotifier(onBuild: onSyncStatusBuild),
+        ),
+        syncHealthProvider.overrideWith(
+          () => _FakeSyncHealthNotifier(syncHealthState),
+        ),
         pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
         pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
         habitsBadgeEnabledProvider.overrideWith((ref) => false),
@@ -848,8 +875,24 @@ class _StackStep {
 }
 
 class _FakeSyncStatusNotifier extends SyncStatusNotifier {
+  _FakeSyncStatusNotifier({this.onBuild});
+
+  final VoidCallback? onBuild;
+
   @override
-  SyncStatus build() => const SyncStatus();
+  SyncStatus build() {
+    onBuild?.call();
+    return const SyncStatus();
+  }
+}
+
+class _FakeSyncHealthNotifier extends SyncHealthNotifier {
+  _FakeSyncHealthNotifier(this.initialState);
+
+  final SyncHealthState initialState;
+
+  @override
+  SyncHealthState build() => initialState;
 }
 
 class _FakePkAutoPollNotifier extends PkAutoPollNotifier {
