@@ -47,8 +47,7 @@ typedef AvatarNormalizeBytesFn =
       TargetPlatform? platform,
     });
 
-/// Picks an avatar image and opens the native crop UI where the cropper plugin
-/// supports the current platform.
+/// Picks an avatar image and opens Prism's crop UI before storage.
 class AvatarImagePicker {
   AvatarImagePicker._();
 
@@ -77,10 +76,6 @@ class AvatarImagePicker {
     if (picked == null) return null;
     if (!context.mounted) return null;
     final l10n = context.l10n;
-
-    if (!_cropperIsSupported(resolvedPlatform)) {
-      return picked.readAsBytes();
-    }
 
     final pickedBytes = await picked.readAsBytes();
     if (!context.mounted) return null;
@@ -112,13 +107,6 @@ class AvatarImagePicker {
     );
 
     return cropped;
-  }
-
-  static bool _cropperIsSupported(TargetPlatform platform) {
-    return switch (platform) {
-      TargetPlatform.android || TargetPlatform.iOS => true,
-      _ => false,
-    };
   }
 }
 

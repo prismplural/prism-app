@@ -73,10 +73,6 @@ class ProfileHeaderImagePicker {
     Future<Uint8List> normalize(Uint8List bytes) =>
         (normalizeImage ?? normalizeProfileHeaderImage)(bytes);
 
-    if (!_cropperIsSupported(resolvedPlatform)) {
-      return normalize(await picked.readAsBytes());
-    }
-
     final pickedBytes = await picked.readAsBytes();
     if (!context.mounted) return null;
 
@@ -111,13 +107,6 @@ class ProfileHeaderImagePicker {
     );
 
     return cropped == null ? null : normalize(cropped);
-  }
-
-  static bool _cropperIsSupported(TargetPlatform platform) {
-    return switch (platform) {
-      TargetPlatform.android || TargetPlatform.iOS => true,
-      _ => false,
-    };
   }
 }
 

@@ -193,15 +193,14 @@ void main() {
       expect(pickedImage.readCount, 1);
     });
 
-    testWidgets('falls back to picked bytes on unsupported platforms', (
-      tester,
-    ) async {
+    testWidgets('uses cropper on desktop platforms', (tester) async {
       final pickedBytes = Uint8List.fromList([4, 5, 6]);
+      final croppedBytes = Uint8List.fromList([9, 8, 7]);
       final pickedImage = _FakePickedImage(
         path: '/tmp/avatar-source.png',
         bytes: pickedBytes,
       );
-      var cropCalls = 0;
+      final cropCalls = <_CropCall>[];
 
       final result = await _pick(
         tester,
@@ -214,14 +213,22 @@ void main() {
               required doneButtonTitle,
               required cancelButtonTitle,
             }) async {
-              cropCalls += 1;
-              return Uint8List.fromList([9, 8, 7]);
+              cropCalls.add(
+                _CropCall(
+                  sourceBytes: sourceBytes,
+                  title: title,
+                  doneButtonTitle: doneButtonTitle,
+                  cancelButtonTitle: cancelButtonTitle,
+                ),
+              );
+              return croppedBytes;
             },
-        platform: TargetPlatform.macOS,
+        platform: TargetPlatform.windows,
       );
 
-      expect(result, pickedBytes);
-      expect(cropCalls, 0);
+      expect(result, croppedBytes);
+      expect(cropCalls, hasLength(1));
+      expect(cropCalls.single.sourceBytes, pickedBytes);
       expect(pickedImage.readCount, 1);
     });
 
@@ -239,6 +246,9 @@ void main() {
         ),
       );
 
+      final croppedBytes = Uint8List.fromList([10, 11, 12]);
+      final cropCalls = <_CropCall>[];
+
       final result = await _pick(
         tester,
         pickImage: null,
@@ -250,13 +260,23 @@ void main() {
               required doneButtonTitle,
               required cancelButtonTitle,
             }) async {
-              fail('desktop gallery picks should skip the cropper');
+              cropCalls.add(
+                _CropCall(
+                  sourceBytes: sourceBytes,
+                  title: title,
+                  doneButtonTitle: doneButtonTitle,
+                  cancelButtonTitle: cancelButtonTitle,
+                ),
+              );
+              return croppedBytes;
             },
         fileDialogService: fileDialogService,
         platform: TargetPlatform.macOS,
       );
 
-      expect(result, pickedBytes);
+      expect(result, croppedBytes);
+      expect(cropCalls, hasLength(1));
+      expect(cropCalls.single.sourceBytes, pickedBytes);
       expect(fileDialogService.pickImageFileCalls, 1);
     });
 

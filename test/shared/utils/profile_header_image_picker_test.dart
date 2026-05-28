@@ -78,7 +78,7 @@ void main() {
     expect(bytes, Uint8List.fromList([4, 5, 6]));
     expect(calls, hasLength(1));
     expect(calls.single.sourceBytes, Uint8List.fromList([1, 2, 3]));
-    expect(calls.single.title, 'Crop profile header');
+    expect(calls.single.title, 'Crop profile banner');
     expect(calls.single.doneButtonTitle, 'Done');
     expect(calls.single.cancelButtonTitle, 'Cancel');
   });
@@ -222,54 +222,74 @@ void main() {
     PrismToast.dismiss();
   });
 
-  testWidgets('uses file dialog service for desktop gallery picks', (
-    tester,
-  ) async {
-    late BuildContext capturedContext;
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: const [Locale('en')],
-        home: Builder(
-          builder: (context) {
-            capturedContext = context;
-            return const SizedBox.shrink();
-          },
+  testWidgets(
+    'uses file dialog service and cropper for desktop gallery picks',
+    (tester) async {
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
         ),
-      ),
-    );
+      );
 
-    final pickedBytes = Uint8List.fromList([7, 8, 9]);
-    final fileDialogService = _FakeFileDialogService(
-      pickedImage: PickedFileHandle(
-        name: 'header.png',
-        path: '/tmp/header.png',
-        size: pickedBytes.length,
-        readAsBytes: () async => pickedBytes,
-        openRead: () => Stream<List<int>>.value(pickedBytes),
-      ),
-    );
+      final pickedBytes = Uint8List.fromList([7, 8, 9]);
+      final fileDialogService = _FakeFileDialogService(
+        pickedImage: PickedFileHandle(
+          name: 'header.png',
+          path: '/tmp/header.png',
+          size: pickedBytes.length,
+          readAsBytes: () async => pickedBytes,
+          openRead: () => Stream<List<int>>.value(pickedBytes),
+        ),
+      );
 
-    final bytes = await ProfileHeaderImagePicker.pickCroppedHeaderBytes(
-      capturedContext,
-      platform: TargetPlatform.windows,
-      fileDialogService: fileDialogService,
-      cropImage:
-          (
-            sourceBytes,
-            context, {
-            required title,
-            required doneButtonTitle,
-            required cancelButtonTitle,
-          }) async {
-            fail('desktop gallery picks should skip the cropper');
-          },
-      normalizeImage: (value) async => value,
-    );
+      final croppedBytes = Uint8List.fromList([10, 11, 12]);
+      final cropCalls =
+          <
+            ({
+              Uint8List sourceBytes,
+              String title,
+              String doneButtonTitle,
+              String cancelButtonTitle,
+            })
+          >[];
 
-    expect(bytes, pickedBytes);
-    expect(fileDialogService.pickImageFileCalls, 1);
-  });
+      final bytes = await ProfileHeaderImagePicker.pickCroppedHeaderBytes(
+        capturedContext,
+        platform: TargetPlatform.windows,
+        fileDialogService: fileDialogService,
+        cropImage:
+            (
+              sourceBytes,
+              context, {
+              required title,
+              required doneButtonTitle,
+              required cancelButtonTitle,
+            }) async {
+              cropCalls.add((
+                sourceBytes: sourceBytes,
+                title: title,
+                doneButtonTitle: doneButtonTitle,
+                cancelButtonTitle: cancelButtonTitle,
+              ));
+              return croppedBytes;
+            },
+        normalizeImage: (value) async => value,
+      );
+
+      expect(bytes, croppedBytes);
+      expect(cropCalls, hasLength(1));
+      expect(cropCalls.single.sourceBytes, pickedBytes);
+      expect(fileDialogService.pickImageFileCalls, 1);
+    },
+  );
 }
 
 class _BytesPickedImage implements ProfileHeaderPickedImage {
