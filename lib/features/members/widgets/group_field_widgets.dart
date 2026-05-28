@@ -233,8 +233,7 @@ class _GroupChildEntry {
 }
 
 /// Compact `Name | Value` for fields whose effective layout is compact;
-/// stacked header + body for everything else. Long text skips the parent
-/// header — markdown bodies usually carry their own.
+/// stacked header + body for everything else.
 ///
 /// The compact/stacked decision flows through [effectiveDisplayLayout], so
 /// in-group rendering matches the standalone choice for the same field.
@@ -243,10 +242,7 @@ class _GroupChildDisplay extends StatelessWidget {
 
   final _GroupChildEntry entry;
 
-  static const _headerlessTypeIds = <String>{'long_text'};
-
-  bool get _isHeaderless =>
-      _headerlessTypeIds.contains(entry.child.fieldTypeId);
+  bool get _isLongText => entry.child.fieldTypeId == 'long_text';
 
   /// Per-field opt-out: the child's own `hideTitleOnProfile` suppresses its
   /// label inside the group, independent of the parent group's toggle.
@@ -254,7 +250,7 @@ class _GroupChildDisplay extends StatelessWidget {
       effectiveHideTitleOnProfile(entry.child.typeConfig);
 
   bool get _isCompact {
-    if (_isHeaderless) return false;
+    if (_isLongText) return false;
     return effectiveDisplayLayout(
           fieldTypeId: entry.child.fieldTypeId,
           typeConfig: entry.child.typeConfig,
@@ -265,9 +261,6 @@ class _GroupChildDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (_isHeaderless) {
-      return entry.renderer.displayBuilder(context, entry.child, entry.value);
-    }
     if (_hideTitle) {
       // Value-only: the surrounding group card supplies the visual container,
       // so no per-child icon affordance is needed. Wrap in Semantics so the

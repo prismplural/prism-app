@@ -745,6 +745,40 @@ void main() {
     },
   );
 
+  testWidgets('grouped long text child shows its label by default', (
+    tester,
+  ) async {
+    final group = CustomField(
+      id: 'grp-long',
+      name: 'Notes Group',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const GroupConfig(),
+    );
+    final longTextChild = CustomField(
+      id: 'child-long',
+      name: 'Detailed Notes',
+      fieldType: CustomFieldType.longText,
+      fieldTypeId: 'long_text',
+      parentFieldId: 'grp-long',
+      displayOrder: 0,
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const LongTextConfig(),
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [group, longTextChild],
+        values: [value('child-long', 'Line one\nLine two')],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Detailed Notes'), findsOneWidget);
+    expect(find.byType(MarkdownBody), findsOneWidget);
+  });
+
   testWidgets('an empty group reserves no space between its neighbors', (
     tester,
   ) async {
