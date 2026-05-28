@@ -73,9 +73,11 @@ class _SliderEditorWidget extends ConsumerStatefulWidget {
 const double _kClearButtonSlotSize = 32.0;
 
 class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
+    with AutomaticKeepAliveClientMixin<_SliderEditorWidget>
     implements PendingFieldEditState {
   late SliderEditState _state;
   CustomFieldsEditorController? _controller;
+  bool _keepAlive = false;
 
   SliderConfig _config() {
     final c = widget.field.typeConfig;
@@ -119,7 +121,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
     _controller?.unregister(this);
     _controller = next;
     _controller?.register(this);
-    _controller?.markDirty(this, _isDirty);
+    _syncDirtyState();
   }
 
   @override
@@ -138,7 +140,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
         midpoint: _defaultMidpoint(_config()),
       );
     });
-    _controller?.markDirty(this, _isDirty);
+    _syncDirtyState();
   }
 
   @override
@@ -148,6 +150,17 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
   }
 
   bool get _isDirty => _state.isDirty;
+
+  @override
+  bool get wantKeepAlive => _keepAlive;
+
+  void _syncDirtyState() {
+    final dirty = _isDirty;
+    _controller?.markDirty(this, dirty);
+    if (_keepAlive == dirty) return;
+    _keepAlive = dirty;
+    updateKeepAlive();
+  }
 
   @override
   String get fieldId => widget.field.id;
@@ -169,7 +182,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
             intent: CommitIntent.delete,
             midpoint: _defaultMidpoint(_config()),
           );
-          _controller?.markDirty(this, false);
+          _syncDirtyState();
           return;
         }
         final priorStateDelete = _state;
@@ -183,7 +196,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
           intent: CommitIntent.delete,
           midpoint: _defaultMidpoint(_config()),
         );
-        _controller?.markDirty(this, false);
+        _syncDirtyState();
       case CommitIntent.set:
         final encoded = sliderFieldDefinition.valueEncoder(
           SliderFieldValue(value: _state.currentValue),
@@ -204,7 +217,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
           intent: CommitIntent.set,
           midpoint: _defaultMidpoint(_config()),
         );
-        _controller?.markDirty(this, false);
+        _syncDirtyState();
     }
   }
 
@@ -257,6 +270,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final config = _config();
@@ -346,7 +360,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
         onChanged: (v) => setState(() => _state = _state.onDrag(v)),
         onChangeEnd: (v) {
           setState(() => _state = _state.onDragEnd(v));
-          _controller?.markDirty(this, _state.isDirty);
+          _syncDirtyState();
         },
       ),
     );
@@ -368,7 +382,7 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
                   tooltip: l10n.customFieldSliderClearTooltip,
                   onPressed: () {
                     setState(() => _state = _state.onClear());
-                    _controller?.markDirty(this, _state.isDirty);
+                    _syncDirtyState();
                   },
                 )
               : null,
@@ -1008,7 +1022,8 @@ class _SliderCompactWidget extends StatelessWidget {
           child: CustomPaint(
             painter: _MiniTrackPainter(
               fraction: fraction,
-              colors: trackColors?.colors ??
+              colors:
+                  trackColors?.colors ??
                   [theme.colorScheme.primary, theme.colorScheme.primary],
               isGradient: isLabeled,
               trackColor: theme.colorScheme.primary,
@@ -1586,8 +1601,7 @@ class _TrackColors {
     Color? center,
     required Color right,
   }) {
-    final list =
-        center != null ? [left, center, right] : [left, right];
+    final list = center != null ? [left, center, right] : [left, right];
     return _TrackColors.fromList(list);
   }
 

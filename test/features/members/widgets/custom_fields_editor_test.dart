@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/models/choice_option.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
@@ -102,8 +103,7 @@ void main() {
       // Three text fields. The fake repo throws when asked to write
       // 'field-b'. Expect a/c to land and b to surface as a failure with
       // its dirty flag preserved.
-      final repo = _FakeCustomFieldsRepository()
-        ..failOnFieldId = 'field-b';
+      final repo = _FakeCustomFieldsRepository()..failOnFieldId = 'field-b';
       final controller = CustomFieldsEditorController();
       final showEditor = ValueNotifier(true);
       final fields = [
@@ -178,111 +178,410 @@ void main() {
       await tester.pump();
       expect(retryFailures, isEmpty);
       // Repo now has 3 writes total: a, c (from first commit) + b (retry).
-      expect(
-        repo.upsertedValues.map((v) => v.customFieldId).toList(),
-        ['field-a', 'field-c', 'field-b'],
-      );
+      expect(repo.upsertedValues.map((v) => v.customFieldId).toList(), [
+        'field-a',
+        'field-c',
+        'field-b',
+      ]);
       expect(controller.hasPendingChanges, isFalse);
     },
   );
 
-  testWidgets(
-    'staged edit survives a visibility toggle on the editor wrapper '
-    '(in-sheet detail-view navigation must not destroy descendant state)',
-    (tester) async {
-      // The host's `_InactiveWhenHidden` must keep its wrapper shape constant
-      // across visibility toggles; a `visible ? child : IgnorePointer(...)`
-      // shape-toggle would drop descendant State on every navigation and take
-      // staged custom-field edits with it.
-      final repo = _FakeCustomFieldsRepository();
-      final controller = CustomFieldsEditorController();
-      final field = CustomField(
-        id: 'field-a',
-        name: 'Alpha',
-        fieldType: CustomFieldType.text,
-        fieldTypeId: 'text',
-        createdAt: DateTime(2026, 1, 1),
-      );
-      final inactive = ValueNotifier<bool>(false);
+  testWidgets('staged edit survives a visibility toggle on the editor wrapper '
+      '(in-sheet detail-view navigation must not destroy descendant state)', (
+    tester,
+  ) async {
+    // Regression: wrapper shape changes drop descendant State.
+    final repo = _FakeCustomFieldsRepository();
+    final controller = CustomFieldsEditorController();
+    final field = CustomField(
+      id: 'field-a',
+      name: 'Alpha',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'text',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final inactive = ValueNotifier<bool>(false);
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            customFieldsRepositoryProvider.overrideWithValue(repo),
-            customFieldsProvider.overrideWithValue(AsyncValue.data([field])),
-            memberCustomFieldValuesProvider(
-              memberId,
-            ).overrideWithValue(const AsyncValue.data([])),
-          ],
-          child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: const [Locale('en')],
-            home: Scaffold(
-              body: ValueListenableBuilder<bool>(
-                valueListenable: inactive,
-                builder: (context, isInactive, _) {
-                  return IgnorePointer(
-                    ignoring: isInactive,
-                    child: ExcludeFocus(
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          customFieldsRepositoryProvider.overrideWithValue(repo),
+          customFieldsProvider.overrideWithValue(AsyncValue.data([field])),
+          memberCustomFieldValuesProvider(
+            memberId,
+          ).overrideWithValue(const AsyncValue.data([])),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(
+            body: ValueListenableBuilder<bool>(
+              valueListenable: inactive,
+              builder: (context, isInactive, _) {
+                return IgnorePointer(
+                  ignoring: isInactive,
+                  child: ExcludeFocus(
+                    excluding: isInactive,
+                    child: ExcludeSemantics(
                       excluding: isInactive,
-                      child: ExcludeSemantics(
-                        excluding: isInactive,
-                        child: CustomFieldsEditor(
-                          memberId: memberId,
-                          controller: controller,
-                        ),
+                      child: CustomFieldsEditor(
+                        memberId: memberId,
+                        controller: controller,
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(EditableText), 'staged');
+    await tester.pump();
+    expect(controller.hasPendingChanges, isTrue);
+
+    inactive.value = true;
+    await tester.pumpAndSettle();
+    inactive.value = false;
+    await tester.pumpAndSettle();
+
+    expect(controller.hasPendingChanges, isTrue);
+
+    final failures = await controller.commit();
+    await tester.pump();
+    expect(failures, isEmpty);
+    expect(repo.upsertedValues, hasLength(1));
+    expect(repo.upsertedValues.single.customFieldId, 'field-a');
+    expect(repo.upsertedValues.single.value, 'staged');
+  });
+
+  testWidgets(
+    'large custom-field sets are lazily built instead of mounting every editor',
+    (tester) async {
+      final repo = _FakeCustomFieldsRepository();
+      final controller = CustomFieldsEditorController();
+      final showEditor = ValueNotifier(true);
+      final fields = List.generate(
+        80,
+        (i) => CustomField(
+          id: 'field-$i',
+          name: 'Field $i',
+          fieldType: CustomFieldType.text,
+          fieldTypeId: 'text',
+          displayOrder: i,
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _subject(
+          repo: repo,
+          controller: controller,
+          showEditor: showEditor,
+          memberId: memberId,
+          fields: fields,
+          values: const [],
         ),
       );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(EditableText), 'staged');
+      final builtEditors = tester.widgetList<EditableText>(
+        find.byType(EditableText),
+      );
+      expect(builtEditors.length, lessThan(40));
+    },
+  );
+
+  testWidgets(
+    'dirty field state survives after the edited row scrolls offscreen',
+    (tester) async {
+      final repo = _FakeCustomFieldsRepository();
+      final controller = CustomFieldsEditorController();
+      final showEditor = ValueNotifier(true);
+      final fields = List.generate(
+        60,
+        (i) => CustomField(
+          id: 'field-$i',
+          name: 'Field $i',
+          fieldType: CustomFieldType.text,
+          fieldTypeId: 'text',
+          displayOrder: i,
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _subject(
+          repo: repo,
+          controller: controller,
+          showEditor: showEditor,
+          memberId: memberId,
+          fields: fields,
+          values: const [],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(EditableText).first, 'staged');
       await tester.pump();
       expect(controller.hasPendingChanges, isTrue);
 
-      // Toggle the wrapper off and back on (mirrors navigating to main view
-      // and back to the detail view). State must survive — if the wrapper
-      // changed shape instead of toggling booleans, this would drop the
-      // staged edit and the dirty flag.
-      inactive.value = true;
+      await tester.drag(find.byType(ListView), const Offset(0, -3200));
       await tester.pumpAndSettle();
-      inactive.value = false;
+      expect(find.text('Field 0'), findsNothing);
+
+      final failures = await controller.commit();
+      await tester.pump();
+      expect(failures, isEmpty);
+      expect(
+        repo.upsertedValues.map((v) => v.customFieldId),
+        contains('field-0'),
+      );
+      expect(repo.upsertedValues.single.value, 'staged');
+    },
+  );
+
+  testWidgets(
+    'dirty choice state survives after the edited row scrolls offscreen',
+    (tester) async {
+      final repo = _FakeCustomFieldsRepository();
+      final controller = CustomFieldsEditorController();
+      final showEditor = ValueNotifier(true);
+      final field = CustomField(
+        id: 'choice-field',
+        name: 'Choice Field',
+        fieldType: CustomFieldType.choice,
+        fieldTypeId: 'choice',
+        displayOrder: 0,
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const ChoiceConfig(
+          options: [
+            ChoiceOption(id: 'a', label: 'Apples'),
+            ChoiceOption(id: 'b', label: 'Bananas'),
+          ],
+        ),
+      );
+      final fields = [field, ..._textFields(count: 60, displayOrderOffset: 1)];
+
+      await tester.pumpWidget(
+        _subject(
+          repo: repo,
+          controller: controller,
+          showEditor: showEditor,
+          memberId: memberId,
+          fields: fields,
+          values: const [],
+        ),
+      );
       await tester.pumpAndSettle();
 
+      await tester.tap(find.text('Apples'));
+      await tester.pumpAndSettle();
       expect(controller.hasPendingChanges, isTrue);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -3200));
+      await tester.pumpAndSettle();
+      expect(find.text('Choice Field'), findsNothing);
 
       final failures = await controller.commit();
       await tester.pump();
       expect(failures, isEmpty);
       expect(repo.upsertedValues, hasLength(1));
-      expect(repo.upsertedValues.single.customFieldId, 'field-a');
-      expect(repo.upsertedValues.single.value, 'staged');
+      expect(repo.upsertedValues.single.customFieldId, 'choice-field');
+      expect(repo.upsertedValues.single.value, '{"options":["a"]}');
     },
   );
 
-  test(
-    'unregister() does not call notifyListeners — runs from dispose chains '
-    'where the framework is locked and setState would assert',
-    () {
+  testWidgets(
+    'dirty scale state survives after the edited row scrolls offscreen',
+    (tester) async {
+      final repo = _FakeCustomFieldsRepository();
       final controller = CustomFieldsEditorController();
-      var notifyCount = 0;
-      controller.addListener(() => notifyCount++);
+      final showEditor = ValueNotifier(true);
+      final field = CustomField(
+        id: 'scale-field',
+        name: 'Scale Field',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'scale',
+        displayOrder: 0,
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const ScaleConfig(emoji: '*', steps: 5),
+      );
+      final fields = [field, ..._textFields(count: 60, displayOrderOffset: 1)];
 
-      final state = _StubEditState('field-x');
-      controller.register(state);
-      controller.markDirty(state, true);
-      expect(notifyCount, 1);
+      await tester.pumpWidget(
+        _subject(
+          repo: repo,
+          controller: controller,
+          showEditor: showEditor,
+          memberId: memberId,
+          fields: fields,
+          values: const [],
+        ),
+      );
+      await tester.pumpAndSettle();
 
-      controller.unregister(state);
-      expect(notifyCount, 1);
-      expect(controller.hasPendingChanges, isFalse);
+      await tester.tap(find.text('*').at(3));
+      await tester.pumpAndSettle();
+      expect(controller.hasPendingChanges, isTrue);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -3200));
+      await tester.pumpAndSettle();
+      expect(find.text('Scale Field'), findsNothing);
+
+      final failures = await controller.commit();
+      await tester.pump();
+      expect(failures, isEmpty);
+      expect(repo.upsertedValues, hasLength(1));
+      expect(repo.upsertedValues.single.customFieldId, 'scale-field');
+      expect(repo.upsertedValues.single.value, '4');
     },
+  );
+
+  testWidgets(
+    'dirty slider state survives after the edited row scrolls offscreen',
+    (tester) async {
+      final repo = _FakeCustomFieldsRepository();
+      final controller = CustomFieldsEditorController();
+      final showEditor = ValueNotifier(true);
+      final field = CustomField(
+        id: 'slider-field',
+        name: 'Slider Field',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'slider',
+        displayOrder: 0,
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const SliderConfig(
+          mode: SliderMode.numeric,
+          min: 0,
+          max: 100,
+          step: 1,
+        ),
+      );
+      final fields = [field, ..._textFields(count: 60, displayOrderOffset: 1)];
+
+      await tester.pumpWidget(
+        _subject(
+          repo: repo,
+          controller: controller,
+          showEditor: showEditor,
+          memberId: memberId,
+          fields: fields,
+          values: const [],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(Slider), const Offset(180, 0));
+      await tester.pumpAndSettle();
+      expect(controller.hasPendingChanges, isTrue);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -3200));
+      await tester.pumpAndSettle();
+      expect(find.text('Slider Field'), findsNothing);
+
+      final failures = await controller.commit();
+      await tester.pump();
+      expect(failures, isEmpty);
+      expect(repo.upsertedValues, hasLength(1));
+      expect(repo.upsertedValues.single.customFieldId, 'slider-field');
+      expect(repo.upsertedValues.single.value, isNotEmpty);
+    },
+  );
+
+  testWidgets(
+    'dirty grouped child state survives after the group scrolls offscreen',
+    (tester) async {
+      final repo = _FakeCustomFieldsRepository();
+      final controller = CustomFieldsEditorController();
+      final showEditor = ValueNotifier(true);
+      final group = CustomField(
+        id: 'group-field',
+        name: 'Group Field',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'group',
+        displayOrder: 0,
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const GroupConfig(),
+      );
+      final child = CustomField(
+        id: 'group-child',
+        name: 'Grouped Child',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'text',
+        parentFieldId: 'group-field',
+        createdAt: DateTime(2026, 1, 1),
+      );
+      final fields = [
+        group,
+        child,
+        ..._textFields(count: 60, displayOrderOffset: 1),
+      ];
+
+      await tester.pumpWidget(
+        _subject(
+          repo: repo,
+          controller: controller,
+          showEditor: showEditor,
+          memberId: memberId,
+          fields: fields,
+          values: const [],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(EditableText).first, 'group staged');
+      await tester.pump();
+      expect(controller.hasPendingChanges, isTrue);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -3200));
+      await tester.pumpAndSettle();
+      expect(find.text('Group Field'), findsNothing);
+
+      final failures = await controller.commit();
+      await tester.pump();
+      expect(failures, isEmpty);
+      expect(repo.upsertedValues, hasLength(1));
+      expect(repo.upsertedValues.single.customFieldId, 'group-child');
+      expect(repo.upsertedValues.single.value, 'group staged');
+    },
+  );
+
+  test('unregister() does not call notifyListeners — runs from dispose chains '
+      'where the framework is locked and setState would assert', () {
+    final controller = CustomFieldsEditorController();
+    var notifyCount = 0;
+    controller.addListener(() => notifyCount++);
+
+    final state = _StubEditState('field-x');
+    controller.register(state);
+    controller.markDirty(state, true);
+    expect(notifyCount, 1);
+
+    controller.unregister(state);
+    expect(notifyCount, 1);
+    expect(controller.hasPendingChanges, isFalse);
+  });
+}
+
+List<CustomField> _textFields({
+  required int count,
+  required int displayOrderOffset,
+}) {
+  return List.generate(
+    count,
+    (i) => CustomField(
+      id: 'field-$i',
+      name: 'Field $i',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'text',
+      displayOrder: displayOrderOffset + i,
+      createdAt: DateTime(2026, 1, 1),
+    ),
   );
 }
 

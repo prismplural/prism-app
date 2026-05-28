@@ -17,10 +17,16 @@ class CustomFieldsEditor extends ConsumerWidget {
     super.key,
     required this.memberId,
     this.controller,
+    this.scrollController,
+    this.scrollViewKey,
+    this.padding,
   });
 
   final String memberId;
   final CustomFieldsEditorController? controller;
+  final ScrollController? scrollController;
+  final Key? scrollViewKey;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,7 +36,10 @@ class CustomFieldsEditor extends ConsumerWidget {
       loading: () => const SizedBox.shrink(),
       error: (_, _) => const SizedBox.shrink(),
       data: (fields) {
-        if (fields.isEmpty) return const SizedBox.shrink();
+        final topLevelFields = fields
+            .where((f) => f.parentFieldId == null)
+            .toList(growable: false);
+        if (topLevelFields.isEmpty) return const SizedBox.shrink();
 
         final valuesAsync = ref.watch(
           memberCustomFieldValuesProvider(memberId),
@@ -38,7 +47,7 @@ class CustomFieldsEditor extends ConsumerWidget {
         return valuesAsync.when(
           loading: () => const SizedBox.shrink(),
           error: (_, _) => const SizedBox.shrink(),
-          data: (values) => _buildEditor(context, ref, fields, values),
+          data: (values) => _buildEditor(context, topLevelFields, values),
         );
       },
     );
@@ -50,7 +59,6 @@ class CustomFieldsEditor extends ConsumerWidget {
 
   Widget _buildEditor(
     BuildContext context,
-    WidgetRef ref,
     List<CustomField> fields,
     List<CustomFieldValue> values,
   ) {
@@ -58,16 +66,17 @@ class CustomFieldsEditor extends ConsumerWidget {
       for (final v in values) v.customFieldId: v,
     };
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Top-level fields only — group renderers pull their children from the
-        // same provider stream.
-        for (final field in fields.where((f) => f.parentFieldId == null)) ...[
-          _buildFieldEditor(context, field, valueMap[field.id]),
-          const SizedBox(height: 12),
-        ],
-      ],
+    return ListView.separated(
+      key: scrollViewKey,
+      controller: scrollController,
+      padding: padding,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      itemCount: fields.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final field = fields[index];
+        return _buildFieldEditor(context, field, valueMap[field.id]);
+      },
     );
   }
 
@@ -81,6 +90,9 @@ class CustomFieldsEditor extends ConsumerWidget {
     // Unknown type — forward-compat: a newer schema may carry types this
     // build doesn't know about.
     if (renderer == null) return const SizedBox.shrink();
-    return renderer.editorBuilder(context, field, existingValue, memberId);
+    return KeyedSubtree(
+      key: ValueKey<String>('custom-field-editor-${field.id}'),
+      child: renderer.editorBuilder(context, field, existingValue, memberId),
+    );
   }
 }

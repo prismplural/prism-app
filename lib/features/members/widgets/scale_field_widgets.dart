@@ -69,6 +69,7 @@ class _ScaleEditorWidget extends ConsumerStatefulWidget {
 }
 
 class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget>
+    with AutomaticKeepAliveClientMixin<_ScaleEditorWidget>
     implements PendingFieldEditState {
   // The index (0-based) of the emoji that was JUST tapped and is briefly scaled up.
   int? _animatingIndex;
@@ -76,6 +77,7 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget>
   int? _step;
   int? _initialStep;
   CustomFieldsEditorController? _controller;
+  bool _keepAlive = false;
 
   @override
   void initState() {
@@ -92,7 +94,7 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget>
     _controller?.unregister(this);
     _controller = next;
     _controller?.register(this);
-    _controller?.markDirty(this, _isDirty);
+    _syncDirtyState();
   }
 
   @override
@@ -106,7 +108,7 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget>
       _initialStep = nextStep;
       _step = nextStep;
     });
-    _controller?.markDirty(this, _isDirty);
+    _syncDirtyState();
   }
 
   @override
@@ -127,16 +129,27 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget>
 
   bool get _isDirty => _step != _initialStep;
 
+  @override
+  bool get wantKeepAlive => _keepAlive;
+
+  void _syncDirtyState() {
+    final dirty = _isDirty;
+    _controller?.markDirty(this, dirty);
+    if (_keepAlive == dirty) return;
+    _keepAlive = dirty;
+    updateKeepAlive();
+  }
+
   void _setStep(int step) {
     if (_step == step) return;
     setState(() => _step = step);
-    _controller?.markDirty(this, _isDirty);
+    _syncDirtyState();
   }
 
   void _clearValue() {
     if (_step == null) return;
     setState(() => _step = null);
-    _controller?.markDirty(this, _isDirty);
+    _syncDirtyState();
   }
 
   @override
@@ -171,7 +184,7 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget>
     // collects the error AND a re-touch re-stages and re-saves cleanly.
     if (failure != null) throw failure;
     _initialStep = _step;
-    _controller?.markDirty(this, false);
+    _syncDirtyState();
   }
 
   void _triggerAnimatingStep(int index) {
@@ -196,6 +209,7 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final config = _config();
@@ -225,10 +239,7 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget>
               child: Center(
                 child: Opacity(
                   opacity: isActive ? 1.0 : 0.4,
-                  child: Text(
-                    emoji,
-                    style: const TextStyle(fontSize: 24),
-                  ),
+                  child: Text(emoji, style: const TextStyle(fontSize: 24)),
                 ),
               ),
             ),
@@ -382,10 +393,7 @@ class _ScaleDisplayWidget extends StatelessWidget {
                   child: Center(
                     child: Opacity(
                       opacity: isActive ? 1.0 : 0.4,
-                      child: Text(
-                        emoji,
-                        style: const TextStyle(fontSize: 18),
-                      ),
+                      child: Text(emoji, style: const TextStyle(fontSize: 18)),
                     ),
                   ),
                 ),
@@ -419,11 +427,7 @@ Widget buildScaleMini(
   CustomFieldValue value, {
   double emojiSize = 14,
 }) {
-  return _ScaleMiniWidget(
-    field: field,
-    value: value,
-    emojiSize: emojiSize,
-  );
+  return _ScaleMiniWidget(field: field, value: value, emojiSize: emojiSize);
 }
 
 class _ScaleMiniWidget extends StatelessWidget {
@@ -444,7 +448,9 @@ class _ScaleMiniWidget extends StatelessWidget {
         : const ScaleConfig();
     final parsed = scaleFieldDefinition.valueParser(value.value);
     final selectedStep = parsed is ScaleFieldValue ? parsed.step : null;
-    if (selectedStep == null || selectedStep < 1) return const SizedBox.shrink();
+    if (selectedStep == null || selectedStep < 1) {
+      return const SizedBox.shrink();
+    }
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -453,10 +459,7 @@ class _ScaleMiniWidget extends StatelessWidget {
           if (i > 0) const SizedBox(width: 2),
           Opacity(
             opacity: (i + 1) <= selectedStep ? 1.0 : 0.35,
-            child: Text(
-              config.emoji,
-              style: TextStyle(fontSize: emojiSize),
-            ),
+            child: Text(config.emoji, style: TextStyle(fontSize: emojiSize)),
           ),
         ],
       ],
@@ -492,9 +495,6 @@ class _ScaleCompactWidget extends StatelessWidget {
 
     if (!hasValue) return const SizedBox.shrink();
 
-    return Text(
-      '$emoji $selectedStep/$steps',
-      overflow: TextOverflow.ellipsis,
-    );
+    return Text('$emoji $selectedStep/$steps', overflow: TextOverflow.ellipsis);
   }
 }

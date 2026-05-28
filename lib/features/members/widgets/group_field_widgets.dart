@@ -36,10 +36,7 @@ Widget buildGroupEditor(
 /// Watches [customFieldsProvider] to find children where
 /// [CustomField.parentFieldId] matches [field.id].
 class _GroupEditorWidget extends ConsumerWidget {
-  const _GroupEditorWidget({
-    required this.field,
-    required this.memberId,
-  });
+  const _GroupEditorWidget({required this.field, required this.memberId});
 
   final CustomField field;
   final String memberId;
@@ -63,10 +60,9 @@ class _GroupEditorWidget extends ConsumerWidget {
             for (final v in values) v.customFieldId: v,
           };
 
-          final children = allFields
-              .where((f) => f.parentFieldId == field.id)
-              .toList()
-            ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+          final children =
+              allFields.where((f) => f.parentFieldId == field.id).toList()
+                ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
           return _GroupCard(
             field: field,
@@ -112,7 +108,10 @@ class _GroupEditorWidget extends ConsumerWidget {
     if (def!.id == kGroupFieldTypeId) {
       return const SizedBox.shrink();
     }
-    return renderer.editorBuilder(context, child, existingValue, memberId);
+    return KeyedSubtree(
+      key: ValueKey<String>('custom-field-editor-${child.id}'),
+      child: renderer.editorBuilder(context, child, existingValue, memberId),
+    );
   }
 
   void _openAddChildSheet(BuildContext context) {
@@ -152,7 +151,11 @@ Widget buildGroupDisplayForMember(CustomField field, String memberId) {
 /// values. Renders children with non-empty values inside [_GroupCard].
 /// Returns [SizedBox.shrink] when no children have values.
 class GroupDisplayWidget extends ConsumerWidget {
-  const GroupDisplayWidget({super.key, required this.field, required this.memberId});
+  const GroupDisplayWidget({
+    super.key,
+    required this.field,
+    required this.memberId,
+  });
 
   final CustomField field;
   final String memberId;
@@ -170,13 +173,10 @@ class GroupDisplayWidget extends ConsumerWidget {
         loading: () => const SizedBox.shrink(),
         error: (_, _) => const SizedBox.shrink(),
         data: (values) {
-          final children = fields
-              .where((f) => f.parentFieldId == field.id)
-              .toList()
-            ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
-          final valuesByFieldId = {
-            for (final v in values) v.customFieldId: v,
-          };
+          final children =
+              fields.where((f) => f.parentFieldId == field.id).toList()
+                ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+          final valuesByFieldId = {for (final v in values) v.customFieldId: v};
 
           final childEntries = <_GroupChildEntry>[];
           for (final child in children) {
@@ -187,11 +187,7 @@ class GroupDisplayWidget extends ConsumerWidget {
             );
             if (renderer == null) continue;
             childEntries.add(
-              _GroupChildEntry(
-                child: child,
-                value: value,
-                renderer: renderer,
-              ),
+              _GroupChildEntry(child: child, value: value, renderer: renderer),
             );
           }
 
@@ -246,8 +242,7 @@ class _GroupChildDisplay extends StatelessWidget {
 
   /// Per-field opt-out: the child's own `hideTitleOnProfile` suppresses its
   /// label inside the group, independent of the parent group's toggle.
-  bool get _hideTitle =>
-      effectiveHideTitleOnProfile(entry.child.typeConfig);
+  bool get _hideTitle => effectiveHideTitleOnProfile(entry.child.typeConfig);
 
   bool get _isCompact {
     if (_isLongText) return false;
@@ -267,11 +262,7 @@ class _GroupChildDisplay extends StatelessWidget {
       // child's name is still announced to screen readers.
       return Semantics(
         label: entry.child.name,
-        child: entry.renderer.displayBuilder(
-          context,
-          entry.child,
-          entry.value,
-        ),
+        child: entry.renderer.displayBuilder(context, entry.child, entry.value),
       );
     }
     if (_isCompact) {
@@ -378,8 +369,7 @@ class _GroupCard extends StatelessWidget {
     final hideTitle = groupConfig?.hideTitleOnProfile ?? false;
     final showHeader = hasName && !hideTitle;
     final headerIcon = _iconForGroupConfig(groupConfig?.icon);
-    final semanticsLabel =
-        hasName ? field.name : l10n.customFieldTypeGroup;
+    final semanticsLabel = hasName ? field.name : l10n.customFieldTypeGroup;
 
     final headerBgColor = theme.colorScheme.onSurface.withValues(alpha: 0.04);
     final dividerColor = theme.colorScheme.onSurface.withValues(alpha: 0.07);

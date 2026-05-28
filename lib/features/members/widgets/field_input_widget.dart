@@ -39,11 +39,13 @@ class FieldInputWidget extends ConsumerStatefulWidget {
 }
 
 class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
+    with AutomaticKeepAliveClientMixin<FieldInputWidget>
     implements PendingFieldEditState {
   late final TextEditingController _textController;
   late final FocusNode _focusNode;
   late String _initialValue;
   CustomFieldsEditorController? _controller;
+  bool _keepAlive = false;
 
   @override
   void initState() {
@@ -51,14 +53,15 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
     _focusNode = FocusNode();
     _initialValue = widget.existingValue?.value ?? '';
     _textController = switch (widget.field.fieldType) {
-      CustomFieldType.text =>
-        ChatMarkdownEditingController(text: _initialValue),
-      CustomFieldType.longText =>
-        MarkdownEditingController(text: _initialValue),
+      CustomFieldType.text => ChatMarkdownEditingController(
+        text: _initialValue,
+      ),
+      CustomFieldType.longText => MarkdownEditingController(
+        text: _initialValue,
+      ),
       CustomFieldType.color ||
       CustomFieldType.date ||
-      CustomFieldType.choice =>
-        TextEditingController(text: _initialValue),
+      CustomFieldType.choice => TextEditingController(text: _initialValue),
     };
     _textController.addListener(_handleTextChanged);
   }
@@ -71,7 +74,7 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
     _controller?.unregister(this);
     _controller = next;
     _controller?.register(this);
-    _controller?.markDirty(this, _isDirty);
+    _syncDirtyState();
   }
 
   @override
@@ -87,7 +90,7 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
     if (!_focusNode.hasFocus && _textController.text != newVal) {
       _textController.text = newVal;
     }
-    _controller?.markDirty(this, _isDirty);
+    _syncDirtyState();
   }
 
   @override
@@ -101,8 +104,19 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
 
   bool get _isDirty => _textController.text.trim() != _initialValue.trim();
 
+  @override
+  bool get wantKeepAlive => _keepAlive;
+
+  void _syncDirtyState() {
+    final dirty = _isDirty;
+    _controller?.markDirty(this, dirty);
+    if (_keepAlive == dirty) return;
+    _keepAlive = dirty;
+    updateKeepAlive();
+  }
+
   void _handleTextChanged() {
-    _controller?.markDirty(this, _isDirty);
+    _syncDirtyState();
   }
 
   @override
@@ -135,11 +149,12 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
     // collects the error AND a re-touch re-stages and re-saves cleanly.
     if (failure != null) throw failure;
     _initialValue = value;
-    _controller?.markDirty(this, false);
+    _syncDirtyState();
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final controller = _textController;
     if (controller is ChatMarkdownEditingController) {
       controller.updateTheme(context);

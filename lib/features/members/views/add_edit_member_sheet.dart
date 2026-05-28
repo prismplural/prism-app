@@ -220,10 +220,10 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
   bool get _showPluralKitSection {
     final original = widget.member;
     if (original != null) {
-      final live = ref.watch(memberByIdProvider(original.id)).maybeWhen(
-            data: (m) => m,
-            orElse: () => null,
-          ) ??
+      final live =
+          ref
+              .watch(memberByIdProvider(original.id))
+              .maybeWhen(data: (m) => m, orElse: () => null) ??
           original;
       if (_hasText(live.pluralkitUuid) ||
           _hasText(live.pluralkitId) ||
@@ -415,8 +415,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     final width = MediaQuery.of(context).size.width;
     if (width <= 0) return;
     final delta = (details.primaryDelta ?? 0) / width;
-    _viewAnimationController.value =
-        (_viewAnimationController.value - delta).clamp(0.0, 1.0);
+    _viewAnimationController.value = (_viewAnimationController.value - delta)
+        .clamp(0.0, 1.0);
   }
 
   void _handleSwipeBackEnd(DragEndDetails details) {
@@ -930,7 +930,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
       // Look up the field's display name via the staged-edit controller's
       // own registry — it's the same provider the editors render from, so
       // the name we show matches the row the user just tried to save.
-      final name = _customFieldsEditorController.displayNameFor(fieldId) ??
+      final name =
+          _customFieldsEditorController.displayNameFor(fieldId) ??
           _customFieldNameFromProvider(fieldId);
       PrismToast.error(
         context,
@@ -947,7 +948,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
   /// Fallback display-name lookup when the editor's state is no longer
   /// registered (e.g. detail view was dismissed before _save resolved).
   String? _customFieldNameFromProvider(String fieldId) {
-    return ref.read(topLevelCustomFieldsProvider).maybeWhen(
+    return ref
+        .read(topLevelCustomFieldsProvider)
+        .maybeWhen(
           data: (fields) {
             for (final f in fields) {
               if (f.id == fieldId) return f.name;
@@ -1064,28 +1067,13 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
                         child: Stack(
                           children: [
                             Positioned.fill(
-                              child: AnimatedBuilder(
+                              child: _MemberEditAnimatedStage(
                                 animation: _viewAnimation,
-                                builder: (context, _) {
-                                  return ClipRect(
-                                    child: Stack(
-                                      clipBehavior: Clip.hardEdge,
-                                      children: [
-                                        for (final view
-                                            in _MemberEditView.values)
-                                          Positioned.fill(
-                                            child: FractionalTranslation(
-                                              translation: _offsetFor(view),
-                                              child: _InactiveWhenHidden(
-                                                visible: view == _view,
-                                                child: _buildViewBody(view),
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  );
-                                },
+                                activeView: _view,
+                                sourceView: _viewFrom,
+                                main: _buildMainView(),
+                                proxyTags: _buildProxyTagsDetailView(),
+                                customFields: _buildCustomFieldsDetailView(),
                               ),
                             ),
                             // Outside the AnimatedBuilder so the gesture
@@ -1100,8 +1088,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
                                 child: GestureDetector(
                                   behavior: HitTestBehavior.translucent,
                                   excludeFromSemantics: true,
-                                  onHorizontalDragStart:
-                                      _handleSwipeBackStart,
+                                  onHorizontalDragStart: _handleSwipeBackStart,
                                   onHorizontalDragUpdate:
                                       _handleSwipeBackUpdate,
                                   onHorizontalDragEnd: _handleSwipeBackEnd,
@@ -1138,33 +1125,6 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         return l10n.memberSectionProxyTags;
       case _MemberEditView.customFields:
         return l10n.memberSectionCustomFields;
-    }
-  }
-
-  // Detail views are peers off-screen right; main rests off-screen left
-  // when a detail is active. Lerping each view's position between its
-  // rest in _viewFrom and rest in _view keeps every transition one
-  // screen width regardless of which detail view is involved.
-  Offset _offsetFor(_MemberEditView view) {
-    final t = _viewAnimation.value;
-    final from = _restPosition(view, _viewFrom);
-    final to = _restPosition(view, _view);
-    return Offset(from + (to - from) * t, 0);
-  }
-
-  double _restPosition(_MemberEditView view, _MemberEditView active) {
-    if (view == active) return 0.0;
-    return view == _MemberEditView.main ? -1.0 : 1.0;
-  }
-
-  Widget _buildViewBody(_MemberEditView view) {
-    switch (view) {
-      case _MemberEditView.main:
-        return _buildMainView();
-      case _MemberEditView.proxyTags:
-        return _buildProxyTagsDetailView();
-      case _MemberEditView.customFields:
-        return _buildCustomFieldsDetailView();
     }
   }
 
@@ -1630,9 +1590,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         ),
         if (_showPluralKitSection && widget.isEditing) ...[
           const SizedBox(height: 16),
-          _MemberEditorPluralKitSection(
-            member: widget.member!,
-          ),
+          _MemberEditorPluralKitSection(member: widget.member!),
         ],
         const SizedBox(height: 32),
       ],
@@ -1721,22 +1679,77 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
   }
 
   Widget _buildCustomFieldsDetailView() {
-    return ListView(
-      controller: _customFieldsScrollController,
-      key: const PageStorageKey<String>('member-edit-custom-fields'),
+    return CustomFieldsEditor(
+      memberId: _memberId,
+      controller: _customFieldsEditorController,
+      scrollController: _customFieldsScrollController,
+      scrollViewKey: const PageStorageKey<String>('member-edit-custom-fields'),
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
         top: 8,
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
-      children: [
-        CustomFieldsEditor(
-          memberId: _memberId,
-          controller: _customFieldsEditorController,
-        ),
-      ],
     );
+  }
+}
+
+class _MemberEditAnimatedStage extends StatelessWidget {
+  const _MemberEditAnimatedStage({
+    required this.animation,
+    required this.activeView,
+    required this.sourceView,
+    required this.main,
+    required this.proxyTags,
+    required this.customFields,
+  });
+
+  final Animation<double> animation;
+  final _MemberEditView activeView;
+  final _MemberEditView sourceView;
+  final Widget main;
+  final Widget proxyTags;
+  final Widget customFields;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) {
+        return ClipRect(
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              _positioned(_MemberEditView.main, main),
+              _positioned(_MemberEditView.proxyTags, proxyTags),
+              _positioned(_MemberEditView.customFields, customFields),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _positioned(_MemberEditView view, Widget child) {
+    return Positioned.fill(
+      child: FractionalTranslation(
+        translation: _offsetFor(view),
+        child: _InactiveWhenHidden(visible: view == activeView, child: child),
+      ),
+    );
+  }
+
+  // Detail views rest right; main rests left.
+  Offset _offsetFor(_MemberEditView view) {
+    final t = animation.value;
+    final from = _restPosition(view, sourceView);
+    final to = _restPosition(view, activeView);
+    return Offset(from + (to - from) * t, 0);
+  }
+
+  double _restPosition(_MemberEditView view, _MemberEditView active) {
+    if (view == active) return 0.0;
+    return view == _MemberEditView.main ? -1.0 : 1.0;
   }
 }
 
@@ -1777,10 +1790,7 @@ class _InactiveWhenHidden extends StatelessWidget {
       ignoring: inactive,
       child: ExcludeFocus(
         excluding: inactive,
-        child: ExcludeSemantics(
-          excluding: inactive,
-          child: child,
-        ),
+        child: ExcludeSemantics(excluding: inactive, child: child),
       ),
     );
   }
@@ -1973,6 +1983,7 @@ class _BirthdayField extends StatelessWidget {
     );
   }
 }
+
 class _MemberEditorPluralKitSection extends ConsumerWidget {
   const _MemberEditorPluralKitSection({required this.member});
 
@@ -1998,10 +2009,7 @@ class _MemberEditorPluralKitSection extends ConsumerWidget {
     final l10n = context.l10n;
     final unmapped = state?.unmappedPkMembers ?? const <PKMember>[];
     if (unmapped.isEmpty) {
-      PrismToast.show(
-        context,
-        message: l10n.pkMappingRowNoCandidatesCaption,
-      );
+      PrismToast.show(context, message: l10n.pkMappingRowNoCandidatesCaption);
       return;
     }
 
@@ -2019,10 +2027,7 @@ class _MemberEditorPluralKitSection extends ConsumerWidget {
       return;
     }
     if (client == null) {
-      PrismToast.error(
-        context,
-        message: l10n.pkLinkManagementOfflineCaption,
-      );
+      PrismToast.error(context, message: l10n.pkLinkManagementOfflineCaption);
       return;
     }
     try {
@@ -2042,10 +2047,9 @@ class _MemberEditorPluralKitSection extends ConsumerWidget {
               fetchedPkIds: state.fetchedPkIds,
             )
           : null;
-      final results = await applier.apply(
-        [PkLinkDecision(localMemberId: member.id, pkMember: pkPicked)],
-        resolution: resolution,
-      );
+      final results = await applier.apply([
+        PkLinkDecision(localMemberId: member.id, pkMember: pkPicked),
+      ], resolution: resolution);
       if (!context.mounted) return;
       final failure = results.firstWhere(
         (r) => r.outcome == PkApplyOutcome.failed,
@@ -2079,22 +2083,19 @@ class _MemberEditorPluralKitSection extends ConsumerWidget {
     // reflects exclude/resume writes without needing to close and reopen the
     // sheet. Falls back to the constructor-supplied member until the watch
     // resolves.
-    final liveMember = ref.watch(memberByIdProvider(member.id)).maybeWhen(
-          data: (m) => m ?? member,
-          orElse: () => member,
-        );
+    final liveMember = ref
+        .watch(memberByIdProvider(member.id))
+        .maybeWhen(data: (m) => m ?? member, orElse: () => member);
 
     final stateAsync = ref.watch(pkLinkManagementControllerProvider);
-    final state = stateAsync.maybeWhen(
-      data: (s) => s,
-      orElse: () => null,
-    );
+    final state = stateAsync.maybeWhen(data: (s) => s, orElse: () => null);
     final pkConnected = ref.watch(pluralKitSyncProvider).isConnected;
     final pushEnabled = ref.watch(pkSyncDirectionProvider).pushEnabled;
 
     final hasLink = hasPluralKitLink(liveMember);
     final excluded = liveMember.pluralkitSyncIgnored;
-    final resolves = state != null &&
+    final resolves =
+        state != null &&
         hasResolvablePluralKitLink(
           liveMember,
           fetchedPkUuids: state.fetchedPkUuids,

@@ -80,6 +80,7 @@ class _ChoiceEditorWidget extends ConsumerStatefulWidget {
 }
 
 class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
+    with AutomaticKeepAliveClientMixin<_ChoiceEditorWidget>
     implements PendingFieldEditState {
   late ChoiceFieldValue _initialValue;
   late ChoiceFieldValue _currentValue;
@@ -88,6 +89,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
   String? _pendingOtherText;
   final Map<String, GlobalKey<BlurPopupAnchorState>> _popupKeys = {};
   CustomFieldsEditorController? _controller;
+  bool _keepAlive = false;
 
   @override
   void initState() {
@@ -105,7 +107,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
     _controller?.unregister(this);
     _controller = next;
     _controller?.register(this);
-    _controller?.markDirty(this, _isDirty);
+    _syncDirtyState();
   }
 
   @override
@@ -125,7 +127,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
     if (_otherController.text != newOther) {
       _otherController.text = newOther;
     }
-    _controller?.markDirty(this, _isDirty);
+    _syncDirtyState();
   }
 
   @override
@@ -160,10 +162,21 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
     return pending != null && pending.trim() != (_currentValue.other ?? '');
   }
 
+  @override
+  bool get wantKeepAlive => _keepAlive;
+
+  void _syncDirtyState() {
+    final dirty = _isDirty;
+    _controller?.markDirty(this, dirty);
+    if (_keepAlive == dirty) return;
+    _keepAlive = dirty;
+    updateKeepAlive();
+  }
+
   void _stage(ChoiceFieldValue newValue) {
     if (newValue == _currentValue) return;
     setState(() => _currentValue = newValue);
-    _controller?.markDirty(this, _isDirty);
+    _syncDirtyState();
   }
 
   @override
@@ -201,7 +214,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
     // collects the error AND a re-touch re-stages and re-saves cleanly.
     if (failure != null) throw failure;
     _initialValue = _currentValue;
-    _controller?.markDirty(this, false);
+    _syncDirtyState();
   }
 
   void _toggleOption(String optionId, bool allowsMultiple) {
@@ -350,6 +363,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final l10n = context.l10n;
     final config = _config();
     if (config == null) return const SizedBox.shrink();
@@ -405,7 +419,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
                 autofocus: true,
                 onChanged: (text) {
                   _pendingOtherText = text;
-                  _controller?.markDirty(this, _isDirty);
+                  _syncDirtyState();
                 },
               ),
             ),
