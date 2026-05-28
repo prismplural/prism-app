@@ -397,7 +397,6 @@ class _GroupCard extends StatelessWidget {
       child: PrismSurface(
         tone: PrismSurfaceTone.subtle,
         padding: EdgeInsets.zero,
-        borderRadius: 8,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,

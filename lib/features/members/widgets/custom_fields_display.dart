@@ -327,7 +327,6 @@ class _FieldValueCard extends StatelessWidget {
     final surface = PrismSurface(
       tone: PrismSurfaceTone.subtle,
       padding: EdgeInsets.zero,
-      borderRadius: 8,
       child: hideTitle
           ? Padding(
               padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
