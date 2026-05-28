@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_color_picker_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -240,23 +241,44 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
       labelText: widget.field.name,
       hintText: '#AF8EE9',
       onChanged: (val) => setState(() {}),
-      suffix: previewColor != null
-          ? Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: previewColor,
-                  border: Border.all(
-                    color: theme.colorScheme.outline.withValues(alpha: 0.3),
-                  ),
+      suffix: Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: GestureDetector(
+          onTap: () => _pickColor(context, previewColor),
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: previewColor ?? Colors.transparent,
+              border: Border.all(
+                color: theme.colorScheme.outline.withValues(
+                  alpha: previewColor != null ? 0.3 : 0.7,
                 ),
               ),
-            )
-          : null,
+            ),
+            child: previewColor == null
+                ? Icon(
+                    AppIcons.add,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  )
+                : null,
+          ),
+        ),
+      ),
     );
+  }
+
+  Future<void> _pickColor(BuildContext context, Color? current) async {
+    final initial = current ?? Theme.of(context).colorScheme.primary;
+    final hex = await showPrismColorPickerDialog(
+      context: context,
+      initialColor: initial,
+    );
+    if (hex == null || !mounted) return;
+    _textController.text = hex;
+    setState(() {});
   }
 
   Widget _buildDateInput(BuildContext context) {

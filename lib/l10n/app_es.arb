@@ -2201,6 +2201,7 @@
   "customFieldTypeShortText": "Texto corto",
   "customFieldTypeLongText": "Texto largo",
   "customFieldTypeColor": "Color",
+  "customFieldColorPickerTitle": "Elige un color",
   "customFieldTypeDate": "Fecha",
   "customFieldDatePrecisionFull": "Fecha completa",
   "customFieldDatePrecisionMonthYear": "Mes y año",

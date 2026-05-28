@@ -13467,7 +13467,7 @@ abstract class AppLocalizations {
   /// **'Drag to reorder'**
   String get customFieldChoiceReorderHandleTooltip;
 
-  /// Tooltip for the color swatch button that cycles through palette colors
+  /// Tooltip for the color swatch button that opens the color picker
   ///
   /// In en, this message translates to:
   /// **'Change color'**
@@ -13503,7 +13503,7 @@ abstract class AppLocalizations {
   /// **'Edit label'**
   String get customFieldChoiceEditMenuLabel;
 
-  /// Context-menu item to cycle the color of a choice option chip
+  /// Context-menu item to open the color picker for a choice option chip
   ///
   /// In en, this message translates to:
   /// **'Change color'**
@@ -17655,6 +17655,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pick a color'**
   String get customFieldSliderColorAnchorTitle;
+
+  /// Default title for the shared color picker dialog (choice options, color field).
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a color'**
+  String get customFieldColorPickerTitle;
 
   /// Toggle label for snap-to-positions in labeled slider config
   ///

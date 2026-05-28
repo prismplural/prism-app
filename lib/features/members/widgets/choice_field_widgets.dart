@@ -21,7 +21,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:prism_plurality/domain/custom_fields/choice_option_palette.dart';
 import 'package:prism_plurality/domain/custom_fields/definitions/choice_field_definition.dart';
 import 'package:prism_plurality/domain/models/choice_option.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
@@ -35,6 +34,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_color_picker_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -273,12 +273,24 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
     );
   }
 
-  Future<void> _cycleOptionColor(
+  Future<void> _pickOptionColor(
     BuildContext context,
     ChoiceConfig config,
     ChoiceOption option,
   ) async {
-    final newColor = cycleChoicePaletteColor(option.colorHex);
+    Color initial;
+    try {
+      initial = option.colorHex != null
+          ? AppColors.fromHex(option.colorHex!)
+          : Theme.of(context).colorScheme.primary;
+    } catch (_) {
+      initial = Theme.of(context).colorScheme.primary;
+    }
+    final newColor = await showPrismColorPickerDialog(
+      context: context,
+      initialColor: initial,
+    );
+    if (newColor == null || !mounted) return;
     final updatedOptions = [
       for (final o in config.options)
         if (o.id == option.id) o.copyWith(colorHex: newColor) else o,
@@ -446,7 +458,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
             title: Text(l10n.customFieldChoiceChangeColorMenuLabel),
             onTap: () {
               close();
-              unawaited(_cycleOptionColor(context, config, option));
+              unawaited(_pickOptionColor(context, config, option));
             },
           ),
           _ => PrismListRow(

@@ -20,6 +20,7 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/custom_field_type_labels.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_color_picker_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
@@ -344,13 +345,25 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     });
   }
 
-  /// Cycle the color of an option.
-  void _cycleOptionColor(String id) {
+  /// Open the color picker for an option and apply the chosen color.
+  Future<void> _pickOptionColor(String id) async {
+    final option = _choiceOptions.firstWhere((o) => o.id == id);
+    Color initial;
+    try {
+      initial = option.colorHex != null
+          ? AppColors.fromHex(option.colorHex!)
+          : Theme.of(context).colorScheme.primary;
+    } catch (_) {
+      initial = Theme.of(context).colorScheme.primary;
+    }
+    final hex = await showPrismColorPickerDialog(
+      context: context,
+      initialColor: initial,
+    );
+    if (hex == null || !mounted) return;
     setState(() {
       _choiceOptions = _choiceOptions.map((o) {
-        if (o.id == id) {
-          return o.copyWith(colorHex: cycleChoicePaletteColor(o.colorHex));
-        }
+        if (o.id == id) return o.copyWith(colorHex: hex);
         return o;
       }).toList();
     });
@@ -902,7 +915,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         duplicateIds: _duplicateOptionIds(),
                         onAddOption: _addOption,
                         onRemoveOption: _removeOption,
-                        onCycleColor: _cycleOptionColor,
+                        onPickColor: _pickOptionColor,
                         onLabelChanged: _syncOptionLabel,
                         onReorder: _reorderOptions,
                         onAllowsMultipleChanged: (v) =>
@@ -1015,7 +1028,7 @@ class _ChoiceConfigSection extends StatelessWidget {
     required this.duplicateIds,
     required this.onAddOption,
     required this.onRemoveOption,
-    required this.onCycleColor,
+    required this.onPickColor,
     required this.onLabelChanged,
     required this.onReorder,
     required this.onAllowsMultipleChanged,
@@ -1031,7 +1044,7 @@ class _ChoiceConfigSection extends StatelessWidget {
   final Set<String> duplicateIds;
   final VoidCallback onAddOption;
   final ValueChanged<String> onRemoveOption;
-  final ValueChanged<String> onCycleColor;
+  final ValueChanged<String> onPickColor;
   final ValueChanged<String> onLabelChanged;
   final void Function(int, int) onReorder;
   final ValueChanged<bool> onAllowsMultipleChanged;
@@ -1072,7 +1085,7 @@ class _ChoiceConfigSection extends StatelessWidget {
                 focusNode: optionFocusNodes[option.id]!,
                 isDuplicate: isDuplicate,
                 onRemove: () => onRemoveOption(option.id),
-                onCycleColor: () => onCycleColor(option.id),
+                onPickColor: () => onPickColor(option.id),
                 onLabelChanged: () => onLabelChanged(option.id),
               );
             },
@@ -1129,7 +1142,7 @@ class _ChoiceOptionRow extends StatelessWidget {
     required this.focusNode,
     required this.isDuplicate,
     required this.onRemove,
-    required this.onCycleColor,
+    required this.onPickColor,
     required this.onLabelChanged,
   });
 
@@ -1139,7 +1152,7 @@ class _ChoiceOptionRow extends StatelessWidget {
   final FocusNode focusNode;
   final bool isDuplicate;
   final VoidCallback onRemove;
-  final VoidCallback onCycleColor;
+  final VoidCallback onPickColor;
   final VoidCallback onLabelChanged;
 
   @override
@@ -1176,7 +1189,7 @@ class _ChoiceOptionRow extends StatelessWidget {
           Tooltip(
             message: l10n.customFieldChoiceColorCycleTooltip,
             child: GestureDetector(
-              onTap: onCycleColor,
+              onTap: onPickColor,
               child: Container(
                 width: 24,
                 height: 24,

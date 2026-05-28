@@ -10,6 +10,7 @@
 // prism_sync FFI issue is resolved.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -276,7 +277,8 @@ void main() {
           reason: 'forward-compat extra must survive an edit-and-save');
     });
 
-    testWidgets('color cycle rotates through palette', (tester) async {
+    testWidgets('tapping option swatch opens the color picker dialog',
+        (tester) async {
       _useTallViewport(tester);
       await tester.pumpWidget(_buildSheet());
       await tester.pumpAndSettle();
@@ -290,15 +292,58 @@ void main() {
       final colorButton = find.byTooltip('Change color');
       expect(colorButton, findsOneWidget);
 
-      // Tap several times — should not throw.
+      // Opens the picker rather than cycling the palette.
       await tester.tap(colorButton);
-      await tester.pump();
-      await tester.tap(colorButton);
-      await tester.pump();
-      await tester.tap(colorButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pick a color'), findsOneWidget);
+      expect(find.byType(ColorPicker), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ColorPicker), findsNothing);
+    });
+
+    testWidgets('picking a color in the dialog saves the chosen hex',
+        (tester) async {
+      _useTallViewport(tester);
+      final notifier = _FakeCustomFieldNotifier();
+      await tester.pumpWidget(_buildSheet(notifier: notifier));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'Mood');
       await tester.pump();
 
-      expect(colorButton, findsOneWidget);
+      await tester.tap(find.text('Choice'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add option'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Change color'));
+      await tester.pumpAndSettle();
+
+      // Hex bar is the only TextField inside the picker; entry round-trips
+      // back through the helper as uppercase #RRGGBB.
+      final hexField = find.descendant(
+        of: find.byType(ColorPicker),
+        matching: find.byType(TextField),
+      );
+      expect(hexField, findsOneWidget);
+      await tester.enterText(hexField, '4287F5');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ColorPicker), findsNothing);
+
+      await tester.tap(find.byIcon(AppIcons.check));
+      await tester.pumpAndSettle();
+
+      final config = notifier.lastCreated!.typeConfig as ChoiceConfig?;
+      expect(config, isNotNull);
+      expect(config!.options, hasLength(1));
+      expect(config.options.first.colorHex, '#4287F5');
     });
 
     testWidgets('opening sheet on existing choice field hydrates state',

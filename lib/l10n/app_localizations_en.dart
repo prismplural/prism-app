@@ -11000,6 +11000,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldSliderColorAnchorTitle => 'Pick a color';
 
   @override
+  String get customFieldColorPickerTitle => 'Pick a color';
+
+  @override
   String get customFieldSliderSnapToPositions => 'Snap to positions';
 
   @override
