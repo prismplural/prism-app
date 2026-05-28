@@ -266,8 +266,6 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         _sliderRightLabelController.text = config.rightLabel ?? '';
         _sliderCenterLabelController.text = config.centerLabel ?? '';
         _sliderGradientPresetId = config.gradientPresetId;
-        // Hydrate gradient colors: prefer gradientColorsHex, fall back to
-        // legacy left/center/right, then 2-color default.
         _sliderGradientColors = _gradientColorsFromConfig(config);
         // A field saved in custom mode has real custom colors; one saved on a
         // preset does not (so the first switch-to-custom should seed from it).
@@ -480,7 +478,6 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   }
 
   /// Build the current [SliderConfig] from UI state.
-  /// Default two-color gradient when no existing colors are available.
   static List<String> _defaultGradientColors() => ['#E89BB8', '#8FAA9A'];
 
   /// The gradient color list a config hydrates to: prefer `gradientColorsHex`,
@@ -2117,9 +2114,9 @@ Future<String?> _showSwatchColorPicker(
   return '#${(value & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
 }
 
-/// Horizontal row of 2–6 color swatches with long-press-to-drag reorder,
-/// inline + tile to add, and a per-swatch edit popup (edit color, remove,
-/// move left / right).
+/// Horizontal row of 2–6 color swatches: tap a swatch to edit its color, grab
+/// the handle below it to reorder, tap the corner badge to remove. An inline
+/// "+" tile appends a color (up to 6).
 class _GradientSwatchRow extends StatelessWidget {
   const _GradientSwatchRow({
     required this.colors,

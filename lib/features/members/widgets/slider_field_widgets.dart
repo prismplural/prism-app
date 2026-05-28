@@ -1066,7 +1066,6 @@ class _GradientSliderTrackShape extends RoundedRectSliderTrackShape {
 
   final List<Color> colors;
 
-  /// Cache keyed by all colors in the list.
   static final Map<String, List<Color>> _colorCache = {};
 
   List<Color> _buildStops() {
@@ -1577,7 +1576,6 @@ int? _divisionsFor({
 /// [center], [right] are kept so all existing call-sites continue to compile
 /// unchanged.
 class _TrackColors {
-  /// Primary constructor — takes the full color list directly.
   const _TrackColors.fromList(this.colors) : assert(colors.length >= 1);
 
   /// Convenience constructor that mirrors the old 3-arg API. Builds the list
