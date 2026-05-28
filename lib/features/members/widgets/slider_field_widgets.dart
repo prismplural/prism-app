@@ -198,36 +198,16 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
     }
   }
 
-  /// Compute the nearest anchor name + percent for labeled mode.
+  /// Compute the attributed anchor name + percent for labeled mode.
   String _labeledValueIndicator(
     double value,
     SliderConfig config,
     AppLocalizations l10n,
   ) {
-    final left = config.leftLabel;
-    final right = config.rightLabel;
     final center = config.centerLabel;
     final percent = value.round();
 
-    // Build list of anchors with their positions.
-    final anchors = <({double position, String? label})>[
-      (position: 0.0, label: left),
-      if (center != null) (position: 50.0, label: center),
-      (position: 100.0, label: right),
-    ];
-
-    // Find the nearest anchor.
-    var nearest = anchors.first;
-    var minDist = (value - nearest.position).abs();
-    for (final anchor in anchors) {
-      final dist = (value - anchor.position).abs();
-      if (dist < minDist) {
-        minDist = dist;
-        nearest = anchor;
-      }
-    }
-
-    final anchorName = nearest.label;
+    final anchorName = attributedSliderAnchorLabel(value, config);
     if (anchorName == null || anchorName.isEmpty) {
       // No label set for this anchor — fall back to percent only.
       return '$percent%';
@@ -552,22 +532,7 @@ class _SliderDisplayWidget extends StatelessWidget {
   ) {
     if (config.mode == SliderMode.labeled) {
       final percent = value.round();
-      final anchors = <({double position, String? label})>[
-        (position: 0.0, label: config.leftLabel),
-        if (config.centerLabel != null)
-          (position: 50.0, label: config.centerLabel),
-        (position: 100.0, label: config.rightLabel),
-      ];
-      var nearest = anchors.first;
-      var minDist = (value - nearest.position).abs();
-      for (final anchor in anchors) {
-        final dist = (value - anchor.position).abs();
-        if (dist < minDist) {
-          minDist = dist;
-          nearest = anchor;
-        }
-      }
-      final name = nearest.label;
+      final name = attributedSliderAnchorLabel(value, config);
       if (name == null || name.isEmpty) return '$percent%';
       return '$name, $percent%';
     } else {
@@ -687,23 +652,7 @@ class _SliderCompactWidget extends StatelessWidget {
 
   String _computeSuffix(double value, SliderConfig config) {
     if (config.mode == SliderMode.labeled) {
-      // Nearest anchor name.
-      final anchors = <({double position, String? label})>[
-        (position: 0.0, label: config.leftLabel),
-        if (config.centerLabel != null)
-          (position: 50.0, label: config.centerLabel),
-        (position: 100.0, label: config.rightLabel),
-      ];
-      var nearest = anchors.first;
-      var minDist = (value - nearest.position).abs();
-      for (final anchor in anchors) {
-        final dist = (value - anchor.position).abs();
-        if (dist < minDist) {
-          minDist = dist;
-          nearest = anchor;
-        }
-      }
-      return nearest.label ?? '';
+      return attributedSliderAnchorLabel(value, config) ?? '';
     } else {
       final step = config.step ?? 1.0;
       final unit = config.unit ?? '';
@@ -1181,6 +1130,26 @@ class _SliderLabelRow extends StatelessWidget {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/// Attributes a labeled-slider [value] (0–100) to its owning anchor label.
+///
+/// Anchors split the range into equal-width buckets: with a center label that
+/// is 1:1:1 (left owns 0–33⅓, center 33⅓–66⅔, right 66⅔–100); without one it
+/// is 1:1 (crossover at 50). Returns null when the owning anchor has no label.
+@visibleForTesting
+String? attributedSliderAnchorLabel(double value, SliderConfig config) {
+  // Compact rows pass the raw parsed value, which legacy/bad sync data may
+  // carry as NaN or infinity. floor() throws on those, so bail to no label.
+  if (!value.isFinite) return null;
+  final labels = <String?>[
+    config.leftLabel,
+    if (config.centerLabel != null) config.centerLabel,
+    config.rightLabel,
+  ];
+  final bucket =
+      (value / 100.0 * labels.length).floor().clamp(0, labels.length - 1);
+  return labels[bucket];
+}
 
 /// Labeled mode snaps via `snapToPositions`; numeric mode snaps and draws
 /// ticks only when `showTicks` is on. Returns null for a continuous slider.
