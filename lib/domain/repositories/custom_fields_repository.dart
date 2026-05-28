@@ -103,4 +103,10 @@ abstract class CustomFieldsRepository {
     String fieldId,
     CustomFieldTypeConfig newConfig,
   );
+
+  /// Clear [fieldId]'s stored config, resetting `type_config_json` to NULL.
+  /// Patch-style (only the one column), symmetric with [writeTypedConfig].
+  /// Used when a field returns to its default display state (e.g. a legacy
+  /// type whose only config was a now-disabled `hideTitleOnProfile`).
+  Future<void> clearTypedConfig(String fieldId);
 }

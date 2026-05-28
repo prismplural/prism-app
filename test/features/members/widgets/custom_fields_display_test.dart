@@ -316,6 +316,63 @@ void main() {
       semanticsHandle.dispose();
     },
   );
+
+  testWidgets(
+    'group child with hideTitleOnProfile hides its own label, sibling keeps it',
+    (tester) async {
+      // Per-child opt-out inside a group, independent of the group's own
+      // toggle. Regression for the codex P2: child title was always shown.
+      final group = CustomField(
+        id: 'grp',
+        name: 'My Group',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'group',
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const GroupConfig(),
+      );
+      final hiddenChild = CustomField(
+        id: 'child-hidden',
+        name: 'Secret Child',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'text',
+        parentFieldId: 'grp',
+        displayOrder: 0,
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const TextConfig(hideTitleOnProfile: true),
+      );
+      final shownChild = CustomField(
+        id: 'child-shown',
+        name: 'Shown Child',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'text',
+        parentFieldId: 'grp',
+        displayOrder: 1,
+        createdAt: DateTime(2026, 1, 1),
+      );
+
+      final semanticsHandle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        subject(
+          fields: [group, hiddenChild, shownChild],
+          values: [
+            value('child-hidden', 'hidden-val'),
+            value('child-shown', 'shown-val'),
+          ],
+        ),
+      );
+      await tester.pump();
+
+      // The hidden child's name label is suppressed.
+      expect(find.text('Secret Child'), findsNothing);
+      // The sibling that did NOT opt out still shows its name — proves the
+      // toggle is per-field, not inherited group-wide.
+      expect(find.text('Shown Child'), findsOneWidget);
+      // The hidden child's name is still announced for accessibility.
+      expect(find.bySemanticsLabel(RegExp('Secret Child')), findsWidgets);
+
+      semanticsHandle.dispose();
+    },
+  );
 }
 
 TextSpan? _findTextSpanWithPlainText(WidgetTester tester, String text) {

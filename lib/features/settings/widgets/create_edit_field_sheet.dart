@@ -111,7 +111,6 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   late final TextEditingController _sliderUnitController;
   bool _sliderShowTicks = false;
 
-  // Shared show-title-on-profile toggle (applies to all types).
   bool _hideTitleOnProfile = false;
 
   bool _saving = false;
@@ -250,7 +249,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           _scaleCustomEmojiController.text = config.emoji;
         }
       }
-      // Hydrate shared show-title toggle from existing field (works for all types).
+      // Hydrate show-title toggle from existing field.
       _hideTitleOnProfile = effectiveHideTitleOnProfile(f.typeConfig);
       // Hydrate slider config from existing field.
       if (f.typeConfig is SliderConfig) {
@@ -686,8 +685,14 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
             );
             if (err != null) throw err;
           }
-          if (configChanged && typeConfig != null) {
-            final err = await notifier.writeTypedConfig(existing.id, typeConfig);
+          if (configChanged) {
+            // typeConfig == null means "reset to default" (e.g. a legacy
+            // type whose only setting, hideTitleOnProfile, was turned back
+            // off). Must clear the stored blob — otherwise the stale config
+            // lingers and keeps syncing.
+            final err = typeConfig != null
+                ? await notifier.writeTypedConfig(existing.id, typeConfig)
+                : await notifier.clearTypedConfig(existing.id);
             if (err != null) throw err;
           }
         }

@@ -248,6 +248,11 @@ class _GroupChildDisplay extends StatelessWidget {
   bool get _isHeaderless =>
       _headerlessTypeIds.contains(entry.child.fieldTypeId);
 
+  /// Per-field opt-out: the child's own `hideTitleOnProfile` suppresses its
+  /// label inside the group, independent of the parent group's toggle.
+  bool get _hideTitle =>
+      effectiveHideTitleOnProfile(entry.child.typeConfig);
+
   bool get _isCompact {
     if (_isHeaderless) return false;
     return effectiveDisplayLayout(
@@ -262,6 +267,19 @@ class _GroupChildDisplay extends StatelessWidget {
     final theme = Theme.of(context);
     if (_isHeaderless) {
       return entry.renderer.displayBuilder(context, entry.child, entry.value);
+    }
+    if (_hideTitle) {
+      // Value-only: the surrounding group card supplies the visual container,
+      // so no per-child icon affordance is needed. Wrap in Semantics so the
+      // child's name is still announced to screen readers.
+      return Semantics(
+        label: entry.child.name,
+        child: entry.renderer.displayBuilder(
+          context,
+          entry.child,
+          entry.value,
+        ),
+      );
     }
     if (_isCompact) {
       return Padding(

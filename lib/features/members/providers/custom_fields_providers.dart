@@ -216,6 +216,22 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
     return failure;
   }
 
+  /// Clear [fieldId]'s typeConfig (resets `type_config_json` to NULL).
+  /// Returns the caught error or `null` on success — callers must check.
+  Future<Object?> clearTypedConfig(String fieldId) async {
+    Object? failure;
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(customFieldsRepositoryProvider);
+      try {
+        await repo.clearTypedConfig(fieldId);
+      } catch (e) {
+        failure = e;
+        rethrow;
+      }
+    });
+    return failure;
+  }
+
   Future<void> deleteField(String id, {bool deleteChildren = false}) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);

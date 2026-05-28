@@ -486,6 +486,14 @@ class DriftCustomFieldsRepository
     await _writePartial(fieldId, {'type_config_json': json});
   }
 
+  @override
+  Future<void> clearTypedConfig(String fieldId) async {
+    // Patch-style null write — mirrors setFieldDatePrecision(null). The
+    // no-op short-circuit in _writePartial means clearing an already-null
+    // config emits nothing.
+    await _writePartial(fieldId, {'type_config_json': null});
+  }
+
   Map<String, dynamic> _valueFields(domain.CustomFieldValue v) =>
       valueFields(v);
 

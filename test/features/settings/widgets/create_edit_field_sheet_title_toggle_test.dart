@@ -27,6 +27,8 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
   CustomField? lastUpdated;
   String? lastWrittenConfigFieldId;
   CustomFieldTypeConfig? lastWrittenConfig;
+  String? lastClearedConfigFieldId;
+  bool clearTypedConfigCalled = false;
 
   @override
   Future<void> build() async {}
@@ -68,6 +70,13 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
   ) async {
     lastWrittenConfigFieldId = fieldId;
     lastWrittenConfig = newConfig;
+    return null;
+  }
+
+  @override
+  Future<Object?> clearTypedConfig(String fieldId) async {
+    clearTypedConfigCalled = true;
+    lastClearedConfigFieldId = fieldId;
     return null;
   }
 }
@@ -206,6 +215,44 @@ void main() {
       );
       // value = !hideTitleOnProfile → false when hidden
       expect(sw.value, isFalse);
+    });
+
+    testWidgets(
+        'reverting a hidden-title text field back to default clears the config',
+        (tester) async {
+      _useTallViewport(tester);
+      final existingField = CustomField(
+        id: 'field-text-revert',
+        name: 'Hidden',
+        fieldType: CustomFieldType.text,
+        displayOrder: 0,
+        createdAt: DateTime.utc(2026, 1, 1),
+        fieldTypeId: 'text',
+        typeConfig: const TextConfig(hideTitleOnProfile: true),
+      );
+      final notifier = _FakeCustomFieldNotifier();
+      await tester.pumpWidget(
+        _buildSheet(field: existingField, notifier: notifier),
+      );
+      await tester.pumpAndSettle();
+
+      // Flip the toggle back ON (show title) → hideTitleOnProfile = false →
+      // _buildTextConfig returns null → the config must be CLEARED, not left
+      // stale. Regression for the codex P1: the old `typeConfig != null`
+      // guard silently dropped this write.
+      await tester.tap(
+        find.widgetWithText(SwitchListTile, 'Show title on profiles'),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.check));
+      await tester.pumpAndSettle();
+
+      expect(notifier.clearTypedConfigCalled, isTrue,
+          reason: 'reverting to default must clear type_config_json');
+      expect(notifier.lastClearedConfigFieldId, 'field-text-revert');
+      expect(notifier.lastWrittenConfig, isNull,
+          reason: 'no stale config should be written on revert');
     });
   });
 

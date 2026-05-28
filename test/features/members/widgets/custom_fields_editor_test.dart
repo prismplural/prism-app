@@ -428,4 +428,7 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
     String fieldId,
     CustomFieldTypeConfig newConfig,
   ) async {}
+
+  @override
+  Future<void> clearTypedConfig(String fieldId) async {}
 }
