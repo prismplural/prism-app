@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
 import 'package:prism_plurality/shared/widgets/sp_import_warning_summary.dart';
 
@@ -181,7 +182,6 @@ void main() {
   });
 
   // ── Test 8: focus after expand ────────────────────────────────────────────
-  // Marked skip if flaky — the post-frame focus callback is async.
   testWidgets('T8: first child gains focus after section expands', (tester) async {
     await tester.pumpWidget(
       _wrap(
@@ -192,8 +192,9 @@ void main() {
 
     // Expand the section.
     await tester.tap(find.byType(PrismExpandableSection).first);
-    // Let animation and post-frame callback run.
-    await tester.pumpAndSettle();
+    // Pump through the expand animation (Anim.md = 200ms) plus a small buffer
+    // so the post-frame focus callback runs deterministically.
+    await tester.pump(Anim.md + const Duration(milliseconds: 50));
 
     // The Focus widget wrapping the first child should hold the primary focus.
     final focusWidgets = tester.widgetList<Focus>(find.byType(Focus)).toList();
@@ -201,7 +202,6 @@ void main() {
     expect(focusWidgets, isNotEmpty);
 
     final hasFocus = focusWidgets.any((f) => f.focusNode?.hasFocus ?? false);
-    // TODO(sky): if this assertion proves flaky in CI, skip this test.
     expect(hasFocus, isTrue);
-  }, timeout: const Timeout(Duration(seconds: 10)));
+  });
 }

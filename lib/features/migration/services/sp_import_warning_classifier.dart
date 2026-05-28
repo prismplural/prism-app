@@ -40,12 +40,13 @@ class SpImportWarningClassifier {
   /// rendering is stable. Empty categories are omitted from the result.
   ///
   /// Classification rules (first match wins):
-  ///   1. avatar + (download | zip)  → avatars
+  ///   1. avatar + (download | zip) | zip image | avatar zip → avatars
   ///   2. encrypted                  → encryptedMessages
   ///   3. no startTime | (front history + startTime) → dataQuality
   ///   4. sync emission | replay     → syncEmission
   ///   5. handled as notes | deleted in sp | custom front | custom fronts |
-  ///      custom-front | sleep | timer → customFrontAdjustments
+  ///      custom-front | sleep session | sp sleep | sleep entries |
+  ///      imported timer | timers targeted → customFrontAdjustments
   ///   6. not found | skipped | cannot determine recipient → missingReferences
   ///   7. (fallback)                 → other
   static List<SpImportWarningCategory> classify(List<String> warnings) {
@@ -77,9 +78,11 @@ class SpImportWarningClassifier {
   }
 
   static SpImportWarningKind _classify(String lower) {
-    // Rule 1: avatar + (download | zip)
-    if (lower.contains('avatar') &&
-        (lower.contains('download') || lower.contains('zip'))) {
+    // Rule 1: avatar + (download | zip) | zip image | avatar zip
+    if ((lower.contains('avatar') &&
+            (lower.contains('download') || lower.contains('zip'))) ||
+        lower.contains('zip image') ||
+        lower.contains('avatar zip')) {
       return SpImportWarningKind.avatars;
     }
     // Rule 2: encrypted
@@ -96,14 +99,18 @@ class SpImportWarningClassifier {
       return SpImportWarningKind.syncEmission;
     }
     // Rule 5: handled as notes | deleted in sp | custom front | custom fronts |
-    //         custom-front (hyphenated variant) | sleep | timer
+    //         custom-front (hyphenated variant) | sleep session | sp sleep |
+    //         sleep entries | imported timer | timers targeted
     if (lower.contains('handled as notes') ||
         lower.contains('deleted in sp') ||
         lower.contains('custom front') ||
         lower.contains('custom fronts') ||
         lower.contains('custom-front') ||
-        lower.contains('sleep') ||
-        lower.contains('timer')) {
+        lower.contains('sleep session') ||
+        lower.contains('sp sleep') ||
+        lower.contains('sleep entries') ||
+        lower.contains('imported timer') ||
+        lower.contains('timers targeted')) {
       return SpImportWarningKind.customFrontAdjustments;
     }
     // Rule 6: not found | skipped | cannot determine recipient

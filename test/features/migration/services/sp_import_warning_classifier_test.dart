@@ -53,6 +53,60 @@ void main() {
       );
     });
 
+    // ── avatars: ZIP-image warnings from sp_avatar_zip_importer.dart ─────────
+    // These strings contain "zip image" but no "avatar"; without the extended
+    // rule they would fall through to missingReferences via the "skipped" check.
+
+    test('unsupported ZIP image → avatars', () {
+      // Source: sp_avatar_zip_importer.dart _normalizedBytes
+      expect(
+        kindOf('Skipped unsupported ZIP image: photo.tiff'),
+        SpImportWarningKind.avatars,
+      );
+    });
+
+    test('oversized ZIP image → avatars', () {
+      // Source: sp_avatar_zip_importer.dart _importArchiveFiles (size check)
+      expect(
+        kindOf('Skipped oversized ZIP image: photo.png'),
+        SpImportWarningKind.avatars,
+      );
+    });
+
+    test('empty ZIP image → avatars', () {
+      // Source: sp_avatar_zip_importer.dart _normalizedBytes
+      expect(
+        kindOf('Skipped empty ZIP image: photo.jpg'),
+        SpImportWarningKind.avatars,
+      );
+    });
+
+    test('ZIP image for missing member → avatars', () {
+      // Source: sp_avatar_zip_importer.dart _importArchiveFiles
+      expect(
+        kindOf('Skipped ZIP image for missing member: abc-uuid-123'),
+        SpImportWarningKind.avatars,
+      );
+    });
+
+    test('no supported images in ZIP → avatars', () {
+      // Source: sp_avatar_zip_importer.dart _importArchiveFiles (imagesFound==0)
+      expect(
+        kindOf('No supported images were found in the avatar ZIP.'),
+        SpImportWarningKind.avatars,
+      );
+    });
+
+    test('unmatched ZIP images aggregate warning → avatars', () {
+      // Source: sp_avatar_zip_importer.dart _importArchiveFiles (unmatchedImages>0)
+      expect(
+        kindOf(
+          'Skipped 3 ZIP image(s) that did not match imported Simply Plural members.',
+        ),
+        SpImportWarningKind.avatars,
+      );
+    });
+
     // ── encryptedMessages ────────────────────────────────────────────────────
     // Source: sp_mapper.dart:1005-1011
 

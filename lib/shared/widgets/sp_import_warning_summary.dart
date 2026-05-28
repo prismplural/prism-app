@@ -26,6 +26,21 @@ class SpImportWarningSummary extends StatefulWidget {
 class _SpImportWarningSummaryState extends State<SpImportWarningSummary> {
   final Set<SpImportWarningKind> _expandedKinds = {};
   final Map<SpImportWarningKind, FocusNode> _focusNodes = {};
+  late List<SpImportWarningCategory> _categories;
+
+  @override
+  void initState() {
+    super.initState();
+    _categories = SpImportWarningClassifier.classify(widget.warnings);
+  }
+
+  @override
+  void didUpdateWidget(SpImportWarningSummary oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.warnings, widget.warnings)) {
+      _categories = SpImportWarningClassifier.classify(widget.warnings);
+    }
+  }
 
   @override
   void dispose() {
@@ -41,7 +56,7 @@ class _SpImportWarningSummaryState extends State<SpImportWarningSummary> {
 
   @override
   Widget build(BuildContext context) {
-    final categories = SpImportWarningClassifier.classify(widget.warnings);
+    final categories = _categories;
     if (categories.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
@@ -124,6 +139,7 @@ class _SpImportWarningSummaryState extends State<SpImportWarningSummary> {
         if (expanded) {
           final node = _focusNodeFor(kind);
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
             node.requestFocus();
           });
         }
@@ -173,19 +189,23 @@ class _SpImportWarningSummaryState extends State<SpImportWarningSummary> {
     final focusNode = _focusNodeFor(kind);
 
     final displayCount = (warnings.length <= 10 || showAll) ? warnings.length : 10;
-    final children = <Widget>[];
 
-    for (var i = 0; i < displayCount; i++) {
-      final text = Text(warnings[i], style: theme.textTheme.bodySmall);
-      if (i == 0) {
-        children.add(Focus(focusNode: focusNode, child: text));
-      } else {
-        children.add(text);
-      }
-    }
+    final warningList = ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: displayCount,
+      itemBuilder: (context, i) {
+        final text = Text(warnings[i], style: theme.textTheme.bodySmall);
+        if (i == 0) {
+          return Focus(focusNode: focusNode, child: text);
+        }
+        return text;
+      },
+    );
 
     if (warnings.length > 10 && !showAll) {
-      children.add(
+      return [
+        warningList,
         PrismButton(
           tone: PrismButtonTone.outlined,
           density: PrismControlDensity.compact,
@@ -194,10 +214,10 @@ class _SpImportWarningSummaryState extends State<SpImportWarningSummary> {
             setState(() => _expandedKinds.add(kind));
           },
         ),
-      );
+      ];
     }
 
-    return children;
+    return [warningList];
   }
 
   bool _showRetryFor(SpImportWarningCategory category) =>
