@@ -11847,6 +11847,23 @@
   "@customFieldSliderCustomGradient": { "description": "Chip label that selects custom per-anchor colors instead of a gradient preset." },
   "customFieldSliderColorAnchorTitle": "Pick a color",
   "@customFieldSliderColorAnchorTitle": { "description": "Title of the color picker dialog for a slider anchor (left/center/right)." },
+  "customFieldSliderAddColor": "Add color",
+  "@customFieldSliderAddColor": { "description": "Tooltip / label for the add-color button in the custom gradient swatch row." },
+  "customFieldSliderRemoveColor": "Remove color",
+  "@customFieldSliderRemoveColor": { "description": "Tooltip / label for the remove-color action in the custom gradient swatch row." },
+  "customFieldSliderMoveLeft": "Move left",
+  "@customFieldSliderMoveLeft": { "description": "Accessible action label to move a gradient swatch one position to the left." },
+  "customFieldSliderMoveRight": "Move right",
+  "@customFieldSliderMoveRight": { "description": "Accessible action label to move a gradient swatch one position to the right." },
+  "customFieldSliderGradientColorSemantics": "Gradient color {index} of {total}, {hex}",
+  "@customFieldSliderGradientColorSemantics": {
+    "description": "Semantic label for a gradient color swatch, e.g. for screen readers.",
+    "placeholders": {
+      "index": { "type": "int" },
+      "total": { "type": "int" },
+      "hex": { "type": "String" }
+    }
+  },
   "customFieldColorPickerTitle": "Pick a color",
   "@customFieldColorPickerTitle": { "description": "Default title for the shared color picker dialog (choice options, color field)." },
   "customFieldSliderSnapToPositions": "Snap to positions",

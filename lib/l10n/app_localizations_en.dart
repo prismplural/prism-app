@@ -11000,6 +11000,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldSliderColorAnchorTitle => 'Pick a color';
 
   @override
+  String get customFieldSliderAddColor => 'Add color';
+
+  @override
+  String get customFieldSliderRemoveColor => 'Remove color';
+
+  @override
+  String get customFieldSliderMoveLeft => 'Move left';
+
+  @override
+  String get customFieldSliderMoveRight => 'Move right';
+
+  @override
+  String customFieldSliderGradientColorSemantics(
+    int index,
+    int total,
+    String hex,
+  ) {
+    return 'Gradient color $index of $total, $hex';
+  }
+
+  @override
   String get customFieldColorPickerTitle => 'Pick a color';
 
   @override

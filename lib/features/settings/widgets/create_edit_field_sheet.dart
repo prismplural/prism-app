@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -102,9 +103,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   late final TextEditingController _sliderRightLabelController;
   late final TextEditingController _sliderCenterLabelController;
   String? _sliderGradientPresetId = 'femme-masc';
-  String? _sliderLeftColorHex;
-  String? _sliderRightColorHex;
-  String? _sliderCenterColorHex;
+  // 2–6 custom gradient colors (only used when _sliderGradientPresetId == null).
+  List<String> _sliderGradientColors = const ['#E89BB8', '#8FAA9A'];
   bool _sliderSnapToPositions = false;
   late final TextEditingController _sliderMinController;
   late final TextEditingController _sliderMaxController;
@@ -167,9 +167,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           existingConfig.centerLabel !=
               toNullable(_sliderCenterLabelController.text) ||
           existingConfig.gradientPresetId != _sliderGradientPresetId ||
-          existingConfig.leftColorHex != _sliderLeftColorHex ||
-          existingConfig.rightColorHex != _sliderRightColorHex ||
-          existingConfig.centerColorHex != _sliderCenterColorHex ||
+          !listEquals(existingConfig.gradientColorsHex, _sliderGradientColors) ||
           existingConfig.snapToPositions != _sliderSnapToPositions;
     }
     return existingConfig.min !=
@@ -260,9 +258,20 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         _sliderRightLabelController.text = config.rightLabel ?? '';
         _sliderCenterLabelController.text = config.centerLabel ?? '';
         _sliderGradientPresetId = config.gradientPresetId;
-        _sliderLeftColorHex = config.leftColorHex;
-        _sliderRightColorHex = config.rightColorHex;
-        _sliderCenterColorHex = config.centerColorHex;
+        // Hydrate gradient colors: prefer gradientColorsHex, fall back to
+        // legacy left/center/right, then 2-color default.
+        if (config.gradientColorsHex != null &&
+            config.gradientColorsHex!.length >= 2) {
+          _sliderGradientColors = List<String>.from(config.gradientColorsHex!);
+        } else {
+          final legacy = [
+            config.leftColorHex,
+            config.centerColorHex,
+            config.rightColorHex,
+          ].whereType<String>().toList();
+          _sliderGradientColors =
+              legacy.length >= 2 ? legacy : _defaultGradientColors();
+        }
         _sliderSnapToPositions = config.snapToPositions;
         _sliderMinController.text = config.min?.toString() ?? '0';
         _sliderMaxController.text = config.max?.toString() ?? '10';
@@ -471,18 +480,41 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   }
 
   /// Build the current [SliderConfig] from UI state.
+  /// Default two-color gradient when no existing colors are available.
+  static List<String> _defaultGradientColors() => ['#E89BB8', '#8FAA9A'];
+
+  /// Mirror [_sliderGradientColors] into the three legacy fields for old-client
+  /// compatibility. Center is only set when the list has ≥ 3 colors.
+  ({
+    String leftColorHex,
+    String? centerColorHex,
+    String rightColorHex,
+    List<String> gradientColorsHex,
+  })
+  _buildGradientColorFields() {
+    final list = _sliderGradientColors;
+    return (
+      leftColorHex: list.first,
+      rightColorHex: list.last,
+      centerColorHex: list.length >= 3 ? list[list.length ~/ 2] : null,
+      gradientColorsHex: List<String>.from(list),
+    );
+  }
+
   SliderConfig _buildSliderConfig() {
     final existing = widget.field?.typeConfig;
     if (_sliderMode == SliderMode.labeled) {
+      final colors = _buildGradientColorFields();
       if (existing is SliderConfig) {
         return existing.copyWith(
           leftLabel: _sliderTextToNull(_sliderLeftLabelController),
           rightLabel: _sliderTextToNull(_sliderRightLabelController),
           centerLabel: _sliderTextToNull(_sliderCenterLabelController),
           gradientPresetId: _sliderGradientPresetId,
-          leftColorHex: _sliderLeftColorHex,
-          rightColorHex: _sliderRightColorHex,
-          centerColorHex: _sliderCenterColorHex,
+          leftColorHex: colors.leftColorHex,
+          rightColorHex: colors.rightColorHex,
+          centerColorHex: colors.centerColorHex,
+          gradientColorsHex: colors.gradientColorsHex,
           snapToPositions: _sliderSnapToPositions,
           hideTitleOnProfile: _hideTitleOnProfile,
         );
@@ -493,9 +525,10 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         rightLabel: _sliderTextToNull(_sliderRightLabelController),
         centerLabel: _sliderTextToNull(_sliderCenterLabelController),
         gradientPresetId: _sliderGradientPresetId,
-        leftColorHex: _sliderLeftColorHex,
-        rightColorHex: _sliderRightColorHex,
-        centerColorHex: _sliderCenterColorHex,
+        leftColorHex: colors.leftColorHex,
+        rightColorHex: colors.rightColorHex,
+        centerColorHex: colors.centerColorHex,
+        gradientColorsHex: colors.gradientColorsHex,
         snapToPositions: _sliderSnapToPositions,
         hideTitleOnProfile: _hideTitleOnProfile,
       );
@@ -957,9 +990,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         rightLabelController: _sliderRightLabelController,
                         centerLabelController: _sliderCenterLabelController,
                         selectedPresetId: _sliderGradientPresetId,
-                        leftColorHex: _sliderLeftColorHex,
-                        rightColorHex: _sliderRightColorHex,
-                        centerColorHex: _sliderCenterColorHex,
+                        gradientColors: _sliderGradientColors,
                         snapToPositions: _sliderSnapToPositions,
                         minController: _sliderMinController,
                         maxController: _sliderMaxController,
@@ -969,14 +1000,29 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         numericError: sliderError,
                         onModeSelected: (m) =>
                             setState(() => _sliderMode = m),
-                        onPresetSelected: (id) =>
-                            setState(() => _sliderGradientPresetId = id),
-                        onLeftColorChanged: (hex) =>
-                            setState(() => _sliderLeftColorHex = hex),
-                        onRightColorChanged: (hex) =>
-                            setState(() => _sliderRightColorHex = hex),
-                        onCenterColorChanged: (hex) =>
-                            setState(() => _sliderCenterColorHex = hex),
+                        onPresetSelected: (id) {
+                          if (id == null && _sliderGradientPresetId != null) {
+                            // Switching to custom: seed from current preset.
+                            final preset = lookupGradientPreset(
+                              _sliderGradientPresetId,
+                            );
+                            if (preset != null) {
+                              final seeded = [
+                                preset.leftHex,
+                                if (preset.centerHex != null) preset.centerHex!,
+                                preset.rightHex,
+                              ];
+                              setState(() {
+                                _sliderGradientPresetId = null;
+                                _sliderGradientColors = seeded;
+                              });
+                              return;
+                            }
+                          }
+                          setState(() => _sliderGradientPresetId = id);
+                        },
+                        onColorsChanged: (colors) =>
+                            setState(() => _sliderGradientColors = colors),
                         onSnapToPositionsChanged: (v) =>
                             setState(() => _sliderSnapToPositions = v),
                         onShowTicksChanged: (v) =>
@@ -1506,9 +1552,7 @@ class _SliderConfigSection extends StatelessWidget {
     required this.rightLabelController,
     required this.centerLabelController,
     required this.selectedPresetId,
-    required this.leftColorHex,
-    required this.rightColorHex,
-    required this.centerColorHex,
+    required this.gradientColors,
     required this.snapToPositions,
     required this.minController,
     required this.maxController,
@@ -1518,9 +1562,7 @@ class _SliderConfigSection extends StatelessWidget {
     this.numericError,
     required this.onModeSelected,
     required this.onPresetSelected,
-    required this.onLeftColorChanged,
-    required this.onRightColorChanged,
-    required this.onCenterColorChanged,
+    required this.onColorsChanged,
     required this.onSnapToPositionsChanged,
     required this.onShowTicksChanged,
     required this.onLabelChanged,
@@ -1532,9 +1574,8 @@ class _SliderConfigSection extends StatelessWidget {
   final TextEditingController rightLabelController;
   final TextEditingController centerLabelController;
   final String? selectedPresetId;
-  final String? leftColorHex;
-  final String? rightColorHex;
-  final String? centerColorHex;
+  /// 2–6 custom gradient colors used when [selectedPresetId] is null.
+  final List<String> gradientColors;
   final bool snapToPositions;
   final TextEditingController minController;
   final TextEditingController maxController;
@@ -1546,12 +1587,9 @@ class _SliderConfigSection extends StatelessWidget {
   /// disabled by the parent.
   final String? numericError;
   final ValueChanged<SliderMode> onModeSelected;
-  /// Null marks the synthetic "Custom" choice, which reveals the per-anchor
-  /// color pickers.
+  /// Null marks the synthetic "Custom" choice, which reveals the swatch row.
   final ValueChanged<String?> onPresetSelected;
-  final ValueChanged<String?> onLeftColorChanged;
-  final ValueChanged<String?> onRightColorChanged;
-  final ValueChanged<String?> onCenterColorChanged;
+  final ValueChanged<List<String>> onColorsChanged;
   final ValueChanged<bool> onSnapToPositionsChanged;
   final ValueChanged<bool> onShowTicksChanged;
   final VoidCallback onLabelChanged;
@@ -1690,35 +1728,16 @@ class _SliderConfigSection extends StatelessWidget {
               _CustomGradientChip(
                 isSelected: selectedPresetId == null,
                 onTap: () => onPresetSelected(null),
-                leftColorHex: leftColorHex,
-                centerColorHex: centerColorHex,
-                rightColorHex: rightColorHex,
+                gradientColors: gradientColors,
                 labelText: l10n.customFieldSliderCustomGradient,
               ),
             ],
           ),
           const SizedBox(height: 12),
           if (selectedPresetId == null) ...[
-            _ColorPickerRow(
-              labelText: l10n.customFieldSliderLeftLabel,
-              colorHex: leftColorHex,
-              onColorChanged: onLeftColorChanged,
-            ),
-            const SizedBox(height: 8),
-            _ColorPickerRow(
-              labelText: l10n.customFieldSliderCenterLabel,
-              colorHex: centerColorHex,
-              onColorChanged: onCenterColorChanged,
-              placeholderWhenNull: true,
-              onClear: centerColorHex == null
-                  ? null
-                  : () => onCenterColorChanged(null),
-            ),
-            const SizedBox(height: 8),
-            _ColorPickerRow(
-              labelText: l10n.customFieldSliderRightLabel,
-              colorHex: rightColorHex,
-              onColorChanged: onRightColorChanged,
+            _GradientSwatchRow(
+              colors: gradientColors,
+              onColorsChanged: onColorsChanged,
             ),
             const SizedBox(height: 8),
           ],
@@ -2032,122 +2051,265 @@ class _GradientPresetChip extends StatelessWidget {
   }
 }
 
-// ── Color picker row ─────────────────────────────────────────────────────────
+// ── Gradient swatch row ──────────────────────────────────────────────────────
 
-class _ColorPickerRow extends StatelessWidget {
-  const _ColorPickerRow({
-    required this.labelText,
-    required this.colorHex,
-    required this.onColorChanged,
-    this.placeholderWhenNull = false,
-    this.onClear,
+/// Opens the color picker dialog shared by the gradient swatch row and returns
+/// the chosen hex string, or null if cancelled.
+Future<String?> _showSwatchColorPicker(
+  BuildContext context,
+  Color initialColor,
+) async {
+  var picked = initialColor;
+  final confirmed = await PrismDialog.show<bool>(
+    context: context,
+    title: context.l10n.customFieldSliderColorAnchorTitle,
+    builder: (dialogContext) {
+      return ColorPicker(
+        pickerColor: initialColor,
+        onColorChanged: (color) => picked = color,
+        enableAlpha: false,
+        hexInputBar: true,
+        labelTypes: const [],
+        portraitOnly: true,
+        pickerAreaHeightPercent: 0.7,
+      );
+    },
+    actions: [
+      PrismButton(
+        onPressed: () =>
+            Navigator.of(context, rootNavigator: true).pop(false),
+        label: context.l10n.cancel,
+      ),
+      PrismButton(
+        onPressed: () =>
+            Navigator.of(context, rootNavigator: true).pop(true),
+        label: context.l10n.save,
+        tone: PrismButtonTone.filled,
+      ),
+    ],
+  );
+  if (confirmed != true) return null;
+  final value = picked.toARGB32();
+  return '#${(value & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+}
+
+/// Horizontal row of 2–6 color swatches with long-press-to-drag reorder,
+/// inline + tile to add, and a per-swatch edit popup (edit color, remove,
+/// move left / right).
+class _GradientSwatchRow extends StatelessWidget {
+  const _GradientSwatchRow({
+    required this.colors,
+    required this.onColorsChanged,
   });
 
-  final String labelText;
-  final String? colorHex;
-  final ValueChanged<String?> onColorChanged;
-  // When true and colorHex is null, render a hollow circle with a + icon
-  // instead of a primary-colored fill — reads as "tap to add" for optional
-  // anchors like the gradient midpoint.
-  final bool placeholderWhenNull;
-  final VoidCallback? onClear;
+  static const int _maxColors = 6;
+  static const int _minColors = 2;
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final showPlaceholder = colorHex == null && placeholderWhenNull;
+  final List<String> colors;
+  final ValueChanged<List<String>> onColorsChanged;
 
-    Color currentColor;
+  Color _parse(String hex, Color fallback) {
     try {
-      currentColor = colorHex != null
-          ? AppColors.fromHex(colorHex!)
-          : theme.colorScheme.primary;
+      return AppColors.fromHex(hex);
     } catch (_) {
-      currentColor = theme.colorScheme.primary;
+      return fallback;
     }
+  }
 
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: () => _openColorPicker(context, currentColor),
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: showPlaceholder ? Colors.transparent : currentColor,
-              border: Border.all(
-                color: theme.colorScheme.outline.withValues(
-                  alpha: showPlaceholder ? 0.7 : 0.5,
-                ),
+  Future<void> _openSwatchMenu(
+    BuildContext context,
+    int index,
+    String hex,
+  ) async {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final fallback = theme.colorScheme.primary;
+
+    // Options: Edit color, Move left (if index > 0), Move right
+    // (if index < length-1), Remove (if length > _minColors).
+    await showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.palette_outlined),
+                title: Text(l10n.customFieldSliderColorAnchorTitle),
+                onTap: () async {
+                  Navigator.of(sheetCtx).pop();
+                  final parsed = _parse(hex, fallback);
+                  final newHex = await _showSwatchColorPicker(context, parsed);
+                  if (newHex == null) return;
+                  final updated = List<String>.from(colors);
+                  updated[index] = newHex;
+                  onColorsChanged(updated);
+                  Haptics.selection();
+                },
               ),
-            ),
-            child: showPlaceholder
-                ? Icon(
-                    AppIcons.add,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  )
-                : null,
+              if (index > 0)
+                ListTile(
+                  leading: const Icon(Icons.arrow_back),
+                  title: Text(l10n.customFieldSliderMoveLeft),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    final updated = List<String>.from(colors);
+                    final tmp = updated[index - 1];
+                    updated[index - 1] = updated[index];
+                    updated[index] = tmp;
+                    onColorsChanged(updated);
+                    Haptics.selection();
+                  },
+                ),
+              if (index < colors.length - 1)
+                ListTile(
+                  leading: const Icon(Icons.arrow_forward),
+                  title: Text(l10n.customFieldSliderMoveRight),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    final updated = List<String>.from(colors);
+                    final tmp = updated[index + 1];
+                    updated[index + 1] = updated[index];
+                    updated[index] = tmp;
+                    onColorsChanged(updated);
+                    Haptics.selection();
+                  },
+                ),
+              if (colors.length > _minColors)
+                ListTile(
+                  leading: Icon(
+                    Icons.remove_circle_outline,
+                    color: theme.colorScheme.error,
+                  ),
+                  title: Text(
+                    l10n.customFieldSliderRemoveColor,
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    final updated = List<String>.from(colors)..removeAt(index);
+                    onColorsChanged(updated);
+                    Haptics.selection();
+                  },
+                ),
+            ],
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            labelText,
-            style: theme.textTheme.bodyMedium,
-          ),
-        ),
-        if (onClear != null && colorHex != null)
-          IconButton(
-            icon: Icon(AppIcons.close, size: 18),
-            tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
-            onPressed: onClear,
-            visualDensity: VisualDensity.compact,
-          ),
-      ],
+        );
+      },
     );
   }
 
-  Future<void> _openColorPicker(
-    BuildContext context,
-    Color initialColor,
-  ) async {
-    var picked = initialColor;
-    final confirmed = await PrismDialog.show<bool>(
-      context: context,
-      title: context.l10n.customFieldSliderColorAnchorTitle,
-      builder: (dialogContext) {
-        return ColorPicker(
-          pickerColor: initialColor,
-          onColorChanged: (color) => picked = color,
-          enableAlpha: false,
-          hexInputBar: true,
-          labelTypes: const [],
-          portraitOnly: true,
-          pickerAreaHeightPercent: 0.7,
-        );
-      },
-      actions: [
-        PrismButton(
-          onPressed: () =>
-              Navigator.of(context, rootNavigator: true).pop(false),
-          label: context.l10n.cancel,
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final fallback = theme.colorScheme.primary;
+    final canAdd = colors.length < _maxColors;
+
+    // Use ReorderableListView.builder with horizontal scroll.
+    // shrinkWrap + scrollDirection = Axis.horizontal gives us the drag handle
+    // behaviour (long-press to drag) without persistent handle widgets.
+    return SizedBox(
+      height: 56,
+      child: ReorderableListView.builder(
+        scrollDirection: Axis.horizontal,
+        shrinkWrap: true,
+        buildDefaultDragHandles: true,
+        itemCount: colors.length,
+        onReorder: (oldIndex, newIndex) {
+          if (newIndex > oldIndex) newIndex--;
+          final updated = List<String>.from(colors)
+            ..removeAt(oldIndex)
+            ..insert(newIndex, colors[oldIndex]);
+          onColorsChanged(updated);
+          Haptics.selection();
+        },
+        proxyDecorator: (child, index, animation) => Material(
+          color: Colors.transparent,
+          child: child,
         ),
-        PrismButton(
-          onPressed: () =>
-              Navigator.of(context, rootNavigator: true).pop(true),
-          label: context.l10n.save,
-          tone: PrismButtonTone.filled,
-        ),
-      ],
+        footer: canAdd
+            ? Semantics(
+                label: l10n.customFieldSliderAddColor,
+                button: true,
+                child: GestureDetector(
+                  onTap: () async {
+                    // Duplicate last color as starting point, then auto-edit.
+                    final newHex = colors.last;
+                    final updated = List<String>.from(colors)..add(newHex);
+                    onColorsChanged(updated);
+                    Haptics.selection();
+                    // Open the edit picker for the newly added swatch.
+                    await Future<void>.delayed(Duration.zero);
+                    if (context.mounted) {
+                      await _openSwatchMenu(
+                        context,
+                        updated.length - 1,
+                        newHex,
+                      );
+                    }
+                  },
+                  child: Tooltip(
+                    message: l10n.customFieldSliderAddColor,
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: theme.colorScheme.outline.withValues(
+                            alpha: 0.5,
+                          ),
+                          style: BorderStyle.solid,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.add,
+                        size: 22,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : null,
+        itemBuilder: (context, index) {
+          final hex = colors[index];
+          final color = _parse(hex, fallback);
+          final label = l10n.customFieldSliderGradientColorSemantics(
+            index + 1,
+            colors.length,
+            hex,
+          );
+          return Semantics(
+            key: ValueKey('swatch_$index'),
+            label: label,
+            button: true,
+            child: Tooltip(
+              message: hex,
+              child: GestureDetector(
+                onTap: () => _openSwatchMenu(context, index, hex),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color,
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
-    if (confirmed == true) {
-      final value = picked.toARGB32();
-      final hex =
-          '#${(value & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
-      onColorChanged(hex);
-    }
   }
 }
 
@@ -2155,21 +2317,17 @@ class _CustomGradientChip extends StatelessWidget {
   const _CustomGradientChip({
     required this.isSelected,
     required this.onTap,
-    required this.leftColorHex,
-    required this.centerColorHex,
-    required this.rightColorHex,
+    required this.gradientColors,
     required this.labelText,
   });
 
   final bool isSelected;
   final VoidCallback onTap;
-  final String? leftColorHex;
-  final String? centerColorHex;
-  final String? rightColorHex;
+  /// 2–6 custom gradient color hex strings.
+  final List<String> gradientColors;
   final String labelText;
 
-  Color _parse(String? hex, Color fallback) {
-    if (hex == null) return fallback;
+  Color _parse(String hex, Color fallback) {
     try {
       return AppColors.fromHex(hex);
     } catch (_) {
@@ -2181,10 +2339,10 @@ class _CustomGradientChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final fallback = theme.colorScheme.primary;
-    final left = _parse(leftColorHex, fallback);
-    final right = _parse(rightColorHex, fallback);
-    final center = centerColorHex == null ? null : _parse(centerColorHex, left);
-    final stops = sliderGradientStops(left, center, right);
+    final colors = gradientColors.isNotEmpty
+        ? gradientColors.map((h) => _parse(h, fallback)).toList()
+        : [fallback, fallback];
+    final stops = sliderGradientStopsFromList(colors);
     final gradient = LinearGradient(
       colors: stops,
       stops: sliderGradientStopPositions(stops),

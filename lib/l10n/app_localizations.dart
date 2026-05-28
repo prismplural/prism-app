@@ -17656,6 +17656,40 @@ abstract class AppLocalizations {
   /// **'Pick a color'**
   String get customFieldSliderColorAnchorTitle;
 
+  /// Tooltip / label for the add-color button in the custom gradient swatch row.
+  ///
+  /// In en, this message translates to:
+  /// **'Add color'**
+  String get customFieldSliderAddColor;
+
+  /// Tooltip / label for the remove-color action in the custom gradient swatch row.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove color'**
+  String get customFieldSliderRemoveColor;
+
+  /// Accessible action label to move a gradient swatch one position to the left.
+  ///
+  /// In en, this message translates to:
+  /// **'Move left'**
+  String get customFieldSliderMoveLeft;
+
+  /// Accessible action label to move a gradient swatch one position to the right.
+  ///
+  /// In en, this message translates to:
+  /// **'Move right'**
+  String get customFieldSliderMoveRight;
+
+  /// Semantic label for a gradient color swatch, e.g. for screen readers.
+  ///
+  /// In en, this message translates to:
+  /// **'Gradient color {index} of {total}, {hex}'**
+  String customFieldSliderGradientColorSemantics(
+    int index,
+    int total,
+    String hex,
+  );
+
   /// Default title for the shared color picker dialog (choice options, color field).
   ///
   /// In en, this message translates to:
