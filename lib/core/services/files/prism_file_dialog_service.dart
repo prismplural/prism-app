@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -190,7 +191,13 @@ class PlatformPrismFileDialogService implements PrismFileDialogService {
         dialogTitle: dialogTitle,
         type: allowedExtensions.isEmpty ? FileType.any : FileType.custom,
         allowedExtensions: _normalizedExtensions(allowedExtensions),
-        withData: Platform.isAndroid || Platform.isIOS,
+        // withData:true on mobile crashes large picks. file_picker
+        // serializes the whole file through StandardMethodCodec into a
+        // Direct ByteBuffer before any Dart runs, OOMing the JVM (confirmed
+        // Android trace from an SP avatar zip import; iOS jetsams silently
+        // under the same pressure). Web is the only target without a
+        // filesystem path to fall back on, so it keeps bytes-mode.
+        withData: kIsWeb,
         withReadStream: false,
         lockParentWindow: Platform.isWindows,
       );

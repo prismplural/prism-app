@@ -137,6 +137,44 @@ void main() {
     );
   });
 
+  test(
+    'warns and continues when a mapped image declares too many pixels',
+    () async {
+      memberRepo.seed([
+        Member(
+          id: 'prism-alice',
+          name: 'Alice',
+          createdAt: DateTime.utc(2024),
+          avatarImageData: _jpegBytes(0, 0, 0),
+        ),
+      ]);
+      await db.spImportDao.upsertMapping(
+        const SpIdMapTableCompanion(
+          spId: Value('sp-alice'),
+          entityType: Value('member'),
+          prismId: Value('prism-alice'),
+        ),
+      );
+
+      final zipPath = await _writeZip(tempDir, {
+        'sp-alice.jpg': _jpegWithDeclaredDimensions(8000, 8000),
+      });
+
+      final result = await SpAvatarZipImporter(runInline: true).importZipFile(
+        filePath: zipPath,
+        memberRepo: memberRepo,
+        settingsRepo: settingsRepo,
+        spImportDao: db.spImportDao,
+      );
+
+      expect(result.memberAvatarsUpdated, 0);
+      expect(
+        result.warnings,
+        contains('Skipped unsupported ZIP image: sp-alice.jpg'),
+      );
+    },
+  );
+
   test('warns when a mapped ZIP image points to a missing member', () async {
     await db.spImportDao.upsertMapping(
       const SpIdMapTableCompanion(
@@ -163,6 +201,22 @@ void main() {
       contains('Skipped ZIP image for missing member: sp-missing'),
     );
   });
+}
+
+Uint8List _jpegWithDeclaredDimensions(int width, int height) {
+  final source = img.Image(width: 2, height: 2);
+  img.fill(source, color: img.ColorRgb8(1, 2, 3));
+  final encoded = Uint8List.fromList(img.encodeJpg(source));
+  for (var i = 0; i < encoded.length - 9; i++) {
+    if (encoded[i] == 0xFF && encoded[i + 1] == 0xC0) {
+      encoded[i + 5] = (height >> 8) & 0xFF;
+      encoded[i + 6] = height & 0xFF;
+      encoded[i + 7] = (width >> 8) & 0xFF;
+      encoded[i + 8] = width & 0xFF;
+      return encoded;
+    }
+  }
+  throw StateError('no SOF0 marker found in encoded JPEG');
 }
 
 Uint8List _jpegBytes(int r, int g, int b) {

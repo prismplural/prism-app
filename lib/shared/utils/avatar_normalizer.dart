@@ -14,8 +14,37 @@ class AvatarNormalizer {
   static const targetMaxBytes = 256 * 1024;
   static const _jpegQualities = <int>[85, 82, 78, 74, 68, 62, 56, 50];
 
+  // Cap source pixel count before `img.decodeImage` allocates the full RGBA
+  // buffer. A 5 MB PNG can declare 12000×12000 — decoding would allocate
+  // ~576 MB and native-OOM the Android process. 24 MP keeps headroom for
+  // 48 MP phone-camera selfies while bounding the worst case at ~96 MB.
+  static const maxSourcePixels = 24 * 1000 * 1000;
+
   static Uint8List? normalize(Uint8List? bytes) {
     if (bytes == null || bytes.isEmpty) return bytes;
+
+    // Header-only probe so we can reject oversized images before
+    // img.decodeImage allocates the RGBA buffer. The probe instance can't
+    // be reused for the real decode — PngDecoder accumulates IDAT offsets
+    // across startDecode calls, doubling the zlib working set the second
+    // time through. img.decodeImage builds a fresh decoder.
+    final probe = img.findDecoderForData(bytes);
+    if (probe == null) {
+      throw StateError('Unsupported avatar image format');
+    }
+    final info = probe.startDecode(bytes);
+    if (info == null) {
+      throw StateError('Unsupported avatar image format');
+    }
+    if (info.width <= 0 || info.height <= 0) {
+      throw StateError('Unsupported avatar image format');
+    }
+    if (info.width * info.height > maxSourcePixels) {
+      throw StateError(
+        'Avatar source image is too large to decode safely '
+        '(${info.width}x${info.height})',
+      );
+    }
 
     final decoded = img.decodeImage(bytes);
     if (decoded == null) {

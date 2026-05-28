@@ -70,6 +70,20 @@ void main() {
     expect(AvatarNormalizer.normalize(null), isNull);
   });
 
+  // Regression: a small PNG/JPEG can declare 12000×12000 in its header, which
+  // `img.decodeImage` would try to back with a ~576 MB RGBA buffer — instant
+  // native OOM on Android. The header-only probe must reject this before
+  // any pixel buffer is allocated.
+  test('throws when source dimensions blow the pixel budget', () {
+    const side = 8000;
+    expect(side * side, greaterThan(AvatarNormalizer.maxSourcePixels));
+    final huge = _jpegWithDeclaredDimensions(side, side);
+    expect(
+      () => AvatarNormalizer.normalize(huge),
+      throwsA(isA<StateError>()),
+    );
+  });
+
   // Regression: every member save (any field, not just avatar) used to re-run
   // normalize, decode the existing JPEG, and re-encode it. JPEG generation
   // loss accumulated until avatars visibly degraded — two users hit it.
@@ -134,4 +148,24 @@ bool _bytesEqual(Uint8List a, Uint8List b) {
     if (a[i] != b[i]) return false;
   }
   return true;
+}
+
+/// Builds a real 2×2 JPEG, then patches its SOF0 marker to claim larger
+/// dimensions. The JPEG decoder's header-only probe (`startDecode`) reads the
+/// SOF0 fields directly, so the budget check fires before any pixel buffer
+/// is allocated — exactly the path we want to exercise.
+Uint8List _jpegWithDeclaredDimensions(int width, int height) {
+  final source = img.Image(width: 2, height: 2);
+  img.fill(source, color: img.ColorRgb8(1, 2, 3));
+  final encoded = Uint8List.fromList(img.encodeJpg(source));
+  for (var i = 0; i < encoded.length - 9; i++) {
+    if (encoded[i] == 0xFF && encoded[i + 1] == 0xC0) {
+      encoded[i + 5] = (height >> 8) & 0xFF;
+      encoded[i + 6] = height & 0xFF;
+      encoded[i + 7] = (width >> 8) & 0xFF;
+      encoded[i + 8] = width & 0xFF;
+      return encoded;
+    }
+  }
+  throw StateError('no SOF0 marker found in encoded JPEG');
 }
