@@ -11392,6 +11392,92 @@
   "spAvatarZipSystemPhotoUpdated": "System photo updated",
   "spAvatarZipUnmatchedImages": "Unmatched images",
   "spAvatarZipFailedTitle": "Could not import avatar ZIP",
+  "spImportWarningsTitle": "Your data is in.",
+  "@spImportWarningsTitle": {
+    "description": "Heading shown above the grouped SP import warning summary. Leads with reassurance."
+  },
+  "spImportWarningsSubtitle": "Here’s what to know:",
+  "@spImportWarningsSubtitle": {
+    "description": "Subtitle shown below the title on the grouped SP import warning summary."
+  },
+  "spImportWarningsShowAll": "{count, plural, =1{Show 1 more} other{Show all {count} more}}",
+  "@spImportWarningsShowAll": {
+    "description": "Button label to expand a warning category beyond the first 10 items.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "spImportWarningsRetry": "Retry",
+  "@spImportWarningsRetry": {
+    "description": "Button label to retry avatar downloads on the SP import warning summary."
+  },
+  "spImportWarningsRetrying": "Retrying…",
+  "@spImportWarningsRetrying": {
+    "description": "Button label shown while avatar downloads are being retried."
+  },
+  "spImportWarningsCountSemantics": "{count, plural, =1{1 warning in this category} other{{count} warnings in this category}}",
+  "@spImportWarningsCountSemantics": {
+    "description": "Accessibility label for the warning count chip on a category tile.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "spImportWarningsAvatarsHeadline": "Avatar downloads",
+  "@spImportWarningsAvatarsHeadline": {
+    "description": "Category headline for avatar download failures in the SP import warning summary."
+  },
+  "spImportWarningsAvatarsExplanation": "Simply Plural is shutting down and these URLs no longer load. Pair this import with an avatar ZIP export to keep the pixels.",
+  "@spImportWarningsAvatarsExplanation": {
+    "description": "Plain-language explanation for avatar download failures in the SP import warning summary."
+  },
+  "spImportWarningsMissingReferencesHeadline": "Sessions missing a member",
+  "@spImportWarningsMissingReferencesHeadline": {
+    "description": "Category headline for missing-reference warnings in the SP import warning summary."
+  },
+  "spImportWarningsMissingReferencesExplanation": "These imported fine — they just don’t have a member attached, because that member was deleted in Simply Plural before the export.",
+  "@spImportWarningsMissingReferencesExplanation": {
+    "description": "Plain-language explanation for missing-reference warnings in the SP import warning summary."
+  },
+  "spImportWarningsCustomFrontAdjustmentsHeadline": "Custom front adjustments",
+  "@spImportWarningsCustomFrontAdjustmentsHeadline": {
+    "description": "Category headline for custom-front adjustment warnings in the SP import warning summary."
+  },
+  "spImportWarningsCustomFrontAdjustmentsExplanation": "Some sleep sessions were clamped or merged, or custom fronts were handled as notes.",
+  "@spImportWarningsCustomFrontAdjustmentsExplanation": {
+    "description": "Plain-language explanation for custom-front adjustment warnings in the SP import warning summary."
+  },
+  "spImportWarningsEncryptedMessagesHeadline": "Encrypted chat messages",
+  "@spImportWarningsEncryptedMessagesHeadline": {
+    "description": "Category headline for encrypted message warnings in the SP import warning summary."
+  },
+  "spImportWarningsEncryptedMessagesExplanation": "Some chat messages were still encrypted in this export and couldn’t be imported.",
+  "@spImportWarningsEncryptedMessagesExplanation": {
+    "description": "Plain-language explanation for encrypted message warnings in the SP import warning summary."
+  },
+  "spImportWarningsDataQualityHeadline": "Data quality drops",
+  "@spImportWarningsDataQualityHeadline": {
+    "description": "Category headline for data-quality warnings in the SP import warning summary."
+  },
+  "spImportWarningsDataQualityExplanation": "Some records were missing required fields in the source export and were skipped.",
+  "@spImportWarningsDataQualityExplanation": {
+    "description": "Plain-language explanation for data-quality warnings in the SP import warning summary."
+  },
+  "spImportWarningsSyncEmissionHeadline": "Sync emissions",
+  "@spImportWarningsSyncEmissionHeadline": {
+    "description": "Category headline for sync-emission warnings in the SP import warning summary."
+  },
+  "spImportWarningsSyncEmissionExplanation": "Some imported entries didn’t sync to other devices automatically. Local data is correct; peers may be missing these until you edit them or re-run sync.",
+  "@spImportWarningsSyncEmissionExplanation": {
+    "description": "Plain-language explanation for sync-emission warnings in the SP import warning summary."
+  },
+  "spImportWarningsOtherHeadline": "Other",
+  "@spImportWarningsOtherHeadline": {
+    "description": "Category headline for unclassified warnings in the SP import warning summary."
+  },
+  "spImportWarningsOtherExplanation": "These warnings don’t match a known category. If anything looks unexpected, send them to support.",
+  "@spImportWarningsOtherExplanation": {
+    "description": "Plain-language explanation for unclassified warnings in the SP import warning summary."
+  },
   "pkUnpushedMembersBannerTitle": "Local members not on PluralKit",
   "@pkUnpushedMembersBannerTitle": {
     "description": "Title of the banner shown on the fronting screen when local Prism members exist that haven't been pushed to PluralKit."
