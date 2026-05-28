@@ -4,6 +4,40 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-05-28
+
+A polish release building on the 0.10.0 custom-fields rewrite: multi-color slider gradients, a per-type show/hide-title toggle, and a compact/stacked layout choice for scale fields, plus import-reliability fixes (a Simply Plural avatar-zip out-of-memory crash, grouped import warnings) and a longer list of statistics, sync, and profile-rendering fixes.
+
+### Added
+- Multi-color slider gradients. The custom gradient editor is now a reorderable row of swatch cards supporting 2-6 colors (tap a circle to edit, drag the handle below it to reorder, tap the corner badge to remove), and labeled sliders render an N-color HSL gradient across the interactive track, the mini track, and the static profile slider from one shared seam. Custom colors survive previewing a built-in preset and returning to Custom. Stored via the forward-compatible config codec — no schema change.
+- Show/hide title toggle on every custom field type. Text, color, date, and long-text fields gained a real typeConfig codec so the per-field `hideTitleOnProfile` toggle now works uniformly across all field types; turning it off renders the field value-only and fills the card width, and a child inside a group respects its own toggle independently of the group's.
+- Compact / Stacked / Auto layout choice for scale fields, set in the field editor, with a soft suggestion to switch to stacked past 5 steps. `Auto` resolves to a type-aware default (scale compact, slider stacked).
+- Clear button for the slider editor, so a slider value can be returned to "not set".
+- Grouped Simply Plural import warnings. Import warnings are now bucketed into a categorized summary (avatars, missing references, custom fronts, etc.) on both the migration screen and the first-run onboarding import step, instead of a flat list.
+
+### Changed
+- Statistics "All" range now starts at your earliest real session instead of a fixed 10-year lookback, so the gap/untracked-time insight no longer reports ~2000 days of phantom untracked time before your first record. The range self-corrects as sessions are imported or deleted, and the custom date picker covers pre-2020 imports.
+- The app shell stays redacted behind the password gate: shell routes are not built until PIN state resolves and the sync password gate clears. Sync status listeners stay alive so revoke and auth-failure cleanup still run while content is redacted.
+- Onboarding snapshot restore now shows progress (uses the reshaped prism-sync bootstrap event as the restore denominator).
+- Scale display boxes shrunk from 48dp to 32dp so a 5-step scale fits a narrow phone without wrapping; in-group and standalone short-text/scale fields now read left-aligned consistently.
+
+### Fixed
+- Prevent an out-of-memory crash when importing a Simply Plural avatar ZIP. The file picker no longer serializes the whole file through the platform channel (dropping `withData` on every platform except web), the ZIP decode + image normalize loop runs on a worker isolate so large systems can't ANR, and a header-only pixel-count probe (24 MP cap) guards the decode against oversized images.
+- Crop desktop member profile images before storage instead of storing them full-size.
+- Refresh cached PluralKit avatars when they change at the source.
+- Discard zero-length PluralKit switch rows.
+- Statistics "All" selection is now synchronous, so a newer range-chip tap can't be clobbered by an async race.
+- Slider fixes: editor gradient preview matches the rendered track (both sample the same HSL stops and honor `centerHex`); the slider center label gets an equal-thirds range instead of a 1:2:1 split; an unedited pre-migration slider field no longer reads dirty on open; guard the swatch add-flow against a RangeError and single-stop NaN; render profile sliders statically; keep presets authoritative; drop a post-commit `setState` and fix a slider commit race.
+- Custom fields profile rendering: drop empty groups from the layout (no doubled spacing), fill the card width for hidden-title fields, unify field/group card corner radius with the rest of the profile, order profile choice chips by settings, localize the editor's "Display" section header, and use the color-picker dialog for choice and color selectors.
+- Preserve forward-compat extras when saving choice config (was rebuilding from scratch and dropping the `extra` map and the incoming `hideTitleOnProfile`); clear stale `type_config_json` to NULL when a hidden-title legacy field is reverted to default instead of leaving stale JSON to sync.
+- Windows installer no longer trips over hidden install locks.
+
+### Internal
+- prism-sync pin moves from v0.10.0 (`c950e03`) to v0.10.1 for the reshaped snapshot-bootstrap event consumed by the restore-progress indicator.
+- Fastlane: `:internal` lanes renamed to `:beta` and reconfigured to distribute straight to the closed external beta channel (TestFlight external testers, Play Store beta track); beta lanes read the shipping note from the release-notes file's `store_note` frontmatter (validated ≤500 chars before building); iOS/macOS Info.plist declare `ITSAppUsesNonExemptEncryption = true` for the hybrid post-quantum (ML-KEM / FIPS 203) crypto; new macOS Developer-ID sideload DMG lane (signed, hardened-runtime, notarized, stapled, gatekeeper-asserted).
+- CI stages matching prism-sync crates on Windows.
+- Added forward-compat regression tests for the new TextConfig / ColorConfig / DateConfig / LongTextConfig variants and a `SliderEditState` pure-Dart state model.
+
 ## [0.10.0] - 2026-05-26
 
 This release lands a rewritten custom-fields system with new Choice, Group, Scale, and Slider field types and a registry-based architecture that makes future field types additive. It also includes phrase + PIN verification on pairing, broader Simply Plural import compatibility, per-field CRDT patches across the remaining sync repos, and a longer list of chat, fronting, member, and settings improvements.
