@@ -4,11 +4,24 @@ import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 // ---------------------------------------------------------------------------
-// Config codec stubs — color has no type config.
+// Config codec — color uses ColorConfig.
 // ---------------------------------------------------------------------------
 
-CustomFieldTypeConfig? _alwaysNull(Map<String, dynamic>? json) => null;
-Map<String, dynamic>? _alwaysNullOut(CustomFieldTypeConfig? config) => null;
+CustomFieldTypeConfig? _configFromJson(Map<String, dynamic>? json) {
+  if (json == null) return null;
+  try {
+    return CustomFieldTypeConfigCodec.fromJson(json);
+  } catch (_) {
+    // Malformed / missing discriminator (e.g. "{}") → no typed config.
+    // The mapper preserves the raw bytes via unknownTypeConfigRaw separately.
+    return null;
+  }
+}
+
+Map<String, dynamic>? _configToJson(CustomFieldTypeConfig? config) {
+  if (config == null) return null;
+  return CustomFieldTypeConfigCodec.toJson(config);
+}
 
 // ---------------------------------------------------------------------------
 // Value parser/encoder — color stores an optional hex string (e.g. '#ff00aa').
@@ -35,8 +48,8 @@ final colorFieldDefinition = CustomFieldTypeDefinition(
   legacyIntValue: 1,
   labelL10nKey: 'customFieldTypeColor',
   icon: AppIcons.palette,
-  configFromJson: _alwaysNull,
-  configToJson: _alwaysNullOut,
+  configFromJson: _configFromJson,
+  configToJson: _configToJson,
   valueParser: _colorParser,
   valueEncoder: _colorEncoder,
 );
