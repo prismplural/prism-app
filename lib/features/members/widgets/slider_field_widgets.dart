@@ -1240,10 +1240,21 @@ class _TrackColors {
   final Color right;
 }
 
-/// Resolve the track colors from a [SliderConfig]. Prefers custom hex colors
-/// (from "Advanced: custom colors" override), falling back to the preset.
+/// Resolve the track colors from a [SliderConfig]. Known presets are
+/// authoritative; custom hex colors apply only when the config is in the
+/// synthetic custom-gradient state (`gradientPresetId == null`).
 _TrackColors? _resolveTrackColors(SliderConfig config) {
-  // Custom colors take priority over presets.
+  final preset = lookupGradientPreset(config.gradientPresetId);
+  if (preset != null) {
+    return _TrackColors(
+      left: AppColors.fromHex(preset.leftHex),
+      center: preset.centerHex != null
+          ? AppColors.fromHex(preset.centerHex!)
+          : null,
+      right: AppColors.fromHex(preset.rightHex),
+    );
+  }
+
   if (config.leftColorHex != null && config.rightColorHex != null) {
     return _TrackColors(
       left: AppColors.fromHex(config.leftColorHex!),
@@ -1251,15 +1262,6 @@ _TrackColors? _resolveTrackColors(SliderConfig config) {
           ? AppColors.fromHex(config.centerColorHex!)
           : null,
       right: AppColors.fromHex(config.rightColorHex!),
-    );
-  }
-  // Fall back to preset.
-  final preset = lookupGradientPreset(config.gradientPresetId);
-  if (preset != null) {
-    return _TrackColors(
-      left: AppColors.fromHex(preset.leftHex),
-      center: preset.centerHex != null ? AppColors.fromHex(preset.centerHex!) : null,
-      right: AppColors.fromHex(preset.rightHex),
     );
   }
   return null;
