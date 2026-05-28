@@ -17680,6 +17680,12 @@ abstract class AppLocalizations {
   /// **'Move right'**
   String get customFieldSliderMoveRight;
 
+  /// Accessible label for the drag handle below a gradient color swatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to reorder color'**
+  String get customFieldSliderReorderHandle;
+
   /// Semantic label for a gradient color swatch, e.g. for screen readers.
   ///
   /// In en, this message translates to:

@@ -11855,6 +11855,8 @@
   "@customFieldSliderMoveLeft": { "description": "Accessible action label to move a gradient swatch one position to the left." },
   "customFieldSliderMoveRight": "Move right",
   "@customFieldSliderMoveRight": { "description": "Accessible action label to move a gradient swatch one position to the right." },
+  "customFieldSliderReorderHandle": "Drag to reorder color",
+  "@customFieldSliderReorderHandle": { "description": "Accessible label for the drag handle below a gradient color swatch." },
   "customFieldSliderGradientColorSemantics": "Gradient color {index} of {total}, {hex}",
   "@customFieldSliderGradientColorSemantics": {
     "description": "Semantic label for a gradient color swatch, e.g. for screen readers.",

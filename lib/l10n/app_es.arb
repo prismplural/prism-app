@@ -3265,6 +3265,7 @@
   "customFieldSliderRemoveColor": "Remove color",
   "customFieldSliderMoveLeft": "Move left",
   "customFieldSliderMoveRight": "Move right",
+  "customFieldSliderReorderHandle": "Drag to reorder color",
   "customFieldSliderGradientColorSemantics": "Gradient color {index} of {total}, {hex}",
   "customFieldSliderCategoryIdentity": "Identidad",
   "customFieldSliderCategoryMoodIntensity": "Estado de ánimo / Intensidad",

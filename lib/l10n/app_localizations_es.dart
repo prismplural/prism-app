@@ -11199,6 +11199,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get customFieldSliderMoveRight => 'Move right';
 
   @override
+  String get customFieldSliderReorderHandle => 'Drag to reorder color';
+
+  @override
   String customFieldSliderGradientColorSemantics(
     int index,
     int total,

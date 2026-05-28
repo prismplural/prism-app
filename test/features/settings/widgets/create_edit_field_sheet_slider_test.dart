@@ -362,5 +362,48 @@ void main() {
 
       expect(find.byTooltip('Add color'), findsOneWidget);
     });
+
+    testWidgets('remove badge deletes a swatch (down to min 2)', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final notifier = _FakeCustomFieldNotifier();
+      final field = _sliderField(
+        gradientPresetId: null,
+        gradientColorsHex: ['#AA0000', '#BB0000', '#CC0000'],
+      );
+
+      await tester.pumpWidget(_buildSheet(field: field, notifier: notifier));
+      await tester.pumpAndSettle();
+
+      // Three swatches → three remove badges. Tap the first to remove index 0.
+      expect(find.byIcon(Icons.close), findsNWidgets(3));
+      await tester.tap(find.byIcon(Icons.close).first);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Save'));
+      await tester.pumpAndSettle();
+
+      final config = notifier.lastWrittenConfig as SliderConfig?;
+      expect(config, isNotNull);
+      expect(config!.gradientColorsHex, ['#BB0000', '#CC0000']);
+    });
+
+    testWidgets('remove badge hidden at the minimum of 2 colors', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final notifier = _FakeCustomFieldNotifier();
+      final field = _sliderField(
+        gradientPresetId: null,
+        gradientColorsHex: ['#AA0000', '#BB0000'],
+      );
+
+      await tester.pumpWidget(_buildSheet(field: field, notifier: notifier));
+      await tester.pumpAndSettle();
+
+      // At the 2-color minimum, no remove badges are shown.
+      expect(find.byIcon(Icons.close), findsNothing);
+    });
   });
 }

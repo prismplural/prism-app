@@ -2140,89 +2140,20 @@ class _GradientSwatchRow extends StatelessWidget {
     }
   }
 
-  Future<void> _openSwatchMenu(
-    BuildContext context,
-    int index,
-    String hex,
-  ) async {
-    final l10n = context.l10n;
-    final theme = Theme.of(context);
-    final fallback = theme.colorScheme.primary;
+  Future<void> _editColor(BuildContext context, int index, String hex) async {
+    final fallback = Theme.of(context).colorScheme.primary;
+    final newHex = await _showSwatchColorPicker(context, _parse(hex, fallback));
+    if (newHex == null) return;
+    final updated = List<String>.from(colors)..[index] = newHex;
+    onColorsChanged(updated);
+    Haptics.selection();
+  }
 
-    // Options: Edit color, Move left (if index > 0), Move right
-    // (if index < length-1), Remove (if length > _minColors).
-    await showModalBottomSheet<void>(
-      context: context,
-      useRootNavigator: true,
-      builder: (sheetCtx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.palette_outlined),
-                title: Text(l10n.customFieldSliderColorAnchorTitle),
-                onTap: () async {
-                  Navigator.of(sheetCtx).pop();
-                  final parsed = _parse(hex, fallback);
-                  final newHex = await _showSwatchColorPicker(context, parsed);
-                  if (newHex == null) return;
-                  final updated = List<String>.from(colors);
-                  updated[index] = newHex;
-                  onColorsChanged(updated);
-                  Haptics.selection();
-                },
-              ),
-              if (index > 0)
-                ListTile(
-                  leading: const Icon(Icons.arrow_back),
-                  title: Text(l10n.customFieldSliderMoveLeft),
-                  onTap: () {
-                    Navigator.of(sheetCtx).pop();
-                    final updated = List<String>.from(colors);
-                    final tmp = updated[index - 1];
-                    updated[index - 1] = updated[index];
-                    updated[index] = tmp;
-                    onColorsChanged(updated);
-                    Haptics.selection();
-                  },
-                ),
-              if (index < colors.length - 1)
-                ListTile(
-                  leading: const Icon(Icons.arrow_forward),
-                  title: Text(l10n.customFieldSliderMoveRight),
-                  onTap: () {
-                    Navigator.of(sheetCtx).pop();
-                    final updated = List<String>.from(colors);
-                    final tmp = updated[index + 1];
-                    updated[index + 1] = updated[index];
-                    updated[index] = tmp;
-                    onColorsChanged(updated);
-                    Haptics.selection();
-                  },
-                ),
-              if (colors.length > _minColors)
-                ListTile(
-                  leading: Icon(
-                    Icons.remove_circle_outline,
-                    color: theme.colorScheme.error,
-                  ),
-                  title: Text(
-                    l10n.customFieldSliderRemoveColor,
-                    style: TextStyle(color: theme.colorScheme.error),
-                  ),
-                  onTap: () {
-                    Navigator.of(sheetCtx).pop();
-                    final updated = List<String>.from(colors)..removeAt(index);
-                    onColorsChanged(updated);
-                    Haptics.selection();
-                  },
-                ),
-            ],
-          ),
-        );
-      },
-    );
+  void _removeColor(int index) {
+    if (colors.length <= _minColors) return;
+    final updated = List<String>.from(colors)..removeAt(index);
+    onColorsChanged(updated);
+    Haptics.selection();
   }
 
   @override
@@ -2232,15 +2163,16 @@ class _GradientSwatchRow extends StatelessWidget {
     final fallback = theme.colorScheme.primary;
     final canAdd = colors.length < _maxColors;
 
-    // Use ReorderableListView.builder with horizontal scroll.
-    // shrinkWrap + scrollDirection = Axis.horizontal gives us the drag handle
-    // behaviour (long-press to drag) without persistent handle widgets.
+    // Horizontal ReorderableListView. Each swatch is a small card: tap the
+    // color circle to edit, grab the drag handle BELOW it to reorder (so the
+    // handle never overlaps the tap target). buildDefaultDragHandles is off —
+    // reordering is driven by the explicit handle's ReorderableDragStartListener.
     return SizedBox(
-      height: 56,
+      height: 92,
       child: ReorderableListView.builder(
         scrollDirection: Axis.horizontal,
         shrinkWrap: true,
-        buildDefaultDragHandles: true,
+        buildDefaultDragHandles: false,
         itemCount: colors.length,
         onReorder: (oldIndex, newIndex) {
           if (newIndex > oldIndex) newIndex--;
@@ -2255,48 +2187,50 @@ class _GradientSwatchRow extends StatelessWidget {
           child: child,
         ),
         footer: canAdd
-            ? Semantics(
-                label: l10n.customFieldSliderAddColor,
-                button: true,
-                child: GestureDetector(
-                  onTap: () async {
-                    // Duplicate last color as starting point, then auto-edit.
-                    final newHex = colors.last;
-                    final updated = List<String>.from(colors)..add(newHex);
-                    onColorsChanged(updated);
-                    Haptics.selection();
-                    // Open the color picker for the newly added swatch directly
-                    // against `updated` — _openSwatchMenu would close over the
-                    // stale (pre-add) `colors` and index out of range.
-                    final picked = await _showSwatchColorPicker(
-                      context,
-                      _parse(newHex, fallback),
-                    );
-                    if (picked != null) {
-                      final withPick = List<String>.from(updated)
-                        ..[updated.length - 1] = picked;
-                      onColorsChanged(withPick);
-                    }
-                  },
-                  child: Tooltip(
-                    message: l10n.customFieldSliderAddColor,
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: theme.colorScheme.outline.withValues(
-                            alpha: 0.5,
+            ? Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 4),
+                  child: Semantics(
+                    label: l10n.customFieldSliderAddColor,
+                    button: true,
+                    child: GestureDetector(
+                      onTap: () async {
+                        // Duplicate last color as starting point, then auto-edit.
+                        final newHex = colors.last;
+                        final updated = List<String>.from(colors)..add(newHex);
+                        onColorsChanged(updated);
+                        Haptics.selection();
+                        // Open the picker for the new swatch against `updated`.
+                        final picked = await _showSwatchColorPicker(
+                          context,
+                          _parse(newHex, fallback),
+                        );
+                        if (picked != null) {
+                          final withPick = List<String>.from(updated)
+                            ..[updated.length - 1] = picked;
+                          onColorsChanged(withPick);
+                        }
+                      },
+                      child: Tooltip(
+                        message: l10n.customFieldSliderAddColor,
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: theme.colorScheme.outline.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
                           ),
-                          style: BorderStyle.solid,
+                          child: Icon(
+                            Icons.add,
+                            size: 22,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
-                      child: Icon(
-                        Icons.add,
-                        size: 22,
-                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -2311,25 +2245,101 @@ class _GradientSwatchRow extends StatelessWidget {
             colors.length,
             hex,
           );
-          return Semantics(
+          final canRemove = colors.length > _minColors;
+          return Padding(
             key: ValueKey('swatch_$index'),
-            label: label,
-            button: true,
-            child: Tooltip(
-              message: hex,
-              child: GestureDetector(
-                onTap: () => _openSwatchMenu(context, index, hex),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: color,
-                    border: Border.all(
-                      color: theme.colorScheme.outline.withValues(alpha: 0.4),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Card(
+              margin: EdgeInsets.zero,
+              elevation: 0,
+              color: theme.colorScheme.surfaceContainerHighest,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Color circle (tap to edit) with a small remove badge.
+                    SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Semantics(
+                            label: label,
+                            button: true,
+                            child: Tooltip(
+                              message: hex,
+                              child: GestureDetector(
+                                onTap: () => _editColor(context, index, hex),
+                                child: Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: color,
+                                    border: Border.all(
+                                      color: theme.colorScheme.outline
+                                          .withValues(alpha: 0.4),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (canRemove)
+                            Positioned(
+                              top: -6,
+                              right: -6,
+                              child: Semantics(
+                                label: l10n.customFieldSliderRemoveColor,
+                                button: true,
+                                child: GestureDetector(
+                                  onTap: () => _removeColor(index),
+                                  child: Container(
+                                    width: 22,
+                                    height: 22,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: theme.colorScheme.surface,
+                                      border: Border.all(
+                                        color: theme.colorScheme.outline
+                                            .withValues(alpha: 0.4),
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.close,
+                                      size: 14,
+                                      color: theme.colorScheme.error,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 4),
+                    // Drag handle below the circle — grab to reorder.
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: Semantics(
+                        label: l10n.customFieldSliderReorderHandle,
+                        child: SizedBox(
+                          width: 48,
+                          height: 24,
+                          child: Icon(
+                            Icons.drag_handle,
+                            size: 20,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
