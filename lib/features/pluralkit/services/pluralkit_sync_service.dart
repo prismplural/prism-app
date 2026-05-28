@@ -345,10 +345,9 @@ class PkTokenImportResult {
   /// did not reappear.
   final int tombstonePreservedCount;
 
-  /// Number of leaver closes that were skipped because the leaver
-  /// timestamp was equal to the row's start timestamp (zero-length
-  /// presence). The row is left open, not closed; the next non-zero-length
-  /// leaver in the same sweep will close it.
+  /// Number of leaver closes that matched the row's start timestamp
+  /// (zero-length presence). The zero-duration row is discarded locally
+  /// so it cannot linger as an open phantom fronter.
   final int zeroLengthCloseSkipped;
 
   /// Wall-clock timestamp when this import finished and persisted its
@@ -1697,8 +1696,10 @@ class PluralKitSyncService {
           }
         }
 
-        // Sort oldest-first for chronological diff sweep.
-        newSwitches.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        // Sort oldest-first for chronological diff sweep. PluralKit can
+        // return multiple switches at the same timestamp; the cursor treats a
+        // larger switch id as newer, so replay must use that same ordering.
+        newSwitches.sort(_compareSwitchesChronologically);
 
         debugPrint('[PK_PULL] ${newSwitches.length} new switches to process');
 
@@ -2393,8 +2394,7 @@ class PluralKitSyncService {
       // the snapshot push sees the user's current state. Step 7 of
       // docs/plans/pk-group-membership-push.md. The push result isn't merged
       // into PkGroupsImportResult yet (different shape, different lifecycle);
-      // log the summary for debugging until a UI surface exists. Codex
-      // review [P3].
+      // log the summary for debugging until a UI surface exists.
       if (direction.pushEnabled) {
         final pushResult = await importer.pushPendingGroupOps(
           client,
@@ -2651,7 +2651,7 @@ class PluralKitSyncService {
       if (page.length < 100) break;
     }
     // PK returns newest-first; sort oldest-first for the diff sweep.
-    allSwitches.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    allSwitches.sort(_compareSwitchesChronologically);
     return allSwitches;
   }
 
@@ -2910,8 +2910,14 @@ class PluralKitSyncService {
       pageBefore = page.last.timestamp;
     }
 
-    switches.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    switches.sort(_compareSwitchesChronologically);
     return switches;
+  }
+
+  int _compareSwitchesChronologically(PKSwitch a, PKSwitch b) {
+    final timestampComparison = a.timestamp.compareTo(b.timestamp);
+    if (timestampComparison != 0) return timestampComparison;
+    return a.id.compareTo(b.id);
   }
 
   String _pkFileSwitchSourceId(PkFileSwitch switchEntry) {
@@ -2962,9 +2968,10 @@ class PluralKitSyncService {
   ///   row whose `deleteIntentEpoch` was non-null and refused to resurrect
   ///   it (WS3 step 4 / review #3). Surfaced in the import-result UI.
   /// - `zeroLengthCloseSkipped`: leavers whose timestamp matched the row's
-  ///   start exactly (zero-duration presence). Skipped to avoid writing a
-  ///   junk close (WS3 step 6 / review #30). Throws [PkSwitchOrderingError]
-  ///   if a leaver's timestamp predates the row's start (corrupt input).
+  ///   start exactly (zero-duration presence). The row is discarded to avoid
+  ///   leaving a phantom open fronter (WS3 step 6 / review #30). Throws
+  ///   [PkSwitchOrderingError] if a leaver's timestamp predates the row's
+  ///   start (corrupt input).
   ///
   /// [corrective] selects the end_time policy on entrant collisions:
   /// - `false` (incremental): conservative — preserve any pre-existing
@@ -3196,9 +3203,10 @@ class PluralKitSyncService {
             //
             // 1. `end > start` (the common case): close normally.
             // 2. `end == start`: zero-length presence — the API listed an
-            //    entrant and a leave at the same moment. Skip the close;
-            //    the row stays open with start_time set, which is harmless
-            //    and matches "no time spent fronting at this exact tick".
+            //    entrant and a leave at the same moment. Discard the local
+            //    row so it cannot pollute later history as an open phantom.
+            //    Clear the PK link before tombstoning so importer cleanup is
+            //    not mistaken for a user-requested PluralKit deletion.
             //    Bump `zeroLengthCloseSkipped` for the import-result UI.
             // 3. `end < start`: input data is corrupt (a leave whose
             //    timestamp predates the entrant's start). Bail with a
@@ -3215,10 +3223,12 @@ class PluralKitSyncService {
             }
             if (sw.timestamp.isAtSameMomentAs(presence.startedAt)) {
               zeroLengthCloseSkipped++;
+              await _frontingSessionRepository.clearPluralKitLink(rowId);
+              await _frontingSessionRepository.deleteSession(rowId);
               debugPrint(
-                '[PK_SWEEP] zero-length close skipped on row $rowId '
+                '[PK_SWEEP] zero-length presence discarded on row $rowId '
                 '(start == end == ${sw.timestamp.toIso8601String()}); '
-                'leaving open until a non-zero-length leaver arrives.',
+                'cleared PK link before tombstoning to avoid delete push.',
               );
             } else {
               await _frontingSessionRepository.endSession(rowId, sw.timestamp);

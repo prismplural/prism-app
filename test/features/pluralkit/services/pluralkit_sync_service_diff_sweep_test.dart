@@ -2057,13 +2057,13 @@ void main() {
   // The leaver path used to call `endSession(rowId, sw.timestamp)` without
   // checking the row's start_time. Two pathological cases needed to be
   // handled:
-  //   1. end == start: zero-length presence (skip the close, increment
+  //   1. end == start: zero-length presence (discard the row, increment
   //      `zeroLengthCloseSkipped`).
   //   2. end <  start: the row is not considered active before this batch
   //      unless it started at or before the first switch.
 
   group('leaver close guard (WS3 #30)', () {
-    test('same-timestamp leave-then-enter on a member produces no zero-length '
+    test('same-timestamp enter-then-leave on a member produces no zero-length '
         'row and does not throw', () async {
       final db = _makeDb();
       addTearDown(db.close);
@@ -2101,17 +2101,89 @@ void main() {
         null,
       );
       final sessions = await sessionRepo.getAllSessions();
-      expect(sessions, hasLength(1));
-      // The row is still open: the zero-length close was skipped.
       expect(
-        sessions.single.endTime,
+        sessions,
+        isEmpty,
+        reason:
+            'A same-timestamp enter/leave from PK has no duration and must '
+            'not leave an open phantom row in Prism history',
+      );
+      final tombstone = await sessionRepo.getSessionById(
+        _expectedRowId('sw-1', 'uuid-a'),
+      );
+      expect(
+        tombstone?.isDeleted,
+        isTrue,
+        reason:
+            'The deterministic entrant row should be tombstoned rather than '
+            'kept open when the PK presence has zero duration',
+      );
+      expect(
+        tombstone?.pluralkitUuid,
         isNull,
         reason:
-            'WS3 #30: when end == start the leaver close must be skipped '
-            'so we do not write a zero-duration row',
+            'Importer cleanup must clear the PK switch link before '
+            'tombstoning so it is not queued as a user deletion on PK',
       );
-      // Sanity: the row's start_time matches the entrant timestamp.
-      expect(sessions.single.startTime, _sameInstant(ts));
+      expect(await sessionRepo.getDeletedLinkedSessions(), isEmpty);
+    });
+
+    test('same-timestamp transient member does not stay open across later '
+        'fronting history', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      await memberRepo.createMember(
+        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+      );
+      await memberRepo.createMember(
+        _member(localId: 'local-b', pkShortId: 'pkB', pkUuid: 'uuid-b'),
+      );
+
+      final ts = DateTime.utc(2026, 1, 1, 12);
+      final sw1 = PKSwitch(id: 'sw-1', timestamp: ts, members: const ['pkB']);
+      final sw2 = PKSwitch(id: 'sw-2', timestamp: ts, members: const []);
+      final sw3 = PKSwitch(
+        id: 'sw-3',
+        timestamp: ts.add(const Duration(hours: 1)),
+        members: const ['pkA'],
+      );
+      final sw4 = PKSwitch(
+        id: 'sw-4',
+        timestamp: ts.add(const Duration(hours: 2)),
+        members: const [],
+      );
+
+      final client = _FakeClient([
+        [sw4, sw3, sw2, sw1],
+        [],
+      ]);
+
+      final service = _makeService(db: db, client: client);
+      await service.setToken('t');
+      await service.confirmDirection();
+      await service.acknowledgeMapping();
+      await service.importSwitchesAfterLink();
+
+      final sessionRepo = DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      );
+      final sessions = await sessionRepo.getAllSessions();
+      final aRows = sessions.where((s) => s.memberId == 'local-a').toList();
+      final bRows = sessions.where((s) => s.memberId == 'local-b').toList();
+
+      expect(aRows, hasLength(1));
+      expect(aRows.single.startTime, _sameInstant(sw3.timestamp));
+      expect(aRows.single.endTime, _sameInstant(sw4.timestamp));
+      expect(
+        bRows,
+        isEmpty,
+        reason:
+            'B only appeared in a zero-duration same-timestamp switch and '
+            'must not be carried into later real fronting rows',
+      );
     });
 
     test(

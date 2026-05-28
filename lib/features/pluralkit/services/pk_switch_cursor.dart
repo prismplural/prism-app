@@ -67,7 +67,8 @@ class PkSwitchCursor {
   int get hashCode => Object.hash(timestamp, switchId);
 
   @override
-  String toString() => 'PkSwitchCursor(${timestamp.toIso8601String()}, $switchId)';
+  String toString() =>
+      'PkSwitchCursor(${timestamp.toIso8601String()}, $switchId)';
 }
 
 /// Typed error thrown by the incremental sweep when pagination cannot make
@@ -120,7 +121,8 @@ class PkImportTooLargeError extends Error {
 ///
 /// Same-timestamp leaves (`end == start`) are not corrupt — they just mean
 /// the API listed an entrant and a leave at the same moment. The sweep
-/// skips the close and bumps `zeroLengthCloseSkipped` instead of throwing.
+/// discards that zero-duration local row and bumps `zeroLengthCloseSkipped`
+/// instead of throwing.
 class PkSwitchOrderingError extends Error {
   PkSwitchOrderingError({
     required this.rowId,
