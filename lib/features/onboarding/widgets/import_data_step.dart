@@ -25,6 +25,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/sp_import_warning_summary.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 /// Import Data step — lets user choose between PluralKit, Simply Plural,
@@ -1759,7 +1760,6 @@ class _SimplyPluralImportFlowState
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final successColor = _successStatusColor(theme);
-    final warningColor = _warningStatusColor(theme);
     final errorColor = _errorStatusColor(theme);
     final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     final migration = ref.watch(importerProvider);
@@ -2151,40 +2151,15 @@ class _SimplyPluralImportFlowState
             ),
             if (migration.result?.warnings.isNotEmpty ?? false) ...[
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: warningColor.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(
-                    PrismShapes.of(context).radius(12),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.l10n.migrationWarnings(
-                        migration.result!.warnings.length,
-                      ),
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: textColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...migration.result!.warnings.map(
-                      (warning) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          warning,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: textColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              SpImportWarningSummary(
+                warnings: migration.result!.warnings,
+                onRetryAvatars: migration.result!.hasAvatarDownloadFailures
+                    ? () => ref
+                        .read(importerProvider.notifier)
+                        .retryAvatarDownloads()
+                    : null,
+                retryInProgress: migration.step ==
+                    sp_importer.ImportState.downloadingAvatars,
               ),
             ],
           ],
