@@ -749,6 +749,11 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   ) async {
     writtenConfigs[fieldId] = newConfig;
   }
+
+  @override
+  Future<void> clearTypedConfig(String fieldId) async {
+    writtenConfigs.remove(fieldId);
+  }
 }
 
 // Stand-in to satisfy the compiler for the unused _wrapEditor helper above.
