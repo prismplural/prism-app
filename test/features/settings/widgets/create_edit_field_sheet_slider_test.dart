@@ -295,6 +295,36 @@ void main() {
       expect(config.gradientColorsHex, ['#E89BB8', '#F0E6D6', '#8FAA9A']);
     });
 
+    testWidgets('custom colors survive previewing a preset and returning', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final notifier = _FakeCustomFieldNotifier();
+      // Field already saved in CUSTOM mode with hand-picked colors.
+      final field = _sliderField(
+        gradientPresetId: null,
+        gradientColorsHex: ['#AA0000', '#BB0000', '#CC0000'],
+      );
+
+      await tester.pumpWidget(_buildSheet(field: field, notifier: notifier));
+      await tester.pumpAndSettle();
+
+      // Preview a preset, then switch back to custom.
+      await tester.tap(find.text('Cool ↔ Warm'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Custom').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Save'));
+      await tester.pumpAndSettle();
+
+      final config = notifier.lastWrittenConfig as SliderConfig?;
+      expect(config, isNotNull);
+      expect(config!.gradientPresetId, isNull);
+      // Original custom colors preserved — NOT replaced by the cool-warm preset.
+      expect(config.gradientColorsHex, ['#AA0000', '#BB0000', '#CC0000']);
+    });
+
     testWidgets('add-color tile is hidden when 6 colors present', (
       tester,
     ) async {

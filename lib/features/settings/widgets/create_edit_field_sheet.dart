@@ -105,6 +105,11 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   String? _sliderGradientPresetId = 'femme-masc';
   // 2–6 custom gradient colors (only used when _sliderGradientPresetId == null).
   List<String> _sliderGradientColors = const ['#E89BB8', '#8FAA9A'];
+  // True once the user has meaningful custom colors worth preserving — set when
+  // editing a field saved in custom mode, or after the first switch-to-custom
+  // (or any swatch edit). Until then, switching to custom seeds from the
+  // current preset; afterward, custom colors survive previewing a preset.
+  bool _customColorsInitialized = false;
   bool _sliderSnapToPositions = false;
   late final TextEditingController _sliderMinController;
   late final TextEditingController _sliderMaxController;
@@ -264,6 +269,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         // Hydrate gradient colors: prefer gradientColorsHex, fall back to
         // legacy left/center/right, then 2-color default.
         _sliderGradientColors = _gradientColorsFromConfig(config);
+        // A field saved in custom mode has real custom colors; one saved on a
+        // preset does not (so the first switch-to-custom should seed from it).
+        _customColorsInitialized = config.gradientPresetId == null;
         _sliderSnapToPositions = config.snapToPositions;
         _sliderMinController.text = config.min?.toString() ?? '0';
         _sliderMaxController.text = config.max?.toString() ?? '10';
@@ -1010,28 +1018,35 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         onModeSelected: (m) =>
                             setState(() => _sliderMode = m),
                         onPresetSelected: (id) {
-                          if (id == null && _sliderGradientPresetId != null) {
-                            // Switching to custom: seed from current preset.
-                            final preset = lookupGradientPreset(
-                              _sliderGradientPresetId,
-                            );
-                            if (preset != null) {
-                              final seeded = [
-                                preset.leftHex,
-                                if (preset.centerHex != null) preset.centerHex!,
-                                preset.rightHex,
-                              ];
-                              setState(() {
-                                _sliderGradientPresetId = null;
-                                _sliderGradientColors = seeded;
-                              });
-                              return;
-                            }
+                          if (id == null) {
+                            // Switching to custom. Seed from the current preset
+                            // only the first time — once custom colors exist
+                            // they're preserved across preset previews.
+                            setState(() {
+                              if (!_customColorsInitialized) {
+                                final preset = lookupGradientPreset(
+                                  _sliderGradientPresetId,
+                                );
+                                if (preset != null) {
+                                  _sliderGradientColors = [
+                                    preset.leftHex,
+                                    if (preset.centerHex != null)
+                                      preset.centerHex!,
+                                    preset.rightHex,
+                                  ];
+                                }
+                              }
+                              _sliderGradientPresetId = null;
+                              _customColorsInitialized = true;
+                            });
+                            return;
                           }
                           setState(() => _sliderGradientPresetId = id);
                         },
-                        onColorsChanged: (colors) =>
-                            setState(() => _sliderGradientColors = colors),
+                        onColorsChanged: (colors) => setState(() {
+                          _sliderGradientColors = colors;
+                          _customColorsInitialized = true;
+                        }),
                         onSnapToPositionsChanged: (v) =>
                             setState(() => _sliderSnapToPositions = v),
                         onShowTicksChanged: (v) =>
