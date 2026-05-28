@@ -4,11 +4,24 @@ import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 // ---------------------------------------------------------------------------
-// Config codec stubs — long_text has no type config.
+// Config codec — long_text uses LongTextConfig.
 // ---------------------------------------------------------------------------
 
-CustomFieldTypeConfig? _alwaysNull(Map<String, dynamic>? json) => null;
-Map<String, dynamic>? _alwaysNullOut(CustomFieldTypeConfig? config) => null;
+CustomFieldTypeConfig? _configFromJson(Map<String, dynamic>? json) {
+  if (json == null) return null;
+  try {
+    return CustomFieldTypeConfigCodec.fromJson(json);
+  } catch (_) {
+    // Malformed / missing discriminator (e.g. "{}") → no typed config.
+    // The mapper preserves the raw bytes via unknownTypeConfigRaw separately.
+    return null;
+  }
+}
+
+Map<String, dynamic>? _configToJson(CustomFieldTypeConfig? config) {
+  if (config == null) return null;
+  return CustomFieldTypeConfigCodec.toJson(config);
+}
 
 // ---------------------------------------------------------------------------
 // Value parser/encoder — long_text stores a plain string (same shape as text).
@@ -32,8 +45,8 @@ final longTextFieldDefinition = CustomFieldTypeDefinition(
   legacyIntValue: 3,
   labelL10nKey: 'customFieldTypeLongText',
   icon: AppIcons.notes,
-  configFromJson: _alwaysNull,
-  configToJson: _alwaysNullOut,
+  configFromJson: _configFromJson,
+  configToJson: _configToJson,
   valueParser: _longTextParser,
   valueEncoder: _longTextEncoder,
   allowsTextualSwitch: true,
