@@ -370,6 +370,10 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(membersShowFrontButtons: Value(value)),
   );
 
+  Future<void> updateMembersShowGroups(bool value) => _updateField(
+    SystemSettingsTableCompanion(membersShowGroups: Value(value)),
+  );
+
   Future<void> updateMembersFrontButtonBehavior(int value) => _updateField(
     SystemSettingsTableCompanion(membersFrontButtonBehavior: Value(value)),
   );

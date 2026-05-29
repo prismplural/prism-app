@@ -4568,6 +4568,18 @@
       }
     }
   },
+  "memberShowGroupSectionsLabel": "Groups",
+  "@memberShowGroupSectionsLabel": {
+    "description": "Section label for the show/hide groups toggle in view settings"
+  },
+  "memberShowGroupSectionsToggle": "Show group sections",
+  "@memberShowGroupSectionsToggle": {
+    "description": "Toggle label for showing group structure in the members list"
+  },
+  "memberShowGroupSectionsToggleDescription": "Organizes members into group headers or folders.",
+  "@memberShowGroupSectionsToggleDescription": {
+    "description": "Description for the show group sections toggle"
+  },
   "memberListViewModeLabel": "View",
   "@memberListViewModeLabel": {
     "description": "Label for choosing how the members list is displayed"

@@ -5920,6 +5920,21 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
         defaultValue: const Constant(false),
       );
+  static const VerificationMeta _membersShowGroupsMeta = const VerificationMeta(
+    'membersShowGroups',
+  );
+  @override
+  late final GeneratedColumn<bool> membersShowGroups = GeneratedColumn<bool>(
+    'members_show_groups',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("members_show_groups" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _membersFrontButtonBehaviorMeta =
       const VerificationMeta('membersFrontButtonBehavior');
   @override
@@ -6021,6 +6036,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     membersFolderMemberVisibility,
     membersShowPronouns,
     membersShowFrontButtons,
+    membersShowGroups,
     membersFrontButtonBehavior,
     bioMarkdownEnabled,
   ];
@@ -6660,6 +6676,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('members_show_groups')) {
+      context.handle(
+        _membersShowGroupsMeta,
+        membersShowGroups.isAcceptableOrUnknown(
+          data['members_show_groups']!,
+          _membersShowGroupsMeta,
+        ),
+      );
+    }
     if (data.containsKey('members_front_button_behavior')) {
       context.handle(
         _membersFrontButtonBehaviorMeta,
@@ -6979,6 +7004,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.bool,
         data['${effectivePrefix}members_show_front_buttons'],
       )!,
+      membersShowGroups: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}members_show_groups'],
+      )!,
       membersFrontButtonBehavior: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}members_front_button_behavior'],
@@ -7097,6 +7126,9 @@ class SystemSettingsData extends DataClass
   /// Whether visible member rows show direct front action buttons.
   final bool membersShowFrontButtons;
 
+  /// Whether the members list shows group structure (sections/folders).
+  final bool membersShowGroups;
+
   /// `FrontStartBehavior` index for member row front action buttons.
   /// 0 = additive (default), 1 = replace.
   final int membersFrontButtonBehavior;
@@ -7175,6 +7207,7 @@ class SystemSettingsData extends DataClass
     required this.membersFolderMemberVisibility,
     required this.membersShowPronouns,
     required this.membersShowFrontButtons,
+    required this.membersShowGroups,
     required this.membersFrontButtonBehavior,
     required this.bioMarkdownEnabled,
   });
@@ -7298,6 +7331,7 @@ class SystemSettingsData extends DataClass
     );
     map['members_show_pronouns'] = Variable<bool>(membersShowPronouns);
     map['members_show_front_buttons'] = Variable<bool>(membersShowFrontButtons);
+    map['members_show_groups'] = Variable<bool>(membersShowGroups);
     map['members_front_button_behavior'] = Variable<int>(
       membersFrontButtonBehavior,
     );
@@ -7404,6 +7438,7 @@ class SystemSettingsData extends DataClass
       membersFolderMemberVisibility: Value(membersFolderMemberVisibility),
       membersShowPronouns: Value(membersShowPronouns),
       membersShowFrontButtons: Value(membersShowFrontButtons),
+      membersShowGroups: Value(membersShowGroups),
       membersFrontButtonBehavior: Value(membersFrontButtonBehavior),
       bioMarkdownEnabled: Value(bioMarkdownEnabled),
     );
@@ -7564,6 +7599,7 @@ class SystemSettingsData extends DataClass
       membersShowFrontButtons: serializer.fromJson<bool>(
         json['membersShowFrontButtons'],
       ),
+      membersShowGroups: serializer.fromJson<bool>(json['membersShowGroups']),
       membersFrontButtonBehavior: serializer.fromJson<int>(
         json['membersFrontButtonBehavior'],
       ),
@@ -7677,6 +7713,7 @@ class SystemSettingsData extends DataClass
       'membersShowFrontButtons': serializer.toJson<bool>(
         membersShowFrontButtons,
       ),
+      'membersShowGroups': serializer.toJson<bool>(membersShowGroups),
       'membersFrontButtonBehavior': serializer.toJson<int>(
         membersFrontButtonBehavior,
       ),
@@ -7758,6 +7795,7 @@ class SystemSettingsData extends DataClass
     int? membersFolderMemberVisibility,
     bool? membersShowPronouns,
     bool? membersShowFrontButtons,
+    bool? membersShowGroups,
     int? membersFrontButtonBehavior,
     bool? bioMarkdownEnabled,
   }) => SystemSettingsData(
@@ -7864,6 +7902,7 @@ class SystemSettingsData extends DataClass
     membersShowPronouns: membersShowPronouns ?? this.membersShowPronouns,
     membersShowFrontButtons:
         membersShowFrontButtons ?? this.membersShowFrontButtons,
+    membersShowGroups: membersShowGroups ?? this.membersShowGroups,
     membersFrontButtonBehavior:
         membersFrontButtonBehavior ?? this.membersFrontButtonBehavior,
     bioMarkdownEnabled: bioMarkdownEnabled ?? this.bioMarkdownEnabled,
@@ -8080,6 +8119,9 @@ class SystemSettingsData extends DataClass
       membersShowFrontButtons: data.membersShowFrontButtons.present
           ? data.membersShowFrontButtons.value
           : this.membersShowFrontButtons,
+      membersShowGroups: data.membersShowGroups.present
+          ? data.membersShowGroups.value
+          : this.membersShowGroups,
       membersFrontButtonBehavior: data.membersFrontButtonBehavior.present
           ? data.membersFrontButtonBehavior.value
           : this.membersFrontButtonBehavior,
@@ -8175,6 +8217,7 @@ class SystemSettingsData extends DataClass
           )
           ..write('membersShowPronouns: $membersShowPronouns, ')
           ..write('membersShowFrontButtons: $membersShowFrontButtons, ')
+          ..write('membersShowGroups: $membersShowGroups, ')
           ..write('membersFrontButtonBehavior: $membersFrontButtonBehavior, ')
           ..write('bioMarkdownEnabled: $bioMarkdownEnabled')
           ..write(')'))
@@ -8256,6 +8299,7 @@ class SystemSettingsData extends DataClass
     membersFolderMemberVisibility,
     membersShowPronouns,
     membersShowFrontButtons,
+    membersShowGroups,
     membersFrontButtonBehavior,
     bioMarkdownEnabled,
   ]);
@@ -8345,6 +8389,7 @@ class SystemSettingsData extends DataClass
               this.membersFolderMemberVisibility &&
           other.membersShowPronouns == this.membersShowPronouns &&
           other.membersShowFrontButtons == this.membersShowFrontButtons &&
+          other.membersShowGroups == this.membersShowGroups &&
           other.membersFrontButtonBehavior == this.membersFrontButtonBehavior &&
           other.bioMarkdownEnabled == this.bioMarkdownEnabled);
 }
@@ -8423,6 +8468,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<int> membersFolderMemberVisibility;
   final Value<bool> membersShowPronouns;
   final Value<bool> membersShowFrontButtons;
+  final Value<bool> membersShowGroups;
   final Value<int> membersFrontButtonBehavior;
   final Value<bool> bioMarkdownEnabled;
   final Value<int> rowid;
@@ -8500,6 +8546,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.membersFolderMemberVisibility = const Value.absent(),
     this.membersShowPronouns = const Value.absent(),
     this.membersShowFrontButtons = const Value.absent(),
+    this.membersShowGroups = const Value.absent(),
     this.membersFrontButtonBehavior = const Value.absent(),
     this.bioMarkdownEnabled = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -8578,6 +8625,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.membersFolderMemberVisibility = const Value.absent(),
     this.membersShowPronouns = const Value.absent(),
     this.membersShowFrontButtons = const Value.absent(),
+    this.membersShowGroups = const Value.absent(),
     this.membersFrontButtonBehavior = const Value.absent(),
     this.bioMarkdownEnabled = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -8656,6 +8704,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<int>? membersFolderMemberVisibility,
     Expression<bool>? membersShowPronouns,
     Expression<bool>? membersShowFrontButtons,
+    Expression<bool>? membersShowGroups,
     Expression<int>? membersFrontButtonBehavior,
     Expression<bool>? bioMarkdownEnabled,
     Expression<int>? rowid,
@@ -8771,6 +8820,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'members_show_pronouns': membersShowPronouns,
       if (membersShowFrontButtons != null)
         'members_show_front_buttons': membersShowFrontButtons,
+      if (membersShowGroups != null) 'members_show_groups': membersShowGroups,
       if (membersFrontButtonBehavior != null)
         'members_front_button_behavior': membersFrontButtonBehavior,
       if (bioMarkdownEnabled != null)
@@ -8853,6 +8903,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<int>? membersFolderMemberVisibility,
     Value<bool>? membersShowPronouns,
     Value<bool>? membersShowFrontButtons,
+    Value<bool>? membersShowGroups,
     Value<int>? membersFrontButtonBehavior,
     Value<bool>? bioMarkdownEnabled,
     Value<int>? rowid,
@@ -8955,6 +9006,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       membersShowPronouns: membersShowPronouns ?? this.membersShowPronouns,
       membersShowFrontButtons:
           membersShowFrontButtons ?? this.membersShowFrontButtons,
+      membersShowGroups: membersShowGroups ?? this.membersShowGroups,
       membersFrontButtonBehavior:
           membersFrontButtonBehavior ?? this.membersFrontButtonBehavior,
       bioMarkdownEnabled: bioMarkdownEnabled ?? this.bioMarkdownEnabled,
@@ -9248,6 +9300,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         membersShowFrontButtons.value,
       );
     }
+    if (membersShowGroups.present) {
+      map['members_show_groups'] = Variable<bool>(membersShowGroups.value);
+    }
     if (membersFrontButtonBehavior.present) {
       map['members_front_button_behavior'] = Variable<int>(
         membersFrontButtonBehavior.value,
@@ -9348,6 +9403,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           )
           ..write('membersShowPronouns: $membersShowPronouns, ')
           ..write('membersShowFrontButtons: $membersShowFrontButtons, ')
+          ..write('membersShowGroups: $membersShowGroups, ')
           ..write('membersFrontButtonBehavior: $membersFrontButtonBehavior, ')
           ..write('bioMarkdownEnabled: $bioMarkdownEnabled, ')
           ..write('rowid: $rowid')
@@ -27929,6 +27985,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<int> membersFolderMemberVisibility,
       Value<bool> membersShowPronouns,
       Value<bool> membersShowFrontButtons,
+      Value<bool> membersShowGroups,
       Value<int> membersFrontButtonBehavior,
       Value<bool> bioMarkdownEnabled,
       Value<int> rowid,
@@ -28008,6 +28065,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<int> membersFolderMemberVisibility,
       Value<bool> membersShowPronouns,
       Value<bool> membersShowFrontButtons,
+      Value<bool> membersShowGroups,
       Value<int> membersFrontButtonBehavior,
       Value<bool> bioMarkdownEnabled,
       Value<int> rowid,
@@ -28385,6 +28443,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<bool> get membersShowFrontButtons => $composableBuilder(
     column: $table.membersShowFrontButtons,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get membersShowGroups => $composableBuilder(
+    column: $table.membersShowGroups,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -28777,6 +28840,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get membersShowGroups => $composableBuilder(
+    column: $table.membersShowGroups,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get membersFrontButtonBehavior => $composableBuilder(
     column: $table.membersFrontButtonBehavior,
     builder: (column) => ColumnOrderings(column),
@@ -29154,6 +29222,11 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get membersShowGroups => $composableBuilder(
+    column: $table.membersShowGroups,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get membersFrontButtonBehavior => $composableBuilder(
     column: $table.membersFrontButtonBehavior,
     builder: (column) => column,
@@ -29285,6 +29358,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> membersFolderMemberVisibility = const Value.absent(),
                 Value<bool> membersShowPronouns = const Value.absent(),
                 Value<bool> membersShowFrontButtons = const Value.absent(),
+                Value<bool> membersShowGroups = const Value.absent(),
                 Value<int> membersFrontButtonBehavior = const Value.absent(),
                 Value<bool> bioMarkdownEnabled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -29365,6 +29439,7 @@ class $$SystemSettingsTableTableTableManager
                 membersFolderMemberVisibility: membersFolderMemberVisibility,
                 membersShowPronouns: membersShowPronouns,
                 membersShowFrontButtons: membersShowFrontButtons,
+                membersShowGroups: membersShowGroups,
                 membersFrontButtonBehavior: membersFrontButtonBehavior,
                 bioMarkdownEnabled: bioMarkdownEnabled,
                 rowid: rowid,
@@ -29448,6 +29523,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> membersFolderMemberVisibility = const Value.absent(),
                 Value<bool> membersShowPronouns = const Value.absent(),
                 Value<bool> membersShowFrontButtons = const Value.absent(),
+                Value<bool> membersShowGroups = const Value.absent(),
                 Value<int> membersFrontButtonBehavior = const Value.absent(),
                 Value<bool> bioMarkdownEnabled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -29528,6 +29604,7 @@ class $$SystemSettingsTableTableTableManager
                 membersFolderMemberVisibility: membersFolderMemberVisibility,
                 membersShowPronouns: membersShowPronouns,
                 membersShowFrontButtons: membersShowFrontButtons,
+                membersShowGroups: membersShowGroups,
                 membersFrontButtonBehavior: membersFrontButtonBehavior,
                 bioMarkdownEnabled: bioMarkdownEnabled,
                 rowid: rowid,

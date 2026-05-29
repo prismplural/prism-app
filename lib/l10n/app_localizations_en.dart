@@ -3368,6 +3368,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get memberShowGroupSectionsLabel => 'Groups';
+
+  @override
+  String get memberShowGroupSectionsToggle => 'Show group sections';
+
+  @override
+  String get memberShowGroupSectionsToggleDescription =>
+      'Organizes members into group headers or folders.';
+
+  @override
   String get memberListViewModeLabel => 'View';
 
   @override

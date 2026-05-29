@@ -20,6 +20,7 @@ void main() {
     int membersFolderMemberVisibility = 0,
     bool membersShowPronouns = true,
     bool membersShowFrontButtons = false,
+    bool membersShowGroups = true,
     int membersFrontButtonBehavior = 0,
     int fontFamily = 0,
   }) {
@@ -96,6 +97,7 @@ void main() {
       membersFolderMemberVisibility: membersFolderMemberVisibility,
       membersShowPronouns: membersShowPronouns,
       membersShowFrontButtons: membersShowFrontButtons,
+      membersShowGroups: membersShowGroups,
       membersFrontButtonBehavior: membersFrontButtonBehavior,
       bioMarkdownEnabled: true,
     );

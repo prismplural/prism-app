@@ -290,6 +290,7 @@ abstract class SystemSettings with _$SystemSettings {
     @Default(false) bool membersShowFrontButtons,
     @Default(FrontStartBehavior.additive)
     FrontStartBehavior membersFrontButtonBehavior,
+    @Default(true) bool membersShowGroups,
     // Global switch: when false, no member bio renders as markdown anywhere
     // in the app regardless of the per-member `Member.markdownEnabled` flag.
     // When true, the per-member flag decides. Synced.

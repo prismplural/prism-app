@@ -356,6 +356,9 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   Future<void> updateMembersShowFrontButtons(bool value) async =>
       updateSettings(settings.copyWith(membersShowFrontButtons: value));
   @override
+  Future<void> updateMembersShowGroups(bool value) async =>
+      updateSettings(settings.copyWith(membersShowGroups: value));
+  @override
   Future<void> updateMembersFrontButtonBehavior(
     FrontStartBehavior value,
   ) async =>

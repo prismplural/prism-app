@@ -1712,6 +1712,7 @@ class DataImportService {
                   : MembersFolderMemberVisibility.allMembers,
               membersShowPronouns: s.membersShowPronouns,
               membersShowFrontButtons: s.membersShowFrontButtons,
+              membersShowGroups: s.membersShowGroups,
               membersFrontButtonBehavior:
                   s.membersFrontButtonBehavior >= 0 &&
                       s.membersFrontButtonBehavior <

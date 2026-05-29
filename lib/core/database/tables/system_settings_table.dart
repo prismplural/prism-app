@@ -252,6 +252,10 @@ class SystemSettingsTable extends Table {
   BoolColumn get membersShowFrontButtons =>
       boolean().withDefault(const Constant(false))();
 
+  /// Whether the members list shows group structure (sections/folders).
+  BoolColumn get membersShowGroups =>
+      boolean().withDefault(const Constant(true))();
+
   /// `FrontStartBehavior` index for member row front action buttons.
   /// 0 = additive (default), 1 = replace.
   IntColumn get membersFrontButtonBehavior =>

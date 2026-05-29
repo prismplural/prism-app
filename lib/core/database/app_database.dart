@@ -102,7 +102,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 29;
+  int get schemaVersion => 30;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -807,6 +807,13 @@ class AppDatabase extends _$AppDatabase {
           await migrator.addColumn(members, members.pkAvatarCachedUrl);
         }
         current = 29;
+      }
+      if (current == 29 && to >= 30) {
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.membersShowGroups,
+        );
+        current = 30;
       }
       if (current != to) {
         throw UnsupportedError(

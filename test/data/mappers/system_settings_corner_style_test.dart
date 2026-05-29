@@ -82,6 +82,7 @@ void main() {
       membersFolderMemberVisibility: 0,
       membersShowPronouns: true,
       membersShowFrontButtons: false,
+      membersShowGroups: true,
       membersFrontButtonBehavior: 0,
       bioMarkdownEnabled: true,
     );

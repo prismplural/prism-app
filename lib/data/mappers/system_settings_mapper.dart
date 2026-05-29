@@ -125,6 +125,7 @@ class SystemSettingsMapper {
       ),
       membersShowPronouns: row.membersShowPronouns,
       membersShowFrontButtons: row.membersShowFrontButtons,
+      membersShowGroups: row.membersShowGroups,
       membersFrontButtonBehavior: enumByIndex(
         row.membersFrontButtonBehavior,
         domain.FrontStartBehavior.values,
@@ -212,6 +213,7 @@ class SystemSettingsMapper {
       ),
       membersShowPronouns: Value(model.membersShowPronouns),
       membersShowFrontButtons: Value(model.membersShowFrontButtons),
+      membersShowGroups: Value(model.membersShowGroups),
       membersFrontButtonBehavior: Value(model.membersFrontButtonBehavior.index),
       bioMarkdownEnabled: Value(model.bioMarkdownEnabled),
     );

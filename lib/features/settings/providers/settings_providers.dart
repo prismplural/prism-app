@@ -347,6 +347,13 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateMembersShowGroups(bool value) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateMembersShowGroups(value);
+    });
+  }
+
   Future<void> updateMembersFrontButtonBehavior(
     FrontStartBehavior behavior,
   ) async {
@@ -1071,6 +1078,14 @@ final membersShowFrontButtonsProvider = Provider<bool>((ref) {
           .watch(systemSettingsProvider)
           .whenOrNull(data: (s) => s.membersShowFrontButtons) ??
       false;
+});
+
+/// Device-local toggle for showing group structure in the members list.
+final membersShowGroupsProvider = Provider<bool>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.membersShowGroups) ??
+      true;
 });
 
 /// Device-local behavior used by member-row front buttons and row actions.

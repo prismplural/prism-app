@@ -520,6 +520,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     final showPronouns = ref.watch(membersShowPronounsProvider);
     final showFrontButtons = ref.watch(membersShowFrontButtonsProvider);
     final frontButtonBehavior = ref.watch(membersFrontButtonBehaviorProvider);
+    final showGroups = ref.watch(membersShowGroupsProvider);
     final showGroupedSections = viewMode == MembersListViewMode.groupedSections;
     final showViewSettingsBanner = _shouldShowViewSettingsBanner(
       viewMode: viewMode,
@@ -552,13 +553,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               onOpenSettings: () => unawaited(_openViewSettingsSheet()),
               onDismiss: () => unawaited(_markViewSettingsBannerSeen()),
             ),
-          if (showGroupedSections)
+          if (showGroupedSections && showGroups)
             MemberGroupFilterBar(onChipTap: hasGroups ? _scrollToGroup : null),
           Expanded(
             child: AnimatedSwitcher(
               duration: Anim.md,
               child: KeyedSubtree(
-                key: ValueKey((_showInactive, viewMode)),
+                key: ValueKey((_showInactive, viewMode, showGroups)),
                 child: membersAsync.when(
                   loading: () => const PrismLoadingState(),
                   error: (e, _) => Center(
@@ -594,7 +595,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                       );
                     }
 
-                    if (!hasGroups) {
+                    if (!hasGroups || !showGroups) {
                       return _buildFlatList(rawMembers, frontingIds);
                     }
 

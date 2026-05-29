@@ -373,6 +373,11 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateMembersShowGroups(bool value) async {
+    await _dao.updateMembersShowGroups(value);
+  }
+
+  @override
   Future<void> updateMembersFrontButtonBehavior(
     domain.FrontStartBehavior value,
   ) async {
@@ -628,6 +633,7 @@ class DriftSystemSettingsRepository
       'members_folder_member_visibility': row.membersFolderMemberVisibility,
       'members_show_pronouns': row.membersShowPronouns,
       'members_show_front_buttons': row.membersShowFrontButtons,
+      'members_show_groups': row.membersShowGroups,
       'members_front_button_behavior': row.membersFrontButtonBehavior,
     };
   }
@@ -652,6 +658,7 @@ class DriftSystemSettingsRepository
       'members_folder_member_visibility': s.membersFolderMemberVisibility.index,
       'members_show_pronouns': s.membersShowPronouns,
       'members_show_front_buttons': s.membersShowFrontButtons,
+      'members_show_groups': s.membersShowGroups,
       'members_front_button_behavior': s.membersFrontButtonBehavior.index,
     };
   }
@@ -960,6 +967,9 @@ class DriftSystemSettingsRepository
           : const Value.absent(),
       membersShowFrontButtons: fields.containsKey('members_show_front_buttons')
           ? Value(fields['members_show_front_buttons'] as bool)
+          : const Value.absent(),
+      membersShowGroups: fields.containsKey('members_show_groups')
+          ? Value(fields['members_show_groups'] as bool)
           : const Value.absent(),
       membersFrontButtonBehavior:
           fields.containsKey('members_front_button_behavior')

@@ -62,6 +62,7 @@ abstract class SystemSettingsRepository {
   );
   Future<void> updateMembersShowPronouns(bool value);
   Future<void> updateMembersShowFrontButtons(bool value);
+  Future<void> updateMembersShowGroups(bool value);
   Future<void> updateMembersFrontButtonBehavior(
     domain.FrontStartBehavior value,
   );

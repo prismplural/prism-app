@@ -682,6 +682,7 @@ class DataExportService {
     membersFolderMemberVisibility: s.membersFolderMemberVisibility.index,
     membersShowPronouns: s.membersShowPronouns,
     membersShowFrontButtons: s.membersShowFrontButtons,
+    membersShowGroups: s.membersShowGroups,
     membersFrontButtonBehavior: s.membersFrontButtonBehavior.index,
     bioMarkdownEnabled: s.bioMarkdownEnabled,
   );

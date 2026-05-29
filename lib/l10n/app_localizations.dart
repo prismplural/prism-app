@@ -5800,6 +5800,24 @@ abstract class AppLocalizations {
   /// **'Group and {term} view preferences can be adjusted in View Settings.'**
   String memberViewSettingsBannerMessage(String term);
 
+  /// Section label for the show/hide groups toggle in view settings
+  ///
+  /// In en, this message translates to:
+  /// **'Groups'**
+  String get memberShowGroupSectionsLabel;
+
+  /// Toggle label for showing group structure in the members list
+  ///
+  /// In en, this message translates to:
+  /// **'Show group sections'**
+  String get memberShowGroupSectionsToggle;
+
+  /// Description for the show group sections toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Organizes members into group headers or folders.'**
+  String get memberShowGroupSectionsToggleDescription;
+
   /// Label for choosing how the members list is displayed
   ///
   /// In en, this message translates to:

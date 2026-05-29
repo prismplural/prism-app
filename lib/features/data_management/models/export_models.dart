@@ -1214,6 +1214,7 @@ class V1SystemSettings {
     this.membersFolderMemberVisibility = 0,
     this.membersShowPronouns = true,
     this.membersShowFrontButtons = false,
+    this.membersShowGroups = true,
     this.membersFrontButtonBehavior = 0,
     this.bioMarkdownEnabled = true,
     this.hasPaletteSource = true,
@@ -1293,6 +1294,7 @@ class V1SystemSettings {
   membersFolderMemberVisibility; // MembersFolderMemberVisibility index
   final bool membersShowPronouns;
   final bool membersShowFrontButtons;
+  final bool membersShowGroups;
   final int membersFrontButtonBehavior; // FrontStartBehavior enum index
   final bool bioMarkdownEnabled;
   final bool hasPaletteSource;
@@ -1375,6 +1377,7 @@ class V1SystemSettings {
     'membersFolderMemberVisibility': membersFolderMemberVisibility,
     'membersShowPronouns': membersShowPronouns,
     'membersShowFrontButtons': membersShowFrontButtons,
+    'membersShowGroups': membersShowGroups,
     'membersFrontButtonBehavior': membersFrontButtonBehavior,
     'bioMarkdownEnabled': bioMarkdownEnabled,
   };
@@ -1466,6 +1469,7 @@ class V1SystemSettings {
         json['membersFolderMemberVisibility'] as int? ?? 0,
     membersShowPronouns: json['membersShowPronouns'] as bool? ?? true,
     membersShowFrontButtons: json['membersShowFrontButtons'] as bool? ?? false,
+    membersShowGroups: json['membersShowGroups'] as bool? ?? true,
     membersFrontButtonBehavior: json['membersFrontButtonBehavior'] as int? ?? 0,
     bioMarkdownEnabled: json['bioMarkdownEnabled'] as bool? ?? true,
     hasBioMarkdownEnabled: json.containsKey('bioMarkdownEnabled'),

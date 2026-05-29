@@ -157,6 +157,7 @@ _SystemSettings _$SystemSettingsFromJson(
         json['membersFrontButtonBehavior'],
       ) ??
       FrontStartBehavior.additive,
+  membersShowGroups: json['membersShowGroups'] as bool? ?? true,
   bioMarkdownEnabled: json['bioMarkdownEnabled'] as bool? ?? true,
 );
 
@@ -241,6 +242,7 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'membersShowFrontButtons': instance.membersShowFrontButtons,
   'membersFrontButtonBehavior':
       _$FrontStartBehaviorEnumMap[instance.membersFrontButtonBehavior]!,
+  'membersShowGroups': instance.membersShowGroups,
   'bioMarkdownEnabled': instance.bioMarkdownEnabled,
 };
 
