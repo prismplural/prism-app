@@ -18,6 +18,8 @@ import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
+import 'package:uuid/data.dart';
+import 'package:uuid/uuid.dart';
 
 /// In-memory member repo — minimum surface the applier touches.
 class FakeMemberRepo implements MemberRepository {
@@ -182,7 +184,12 @@ class FakeMemberRepo implements MemberRepository {
   @override
   Future<List<domain.Member>> getDeletedLinkedMembers() async => const [];
   @override
-  Future<void> clearPluralKitLink(String id) async {}
+  Future<void> clearPluralKitLink(String id) async {
+    final existing = _byId[id];
+    if (existing == null) return;
+    _byId[id] = existing.copyWith(pluralkitId: null, pluralkitUuid: null);
+  }
+
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 
@@ -245,6 +252,15 @@ class FakePluralKitClient extends PluralKitClient {
   }
 }
 
+class _FixedUuid extends Uuid {
+  const _FixedUuid(this.value);
+
+  final String value;
+
+  @override
+  String v4({Map<String, dynamic>? options, V4Options? config}) => value;
+}
+
 domain.Member _local({
   required String id,
   required String name,
@@ -279,6 +295,7 @@ void main() {
     required MemberRepository repo,
     required FakePluralKitClient client,
     PkSyncEventBus? bus,
+    Uuid? uuid,
   }) {
     return PkMappingApplier(
       members: repo,
@@ -286,6 +303,7 @@ void main() {
       pushService: const PkPushService(),
       client: client,
       bus: bus ?? PkSyncEventBus(),
+      uuid: uuid,
     );
   }
 
@@ -380,11 +398,20 @@ void main() {
   });
 
   test(
-    'link fails when a tombstoned row still owns the same pluralkitId',
+    'link reassigns a PK identity held by a tombstoned accidental import',
     () async {
-      final repo = DriftMemberRepository(db.membersDao, null);
+      final repo = DriftMemberRepository(
+        db.membersDao,
+        null,
+        pkSyncDao: db.pluralKitSyncDao,
+      );
       await repo.createMember(
-        _local(id: 'tomb', name: 'Old', pluralkitId: 'abcde'),
+        _local(
+          id: 'tomb',
+          name: 'Old',
+          pluralkitId: 'abcde',
+          pluralkitUuid: 'u-link',
+        ),
       );
       await repo.deleteMember('tomb');
       await repo.createMember(_local(id: 'l1', name: 'Alice'));
@@ -397,24 +424,35 @@ void main() {
         const PkLinkDecision(localMemberId: 'l1', pkMember: pk),
       ]);
 
-      expect(results.single.outcome, PkApplyOutcome.failed);
-      expect(
-        results.single.error,
-        contains('deleted local member still owns this PluralKit link'),
-      );
-
       final local = await repo.getMemberById('l1');
-      expect(local!.pluralkitId, isNull);
-      expect(local.pluralkitUuid, isNull);
+      final tombstone = await repo.getMemberById('tomb');
+      final pendingDeletes = await repo.getDeletedLinkedMembers();
+
+      expect(results.single.outcome, PkApplyOutcome.applied);
+      expect(local!.pluralkitId, 'abcde');
+      expect(local.pluralkitUuid, 'u-link');
+      expect(tombstone!.isDeleted, isTrue);
+      expect(tombstone.pluralkitId, isNull);
+      expect(tombstone.pluralkitUuid, isNull);
+      expect(pendingDeletes, isEmpty);
     },
   );
 
   test(
-    'import fails when a tombstoned row still owns the same pluralkitId',
+    'import reassigns a PK identity held by a tombstoned accidental import',
     () async {
-      final repo = DriftMemberRepository(db.membersDao, null);
+      final repo = DriftMemberRepository(
+        db.membersDao,
+        null,
+        pkSyncDao: db.pluralKitSyncDao,
+      );
       await repo.createMember(
-        _local(id: 'tomb', name: 'Old', pluralkitId: 'abcde'),
+        _local(
+          id: 'tomb',
+          name: 'Old',
+          pluralkitId: 'abcde',
+          pluralkitUuid: 'u-import',
+        ),
       );
       await repo.deleteMember('tomb');
 
@@ -426,14 +464,61 @@ void main() {
         const PkImportDecision(pkMember: pk),
       ]);
 
-      expect(results.single.outcome, PkApplyOutcome.failed);
-      expect(
-        results.single.error,
-        contains('deleted local member still owns this PluralKit link'),
-      );
-
       final allVisible = await repo.getAllMembers();
-      expect(allVisible, isEmpty);
+      final tombstone = await repo.getMemberById('tomb');
+      final pendingDeletes = await repo.getDeletedLinkedMembers();
+
+      expect(results.single.outcome, PkApplyOutcome.applied);
+      expect(allVisible, hasLength(1));
+      expect(allVisible.single.name, 'Imported');
+      expect(allVisible.single.pluralkitId, 'abcde');
+      expect(allVisible.single.pluralkitUuid, 'u-import');
+      expect(tombstone!.isDeleted, isTrue);
+      expect(tombstone.pluralkitId, isNull);
+      expect(tombstone.pluralkitUuid, isNull);
+      expect(pendingDeletes, isEmpty);
+    },
+  );
+
+  test(
+    'import rolls back tombstone release when creating replacement fails',
+    () async {
+      final repo = DriftMemberRepository(
+        db.membersDao,
+        null,
+        pkSyncDao: db.pluralKitSyncDao,
+      );
+      await repo.createMember(
+        _local(
+          id: 'tomb',
+          name: 'Old',
+          pluralkitId: 'abcde',
+          pluralkitUuid: 'u-import',
+        ),
+      );
+      await repo.deleteMember('tomb');
+      await repo.createMember(_local(id: 'collision', name: 'Existing'));
+
+      final client = FakePluralKitClient();
+      final applier = buildApplier(
+        repo: repo,
+        client: client,
+        uuid: const _FixedUuid('collision'),
+      );
+      const pk = PKMember(id: 'abcde', uuid: 'u-import', name: 'Imported');
+
+      final results = await applier.apply([
+        const PkImportDecision(pkMember: pk),
+      ]);
+
+      final tombstone = await repo.getMemberById('tomb');
+      final pendingDeletes = await repo.getDeletedLinkedMembers();
+
+      expect(results.single.outcome, PkApplyOutcome.failed);
+      expect(tombstone!.isDeleted, isTrue);
+      expect(tombstone.pluralkitId, 'abcde');
+      expect(tombstone.pluralkitUuid, 'u-import');
+      expect(pendingDeletes.map((m) => m.id), contains('tomb'));
     },
   );
 
