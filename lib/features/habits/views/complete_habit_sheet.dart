@@ -50,6 +50,7 @@ class CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
   bool _completedByMemberWasEdited = false;
   final _notesController = TextEditingController();
   int? _rating;
+  bool _isSaving = false;
 
   late String? _initialMemberId;
   late int? _initialRating;
@@ -170,7 +171,8 @@ class CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
                 size: PrismTokens.topBarActionSize,
                 tint: theme.colorScheme.primary,
                 accentIcon: true,
-                onPressed: _save,
+                isLoading: _isSaving,
+                onPressed: _isSaving ? null : _save,
               ),
             ),
             Expanded(
@@ -246,6 +248,8 @@ class CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
   }
 
   Future<void> _save() async {
+    if (_isSaving) return;
+
     // Future-time guard: validate FIRST before any dispatch.
     if (_completedAt.isAfter(DateTime.now())) {
       PrismToast.error(
@@ -282,48 +286,57 @@ class CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
 
     final notes = _normalizeNotes(_notesController.text);
 
-    if (_isEditMode) {
-      final existing = widget.existingCompletion!;
-      final changedFields = <String, dynamic>{};
-      final initialNotes = _normalizeNotes(_initialNotes);
+    setState(() => _isSaving = true);
+    try {
+      if (_isEditMode) {
+        final existing = widget.existingCompletion!;
+        final changedFields = <String, dynamic>{};
+        final initialNotes = _normalizeNotes(_initialNotes);
 
-      if (_completedAt != _initialCompletedAt) {
-        changedFields['completed_at'] = _completedAt.toUtc().toIso8601String();
-      }
-      if (_completedByMemberId != _initialMemberId) {
-        changedFields['completed_by_member_id'] = _completedByMemberId;
-      }
-      if (notes != initialNotes) {
-        changedFields['notes'] = notes;
-      }
-      if (_rating != _initialRating) {
-        changedFields['rating'] = _rating;
-      }
-      if (wasFronting != existing.wasFronting) {
-        changedFields['was_fronting'] = wasFronting;
+        if (_completedAt != _initialCompletedAt) {
+          changedFields['completed_at'] = _completedAt
+              .toUtc()
+              .toIso8601String();
+        }
+        if (_completedByMemberId != _initialMemberId) {
+          changedFields['completed_by_member_id'] = _completedByMemberId;
+        }
+        if (notes != initialNotes) {
+          changedFields['notes'] = notes;
+        }
+        if (_rating != _initialRating) {
+          changedFields['rating'] = _rating;
+        }
+        if (wasFronting != existing.wasFronting) {
+          changedFields['was_fronting'] = wasFronting;
+        }
+
+        await ref
+            .read(habitNotifierProvider.notifier)
+            .updateCompletion(
+              completionId: existing.id,
+              habitId: existing.habitId,
+              changedFields: changedFields,
+            );
+      } else {
+        await ref
+            .read(habitNotifierProvider.notifier)
+            .completeHabit(
+              habitId: widget.habit.id,
+              completedByMemberId: _completedByMemberId,
+              notes: notes,
+              rating: _rating,
+              wasFronting: wasFronting,
+              completedAt: _completedAt,
+            );
       }
 
-      await ref
-          .read(habitNotifierProvider.notifier)
-          .updateCompletion(
-            completionId: existing.id,
-            habitId: existing.habitId,
-            changedFields: changedFields,
-          );
-    } else {
-      await ref
-          .read(habitNotifierProvider.notifier)
-          .completeHabit(
-            habitId: widget.habit.id,
-            completedByMemberId: _completedByMemberId,
-            notes: notes,
-            rating: _rating,
-            wasFronting: wasFronting,
-            completedAt: _completedAt,
-          );
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
-
-    if (mounted) Navigator.of(context).pop();
   }
 
   String? _normalizeNotes(String value) {

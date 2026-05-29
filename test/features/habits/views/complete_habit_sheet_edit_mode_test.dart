@@ -412,6 +412,34 @@ void main() {
     },
   );
 
+  testWidgets('create mode: rapid double save only creates one completion', (
+    tester,
+  ) async {
+    final saveBlocker = Completer<void>();
+    addTearDown(() {
+      if (!saveBlocker.isCompleted) saveBlocker.complete();
+    });
+    final spy = _SpyHabitNotifier(completeHabitBlocker: saveBlocker);
+
+    await tester.pumpWidget(
+      _buildSubject(habit: sampleHabit, habitNotifierOverride: spy),
+    );
+    await tester.pumpAndSettle();
+
+    final saveButton = find.byTooltip('Save');
+    expect(saveButton, findsOneWidget);
+
+    await tester.tap(saveButton);
+    await tester.pump();
+    await tester.tap(saveButton);
+    await tester.pump();
+
+    expect(spy.completeHabitCalls, hasLength(1));
+
+    saveBlocker.complete();
+    await tester.pumpAndSettle();
+  });
+
   // ── Test 10: in EDIT mode, fronter provider is ignored ───────────────────
 
   testWidgets('edit mode: currentFronterProvider emission does NOT override '
@@ -530,6 +558,9 @@ class _UpdateCompletionArgs {
 }
 
 class _SpyHabitNotifier extends HabitNotifier {
+  _SpyHabitNotifier({this.completeHabitBlocker});
+
+  final Completer<void>? completeHabitBlocker;
   final List<_CompleteHabitArgs> completeHabitCalls = [];
   final List<_UpdateCompletionArgs> updateCompletionCalls = [];
 
@@ -552,6 +583,9 @@ class _SpyHabitNotifier extends HabitNotifier {
         completedAt: completedAt,
       ),
     );
+    if (completeHabitBlocker != null) {
+      await completeHabitBlocker!.future;
+    }
   }
 
   @override
