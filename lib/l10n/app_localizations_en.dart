@@ -3588,6 +3588,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberBioEditorTooltip => 'Edit bio';
 
   @override
+  String get memberBioPreviewTooltip => 'Preview';
+
+  @override
   String get memberDisplayNameLabel => 'Full Name';
 
   @override
@@ -11318,4 +11321,302 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get customFieldNoEligibleGroups => 'No groups to move into';
+
+  @override
+  String get mediaScreenTitle => 'Media';
+
+  @override
+  String get mediaAddImageTooltip => 'Add image';
+
+  @override
+  String get mediaSourceCamera => 'Camera';
+
+  @override
+  String get mediaSourcePhotoLibrary => 'Photo library';
+
+  @override
+  String get mediaSourceFile => 'File';
+
+  @override
+  String get mediaSourceUrl => 'URL';
+
+  @override
+  String get mediaSourcePrismLibrary => 'Prism library';
+
+  @override
+  String get mediaAddToLibraryTitle => 'Add to library';
+
+  @override
+  String get mediaAddImageToLibraryTitle => 'Add image to library';
+
+  @override
+  String get mediaImageUrlTitle => 'Image URL';
+
+  @override
+  String get mediaImageUrlHint => 'https://example.com/image.png';
+
+  @override
+  String get mediaTagFieldHint => 'Tag (optional) e.g. nbflag';
+
+  @override
+  String get mediaAltTextFieldHint => 'Alt text (optional)';
+
+  @override
+  String get mediaEditTagHint => 'e.g. nbflag, divider';
+
+  @override
+  String get mediaFetchButton => 'Fetch';
+
+  @override
+  String mediaAddedToLibrary(String tag) {
+    return 'Added \"$tag\" to library';
+  }
+
+  @override
+  String mediaAddImageFailed(String error) {
+    return 'Failed to add image: $error';
+  }
+
+  @override
+  String mediaReplaceImageFailed(String error) {
+    return 'Failed to replace image: $error';
+  }
+
+  @override
+  String get mediaFetchFromUrlFailed => 'Could not fetch image from URL';
+
+  @override
+  String get mediaFetchImageFailed => 'Could not fetch image';
+
+  @override
+  String get mediaTagNoUsableCharacters => 'Tag has no usable characters';
+
+  @override
+  String mediaTagAlreadyInUse(String tag) {
+    return 'Tag \"$tag\" is already in use';
+  }
+
+  @override
+  String get mediaTagRenamed => 'Renamed';
+
+  @override
+  String mediaTagRenamedWithReferences(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Renamed; updated $count references',
+      one: 'Renamed; updated 1 reference',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get mediaSomeImagesNotSaved => 'Some images couldn\'t be saved';
+
+  @override
+  String mediaCopiedReference(String reference) {
+    return 'Copied $reference';
+  }
+
+  @override
+  String get mediaMessageNoLongerExists => 'Message no longer exists';
+
+  @override
+  String get mediaDeleteImageTitle => 'Delete image?';
+
+  @override
+  String get mediaDeleteImageMessage =>
+      'This will remove the image from all synced devices. Any bios referencing it will show a missing image.';
+
+  @override
+  String get mediaUpdateReferencesTitle => 'Update references?';
+
+  @override
+  String mediaUpdateReferencesMessage(int count, String oldTag, String newTag) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '\"$oldTag\" is used in $count places. Update those references to \"$newTag\", or leave them on \"$oldTag\" — e.g. to free up the name for a different image?',
+      one:
+          '\"$oldTag\" is used in 1 place. Update that reference to \"$newTag\", or leave it on \"$oldTag\" — e.g. to free up the name for a different image?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get mediaActionLeave => 'Leave';
+
+  @override
+  String get mediaActionUpdate => 'Update';
+
+  @override
+  String get mediaSectionStorage => 'Storage';
+
+  @override
+  String get mediaStorageEncryptedMedia => 'Encrypted media';
+
+  @override
+  String get mediaStorageMemberData => 'Member data';
+
+  @override
+  String get mediaSectionImageLibrary => 'Image library';
+
+  @override
+  String get mediaSectionChatImages => 'Chat images';
+
+  @override
+  String get mediaSectionAvatarsBanners => 'Avatars & banners';
+
+  @override
+  String get mediaAvatarsBannersFooter =>
+      'Managed from the member edit sheet. Stored locally on device.';
+
+  @override
+  String get mediaLabelAvatars => 'Avatars';
+
+  @override
+  String get mediaLabelBanners => 'Banners';
+
+  @override
+  String get mediaNoStoredMedia => 'No stored media';
+
+  @override
+  String mediaSummaryItems(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count items',
+      one: '$count item',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String mediaSummaryAvatars(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count avatars',
+      one: '$count avatar',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String mediaSummaryBanners(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count banners',
+      one: '$count banner',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get mediaUsageUnused => 'Unused';
+
+  @override
+  String mediaUsageUsedInPlaces(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Used in $count places',
+      one: 'Used in 1 place',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get mediaMenuViewUsage => 'View usage';
+
+  @override
+  String get mediaMenuCopyCode => 'Copy code';
+
+  @override
+  String get mediaMenuEditTag => 'Edit tag';
+
+  @override
+  String get mediaMenuReplaceImage => 'Replace image';
+
+  @override
+  String get mediaMenuDelete => 'Delete';
+
+  @override
+  String get mediaMenuJumpToMessage => 'Jump to message';
+
+  @override
+  String get mediaUsageScreenTitle => 'Used by';
+
+  @override
+  String get mediaUsageNotUsedAnywhere => 'Not used anywhere';
+
+  @override
+  String get mediaUsageKindBio => 'Bio';
+
+  @override
+  String get mediaUsageKindNote => 'Note';
+
+  @override
+  String get mediaUsageKindGroup => 'Group';
+
+  @override
+  String get mediaUsageKindCustomField => 'Custom field';
+
+  @override
+  String get mediaUsageKindChat => 'Chat';
+
+  @override
+  String mediaUsageLabelBio(String name) {
+    return '$name\'s bio';
+  }
+
+  @override
+  String mediaUsageLabelNote(String title) {
+    return 'Note: $title';
+  }
+
+  @override
+  String get mediaUsageLabelUntitledNote => 'Untitled note';
+
+  @override
+  String mediaUsageLabelCustomField(String member, String field) {
+    return '$member · $field';
+  }
+
+  @override
+  String get mediaUsageLabelChatMessage => 'Chat message';
+
+  @override
+  String get mediaUsageLabelUnknownMember => 'a member';
+
+  @override
+  String get mediaUsageLabelUnknownField => 'a field';
+
+  @override
+  String get mediaLibraryPickerTitle => 'Image library';
+
+  @override
+  String get mediaLibraryEmpty => 'No images in library yet';
+
+  @override
+  String get imageSemanticLabel => 'Image';
+
+  @override
+  String imageSemanticInBio(String name) {
+    return 'Image in $name\'s bio';
+  }
+
+  @override
+  String get imageSemanticLoading => 'Image loading';
+
+  @override
+  String get imageSemanticLoadFailed => 'Image couldn\'t load';
+
+  @override
+  String get imageSemanticExpired => 'Image expired';
+
+  @override
+  String get imageSemanticThumbnail => 'Media thumbnail';
 }

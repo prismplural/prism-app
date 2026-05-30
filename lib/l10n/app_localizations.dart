@@ -6149,6 +6149,12 @@ abstract class AppLocalizations {
   /// **'Edit bio'**
   String get memberBioEditorTooltip;
 
+  /// Tooltip for the button that switches the full-screen markdown editor into rendered preview mode
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get memberBioPreviewTooltip;
+
   /// Label for the Prism-only member full name text field
   ///
   /// In en, this message translates to:
@@ -18187,6 +18193,462 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No groups to move into'**
   String get customFieldNoEligibleGroups;
+
+  /// Title of the Media settings screen, which manages the encrypted image library, chat images, and avatars/banners
+  ///
+  /// In en, this message translates to:
+  /// **'Media'**
+  String get mediaScreenTitle;
+
+  /// Tooltip on the add-image button in the Media screen top bar; opens a menu of image sources
+  ///
+  /// In en, this message translates to:
+  /// **'Add image'**
+  String get mediaAddImageTooltip;
+
+  /// Add-image source menu item: take a photo with the camera
+  ///
+  /// In en, this message translates to:
+  /// **'Camera'**
+  String get mediaSourceCamera;
+
+  /// Add-image source menu item: pick from the device's photo library
+  ///
+  /// In en, this message translates to:
+  /// **'Photo library'**
+  String get mediaSourcePhotoLibrary;
+
+  /// Add-image source menu item: pick an image file
+  ///
+  /// In en, this message translates to:
+  /// **'File'**
+  String get mediaSourceFile;
+
+  /// Add-image source menu item: fetch an image from a web URL
+  ///
+  /// In en, this message translates to:
+  /// **'URL'**
+  String get mediaSourceUrl;
+
+  /// Add-image source menu item: insert an image already stored in the shared Prism image library
+  ///
+  /// In en, this message translates to:
+  /// **'Prism library'**
+  String get mediaSourcePrismLibrary;
+
+  /// Title of the dialog for adding a picked image to the shared image library
+  ///
+  /// In en, this message translates to:
+  /// **'Add to library'**
+  String get mediaAddToLibraryTitle;
+
+  /// Title of the dialog (shown from a markdown editor) for staging a picked image into the image library
+  ///
+  /// In en, this message translates to:
+  /// **'Add image to library'**
+  String get mediaAddImageToLibraryTitle;
+
+  /// Title of the dialog prompting for an image's web URL
+  ///
+  /// In en, this message translates to:
+  /// **'Image URL'**
+  String get mediaImageUrlTitle;
+
+  /// Hint/placeholder text for the image URL input field. Example URL — keep it a plausible image URL.
+  ///
+  /// In en, this message translates to:
+  /// **'https://example.com/image.png'**
+  String get mediaImageUrlHint;
+
+  /// Hint for the optional tag field when adding an image to the library. 'nbflag' is an example tag (a short identifier the user types to reference the image as the markdown code); leave it untranslated as it's example data.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag (optional) e.g. nbflag'**
+  String get mediaTagFieldHint;
+
+  /// Hint for the optional alternative-text field when adding an image (describes the image for screen readers)
+  ///
+  /// In en, this message translates to:
+  /// **'Alt text (optional)'**
+  String get mediaAltTextFieldHint;
+
+  /// Hint for the tag field when editing an existing image's tag. 'nbflag' and 'divider' are example tags; leave untranslated as example data.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. nbflag, divider'**
+  String get mediaEditTagHint;
+
+  /// Confirm button on the image-URL dialog; fetches the image from the entered URL
+  ///
+  /// In en, this message translates to:
+  /// **'Fetch'**
+  String get mediaFetchButton;
+
+  /// Toast confirming an image was added to the library under the given tag
+  ///
+  /// In en, this message translates to:
+  /// **'Added \"{tag}\" to library'**
+  String mediaAddedToLibrary(String tag);
+
+  /// Error toast when adding an image to the library fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to add image: {error}'**
+  String mediaAddImageFailed(String error);
+
+  /// Error toast when replacing an existing library image's bytes fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to replace image: {error}'**
+  String mediaReplaceImageFailed(String error);
+
+  /// Error toast when an image cannot be fetched from the entered URL (Media screen)
+  ///
+  /// In en, this message translates to:
+  /// **'Could not fetch image from URL'**
+  String get mediaFetchFromUrlFailed;
+
+  /// Error toast when an image cannot be fetched from the entered URL (markdown editor)
+  ///
+  /// In en, this message translates to:
+  /// **'Could not fetch image'**
+  String get mediaFetchImageFailed;
+
+  /// Error toast when a typed image tag normalizes to an empty string (all characters were stripped as invalid)
+  ///
+  /// In en, this message translates to:
+  /// **'Tag has no usable characters'**
+  String get mediaTagNoUsableCharacters;
+
+  /// Error toast when the typed image tag collides with an existing library tag
+  ///
+  /// In en, this message translates to:
+  /// **'Tag \"{tag}\" is already in use'**
+  String mediaTagAlreadyInUse(String tag);
+
+  /// Toast confirming an image tag was renamed (no references needed updating)
+  ///
+  /// In en, this message translates to:
+  /// **'Renamed'**
+  String get mediaTagRenamed;
+
+  /// Toast confirming an image tag was renamed and that this many references to it were repointed
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Renamed; updated 1 reference} other{Renamed; updated {count} references}}'**
+  String mediaTagRenamedWithReferences(int count);
+
+  /// Error toast shown when committing a markdown edit but one or more staged images failed to upload
+  ///
+  /// In en, this message translates to:
+  /// **'Some images couldn\'t be saved'**
+  String get mediaSomeImagesNotSaved;
+
+  /// Toast confirming the image's markdown reference code was copied to the clipboard. {reference} is the literal markdown code and should not be translated.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied {reference}'**
+  String mediaCopiedReference(String reference);
+
+  /// Error toast when jumping to the chat message that used an image, but that message has been deleted
+  ///
+  /// In en, this message translates to:
+  /// **'Message no longer exists'**
+  String get mediaMessageNoLongerExists;
+
+  /// Title of the confirmation dialog for deleting a stored image
+  ///
+  /// In en, this message translates to:
+  /// **'Delete image?'**
+  String get mediaDeleteImageTitle;
+
+  /// Body of the confirmation dialog for deleting a stored image
+  ///
+  /// In en, this message translates to:
+  /// **'This will remove the image from all synced devices. Any bios referencing it will show a missing image.'**
+  String get mediaDeleteImageMessage;
+
+  /// Title of the dialog asking whether to repoint existing references when renaming an in-use image tag
+  ///
+  /// In en, this message translates to:
+  /// **'Update references?'**
+  String get mediaUpdateReferencesTitle;
+
+  /// Body of the rename-references dialog. Explains how many places reference the old tag and offers to update them to the new tag or leave them.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{\"{oldTag}\" is used in 1 place. Update that reference to \"{newTag}\", or leave it on \"{oldTag}\" — e.g. to free up the name for a different image?} other{\"{oldTag}\" is used in {count} places. Update those references to \"{newTag}\", or leave them on \"{oldTag}\" — e.g. to free up the name for a different image?}}'**
+  String mediaUpdateReferencesMessage(int count, String oldTag, String newTag);
+
+  /// Button on the rename-references dialog: keep existing references pointing at the old tag
+  ///
+  /// In en, this message translates to:
+  /// **'Leave'**
+  String get mediaActionLeave;
+
+  /// Button on the rename-references dialog: repoint existing references to the new tag
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get mediaActionUpdate;
+
+  /// Section title for the storage overview on the Media screen
+  ///
+  /// In en, this message translates to:
+  /// **'Storage'**
+  String get mediaSectionStorage;
+
+  /// Storage row label for end-to-end encrypted media (library + chat images)
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted media'**
+  String get mediaStorageEncryptedMedia;
+
+  /// Storage row label for member avatars and banners stored locally
+  ///
+  /// In en, this message translates to:
+  /// **'Member data'**
+  String get mediaStorageMemberData;
+
+  /// Section title for the shared, reusable image library on the Media screen
+  ///
+  /// In en, this message translates to:
+  /// **'Image library'**
+  String get mediaSectionImageLibrary;
+
+  /// Section title for images attached to chat messages on the Media screen
+  ///
+  /// In en, this message translates to:
+  /// **'Chat images'**
+  String get mediaSectionChatImages;
+
+  /// Section title for member avatars and profile banners on the Media screen
+  ///
+  /// In en, this message translates to:
+  /// **'Avatars & banners'**
+  String get mediaSectionAvatarsBanners;
+
+  /// Footer note under the avatars & banners section explaining where they're managed and that they stay on-device
+  ///
+  /// In en, this message translates to:
+  /// **'Managed from the member edit sheet. Stored locally on device.'**
+  String get mediaAvatarsBannersFooter;
+
+  /// Storage row label for member avatars
+  ///
+  /// In en, this message translates to:
+  /// **'Avatars'**
+  String get mediaLabelAvatars;
+
+  /// Storage row label for member profile banners
+  ///
+  /// In en, this message translates to:
+  /// **'Banners'**
+  String get mediaLabelBanners;
+
+  /// Empty-state text on the Media screen when there are no library images, chat images, avatars, or banners
+  ///
+  /// In en, this message translates to:
+  /// **'No stored media'**
+  String get mediaNoStoredMedia;
+
+  /// Count fragment in a storage summary, e.g. '3 items'. Joined with a size like '3 items, 1.2 MB'.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} item} other{{count} items}}'**
+  String mediaSummaryItems(int count);
+
+  /// Count fragment in a storage summary for avatars, e.g. '2 avatars'.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} avatar} other{{count} avatars}}'**
+  String mediaSummaryAvatars(int count);
+
+  /// Count fragment in a storage summary for banners, e.g. '2 banners'.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} banner} other{{count} banners}}'**
+  String mediaSummaryBanners(int count);
+
+  /// Label on a library image card indicating the image isn't referenced anywhere
+  ///
+  /// In en, this message translates to:
+  /// **'Unused'**
+  String get mediaUsageUnused;
+
+  /// Label on a library image card indicating how many surfaces reference the image
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Used in 1 place} other{Used in {count} places}}'**
+  String mediaUsageUsedInPlaces(int count);
+
+  /// Context menu item: show the list of places that reference this library image
+  ///
+  /// In en, this message translates to:
+  /// **'View usage'**
+  String get mediaMenuViewUsage;
+
+  /// Context menu item: copy the markdown reference code for this image to the clipboard
+  ///
+  /// In en, this message translates to:
+  /// **'Copy code'**
+  String get mediaMenuCopyCode;
+
+  /// Context menu item: rename this image's tag
+  ///
+  /// In en, this message translates to:
+  /// **'Edit tag'**
+  String get mediaMenuEditTag;
+
+  /// Context menu item: swap this image's pixels while keeping its tag and references
+  ///
+  /// In en, this message translates to:
+  /// **'Replace image'**
+  String get mediaMenuReplaceImage;
+
+  /// Context menu item: delete this image
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get mediaMenuDelete;
+
+  /// Context menu item on a chat image: navigate to the message that contains it
+  ///
+  /// In en, this message translates to:
+  /// **'Jump to message'**
+  String get mediaMenuJumpToMessage;
+
+  /// Title of the screen listing every surface that references a library image
+  ///
+  /// In en, this message translates to:
+  /// **'Used by'**
+  String get mediaUsageScreenTitle;
+
+  /// Empty-state text on the image-usage screen when nothing references the image
+  ///
+  /// In en, this message translates to:
+  /// **'Not used anywhere'**
+  String get mediaUsageNotUsedAnywhere;
+
+  /// Usage-kind label: the image is referenced in a member's bio
+  ///
+  /// In en, this message translates to:
+  /// **'Bio'**
+  String get mediaUsageKindBio;
+
+  /// Usage-kind label: the image is referenced in a note
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get mediaUsageKindNote;
+
+  /// Usage-kind label: the image is referenced in a group description
+  ///
+  /// In en, this message translates to:
+  /// **'Group'**
+  String get mediaUsageKindGroup;
+
+  /// Usage-kind label: the image is referenced in a custom field value
+  ///
+  /// In en, this message translates to:
+  /// **'Custom field'**
+  String get mediaUsageKindCustomField;
+
+  /// Usage-kind label: the image is referenced in a chat message
+  ///
+  /// In en, this message translates to:
+  /// **'Chat'**
+  String get mediaUsageKindChat;
+
+  /// Usage list label pointing at a member's bio, e.g. "Alex's bio"
+  ///
+  /// In en, this message translates to:
+  /// **'{name}\'s bio'**
+  String mediaUsageLabelBio(String name);
+
+  /// Usage list label pointing at a titled note
+  ///
+  /// In en, this message translates to:
+  /// **'Note: {title}'**
+  String mediaUsageLabelNote(String title);
+
+  /// Usage list label for a note that has no title
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled note'**
+  String get mediaUsageLabelUntitledNote;
+
+  /// Usage list label pointing at a member's custom-field value, e.g. "Alex · Pronouns". The middle dot separator should be kept.
+  ///
+  /// In en, this message translates to:
+  /// **'{member} · {field}'**
+  String mediaUsageLabelCustomField(String member, String field);
+
+  /// Usage list label for a chat message that references the image but has no other preview text
+  ///
+  /// In en, this message translates to:
+  /// **'Chat message'**
+  String get mediaUsageLabelChatMessage;
+
+  /// Fallback name used in a custom-field usage label when the referenced member can't be resolved
+  ///
+  /// In en, this message translates to:
+  /// **'a member'**
+  String get mediaUsageLabelUnknownMember;
+
+  /// Fallback name used in a custom-field usage label when the referenced field can't be resolved
+  ///
+  /// In en, this message translates to:
+  /// **'a field'**
+  String get mediaUsageLabelUnknownField;
+
+  /// Title of the full-screen picker for choosing an image from the shared library to insert
+  ///
+  /// In en, this message translates to:
+  /// **'Image library'**
+  String get mediaLibraryPickerTitle;
+
+  /// Toast shown when opening the image-library picker but the library has no images
+  ///
+  /// In en, this message translates to:
+  /// **'No images in library yet'**
+  String get mediaLibraryEmpty;
+
+  /// Screen-reader label for an image with no caption and no owning member (e.g. a chat image)
+  ///
+  /// In en, this message translates to:
+  /// **'Image'**
+  String get imageSemanticLabel;
+
+  /// Screen-reader label for an image embedded in a member's bio, e.g. "Image in Alex's bio"
+  ///
+  /// In en, this message translates to:
+  /// **'Image in {name}\'s bio'**
+  String imageSemanticInBio(String name);
+
+  /// Screen-reader label for an image placeholder while the image is loading
+  ///
+  /// In en, this message translates to:
+  /// **'Image loading'**
+  String get imageSemanticLoading;
+
+  /// Screen-reader label and visible caption for an image that failed to load (tap to retry)
+  ///
+  /// In en, this message translates to:
+  /// **'Image couldn\'t load'**
+  String get imageSemanticLoadFailed;
+
+  /// Screen-reader label and visible caption for an image whose remote blob has expired and is no longer available
+  ///
+  /// In en, this message translates to:
+  /// **'Image expired'**
+  String get imageSemanticExpired;
+
+  /// Screen-reader label for a small image thumbnail
+  ///
+  /// In en, this message translates to:
+  /// **'Media thumbnail'**
+  String get imageSemanticThumbnail;
 }
 
 class _AppLocalizationsDelegate

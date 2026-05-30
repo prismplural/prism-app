@@ -4853,6 +4853,10 @@
   "@memberBioEditorTooltip": {
     "description": "Tooltip for the button that opens the full-screen bio editor"
   },
+  "memberBioPreviewTooltip": "Preview",
+  "@memberBioPreviewTooltip": {
+    "description": "Tooltip for the button that switches the full-screen markdown editor into rendered preview mode"
+  },
   "memberDisplayNameLabel": "Full Name",
   "@memberDisplayNameLabel": {
     "description": "Label for the Prism-only member full name text field"
@@ -12147,5 +12151,215 @@
   "customFieldFirstGroupTip": "Long-press a field to move it into a group",
   "@customFieldFirstGroupTip": { "description": "One-shot snackbar tip shown after the first group field is created" },
   "customFieldNoEligibleGroups": "No groups to move into",
-  "@customFieldNoEligibleGroups": { "description": "Disabled menu item shown when there are no eligible target groups for a move action" }
+  "@customFieldNoEligibleGroups": { "description": "Disabled menu item shown when there are no eligible target groups for a move action" },
+
+  "mediaScreenTitle": "Media",
+  "@mediaScreenTitle": { "description": "Title of the Media settings screen, which manages the encrypted image library, chat images, and avatars/banners" },
+  "mediaAddImageTooltip": "Add image",
+  "@mediaAddImageTooltip": { "description": "Tooltip on the add-image button in the Media screen top bar; opens a menu of image sources" },
+  "mediaSourceCamera": "Camera",
+  "@mediaSourceCamera": { "description": "Add-image source menu item: take a photo with the camera" },
+  "mediaSourcePhotoLibrary": "Photo library",
+  "@mediaSourcePhotoLibrary": { "description": "Add-image source menu item: pick from the device's photo library" },
+  "mediaSourceFile": "File",
+  "@mediaSourceFile": { "description": "Add-image source menu item: pick an image file" },
+  "mediaSourceUrl": "URL",
+  "@mediaSourceUrl": { "description": "Add-image source menu item: fetch an image from a web URL" },
+  "mediaSourcePrismLibrary": "Prism library",
+  "@mediaSourcePrismLibrary": { "description": "Add-image source menu item: insert an image already stored in the shared Prism image library" },
+
+  "mediaAddToLibraryTitle": "Add to library",
+  "@mediaAddToLibraryTitle": { "description": "Title of the dialog for adding a picked image to the shared image library" },
+  "mediaAddImageToLibraryTitle": "Add image to library",
+  "@mediaAddImageToLibraryTitle": { "description": "Title of the dialog (shown from a markdown editor) for staging a picked image into the image library" },
+  "mediaImageUrlTitle": "Image URL",
+  "@mediaImageUrlTitle": { "description": "Title of the dialog prompting for an image's web URL" },
+  "mediaImageUrlHint": "https://example.com/image.png",
+  "@mediaImageUrlHint": { "description": "Hint/placeholder text for the image URL input field. Example URL — keep it a plausible image URL." },
+  "mediaTagFieldHint": "Tag (optional) e.g. nbflag",
+  "@mediaTagFieldHint": { "description": "Hint for the optional tag field when adding an image to the library. 'nbflag' is an example tag (a short identifier the user types to reference the image as the markdown code); leave it untranslated as it's example data." },
+  "mediaAltTextFieldHint": "Alt text (optional)",
+  "@mediaAltTextFieldHint": { "description": "Hint for the optional alternative-text field when adding an image (describes the image for screen readers)" },
+  "mediaEditTagHint": "e.g. nbflag, divider",
+  "@mediaEditTagHint": { "description": "Hint for the tag field when editing an existing image's tag. 'nbflag' and 'divider' are example tags; leave untranslated as example data." },
+  "mediaFetchButton": "Fetch",
+  "@mediaFetchButton": { "description": "Confirm button on the image-URL dialog; fetches the image from the entered URL" },
+
+  "mediaAddedToLibrary": "Added \"{tag}\" to library",
+  "@mediaAddedToLibrary": {
+    "description": "Toast confirming an image was added to the library under the given tag",
+    "placeholders": { "tag": { "type": "String" } }
+  },
+  "mediaAddImageFailed": "Failed to add image: {error}",
+  "@mediaAddImageFailed": {
+    "description": "Error toast when adding an image to the library fails",
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "mediaReplaceImageFailed": "Failed to replace image: {error}",
+  "@mediaReplaceImageFailed": {
+    "description": "Error toast when replacing an existing library image's bytes fails",
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "mediaFetchFromUrlFailed": "Could not fetch image from URL",
+  "@mediaFetchFromUrlFailed": { "description": "Error toast when an image cannot be fetched from the entered URL (Media screen)" },
+  "mediaFetchImageFailed": "Could not fetch image",
+  "@mediaFetchImageFailed": { "description": "Error toast when an image cannot be fetched from the entered URL (markdown editor)" },
+  "mediaTagNoUsableCharacters": "Tag has no usable characters",
+  "@mediaTagNoUsableCharacters": { "description": "Error toast when a typed image tag normalizes to an empty string (all characters were stripped as invalid)" },
+  "mediaTagAlreadyInUse": "Tag \"{tag}\" is already in use",
+  "@mediaTagAlreadyInUse": {
+    "description": "Error toast when the typed image tag collides with an existing library tag",
+    "placeholders": { "tag": { "type": "String" } }
+  },
+  "mediaTagRenamed": "Renamed",
+  "@mediaTagRenamed": { "description": "Toast confirming an image tag was renamed (no references needed updating)" },
+  "mediaTagRenamedWithReferences": "{count, plural, =1{Renamed; updated 1 reference} other{Renamed; updated {count} references}}",
+  "@mediaTagRenamedWithReferences": {
+    "description": "Toast confirming an image tag was renamed and that this many references to it were repointed",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "mediaSomeImagesNotSaved": "Some images couldn't be saved",
+  "@mediaSomeImagesNotSaved": { "description": "Error toast shown when committing a markdown edit but one or more staged images failed to upload" },
+  "mediaCopiedReference": "Copied {reference}",
+  "@mediaCopiedReference": {
+    "description": "Toast confirming the image's markdown reference code was copied to the clipboard. {reference} is the literal markdown code and should not be translated.",
+    "placeholders": { "reference": { "type": "String" } }
+  },
+  "mediaMessageNoLongerExists": "Message no longer exists",
+  "@mediaMessageNoLongerExists": { "description": "Error toast when jumping to the chat message that used an image, but that message has been deleted" },
+
+  "mediaDeleteImageTitle": "Delete image?",
+  "@mediaDeleteImageTitle": { "description": "Title of the confirmation dialog for deleting a stored image" },
+  "mediaDeleteImageMessage": "This will remove the image from all synced devices. Any bios referencing it will show a missing image.",
+  "@mediaDeleteImageMessage": { "description": "Body of the confirmation dialog for deleting a stored image" },
+
+  "mediaUpdateReferencesTitle": "Update references?",
+  "@mediaUpdateReferencesTitle": { "description": "Title of the dialog asking whether to repoint existing references when renaming an in-use image tag" },
+  "mediaUpdateReferencesMessage": "{count, plural, =1{\"{oldTag}\" is used in 1 place. Update that reference to \"{newTag}\", or leave it on \"{oldTag}\" — e.g. to free up the name for a different image?} other{\"{oldTag}\" is used in {count} places. Update those references to \"{newTag}\", or leave them on \"{oldTag}\" — e.g. to free up the name for a different image?}}",
+  "@mediaUpdateReferencesMessage": {
+    "description": "Body of the rename-references dialog. Explains how many places reference the old tag and offers to update them to the new tag or leave them.",
+    "placeholders": { "count": { "type": "int" }, "oldTag": { "type": "String" }, "newTag": { "type": "String" } }
+  },
+  "mediaActionLeave": "Leave",
+  "@mediaActionLeave": { "description": "Button on the rename-references dialog: keep existing references pointing at the old tag" },
+  "mediaActionUpdate": "Update",
+  "@mediaActionUpdate": { "description": "Button on the rename-references dialog: repoint existing references to the new tag" },
+
+  "mediaSectionStorage": "Storage",
+  "@mediaSectionStorage": { "description": "Section title for the storage overview on the Media screen" },
+  "mediaStorageEncryptedMedia": "Encrypted media",
+  "@mediaStorageEncryptedMedia": { "description": "Storage row label for end-to-end encrypted media (library + chat images)" },
+  "mediaStorageMemberData": "Member data",
+  "@mediaStorageMemberData": { "description": "Storage row label for member avatars and banners stored locally" },
+  "mediaSectionImageLibrary": "Image library",
+  "@mediaSectionImageLibrary": { "description": "Section title for the shared, reusable image library on the Media screen" },
+  "mediaSectionChatImages": "Chat images",
+  "@mediaSectionChatImages": { "description": "Section title for images attached to chat messages on the Media screen" },
+  "mediaSectionAvatarsBanners": "Avatars & banners",
+  "@mediaSectionAvatarsBanners": { "description": "Section title for member avatars and profile banners on the Media screen" },
+  "mediaAvatarsBannersFooter": "Managed from the member edit sheet. Stored locally on device.",
+  "@mediaAvatarsBannersFooter": { "description": "Footer note under the avatars & banners section explaining where they're managed and that they stay on-device" },
+  "mediaLabelAvatars": "Avatars",
+  "@mediaLabelAvatars": { "description": "Storage row label for member avatars" },
+  "mediaLabelBanners": "Banners",
+  "@mediaLabelBanners": { "description": "Storage row label for member profile banners" },
+  "mediaNoStoredMedia": "No stored media",
+  "@mediaNoStoredMedia": { "description": "Empty-state text on the Media screen when there are no library images, chat images, avatars, or banners" },
+
+  "mediaSummaryItems": "{count, plural, =1{{count} item} other{{count} items}}",
+  "@mediaSummaryItems": {
+    "description": "Count fragment in a storage summary, e.g. '3 items'. Joined with a size like '3 items, 1.2 MB'.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "mediaSummaryAvatars": "{count, plural, =1{{count} avatar} other{{count} avatars}}",
+  "@mediaSummaryAvatars": {
+    "description": "Count fragment in a storage summary for avatars, e.g. '2 avatars'.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "mediaSummaryBanners": "{count, plural, =1{{count} banner} other{{count} banners}}",
+  "@mediaSummaryBanners": {
+    "description": "Count fragment in a storage summary for banners, e.g. '2 banners'.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "mediaUsageUnused": "Unused",
+  "@mediaUsageUnused": { "description": "Label on a library image card indicating the image isn't referenced anywhere" },
+  "mediaUsageUsedInPlaces": "{count, plural, =1{Used in 1 place} other{Used in {count} places}}",
+  "@mediaUsageUsedInPlaces": {
+    "description": "Label on a library image card indicating how many surfaces reference the image",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "mediaMenuViewUsage": "View usage",
+  "@mediaMenuViewUsage": { "description": "Context menu item: show the list of places that reference this library image" },
+  "mediaMenuCopyCode": "Copy code",
+  "@mediaMenuCopyCode": { "description": "Context menu item: copy the markdown reference code for this image to the clipboard" },
+  "mediaMenuEditTag": "Edit tag",
+  "@mediaMenuEditTag": { "description": "Context menu item: rename this image's tag" },
+  "mediaMenuReplaceImage": "Replace image",
+  "@mediaMenuReplaceImage": { "description": "Context menu item: swap this image's pixels while keeping its tag and references" },
+  "mediaMenuDelete": "Delete",
+  "@mediaMenuDelete": { "description": "Context menu item: delete this image" },
+  "mediaMenuJumpToMessage": "Jump to message",
+  "@mediaMenuJumpToMessage": { "description": "Context menu item on a chat image: navigate to the message that contains it" },
+
+  "mediaUsageScreenTitle": "Used by",
+  "@mediaUsageScreenTitle": { "description": "Title of the screen listing every surface that references a library image" },
+  "mediaUsageNotUsedAnywhere": "Not used anywhere",
+  "@mediaUsageNotUsedAnywhere": { "description": "Empty-state text on the image-usage screen when nothing references the image" },
+
+  "mediaUsageKindBio": "Bio",
+  "@mediaUsageKindBio": { "description": "Usage-kind label: the image is referenced in a member's bio" },
+  "mediaUsageKindNote": "Note",
+  "@mediaUsageKindNote": { "description": "Usage-kind label: the image is referenced in a note" },
+  "mediaUsageKindGroup": "Group",
+  "@mediaUsageKindGroup": { "description": "Usage-kind label: the image is referenced in a group description" },
+  "mediaUsageKindCustomField": "Custom field",
+  "@mediaUsageKindCustomField": { "description": "Usage-kind label: the image is referenced in a custom field value" },
+  "mediaUsageKindChat": "Chat",
+  "@mediaUsageKindChat": { "description": "Usage-kind label: the image is referenced in a chat message" },
+
+  "mediaUsageLabelBio": "{name}'s bio",
+  "@mediaUsageLabelBio": {
+    "description": "Usage list label pointing at a member's bio, e.g. \"Alex's bio\"",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "mediaUsageLabelNote": "Note: {title}",
+  "@mediaUsageLabelNote": {
+    "description": "Usage list label pointing at a titled note",
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "mediaUsageLabelUntitledNote": "Untitled note",
+  "@mediaUsageLabelUntitledNote": { "description": "Usage list label for a note that has no title" },
+  "mediaUsageLabelCustomField": "{member} · {field}",
+  "@mediaUsageLabelCustomField": {
+    "description": "Usage list label pointing at a member's custom-field value, e.g. \"Alex · Pronouns\". The middle dot separator should be kept.",
+    "placeholders": { "member": { "type": "String" }, "field": { "type": "String" } }
+  },
+  "mediaUsageLabelChatMessage": "Chat message",
+  "@mediaUsageLabelChatMessage": { "description": "Usage list label for a chat message that references the image but has no other preview text" },
+  "mediaUsageLabelUnknownMember": "a member",
+  "@mediaUsageLabelUnknownMember": { "description": "Fallback name used in a custom-field usage label when the referenced member can't be resolved" },
+  "mediaUsageLabelUnknownField": "a field",
+  "@mediaUsageLabelUnknownField": { "description": "Fallback name used in a custom-field usage label when the referenced field can't be resolved" },
+
+  "mediaLibraryPickerTitle": "Image library",
+  "@mediaLibraryPickerTitle": { "description": "Title of the full-screen picker for choosing an image from the shared library to insert" },
+  "mediaLibraryEmpty": "No images in library yet",
+  "@mediaLibraryEmpty": { "description": "Toast shown when opening the image-library picker but the library has no images" },
+
+  "imageSemanticLabel": "Image",
+  "@imageSemanticLabel": { "description": "Screen-reader label for an image with no caption and no owning member (e.g. a chat image)" },
+  "imageSemanticInBio": "Image in {name}'s bio",
+  "@imageSemanticInBio": {
+    "description": "Screen-reader label for an image embedded in a member's bio, e.g. \"Image in Alex's bio\"",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "imageSemanticLoading": "Image loading",
+  "@imageSemanticLoading": { "description": "Screen-reader label for an image placeholder while the image is loading" },
+  "imageSemanticLoadFailed": "Image couldn't load",
+  "@imageSemanticLoadFailed": { "description": "Screen-reader label and visible caption for an image that failed to load (tap to retry)" },
+  "imageSemanticExpired": "Image expired",
+  "@imageSemanticExpired": { "description": "Screen-reader label and visible caption for an image whose remote blob has expired and is no longer available" },
+  "imageSemanticThumbnail": "Media thumbnail",
+  "@imageSemanticThumbnail": { "description": "Screen-reader label for a small image thumbnail" }
 }
