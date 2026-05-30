@@ -4796,12 +4796,20 @@
   "@memberGroupSearchEmpty": {
     "description": "Empty state when group search yields no results"
   },
-  "memberCount": "{count, plural, =1{1 member} other{{count} members}}",
+  "memberCount": "{count, plural, =1{1 {singularLower}} other{{count} {pluralLower}}}",
   "@memberCount": {
-    "description": "Member count label for a group row",
+    "description": "Member count label for a group row, using the system's terminology",
     "placeholders": {
       "count": {
         "type": "int"
+      },
+      "singularLower": {
+        "type": "String",
+        "example": "headmate"
+      },
+      "pluralLower": {
+        "type": "String",
+        "example": "headmates"
       }
     }
   },

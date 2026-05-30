@@ -3547,12 +3547,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupSearchEmpty => 'No groups found';
 
   @override
-  String memberCount(int count) {
+  String memberCount(int count, String singularLower, String pluralLower) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count members',
-      one: '1 member',
+      other: '$count $pluralLower',
+      one: '1 $singularLower',
     );
     return '$_temp0';
   }

@@ -7,6 +7,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -187,6 +188,7 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
     final flatGroups = ref.watch(flatGroupListProvider);
     final memberCounts = ref.watch(groupMemberCountsProvider);
     final groupTree = ref.watch(groupTreeProvider);
+    final terms = watchTerminology(context, ref);
     final filtered = _filterGroups(flatGroups, groupTree);
 
     final topBar = PrismSheetTopBar(
@@ -235,6 +237,7 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
                   entry.group,
                   entry.depth,
                   memberCounts[entry.group.id] ?? 0,
+                  terms,
                 );
               },
               childCount: filtered.length,
@@ -266,7 +269,12 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
     );
   }
 
-  Widget _buildGroupRow(MemberGroup group, int depth, int memberCount) {
+  Widget _buildGroupRow(
+    MemberGroup group,
+    int depth,
+    int memberCount,
+    Terminology terms,
+  ) {
     final isSelected = _selectedGroupIds!.contains(group.id);
     final l10n = context.l10n;
 
@@ -289,7 +297,7 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
       ),
       title: Text(group.name),
       subtitle: Text(
-        l10n.memberCount(memberCount),
+        l10n.memberCount(memberCount, terms.singularLower, terms.pluralLower),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),

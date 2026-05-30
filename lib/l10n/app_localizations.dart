@@ -6083,11 +6083,11 @@ abstract class AppLocalizations {
   /// **'No groups found'**
   String get memberGroupSearchEmpty;
 
-  /// Member count label for a group row
+  /// Member count label for a group row, using the system's terminology
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 member} other{{count} members}}'**
-  String memberCount(int count);
+  /// **'{count, plural, =1{1 {singularLower}} other{{count} {pluralLower}}}'**
+  String memberCount(int count, String singularLower, String pluralLower);
 
   /// Label for the member name text field (required)
   ///
