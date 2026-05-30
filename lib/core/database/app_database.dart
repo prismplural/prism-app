@@ -102,7 +102,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 31;
+  int get schemaVersion => 30;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -809,24 +809,32 @@ class AppDatabase extends _$AppDatabase {
         current = 29;
       }
       if (current == 29 && to >= 30) {
-        await migrator.addColumn(
-          systemSettingsTable,
-          systemSettingsTable.membersShowGroups,
-        );
-        current = 30;
-      }
-      if (current == 30 && to >= 31) {
-        // Bio image library: add member_id + tag to media_attachments.
-        final cols =
-            await customSelect('PRAGMA table_info(media_attachments)').get();
-        final names = cols.map((r) => r.read<String>('name')).toSet();
-        if (!names.contains('member_id')) {
+        // Collapsed migration: the show/hide-groups toggle
+        // (system_settings.members_show_groups) and the bio-image library
+        // columns (media_attachments.member_id + tag) ship as one v29→v30 step
+        // because no public build used the intermediate dev-only versions.
+        // Idempotent — dev/test DBs created at the current schema may already
+        // carry these columns.
+        final settingsNames = (await customSelect(
+          'PRAGMA table_info(system_settings)',
+        ).get()).map((r) => r.read<String>('name')).toSet();
+        if (!settingsNames.contains('members_show_groups')) {
+          await migrator.addColumn(
+            systemSettingsTable,
+            systemSettingsTable.membersShowGroups,
+          );
+        }
+
+        final mediaNames = (await customSelect(
+          'PRAGMA table_info(media_attachments)',
+        ).get()).map((r) => r.read<String>('name')).toSet();
+        if (!mediaNames.contains('member_id')) {
           await migrator.addColumn(mediaAttachments, mediaAttachments.memberId);
         }
-        if (!names.contains('tag')) {
+        if (!mediaNames.contains('tag')) {
           await migrator.addColumn(mediaAttachments, mediaAttachments.tag);
         }
-        current = 31;
+        current = 30;
       }
       if (current != to) {
         throw UnsupportedError(
