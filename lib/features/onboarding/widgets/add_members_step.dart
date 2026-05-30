@@ -483,7 +483,9 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
             emoji: _emojiController.text.trim().isNotEmpty
                 ? _emojiController.text.trim()
                 : '\u{1F464}',
-            age: int.tryParse(_ageController.text.trim()),
+            age: _ageController.text.trim().isNotEmpty
+                ? _ageController.text.trim()
+                : null,
             bio: _bioController.text.trim().isNotEmpty
                 ? _bioController.text.trim()
                 : null,

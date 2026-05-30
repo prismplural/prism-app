@@ -996,7 +996,7 @@
   "memberPronounsLabel": "Pronombres",
   "memberPronounsHint": "p. ej. ella, elle, él",
   "memberAgeLabel": "Edad",
-  "memberAgeHint": "Opcional",
+  "memberAgeHint": "p. ej. sin edad, media, 27",
   "memberBioLabel": "Biografía",
   "memberBioHint": "Una breve descripción...",
   "memberBioEditorTooltip": "Editar bio",

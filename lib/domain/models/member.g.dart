@@ -11,7 +11,7 @@ _Member _$MemberFromJson(Map<String, dynamic> json) => _Member(
   name: json['name'] as String,
   pronouns: json['pronouns'] as String?,
   emoji: json['emoji'] as String? ?? '❔',
-  age: (json['age'] as num?)?.toInt(),
+  age: json['age'] as String?,
   bio: json['bio'] as String?,
   avatarImageData: _uint8ListFromJson(json['avatarImageData'] as String?),
   pkAvatarCachedUrl: json['pkAvatarCachedUrl'] as String?,

@@ -218,7 +218,11 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
 // mismatch so the field is skipped (Value.absent()), not the whole entity.
 // Never throw — let the sync cycle continue.
 
-String? _asString(dynamic value) => value is String ? value : null;
+String? _asString(dynamic value) {
+  if (value is String) return value;
+  if (value is num && !value.isNaN && value.isFinite) return value.toString();
+  return null;
+}
 
 int? _asInt(dynamic value) {
   if (value is int) return value;
@@ -1489,7 +1493,7 @@ DriftSyncEntity _membersEntity(
         name: f.stringField('name'),
         pronouns: f.stringFieldNullable('pronouns'),
         emoji: f.stringField('emoji'),
-        age: f.intFieldNullable('age'),
+        age: f.stringFieldNullable('age'),
         bio: f.stringFieldNullable('bio'),
         avatarImageData: f.blobFieldNullable('avatar_image_data'),
         pkAvatarCachedUrl: f.stringFieldNullable('pk_avatar_cached_url'),

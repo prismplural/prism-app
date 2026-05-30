@@ -49,11 +49,11 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
   );
   static const VerificationMeta _ageMeta = const VerificationMeta('age');
   @override
-  late final GeneratedColumn<int> age = GeneratedColumn<int>(
+  late final GeneratedColumn<String> age = GeneratedColumn<String>(
     'age',
     aliasedName,
     true,
-    type: DriftSqlType.int,
+    type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
   static const VerificationMeta _bioMeta = const VerificationMeta('bio');
@@ -894,7 +894,7 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         data['${effectivePrefix}emoji'],
       )!,
       age: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.string,
         data['${effectivePrefix}age'],
       ),
       bio: attachedDatabase.typeMapping.read(
@@ -1051,7 +1051,7 @@ class Member extends DataClass implements Insertable<Member> {
   final String name;
   final String? pronouns;
   final String emoji;
-  final int? age;
+  final String? age;
   final String? bio;
   final Uint8List? avatarImageData;
   final String? pkAvatarCachedUrl;
@@ -1139,7 +1139,7 @@ class Member extends DataClass implements Insertable<Member> {
     }
     map['emoji'] = Variable<String>(emoji);
     if (!nullToAbsent || age != null) {
-      map['age'] = Variable<int>(age);
+      map['age'] = Variable<String>(age);
     }
     if (!nullToAbsent || bio != null) {
       map['bio'] = Variable<String>(bio);
@@ -1312,7 +1312,7 @@ class Member extends DataClass implements Insertable<Member> {
       name: serializer.fromJson<String>(json['name']),
       pronouns: serializer.fromJson<String?>(json['pronouns']),
       emoji: serializer.fromJson<String>(json['emoji']),
-      age: serializer.fromJson<int?>(json['age']),
+      age: serializer.fromJson<String?>(json['age']),
       bio: serializer.fromJson<String?>(json['bio']),
       avatarImageData: serializer.fromJson<Uint8List?>(json['avatarImageData']),
       pkAvatarCachedUrl: serializer.fromJson<String?>(
@@ -1380,7 +1380,7 @@ class Member extends DataClass implements Insertable<Member> {
       'name': serializer.toJson<String>(name),
       'pronouns': serializer.toJson<String?>(pronouns),
       'emoji': serializer.toJson<String>(emoji),
-      'age': serializer.toJson<int?>(age),
+      'age': serializer.toJson<String?>(age),
       'bio': serializer.toJson<String?>(bio),
       'avatarImageData': serializer.toJson<Uint8List?>(avatarImageData),
       'pkAvatarCachedUrl': serializer.toJson<String?>(pkAvatarCachedUrl),
@@ -1426,7 +1426,7 @@ class Member extends DataClass implements Insertable<Member> {
     String? name,
     Value<String?> pronouns = const Value.absent(),
     String? emoji,
-    Value<int?> age = const Value.absent(),
+    Value<String?> age = const Value.absent(),
     Value<String?> bio = const Value.absent(),
     Value<Uint8List?> avatarImageData = const Value.absent(),
     Value<String?> pkAvatarCachedUrl = const Value.absent(),
@@ -1785,7 +1785,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
   final Value<String> name;
   final Value<String?> pronouns;
   final Value<String> emoji;
-  final Value<int?> age;
+  final Value<String?> age;
   final Value<String?> bio;
   final Value<Uint8List?> avatarImageData;
   final Value<String?> pkAvatarCachedUrl;
@@ -1915,7 +1915,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Expression<String>? name,
     Expression<String>? pronouns,
     Expression<String>? emoji,
-    Expression<int>? age,
+    Expression<String>? age,
     Expression<String>? bio,
     Expression<Uint8List>? avatarImageData,
     Expression<String>? pkAvatarCachedUrl,
@@ -2012,7 +2012,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Value<String>? name,
     Value<String?>? pronouns,
     Value<String>? emoji,
-    Value<int?>? age,
+    Value<String?>? age,
     Value<String?>? bio,
     Value<Uint8List?>? avatarImageData,
     Value<String?>? pkAvatarCachedUrl,
@@ -2112,7 +2112,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
       map['emoji'] = Variable<String>(emoji.value);
     }
     if (age.present) {
-      map['age'] = Variable<int>(age.value);
+      map['age'] = Variable<String>(age.value);
     }
     if (bio.present) {
       map['bio'] = Variable<String>(bio.value);
@@ -25864,7 +25864,7 @@ typedef $$MembersTableCreateCompanionBuilder =
       required String name,
       Value<String?> pronouns,
       Value<String> emoji,
-      Value<int?> age,
+      Value<String?> age,
       Value<String?> bio,
       Value<Uint8List?> avatarImageData,
       Value<String?> pkAvatarCachedUrl,
@@ -25908,7 +25908,7 @@ typedef $$MembersTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String?> pronouns,
       Value<String> emoji,
-      Value<int?> age,
+      Value<String?> age,
       Value<String?> bio,
       Value<Uint8List?> avatarImageData,
       Value<String?> pkAvatarCachedUrl,
@@ -25976,7 +25976,7 @@ class $$MembersTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get age => $composableBuilder(
+  ColumnFilters<String> get age => $composableBuilder(
     column: $table.age,
     builder: (column) => ColumnFilters(column),
   );
@@ -26186,7 +26186,7 @@ class $$MembersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get age => $composableBuilder(
+  ColumnOrderings<String> get age => $composableBuilder(
     column: $table.age,
     builder: (column) => ColumnOrderings(column),
   );
@@ -26388,7 +26388,7 @@ class $$MembersTableAnnotationComposer
   GeneratedColumn<String> get emoji =>
       $composableBuilder(column: $table.emoji, builder: (column) => column);
 
-  GeneratedColumn<int> get age =>
+  GeneratedColumn<String> get age =>
       $composableBuilder(column: $table.age, builder: (column) => column);
 
   GeneratedColumn<String> get bio =>
@@ -26587,7 +26587,7 @@ class $$MembersTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String?> pronouns = const Value.absent(),
                 Value<String> emoji = const Value.absent(),
-                Value<int?> age = const Value.absent(),
+                Value<String?> age = const Value.absent(),
                 Value<String?> bio = const Value.absent(),
                 Value<Uint8List?> avatarImageData = const Value.absent(),
                 Value<String?> pkAvatarCachedUrl = const Value.absent(),
@@ -26673,7 +26673,7 @@ class $$MembersTableTableManager
                 required String name,
                 Value<String?> pronouns = const Value.absent(),
                 Value<String> emoji = const Value.absent(),
-                Value<int?> age = const Value.absent(),
+                Value<String?> age = const Value.absent(),
                 Value<String?> bio = const Value.absent(),
                 Value<Uint8List?> avatarImageData = const Value.absent(),
                 Value<String?> pkAvatarCachedUrl = const Value.absent(),

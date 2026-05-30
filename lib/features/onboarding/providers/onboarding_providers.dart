@@ -711,7 +711,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     required String name,
     String? pronouns,
     String emoji = '\u{1F464}',
-    int? age,
+    String? age,
     String? bio,
     Uint8List? avatarImageData,
   }) async {

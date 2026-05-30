@@ -102,7 +102,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 30;
+  int get schemaVersion => 31;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -835,6 +835,17 @@ class AppDatabase extends _$AppDatabase {
           await migrator.addColumn(mediaAttachments, mediaAttachments.tag);
         }
         current = 30;
+      }
+      if (current == 30 && to >= 31) {
+        await migrator.alterTable(
+          TableMigration(
+            members,
+            columnTransformer: {
+              members.age: members.age.cast<String>(),
+            },
+          ),
+        );
+        current = 31;
       }
       if (current != to) {
         throw UnsupportedError(

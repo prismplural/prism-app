@@ -104,7 +104,7 @@ class MembersNotifier extends AsyncNotifier<void> {
     required String name,
     String? pronouns,
     String emoji = '\u2754',
-    int? age,
+    String? age,
     String? bio,
     Uint8List? avatarImageData,
     bool isAdmin = false,

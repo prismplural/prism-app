@@ -27,7 +27,7 @@ abstract class Member with _$Member {
     required String name,
     String? pronouns,
     @Default('❔') String emoji,
-    int? age,
+    String? age,
     String? bio,
     @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)
     Uint8List? avatarImageData,

@@ -16,7 +16,7 @@ db.Member makeDbMember({
   String name = 'Alice',
   String? pronouns = 'she/her',
   String emoji = '\u{1F338}',
-  int? age = 25,
+  String? age = '25',
   String? bio = 'Hello world',
   Uint8List? avatarImageData,
   bool isActive = true,

@@ -6128,7 +6128,7 @@ abstract class AppLocalizations {
   /// Hint text for the member age field
   ///
   /// In en, this message translates to:
-  /// **'Optional'**
+  /// **'e.g. ageless, middle, 27'**
   String get memberAgeHint;
 
   /// Label for the member bio text field
@@ -6345,7 +6345,7 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Age {age}'**
-  String memberAgeDisplay(int age);
+  String memberAgeDisplay(String age);
 
   /// Bulk selection count label in system management screen
   ///

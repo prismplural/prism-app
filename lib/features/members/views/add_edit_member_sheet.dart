@@ -461,7 +461,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     final pluralkitDisplayName = _pluralkitDisplayNameController.text.trim();
     final pronouns = _pronounsController.text.trim();
     final ageText = _ageController.text.trim();
-    final age = ageText.isNotEmpty ? int.tryParse(ageText) : null;
+    final age = ageText.isNotEmpty ? ageText : null;
     final colorHex = _colorHexController.text.trim();
     final birthdayWire = _birthday == null
         ? null
@@ -789,7 +789,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     final bio = _bioController.text.trim();
     final emoji = _emojiController.text.trim();
     final ageText = _ageController.text.trim();
-    final age = ageText.isNotEmpty ? int.tryParse(ageText) : null;
+    final age = ageText.isNotEmpty ? ageText : null;
     final colorHex = _customColorEnabled
         ? _colorHexController.text.trim().isNotEmpty
               ? _colorHexController.text.trim()
@@ -1596,8 +1596,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
                 controller: _ageController,
                 labelText: l10n.memberAgeLabel,
                 hintText: l10n.memberAgeHint,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                autocorrect: false,
+                maxLength: 50,
               ),
             ),
             const SizedBox(width: 12),

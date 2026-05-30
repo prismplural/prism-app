@@ -235,7 +235,7 @@ void main() {
         name: 'Coverage Member',
         pronouns: 'they/them',
         emoji: ':)',
-        age: 30,
+        age: '30',
         bio: 'Bio',
         avatarImageData: avatarBytes,
         pkAvatarCachedUrl: 'https://cdn.example/member/avatar.png',

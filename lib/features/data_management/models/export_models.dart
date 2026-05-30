@@ -402,7 +402,7 @@ class V1Headmate {
   final String name;
   final String? pronouns;
   final String? emoji;
-  final int? age;
+  final String? age;
   final String? notes;
   final String? profilePhotoData; // base64
   final String? pkAvatarCachedUrl;
@@ -485,7 +485,7 @@ class V1Headmate {
     name: json['name'] as String,
     pronouns: json['pronouns'] as String?,
     emoji: json['emoji'] as String?,
-    age: json['age'] as int?,
+    age: (json['age'])?.toString(),
     notes: json['notes'] as String?,
     profilePhotoData: json['profilePhotoData'] as String?,
     pkAvatarCachedUrl: json['pkAvatarCachedUrl'] as String?,

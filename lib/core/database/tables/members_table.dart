@@ -5,7 +5,7 @@ class Members extends Table {
   TextColumn get name => text()();
   TextColumn get pronouns => text().nullable()();
   TextColumn get emoji => text().withDefault(const Constant('❔'))();
-  IntColumn get age => integer().nullable()();
+  TextColumn get age => text().nullable()();
   TextColumn get bio => text().nullable()();
   BlobColumn get avatarImageData => blob().nullable()();
   TextColumn get pkAvatarCachedUrl => text().nullable()();

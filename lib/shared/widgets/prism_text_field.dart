@@ -41,6 +41,7 @@ class PrismTextField extends StatelessWidget {
     this.textAlign = TextAlign.start,
     this.prefixText,
     this.isDense,
+    this.autocorrect,
   }) : assert(
          controller == null || initialValue == null,
          'Provide either a controller or an initialValue, not both.',
@@ -77,6 +78,7 @@ class PrismTextField extends StatelessWidget {
   final TextAlign textAlign;
   final String? prefixText;
   final bool? isDense;
+  final bool? autocorrect;
 
   bool get _isMultiLine =>
       (maxLines != null && maxLines! > 1) ||
@@ -214,7 +216,7 @@ class PrismTextField extends StatelessWidget {
       autofocus: autofocus,
       obscureText: obscureText,
       enableSuggestions: !obscureText,
-      autocorrect: !obscureText,
+      autocorrect: autocorrect ?? !obscureText,
       textCapitalization: textCapitalization,
       minLines: minLines,
       maxLines: maxLines,

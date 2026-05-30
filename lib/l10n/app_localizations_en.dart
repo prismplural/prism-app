@@ -3576,7 +3576,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberAgeLabel => 'Age';
 
   @override
-  String get memberAgeHint => 'Optional';
+  String get memberAgeHint => 'e.g. ageless, middle, 27';
 
   @override
   String get memberBioLabel => 'Bio';
@@ -3699,7 +3699,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your custom field changes are still pending — fix the errors above and tap Save.';
 
   @override
-  String memberAgeDisplay(int age) {
+  String memberAgeDisplay(String age) {
     return 'Age $age';
   }
 

@@ -4837,7 +4837,7 @@
   "@memberAgeLabel": {
     "description": "Label for the member age text field"
   },
-  "memberAgeHint": "Optional",
+  "memberAgeHint": "e.g. ageless, middle, 27",
   "@memberAgeHint": {
     "description": "Hint text for the member age field"
   },
@@ -5013,7 +5013,7 @@
     "description": "Age displayed on member detail screen",
     "placeholders": {
       "age": {
-        "type": "int"
+        "type": "String"
       }
     }
   },

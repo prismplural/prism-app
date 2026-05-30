@@ -819,7 +819,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
           ? Value(fields['emoji'] as String)
           : const Value.absent(),
       age: fields.containsKey('age')
-          ? Value(fields['age'] as int?)
+          ? Value(fields['age'] as String?)
           : const Value.absent(),
       bio: fields.containsKey('bio')
           ? Value(fields['bio'] as String?)
