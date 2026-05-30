@@ -5,6 +5,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/features/migration/widgets/sp_avatar_zip_import_sheet.dart';
+import 'package:prism_plurality/features/migration/widgets/sp_creation_date_backfill_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -92,6 +93,15 @@ class ImportExportScreen extends ConsumerWidget {
                         .dataManagementSimplyPluralAvatarZipRowSubtitle,
                     onTap: () => _showAvatarZipImportSheet(context),
                   ),
+                  const Divider(height: 1, indent: 60, endIndent: 12),
+                  PrismSettingsRow(
+                    icon: AppIcons.history,
+                    iconColor: Colors.amber,
+                    title: context.l10n.dataManagementSpCreationDateRowTitle,
+                    subtitle:
+                        context.l10n.dataManagementSpCreationDateRowSubtitle,
+                    onTap: () => _showCreationDateBackfillSheet(context),
+                  ),
                 ],
               ),
             ),
@@ -119,6 +129,13 @@ class ImportExportScreen extends ConsumerWidget {
     PrismSheet.showFullScreen(
       context: context,
       builder: (ctx, sc) => SpAvatarZipImportSheet(scrollController: sc),
+    );
+  }
+
+  void _showCreationDateBackfillSheet(BuildContext context) {
+    PrismSheet.showFullScreen(
+      context: context,
+      builder: (ctx, sc) => SpCreationDateBackfillSheet(scrollController: sc),
     );
   }
 }
