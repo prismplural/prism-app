@@ -1,6 +1,8 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/utils/safe_link.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
@@ -34,6 +36,12 @@ class FieldInlineMarkdownText extends StatefulWidget {
 
 class _FieldInlineMarkdownTextState extends State<FieldInlineMarkdownText> {
   static final _spoiler = RegExp(r'\|\|(.+?)\|\|');
+  // Simple `[label](url)` pattern. The URL group stops at the first ')' due
+  // to `[^)]+`, so a URL that itself contains ')' (e.g. some Wikipedia links
+  // like https://x/Foo_(bar)) is truncated and will link to the wrong target.
+  // Such values should use a long-text field, which uses the full CommonMark
+  // renderer.
+  static final _link = RegExp(r'(?<!@)\[([^\]]+)\]\(([^)]+)\)');
   static final _boldStar = RegExp(r'\*\*(.+?)\*\*');
   static final _boldUnderscore = RegExp(r'__(.+?)__');
   static final _italicStar = RegExp(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)');
@@ -41,6 +49,7 @@ class _FieldInlineMarkdownTextState extends State<FieldInlineMarkdownText> {
   static final _code = RegExp(r'`(.+?)`');
 
   final _revealController = SpoilerRevealController();
+  final _linkRecognizers = <TapGestureRecognizer>[];
 
   @override
   void didUpdateWidget(FieldInlineMarkdownText oldWidget) {
@@ -48,16 +57,29 @@ class _FieldInlineMarkdownTextState extends State<FieldInlineMarkdownText> {
     if (oldWidget.data != widget.data) {
       _revealController.clear();
     }
+    // Recognizers are disposed at the top of build(), not here.
   }
 
   @override
   void dispose() {
+    for (final r in _linkRecognizers) {
+      r.dispose();
+    }
+    _linkRecognizers.clear();
     _revealController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Dispose last frame's recognizers before rebuilding spans. Must be the
+    // top of build() so inherited-dependency rebuilds (e.g. Theme.of) don't
+    // leak them.
+    for (final r in _linkRecognizers) {
+      r.dispose();
+    }
+    _linkRecognizers.clear();
+
     final data = widget.data;
     final theme = Theme.of(context);
     final baseStyle =
@@ -89,14 +111,54 @@ class _FieldInlineMarkdownTextState extends State<FieldInlineMarkdownText> {
       }
     }
 
-    // Spoilers run first (highest precedence): everything inside `||…||` is
-    // locked out of the bold/italic/code passes, matching the renderer.
+    void addLinkMatches() {
+      for (final match in _link.allMatches(data)) {
+        if (_overlaps(matched, match.start, match.end)) continue;
+        for (var i = match.start; i < match.end; i++) {
+          matched[i] = true;
+        }
+        final label = match.group(1)!;
+        final rawUrl = match.group(2)!;
+        if (safeExternalUri(rawUrl) != null) {
+          final linkStyle = baseStyle.copyWith(
+            color: theme.colorScheme.primary,
+            decoration: TextDecoration.underline,
+            decorationColor: theme.colorScheme.primary.withValues(alpha: 0.5),
+          );
+          segments.add(
+            _InlineMarkdownSegment(
+              start: match.start,
+              end: match.end,
+              content: label,
+              style: linkStyle,
+              url: rawUrl,
+            ),
+          );
+        } else {
+          // Unsafe URL: consume the syntax, render label as plain text.
+          segments.add(
+            _InlineMarkdownSegment(
+              start: match.start,
+              end: match.end,
+              content: label,
+              style: baseStyle,
+            ),
+          );
+        }
+      }
+    }
+
+    // Pass order (highest precedence first): spoiler → code → link → bold →
+    // italic. Code runs before link so that a backtick-quoted string like
+    // `[x](https://example.com)` renders as monospace literal code rather than
+    // a tappable link (matches CommonMark: code spans outrank link syntax).
     addMatches(_spoiler, (base) => base, isSpoiler: true);
     addMatches(
       _code,
       (base) =>
           base.copyWith(fontFamily: 'monospace', backgroundColor: codeColor),
     );
+    addLinkMatches();
     addMatches(_boldStar, (base) => base.copyWith(fontWeight: FontWeight.bold));
     addMatches(
       _boldUnderscore,
@@ -138,6 +200,18 @@ class _FieldInlineMarkdownTextState extends State<FieldInlineMarkdownText> {
             ),
           ),
         );
+      } else if (segment.url != null) {
+        final r = TapGestureRecognizer()
+          ..onTap = () => launchSafeExternalUri(segment.url);
+        _linkRecognizers.add(r);
+        spans.add(
+          TextSpan(
+            text: segment.content,
+            style: segment.style,
+            recognizer: r,
+            semanticsLabel: segment.content,
+          ),
+        );
       } else {
         spans.add(TextSpan(text: segment.content, style: segment.style));
       }
@@ -172,6 +246,7 @@ class _InlineMarkdownSegment {
     required this.content,
     required this.style,
     this.isSpoiler = false,
+    this.url,
   });
 
   final int start;
@@ -179,6 +254,7 @@ class _InlineMarkdownSegment {
   final String content;
   final TextStyle style;
   final bool isSpoiler;
+  final String? url;
 }
 
 /// Renders a long text value with a line/character preview and a "View more"
