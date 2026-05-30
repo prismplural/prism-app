@@ -332,6 +332,12 @@ class PkBidirectionalService {
       }
     }
 
+    final pkCreated = pk.created;
+    if (pkCreated != null && updated.createdAt.isAfter(pkCreated)) {
+      updated = updated.copyWith(createdAt: pkCreated);
+      changed = true;
+    }
+
     final avatarCache = await _avatarCacheService.resolve(
       PkAvatarCacheInput(
         currentAvatarImageData: local.avatarImageData,
