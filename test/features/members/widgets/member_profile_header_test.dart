@@ -26,10 +26,12 @@ Member _member({
   Uint8List? pkBannerImageData,
   String? pkBannerUrl,
   String? pkBannerCachedUrl,
+  String? pronouns,
 }) => Member(
   id: id,
   name: name,
   emoji: '*',
+  pronouns: pronouns,
   createdAt: DateTime(2026, 4, 1),
   profileHeaderSource: profileHeaderSource,
   profileHeaderLayout: profileHeaderLayout,
@@ -114,6 +116,38 @@ void main() {
     expect(_headerImages, findsOneWidget);
     final aspectRatio = tester.widget<AspectRatio>(find.byType(AspectRatio));
     expect(aspectRatio.aspectRatio, 3);
+  });
+
+  testWidgets('long pronoun chip wraps in the profile header', (tester) async {
+    addTearDown(() => tester.view.resetPhysicalSize());
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+
+    const pronouns =
+        'She/Her, Sae/Saers, Lace/Laces, Bliss/Blissful, Pure/Pures';
+
+    await tester.pumpWidget(
+      _wrap(
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: MemberProfileHeader(
+            member: _member(
+              pronouns: pronouns,
+              profileHeaderLayout: MemberProfileHeaderLayout.classicOverlap,
+              profileHeaderImageData: _pngBytes,
+            ),
+            isFronting: true,
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+
+    final pronounText = tester.widget<Text>(find.text(pronouns));
+    expect(pronounText.maxLines, 2);
+    expect(pronounText.overflow, TextOverflow.ellipsis);
+    expect(tester.getSize(find.text(pronouns)).height, greaterThan(16));
   });
 
   testWidgets(

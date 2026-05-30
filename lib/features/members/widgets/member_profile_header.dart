@@ -617,11 +617,15 @@ class _Chip extends StatelessWidget {
             Icon(icon, size: 14, color: foregroundColor),
             const SizedBox(width: 4),
           ],
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: foregroundColor,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: foregroundColor,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

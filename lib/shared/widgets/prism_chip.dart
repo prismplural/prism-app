@@ -21,6 +21,7 @@ class PrismChip extends StatelessWidget {
     this.avatar,
     this.selectedColor,
     this.tintColor,
+    this.labelMaxLines = 2,
   });
 
   final String label;
@@ -36,6 +37,9 @@ class PrismChip extends StatelessWidget {
   /// Always-on tint regardless of [selected] — for non-togglable chips
   /// (e.g. group tags) that show a fixed accent color.
   final Color? tintColor;
+
+  /// Maximum label lines when the chip is rendered with a bounded width.
+  final int labelMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -94,11 +98,9 @@ class PrismChip extends StatelessWidget {
             ),
             child: Padding(
               padding: EdgeInsets.fromLTRB(avatar != null ? 8 : 14, 6, 14, 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (avatar != null) ...[avatar!, const SizedBox(width: 6)],
-                  AnimatedDefaultTextStyle(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final labelText = AnimatedDefaultTextStyle(
                     duration: const Duration(milliseconds: 160),
                     style: (theme.textTheme.labelMedium ?? const TextStyle())
                         .copyWith(
@@ -107,9 +109,27 @@ class PrismChip extends StatelessWidget {
                               ? FontWeight.w600
                               : FontWeight.w500,
                         ),
-                    child: Text(label),
-                  ),
-                ],
+                    child: Text(
+                      label,
+                      maxLines: labelMaxLines,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (avatar != null) ...[
+                        avatar!,
+                        const SizedBox(width: 6),
+                      ],
+                      if (constraints.hasBoundedWidth)
+                        Flexible(child: labelText)
+                      else
+                        labelText,
+                    ],
+                  );
+                },
               ),
             ),
           ),
