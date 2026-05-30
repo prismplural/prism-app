@@ -25,6 +25,7 @@ class GroupSectionHeader extends StatelessWidget {
     required this.isCollapsed,
     required this.canCollapse,
     required this.onToggle,
+    this.showMemberCount = true,
     this.hasDeeperDescendants = false,
     this.onOpenDetail,
   });
@@ -38,6 +39,7 @@ class GroupSectionHeader extends StatelessWidget {
   final bool isCollapsed;
   final bool canCollapse;
   final VoidCallback? onToggle;
+  final bool showMemberCount;
 
   /// True when this group has descendants below the visual depth cap, so the
   /// inline indent can't represent them. When this is true and [depth] reaches
@@ -79,10 +81,11 @@ class GroupSectionHeader extends StatelessWidget {
         (depth == 0 ? theme.textTheme.labelLarge : theme.textTheme.labelMedium)
             ?.copyWith(fontWeight: FontWeight.w600);
 
+    final countLabel = showMemberCount ? ', $memberCount members' : '';
     return Semantics(
       button: canCollapse,
       label:
-          '$name, $memberCount members, '
+          '$name$countLabel, '
           '${isCollapsed ? 'collapsed' : 'expanded'}'
           '${canCollapse ? ', double-tap to toggle' : ''}',
       excludeSemantics: true,
@@ -114,7 +117,7 @@ class GroupSectionHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                if (memberCount > 0)
+                if (showMemberCount && memberCount > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,

@@ -620,6 +620,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     final terms = watchTerminology(context, ref);
     final rootGroups = ref.watch(childGroupsProvider(null));
     final counts = ref.watch(groupMemberCountsProvider);
+    final hideMemberCount = ref
+            .watch(hideTotalMemberCountProvider)
+            .whenOrNull(data: (value) => value) ??
+        true;
     final entries = ref.watch(allGroupEntriesProvider).value ?? [];
     final visibility = ref.watch(membersFolderMemberVisibilityProvider);
     final groupedMemberIds = entries.map((entry) => entry.memberId).toSet();
@@ -641,6 +645,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   key: ValueKey('folder_${group.id}'),
                   group: group,
                   memberCount: counts[group.id] ?? 0,
+                  showMemberCount: !hideMemberCount,
                   onTap: () => context.push(_groupPath(group.id)),
                 ),
               if (visibleMembers.isNotEmpty) ...[
@@ -697,6 +702,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     Set<String> frontingIds,
   ) {
     final tree = ref.watch(groupTreeProvider);
+    final hideMemberCount = ref
+            .watch(hideTotalMemberCountProvider)
+            .whenOrNull(data: (value) => value) ??
+        true;
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
@@ -715,6 +724,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   group: item.group,
                   depth: item.depth.clamp(0, kSectionsVisualDepthCap),
                   memberCount: counts[item.group.id] ?? 0,
+                  showMemberCount: !hideMemberCount,
                   isCollapsed: item.isCollapsed,
                   canCollapse: true,
                   onToggle: () => ref
@@ -747,6 +757,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   group: null,
                   depth: 0,
                   memberCount: ungroupedCount,
+                  showMemberCount: !hideMemberCount,
                   isCollapsed: false,
                   canCollapse: false,
                   onToggle: null,

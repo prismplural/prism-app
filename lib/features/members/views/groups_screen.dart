@@ -25,6 +25,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -97,6 +98,10 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final counts = ref.watch(groupMemberCountsProvider);
+    final hideMemberCount = ref
+            .watch(hideTotalMemberCountProvider)
+            .whenOrNull(data: (value) => value) ??
+        true;
     final providerFlatItems = ref.watch(flatGroupListProvider);
     final providerGroups = [for (final item in providerFlatItems) item.group];
     final optimisticGroups = _optimisticGroups;
@@ -164,6 +169,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                   depth: entry.depth.clamp(0, kSectionsVisualDepthCap),
                   reorderIndex: index,
                   memberCount: counts[entry.group.id] ?? 0,
+                  showMemberCount: !hideMemberCount,
                   onTap: () => context.push(_groupPathFor(entry.group.id)),
                   onDelete: () => _confirmDelete(entry.group),
                 );

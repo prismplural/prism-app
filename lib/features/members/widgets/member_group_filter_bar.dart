@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/group_avatar.dart';
@@ -20,6 +21,10 @@ class MemberGroupFilterBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final flatList = ref.watch(flatGroupListProvider);
     final counts = ref.watch(groupMemberCountsProvider);
+    final hideMemberCount = ref
+            .watch(hideTotalMemberCountProvider)
+            .whenOrNull(data: (value) => value) ??
+        true;
     final activeFilter = ref.watch(activeGroupFilterProvider);
     final ungroupedExists = ref.watch(ungroupedMembersExistProvider);
     final l10n = context.l10n;
@@ -63,11 +68,16 @@ class MemberGroupFilterBar extends ConsumerWidget {
                 final groupColor = group.colorHex != null
                     ? AppColors.fromHex(group.colorHex!)
                     : null;
-                final labelText = '${group.name} \u2022 $count';
+                final labelText = hideMemberCount
+                    ? group.name
+                    : '${group.name} \u2022 $count';
+                final countSemantic = hideMemberCount
+                    ? ''
+                    : ', $count members';
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Semantics(
-                    label: '${group.name}, $count members, '
+                    label: '${group.name}$countSemantic, '
                         '${isSelected ? 'selected' : 'not selected'}',
                     excludeSemantics: true,
                     child: PrismChip(

@@ -7,6 +7,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -187,6 +188,10 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
 
     final flatGroups = ref.watch(flatGroupListProvider);
     final memberCounts = ref.watch(groupMemberCountsProvider);
+    final hideMemberCount = ref
+            .watch(hideTotalMemberCountProvider)
+            .whenOrNull(data: (value) => value) ??
+        true;
     final groupTree = ref.watch(groupTreeProvider);
     final terms = watchTerminology(context, ref);
     final filtered = _filterGroups(flatGroups, groupTree);
@@ -238,6 +243,7 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
                   entry.depth,
                   memberCounts[entry.group.id] ?? 0,
                   terms,
+                  showMemberCount: !hideMemberCount,
                 );
               },
               childCount: filtered.length,
@@ -273,8 +279,9 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
     MemberGroup group,
     int depth,
     int memberCount,
-    Terminology terms,
-  ) {
+    Terminology terms, {
+    bool showMemberCount = true,
+  }) {
     final isSelected = _selectedGroupIds!.contains(group.id);
     final l10n = context.l10n;
 
@@ -296,11 +303,17 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
         showEmojiOnAvatar: false,
       ),
       title: Text(group.name),
-      subtitle: Text(
-        l10n.memberCount(memberCount, terms.singularLower, terms.pluralLower),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      subtitle: showMemberCount
+          ? Text(
+              l10n.memberCount(
+                memberCount,
+                terms.singularLower,
+                terms.pluralLower,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            )
+          : null,
       trailing: isSelected ? Icon(AppIcons.check) : null,
       onTap: () => _toggleGroup(group.id),
     );

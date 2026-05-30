@@ -17,6 +17,7 @@ class MemberGroupRow extends StatelessWidget {
     this.reorderIndex,
     this.onDelete,
     this.showChevron = true,
+    this.showMemberCount = true,
     this.margin = const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
   });
 
@@ -27,6 +28,7 @@ class MemberGroupRow extends StatelessWidget {
   final int? reorderIndex;
   final VoidCallback? onDelete;
   final bool showChevron;
+  final bool showMemberCount;
   final EdgeInsets margin;
 
   @override
@@ -45,6 +47,7 @@ class MemberGroupRow extends StatelessWidget {
             memberCount: memberCount,
             margin: margin,
             showChevron: showChevron,
+            showMemberCount: showMemberCount,
             reorderIndex: reorderIndex,
             onTap: onTap,
           ),
@@ -61,8 +64,10 @@ class MemberGroupRow extends StatelessWidget {
     final hasAvatar =
         group.avatarImageData != null && group.avatarImageData!.isNotEmpty;
     final visualHint = hasAvatar ? ', ${l10n.memberGroupRowPhotoSemantic}' : '';
-    return '${group.name}$subGroup$visualHint, '
-        '${l10n.memberGroupMemberCountSemantic(memberCount)}, '
+    final countHint = showMemberCount
+        ? ', ${l10n.memberGroupMemberCountSemantic(memberCount)}'
+        : '';
+    return '${group.name}$subGroup$visualHint$countHint, '
         '${l10n.memberGroupOpenSemantic}';
   }
 
@@ -93,6 +98,7 @@ class _GroupRowSurface extends StatelessWidget {
     required this.memberCount,
     required this.margin,
     required this.showChevron,
+    required this.showMemberCount,
     required this.reorderIndex,
     required this.onTap,
   });
@@ -101,6 +107,7 @@ class _GroupRowSurface extends StatelessWidget {
   final int memberCount;
   final EdgeInsets margin;
   final bool showChevron;
+  final bool showMemberCount;
   final int? reorderIndex;
   final VoidCallback onTap;
 
@@ -148,7 +155,8 @@ class _GroupRowSurface extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (memberCount > 0) _CountChip(memberCount: memberCount),
+                    if (showMemberCount && memberCount > 0)
+                      _CountChip(memberCount: memberCount),
                     if (reorderIndex != null) ...[
                       const SizedBox(width: 4),
                       ReorderableDragStartListener(

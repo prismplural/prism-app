@@ -43,6 +43,7 @@ import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/features/members/providers/group_display_prefs_provider.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -1408,10 +1409,15 @@ class _SubGroupsSection extends ConsumerWidget {
     final count = ref.watch(
       groupMemberCountsProvider.select((m) => m[group.id] ?? 0),
     );
+    final hideMemberCount = ref
+            .watch(hideTotalMemberCountProvider)
+            .whenOrNull(data: (value) => value) ??
+        true;
     return MemberGroupRow(
       key: ValueKey('subgroup_${group.id}'),
       group: group,
       memberCount: count,
+      showMemberCount: !hideMemberCount,
       reorderIndex: reorderIndex,
       onTap: () => context.push(branch.groupPath(group.id)),
     );
