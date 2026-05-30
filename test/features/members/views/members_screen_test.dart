@@ -245,6 +245,13 @@ void main() {
   testWidgets('options menu opens view settings sheet without moving search', (
     tester,
   ) async {
+    // The view-settings sheet is a full-screen lazy ListView; a tall viewport
+    // lets the lower sections ('Display'/'Show pronouns') build for assertion.
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final members = [_member('alice')];
 
     await tester.pumpWidget(
@@ -425,7 +432,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Dismiss'));
+    // The banner uses InfoBanner(actionsBelow: true), so dismiss renders as a
+    // labeled button ("Dismiss"), not a tooltipped icon.
+    await tester.tap(find.text('Dismiss'));
     await tester.pumpAndSettle();
 
     expect(

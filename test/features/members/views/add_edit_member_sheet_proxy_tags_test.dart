@@ -169,6 +169,11 @@ void main() {
       'A:',
     );
 
+    // Proxy tags live in a detail sub-view; its trailing check is "Done"
+    // (returns to main). Saving the member lives on the main view.
+    await tester.tap(find.byTooltip('Done'));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byTooltip('Save member'));
     await tester.pumpAndSettle();
 
@@ -230,6 +235,9 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Remove proxy tag'));
+    await tester.pumpAndSettle();
+    // Return to the main view (detail check is "Done") before saving.
+    await tester.tap(find.byTooltip('Done'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Save member'));
     await tester.pumpAndSettle();

@@ -278,6 +278,10 @@ void main() {
 
       await tester.tap(find.text('Keep fronting'));
       await _pumpUntil(tester, () => repo.updated != null);
+      // Drain the deferred bio-image orphan-reconcile timer that _save()
+      // schedules via Future.delayed; otherwise it outlives the widget tree
+      // and trips the pending-timer assertion at teardown.
+      await tester.pumpAndSettle();
 
       expect(repo.updated?.isAlwaysFronting, isFalse);
       expect((await frontingRepo.getSessionById('front-1'))?.endTime, isNull);
@@ -374,6 +378,10 @@ void main() {
 
     await tester.tap(find.text('Keep fronting'));
     await _pumpUntil(tester, () => repo.updated != null);
+    // Drain the deferred bio-image orphan-reconcile timer that _save()
+    // schedules via Future.delayed; otherwise it outlives the widget tree
+    // and trips the pending-timer assertion at teardown.
+    await tester.pumpAndSettle();
 
     expect(repo.updated?.isAlwaysFronting, isFalse);
     expect((await frontingRepo.getSessionById('front-1'))?.endTime, isNull);
@@ -418,6 +426,10 @@ void main() {
 
     await tester.tap(find.text('End front'));
     await _pumpUntil(tester, () => repo.updated != null);
+    // Drain the deferred bio-image orphan-reconcile timer that _save()
+    // schedules via Future.delayed; otherwise it outlives the widget tree
+    // and trips the pending-timer assertion at teardown.
+    await tester.pumpAndSettle();
 
     expect(repo.updated?.isAlwaysFronting, isFalse);
     expect((await frontingRepo.getSessionById('front-1'))?.endTime, isNotNull);
@@ -470,6 +482,10 @@ void main() {
 
     await tester.tap(find.text('End front'));
     await _pumpUntil(tester, () => repo.updated != null);
+    // Drain the deferred bio-image orphan-reconcile timer that _save()
+    // schedules via Future.delayed; otherwise it outlives the widget tree
+    // and trips the pending-timer assertion at teardown.
+    await tester.pumpAndSettle();
 
     expect(repo.updated?.isAlwaysFronting, isFalse);
     expect((await frontingRepo.getSessionById('front-1'))?.endTime, isNotNull);
