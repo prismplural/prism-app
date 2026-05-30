@@ -357,11 +357,12 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Age (optional)
+                    // Age (optional) — free text ("ageless", "middle", "27"),
+                    // so no numeric keyboard. _buildField turns off autocorrect
+                    // and suggestions when keyboardType is null.
                     _buildField(
                       context.l10n.onboardingAddMemberFieldAge,
                       _ageController,
-                      keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 12),
 
