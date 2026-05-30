@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/fronting/providers/derived_periods_prov
 import 'package:prism_plurality/features/fronting/providers/fronting_table_ticker_provider.dart';
 import 'package:prism_plurality/features/fronting/services/fronting_mutation_service.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 /// Watches the current active fronting session (null if no one fronting).
 final activeSessionProvider = StreamProvider<FrontingSession?>((ref) {
@@ -194,10 +195,16 @@ class FrontingNotifier extends AsyncNotifier<void> {
     FrontConfidence? confidence,
     String? notes,
   }) async {
+    final quickSwitchThreshold = ref.read(quickSwitchThresholdProvider);
     final result = await _unwrapMutation(
       ref
           .read(frontingMutationServiceProvider)
-          .replaceFronting(memberIds, confidence: confidence, notes: notes),
+          .replaceFronting(
+            memberIds,
+            confidence: confidence,
+            notes: notes,
+            quickSwitchThresholdSeconds: quickSwitchThreshold,
+          ),
     );
     for (final session in result.sessions) {
       _invalidateMemberStats(session.memberId);

@@ -220,6 +220,7 @@ class FrontingMutationService {
     DateTime? now,
     FrontConfidence? confidence,
     String? notes,
+    int quickSwitchThresholdSeconds = 0,
   }) {
     return _mutationRunner.run<FrontingMutationResult>(
       actionLabel: 'Replace fronting session',
@@ -238,6 +239,7 @@ class FrontingMutationService {
         //    model treats sleep as orthogonal to member fronting.
         final actives = await _repository.getAllActiveSessionsUnfiltered();
         final previousMemberIds = <String?>[];
+        final replaceableActives = <FrontingSession>[];
         final preserved = <String, FrontingSession>{};
         for (final s in actives) {
           if (s.isSleep) continue;
@@ -246,8 +248,31 @@ class FrontingMutationService {
             if (memberId != null) preserved[memberId] = s;
             continue;
           }
-          await _repository.endSession(s.id, at);
+          replaceableActives.add(s);
           previousMemberIds.add(s.memberId);
+        }
+
+        if (memberIds.length == 1 &&
+            replaceableActives.length == 1 &&
+            !preserved.containsKey(memberIds.single) &&
+            _lifecycle.evaluateQuickSwitch(
+                  replaceableActives.single,
+                  thresholdSeconds: quickSwitchThresholdSeconds,
+                  now: at,
+                ) ==
+                QuickSwitchAction.correctExisting) {
+          final corrected = replaceableActives.single.copyWith(
+            memberId: memberIds.single,
+          );
+          await _repository.updateSession(corrected);
+          return FrontingMutationResult(
+            sessions: [corrected],
+            previousMemberIds: previousMemberIds,
+          );
+        }
+
+        for (final s in replaceableActives) {
+          await _repository.endSession(s.id, at);
         }
 
         // 2. Start a fresh session for each requested member, all sharing

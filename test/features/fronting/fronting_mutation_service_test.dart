@@ -408,6 +408,48 @@ void main() {
     // -------------------------------------------------------------------------
 
     group('replaceFronting', () {
+      test(
+        'within quick-switch threshold corrects the active row in place',
+        () async {
+          final repo = FakeFrontingSessionRepository();
+          final startedAt = DateTime(2026, 4, 25, 12);
+          await repo.createSession(
+            FrontingSession(
+              id: 'alice-old',
+              startTime: startedAt,
+              memberId: 'alice',
+            ),
+          );
+
+          final svc = FrontingMutationService(
+            repository: repo,
+            mutationRunner: MutationRunner(
+              transactionRunner: _passthroughTransactionRunner,
+            ),
+          );
+
+          final result = await svc.replaceFronting(
+            ['bob'],
+            now: startedAt.add(const Duration(seconds: 20)),
+            quickSwitchThresholdSeconds: 30,
+          );
+
+          expect(result.isSuccess, isTrue);
+          expect(repo.sessions, hasLength(1));
+
+          final corrected = repo.sessions.single;
+          expect(corrected.id, 'alice-old');
+          expect(corrected.memberId, 'bob');
+          expect(corrected.startTime, startedAt);
+          expect(corrected.endTime, isNull);
+
+          final mutation = result.dataOrNull;
+          expect(mutation, isNotNull);
+          expect(mutation!.sessions.single.id, 'alice-old');
+          expect(mutation.previousMemberIds, ['alice']);
+        },
+      );
+
       test('ends all active normal fronts AND starts the new session in one '
           'transaction with a single captured now', () async {
         final repo = FakeFrontingSessionRepository();
