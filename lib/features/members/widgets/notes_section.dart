@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/members/providers/notes_providers.dart'
 import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -144,7 +145,7 @@ class _NoteTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    note.title,
+                    redactSpoilers(note.title),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -154,7 +155,7 @@ class _NoteTile extends StatelessWidget {
                   if (note.body.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
-                      note.body,
+                      redactSpoilers(note.body),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

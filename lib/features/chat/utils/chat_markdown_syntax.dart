@@ -3,22 +3,17 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
+import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
-/// Matches `||spoiler text||` spans — non-greedy, no nesting, inner ≥ 1 char.
-final spoilerRegex = RegExp(r'\|\|(.+?)\|\|');
+// Spoiler machinery (`SpoilerSyntax`, `SpoilerBuilder`, `SpoilerRevealScope`,
+// `SpoilerRevealController`, `redactSpoilers`, `spoilerRegex`) is shared across
+// every markdown surface; it lives in `shared/markdown/spoiler_syntax.dart`.
+// Re-exported here so existing chat callers keep importing it from this file.
+export 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 
 final chatSmallTextLineRegex = RegExp(r'^-#\s+(.+)$', multiLine: true);
-
-/// Replace each `||text||` span with ▮ block characters (clamped 1–8)
-/// so spoilers don't leak through previews, reply quotes, or search snippets.
-String redactSpoilers(String input) {
-  return input.replaceAllMapped(
-    spoilerRegex,
-    (m) => '▮' * m.group(1)!.length.clamp(1, 8),
-  );
-}
 
 /// Matches @[uuid] mention tokens (strict 36-char UUID).
 class MentionSyntax extends md.InlineSyntax {
@@ -59,23 +54,6 @@ class BroadcastMentionSyntax extends md.InlineSyntax {
 
   @override
   bool onMatch(md.InlineParser parser, Match match) => false;
-}
-
-/// Matches `||spoiler text||` inline spans.
-///
-/// The matched offset is stamped on the element as `start` — downstream
-/// reveal state (held by the message bubble) keys off this offset so each
-/// spoiler in a message has a stable, parse-reset-free identity.
-class SpoilerSyntax extends md.InlineSyntax {
-  SpoilerSyntax() : super(r'\|\|(.+?)\|\|');
-
-  @override
-  bool onMatch(md.InlineParser parser, Match match) {
-    final element = md.Element.text('spoiler', match.group(1)!);
-    element.attributes['start'] = match.start.toString();
-    parser.addNode(element);
-    return true;
-  }
 }
 
 /// Escape leading `#` markers so they render as literal text.
@@ -198,7 +176,10 @@ class SafeLinkBuilder extends MarkdownElementBuilder {
   ) {
     final href = element.attributes['href'];
     final uri = href != null ? Uri.tryParse(href) : null;
-    final text = element.textContent;
+    // Build the label from child nodes so a spoiler inside link text is redacted
+    // to ▮ blocks. `element.textContent` would flatten the spoiler child to its
+    // plaintext, leaking it (the link label has no room for an interactive pill).
+    final text = _labelWithRedactedSpoilers(element);
     final base = parentStyle ?? const TextStyle();
     if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
       return Text(text, style: base);
@@ -216,147 +197,20 @@ class SafeLinkBuilder extends MarkdownElementBuilder {
   }
 }
 
-/// Publishes spoiler reveal state to every `_SpoilerSpan` beneath a
-/// `ChatMessageText`. Using an `InheritedNotifier` lets only the affected
-/// spoiler leaves rebuild on toggle — the enclosing `MarkdownBody`'s parsed
-/// widget tree stays mounted, so `AnimatedOpacity` animates instead of
-/// snapping.
-class SpoilerRevealController extends ChangeNotifier {
-  final Map<int, bool> _reveals = {};
-
-  bool isRevealed(int start) => _reveals[start] ?? false;
-
-  void toggle(int start) {
-    _reveals[start] = !isRevealed(start);
-    notifyListeners();
+/// Flattens an inline element to display text, replacing any `spoiler`
+/// descendant with ▮ blocks (matching [redactSpoilers]) so spoiler plaintext
+/// never leaks through renderers that collapse children to a plain string.
+String _labelWithRedactedSpoilers(md.Node node) {
+  if (node is md.Text) return node.text;
+  if (node is md.Element) {
+    if (node.tag == 'spoiler') {
+      return '▮' * node.textContent.length.clamp(1, 8);
+    }
+    final children = node.children;
+    if (children == null) return node.textContent;
+    return children.map(_labelWithRedactedSpoilers).join();
   }
-
-  void clear() {
-    if (_reveals.isEmpty) return;
-    _reveals.clear();
-    notifyListeners();
-  }
-}
-
-class SpoilerRevealScope extends InheritedNotifier<SpoilerRevealController> {
-  const SpoilerRevealScope({
-    super.key,
-    required SpoilerRevealController super.notifier,
-    required super.child,
-  });
-
-  static SpoilerRevealController of(BuildContext context) {
-    final scope = context
-        .dependOnInheritedWidgetOfExactType<SpoilerRevealScope>();
-    assert(scope != null, 'No SpoilerRevealScope above SpoilerBuilder');
-    return scope!.notifier!;
-  }
-}
-
-/// Renders `||text||` spoiler elements as a tappable pill.
-///
-/// Reveal state is read from the nearest [SpoilerRevealScope] ancestor, so
-/// toggling a spoiler only rebuilds the affected `_SpoilerSpan` leaf — the
-/// enclosing `MarkdownBody` tree stays mounted and `AnimatedOpacity` animates.
-class SpoilerBuilder extends MarkdownElementBuilder {
-  SpoilerBuilder({required this.theme});
-
-  final ThemeData theme;
-
-  @override
-  Widget? visitElementAfterWithContext(
-    BuildContext context,
-    md.Element element,
-    TextStyle? preferredStyle,
-    TextStyle? parentStyle,
-  ) {
-    final start = int.tryParse(element.attributes['start'] ?? '') ?? 0;
-    final text = element.textContent;
-    final base = parentStyle ?? const TextStyle();
-    return _SpoilerSpan(
-      start: start,
-      text: text,
-      textStyle: base,
-      theme: theme,
-    );
-  }
-}
-
-class _SpoilerSpan extends StatelessWidget {
-  const _SpoilerSpan({
-    required this.start,
-    required this.text,
-    required this.textStyle,
-    required this.theme,
-  });
-
-  final int start;
-  final String text;
-  final TextStyle textStyle;
-  final ThemeData theme;
-
-  // Hidden spoilers use a dark scrim instead of a bright chip. Because the
-  // plaintext is only painted in the revealed layer, this fill can stay fairly
-  // subtle without leaking content.
-  static const double _hiddenFillAlphaDark = 0.58;
-  static const double _hiddenFillAlphaLight = 0.68;
-  static const double _hiddenOutlineAlpha = 0.12;
-  static const Duration _fadeDuration = Duration(milliseconds: 150);
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = SpoilerRevealScope.of(context);
-    final revealed = controller.isRevealed(start);
-    final isDark = theme.brightness == Brightness.dark;
-    final hiddenFill = Colors.black.withValues(
-      alpha: isDark ? _hiddenFillAlphaDark : _hiddenFillAlphaLight,
-    );
-    final hiddenOutline = Colors.white.withValues(alpha: _hiddenOutlineAlpha);
-
-    return Semantics(
-      button: true,
-      label: revealed
-          ? 'Spoiler, revealed: $text'
-          : 'Hidden spoiler, double tap to reveal',
-      excludeSemantics: true,
-      child: GestureDetector(
-        onTap: () => controller.toggle(start),
-        behavior: HitTestBehavior.opaque,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            AnimatedOpacity(
-              duration: _fadeDuration,
-              opacity: revealed ? 0.0 : 1.0,
-              child: IgnorePointer(
-                ignoring: revealed,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: hiddenFill,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: hiddenOutline),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: Text(
-                    text,
-                    style: textStyle.copyWith(color: Colors.transparent),
-                  ),
-                ),
-              ),
-            ),
-            AnimatedOpacity(
-              duration: _fadeDuration,
-              opacity: revealed ? 1.0 : 0.0,
-              child: IgnorePointer(
-                ignoring: !revealed,
-                child: Text(text, style: textStyle),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  return '';
 }
 
 // ---------------------------------------------------------------------------

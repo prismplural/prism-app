@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/features/polls/providers/poll_providers.dart';
 import 'package:prism_plurality/features/polls/models/poll_summary.dart';
 import 'package:prism_plurality/features/polls/views/create_poll_sheet.dart';
+import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
@@ -279,7 +280,7 @@ class _PollCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      poll.question,
+                      redactSpoilers(poll.question),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),

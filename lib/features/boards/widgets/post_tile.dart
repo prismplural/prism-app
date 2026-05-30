@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/boards/models/member_board_post_permiss
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -34,6 +35,10 @@ import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 /// plain-text summaries passed to [Semantics.label].
 String stripMarkdownForA11y(String text) {
   var result = text;
+  // Replace `||spoiler||` spans with the word "spoiler" so screen readers
+  // never announce the hidden plaintext — the visible body renders these as
+  // tap-to-reveal pills, and the a11y label must not leak past them.
+  result = result.replaceAll(spoilerRegex, 'spoiler');
   result = result.replaceAllMapped(
     RegExp(r'\[([^\]]*)\]\([^)]*\)'),
     (m) => m.group(1) ?? '',
@@ -310,7 +315,7 @@ class _PostTileContent extends ConsumerWidget {
               children: [
                 if (post.title != null && post.title!.isNotEmpty) ...[
                   Text(
-                    post.title!,
+                    redactSpoilers(post.title!),
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       height: 1.25,
@@ -321,6 +326,9 @@ class _PostTileContent extends ConsumerWidget {
                   const SizedBox(height: 8),
                 ],
                 MarkdownText(
+                  // Keyed by post id so a recycled tile never carries spoiler
+                  // reveal state onto a different post with identical body text.
+                  key: ValueKey('post-body-${post.id}'),
                   data: post.body,
                   baseStyle: theme.textTheme.bodyLarge?.copyWith(
                     color: theme.colorScheme.onSurface,

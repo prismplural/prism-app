@@ -473,6 +473,108 @@ void main() {
     );
     expect(checked.color, theme.colorScheme.primary);
   });
+
+  group('spoilers', () {
+    List<double> spoilerOpacities(WidgetTester tester) {
+      return tester
+          .widgetList<AnimatedOpacity>(find.byType(AnimatedOpacity))
+          .map((w) => w.opacity)
+          .toList();
+    }
+
+    testWidgets('||spoiler|| renders a hidden pill, not literal pipes', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            body: MarkdownText(data: 'before ||secret|| after'),
+          ),
+        ),
+      );
+
+      // The pipe markers are consumed; the inner text is present but hidden
+      // (the hidden layer is opaque, the revealed layer transparent).
+      final text = _plainTextWidgets(tester).join('\n');
+      expect(text, isNot(contains('||')));
+      expect(spoilerOpacities(tester), [1.0, 0.0]);
+    });
+
+    testWidgets('tapping a spoiler reveals it', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(body: MarkdownText(data: '||secret||')),
+        ),
+      );
+
+      expect(spoilerOpacities(tester), [1.0, 0.0]);
+      await tester.tap(find.byType(AnimatedOpacity).first);
+      await tester.pumpAndSettle();
+      expect(spoilerOpacities(tester), [0.0, 1.0]);
+    });
+
+    testWidgets('reveal state resets when the content changes', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(body: MarkdownText(data: '||secret||')),
+        ),
+      );
+      await tester.tap(find.byType(AnimatedOpacity).first);
+      await tester.pumpAndSettle();
+      expect(spoilerOpacities(tester), [0.0, 1.0]);
+
+      // Same widget slot, new content: the previously revealed spoiler must
+      // not carry its revealed state over to the new text.
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(body: MarkdownText(data: '||other||')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(spoilerOpacities(tester), [1.0, 0.0]);
+    });
+
+    testWidgets('two spoilers in separate blocks reveal independently', (
+      tester,
+    ) async {
+      // Regression: reveal state used to key on the inline parser's
+      // block-local offset, so two spoilers at the same offset in different
+      // paragraphs collided — revealing one leaked the other.
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            body: MarkdownText(data: '||alpha||\n\n||bravo||'),
+          ),
+        ),
+      );
+      expect(spoilerOpacities(tester), [1.0, 0.0, 1.0, 0.0]);
+
+      await tester.tap(find.byType(AnimatedOpacity).first);
+      await tester.pumpAndSettle();
+      // Only the first spoiler reveals; the second stays hidden.
+      expect(spoilerOpacities(tester), [0.0, 1.0, 1.0, 0.0]);
+    });
+
+    testWidgets('spoiler inside -# subtext does not leak plaintext', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(body: MarkdownText(data: '-# ||topsecret||')),
+        ),
+      );
+
+      final text = _plainTextWidgets(tester).join('\n');
+      expect(text, isNot(contains('topsecret')));
+      expect(text, contains('▮'));
+    });
+  });
 }
 
 List<String> _plainTextWidgets(WidgetTester tester) {

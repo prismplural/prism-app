@@ -200,6 +200,16 @@ class _SubtextSpanState extends State<_SubtextSpan> {
           children:
               _buildSpans(children, linkStyle, recognizer: linkRecognizer),
         );
+      case 'spoiler':
+        // Subtext renders inline text spans, which can't host the interactive
+        // reveal pill. Redact to ▮ blocks (matching `redactSpoilers`) so a
+        // spoiler inside a `-#` line never leaks its plaintext — the default
+        // branch below would otherwise print `element.textContent` verbatim.
+        return TextSpan(
+          text: '▮' * element.textContent.length.clamp(1, 8),
+          style: style.copyWith(backgroundColor: widget.codeBackground),
+          recognizer: recognizer,
+        );
       default:
         return TextSpan(
           text: element.textContent,

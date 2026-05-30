@@ -97,6 +97,60 @@ void main() {
       });
     });
 
+    group('spoiler', () {
+      testWidgets('parses ||secret|| into 3 children with tinted interior', (
+        tester,
+      ) async {
+        final controller = MarkdownEditingController(text: '||secret||');
+        final children = await getSpanChildren(tester, controller);
+
+        expect(children, isNotNull);
+        expect(children!.length, 3);
+        expect((children[0] as TextSpan).text, '||');
+        expect((children[1] as TextSpan).text, 'secret');
+        expect(
+          (children[1] as TextSpan).style!.backgroundColor,
+          isNotNull,
+        );
+        expect((children[2] as TextSpan).text, '||');
+      });
+
+      testWidgets('spoiler takes precedence over bold inside it', (
+        tester,
+      ) async {
+        // `||**x**||` is a spoiler whose interior is locked out of the bold
+        // pass — the `**` stays literal, not parsed as bold.
+        final controller = MarkdownEditingController(text: '||**x**||');
+        final children = await getSpanChildren(tester, controller);
+
+        expect(children, isNotNull);
+        expect(children!.length, 3);
+        expect((children[1] as TextSpan).text, '**x**');
+        expect((children[1] as TextSpan).style!.fontWeight, isNull);
+      });
+
+      testWidgets('spoiler inside a heading line is still styled', (
+        tester,
+      ) async {
+        // `# ||secret||` — heading marker, then the body is inline-parsed so
+        // the spoiler gets its tinted interior instead of raw markers.
+        final controller = MarkdownEditingController(text: '# ||secret||');
+        final children = await getSpanChildren(tester, controller);
+
+        expect(children, isNotNull);
+        // '# ' marker, then '||' / 'secret' / '||'.
+        expect(children!.length, 4);
+        expect((children[0] as TextSpan).text, '# ');
+        expect((children[1] as TextSpan).text, '||');
+        expect((children[2] as TextSpan).text, 'secret');
+        expect(
+          (children[2] as TextSpan).style!.backgroundColor,
+          isNotNull,
+        );
+        expect((children[3] as TextSpan).text, '||');
+      });
+    });
+
     group('headings', () {
       testWidgets('parses # Heading into 2 children', (tester) async {
         final controller = MarkdownEditingController(text: '# Heading');

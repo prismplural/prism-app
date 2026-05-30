@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -9,8 +10,12 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 // Flutter widgets used by both the display file and the definition files.
 // ---------------------------------------------------------------------------
 
-/// Renders a text value with inline markdown support (bold, italic, code).
-class FieldInlineMarkdownText extends StatelessWidget {
+/// Renders a text value with inline markdown support (bold, italic, code) plus
+/// tap-to-reveal `||spoiler||` pills.
+///
+/// Stateful so it can own the [SpoilerRevealController] for its spoilers and
+/// reset reveal state when [data] changes.
+class FieldInlineMarkdownText extends StatefulWidget {
   const FieldInlineMarkdownText(
     this.data, {
     super.key,
@@ -22,16 +27,41 @@ class FieldInlineMarkdownText extends StatelessWidget {
   final TextStyle? style;
   final TextAlign textAlign;
 
+  @override
+  State<FieldInlineMarkdownText> createState() =>
+      _FieldInlineMarkdownTextState();
+}
+
+class _FieldInlineMarkdownTextState extends State<FieldInlineMarkdownText> {
+  static final _spoiler = RegExp(r'\|\|(.+?)\|\|');
   static final _boldStar = RegExp(r'\*\*(.+?)\*\*');
   static final _boldUnderscore = RegExp(r'__(.+?)__');
   static final _italicStar = RegExp(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)');
   static final _italicUnderscore = RegExp(r'(?<!_)_(?!_)(.+?)(?<!_)_(?!_)');
   static final _code = RegExp(r'`(.+?)`');
 
+  final _revealController = SpoilerRevealController();
+
+  @override
+  void didUpdateWidget(FieldInlineMarkdownText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      _revealController.clear();
+    }
+  }
+
+  @override
+  void dispose() {
+    _revealController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final data = widget.data;
     final theme = Theme.of(context);
-    final baseStyle = style ?? theme.textTheme.bodyMedium ?? const TextStyle();
+    final baseStyle =
+        widget.style ?? theme.textTheme.bodyMedium ?? const TextStyle();
     final codeColor = theme.colorScheme.surfaceContainerHighest;
 
     final segments = <_InlineMarkdownSegment>[];
@@ -39,8 +69,9 @@ class FieldInlineMarkdownText extends StatelessWidget {
 
     void addMatches(
       RegExp pattern,
-      TextStyle Function(TextStyle base) styleForMatch,
-    ) {
+      TextStyle Function(TextStyle base) styleForMatch, {
+      bool isSpoiler = false,
+    }) {
       for (final match in pattern.allMatches(data)) {
         if (_overlaps(matched, match.start, match.end)) continue;
         for (var i = match.start; i < match.end; i++) {
@@ -52,11 +83,15 @@ class FieldInlineMarkdownText extends StatelessWidget {
             end: match.end,
             content: match.group(1)!,
             style: styleForMatch(baseStyle),
+            isSpoiler: isSpoiler,
           ),
         );
       }
     }
 
+    // Spoilers run first (highest precedence): everything inside `||…||` is
+    // locked out of the bold/italic/code passes, matching the renderer.
+    addMatches(_spoiler, (base) => base, isSpoiler: true);
     addMatches(
       _code,
       (base) =>
@@ -77,18 +112,35 @@ class FieldInlineMarkdownText extends StatelessWidget {
     );
 
     if (segments.isEmpty) {
-      return Text(data, style: baseStyle, textAlign: textAlign);
+      return Text(data, style: baseStyle, textAlign: widget.textAlign);
     }
 
     segments.sort((a, b) => a.start.compareTo(b.start));
     final spans = <InlineSpan>[];
     var cursor = 0;
+    // Document-order id per spoiler so each reveals independently (mirrors
+    // SpoilerBuilder's keying for the flutter_markdown surfaces).
+    var spoilerId = 0;
 
     for (final segment in segments) {
       if (cursor < segment.start) {
         spans.add(TextSpan(text: data.substring(cursor, segment.start)));
       }
-      spans.add(TextSpan(text: segment.content, style: segment.style));
+      if (segment.isSpoiler) {
+        spans.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: SpoilerPill(
+              id: spoilerId++,
+              text: segment.content,
+              textStyle: baseStyle,
+              theme: theme,
+            ),
+          ),
+        );
+      } else {
+        spans.add(TextSpan(text: segment.content, style: segment.style));
+      }
       cursor = segment.end;
     }
 
@@ -96,9 +148,12 @@ class FieldInlineMarkdownText extends StatelessWidget {
       spans.add(TextSpan(text: data.substring(cursor)));
     }
 
-    return Text.rich(
-      TextSpan(style: baseStyle, children: spans),
-      textAlign: textAlign,
+    return SpoilerRevealScope(
+      notifier: _revealController,
+      child: Text.rich(
+        TextSpan(style: baseStyle, children: spans),
+        textAlign: widget.textAlign,
+      ),
     );
   }
 
@@ -116,12 +171,14 @@ class _InlineMarkdownSegment {
     required this.end,
     required this.content,
     required this.style,
+    this.isSpoiler = false,
   });
 
   final int start;
   final int end;
   final String content;
   final TextStyle style;
+  final bool isSpoiler;
 }
 
 /// Renders a long text value with a line/character preview and a "View more"

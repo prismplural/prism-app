@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
     show speakingAsProvider;
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -214,7 +215,7 @@ class _PostDetailBody extends ConsumerWidget {
               children: [
                 if (post.title != null && post.title!.isNotEmpty) ...[
                   Text(
-                    post.title!,
+                    redactSpoilers(post.title!),
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                       height: 1.25,

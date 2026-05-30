@@ -9,6 +9,7 @@ import 'package:prism_plurality/domain/models/note.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
+import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -129,9 +130,9 @@ class _NoteCard extends ConsumerWidget {
       } catch (_) {}
     }
 
-    final displayTitle = note.title.isNotEmpty
-        ? note.title
-        : note.body.split('\n').first.trim();
+    final displayTitle = redactSpoilers(
+      note.title.isNotEmpty ? note.title : note.body.split('\n').first.trim(),
+    );
     final isFallbackTitle = note.title.isEmpty;
     final titleLabel = displayTitle.isNotEmpty
         ? displayTitle
@@ -180,7 +181,7 @@ class _NoteCard extends ConsumerWidget {
                   if (note.body.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
-                      note.body,
+                      redactSpoilers(note.body),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

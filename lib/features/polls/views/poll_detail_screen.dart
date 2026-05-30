@@ -23,6 +23,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -434,7 +435,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
 
             // Question
             Text(
-              widget.poll.question,
+              redactSpoilers(widget.poll.question),
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -832,7 +833,7 @@ class _OptionTile extends ConsumerWidget {
 
               Expanded(
                 child: Text(
-                  option.text,
+                  redactSpoilers(option.text),
                   style: theme.textTheme.bodyLarge?.copyWith(
                     fontWeight: isSelected
                         ? FontWeight.w600

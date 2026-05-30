@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
+import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/markdown/subtext_syntax.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -40,36 +41,42 @@ class MarkdownText extends StatelessWidget {
     final sheet = _buildStyleSheet(context, theme);
     final bodyStyle = sheet.p ?? baseStyle ?? const TextStyle();
 
-    return MarkdownBody(
-      data: preserveBlankLines(_normalizeDiscordLikeIndentation(data)),
-      selectable: selectable,
-      styleSheet: sheet,
-      softLineBreak: true,
-      onTapLink: (_, href, _) => _launchSafeLink(href),
-      imageBuilder: (uri, title, alt) => const SizedBox.shrink(),
-      checkboxBuilder: (checked) => _buildTaskListCheckbox(
-        theme: theme,
-        style: sheet.checkbox,
-        padding: sheet.listBulletPadding,
-        checked: checked,
-      ),
-      extensionSet: md.ExtensionSet(
-        [
-          const SubtextBlockSyntax(),
-          ...md.ExtensionSet.gitHubFlavored.blockSyntaxes,
-        ],
-        md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
-      ),
-      builders: {
-        'subtext': SubtextBuilder(
-          baseStyle: bodyStyle,
-          mutedColor: theme.colorScheme.onSurfaceVariant,
-          codeBackground: theme.colorScheme.surfaceContainerHighest,
-          linkColor: theme.colorScheme.primary,
-          // ignore: unnecessary_lambdas — adapts non-null href to nullable handler
-          onTapLink: (href) => _launchSafeLink(href),
+    // `revealKey: data` resets reveal state when the rendered content changes,
+    // so a reused widget slot never shows a stale spoiler as already revealed.
+    return _SpoilerRevealHost(
+      revealKey: data,
+      child: MarkdownBody(
+        data: preserveBlankLines(_normalizeDiscordLikeIndentation(data)),
+        selectable: selectable,
+        styleSheet: sheet,
+        softLineBreak: true,
+        onTapLink: (_, href, _) => _launchSafeLink(href),
+        imageBuilder: (uri, title, alt) => const SizedBox.shrink(),
+        checkboxBuilder: (checked) => _buildTaskListCheckbox(
+          theme: theme,
+          style: sheet.checkbox,
+          padding: sheet.listBulletPadding,
+          checked: checked,
         ),
-      },
+        extensionSet: md.ExtensionSet(
+          [
+            const SubtextBlockSyntax(),
+            ...md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+          ],
+          [SpoilerSyntax(), ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes],
+        ),
+        builders: {
+          'subtext': SubtextBuilder(
+            baseStyle: bodyStyle,
+            mutedColor: theme.colorScheme.onSurfaceVariant,
+            codeBackground: theme.colorScheme.surfaceContainerHighest,
+            linkColor: theme.colorScheme.primary,
+            // ignore: unnecessary_lambdas — adapts non-null href to nullable handler
+            onTapLink: (href) => _launchSafeLink(href),
+          ),
+          'spoiler': SpoilerBuilder(theme: theme),
+        },
+      ),
     );
   }
 
@@ -272,6 +279,44 @@ class MarkdownText extends StatelessWidget {
     }
     if (end - index < 3) return null;
     return line.substring(index, end);
+  }
+}
+
+/// Owns the [SpoilerRevealController] for a [MarkdownText] subtree and exposes
+/// it to the `||spoiler||` pills via [SpoilerRevealScope].
+///
+/// Held in a `StatefulWidget` so the controller is disposed with the subtree
+/// and reveal state resets when [revealKey] (the rendered content) changes.
+class _SpoilerRevealHost extends StatefulWidget {
+  const _SpoilerRevealHost({required this.revealKey, required this.child});
+
+  final String revealKey;
+  final Widget child;
+
+  @override
+  State<_SpoilerRevealHost> createState() => _SpoilerRevealHostState();
+}
+
+class _SpoilerRevealHostState extends State<_SpoilerRevealHost> {
+  final _controller = SpoilerRevealController();
+
+  @override
+  void didUpdateWidget(_SpoilerRevealHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.revealKey != widget.revealKey) {
+      _controller.clear();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SpoilerRevealScope(notifier: _controller, child: widget.child);
   }
 }
 

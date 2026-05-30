@@ -40,7 +40,7 @@ void main() {
 
   group('SpoilerSyntax parsing', () {
     // Use the markdown package directly to verify the AST shape.
-    test('emits a spoiler element with matching text and start offset', () {
+    test('emits a spoiler element with matching text', () {
       final doc = md.Document(
         inlineSyntaxes: [SpoilerSyntax()],
         extensionSet: md.ExtensionSet.none,
@@ -53,10 +53,12 @@ void main() {
       }
       expect(visitor.spoilers, hasLength(1));
       expect(visitor.spoilers.first.textContent, 'secret');
-      expect(visitor.spoilers.first.attributes['start'], '3');
+      // Reveal identity is assigned downstream by SpoilerBuilder in document
+      // order, not stamped here as a block-local offset.
+      expect(visitor.spoilers.first.attributes['start'], isNull);
     });
 
-    test('emits distinct start offsets for multiple spoilers', () {
+    test('emits one element per spoiler with its inner text', () {
       final doc = md.Document(
         inlineSyntaxes: [SpoilerSyntax()],
         extensionSet: md.ExtensionSet.none,
@@ -66,25 +68,10 @@ void main() {
       for (final n in nodes) {
         n.accept(visitor);
       }
-      expect(visitor.spoilers.map((e) => e.attributes['start']).toList(),
-          ['2', '10']);
-    });
-
-    test('parsing the same string twice yields the same offsets', () {
-      final doc = md.Document(
-        inlineSyntaxes: [SpoilerSyntax()],
-        extensionSet: md.ExtensionSet.none,
+      expect(
+        visitor.spoilers.map((e) => e.textContent).toList(),
+        ['b', 'd'],
       );
-      final v1 = _SpoilerCollector();
-      for (final n in doc.parseLines(['hi ||x||'])) {
-        n.accept(v1);
-      }
-      final v2 = _SpoilerCollector();
-      for (final n in doc.parseLines(['hi ||x||'])) {
-        n.accept(v2);
-      }
-      expect(v1.spoilers.first.attributes['start'],
-          v2.spoilers.first.attributes['start']);
     });
   });
 }

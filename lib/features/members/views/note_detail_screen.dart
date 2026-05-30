@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -112,9 +113,11 @@ class _NoteDetailBody extends ConsumerWidget {
                 ),
               ),
             Builder(builder: (context) {
-              final displayTitle = note.title.isNotEmpty
-                  ? note.title
-                  : note.body.split('\n').first.trim();
+              final displayTitle = redactSpoilers(
+                note.title.isNotEmpty
+                    ? note.title
+                    : note.body.split('\n').first.trim(),
+              );
               final isFallbackTitle = note.title.isEmpty;
               return Text(
                 displayTitle.isNotEmpty ? displayTitle : l10n.memberNoteUntitled,
@@ -160,7 +163,7 @@ class _NoteDetailBody extends ConsumerWidget {
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: l10n.memberNoteDeleteTitle,
-      message: l10n.memberNoteDeleteMessage(note.title),
+      message: l10n.memberNoteDeleteMessage(redactSpoilers(note.title)),
       confirmLabel: l10n.delete,
       destructive: true,
     );

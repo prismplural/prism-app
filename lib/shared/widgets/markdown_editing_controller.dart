@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 
 class MarkdownEditingController extends TextEditingController {
+  static final _spoilerRegex = RegExp(r'\|\|(.+?)\|\|');
   static final _boldRegex = RegExp(r'\*\*(.+?)\*\*');
   static final _underlineRegex = RegExp(r'__(.+?)__');
   static final _italicRegex = RegExp(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)');
@@ -74,13 +75,13 @@ class MarkdownEditingController extends TextEditingController {
           text: '## ',
           style: mergedStyle.copyWith(color: _markerColor),
         ));
-        spans.add(TextSpan(
-          text: line.substring(3),
-          style: mergedStyle.copyWith(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ));
+        // Parse the heading body so inline markers (spoilers, bold, …) still
+        // style inside a heading, matching the rendered output.
+        _parseInlineMarkdown(
+          line.substring(3),
+          mergedStyle.copyWith(fontSize: 18, fontWeight: FontWeight.w600),
+          spans,
+        );
         continue;
       }
 
@@ -89,13 +90,11 @@ class MarkdownEditingController extends TextEditingController {
           text: '# ',
           style: mergedStyle.copyWith(color: _markerColor),
         ));
-        spans.add(TextSpan(
-          text: line.substring(2),
-          style: mergedStyle.copyWith(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ));
+        _parseInlineMarkdown(
+          line.substring(2),
+          mergedStyle.copyWith(fontSize: 20, fontWeight: FontWeight.bold),
+          spans,
+        );
         continue;
       }
 
@@ -115,7 +114,28 @@ class MarkdownEditingController extends TextEditingController {
     final segments = <_Segment>[];
     final matched = List.filled(line.length, false);
 
+    // Spoilers run first: the `||` delimiter is unambiguous, so everything
+    // inside a spoiler is locked out of later passes. `**||hidden||**` renders
+    // as dimmed `**` markers wrapping a spoiler-tinted interior, not as bold —
+    // matching the chat composer and the rendered output.
+    for (final match in _spoilerRegex.allMatches(line)) {
+      for (var i = match.start; i < match.end; i++) {
+        matched[i] = true;
+      }
+      segments.add(_Segment(
+        start: match.start,
+        end: match.end,
+        markerBefore: '||',
+        markerAfter: '||',
+        content: match.group(1)!,
+        contentStyle: baseStyle.copyWith(
+          backgroundColor: _onSurface.withAlpha(40),
+        ),
+      ));
+    }
+
     for (final match in _boldRegex.allMatches(line)) {
+      if (_overlaps(matched, match.start, match.end)) continue;
       for (var i = match.start; i < match.end; i++) {
         matched[i] = true;
       }

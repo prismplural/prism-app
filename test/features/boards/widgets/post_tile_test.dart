@@ -170,6 +170,25 @@ void main() {
       expect(find.text('Important notice'), findsOneWidget);
     });
 
+    testWidgets('redacts spoilers in the plain-text title', (tester) async {
+      // The title is not markdown-rendered, so a spoiler must show as ▮ rather
+      // than leak (the body uses MarkdownText with real tap-to-reveal pills).
+      await tester.pumpWidget(
+        _buildTile(
+          _post(title: 'see ||hidden||', body: 'plain body'),
+          allMembers: [_alice],
+        ),
+      );
+      await tester.pump();
+
+      final visible = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((t) => t.data ?? t.textSpan?.toPlainText() ?? '')
+          .join('\n');
+      expect(visible, isNot(contains('hidden')));
+      expect(visible, contains('▮'));
+    });
+
     testWidgets('does not show title widget when title is null', (tester) async {
       await tester.pumpWidget(
         _buildTile(
@@ -403,6 +422,16 @@ void main() {
 
     test('collapses extra whitespace', () {
       expect(stripMarkdownForA11y('hello   world'), 'hello world');
+    });
+
+    test('redacts spoiler plaintext so screen readers cannot announce it', () {
+      // The visible body hides spoilers behind tap-to-reveal pills; the a11y
+      // label must not leak the hidden text.
+      expect(
+        stripMarkdownForA11y('the answer is ||42 is secret||'),
+        'the answer is spoiler',
+      );
+      expect(stripMarkdownForA11y('||a|| and ||b||'), 'spoiler and spoiler');
     });
   });
 }

@@ -12,13 +12,13 @@ void main() {
         .toList();
   }
 
+  // The builder assigns reveal ids in document order; a single spoiler built in
+  // isolation is always id 0.
   Widget harness({
     required SpoilerRevealController controller,
-    required int start,
     ThemeData? theme,
   }) {
-    final element = md.Element.text('spoiler', 'secret')
-      ..attributes['start'] = start.toString();
+    final element = md.Element.text('spoiler', 'secret');
     return MaterialApp(
       theme: theme,
       home: Scaffold(
@@ -54,23 +54,23 @@ void main() {
 
   testWidgets('renders pill when not revealed', (tester) async {
     final controller = SpoilerRevealController();
-    await tester.pumpWidget(harness(controller: controller, start: 0));
+    await tester.pumpWidget(harness(controller: controller));
     expect(spoilerOpacities(tester), [1.0, 0.0]);
     controller.dispose();
   });
 
   testWidgets('renders revealed state when flag is true', (tester) async {
     final controller = SpoilerRevealController()..toggle(0);
-    await tester.pumpWidget(harness(controller: controller, start: 0));
+    await tester.pumpWidget(harness(controller: controller));
     expect(spoilerOpacities(tester), [0.0, 1.0]);
     controller.dispose();
   });
 
   testWidgets('tap toggles reveal via controller', (tester) async {
     final controller = SpoilerRevealController();
-    await tester.pumpWidget(harness(controller: controller, start: 7));
+    await tester.pumpWidget(harness(controller: controller));
     await tester.tap(find.byType(GestureDetector));
-    expect(controller.isRevealed(7), isTrue);
+    expect(controller.isRevealed(0), isTrue);
     controller.dispose();
   });
 
@@ -79,7 +79,6 @@ void main() {
     await tester.pumpWidget(
       harness(
         controller: controller,
-        start: 0,
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: const ColorScheme.dark(),
@@ -140,6 +139,28 @@ void main() {
       await tester.tap(gestures.first);
       await tester.pump();
       expect(spoilerOpacities(tester), [0.0, 1.0, 1.0, 0.0]);
+    });
+
+    testWidgets('spoiler inside a link label is redacted, not flattened', (
+      tester,
+    ) async {
+      // `SafeLinkBuilder` used to render `element.textContent`, flattening a
+      // nested spoiler to its plaintext as the visible link label. The label
+      // must instead show ▮ blocks.
+      await tester.pumpWidget(
+        mount('see [before ||secret|| after](https://example.com)'),
+      );
+      final datas = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((t) => t.data ?? '')
+          .toList();
+      // The redacted link label is present…
+      expect(datas.any((d) => d.contains('▮')), isTrue);
+      // …and no Text flattens the link label to its spoiler plaintext.
+      expect(
+        datas.any((d) => d.contains('before') && d.contains('secret')),
+        isFalse,
+      );
     });
 
     testWidgets('small text spoilers have independent reveal state', (
