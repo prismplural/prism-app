@@ -373,7 +373,7 @@ class SpMapper {
           emoji: '\u2754', // SP doesn't use emoji identifiers
           bio: rewriteSpMentionsNullable(sp.desc, resolveMemberId),
           isActive: !sp.archived,
-          createdAt: _now(),
+          createdAt: extractObjectIdTimestamp(sp.id) ?? _now(),
           displayOrder: i,
           customColorEnabled: colorHex != null,
           customColorHex: colorHex,

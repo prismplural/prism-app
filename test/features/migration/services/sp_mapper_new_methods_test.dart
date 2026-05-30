@@ -1173,4 +1173,75 @@ void main() {
       );
     });
   });
+
+  group('Member createdAt from ObjectId timestamp', () {
+    // A valid 24-char MongoDB ObjectId whose first 4 bytes decode to a known
+    // timestamp. 0x507F1F77 = 1350419319 seconds since epoch → 2012-10-16.
+    const validObjectId = '507f1f77bcf86cd799439011';
+    final expectedCreatedAt = DateTime.fromMillisecondsSinceEpoch(
+      0x507f1f77 * 1000,
+      isUtc: true,
+    );
+
+    test('SP member with a valid ObjectId gets createdAt from the timestamp',
+        () {
+      final frozenNow = DateTime(2025, 1, 1);
+      final data = _makeExportData(
+        members: [const SpMember(id: validObjectId, name: 'Alice')],
+      );
+
+      final mapper = SpMapper(now: () => frozenNow);
+      final result = mapper.mapAll(data);
+
+      expect(result.members, hasLength(1));
+      // createdAt must reflect the ObjectId timestamp, not the frozen clock.
+      expect(result.members.first.createdAt, expectedCreatedAt);
+      expect(result.members.first.createdAt, isNot(equals(frozenNow)));
+    });
+
+    test('SP member with empty/invalid id falls back to _now()', () {
+      final frozenNow = DateTime(2025, 6, 15);
+      final data = _makeExportData(
+        members: [const SpMember(id: '', name: 'Ghost')],
+      );
+
+      final mapper = SpMapper(now: () => frozenNow);
+      final result = mapper.mapAll(data);
+
+      expect(result.members, hasLength(1));
+      expect(result.members.first.createdAt, frozenNow);
+    });
+
+    test('SP member with a short (non-ObjectId) id falls back to _now()', () {
+      final frozenNow = DateTime(2025, 6, 15);
+      // 7 chars — too short for extractObjectIdTimestamp to parse.
+      final data = _makeExportData(
+        members: [const SpMember(id: 'abc1234', name: 'Short')],
+      );
+
+      final mapper = SpMapper(now: () => frozenNow);
+      final result = mapper.mapAll(data);
+
+      expect(result.members, hasLength(1));
+      expect(result.members.first.createdAt, frozenNow);
+    });
+
+    test('custom front (CF) always gets createdAt from _now(), not ObjectId',
+        () {
+      final frozenNow = DateTime(2025, 3, 20);
+      final data = _makeExportData(
+        customFronts: [
+          const SpCustomFront(id: validObjectId, name: 'Host'),
+        ],
+      );
+
+      final mapper = SpMapper(now: () => frozenNow);
+      final result = mapper.mapAll(data);
+
+      expect(result.members, hasLength(1));
+      // Custom fronts must use _now(), not the ObjectId timestamp.
+      expect(result.members.first.createdAt, frozenNow);
+      expect(result.members.first.createdAt, isNot(equals(expectedCreatedAt)));
+    });
+  });
 }
