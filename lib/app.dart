@@ -9,6 +9,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'core/database/database_encryption.dart';
 import 'core/database/database_provider.dart';
 import 'core/router/app_router.dart';
+import 'core/services/media/bio_media_reconciler.dart';
 import 'core/services/media/orphan_media_reconciler.dart';
 import 'core/services/notification_providers.dart';
 import 'core/services/reminder_scheduler_service.dart';
@@ -36,6 +37,7 @@ class PrismApp extends ConsumerStatefulWidget {
 class _PrismAppState extends ConsumerState<PrismApp> {
   late final AppLifecycleListener _appLifecycleListener;
   bool _ranOrphanMediaReconcile = false;
+  bool _ranBioMediaReconcile = false;
 
   @override
   void initState() {
@@ -64,6 +66,28 @@ class _PrismAppState extends ConsumerState<PrismApp> {
         // this catchError is a final safety net so a programmer bug in the
         // reconcile path can never crash app startup.
         debugPrint('Orphan media reconcile threw out (non-fatal): $e');
+        return 0;
+      }),
+    );
+  }
+
+  /// Run the bio-media orphan sweep exactly once per app launch, after
+  /// `prismSyncHandleProvider` has resolved (so we don't race the sync layer
+  /// materializing inbound bio-media). Catches orphaned bio `media_attachments`
+  /// rows missed by the on-save hook in add_edit_member_sheet.dart.
+  void _maybeRunBioMediaReconcile(
+    AsyncValue<ffi.PrismSyncHandle?>? previous,
+    AsyncValue<ffi.PrismSyncHandle?> next,
+  ) {
+    if (_ranBioMediaReconcile) return;
+    if (next is AsyncLoading) return;
+    _ranBioMediaReconcile = true;
+    unawaited(
+      runBioMediaReconcileFromRef(ref).catchError((Object e) {
+        // runBioMediaReconcileFromRef already swallows + logs internally;
+        // this catchError is a final safety net so a programmer bug in the
+        // reconcile path can never crash app startup.
+        debugPrint('Bio media reconcile threw out (non-fatal): $e');
         return 0;
       }),
     );
@@ -144,6 +168,11 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     // build ran — the listener above won't fire for a cached value, so we
     // peek at the current state and trigger directly.
     _maybeRunOrphanMediaReconcile(null, ref.read(prismSyncHandleProvider));
+
+    // Run the bio-media orphan sweep once per launch, after the sync layer
+    // has finished its first init pass (same timing rationale as above).
+    ref.listen(prismSyncHandleProvider, _maybeRunBioMediaReconcile);
+    _maybeRunBioMediaReconcile(null, ref.read(prismSyncHandleProvider));
 
     // Keep the FFI event stream alive for the lifetime of the app.
     ref.listen(syncEventStreamProvider, (_, _) {});

@@ -587,10 +587,12 @@ packages:
   flutter_soloud:
     dependency: "direct main"
     description:
-      path: "../flutter_soloud"
-      relative: true
-    source: path
-    version: "4.0.2"
+      path: "."
+      ref: a59b81032599e0c54f9a85a66c0f7e6193fa2aa1
+      resolved-ref: a59b81032599e0c54f9a85a66c0f7e6193fa2aa1
+      url: "https://github.com/skylartaylor/flutter_soloud.git"
+    source: git
+    version: "4.0.6"
   flutter_staggered_grid_view:
     dependency: "direct main"
     description:
@@ -998,9 +1000,11 @@ packages:
   ogg_caf_converter:
     dependency: "direct main"
     description:
-      path: "../ogg_caf_converter"
-      relative: true
-    source: path
+      path: "."
+      ref: "899b9692ea048b90ffa114c25b471b06d495ef7b"
+      resolved-ref: "899b9692ea048b90ffa114c25b471b06d495ef7b"
+      url: "https://github.com/skylartaylor/ogg_caf_converter.git"
+    source: git
     version: "0.1.4"
   package_config:
     dependency: transitive
@@ -1197,22 +1201,22 @@ packages:
   prism_sync:
     dependency: "direct main"
     description:
-      path: "../prism-sync/dart/packages/prism_sync"
-      relative: true
+      path: "/Users/sky/code/.prism-worktrees/bio-images-encrypted/prism-sync/dart/packages/prism_sync"
+      relative: false
     source: path
     version: "0.1.1"
   prism_sync_drift:
     dependency: "direct main"
     description:
-      path: "../prism-sync/dart/packages/prism_sync_drift"
-      relative: true
+      path: "/Users/sky/code/.prism-worktrees/bio-images-encrypted/prism-sync/dart/packages/prism_sync_drift"
+      relative: false
     source: path
     version: "0.1.1"
   prism_sync_flutter:
     dependency: "direct main"
     description:
-      path: "../prism-sync/dart/packages/prism_sync_flutter"
-      relative: true
+      path: "/Users/sky/code/.prism-worktrees/bio-images-encrypted/prism-sync/dart/packages/prism_sync_flutter"
+      relative: false
     source: path
     version: "0.1.1"
   process:
@@ -1862,4 +1866,4 @@ packages:
     version: "3.1.3"
 sdks:
   dart: ">=3.11.1 <4.0.0"
-  flutter: ">=3.38.4"
+  flutter: ">=3.41.0"

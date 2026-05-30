@@ -160,6 +160,36 @@ class DownloadManager {
     await encFile.writeAsBytes(ciphertext);
   }
 
+  /// Evicts the locally-cached encrypted blob for [mediaId] (the
+  /// `<mediaId>.enc` file, plus any stale plaintext file). Best-effort: a
+  /// missing file or transient I/O error is ignored.
+  ///
+  /// Used when a record is repointed to a new mediaId (e.g. "replace image")
+  /// so the now-orphaned old blob doesn't linger in the local cache. The
+  /// startup orphan-media reconciler would eventually catch it, but this
+  /// reclaims the space immediately.
+  Future<void> evictEncrypted(
+    String mediaId, {
+    String fileExtension = '',
+  }) async {
+    try {
+      final encFile = await _cacheFileFor(
+        mediaId,
+        fileExtension: fileExtension,
+        encrypted: true,
+      );
+      if (encFile.existsSync()) await encFile.delete();
+      final plainFile = await _cacheFileFor(
+        mediaId,
+        fileExtension: fileExtension,
+        encrypted: false,
+      );
+      if (plainFile.existsSync()) await plainFile.delete();
+    } catch (_) {
+      // Best-effort cache hygiene — never throw from eviction.
+    }
+  }
+
   Future<void> clearCache() async {
     final dir = await _cacheDir();
     if (dir.existsSync()) {

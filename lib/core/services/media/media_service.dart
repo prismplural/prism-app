@@ -118,7 +118,7 @@ class MediaService {
       height: compressed.height,
       sizeBytes: compressed.bytes.length,
       blurhash: compressed.blurhash,
-      mimeType: 'image/webp',
+      mimeType: compressed.mimeType,
     );
   }
 
@@ -210,6 +210,53 @@ class MediaService {
 
     await imageCompleter.future;
     await thumbCompleter.future;
+  }
+
+  Future<MediaAttachmentData> prepareBioImage(Uint8List imageBytes) async {
+    final compressed = await compression.compressImage(imageBytes);
+    final encryptedImage = await encryption.encryptMedia(compressed.bytes);
+    final mediaId = _uuid.v4();
+
+    // Cache ciphertext locally so the sender sees their own media
+    // immediately without waiting for the relay upload→download round-trip.
+    await downloadManager.cacheEncrypted(
+      mediaId: mediaId,
+      ciphertext: encryptedImage.ciphertext,
+    );
+
+    return MediaAttachmentData(
+      mediaId: mediaId,
+      thumbnailMediaId: '',
+      encryptedImage: encryptedImage.ciphertext,
+      encryptedThumbnail: Uint8List(0),
+      encryptionKey: encryptedImage.key,
+      contentHash: encryptedImage.ciphertextHash,
+      plaintextHash: encryptedImage.plaintextHash,
+      thumbnailContentHash: '',
+      width: compressed.width,
+      height: compressed.height,
+      sizeBytes: compressed.bytes.length,
+      blurhash: compressed.blurhash,
+      mimeType: compressed.mimeType,
+    );
+  }
+
+  /// Uploads only the main image (no thumbnail).
+  /// Throws [StateError] if the upload fails.
+  Future<void> uploadBioImage(MediaAttachmentData data) async {
+    final completer = Completer<void>();
+    await uploadQueue.enqueue(
+      UploadTask(
+        mediaId: data.mediaId,
+        contentHash: data.contentHash,
+        encryptedData: data.encryptedImage,
+        onSuccess: completer.complete,
+        onFailure: (e) => completer.completeError(
+          StateError('Bio image upload failed: $e'),
+        ),
+      ),
+    );
+    await completer.future;
   }
 
   /// Like [uploadVoice] but throws [StateError] if the upload fails.

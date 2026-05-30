@@ -6,6 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/data/repositories/drift_media_attachment_repository.dart';
+import 'package:prism_plurality/features/members/services/bio_image_importer.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/birthday.dart';
@@ -666,6 +669,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
       title: context.l10n.memberBioLabel,
       initialText: _bioController.text,
       hintText: context.l10n.memberBioHint,
+      memberId: _memberId,
     );
     if (result != null && mounted) {
       setState(() => _bioController.text = result);
@@ -805,6 +809,30 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         : formatBirthdayWire(_birthday!, hideYear: _birthdayHideYear);
     final proxyTagsJson = _proxyTagsJson();
 
+    // Process manually typed/pasted external image URLs BEFORE the first save:
+    // fetch + encrypt into the shared library and rewrite ![](https://...) →
+    // ![](tag), same pipeline as Simply Plural import. Doing this up front (vs.
+    // saving the raw URL then re-saving the rewrite) avoids briefly syncing raw
+    // external URLs to peers and the redundant second write. Staged images from
+    // the full-screen bio editor are already committed by the editor on confirm
+    // (see full_screen_markdown_editor_sheet), so the library entries they need
+    // for dedup exist by the time this runs.
+    var finalBio = bio;
+    try {
+      final mediaRepo = ref.read(mediaAttachmentRepositoryProvider);
+      if (bio.contains('http') && mediaRepo is DriftMediaAttachmentRepository) {
+        final importer = BioImageImporter(
+          mediaService: ref.read(mediaServiceProvider),
+          repository: mediaRepo,
+        );
+        finalBio = await importer.processBio(bio);
+      }
+    } catch (_) {
+      // Don't block the save flow if URL import fails; the original URL stays
+      // in the bio and renders as missing.
+    }
+    if (!mounted) return;
+
     Map<String, Object> customFieldFailures = const {};
     try {
       final notifier = ref.read(membersNotifierProvider.notifier);
@@ -815,7 +843,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
           pronouns: pronouns.isNotEmpty ? pronouns : null,
           emoji: emoji,
           age: age,
-          bio: bio.isNotEmpty ? bio : null,
+          bio: finalBio.isNotEmpty ? finalBio : null,
           avatarImageData: _avatarImageData,
           isAdmin: _isAdmin,
           markdownEnabled: _markdownEnabled,
@@ -863,7 +891,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
           pronouns: pronouns.isNotEmpty ? pronouns : null,
           emoji: emoji,
           age: age,
-          bio: bio.isNotEmpty ? bio : null,
+          bio: finalBio.isNotEmpty ? finalBio : null,
           avatarImageData: _avatarImageData,
           isAdmin: _isAdmin,
           customColorHex: colorHex,
@@ -888,6 +916,18 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
       }
 
       _saved = true;
+
+      // Staged images from the full-screen bio editor are committed by the
+      // editor itself on confirm (see full_screen_markdown_editor_sheet), so
+      // no commitStaged() here. External-URL rewriting happened before the
+      // save above (see `finalBio`), so the member was persisted exactly once
+      // with the rewritten bio — no second write, no transient raw-URL sync.
+
+      // Schedule deferred orphan reconciliation for bio images.
+      // Runs even when bio is empty — clearing all text should orphan-delete
+      // all images. Uses the rewritten bio so freshly-tagged images count as
+      // referenced.
+      _reconcileBioImageOrphans(_memberId, finalBio);
 
       // On member creation (NOT edit), if PluralKit is paired-and-ready but
       // general push sync is disabled, prompt the user to one-shot push this
@@ -944,6 +984,35 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  void _reconcileBioImageOrphans(String memberId, String bioText) {
+    // Capture repo before the deferred callback — ref may not be valid after
+    // the sheet is popped/disposed.
+    final repo = ref.read(mediaAttachmentRepositoryProvider);
+    Future.delayed(Duration.zero, () async {
+      try {
+        final attachments = await repo.getForMember(memberId);
+        if (attachments.isEmpty) return;
+
+        // Parse prism-media:// URIs referenced in the bio text.
+        final referenced = <String>{};
+        final pattern = RegExp(r'prism-media://([a-zA-Z0-9-]+)');
+        for (final match in pattern.allMatches(bioText)) {
+          final mediaId = match.group(1);
+          if (mediaId != null) referenced.add(mediaId);
+        }
+
+        // Soft-delete any attachment whose media ID is no longer in the bio.
+        for (final attachment in attachments) {
+          if (!referenced.contains(attachment.mediaId)) {
+            await repo.softDeleteBioMedia(attachment.id);
+          }
+        }
+      } catch (_) {
+        // Don't let orphan cleanup failure surface to the user.
+      }
+    });
   }
 
   void _showCustomFieldFailureToast(Map<String, Object> failures) {
