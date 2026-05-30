@@ -59,7 +59,7 @@ void main() {
       expect(model.name, 'Test');
       expect(model.pronouns, 'they/them');
       expect(model.emoji, '🦊');
-      expect(model.age, 30);
+      expect(model.age, '30');
       expect(model.bio, 'A bio');
       expect(model.avatarImageData, avatar);
       expect(model.isActive, false);
@@ -181,7 +181,7 @@ void main() {
       expect(companion.name.value, 'Bob');
       expect(companion.pronouns.value, 'he/him');
       expect(companion.emoji.value, '🎸');
-      expect(companion.age.value, 22);
+      expect(companion.age.value, '22');
       expect(companion.bio.value, 'Guitarist');
       expect(companion.avatarImageData.value, avatar);
       expect(companion.isActive.value, true);

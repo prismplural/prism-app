@@ -218,7 +218,16 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
 // mismatch so the field is skipped (Value.absent()), not the whole entity.
 // Never throw — let the sync cycle continue.
 
-String? _asString(dynamic value) {
+String? _asString(dynamic value) => value is String ? value : null;
+
+// Age-only coercion. `age` migrated from Int → String (schema v31); an old
+// client still emits a bare integer on the wire. Accept that numeric form and
+// stringify it so old→new sync preserves numeric ages. Scoped to the age
+// decode site ONLY — `_asString` stays strict for the ~133 other string
+// fields, which must still quarantine non-string payloads. NaN/Infinity are
+// rejected (return null) so they surface as a type mismatch rather than the
+// literal strings "NaN"/"Infinity".
+String? _asAgeString(dynamic value) {
   if (value is String) return value;
   if (value is num && !value.isNaN && value.isFinite) return value.toString();
   return null;
@@ -1271,6 +1280,21 @@ class _FieldContext {
     return const Value.absent();
   }
 
+  // -- Nullable age (String, with old-client numeric back-compat) ------------
+
+  // Like [stringFieldNullable] but also accepts a bare numeric wire value and
+  // stringifies it (see [_asAgeString]). Used ONLY for the `age` field, which
+  // migrated Int → String in schema v31; an old peer still emits a bare Int.
+  Value<String?> ageFieldNullable(String key) {
+    if (!fields.containsKey(key)) return const Value.absent();
+    final raw = fields[key];
+    if (raw == null) return const Value(null);
+    final v = _asAgeString(raw);
+    if (v != null) return Value(v);
+    _report(key, 'String?', raw);
+    return const Value.absent();
+  }
+
   // -- Non-nullable int ------------------------------------------------------
 
   Value<int> intField(String key) {
@@ -1493,7 +1517,7 @@ DriftSyncEntity _membersEntity(
         name: f.stringField('name'),
         pronouns: f.stringFieldNullable('pronouns'),
         emoji: f.stringField('emoji'),
-        age: f.stringFieldNullable('age'),
+        age: f.ageFieldNullable('age'),
         bio: f.stringFieldNullable('bio'),
         avatarImageData: f.blobFieldNullable('avatar_image_data'),
         pkAvatarCachedUrl: f.stringFieldNullable('pk_avatar_cached_url'),

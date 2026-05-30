@@ -1180,6 +1180,12 @@ Map<String, dynamic> _expectedReadRowForRemotePayload(
     expected['group_id'] = 'pk-group:pk-group-uuid';
     expected['member_id'] = 'member-1';
   }
+  if (table == 'members' && expected['age'] is num) {
+    // `age` migrated Int → String (schema v31). An old-client payload sends a
+    // bare Int; the age decode site coerces it to its string form, so the
+    // read-back value is the String, not the raw wire Int.
+    expected['age'] = expected['age'].toString();
+  }
   return expected;
 }
 

@@ -18,7 +18,7 @@ const String prismSyncSchema = '''
         "name": "String",
         "pronouns": "String",
         "emoji": "String",
-        "age": "Str",
+        "age": "String",
         "bio": "String",
         "avatar_image_data": "Blob",
         "pk_avatar_cached_url": "String",
