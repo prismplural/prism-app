@@ -3611,6 +3611,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberBirthdayClear => 'Clear birthday';
 
   @override
+  String get memberCreatedAtLabel => 'Created';
+
+  @override
+  String memberCreatedAtChipLabel(String date) {
+    return 'Created $date';
+  }
+
+  @override
+  String get memberCreatedAtHint => 'Tap to set a date';
+
+  @override
+  String get memberCreatedAtClear => 'Clear creation date';
+
+  @override
   String get memberSectionBirthday => 'Birthday';
 
   @override
@@ -10570,6 +10584,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Update photos for existing imported members';
 
   @override
+  String get dataManagementSpCreationDateRowTitle => 'Update creation dates';
+
+  @override
+  String get dataManagementSpCreationDateRowSubtitle =>
+      'Import original creation dates from a Simply Plural export';
+
+  @override
   String get spAvatarZipSheetTitle => 'Simply Plural Avatar ZIP';
 
   @override
@@ -10618,6 +10639,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get spAvatarZipFailedTitle => 'Could not import avatar ZIP';
+
+  @override
+  String get spCreationDateBackfillTitle => 'Update Creation Dates';
+
+  @override
+  String get spCreationDateBackfillDescription =>
+      'Simply Plural stores when each member was first created. This updates your Prism members with those original dates.';
+
+  @override
+  String get spCreationDateBackfillNoMapping =>
+      'No Simply Plural import history found. Import your SP data first to set up member links.';
+
+  @override
+  String get spCreationDateBackfillNoMatches =>
+      'None of the members in this export matched your current members.';
+
+  @override
+  String get spCreationDateBackfillPreviewTitle => 'Preview changes';
+
+  @override
+  String get spCreationDateBackfillApply => 'Apply';
+
+  @override
+  String spCreationDateBackfillSuccess(int count) {
+    return 'Updated creation dates for $count members.';
+  }
+
+  @override
+  String spCreationDateBackfillCurrent(String date) {
+    return 'Current: $date';
+  }
+
+  @override
+  String spCreationDateBackfillNew(String date) {
+    return 'New: $date';
+  }
+
+  @override
+  String spCreationDateBackfillUnmatched(int count) {
+    return '$count members could not be matched';
+  }
 
   @override
   String get spImportWarningsTitle => 'Your data is in.';

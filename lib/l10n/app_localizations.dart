@@ -6197,6 +6197,30 @@ abstract class AppLocalizations {
   /// **'Clear birthday'**
   String get memberBirthdayClear;
 
+  /// Label for member creation date field
+  ///
+  /// In en, this message translates to:
+  /// **'Created'**
+  String get memberCreatedAtLabel;
+
+  /// Chip label showing member creation date
+  ///
+  /// In en, this message translates to:
+  /// **'Created {date}'**
+  String memberCreatedAtChipLabel(String date);
+
+  /// Hint text for empty creation date field
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to set a date'**
+  String get memberCreatedAtHint;
+
+  /// Tooltip for clearing the creation date
+  ///
+  /// In en, this message translates to:
+  /// **'Clear creation date'**
+  String get memberCreatedAtClear;
+
   /// Section header for birthday on the member detail screen
   ///
   /// In en, this message translates to:
@@ -16936,6 +16960,18 @@ abstract class AppLocalizations {
   /// **'Update photos for existing imported members'**
   String get dataManagementSimplyPluralAvatarZipRowSubtitle;
 
+  /// Title for SP creation date backfill row in import/export settings
+  ///
+  /// In en, this message translates to:
+  /// **'Update creation dates'**
+  String get dataManagementSpCreationDateRowTitle;
+
+  /// Subtitle for SP creation date backfill row
+  ///
+  /// In en, this message translates to:
+  /// **'Import original creation dates from a Simply Plural export'**
+  String get dataManagementSpCreationDateRowSubtitle;
+
   /// No description provided for @spAvatarZipSheetTitle.
   ///
   /// In en, this message translates to:
@@ -17025,6 +17061,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not import avatar ZIP'**
   String get spAvatarZipFailedTitle;
+
+  /// Title of the creation date backfill sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Update Creation Dates'**
+  String get spCreationDateBackfillTitle;
+
+  /// Description text in the backfill sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Simply Plural stores when each member was first created. This updates your Prism members with those original dates.'**
+  String get spCreationDateBackfillDescription;
+
+  /// Message when no SP import history exists
+  ///
+  /// In en, this message translates to:
+  /// **'No Simply Plural import history found. Import your SP data first to set up member links.'**
+  String get spCreationDateBackfillNoMapping;
+
+  /// Message when no members matched in backfill
+  ///
+  /// In en, this message translates to:
+  /// **'None of the members in this export matched your current members.'**
+  String get spCreationDateBackfillNoMatches;
+
+  /// Title above the preview list in backfill sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Preview changes'**
+  String get spCreationDateBackfillPreviewTitle;
+
+  /// Button label to apply the backfill
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get spCreationDateBackfillApply;
+
+  /// Success message after backfill
+  ///
+  /// In en, this message translates to:
+  /// **'Updated creation dates for {count} members.'**
+  String spCreationDateBackfillSuccess(int count);
+
+  /// Label showing current creation date in preview
+  ///
+  /// In en, this message translates to:
+  /// **'Current: {date}'**
+  String spCreationDateBackfillCurrent(String date);
+
+  /// Label showing new creation date in preview
+  ///
+  /// In en, this message translates to:
+  /// **'New: {date}'**
+  String spCreationDateBackfillNew(String date);
+
+  /// Message showing count of unmatched members in backfill
+  ///
+  /// In en, this message translates to:
+  /// **'{count} members could not be matched'**
+  String spCreationDateBackfillUnmatched(int count);
 
   /// Heading shown above the grouped SP import warning summary. Leads with reassurance.
   ///
