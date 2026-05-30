@@ -34,6 +34,15 @@ class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
             ..orderBy([(n) => OrderingTerm.desc(n.date)]))
           .watch();
 
+  /// One-shot counterpart to [watchAllNotes] (same active/deleted filter +
+  /// ordering). Used by usage scans that must not `await` a stream provider's
+  /// `.future` (which can stall when nothing else watches it).
+  Future<List<NoteRow>> getAllNotes() =>
+      (select(notes)
+            ..where((n) => n.isDeleted.equals(false))
+            ..orderBy([(n) => OrderingTerm.desc(n.date)]))
+          .get();
+
   Future<NoteRow?> getNoteById(String id) =>
       (select(notes)..where((n) => n.id.equals(id))).getSingleOrNull();
 

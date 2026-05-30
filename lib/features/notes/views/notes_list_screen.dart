@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/markdown/markdown_preview.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -131,7 +132,9 @@ class _NoteCard extends ConsumerWidget {
     }
 
     final displayTitle = redactSpoilers(
-      note.title.isNotEmpty ? note.title : note.body.split('\n').first.trim(),
+      note.title.isNotEmpty
+          ? note.title
+          : stripImageMarkdown(note.body.split('\n').first.trim()),
     );
     final isFallbackTitle = note.title.isEmpty;
     final titleLabel = displayTitle.isNotEmpty
@@ -180,10 +183,15 @@ class _NoteCard extends ConsumerWidget {
                   ),
                   if (note.body.isNotEmpty) ...[
                     const SizedBox(height: 6),
-                    Text(
-                      redactSpoilers(note.body),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                    Text.rich(
+                      TextSpan(
+                        children: imagePreviewSpans(
+                          redactSpoilers(note.body),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          iconColor: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,

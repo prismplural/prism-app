@@ -5,6 +5,11 @@ import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 
 abstract class MemberGroupsRepository {
   Stream<List<domain.MemberGroup>> watchAllGroups();
+
+  /// One-shot list of all active groups (mirrors [watchAllGroups]'s domain
+  /// mapping). Prefer this over awaiting a stream provider's `.future` in
+  /// non-watching contexts, which can stall.
+  Future<List<domain.MemberGroup>> getAllGroups();
   Stream<domain.MemberGroup?> watchGroupById(String id);
   Stream<List<domain.MemberGroup>> watchGroupsForMember(String memberId);
   Stream<List<domain.MemberGroupEntry>> watchGroupEntries(String groupId);

@@ -176,6 +176,8 @@ Future<void> _seedGroup(
   AppDatabase db, {
   required String id,
   GroupSortState? sortState,
+  String? description,
+  bool isDeleted = false,
 }) {
   final state = sortState ?? GroupSortState.manualEmpty;
   return db.into(db.memberGroups).insert(
@@ -184,6 +186,8 @@ Future<void> _seedGroup(
           name: id,
           createdAt: DateTime.utc(2026, 1, 1),
           sortState: Value(MemberGroupMapper.encodeSortStateForColumn(state)),
+          description: Value(description),
+          isDeleted: Value(isDeleted),
         ),
       );
 }
@@ -235,6 +239,22 @@ void main() {
 
   tearDown(() async {
     await db.close();
+  });
+
+  group('getAllGroups (one-shot)', () {
+    test('returns active groups and excludes tombstoned ones', () async {
+      await setupRepo();
+      await _seedGroup(db, id: 'g1', description: 'one');
+      await _seedGroup(db, id: 'g2', description: 'two');
+      await _seedGroup(db, id: 'g3', description: 'gone', isDeleted: true);
+
+      final groups = await repo.getAllGroups();
+      expect(groups.map((g) => g.id).toSet(), {'g1', 'g2'});
+      expect(
+        {for (final g in groups) g.id: g.description},
+        {'g1': 'one', 'g2': 'two'},
+      );
+    });
   });
 
   group('setGroupManualOrderSnapshot', () {

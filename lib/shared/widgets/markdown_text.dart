@@ -17,6 +17,10 @@ class MarkdownText extends StatelessWidget {
     this.enabled = true,
     this.baseStyle,
     this.selectable = false,
+    this.imageBuilder,
+    this.imgElementBuilder,
+    this.tableBorderless = false,
+    this.tableBorderColor,
   });
 
   /// The text content (plain or Markdown).
@@ -30,6 +34,22 @@ class MarkdownText extends StatelessWidget {
 
   /// Whether the rendered text is selectable.
   final bool selectable;
+
+  /// Optional image builder. When null, images are suppressed (empty box).
+  final Widget Function(Uri uri, String? title, String? alt)? imageBuilder;
+
+  /// Optional custom element builder for `img` tags. Takes precedence over
+  /// [imageBuilder] and receives the raw `src` attribute (including any
+  /// `#WxH` sizing fragment, which the default image path strips).
+  final MarkdownElementBuilder? imgElementBuilder;
+
+  /// Render tables with no borders and a neutral (non-bold) header row. Used
+  /// for `:::plain` layout tables (image-beside-text) so they read clean.
+  final bool tableBorderless;
+
+  /// Render table borders in this color (ignored when [tableBorderless]).
+  /// Null → the default theme border.
+  final Color? tableBorderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +71,8 @@ class MarkdownText extends StatelessWidget {
         styleSheet: sheet,
         softLineBreak: true,
         onTapLink: (_, href, _) => _launchSafeLink(href),
-        imageBuilder: (uri, title, alt) => const SizedBox.shrink(),
+        imageBuilder:
+            imageBuilder ?? (uri, title, alt) => const SizedBox.shrink(),
         checkboxBuilder: (checked) => _buildTaskListCheckbox(
           theme: theme,
           style: sheet.checkbox,
@@ -75,6 +96,7 @@ class MarkdownText extends StatelessWidget {
             onTapLink: (href) => _launchSafeLink(href),
           ),
           'spoiler': SpoilerBuilder(theme: theme),
+          if (imgElementBuilder != null) 'img': imgElementBuilder!,
         },
       ),
     );
@@ -91,7 +113,7 @@ class MarkdownText extends StatelessWidget {
     final mutedSurface = theme.colorScheme.surfaceContainerHighest;
     final mutedFg = theme.colorScheme.onSurfaceVariant;
 
-    return base.copyWith(
+    final sheet = base.copyWith(
       p: strip(baseStyle ?? base.p),
       a: strip(base.a).copyWith(
         color: theme.colorScheme.primary,
@@ -124,6 +146,22 @@ class MarkdownText extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
       ),
     );
+
+    // Per-segment table border treatment (from `:::plain` / `:::#hex` fences).
+    if (tableBorderless) {
+      // No gridlines, and a neutral header row so layout tables (image-beside-
+      // text) don't get the default bold/spreadsheet look.
+      return sheet.copyWith(
+        tableBorder: const TableBorder(),
+        tableHead: sheet.tableBody ?? sheet.p,
+      );
+    }
+    if (tableBorderColor != null) {
+      return sheet.copyWith(
+        tableBorder: TableBorder.all(color: tableBorderColor!),
+      );
+    }
+    return sheet;
   }
 
   Widget _buildTaskListCheckbox({

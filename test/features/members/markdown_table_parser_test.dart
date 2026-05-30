@@ -1,0 +1,112 @@
+import 'package:flutter/material.dart' show TextAlign;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/features/members/services/markdown_table_parser.dart';
+
+void main() {
+  group('splitMarkdownBlocks', () {
+    test('simple 2-col table with outer pipes', () {
+      final blocks = splitMarkdownBlocks('| a | b |\n| - | - |\n| c | d |');
+      expect(blocks, hasLength(1));
+      expect(blocks.first.isTable, isTrue);
+      final t = blocks.first.table!;
+      expect(t.rows, [
+        ['a', 'b'],
+        ['c', 'd'],
+      ]);
+    });
+
+    test('table without outer pipes', () {
+      final blocks = splitMarkdownBlocks('a | b\n- | -\nc | d');
+      expect(blocks, hasLength(1));
+      final t = blocks.first.table!;
+      expect(t.rows, [
+        ['a', 'b'],
+        ['c', 'd'],
+      ]);
+    });
+
+    test('alignment row parsing', () {
+      final blocks =
+          splitMarkdownBlocks('| a | b | c | d |\n| :-- | :-: | --: | - |');
+      final t = blocks.first.table!;
+      expect(t.aligns, [
+        TextAlign.left,
+        TextAlign.center,
+        TextAlign.right,
+        null,
+      ]);
+    });
+
+    test('escaped pipe in a cell is not a column separator', () {
+      final blocks =
+          splitMarkdownBlocks(r'| a \| b | c |' '\n| - | - |\n' r'| x | y |');
+      final t = blocks.first.table!;
+      expect(t.rows[0], [r'a \| b', 'c']);
+      expect(t.rows[1], ['x', 'y']);
+    });
+
+    test('table sandwiched between prose → 3 blocks in order', () {
+      const md = 'intro line\n'
+          '| a | b |\n| - | - |\n| c | d |\n'
+          'outro line';
+      final blocks = splitMarkdownBlocks(md);
+      expect(blocks, hasLength(3));
+      expect(blocks[0].text, 'intro line');
+      expect(blocks[1].isTable, isTrue);
+      expect(blocks[2].text, 'outro line');
+    });
+
+    test('ragged rows are tolerated', () {
+      final blocks = splitMarkdownBlocks('| a | b | c |\n| - | - | - |\n| x |');
+      final t = blocks.first.table!;
+      expect(t.rows[0], ['a', 'b', 'c']);
+      expect(t.rows[1], ['x']);
+    });
+
+    test('single `a | b` line with no separator stays text', () {
+      final blocks = splitMarkdownBlocks('a | b');
+      expect(blocks, hasLength(1));
+      expect(blocks.first.isTable, isFalse);
+      expect(blocks.first.text, 'a | b');
+    });
+
+    test('non-table content with pipes but no separator stays text', () {
+      const md = 'a | b\nmore prose | here\nstill prose';
+      final blocks = splitMarkdownBlocks(md);
+      expect(blocks, hasLength(1));
+      expect(blocks.first.text, md);
+    });
+
+    test('plain prose with no pipes is a single text block', () {
+      const md = 'just text\n\nmore text';
+      final blocks = splitMarkdownBlocks(md);
+      expect(blocks, hasLength(1));
+      expect(blocks.first.text, md);
+    });
+
+    test('table with no body rows (header + separator only)', () {
+      final blocks = splitMarkdownBlocks('| a | b |\n| - | - |');
+      expect(blocks, hasLength(1));
+      final t = blocks.first.table!;
+      expect(t.rows, [
+        ['a', 'b'],
+      ]);
+    });
+
+    test('blank line ends the table body', () {
+      const md = '| a | b |\n| - | - |\n| c | d |\n\nafter';
+      final blocks = splitMarkdownBlocks(md);
+      // The blank line + "after" are consecutive prose lines → one text block.
+      expect(blocks, hasLength(2));
+      expect(blocks[0].isTable, isTrue);
+      expect(blocks[1].text, '\nafter');
+    });
+
+    test('image cells retain raw markdown', () {
+      final blocks = splitMarkdownBlocks(
+          '| ![](sometag) | hello |\n| - | - |\n| ![](x#64) | text |');
+      final t = blocks.first.table!;
+      expect(t.rows[1], ['![](x#64)', 'text']);
+    });
+  });
+}

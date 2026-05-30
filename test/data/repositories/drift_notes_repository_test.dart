@@ -205,4 +205,37 @@ void main() {
       expect(row, isNull);
     });
   });
+
+  group('getAllNotes (one-shot)', () {
+    final baseTime = DateTime.utc(2026, 5, 1, 12);
+
+    domain.Note makeNote(String id, {DateTime? date}) => domain.Note(
+          id: id,
+          title: 't-$id',
+          body: 'b-$id',
+          date: date ?? baseTime,
+          createdAt: baseTime,
+          modifiedAt: baseTime,
+        );
+
+    test('returns active notes and excludes tombstoned ones', () async {
+      await repo.createNote(makeNote('n1'));
+      await repo.createNote(makeNote('n2'));
+      await repo.createNote(makeNote('n3'));
+      await repo.deleteNote('n2');
+
+      final notes = await repo.getAllNotes();
+      expect(notes.map((n) => n.id).toSet(), {'n1', 'n3'});
+    });
+
+    test('orders by date descending (matches watchAllNotes)', () async {
+      await repo.createNote(makeNote('old', date: baseTime));
+      await repo.createNote(
+        makeNote('new', date: baseTime.add(const Duration(days: 1))),
+      );
+
+      final notes = await repo.getAllNotes();
+      expect(notes.map((n) => n.id).toList(), ['new', 'old']);
+    });
+  });
 }

@@ -41,7 +41,7 @@ import 'package:prism_plurality/shared/widgets/group_avatar.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
-import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/features/members/providers/group_display_prefs_provider.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -1263,7 +1263,7 @@ class _GroupInfoHeader extends ConsumerWidget {
                           if (group.description != null &&
                               group.description!.isNotEmpty) ...[
                             const SizedBox(height: 4),
-                            MarkdownText(
+                            PrismMarkdownText(
                               data: group.description!,
                               enabled: true,
                               baseStyle: theme.textTheme.bodyMedium?.copyWith(

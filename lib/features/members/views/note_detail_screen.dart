@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/markdown/markdown_preview.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -16,8 +17,8 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
-import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
+import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -116,7 +117,7 @@ class _NoteDetailBody extends ConsumerWidget {
               final displayTitle = redactSpoilers(
                 note.title.isNotEmpty
                     ? note.title
-                    : note.body.split('\n').first.trim(),
+                    : stripImageMarkdown(note.body.split('\n').first.trim()),
               );
               final isFallbackTitle = note.title.isEmpty;
               return Text(
@@ -137,7 +138,7 @@ class _NoteDetailBody extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 24),
-            MarkdownText(
+            PrismMarkdownText(
               data: note.body,
               enabled: true,
               baseStyle: theme.textTheme.bodyLarge,

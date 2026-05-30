@@ -46,6 +46,12 @@ class DriftNotesRepository with SyncRecordMixin implements NotesRepository {
   }
 
   @override
+  Future<List<domain.Note>> getAllNotes() async {
+    final rows = await _dao.getAllNotes();
+    return rows.map(NoteMapper.toDomain).toList();
+  }
+
+  @override
   Future<domain.Note?> getNoteById(String id) async {
     final row = await _dao.getNoteById(id);
     return row != null ? NoteMapper.toDomain(row) : null;

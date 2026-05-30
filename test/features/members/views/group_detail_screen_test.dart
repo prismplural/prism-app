@@ -128,6 +128,9 @@ class _FakeMemberGroupsRepository implements MemberGroupsRepository {
   Stream<List<MemberGroup>> watchAllGroups() => const Stream.empty();
 
   @override
+  Future<List<MemberGroup>> getAllGroups() async => const [];
+
+  @override
   Stream<MemberGroup?> watchGroupById(String id) => const Stream.empty();
 
   @override

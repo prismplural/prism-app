@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/utils/safe_link.dart';
-import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
 // ---------------------------------------------------------------------------
@@ -283,7 +283,7 @@ class FieldLongTextPreview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        MarkdownText(
+        PrismMarkdownText(
           data: isTruncated ? '$preview...' : data,
           enabled: true,
           baseStyle: style ?? theme.textTheme.bodyMedium,
@@ -357,7 +357,7 @@ class _FieldDetailSheet extends StatelessWidget {
               controller: scrollController,
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
               children: [
-                MarkdownText(
+                PrismMarkdownText(
                   data: data,
                   enabled: true,
                   baseStyle: theme.textTheme.bodyLarge?.copyWith(
