@@ -4779,6 +4779,23 @@
   "@memberGroupManageTitle": {
     "description": "Title for the manage groups screen"
   },
+  "memberGroupSearchHint": "Search groups",
+  "@memberGroupSearchHint": {
+    "description": "Hint text for the group search field in manage groups sheet"
+  },
+  "memberGroupSearchEmpty": "No groups found",
+  "@memberGroupSearchEmpty": {
+    "description": "Empty state when group search yields no results"
+  },
+  "memberCount": "{count, plural, =1{1 member} other{{count} members}}",
+  "@memberCount": {
+    "description": "Member count label for a group row",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "memberNameLabel": "Name *",
   "@memberNameLabel": {
     "description": "Label for the member name text field (required)"

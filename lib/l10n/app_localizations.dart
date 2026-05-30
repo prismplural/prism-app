@@ -6065,6 +6065,24 @@ abstract class AppLocalizations {
   /// **'Groups'**
   String get memberGroupManageTitle;
 
+  /// Hint text for the group search field in manage groups sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Search groups'**
+  String get memberGroupSearchHint;
+
+  /// Empty state when group search yields no results
+  ///
+  /// In en, this message translates to:
+  /// **'No groups found'**
+  String get memberGroupSearchEmpty;
+
+  /// Member count label for a group row
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 member} other{{count} members}}'**
+  String memberCount(int count);
+
   /// Label for the member name text field (required)
   ///
   /// In en, this message translates to:

@@ -11,7 +11,6 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/group_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Groups section shown on the member detail screen.
@@ -34,11 +33,10 @@ class MemberGroupsSection extends ConsumerWidget {
   String _groupPath(String id) => branch.groupPath(id);
 
   void _openManageGroupsSheet(BuildContext context) {
-    PrismSheet.show(
-      context: context,
-      title: context.l10n.memberGroupManageTitle,
-      builder: (_) =>
-          ManageGroupsSheet(memberId: memberId, memberName: memberName),
+    ManageGroupsSheet.show(
+      context,
+      memberId: memberId,
+      memberName: memberName,
     );
   }
 

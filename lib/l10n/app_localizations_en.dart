@@ -3536,6 +3536,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupManageTitle => 'Groups';
 
   @override
+  String get memberGroupSearchHint => 'Search groups';
+
+  @override
+  String get memberGroupSearchEmpty => 'No groups found';
+
+  @override
+  String memberCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count members',
+      one: '1 member',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get memberNameLabel => 'Name *';
 
   @override

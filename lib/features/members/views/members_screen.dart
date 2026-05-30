@@ -927,11 +927,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 
   void _showManageGroupsSheet(Member member) {
-    PrismSheet.show<void>(
-      context: context,
-      title: context.l10n.memberGroupManageTitle,
-      builder: (_) =>
-          ManageGroupsSheet(memberId: member.id, memberName: member.name),
+    ManageGroupsSheet.show(
+      context,
+      memberId: member.id,
+      memberName: member.name,
     );
   }
 }

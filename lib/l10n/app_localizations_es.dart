@@ -3604,6 +3604,23 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupManageTitle => 'Grupos';
 
   @override
+  String get memberGroupSearchHint => 'Buscar grupos';
+
+  @override
+  String get memberGroupSearchEmpty => 'No se encontraron grupos';
+
+  @override
+  String memberCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count miembros',
+      one: '1 miembro',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get memberNameLabel => 'Nombre *';
 
   @override
