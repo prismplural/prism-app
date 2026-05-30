@@ -27,6 +27,7 @@ void main() {
           onCamera: () {},
           onPhotoLibrary: () {},
           onGif: () {},
+          onLibrary: () {},
         ),
       ),
     );
@@ -52,6 +53,7 @@ void main() {
           onCamera: () {},
           onPhotoLibrary: () {},
           onGif: () {},
+          onLibrary: () {},
         ),
       ),
     );
@@ -74,6 +76,7 @@ void main() {
           onCamera: () {},
           onPhotoLibrary: () {},
           onGif: () {},
+          onLibrary: () {},
         ),
       ),
     );
@@ -97,6 +100,7 @@ void main() {
           onCamera: () => tapped = true,
           onPhotoLibrary: () {},
           onGif: () {},
+          onLibrary: () {},
         ),
       ),
     );

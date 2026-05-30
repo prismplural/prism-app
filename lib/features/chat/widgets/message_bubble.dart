@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
+import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
+import 'package:prism_plurality/features/members/widgets/bio_image_element_builder.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
 import 'package:prism_plurality/features/chat/providers/media_attachment_providers.dart';
@@ -619,6 +621,13 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                                         height: 1.24,
                                       ),
                               defaultColor: messageTextColor,
+                              imgElementBuilder: BioImageElementBuilder(
+                                library:
+                                    ref.watch(imageLibraryProvider).value ??
+                                        const [],
+                              ),
+                              imageLibraryVersion:
+                                  ref.watch(imageLibraryVersionProvider),
                             ),
                           ),
                         ..._buildAttachments(context, theme, authorColor),

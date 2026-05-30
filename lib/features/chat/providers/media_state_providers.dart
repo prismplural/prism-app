@@ -44,6 +44,15 @@ final downloadProgressProvider = StreamProvider.autoDispose
 const _maxImageCacheEntries = 50;
 final _imageMemoryCache = <String, Uint8List>{};
 
+/// Removes the in-memory decrypted-bytes entry for [mediaId], if present.
+///
+/// Call this when a record is repointed away from [mediaId] (e.g. "replace
+/// image") so a stale plaintext bitmap for the old, now-orphaned blob doesn't
+/// linger in the session cache.
+void evictMediaCache(String mediaId) {
+  _imageMemoryCache.remove(mediaId);
+}
+
 final mediaFileProvider = FutureProvider.autoDispose
     .family<Uint8List?, MediaFileParams>((ref, params) async {
       // Return from memory cache if available — no disk read or decryption needed.
@@ -61,8 +70,15 @@ final mediaFileProvider = FutureProvider.autoDispose
         plaintextHash: params.plaintextHash,
       );
 
+      // A null result means the blob is unavailable — either the relay no
+      // longer holds it (90-day TTL expiry) or the download failed. Surface it
+      // as `null` (an "unavailable/expired" state callers render gracefully)
+      // rather than throwing: the `error` state is reserved for decrypt /
+      // integrity failures, which `getMedia` raises as exceptions. (Previously
+      // this threw, which made BioImageWidget's "Image expired" placeholder
+      // unreachable — expired media always hit the generic error path.)
       if (bytes == null) {
-        throw StateError('Failed to download media: ${params.mediaId}');
+        return null;
       }
 
       // Evict oldest entry when at capacity (FIFO).

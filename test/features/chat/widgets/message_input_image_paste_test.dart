@@ -432,6 +432,53 @@ class _RecordingMediaAttachmentRepository implements MediaAttachmentRepository {
           .toList(growable: false),
     );
   }
+
+  @override
+  Stream<List<media_model.MediaAttachment>> watchForMember(String memberId) {
+    return Stream.value(
+      created
+          .where((attachment) => attachment.memberId == memberId)
+          .toList(growable: false),
+    );
+  }
+
+  @override
+  Future<List<media_model.MediaAttachment>> getForMember(
+    String memberId,
+  ) async {
+    return created
+        .where((attachment) => attachment.memberId == memberId)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<void> softDeleteBioMedia(String attachmentId) async {
+    created.removeWhere((attachment) => attachment.id == attachmentId);
+  }
+
+  @override
+  Stream<List<media_model.MediaAttachment>> watchAllBioMedia() =>
+      Stream.value([]);
+
+  @override
+  Stream<List<media_model.MediaAttachment>> watchAllChatMedia() =>
+      Stream.value([]);
+
+  @override
+  Stream<List<media_model.MediaAttachment>> watchLibraryImages() =>
+      Stream.value([]);
+
+  @override
+  Future<void> updateTag(String attachmentId, String tag) async {}
+
+  @override
+  Future<void> replaceMedia(
+    String attachmentId,
+    media_model.MediaAttachment data,
+  ) async {
+    final i = created.indexWhere((a) => a.id == attachmentId);
+    if (i >= 0) created[i] = data;
+  }
 }
 
 class _BlockingUploadMediaService extends MediaService {

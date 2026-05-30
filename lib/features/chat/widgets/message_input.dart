@@ -24,6 +24,7 @@ import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/features/chat/utils/chat_author_options.dart';
 import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
+import 'package:prism_plurality/features/members/widgets/image_library_picker.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_consent_dialog.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/utils/proxy_tag_matcher.dart';
@@ -373,6 +374,24 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   Future<void> _pickImage(ImageSource source) async {
     final bytes = await _pickImageBytes(source);
     if (bytes != null) _stageImageBytes(bytes);
+  }
+
+  /// Pick an image from the shared library and insert its `![](tag)` reference
+  /// at the cursor. The message renders the encrypted library image inline; no
+  /// re-upload — it reuses the existing library blob.
+  Future<void> _insertLibraryImage() async {
+    final tag = await showImageLibraryPicker(context, ref);
+    if (tag == null || !mounted) return;
+    final markdown = '![]($tag)';
+    final sel = _controller.selection;
+    final text = _controller.text;
+    final start = sel.start < 0 ? text.length : sel.start;
+    final end = sel.end < 0 ? text.length : sel.end;
+    _controller.value = _controller.value.copyWith(
+      text: text.replaceRange(start, end, markdown),
+      selection: TextSelection.collapsed(offset: start + markdown.length),
+    );
+    _focusNode.requestFocus();
   }
 
   Future<Uint8List?> _pickImageBytes(ImageSource source) async {
@@ -922,6 +941,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                     onCamera: () => _pickImage(ImageSource.camera),
                     onPhotoLibrary: () => _pickImage(ImageSource.gallery),
                     onGif: _showGifPicker,
+                    onLibrary: _insertLibraryImage,
                   ),
                 const SizedBox(width: 8),
                 // TextField stays in the tree at all times so the keyboard
@@ -1042,6 +1062,7 @@ class AttachmentMenuButton extends StatelessWidget {
     required this.onCamera,
     required this.onPhotoLibrary,
     required this.onGif,
+    required this.onLibrary,
   });
 
   final bool gifEnabled;
@@ -1050,6 +1071,7 @@ class AttachmentMenuButton extends StatelessWidget {
   final VoidCallback onCamera;
   final VoidCallback onPhotoLibrary;
   final VoidCallback onGif;
+  final VoidCallback onLibrary;
 
   @override
   Widget build(BuildContext context) {
@@ -1065,6 +1087,11 @@ class AttachmentMenuButton extends StatelessWidget {
         icon: AppIcons.photoLibrary,
         label: context.l10n.chatPhotoLibrary,
         onSelected: onPhotoLibrary,
+      ),
+      _AttachmentMenuItem(
+        icon: AppIcons.imageOutlined,
+        label: 'Prism library',
+        onSelected: onLibrary,
       ),
       if (gifEnabled)
         _AttachmentMenuItem(

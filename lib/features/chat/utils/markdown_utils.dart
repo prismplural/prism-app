@@ -7,6 +7,10 @@ library;
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 
+// Image syntax `![alt](ref)` — must run before [_link], which would otherwise
+// match the `[alt](ref)` portion and leave a stray `!`.
+final _image = RegExp(r'!\[([^\]]*)\]\([^)]+\)');
+
 final _bold = RegExp(r'\*\*(.+?)\*\*');
 
 // Approximated CommonMark flanking: `*` may not flank whitespace, `_` may
@@ -30,8 +34,34 @@ final _smallText = RegExp(r'(^|\n)-#\s+(.+)');
 /// line-leading `-#` small-text marker. Mention tokens (`@[uuid]`) are
 /// left untouched so callers can resolve them with their own name map
 /// or render them as styled chips.
+///
+/// Markdown image refs (`![alt](tag)`) collapse to the alt text, or the
+/// literal `[image]` when there's no alt. This String form feeds genuinely
+/// String-only consumers — notifications, reply-quote previews, search
+/// snippets, and semantics labels — none of which can host a `WidgetSpan`.
+///
+/// Preview asymmetry (see [imagePreviewSpans] in
+/// `lib/shared/markdown/markdown_preview.dart`): note list cards render image
+/// refs as an inline icon via `Text.rich` + `imagePreviewSpans`, whereas chat
+/// previews (the conversation tile and search results) show the `[image]`
+/// text from this function instead. The chat tile's visible preview string is
+/// precomputed by `buildTilePreviewContent` in
+/// `lib/features/chat/providers/chat_providers.dart` (strip → resolve mentions
+/// → redact spoilers, in that order), and the search snippet by
+/// `_buildSafeSnippet` in `lib/core/database/daos/chat_messages_dao.dart`.
+/// Both collapse images to `[image]` upstream of the widget, and both also
+/// produce the String the a11y/semantics path needs. Switching the visible
+/// chat preview to an inline icon cleanly would mean preserving `![](tag)`
+/// through those upstream builders (so the widget can call `imagePreviewSpans`
+/// while still using the `[image]` String for its semantics label) — i.e. a
+/// change at the provider/DAO layer, not in the widgets. Until that lands, the
+/// chat preview intentionally stays text-only.
 String stripMarkdownMarkers(String raw) {
   var out = raw;
+  out = out.replaceAllMapped(_image, (m) {
+    final alt = (m.group(1) ?? '').trim();
+    return alt.isNotEmpty ? alt : '[image]';
+  });
   out = out.replaceAllMapped(_bold, (m) => m.group(1)!);
   out = out.replaceAllMapped(_italicStar, (m) => m.group(1)!);
   out = out.replaceAllMapped(_italicUnderscore, (m) => m.group(1)!);

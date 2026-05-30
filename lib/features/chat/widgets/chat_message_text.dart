@@ -24,12 +24,25 @@ class ChatMessageText extends StatefulWidget {
     required this.authorMap,
     required this.baseStyle,
     required this.defaultColor,
+    this.imgElementBuilder,
+    this.imageLibraryVersion = 0,
   });
 
   final String content;
   final Map<String, Member>? authorMap;
   final TextStyle baseStyle;
   final Color defaultColor;
+
+  /// Optional `img` element builder. When supplied (by the message bubble,
+  /// which has Riverpod access), `![](tag)` resolves to library images.
+  /// Null in tests / isolated use → images stay suppressed.
+  final MarkdownElementBuilder? imgElementBuilder;
+
+  /// Changes when the image library loads/changes. Folded into the render key
+  /// so the cached MarkdownBody re-parses once the (async) library is ready —
+  /// otherwise a library image in a freshly-opened chat stays unresolved until
+  /// the row is scrolled out of view and back.
+  final int imageLibraryVersion;
 
   @override
   State<ChatMessageText> createState() => _ChatMessageTextState();
@@ -81,7 +94,11 @@ class _ChatMessageTextState extends State<ChatMessageText> {
 
     final theme = Theme.of(context);
     final renderKey = ValueKey(
-      Object.hash(_mentionRenderSignature(content, widget.authorMap), keySalt),
+      Object.hash(
+        _mentionRenderSignature(content, widget.authorMap),
+        keySalt,
+        widget.imageLibraryVersion,
+      ),
     );
 
     final smallTextSegments = allowSmallText
@@ -171,6 +188,10 @@ class _ChatMessageTextState extends State<ChatMessageText> {
             ),
             'a': SafeLinkBuilder(theme: theme, onTap: _openExternal),
             'spoiler': SpoilerBuilder(theme: theme),
+            // Resolve ![](tag) against the shared encrypted image library
+            // when the bubble supplied a builder.
+            if (widget.imgElementBuilder != null)
+              'img': widget.imgElementBuilder!,
           },
         ),
       ),
