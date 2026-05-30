@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -97,18 +98,9 @@ class _FieldsList extends ConsumerWidget {
     ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
   IconData _iconForField(CustomField field) {
-    // Group type is registry-only — fieldTypeId == 'group'.
-    if (field.fieldTypeId == 'group') return AppIcons.folderOutlined;
-    return _iconForType(field.fieldType);
+    return customFieldTypeRegistry.lookupById(field.fieldTypeId)?.icon ??
+        AppIcons.textFields;
   }
-
-  IconData _iconForType(CustomFieldType type) => switch (type) {
-    CustomFieldType.text => AppIcons.textFields,
-    CustomFieldType.longText => AppIcons.notes,
-    CustomFieldType.color => AppIcons.palette,
-    CustomFieldType.date => AppIcons.calendarToday,
-    CustomFieldType.choice => AppIcons.checkBoxOutlined,
-  };
 
   String _subtitleForField(BuildContext context, CustomField field) {
     final l10n = context.l10n;
