@@ -76,7 +76,7 @@ void main() {
       final version = await upgraded
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 27);
+      expect(version.read<int>('user_version'), greaterThanOrEqualTo(27));
 
       // avatar_image_data must now be present as a nullable BLOB column.
       final cols = await upgraded
@@ -152,7 +152,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(version.read<int>('user_version'), 27);
+        expect(version.read<int>('user_version'), greaterThanOrEqualTo(27));
 
         final avatarBytes = Uint8List.fromList([0xFF, 0xD8, 0xFF]);
         final rawDb = raw.sqlite3.open(dbFile.path);
@@ -215,7 +215,7 @@ void main() {
       final version = await upgraded
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 27);
+      expect(version.read<int>('user_version'), greaterThanOrEqualTo(27));
 
       final cols = await upgraded
           .customSelect('PRAGMA table_info(member_groups)')

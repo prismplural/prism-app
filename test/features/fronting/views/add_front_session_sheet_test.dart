@@ -688,7 +688,7 @@ void main() {
           find.byKey(const Key('addFrontModeSegmentedControl')),
           findsOneWidget,
         );
-        expect(find.text('Add as co-fronter'), findsOneWidget);
+        expect(find.text('Add as fronter'), findsOneWidget);
         expect(find.text('Replace current'), findsOneWidget);
       },
     );
@@ -796,7 +796,7 @@ void main() {
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Add as co-fronter'));
+        await tester.tap(find.text('Add as fronter'));
         await tester.pumpAndSettle();
 
         await tester.tap(find.text('M0'));
@@ -874,7 +874,7 @@ void main() {
 
       await tester.tap(find.text('Replace current'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add as co-fronter'));
+      await tester.tap(find.text('Add as fronter'));
       await tester.pumpAndSettle();
 
       await tester.tap(_closeButton());
