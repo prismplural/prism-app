@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -162,6 +163,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
   DateTime? _birthday;
   bool _birthdayHideYear = false;
 
+  late DateTime _createdAt;
+  late final DateTime _initialCreatedAt;
+
   bool get _isDirty =>
       _nameController.text != _initialName ||
       _pronounsController.text != _initialPronouns ||
@@ -189,6 +193,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
       !_bytesEqual(_profileHeaderImageData, _initialProfileHeaderImageData) ||
       _birthday != _initialBirthday ||
       _birthdayHideYear != _initialBirthdayHideYear ||
+      _createdAt != _initialCreatedAt ||
       _customFieldsEditorController.hasPendingChanges;
 
   void _handleCustomFieldsDirtyChanged() {
@@ -321,6 +326,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     _initialProfileHeaderImageData = _copyBytes(_profileHeaderImageData);
     _initialBirthday = _birthday;
     _initialBirthdayHideYear = _birthdayHideYear;
+    _createdAt = widget.member?.createdAt ?? DateTime.now();
+    _initialCreatedAt = _createdAt;
   }
 
   @override
@@ -462,7 +469,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
               id: _memberId,
               name: name.isNotEmpty ? name : '',
               emoji: emoji,
-              createdAt: DateTime.now(),
+              createdAt: _createdAt,
             ))
         .copyWith(
           name: name.isNotEmpty ? name : (widget.member?.name ?? ''),
@@ -470,6 +477,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
           emoji: emoji,
           age: age,
           birthday: birthdayWire,
+          createdAt: _createdAt,
           proxyTagsJson: _proxyTagsJson(),
           displayName: displayName.isNotEmpty ? displayName : null,
           pluralkitDisplayName: pluralkitDisplayName.isNotEmpty
@@ -585,6 +593,19 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     );
     if (picked != null && mounted) {
       setState(() => _birthday = picked);
+    }
+  }
+
+  Future<void> _pickCreatedAt(BuildContext anchorContext) async {
+    final picked = await showPrismDatePicker(
+      context: context,
+      anchorContext: anchorContext,
+      initialDate: _createdAt,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && mounted) {
+      setState(() => _createdAt = picked);
     }
   }
 
@@ -807,6 +828,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
           birthday: birthdayWire,
           proxyTagsJson: proxyTagsJson,
           isAlwaysFronting: _isAlwaysFronting,
+          createdAt: _createdAt,
           profileHeaderSource: _profileHeaderSource,
           profileHeaderLayout: _profileHeaderLayout,
           profileHeaderVisible: _profileHeaderVisible,
@@ -846,6 +868,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
           isAdmin: _isAdmin,
           customColorHex: colorHex,
           isAlwaysFronting: _isAlwaysFronting,
+          createdAt: _createdAt,
           displayName: displayName.isNotEmpty ? displayName : null,
           pluralkitDisplayName: pluralkitDisplayName.isNotEmpty
               ? pluralkitDisplayName
@@ -1520,6 +1543,11 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        _CreatedAtField(
+          date: _createdAt,
+          onPick: _pickCreatedAt,
         ),
         const SizedBox(height: 16),
 
@@ -2233,4 +2261,73 @@ Future<PKMember?> _pickPkMemberInEditor({
     return byKey[result.memberId];
   }
   return null;
+}
+
+class _CreatedAtField extends StatelessWidget {
+  const _CreatedAtField({
+    required this.date,
+    required this.onPick,
+  });
+
+  final DateTime date;
+  final Future<void> Function(BuildContext anchorContext) onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final locale = Localizations.localeOf(context).toString();
+    final displayText = DateFormat.yMMMd(locale).format(date);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text(
+            l10n.memberCreatedAtLabel,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Semantics(
+          label: '${l10n.memberCreatedAtLabel}, $displayText, tap to change',
+          child: Builder(
+            builder: (anchorContext) => InkWell(
+              onTap: () => onPick(anchorContext),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.5,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      AppIcons.history,
+                      size: 18,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        displayText,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

@@ -114,6 +114,7 @@ class MembersNotifier extends AsyncNotifier<void> {
     String? birthday,
     String? proxyTagsJson,
     bool isAlwaysFronting = false,
+    DateTime? createdAt,
     MemberProfileHeaderSource profileHeaderSource =
         MemberProfileHeaderSource.prism,
     MemberProfileHeaderLayout profileHeaderLayout =
@@ -153,7 +154,7 @@ class MembersNotifier extends AsyncNotifier<void> {
         nameStyleColorMode: nameStyleColorMode,
         nameStyleColorHex: nameStyleColorHex,
         profileHeaderImageData: profileHeaderImageData,
-        createdAt: DateTime.now(),
+        createdAt: createdAt ?? DateTime.now(),
       );
       await repo.createMember(member);
       if (_isActiveAlwaysFronting(member)) {

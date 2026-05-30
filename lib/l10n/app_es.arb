@@ -1009,6 +1009,7 @@
   "memberBirthdayHideYear": "Ocultar año",
   "memberBirthdayHideYearSubtitle": "Mostrar solo mes y día",
   "memberBirthdayClear": "Borrar cumpleaños",
+  "memberCreatedAtLabel": "Creado",
   "memberSectionBirthday": "Cumpleaños",
   "memberMarkdownTitle": "Formatear bio en markdown",
   "memberMarkdownSubtitle": "Mostrar el texto con formato markdown",

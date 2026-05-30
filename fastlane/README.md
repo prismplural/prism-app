@@ -15,13 +15,13 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 ## iOS
 
-### ios internal
+### ios beta
 
 ```sh
-[bundle exec] fastlane ios internal
+[bundle exec] fastlane ios beta
 ```
 
-Build and upload to TestFlight internal testing
+Build and upload to TestFlight, distribute to the Prism Private Beta group
 
 ### ios sideload
 
@@ -36,26 +36,34 @@ Build unsigned sideload IPA and upload it to the GitHub release
 
 ## Mac
 
-### mac internal
+### mac beta
 
 ```sh
-[bundle exec] fastlane mac internal
+[bundle exec] fastlane mac beta
 ```
 
-Build and upload to TestFlight internal testing
+Build and upload to TestFlight, distribute to the Prism Private Beta group
+
+### mac sideload
+
+```sh
+[bundle exec] fastlane mac sideload
+```
+
+Build signed/notarized Developer ID DMG and upload it to the GitHub release
 
 ----
 
 
 ## Android
 
-### android internal
+### android beta
 
 ```sh
-[bundle exec] fastlane android internal
+[bundle exec] fastlane android beta
 ```
 
-Build and upload to Play Store internal testing track
+Build and upload to the Play Store closed beta testing track
 
 ----
 
