@@ -3208,6 +3208,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberInactiveChip => 'Inactivo';
 
   @override
+  String memberCreatedAtChipLabel(String date) {
+    return 'Creado $date';
+  }
+
+  @override
   String get memberSetAsFronter => 'Poner al frente';
 
   @override

@@ -5422,6 +5422,12 @@ abstract class AppLocalizations {
   /// **'Inactive'**
   String get memberInactiveChip;
 
+  /// Chip label showing the date a member was created
+  ///
+  /// In en, this message translates to:
+  /// **'Created {date}'**
+  String memberCreatedAtChipLabel(String date);
+
   /// Menu action to set this member as the current fronter
   ///
   /// In en, this message translates to:

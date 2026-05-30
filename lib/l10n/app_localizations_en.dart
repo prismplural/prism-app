@@ -3141,6 +3141,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberInactiveChip => 'Inactive';
 
   @override
+  String memberCreatedAtChipLabel(String date) {
+    return 'Created $date';
+  }
+
+  @override
   String get memberSetAsFronter => 'Set as fronter';
 
   @override

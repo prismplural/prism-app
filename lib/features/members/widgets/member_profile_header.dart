@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/utils/birthday.dart';
 import 'package:prism_plurality/features/members/utils/member_name_style.dart';
@@ -504,6 +505,22 @@ class _MemberHeaderMetadata extends StatelessWidget {
         ),
       );
     }
+    // Creation date — always present since createdAt is non-nullable.
+    final locale = Localizations.localeOf(context).toString();
+    final createdAtDisplay = DateFormat.yMMMd(locale).format(member.createdAt);
+    chips.add(
+      Semantics(
+        label: context.l10n.memberCreatedAtChipLabel(
+          DateFormat.yMMMMd(locale).format(member.createdAt),
+        ),
+        child: _Chip(
+          icon: AppIcons.history,
+          label: context.l10n.memberCreatedAtChipLabel(createdAtDisplay),
+          backgroundColor: infoBg,
+          foregroundColor: infoFg,
+        ),
+      ),
+    );
     if (isFronting) {
       chips.add(
         _Chip(

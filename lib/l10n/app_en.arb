@@ -4234,6 +4234,15 @@
   "@memberInactiveChip": {
     "description": "Chip label shown when a member is inactive"
   },
+  "memberCreatedAtChipLabel": "Created {date}",
+  "@memberCreatedAtChipLabel": {
+    "description": "Chip label showing the date a member was created",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "memberSetAsFronter": "Set as fronter",
   "@memberSetAsFronter": {
     "description": "Menu action to set this member as the current fronter"
