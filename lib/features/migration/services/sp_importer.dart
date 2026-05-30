@@ -32,6 +32,7 @@ import 'package:prism_plurality/core/database/app_database.dart'
         SpSyncStateTableCompanion;
 import 'package:prism_plurality/core/database/daos/sp_import_dao.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/services/media/media_service.dart';
 import 'package:prism_plurality/data/mappers/chat_message_mapper.dart';
 import 'package:prism_plurality/data/mappers/conversation_category_mapper.dart';
 import 'package:prism_plurality/data/mappers/conversation_mapper.dart';
@@ -55,13 +56,16 @@ import 'package:prism_plurality/data/repositories/drift_front_session_comments_r
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_groups_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_media_attachment_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_notes_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_poll_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/repositories/media_attachment_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
+import 'package:prism_plurality/features/members/services/bio_image_importer.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
@@ -291,6 +295,8 @@ class SpImporter {
     SystemSettingsRepository? settingsRepo,
     MemberBoardPostsRepository? boardPostsRepo,
     SpImportDao? spImportDao,
+    MediaService? mediaService,
+    MediaAttachmentRepository? mediaAttachmentRepo,
     bool downloadAvatars = true,
     String? avatarZipPath,
     List<int>? avatarZipBytes,
@@ -1257,6 +1263,29 @@ class SpImporter {
       }
     }
 
+    // Bio images: SP bios reference hotlinked external image URLs
+    // (![](https://...)). Fetch+encrypt each into the shared library and
+    // rewrite to a tag so the viewer never contacts the original host.
+    // Best-effort, post-transaction (network), like avatars.
+    if (mediaService != null &&
+        mediaAttachmentRepo is DriftMediaAttachmentRepository) {
+      await _processBioImages(
+        mapped.members,
+        memberRepo,
+        mediaService,
+        mediaAttachmentRepo,
+        skipMemberIds: linkedExistingMemberIds,
+        warnings: warnings,
+        onProgress: (count, total) {
+          onProgress?.call(
+            totalItems,
+            totalItems,
+            'Importing bio images ($count/$total)...',
+          );
+        },
+      );
+    }
+
     if ((avatarZipPath != null && avatarZipPath.isNotEmpty) ||
         (avatarZipBytes != null && avatarZipBytes.isNotEmpty)) {
       onProgress?.call(totalItems, totalItems, 'Importing avatar ZIP...');
@@ -1572,6 +1601,50 @@ class SpImporter {
     }
 
     return (downloaded: downloaded, failed: failed);
+  }
+
+  /// Post-transaction pass: fetch+encrypt external image URLs in member bios
+  /// into the shared library, rewriting `![](https://...)` → `![](tag)`.
+  /// Best-effort — failures leave the original URL (renders as missing).
+  Future<void> _processBioImages(
+    List<Member> members,
+    MemberRepository memberRepo,
+    MediaService mediaService,
+    DriftMediaAttachmentRepository mediaAttachmentRepo, {
+    Set<String> skipMemberIds = const {},
+    List<String>? warnings,
+    void Function(int count, int total)? onProgress,
+  }) async {
+    final eligible = members
+        .where((m) =>
+            !skipMemberIds.contains(m.id) &&
+            (m.bio?.contains('http') ?? false))
+        .toList();
+    if (eligible.isEmpty) return;
+
+    final importer = BioImageImporter(
+      mediaService: mediaService,
+      repository: mediaAttachmentRepo,
+    );
+
+    var processed = 0;
+    for (final member in eligible) {
+      try {
+        final rewritten = await importer.processBio(member.bio);
+        if (rewritten != member.bio) {
+          final current =
+              (await memberRepo.getMembersByIds([member.id])).firstOrNull ??
+                  member;
+          await memberRepo.updateMember(current.copyWith(bio: rewritten));
+        }
+      } catch (e) {
+        warnings?.add('Bio image import failed for ${member.id}');
+        debugPrint('SpImporter: bio image import failed for ${member.id}: $e');
+      }
+      processed++;
+      onProgress?.call(processed, eligible.length);
+      if (processed % _uiYieldEveryItems == 0) await _yieldToUi();
+    }
   }
 
   Future<void> _yieldToUi() => Future<void>.delayed(Duration.zero);

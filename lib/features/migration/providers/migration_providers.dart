@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/features/migration/services/sp_api_client.dart';
 import 'package:prism_plurality/features/migration/services/sp_custom_front_analysis.dart';
@@ -454,6 +455,8 @@ class ImporterNotifier extends Notifier<MigrationState> {
         boardPostsRepo: ref.read(memberBoardPostsRepositoryProvider),
         categoriesRepo: ref.read(conversationCategoriesRepositoryProvider),
         spImportDao: ref.read(databaseProvider).spImportDao,
+        mediaService: ref.read(mediaServiceProvider),
+        mediaAttachmentRepo: ref.read(mediaAttachmentRepositoryProvider),
         downloadAvatars: downloadAvatars,
         avatarZipPath: state.avatarZipPath,
         avatarZipBytes: state.avatarZipBytes,

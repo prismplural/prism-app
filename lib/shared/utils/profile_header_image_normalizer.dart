@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image/image.dart' as img;
+import 'package:prism_sync/generated/api.dart' as ffi;
 
 abstract interface class ProfileHeaderWebpEncoder {
   Future<Uint8List> encode(img.Image image, {required int quality});
@@ -11,14 +11,17 @@ class FlutterProfileHeaderWebpEncoder implements ProfileHeaderWebpEncoder {
   const FlutterProfileHeaderWebpEncoder();
 
   @override
-  Future<Uint8List> encode(img.Image image, {required int quality}) {
-    return FlutterImageCompress.compressWithList(
-      Uint8List.fromList(img.encodePng(image)),
-      minWidth: image.width,
-      minHeight: image.height,
+  Future<Uint8List> encode(img.Image image, {required int quality}) async {
+    // Encode to PNG first (lossless intermediate), then let Rust re-encode.
+    // Profile headers are always opaque (no alpha) so this produces JPEG,
+    // which is fine — the caller iterates quality levels to hit size targets.
+    final (bytes, _) = await ffi.encodeImage(
+      imageBytes: Uint8List.fromList(img.encodePng(image)),
+      maxWidth: image.width,
+      maxHeight: image.height,
       quality: quality,
-      format: CompressFormat.webp,
     );
+    return bytes;
   }
 }
 
