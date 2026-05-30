@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
+import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
     show speakingAsProvider;
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -281,24 +284,44 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
   // Author selection
   // ---------------------------------------------------------------------------
 
-  void _initAuthorSelection() {
+  Future<void> _initAuthorSelection() async {
+    // Await the preference so a cold first read never misses "ask each time".
+    ComposerDefaultMember mode;
+    try {
+      mode = await ref.read(composerDefaultMemberProvider.future);
+    } catch (_) {
+      mode = ComposerDefaultMember.defaultValue;
+    }
+    if (!mounted) return;
     final sessions = ref.read(activeSessionsProvider).value ?? [];
     final fronterIds = sessions
         .map((s) => s.memberId)
         .whereType<String>()
         .toList();
 
-    if (fronterIds.length == 1) {
-      ref.read(speakingAsProvider.notifier).setMember(fronterIds.first);
-      return;
-    }
-
-    if (fronterIds.length > 1) {
+    // Ask each time: prompt only with multiple co-fronters.
+    if (mode == ComposerDefaultMember.askEachTime && fronterIds.length > 1) {
       final allMembers = ref.read(userVisibleMembersProvider).value ?? [];
       final coFronters = allMembers
           .where((m) => fronterIds.contains(m.id))
           .toList();
-      if (coFronters.isNotEmpty && mounted) _showCoFronterPicker(coFronters);
+      if (coFronters.isNotEmpty && mounted) {
+        await _showCoFronterPicker(coFronters);
+      }
+      return;
+    }
+
+    // Otherwise pin the author from the resolved default. Seeded, not recorded,
+    // so the auto-pick never overwrites the "last used" memory of a manual one.
+    final resolved = ref.read(speakingAsProvider);
+    if (resolved != null && resolved != unknownSentinelMemberId) {
+      ref
+          .read(speakingAsProvider.notifier)
+          .setMember(resolved, recordLastUsed: false);
+    } else if (fronterIds.length == 1) {
+      ref
+          .read(speakingAsProvider.notifier)
+          .setMember(fronterIds.first, recordLastUsed: false);
     }
   }
 
@@ -336,11 +359,21 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
     );
     final members = ref.read(userVisibleMembersProvider).value ?? [];
     final groups = readMemberSearchGroups(ref, members);
+    final fronterIds =
+        ref
+            .read(activeSessionsProvider)
+            .value
+            ?.map((s) => s.memberId)
+            .whereType<String>()
+            .toSet() ??
+        const <String>{};
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,
       termPlural: terms.plural,
       groups: groups,
+      fronterIds: fronterIds,
+      fronterSectionLabel: context.l10n.memberPickerFrontingSectionLabel,
     );
     if (!mounted) return;
     if (result is MemberSearchResultSelected) {

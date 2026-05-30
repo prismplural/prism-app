@@ -10683,6 +10683,38 @@
   "@settingsQuickFrontDefaultBehaviorReplace": {
     "description": "Option label: quick front ends all existing fronts before the tapped member begins."
   },
+  "settingsComposerDefaultMemberLabel": "Default when composing",
+  "@settingsComposerDefaultMemberLabel": {
+    "description": "Settings row + dialog title for how chat and message-board composers pick the default member you act as."
+  },
+  "settingsComposerDefaultMemberLatestFronter": "Latest fronter",
+  "@settingsComposerDefaultMemberLatestFronter": {
+    "description": "Option label: default to the most recently started front."
+  },
+  "settingsComposerDefaultMemberLatestFronterDescription": "Open as whoever started fronting most recently",
+  "@settingsComposerDefaultMemberLatestFronterDescription": {
+    "description": "Option subtitle for the latest-fronter composer default."
+  },
+  "settingsComposerDefaultMemberLastUsed": "Last used",
+  "@settingsComposerDefaultMemberLastUsed": {
+    "description": "Option label: default to whoever you last acted as."
+  },
+  "settingsComposerDefaultMemberLastUsedDescription": "Open as whoever you picked last time",
+  "@settingsComposerDefaultMemberLastUsedDescription": {
+    "description": "Option subtitle for the last-used composer default."
+  },
+  "settingsComposerDefaultMemberAskEachTime": "Ask each time",
+  "@settingsComposerDefaultMemberAskEachTime": {
+    "description": "Option label: open the picker each time you start composing."
+  },
+  "settingsComposerDefaultMemberAskEachTimeDescription": "Open the picker each time you start writing",
+  "@settingsComposerDefaultMemberAskEachTimeDescription": {
+    "description": "Option subtitle for the ask-each-time composer default."
+  },
+  "memberPickerFrontingSectionLabel": "Fronting",
+  "@memberPickerFrontingSectionLabel": {
+    "description": "Muted section label above the current-fronters block in member picker sheets."
+  },
   "featureBoardsTitle": "Message Boards",
   "@featureBoardsTitle": {
     "description": "Title of the Message Boards feature settings screen."

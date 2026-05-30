@@ -9967,6 +9967,33 @@ class AppLocalizationsEn extends AppLocalizations {
       'Replace current fronters';
 
   @override
+  String get settingsComposerDefaultMemberLabel => 'Default when composing';
+
+  @override
+  String get settingsComposerDefaultMemberLatestFronter => 'Latest fronter';
+
+  @override
+  String get settingsComposerDefaultMemberLatestFronterDescription =>
+      'Open as whoever started fronting most recently';
+
+  @override
+  String get settingsComposerDefaultMemberLastUsed => 'Last used';
+
+  @override
+  String get settingsComposerDefaultMemberLastUsedDescription =>
+      'Open as whoever you picked last time';
+
+  @override
+  String get settingsComposerDefaultMemberAskEachTime => 'Ask each time';
+
+  @override
+  String get settingsComposerDefaultMemberAskEachTimeDescription =>
+      'Open the picker each time you start writing';
+
+  @override
+  String get memberPickerFrontingSectionLabel => 'Fronting';
+
+  @override
   String get featureBoardsTitle => 'Message Boards';
 
   @override

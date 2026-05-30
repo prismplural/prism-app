@@ -33,7 +33,7 @@ class _TestSpeakingAsNotifier extends SpeakingAsNotifier {
   String? build() => _memberId;
 
   @override
-  void setMember(String? memberId) {
+  void setMember(String? memberId, {bool recordLastUsed = true}) {
     _memberId = memberId;
     state = memberId;
   }

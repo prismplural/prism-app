@@ -10140,6 +10140,33 @@ class AppLocalizationsEs extends AppLocalizations {
       'Reemplazar quienes están al frente';
 
   @override
+  String get settingsComposerDefaultMemberLabel => 'Predeterminado al redactar';
+
+  @override
+  String get settingsComposerDefaultMemberLatestFronter => 'Último al frente';
+
+  @override
+  String get settingsComposerDefaultMemberLatestFronterDescription =>
+      'Abrir como quien empezó a estar al frente más recientemente';
+
+  @override
+  String get settingsComposerDefaultMemberLastUsed => 'Usado por última vez';
+
+  @override
+  String get settingsComposerDefaultMemberLastUsedDescription =>
+      'Abrir como quien elegiste la última vez';
+
+  @override
+  String get settingsComposerDefaultMemberAskEachTime => 'Preguntar cada vez';
+
+  @override
+  String get settingsComposerDefaultMemberAskEachTimeDescription =>
+      'Abrir el selector cada vez que empieces a escribir';
+
+  @override
+  String get memberPickerFrontingSectionLabel => 'Al frente';
+
+  @override
   String get featureBoardsTitle => 'Tableros de Mensajes';
 
   @override

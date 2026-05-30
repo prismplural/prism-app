@@ -31,7 +31,10 @@ import 'package:prism_plurality/features/chat/widgets/attachment_preview.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_picker_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/mention_overlay.dart';
 import 'package:prism_plurality/features/chat/widgets/voice_recorder.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
+import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -72,6 +75,9 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   final _mentionOverlayKey = GlobalKey<MentionOverlayState>();
   Uint8List? _stagedImageBytes;
   bool _isRecording = false;
+
+  /// Opens the "ask each time" prompt at most once per composer mount.
+  bool _askEachTimePrompted = false;
 
   /// Mirror of `_controller.text` used by the proxy-tag matcher. Riverpod
   /// providers can only be read in `build`, so the controller listener
@@ -147,6 +153,34 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _controller.updateTheme(context);
+  }
+
+  /// In "ask each time" mode with multiple co-fronters, opens the picker once
+  /// on entry. [SpeakingAsNotifier] has already resolved a safe default, so
+  /// dismissing leaves a valid selection.
+  void _maybePromptAskEachTime(
+    ComposerDefaultMember? mode,
+    List<Member> candidates,
+    Set<String> fronterIds,
+    String termPlural,
+  ) {
+    if (_askEachTimePrompted) return;
+    if (mode != ComposerDefaultMember.askEachTime) return;
+    // One fronter is already the resolved default — a one-option picker is noise.
+    if (fronterIds.length < 2) return;
+    _askEachTimePrompted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final result = await MemberSearchSheet.showSingle(
+        context,
+        members: candidates,
+        termPlural: termPlural,
+        fronterIds: fronterIds,
+        fronterSectionLabel: context.l10n.memberPickerFrontingSectionLabel,
+      );
+      if (!mounted || result is! MemberSearchResultSelected) return;
+      ref.read(speakingAsProvider.notifier).setMember(result.memberId);
+    });
   }
 
   @override
@@ -736,6 +770,25 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     _controller.updateMentionMembers(memberMap);
     final currentMember = findChatAuthorOption(context, members, speakingAs);
 
+    final fronterIds =
+        ref
+            .watch(activeSessionsProvider)
+            .value
+            ?.map((s) => s.memberId)
+            .whereType<String>()
+            .toSet() ??
+        const <String>{};
+    // Watched, not read, so a cold-load settle rebuilds and fires the
+    // ask-each-time prompt even when the resolved member is unchanged.
+    final composerDefaultMode =
+        ref.watch(composerDefaultMemberProvider).value;
+    _maybePromptAskEachTime(
+      composerDefaultMode,
+      speakingAsCandidates,
+      fronterIds,
+      terms.plural,
+    );
+
     final rawMatch = useProxyTags ? matchProxyTag(_lastText, members) : null;
     final suppressed = _suppressedTag;
     final effectiveMatch =
@@ -828,6 +881,9 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                     termPlural: terms.plural,
                     selectedMemberId: speakingAs,
                     groups: memberSearchGroups,
+                    fronterIds: fronterIds,
+                    fronterSectionLabel:
+                        context.l10n.memberPickerFrontingSectionLabel,
                     onMemberSelected: (memberId) => ref
                         .read(speakingAsProvider.notifier)
                         .setMember(memberId),

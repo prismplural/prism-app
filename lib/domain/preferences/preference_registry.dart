@@ -1,3 +1,4 @@
+import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
 import 'package:prism_plurality/domain/preferences/preference_codec.dart';
 import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_entity_id.dart';
@@ -37,8 +38,23 @@ const frontingReminderSuppressMinutesPreference = PreferenceDefinition<int>(
   introducedInSchemaVersion: 27,
 );
 
+/// How composer surfaces (chat, board post) pick the default "acting as"
+/// member. Stored as the [ComposerDefaultMember.storageValue] string. Synced so
+/// the preference follows the user across devices.
+const composerDefaultMemberPreference = PreferenceDefinition<String>(
+  key: 'fronting.composer_default_member',
+  scope: PreferenceScope.appSynced,
+  defaultValue: 'latest_fronter',
+  codec: StringPreferenceCodec(
+    allowedValues: {'latest_fronter', 'last_used', 'ask_each_time'},
+  ),
+  introducedInAppVersion: '0.10.2',
+  introducedInSchemaVersion: 30,
+);
+
 final appPreferenceRegistry = PreferenceRegistry(const [
   hideTotalMemberCountPreference,
   frontingReminderSuppressMinutesPreference,
+  composerDefaultMemberPreference,
 ]);
 final memberProfilePreferenceRegistry = PreferenceRegistry(const []);

@@ -15953,6 +15953,54 @@ abstract class AppLocalizations {
   /// **'Replace current fronters'**
   String get settingsQuickFrontDefaultBehaviorReplace;
 
+  /// Settings row + dialog title for how chat and message-board composers pick the default member you act as.
+  ///
+  /// In en, this message translates to:
+  /// **'Default when composing'**
+  String get settingsComposerDefaultMemberLabel;
+
+  /// Option label: default to the most recently started front.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest fronter'**
+  String get settingsComposerDefaultMemberLatestFronter;
+
+  /// Option subtitle for the latest-fronter composer default.
+  ///
+  /// In en, this message translates to:
+  /// **'Open as whoever started fronting most recently'**
+  String get settingsComposerDefaultMemberLatestFronterDescription;
+
+  /// Option label: default to whoever you last acted as.
+  ///
+  /// In en, this message translates to:
+  /// **'Last used'**
+  String get settingsComposerDefaultMemberLastUsed;
+
+  /// Option subtitle for the last-used composer default.
+  ///
+  /// In en, this message translates to:
+  /// **'Open as whoever you picked last time'**
+  String get settingsComposerDefaultMemberLastUsedDescription;
+
+  /// Option label: open the picker each time you start composing.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask each time'**
+  String get settingsComposerDefaultMemberAskEachTime;
+
+  /// Option subtitle for the ask-each-time composer default.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the picker each time you start writing'**
+  String get settingsComposerDefaultMemberAskEachTimeDescription;
+
+  /// Muted section label above the current-fronters block in member picker sheets.
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting'**
+  String get memberPickerFrontingSectionLabel;
+
   /// Title of the Message Boards feature settings screen.
   ///
   /// In en, this message translates to:

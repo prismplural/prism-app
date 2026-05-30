@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
 import 'package:prism_plurality/features/chat/utils/chat_author_options.dart';
@@ -242,6 +243,27 @@ class SpeakingAsNotifier extends Notifier<String?> {
       _explicitSelection = null;
     }
 
+    // A loading/error preference resolves to latestFronter so the viewer gate
+    // never sees a null default during startup.
+    final mode =
+        ref.watch(composerDefaultMemberProvider).value ??
+        ComposerDefaultMember.defaultValue;
+
+    // A cold-stored id (unlike a fresh in-session pick) must be confirmed
+    // against a loaded roster before we trust it; otherwise fall through to the
+    // live fronter rather than returning null.
+    if (mode == ComposerDefaultMember.lastUsed) {
+      final lastUsed = ref.watch(lastUsedSpeakingAsMemberProvider).value;
+      if (lastUsed != null &&
+          lastUsed != unknownSentinelMemberId &&
+          activeMemberIds != null &&
+          activeMemberIds.contains(lastUsed)) {
+        return lastUsed;
+      }
+    }
+
+    // askEachTime's prompt is driven by the composer surface; build() still
+    // returns the safe fronter default so the viewer gate stays satisfied.
     final fronterId = _mostRecentActiveFronter(sessions);
     if (fronterId == null) return null;
     if (activeMemberIds == null || activeMemberIds.contains(fronterId)) {
@@ -267,7 +289,9 @@ class SpeakingAsNotifier extends Notifier<String?> {
     return bestId;
   }
 
-  void setMember(String? memberId) {
+  /// [recordLastUsed] persists the choice for the "last used" default. Pass
+  /// `false` for automatic seeding so "last used" only reflects explicit picks.
+  void setMember(String? memberId, {bool recordLastUsed = true}) {
     final activeMemberIds = ref
         .read(activeMembersProvider)
         .value
@@ -282,6 +306,24 @@ class SpeakingAsNotifier extends Notifier<String?> {
         : null;
     _explicitSelection = selectedMemberId;
     ref.invalidateSelf();
+
+    // Best-effort — a storage hiccup must never block switching the member.
+    if (recordLastUsed &&
+        selectedMemberId != null &&
+        selectedMemberId != unknownSentinelMemberId) {
+      try {
+        unawaited(
+          ref
+              .read(lastUsedSpeakingAsMemberProvider.notifier)
+              .set(selectedMemberId)
+              .catchError((Object e) {
+                debugPrint('[Chat] Persisting last-used speaking-as failed: $e');
+              }),
+        );
+      } catch (e) {
+        debugPrint('[Chat] Persisting last-used speaking-as failed: $e');
+      }
+    }
 
     // Optionally log a front when switching the speaking member.
     if (selectedMemberId != null) {

@@ -11,6 +11,7 @@ import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
 import 'package:prism_plurality/domain/repositories/member_board_posts_repository.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -34,6 +35,14 @@ class _FakeSpeakingAsNotifier extends SpeakingAsNotifier {
 
   @override
   String? build() => _id;
+}
+
+class _FakeComposerDefaultNotifier extends ComposerDefaultMemberNotifier {
+  _FakeComposerDefaultNotifier(this._mode);
+  final ComposerDefaultMember _mode;
+
+  @override
+  Future<ComposerDefaultMember> build() async => _mode;
 }
 
 class _FakeBoardPostNotifier extends MemberBoardPostNotifier {
@@ -167,6 +176,8 @@ Widget _buildSubject({
   MemberBoardPost? repoPost,
   _FakeBoardPostNotifier? notifier,
   List<FrontingSession> activeSessions = const [],
+  ComposerDefaultMember composerDefaultMember =
+      ComposerDefaultMember.latestFronter,
 }) {
   final repoPostMap = repoPost != null
       ? {repoPost.id: repoPost}
@@ -181,6 +192,9 @@ Widget _buildSubject({
       ),
       speakingAsProvider.overrideWith(
         () => _FakeSpeakingAsNotifier(speakingAs),
+      ),
+      composerDefaultMemberProvider.overrideWith(
+        () => _FakeComposerDefaultNotifier(composerDefaultMember),
       ),
       activeSessionsProvider.overrideWithValue(AsyncValue.data(activeSessions)),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
@@ -299,27 +313,62 @@ void main() {
       expect(find.byType(PrismGlassIconButton), findsNWidgets(2));
     });
 
-    testWidgets('multiple active co-fronters open searchable author picker', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _buildSubject(
-          members: [_alice, _bob],
-          activeSessions: [
-            FrontingSession(
-              id: 'front-alice',
-              memberId: 'alice',
-              startTime: _now,
-            ),
-            FrontingSession(id: 'front-bob', memberId: 'bob', startTime: _now),
-          ],
-        ),
-      );
-      await _openSheet(tester);
+    testWidgets(
+      'ask-each-time: multiple co-fronters open the author picker',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildSubject(
+            members: [_alice, _bob],
+            composerDefaultMember: ComposerDefaultMember.askEachTime,
+            activeSessions: [
+              FrontingSession(
+                id: 'front-alice',
+                memberId: 'alice',
+                startTime: _now,
+              ),
+              FrontingSession(
+                id: 'front-bob',
+                memberId: 'bob',
+                startTime: _now,
+              ),
+            ],
+          ),
+        );
+        await _openSheet(tester);
 
-      expect(find.byType(MemberSearchSheet), findsOneWidget);
-      expect(find.text('Who is posting?'), findsOneWidget);
-    });
+        expect(find.byType(MemberSearchSheet), findsOneWidget);
+        expect(find.text('Who is posting?'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'latest-fronter (default): multiple co-fronters do not force a picker',
+      (tester) async {
+        // The default mode auto-seeds the resolved author instead of forcing a
+        // tap — the prompt friction is opt-in via "ask each time".
+        await tester.pumpWidget(
+          _buildSubject(
+            members: [_alice, _bob],
+            speakingAs: 'bob',
+            activeSessions: [
+              FrontingSession(
+                id: 'front-alice',
+                memberId: 'alice',
+                startTime: _now,
+              ),
+              FrontingSession(
+                id: 'front-bob',
+                memberId: 'bob',
+                startTime: _now,
+              ),
+            ],
+          ),
+        );
+        await _openSheet(tester);
+
+        expect(find.byType(MemberSearchSheet), findsNothing);
+      },
+    );
 
     testWidgets('close button dismisses the sheet', (tester) async {
       await tester.pumpWidget(_buildSubject(members: [_alice]));

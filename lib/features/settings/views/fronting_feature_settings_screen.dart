@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -213,6 +214,72 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
     );
   }
 
+  static String _composerDefaultMemberLabel(
+    AppLocalizations l10n,
+    ComposerDefaultMember mode,
+  ) {
+    switch (mode) {
+      case ComposerDefaultMember.latestFronter:
+        return l10n.settingsComposerDefaultMemberLatestFronter;
+      case ComposerDefaultMember.lastUsed:
+        return l10n.settingsComposerDefaultMemberLastUsed;
+      case ComposerDefaultMember.askEachTime:
+        return l10n.settingsComposerDefaultMemberAskEachTime;
+    }
+  }
+
+  static String _composerDefaultMemberDescription(
+    AppLocalizations l10n,
+    ComposerDefaultMember mode,
+  ) {
+    switch (mode) {
+      case ComposerDefaultMember.latestFronter:
+        return l10n.settingsComposerDefaultMemberLatestFronterDescription;
+      case ComposerDefaultMember.lastUsed:
+        return l10n.settingsComposerDefaultMemberLastUsedDescription;
+      case ComposerDefaultMember.askEachTime:
+        return l10n.settingsComposerDefaultMemberAskEachTimeDescription;
+    }
+  }
+
+  static void _showComposerDefaultMemberPicker(
+    BuildContext context,
+    WidgetRef ref,
+    ComposerDefaultMember current,
+  ) {
+    PrismDialog.show<void>(
+      context: context,
+      title: context.l10n.settingsComposerDefaultMemberLabel,
+      builder: (ctx) {
+        return RadioGroup<ComposerDefaultMember>(
+          groupValue: current,
+          onChanged: (value) {
+            if (value == null) return;
+            ref.read(composerDefaultMemberProvider.notifier).set(value);
+            Navigator.of(ctx).pop();
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: ComposerDefaultMember.values
+                .map(
+                  (mode) => RadioListTile<ComposerDefaultMember>(
+                    contentPadding: EdgeInsets.zero,
+                    value: mode,
+                    title: Text(
+                      _composerDefaultMemberLabel(context.l10n, mode),
+                    ),
+                    subtitle: Text(
+                      _composerDefaultMemberDescription(context.l10n, mode),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      },
+    );
+  }
+
   static void _showQuickFrontBehaviorPicker(
     BuildContext context,
     WidgetRef ref,
@@ -257,6 +324,9 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
     final listViewMode = ref.watch(frontingListViewModeProvider);
     final addFrontBehavior = ref.watch(addFrontDefaultBehaviorProvider);
     final quickFrontBehavior = ref.watch(quickFrontDefaultBehaviorProvider);
+    final composerDefaultMember =
+        ref.watch(composerDefaultMemberProvider).value ??
+        ComposerDefaultMember.defaultValue;
     final autoPromoteLongFrontingSessions = ref.watch(
       autoPromoteLongFrontingSessionsProvider,
     );
@@ -366,6 +436,22 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                       context,
                       ref,
                       quickFrontBehavior,
+                    ),
+                  ),
+                  PrismSettingsRow(
+                    icon: AppIcons.person,
+                    iconColor: Colors.purple,
+                    title:
+                        context.l10n.settingsComposerDefaultMemberLabel,
+                    subtitle: _composerDefaultMemberLabel(
+                      context.l10n,
+                      composerDefaultMember,
+                    ),
+                    showChevron: true,
+                    onTap: () => _showComposerDefaultMemberPicker(
+                      context,
+                      ref,
+                      composerDefaultMember,
                     ),
                   ),
                   PrismSwitchRow(

@@ -6,10 +6,12 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
+import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
@@ -25,6 +27,7 @@ const _kIgnoreSyncedAppearance = 'prism.pref.ignore_synced_appearance';
 const _kUseProxyTagsForAuthoring = 'prism.pref.use_proxy_tags_for_authoring';
 const _kHardLockSyncOnAppLock = 'prism.pref.hard_lock_sync_on_app_lock';
 const _kScreenPrivacyEnabled = 'prism.pref.screen_privacy_enabled';
+const _kLastUsedSpeakingAsMember = 'prism.pref.last_used_speaking_as_member';
 
 ThemeStyle effectiveThemeStyleForPlatform(
   ThemeStyle style,
@@ -1374,6 +1377,72 @@ class HideTotalMemberCountNotifier extends AsyncNotifier<bool> {
         .read(appPreferenceRepositoryProvider)
         .set(hideTotalMemberCountPreference, value);
     state = AsyncValue.data(value);
+  }
+}
+
+/// Synced preference for how composer surfaces pick the default "acting as"
+/// member.
+final composerDefaultMemberProvider =
+    AsyncNotifierProvider<ComposerDefaultMemberNotifier, ComposerDefaultMember>(
+      ComposerDefaultMemberNotifier.new,
+    );
+
+class ComposerDefaultMemberNotifier
+    extends AsyncNotifier<ComposerDefaultMember> {
+  @override
+  Future<ComposerDefaultMember> build() async {
+    final repo = ref.watch(appPreferenceRepositoryProvider);
+    final subscription = repo
+        .watch(composerDefaultMemberPreference)
+        .listen(
+          (value) {
+            state = AsyncValue.data(ComposerDefaultMember.fromStorage(value));
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            state = AsyncValue.error(error, stackTrace);
+          },
+        );
+    ref.onDispose(subscription.cancel);
+    return ComposerDefaultMember.fromStorage(
+      await repo.get(composerDefaultMemberPreference),
+    );
+  }
+
+  Future<void> set(ComposerDefaultMember value) async {
+    await ref
+        .read(appPreferenceRepositoryProvider)
+        .set(composerDefaultMemberPreference, value.storageValue);
+    state = AsyncValue.data(value);
+  }
+}
+
+/// Per-device memory of the member last acted as in a composer. Stored only in
+/// SharedPreferences — never synced — and read by [ComposerDefaultMember.lastUsed].
+final lastUsedSpeakingAsMemberProvider =
+    AsyncNotifierProvider<LastUsedSpeakingAsMemberNotifier, String?>(
+      LastUsedSpeakingAsMemberNotifier.new,
+    );
+
+class LastUsedSpeakingAsMemberNotifier extends AsyncNotifier<String?> {
+  @override
+  Future<String?> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_kLastUsedSpeakingAsMember);
+    return (value == null || value.isEmpty) ? null : value;
+  }
+
+  Future<void> set(String memberId) async {
+    // "Last used" must only ever hold a real member id.
+    if (memberId.isEmpty || memberId == unknownSentinelMemberId) return;
+    state = AsyncValue.data(memberId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kLastUsedSpeakingAsMember, memberId);
+  }
+
+  Future<void> clear() async {
+    state = const AsyncValue.data(null);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kLastUsedSpeakingAsMember);
   }
 }
 
