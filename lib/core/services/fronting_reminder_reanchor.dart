@@ -9,8 +9,8 @@ import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 /// Re-anchors the periodic fronting reminder so its next fire is at
-/// `now + reminderInterval`. Call after any path that creates a live
-/// fronting session; no-op when reminders are off or the suppress
+/// least `now + suppressWindow`. Call after any path that creates a
+/// live fronting session; no-op when reminders are off or the suppress
 /// preference is 0.
 ///
 /// Reads the suppress value through the repository rather than
@@ -23,9 +23,12 @@ Future<void> maybeReanchorFrontingReminder(Ref ref) async {
   final suppress = await repo.get(frontingReminderSuppressMinutesPreference);
   if (suppress <= 0) return;
   final intervalMinutes = ref.read(frontingReminderIntervalProvider);
+  final nextReminderMinutes = intervalMinutes < suppress
+      ? suppress
+      : intervalMinutes;
   final service = ref.read(frontingNotificationServiceProvider);
   await service.scheduleFrontingReminder(
-    interval: Duration(minutes: intervalMinutes),
+    interval: Duration(minutes: nextReminderMinutes),
   );
 }
 

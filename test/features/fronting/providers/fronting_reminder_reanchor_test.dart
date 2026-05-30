@@ -197,6 +197,30 @@ void main() {
       expect(fakeNotif.scheduleCalls, hasLength(1));
       expect(fakeNotif.scheduleCalls.single, const Duration(minutes: 60));
     });
+
+    test(
+      'uses the suppress window when it is longer than the reminder interval',
+      () async {
+        final prefRepo = FakeAppPreferenceRepository()
+          ..seed(frontingReminderSuppressMinutesPreference, 30);
+        final fakeNotif = _FakeFrontingNotificationService();
+        final container = _buildContainer(
+          fakeNotif: fakeNotif,
+          prefRepo: prefRepo,
+          remindersEnabled: true,
+          reminderIntervalMinutes: 15,
+        );
+        addTearDown(container.dispose);
+
+        await container.read(frontingNotifierProvider.notifier).startFronting([
+          'm1',
+        ]);
+        await _settleReanchor();
+
+        expect(fakeNotif.scheduleCalls, hasLength(1));
+        expect(fakeNotif.scheduleCalls.single, const Duration(minutes: 30));
+      },
+    );
   });
 
   // Direct invocation tests for callers that bypass FrontingNotifier
