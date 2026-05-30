@@ -148,6 +148,9 @@ class _FakeNotesRepository implements NotesRepository {
   Stream<List<Note>> watchAllNotes() => Stream.value(created);
 
   @override
+  Future<List<Note>> getAllNotes() async => List.of(created);
+
+  @override
   Stream<Note?> watchNoteById(String id) => Stream.value(null);
 
   @override

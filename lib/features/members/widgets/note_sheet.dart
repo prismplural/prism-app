@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/note.dart';
@@ -17,11 +18,15 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
+import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 /// Create or edit a note. Shown as a full-screen PrismSheet.
 class NoteSheet extends ConsumerStatefulWidget {
@@ -48,6 +53,10 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
   late final DateTime _initialDate;
   late String? _initialMemberId;
   bool _memberWasEdited = false;
+  bool _showPreview = false;
+  // Unique per note editor so staged images live exactly as long as this sheet
+  // and stay isolated from any other open editor (see bioImageProcessorProvider).
+  final String _editSessionId = const Uuid().v4();
 
   bool get _isEditing => widget.note != null;
 
@@ -89,6 +98,16 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
 
   Future<void> _save() async {
     if (!_isValid) return;
+    // Commit any images staged via the image button before persisting.
+    var failedTags = const <String>[];
+    try {
+      failedTags = await ref
+          .read(bioImageProcessorProvider(_editSessionId))
+          .commitStaged();
+    } catch (_) {}
+    if (mounted && failedTags.isNotEmpty) {
+      PrismToast.error(context, message: context.l10n.mediaSomeImagesNotSaved);
+    }
     final notifier = ref.read(noteNotifierProvider.notifier);
     if (_isEditing) {
       await notifier.updateNote(
@@ -154,6 +173,14 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
     final l10n = context.l10n;
     _bodyController.updateTheme(context);
 
+    // Keep this editor's processor session alive for the sheet's whole
+    // lifetime so a staged image survives until _save() commits it — even
+    // across preview toggles, where the image button (the only other watcher)
+    // unmounts. Guarded for test contexts without media infra.
+    try {
+      ref.watch(bioImageProcessorProvider(_editSessionId));
+    } catch (_) {}
+
     if (!_isEditing && widget.memberId == null) {
       ref.listen(currentFronterProvider, (_, next) {
         final currentFronter = next.value;
@@ -184,63 +211,114 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
           children: [
             PrismSheetTopBar(
               title: l10n.memberNoteTitle,
-              trailing: PrismGlassIconButton(
-                icon: AppIcons.check,
-                onPressed: _isValid ? _save : null,
-                enabled: _isValid,
-                tooltip: l10n.memberSaveNoteTooltip,
-                size: PrismTokens.topBarActionSize,
-                tint: theme.colorScheme.primary,
-                accentIcon: true,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PrismGlassIconButton(
+                    icon: _showPreview ? AppIcons.edit : AppIcons.preview,
+                    onPressed: () =>
+                        setState(() => _showPreview = !_showPreview),
+                    tooltip: _showPreview ? l10n.edit : 'Preview',
+                    size: PrismTokens.topBarActionSize,
+                  ),
+                  const SizedBox(width: 4),
+                  PrismGlassIconButton(
+                    icon: AppIcons.check,
+                    onPressed: _isValid ? _save : null,
+                    enabled: _isValid,
+                    tooltip: l10n.memberSaveNoteTooltip,
+                    size: PrismTokens.topBarActionSize,
+                    tint: theme.colorScheme.primary,
+                    accentIcon: true,
+                  ),
+                ],
               ),
             ),
             Expanded(
-              child: GestureDetector(
-                onTap: () => _bodyFocusNode.requestFocus(),
-                behavior: HitTestBehavior.translucent,
-                child: ListView(
+              child: Stack(
+                children: [
+                  GestureDetector(
+                    onTap: () => _bodyFocusNode.requestFocus(),
+                    behavior: HitTestBehavior.translucent,
+                    child: ListView(
                   controller: widget.scrollController,
                   padding: const EdgeInsets.symmetric(
                     horizontal: PrismTokens.pageHorizontalPadding + 8,
                     vertical: 16,
                   ),
-                  children: [
-                    PrismTextField(
-                      controller: _titleController,
-                      hintText: l10n.memberNoteTitleHint,
-                      fieldStyle: PrismTextFieldStyle.borderless,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                      hintStyle: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.4,
-                        ),
-                      ),
-                      maxLines: null,
-                      textCapitalization: TextCapitalization.sentences,
-                      textInputAction: TextInputAction.next,
-                      autofocus: !_isEditing,
+                  children: _showPreview
+                      ? [
+                          if (_titleController.text.trim().isNotEmpty) ...[
+                            Text(
+                              _titleController.text.trim(),
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          if (_bodyController.text.trim().isEmpty)
+                            Text(
+                              l10n.memberNoteBodyHint,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.4),
+                              ),
+                            )
+                          else
+                            PrismMarkdownText(
+                              data: _bodyController.text,
+                              enabled: true,
+                              baseStyle: theme.textTheme.bodyLarge,
+                              editSessionId: _editSessionId,
+                            ),
+                        ]
+                      : [
+                          PrismTextField(
+                            controller: _titleController,
+                            hintText: l10n.memberNoteTitleHint,
+                            fieldStyle: PrismTextFieldStyle.borderless,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            hintStyle: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.4),
+                            ),
+                            maxLines: null,
+                            textCapitalization: TextCapitalization.sentences,
+                            textInputAction: TextInputAction.next,
+                            autofocus: !_isEditing,
+                          ),
+                          const SizedBox(height: 8),
+                          PrismTextField(
+                            controller: _bodyController,
+                            focusNode: _bodyFocusNode,
+                            hintText: l10n.memberNoteBodyHint,
+                            fieldStyle: PrismTextFieldStyle.borderless,
+                            style: theme.textTheme.bodyLarge,
+                            hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.4),
+                            ),
+                            minLines: 12,
+                            maxLines: null,
+                            textCapitalization: TextCapitalization.sentences,
+                          ),
+                        ],
                     ),
-                    const SizedBox(height: 8),
-                    PrismTextField(
-                      controller: _bodyController,
-                      focusNode: _bodyFocusNode,
-                      hintText: l10n.memberNoteBodyHint,
-                      fieldStyle: PrismTextFieldStyle.borderless,
-                      style: theme.textTheme.bodyLarge,
-                      hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.4,
-                        ),
+                  ),
+                  if (!_showPreview)
+                    Positioned(
+                      right: 16,
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                      child: MarkdownImageButton(
+                        controller: _bodyController,
+                        sessionId: _editSessionId,
                       ),
-                      minLines: 12,
-                      maxLines: null,
-                      textCapitalization: TextCapitalization.sentences,
                     ),
-                  ],
-                ),
+                ],
               ),
             ),
             _BottomToolbar(
