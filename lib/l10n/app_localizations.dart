@@ -16894,6 +16894,36 @@ abstract class AppLocalizations {
   /// **'Cancel and remove this device'**
   String get onboardingPairingCancelAndRemove;
 
+  /// Heading on the pairing error view when a leftover encrypted sync database from a previous install can't be opened with the new pairing key.
+  ///
+  /// In en, this message translates to:
+  /// **'Leftover sync data found'**
+  String get onboardingPairingStaleDataTitle;
+
+  /// Explanatory body on the pairing error view telling the user that erasing leftover sync data is safe and keeps local content.
+  ///
+  /// In en, this message translates to:
+  /// **'This device still has encrypted sync data from a previous install, and it can\'t be opened with this new pairing. Erasing it removes only that leftover sync data — your existing members and fronts on this device are kept — and lets you pair again.'**
+  String get onboardingPairingStaleDataBody;
+
+  /// Destructive button that deletes the leftover sync database and restarts the pairing flow.
+  ///
+  /// In en, this message translates to:
+  /// **'Erase old sync data & retry'**
+  String get onboardingPairingEraseAndRetry;
+
+  /// Heading on the pairing error view when the automatic erase of leftover sync data failed (e.g. the file was locked).
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t remove old sync data'**
+  String get onboardingPairingStaleEraseFailedTitle;
+
+  /// Explanatory body shown when erasing leftover sync data failed, telling the user how to recover manually.
+  ///
+  /// In en, this message translates to:
+  /// **'The leftover sync data couldn\'t be removed automatically — the file may be locked. Make sure no other copy of the app is running, then try again. If it keeps failing, delete prism_sync.db from the app\'s data folder manually and reopen the app.'**
+  String get onboardingPairingStaleEraseFailedBody;
+
   /// No description provided for @migrationAvatarZipTitle.
   ///
   /// In en, this message translates to:

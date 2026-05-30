@@ -10722,6 +10722,26 @@ class AppLocalizationsEs extends AppLocalizations {
       'Cancelar y eliminar este dispositivo';
 
   @override
+  String get onboardingPairingStaleDataTitle =>
+      'Se encontraron datos de sincronización anteriores';
+
+  @override
+  String get onboardingPairingStaleDataBody =>
+      'Este dispositivo todavía tiene datos de sincronización cifrados de una instalación anterior que no se pueden abrir con esta nueva vinculación. Borrarlos elimina solo esos datos de sincronización sobrantes —tus miembros y frentes existentes en este dispositivo se conservan— y te permite vincular de nuevo.';
+
+  @override
+  String get onboardingPairingEraseAndRetry =>
+      'Borrar datos antiguos y reintentar';
+
+  @override
+  String get onboardingPairingStaleEraseFailedTitle =>
+      'No se pudieron eliminar los datos de sincronización anteriores';
+
+  @override
+  String get onboardingPairingStaleEraseFailedBody =>
+      'Los datos de sincronización sobrantes no se pudieron eliminar automáticamente; es posible que el archivo esté bloqueado. Asegúrate de que no haya otra copia de la aplicación en ejecución y vuelve a intentarlo. Si sigue fallando, elimina prism_sync.db de la carpeta de datos de la aplicación manualmente y vuelve a abrir la aplicación.';
+
+  @override
   String get migrationAvatarZipTitle => 'ZIP de avatares (opcional)';
 
   @override

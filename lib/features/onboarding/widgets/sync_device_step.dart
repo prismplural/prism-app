@@ -146,12 +146,30 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
           },
         );
       case PairingStep.error:
+        final errorKind = pairingState.errorKind;
+        final isStaleSyncDatabase =
+            errorKind == PairingErrorKind.staleSyncDatabase;
+        final isStaleEraseFailed =
+            errorKind == PairingErrorKind.staleSyncEraseFailed;
+        final String message;
+        if (isStaleEraseFailed) {
+          message = context.l10n.onboardingPairingStaleEraseFailedBody;
+        } else {
+          message =
+              pairingState.errorMessage ??
+              context.l10n.onboardingSyncUnknownError;
+        }
         child = _ErrorView(
           key: const ValueKey('error'),
-          message:
-              pairingState.errorMessage ??
-              context.l10n.onboardingSyncUnknownError,
+          message: message,
+          isStaleSyncDatabase: isStaleSyncDatabase,
+          isStaleEraseFailed: isStaleEraseFailed,
           onTryAgain: () => ref.read(devicePairingProvider.notifier).reset(),
+          onEraseAndRetry: isStaleSyncDatabase
+              ? () => ref
+                    .read(devicePairingProvider.notifier)
+                    .eraseStaleSyncDatabaseAndRetry()
+              : null,
         );
       case PairingStep.snapshotFailure:
         // Joiner-side: pairing ceremony succeeded but bootstrap couldn't
@@ -836,10 +854,24 @@ class _ErrorView extends StatelessWidget {
     super.key,
     required this.message,
     required this.onTryAgain,
+    this.isStaleSyncDatabase = false,
+    this.isStaleEraseFailed = false,
+    this.onEraseAndRetry,
   });
 
   final String message;
   final VoidCallback onTryAgain;
+
+  /// Leftover encrypted sync DB from a previous install — offer erase-and-retry
+  /// plus a clearer message instead of a bare "Try Again".
+  final bool isStaleSyncDatabase;
+
+  /// The erase recovery itself failed; show [message] and only "Try Again".
+  final bool isStaleEraseFailed;
+
+  /// Destructive: erases the stale sync DB and restarts pairing. Non-null only
+  /// when [isStaleSyncDatabase].
+  final VoidCallback? onEraseAndRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -847,6 +879,15 @@ class _ErrorView extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final fg = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     final l10n = context.l10n;
+    final showErase = isStaleSyncDatabase && onEraseAndRetry != null;
+    final String title;
+    if (showErase) {
+      title = l10n.onboardingPairingStaleDataTitle;
+    } else if (isStaleEraseFailed) {
+      title = l10n.onboardingPairingStaleEraseFailedTitle;
+    } else {
+      title = l10n.onboardingPairingFailed;
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -856,7 +897,7 @@ class _ErrorView extends StatelessWidget {
           Icon(AppIcons.errorOutline, color: theme.colorScheme.error, size: 56),
           const SizedBox(height: 16),
           Text(
-            l10n.onboardingPairingFailed,
+            title,
             style: theme.textTheme.headlineSmall?.copyWith(
               color: fg,
               fontWeight: FontWeight.w700,
@@ -865,18 +906,31 @@ class _ErrorView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            message,
+            showErase ? l10n.onboardingPairingStaleDataBody : message,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: fg.withValues(alpha: 0.75),
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          _ActionButton(
-            label: l10n.tryAgain,
-            tone: PrismButtonTone.destructive,
-            onPressed: onTryAgain,
-          ),
+          if (showErase) ...[
+            _ActionButton(
+              label: l10n.onboardingPairingEraseAndRetry,
+              tone: PrismButtonTone.destructive,
+              onPressed: onEraseAndRetry!,
+            ),
+            const SizedBox(height: 12),
+            _ActionButton(
+              label: l10n.tryAgain,
+              tone: PrismButtonTone.subtle,
+              onPressed: onTryAgain,
+            ),
+          ] else
+            _ActionButton(
+              label: l10n.tryAgain,
+              tone: PrismButtonTone.destructive,
+              onPressed: onTryAgain,
+            ),
           const SizedBox(height: 16),
         ],
       ),

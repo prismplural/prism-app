@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -1670,6 +1672,250 @@ void main() {
           reason:
               'snapshot-capture failure must surface as a warning so '
               'we can correlate it with subsequent partial-state issues',
+        );
+      },
+    );
+  });
+
+  group('classifyPairingError', () {
+    // The exact text the Rust FFI raises (prism-sync
+    // crates/prism-sync-ffi/src/api.rs) when an existing, encrypted sync DB
+    // can't be opened with the configured key. The trailing sqlite detail and
+    // any higher-level "Pairing failed — " wrapping are appended around this
+    // stable core, which is why classification is substring-based.
+    const realErrorString =
+        'Pairing failed — existing sync database could not be opened with the '
+        'configured encryption key; refusing plaintext migration: storage '
+        'error: sqlite error: file is not a database';
+
+    test('classifies the real stale-sync-DB error as staleSyncDatabase', () {
+      expect(
+        classifyPairingError(realErrorString),
+        PairingErrorKind.staleSyncDatabase,
+      );
+    });
+
+    test('classifies the bare FFI marker as staleSyncDatabase', () {
+      expect(
+        classifyPairingError(
+          'existing sync database could not be opened with the configured '
+          'encryption key; refusing plaintext migration: x',
+        ),
+        PairingErrorKind.staleSyncDatabase,
+      );
+    });
+
+    test('classifies the erase-failed marker as staleSyncEraseFailed', () {
+      expect(
+        classifyPairingError(kStaleSyncDatabaseEraseFailedMarker),
+        PairingErrorKind.staleSyncEraseFailed,
+      );
+    });
+
+    test('classifies unrelated errors as generic', () {
+      expect(
+        classifyPairingError('Connection timed out. Try again.'),
+        PairingErrorKind.generic,
+      );
+      expect(classifyPairingError(null), PairingErrorKind.generic);
+      expect(classifyPairingError(''), PairingErrorKind.generic);
+    });
+
+    test('PairingState.errorKind derives from errorMessage', () {
+      final stale = const PairingState().copyWith(
+        step: PairingStep.error,
+        errorMessage: realErrorString,
+      );
+      expect(stale.errorKind, PairingErrorKind.staleSyncDatabase);
+
+      final generic = const PairingState().copyWith(
+        step: PairingStep.error,
+        errorMessage: 'something else',
+      );
+      expect(generic.errorKind, PairingErrorKind.generic);
+    });
+  });
+
+  group('deleteStaleSyncDatabaseFiles', () {
+    test(
+      'deletes only the sync DB files, never prism.db',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'pairing_stale_db_test',
+        );
+        addTearDown(() async {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+
+        // Seed a full app data dir: the local DB (must survive) plus the
+        // stale sync DB and its sidecars (must be removed).
+        final prismDb = File(p.join(tempDir.path, 'prism.db'));
+        final prismDbWal = File(p.join(tempDir.path, 'prism.db-wal'));
+        final syncDb = File(
+          p.join(tempDir.path, 'prism_sync.db'),
+        );
+        final syncWal = File(p.join(tempDir.path, 'prism_sync.db-wal'));
+        final syncShm = File(p.join(tempDir.path, 'prism_sync.db-shm'));
+        for (final f in [prismDb, prismDbWal, syncDb, syncWal, syncShm]) {
+          await f.writeAsString('x');
+        }
+
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        final notifier = container.read(devicePairingProvider.notifier);
+
+        await notifier.deleteStaleSyncDatabaseFiles(directory: tempDir);
+
+        // Sync DB + sidecars gone.
+        expect(await syncDb.exists(), isFalse, reason: 'sync DB must be erased');
+        expect(await syncWal.exists(), isFalse);
+        expect(await syncShm.exists(), isFalse);
+
+        // Local DB untouched — it may hold pre-pairing members/fronts.
+        expect(
+          await prismDb.exists(),
+          isTrue,
+          reason: 'prism.db must NOT be deleted',
+        );
+        expect(await prismDbWal.exists(), isTrue);
+      },
+    );
+
+    test('tolerates missing sync DB files', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'pairing_stale_db_missing_test',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(devicePairingProvider.notifier);
+
+      // No files on disk — must not throw.
+      await notifier.deleteStaleSyncDatabaseFiles(directory: tempDir);
+    });
+
+    test(
+      'throws when the main prism_sync.db cannot be removed',
+      () async {
+        // Unix-only: we force a delete failure by revoking write permission on
+        // the containing directory (removing a file needs dir-write, not
+        // file-write). On Windows this mechanism doesn't apply; the
+        // load-bearing throw is exercised on the CI/dev (darwin/linux) hosts.
+        if (Platform.isWindows) {
+          return;
+        }
+
+        final tempDir = await Directory.systemTemp.createTemp(
+          'pairing_stale_db_locked_test',
+        );
+        addTearDown(() async {
+          // Restore write perms before cleanup or the teardown itself fails.
+          await Process.run('chmod', ['u+w', tempDir.path]);
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+
+        final syncDb = File(p.join(tempDir.path, 'prism_sync.db'));
+        await syncDb.writeAsString('x');
+
+        // Revoke write on the directory so unlinking prism_sync.db fails,
+        // standing in for a locked handle on Windows.
+        final chmod = await Process.run('chmod', ['u-w', tempDir.path]);
+        expect(chmod.exitCode, 0, reason: 'chmod setup must succeed');
+
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        final notifier = container.read(devicePairingProvider.notifier);
+
+        await expectLater(
+          notifier.deleteStaleSyncDatabaseFiles(directory: tempDir),
+          throwsA(isA<FileSystemException>()),
+          // The main DB delete failing must surface — silently swallowing it
+          // would let the caller reset into the same dead-end.
+        );
+
+        // Main DB still present — proving the failure was real and surfaced
+        // rather than masked.
+        await Process.run('chmod', ['u+w', tempDir.path]);
+        expect(await syncDb.exists(), isTrue);
+      },
+    );
+
+    test('tolerates a missing/locked sidecar once the main DB is gone', () async {
+      // Sidecar failures must NOT abort the erase. We can't easily lock a
+      // single sidecar cross-platform, but the happy-path test already proves
+      // sidecars are removed; here we assert a missing sidecar (absent -wal)
+      // alongside a present main DB completes without throwing.
+      final tempDir = await Directory.systemTemp.createTemp(
+        'pairing_stale_db_sidecar_test',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final syncDb = File(p.join(tempDir.path, 'prism_sync.db'));
+      await syncDb.writeAsString('x');
+      // No sidecars on disk.
+
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(devicePairingProvider.notifier);
+
+      await notifier.deleteStaleSyncDatabaseFiles(directory: tempDir);
+      expect(await syncDb.exists(), isFalse);
+    });
+  });
+
+  group('eraseStaleSyncDatabaseAndRetry guard', () {
+    test(
+      'is a no-op (deletes nothing) when not in the stale-sync-DB error state',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'pairing_guard_test',
+        );
+        addTearDown(() async {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+
+        // A sync DB that MUST survive because the guard should refuse to run.
+        final syncDb = File(p.join(tempDir.path, 'prism_sync.db'));
+        await syncDb.writeAsString('x');
+
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        final notifier = container.read(devicePairingProvider.notifier);
+
+        // Default state is enterUrl (not a stale-sync-DB error) — the recovery
+        // must early-return without touching the on-disk replica.
+        expect(
+          container.read(devicePairingProvider).step,
+          PairingStep.enterUrl,
+        );
+        await notifier.eraseStaleSyncDatabaseAndRetry();
+
+        expect(
+          await syncDb.exists(),
+          isTrue,
+          reason:
+              'guard must refuse to erase the sync replica outside the '
+              'staleSyncDatabase error state',
+        );
+        expect(
+          container.read(devicePairingProvider).step,
+          PairingStep.enterUrl,
+          reason: 'guard early-return must not mutate pairing state',
         );
       },
     );

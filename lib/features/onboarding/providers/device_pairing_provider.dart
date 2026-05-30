@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/security/secret_bytes.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
@@ -43,6 +46,46 @@ enum PairingStep {
   snapshotFailure,
 }
 
+/// Classifies a [PairingStep.error] so the UI can offer error-specific
+/// recovery instead of a blanket "Try Again".
+enum PairingErrorKind {
+  generic,
+
+  /// Leftover encrypted `prism_sync.db` from a previous install couldn't be
+  /// opened with the new pairing key. Recoverable by erasing the stale DB.
+  staleSyncDatabase,
+
+  /// The [staleSyncDatabase] erase recovery itself failed (e.g. locked file on
+  /// Windows). Distinct so the UI stops re-offering Erase.
+  staleSyncEraseFailed,
+}
+
+/// Substring of the Rust FFI error (prism-sync-ffi `api.rs`) for an existing
+/// encrypted sync DB that won't open. Substring, not equality: the FFI appends
+/// the sqlite detail and the message may be wrapped before reaching Dart.
+const String kStaleSyncDatabaseErrorMarker =
+    'existing sync database could not be opened with the configured '
+    'encryption key';
+
+/// Internal sentinel placed in [PairingState.errorMessage] when the erase
+/// recovery fails; the UI maps it to a localized message.
+const String kStaleSyncDatabaseEraseFailedMarker =
+    'prism.pairing.stale_sync_db_erase_failed';
+
+/// Classify a raw pairing error message into a [PairingErrorKind].
+PairingErrorKind classifyPairingError(String? errorMessage) {
+  if (errorMessage == null) {
+    return PairingErrorKind.generic;
+  }
+  if (errorMessage == kStaleSyncDatabaseEraseFailedMarker) {
+    return PairingErrorKind.staleSyncEraseFailed;
+  }
+  if (errorMessage.contains(kStaleSyncDatabaseErrorMarker)) {
+    return PairingErrorKind.staleSyncDatabase;
+  }
+  return PairingErrorKind.generic;
+}
+
 class PairingState {
   final PairingStep step;
   final String? errorMessage;
@@ -73,6 +116,10 @@ class PairingState {
     this.sasWords,
     this.syncIncomplete = false,
   });
+
+  /// Derived on demand from [errorMessage]; only meaningful when [step] is
+  /// [PairingStep.error].
+  PairingErrorKind get errorKind => classifyPairingError(errorMessage);
 
   PairingState copyWith({
     PairingStep? step,
@@ -236,6 +283,110 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     _activeCeremonyHandle = null;
     ref.read(syncSetupProgressProvider.notifier).reset();
     state = const PairingState();
+  }
+
+  /// Recovery for [PairingErrorKind.staleSyncDatabase]: delete only the stale
+  /// `prism_sync.db` (+ sidecars) and restart pairing. Deliberately narrow —
+  /// never touches `prism.db`, the keychain, or prefs (unlike the broader
+  /// sync-reset / full-reset helpers).
+  ///
+  /// No-op unless currently in the stale-sync-DB error state. If the main DB
+  /// can't be removed (e.g. locked on Windows) it surfaces a
+  /// [PairingErrorKind.staleSyncEraseFailed] error rather than resetting back
+  /// into the same dead-end.
+  Future<void> eraseStaleSyncDatabaseAndRetry() async {
+    if (state.step != PairingStep.error ||
+        state.errorKind != PairingErrorKind.staleSyncDatabase) {
+      return;
+    }
+
+    // Dispose any handle holding the stale DB open before unlinking.
+    // Best-effort: a failed dispose must not block the erase.
+    try {
+      _activeCeremonyHandle?.dispose();
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Disposing ceremony handle before stale sync DB erase failed '
+        '(non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
+    _activeCeremonyHandle = null;
+    try {
+      ref.read(prismSyncHandleProvider).value?.dispose();
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Disposing active sync handle before stale sync DB erase failed '
+        '(non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
+
+    try {
+      await deleteStaleSyncDatabaseFiles();
+    } catch (e, st) {
+      // The stale DB is still on disk — resetting would loop the user
+      // straight back into the same dead-end with no indication of failure.
+      // Surface an actionable error instead.
+      ErrorReportingService.instance.report(
+        'Erasing stale sync DB during pairing recovery failed: $e',
+        severity: ErrorSeverity.error,
+        stackTrace: st,
+      );
+      state = state.copyWith(
+        step: PairingStep.error,
+        errorMessage: kStaleSyncDatabaseEraseFailedMarker,
+        errorCode: null,
+      );
+      return;
+    }
+
+    // Back to the join prompt with a clean slate.
+    reset();
+  }
+
+  /// Delete `prism_sync.db` and its sidecars from the app data dir.
+  /// The main DB is load-bearing: if it can't be removed (or lingers after
+  /// delete), this throws so the caller won't loop the user back into the
+  /// dead-end. Sidecars are best-effort; missing files are fine.
+  /// `@visibleForTesting` for the never-touches-`prism.db` guarantee.
+  @visibleForTesting
+  Future<void> deleteStaleSyncDatabaseFiles({Directory? directory}) async {
+    final dir = directory ?? await getAppDataDir();
+    final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
+
+    final mainFile = File(dbPath);
+    if (await mainFile.exists()) {
+      await mainFile.delete();
+      // A delete can "succeed" against a handle that keeps the file alive;
+      // re-check so a lingering file surfaces as failure, not a silent no-op.
+      if (await mainFile.exists()) {
+        throw FileSystemException(
+          'Stale sync database still present after delete',
+          dbPath,
+        );
+      }
+    }
+
+    // Sidecars — best-effort. A locked/absent sidecar must not abort the
+    // erase once the main DB is gone.
+    for (final suffix in const <String>['-wal', '-shm', '-journal']) {
+      final file = File('$dbPath$suffix');
+      try {
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (e, st) {
+        ErrorReportingService.instance.report(
+          'Failed to delete stale sync DB sidecar $dbPath$suffix '
+          '(non-fatal): $e',
+          severity: ErrorSeverity.warning,
+          stackTrace: st,
+        );
+      }
+    }
   }
 
   /// Cancel any in-flight pairing attempt. Safe to call from UI when the

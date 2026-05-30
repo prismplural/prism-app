@@ -10544,6 +10544,24 @@ class AppLocalizationsEn extends AppLocalizations {
       'Cancel and remove this device';
 
   @override
+  String get onboardingPairingStaleDataTitle => 'Leftover sync data found';
+
+  @override
+  String get onboardingPairingStaleDataBody =>
+      'This device still has encrypted sync data from a previous install, and it can\'t be opened with this new pairing. Erasing it removes only that leftover sync data — your existing members and fronts on this device are kept — and lets you pair again.';
+
+  @override
+  String get onboardingPairingEraseAndRetry => 'Erase old sync data & retry';
+
+  @override
+  String get onboardingPairingStaleEraseFailedTitle =>
+      'Couldn\'t remove old sync data';
+
+  @override
+  String get onboardingPairingStaleEraseFailedBody =>
+      'The leftover sync data couldn\'t be removed automatically — the file may be locked. Make sure no other copy of the app is running, then try again. If it keeps failing, delete prism_sync.db from the app\'s data folder manually and reopen the app.';
+
+  @override
   String get migrationAvatarZipTitle => 'Avatar ZIP (optional)';
 
   @override
