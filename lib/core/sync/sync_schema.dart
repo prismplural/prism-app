@@ -368,6 +368,8 @@ const String prismSyncSchema = '''
     "media_attachments": {
       "fields": {
         "message_id": "String",
+        "member_id": "String",
+        "tag": "String",
         "media_id": "String",
         "media_type": "String",
         "encryption_key_b64": "String",

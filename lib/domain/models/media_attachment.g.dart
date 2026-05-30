@@ -10,6 +10,8 @@ _MediaAttachment _$MediaAttachmentFromJson(Map<String, dynamic> json) =>
     _MediaAttachment(
       id: json['id'] as String,
       messageId: json['messageId'] as String,
+      memberId: json['memberId'] as String? ?? '',
+      tag: json['tag'] as String? ?? '',
       mediaId: json['mediaId'] as String,
       mediaType: json['mediaType'] as String,
       encryptionKeyB64: json['encryptionKeyB64'] as String,
@@ -32,6 +34,8 @@ Map<String, dynamic> _$MediaAttachmentToJson(_MediaAttachment instance) =>
     <String, dynamic>{
       'id': instance.id,
       'messageId': instance.messageId,
+      'memberId': instance.memberId,
+      'tag': instance.tag,
       'mediaId': instance.mediaId,
       'mediaType': instance.mediaType,
       'encryptionKeyB64': instance.encryptionKeyB64,

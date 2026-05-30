@@ -3771,6 +3771,8 @@ DriftSyncEntity _mediaAttachmentsEntity(
       final r = row as MediaAttachment;
       return {
         'message_id': r.messageId,
+        'member_id': r.memberId,
+        'tag': r.tag,
         'media_id': r.mediaId,
         'media_type': r.mediaType,
         'encryption_key_b64': r.encryptionKeyB64,
@@ -3800,6 +3802,8 @@ DriftSyncEntity _mediaAttachmentsEntity(
       final companion = MediaAttachmentsCompanion(
         id: Value(id),
         messageId: f.stringField('message_id'),
+        memberId: f.stringField('member_id'),
+        tag: f.stringField('tag'),
         mediaId: f.stringField('media_id'),
         mediaType: f.stringField('media_type'),
         encryptionKeyB64: f.stringField('encryption_key_b64'),
@@ -3836,6 +3840,8 @@ DriftSyncEntity _mediaAttachmentsEntity(
       if (row == null) return null;
       return {
         'message_id': row.messageId,
+        'member_id': row.memberId,
+        'tag': row.tag,
         'media_id': row.mediaId,
         'media_type': row.mediaType,
         'encryption_key_b64': row.encryptionKeyB64,

@@ -505,6 +505,13 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       );
       await db.customStatement('DELETE FROM notes');
       await db.customStatement('DELETE FROM poll_votes');
+      // Bio images are per-member child data (member_id set on creation via
+      // createForBio). Delete them alongside the other member-scoped tables.
+      // Chat media has an empty member_id and is preserved here — it is reset
+      // through the chat/media path instead.
+      await db.customStatement(
+        "DELETE FROM media_attachments WHERE member_id <> ''",
+      );
       // Delete user members; keep the system-managed Unknown sentinel because
       // fronting history now points to it and member-management UI filters it.
       await db.customStatement('DELETE FROM members WHERE id <> ?', [
@@ -518,6 +525,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       'fronting_sessions',
       'habit_completions',
       'habits',
+      'media_attachments',
       'member_board_posts',
       'member_group_entries',
       'member_profile_preference_values',

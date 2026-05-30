@@ -140,6 +140,11 @@ const _memberRefColumns = <_MemberRef>[
   ),
   _MemberRef('member_board_posts', 'target_member_id', _RefType.deleted),
   _MemberRef('member_board_posts', 'author_id', _RefType.deleted),
+
+  // media_attachments: bio images are per-member child data (member_id set
+  // on creation). Deleted on member reset; chat media (empty member_id) is
+  // preserved and handled by the chat/media reset path.
+  _MemberRef('media_attachments', 'member_id', _RefType.deleted),
 ];
 
 /// Columns whose name matches the member-ID pattern but which do not actually
@@ -2351,6 +2356,16 @@ void main() {
             completedByMemberId: const Value(victimId),
             createdAt: Value(now),
             modifiedAt: Value(now),
+          ),
+        );
+
+        // media_attachments.member_id (bio image attached to a member)
+        await db.into(db.mediaAttachments).insert(
+          const MediaAttachmentsCompanion(
+            id: Value('$rowId-media_attachments'),
+            mediaId: Value('$rowId-media-file'),
+            mediaType: Value('image'),
+            memberId: Value(victimId),
           ),
         );
 

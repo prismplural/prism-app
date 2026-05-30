@@ -8,6 +8,8 @@ abstract class MediaAttachment with _$MediaAttachment {
   const factory MediaAttachment({
     required String id,
     required String messageId,
+    @Default('') String memberId,
+    @Default('') String tag,
     required String mediaId,
     required String mediaType,
     required String encryptionKeyB64,

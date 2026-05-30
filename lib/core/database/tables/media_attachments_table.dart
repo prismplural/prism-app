@@ -3,6 +3,8 @@ import 'package:drift/drift.dart';
 class MediaAttachments extends Table {
   TextColumn get id => text()();
   TextColumn get messageId => text().withDefault(const Constant(''))();
+  TextColumn get memberId => text().withDefault(const Constant(''))();
+  TextColumn get tag => text().withDefault(const Constant(''))();
   TextColumn get mediaId => text().withDefault(const Constant(''))();
   TextColumn get mediaType => text().withDefault(const Constant(''))();
   TextColumn get encryptionKeyB64 => text().withDefault(const Constant(''))();

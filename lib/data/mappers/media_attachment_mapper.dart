@@ -9,6 +9,8 @@ class MediaAttachmentMapper {
     return domain.MediaAttachment(
       id: row.id,
       messageId: row.messageId,
+      memberId: row.memberId,
+      tag: row.tag,
       mediaId: row.mediaId,
       mediaType: row.mediaType,
       encryptionKeyB64: row.encryptionKeyB64,
@@ -32,6 +34,8 @@ class MediaAttachmentMapper {
     return MediaAttachmentsCompanion(
       id: Value(model.id),
       messageId: Value(model.messageId),
+      memberId: Value(model.memberId),
+      tag: Value(model.tag),
       mediaId: Value(model.mediaId),
       mediaType: Value(model.mediaType),
       encryptionKeyB64: Value(model.encryptionKeyB64),

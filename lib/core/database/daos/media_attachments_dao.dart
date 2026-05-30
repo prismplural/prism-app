@@ -21,6 +21,24 @@ class MediaAttachmentsDao extends DatabaseAccessor<AppDatabase>
                 a.messageId.equals(messageId) & a.isDeleted.equals(false)))
           .get();
 
+  Future<List<MediaAttachment>> getForMember(String memberId) =>
+      (select(mediaAttachments)
+            ..where((a) =>
+                a.memberId.equals(memberId) & a.isDeleted.equals(false)))
+          .get();
+
+  Stream<List<MediaAttachment>> watchForMember(String memberId) =>
+      (select(mediaAttachments)
+            ..where((a) =>
+                a.memberId.equals(memberId) & a.isDeleted.equals(false)))
+          .watch();
+
+  Future<MediaAttachment?> getByMediaId(String mediaId) =>
+      (select(mediaAttachments)
+            ..where((a) => a.mediaId.equals(mediaId))
+            ..limit(1))
+          .getSingleOrNull();
+
   Future<List<MediaAttachment>> getAll() =>
       (select(mediaAttachments)..where((a) => a.isDeleted.equals(false))).get();
 
@@ -41,4 +59,34 @@ class MediaAttachmentsDao extends DatabaseAccessor<AppDatabase>
   Future<void> softDelete(String id) =>
       (update(mediaAttachments)..where((a) => a.id.equals(id)))
           .write(const MediaAttachmentsCompanion(isDeleted: Value(true)));
+
+  Future<MediaAttachment?> getByTag(String tag) =>
+      (select(mediaAttachments)
+            ..where((a) => a.tag.equals(tag) & a.isDeleted.equals(false))
+            ..limit(1))
+          .getSingleOrNull();
+
+  Stream<List<MediaAttachment>> watchLibraryImages() =>
+      (select(mediaAttachments)
+            ..where(
+              (a) => a.tag.equals('').not() & a.isDeleted.equals(false),
+            ))
+          .watch();
+
+  Stream<List<MediaAttachment>> watchAllBioMedia() =>
+      (select(mediaAttachments)
+            ..where(
+              (a) =>
+                  a.memberId.equals('').not() & a.isDeleted.equals(false),
+            ))
+          .watch();
+
+  Stream<List<MediaAttachment>> watchAllChatMedia() =>
+      (select(mediaAttachments)
+            ..where(
+              (a) =>
+                  a.messageId.equals('').not() & a.isDeleted.equals(false),
+            )
+            ..orderBy([(a) => OrderingTerm.desc(a.id)]))
+          .watch();
 }

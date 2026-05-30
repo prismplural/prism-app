@@ -102,7 +102,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 30;
+  int get schemaVersion => 31;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -815,6 +815,19 @@ class AppDatabase extends _$AppDatabase {
         );
         current = 30;
       }
+      if (current == 30 && to >= 31) {
+        // Bio image library: add member_id + tag to media_attachments.
+        final cols =
+            await customSelect('PRAGMA table_info(media_attachments)').get();
+        final names = cols.map((r) => r.read<String>('name')).toSet();
+        if (!names.contains('member_id')) {
+          await migrator.addColumn(mediaAttachments, mediaAttachments.memberId);
+        }
+        if (!names.contains('tag')) {
+          await migrator.addColumn(mediaAttachments, mediaAttachments.tag);
+        }
+        current = 31;
+      }
       if (current != to) {
         throw UnsupportedError(
           'Schema baseline was reset to v1 for the private beta. '
@@ -852,8 +865,39 @@ class AppDatabase extends _$AppDatabase {
           'your data from the newer version and re-import into a fresh install.',
         );
       }
+
+      // Idempotent column reconcile. Heals databases that reached the current
+      // schemaVersion under a *different* migration numbering — e.g. a dev DB
+      // migrated by an earlier unshipped branch that stamped v31 before these
+      // columns were renumbered. The version counter won't re-run migrations
+      // (from == to), so verify the expected columns exist and add any that
+      // are missing. No-op for correctly-migrated and fresh databases.
+      await _reconcileExpectedColumns();
     },
   );
+
+  /// Best-effort idempotent column reconcile run in [beforeOpen]. Adds columns
+  /// that should exist at the current schema but may be absent on databases
+  /// that reached this version through a divergent (unshipped) migration path.
+  Future<void> _reconcileExpectedColumns() async {
+    Future<void> ensure(String table, String column, String ddlType) async {
+      final cols = await customSelect('PRAGMA table_info($table)').get();
+      final names = cols.map((r) => r.read<String>('name')).toSet();
+      if (!names.contains(column)) {
+        await customStatement(
+          'ALTER TABLE $table ADD COLUMN $column $ddlType',
+        );
+      }
+    }
+
+    await ensure('media_attachments', 'member_id', "TEXT NOT NULL DEFAULT ''");
+    await ensure('media_attachments', 'tag', "TEXT NOT NULL DEFAULT ''");
+    await ensure(
+      'system_settings',
+      'members_show_groups',
+      'INTEGER NOT NULL DEFAULT 1 CHECK ("members_show_groups" IN (0, 1))',
+    );
+  }
 
   /// PK uniqueness indexes that are stable across v2 → v7.
   ///

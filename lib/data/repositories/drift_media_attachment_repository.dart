@@ -1,4 +1,6 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
 import 'package:prism_plurality/data/mappers/media_attachment_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
@@ -44,8 +46,100 @@ class DriftMediaAttachmentRepository
     await syncRecordDelete(_table, id);
   }
 
+  @override
+  Future<List<domain.MediaAttachment>> getForMember(String memberId) async {
+    final rows = await _dao.getForMember(memberId);
+    return rows.map(MediaAttachmentMapper.toDomain).toList();
+  }
+
+  @override
+  Stream<List<domain.MediaAttachment>> watchForMember(String memberId) =>
+      _dao.watchForMember(memberId).map(
+            (rows) => rows.map(MediaAttachmentMapper.toDomain).toList(),
+          );
+
+  @override
+  Stream<List<domain.MediaAttachment>> watchAllBioMedia() =>
+      _dao.watchAllBioMedia().map(
+            (rows) => rows.map(MediaAttachmentMapper.toDomain).toList(),
+          );
+
+  @override
+  Stream<List<domain.MediaAttachment>> watchAllChatMedia() =>
+      _dao.watchAllChatMedia().map(
+            (rows) => rows.map(MediaAttachmentMapper.toDomain).toList(),
+          );
+
+  @override
+  Stream<List<domain.MediaAttachment>> watchLibraryImages() =>
+      _dao.watchLibraryImages().map(
+            (rows) => rows.map(MediaAttachmentMapper.toDomain).toList(),
+          );
+
+  @override
+  Future<void> updateTag(String attachmentId, String tag) async {
+    await _dao.updateAttachment(
+      MediaAttachmentsCompanion(
+        id: Value(attachmentId),
+        tag: Value(tag),
+      ),
+    );
+    await syncRecordUpdate(_table, attachmentId, {
+      'tag': tag,
+    });
+  }
+
+  @override
+  Future<void> replaceMedia(
+    String attachmentId,
+    domain.MediaAttachment data,
+  ) async {
+    await _dao.updateAttachment(
+      MediaAttachmentsCompanion(
+        id: Value(attachmentId),
+        mediaId: Value(data.mediaId),
+        encryptionKeyB64: Value(data.encryptionKeyB64),
+        contentHash: Value(data.contentHash),
+        plaintextHash: Value(data.plaintextHash),
+        mimeType: Value(data.mimeType),
+        sizeBytes: Value(data.sizeBytes),
+        width: Value(data.width),
+        height: Value(data.height),
+        blurhash: Value(data.blurhash),
+        sourceUrl: Value(data.sourceUrl),
+      ),
+    );
+    await syncRecordUpdate(_table, attachmentId, {
+      'media_id': data.mediaId,
+      'encryption_key_b64': data.encryptionKeyB64,
+      'content_hash': data.contentHash,
+      'plaintext_hash': data.plaintextHash,
+      'mime_type': data.mimeType,
+      'size_bytes': data.sizeBytes,
+      'width': data.width,
+      'height': data.height,
+      'blurhash': data.blurhash,
+      'source_url': data.sourceUrl,
+    });
+  }
+
+  @override
+  Future<void> softDeleteBioMedia(String attachmentId) async {
+    await _dao.updateAttachment(
+      MediaAttachmentsCompanion(
+        id: Value(attachmentId),
+        isDeleted: const Value(true),
+      ),
+    );
+    await syncRecordUpdate(_table, attachmentId, {
+      'is_deleted': true,
+    });
+  }
+
   Map<String, dynamic> _attachmentFields(domain.MediaAttachment a) {
     return {
+      'member_id': a.memberId,
+      'tag': a.tag,
       'message_id': a.messageId,
       'media_id': a.mediaId,
       'media_type': a.mediaType,

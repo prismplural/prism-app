@@ -22775,6 +22775,28 @@ class $MediaAttachmentsTable extends MediaAttachments
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
+  static const VerificationMeta _memberIdMeta = const VerificationMeta(
+    'memberId',
+  );
+  @override
+  late final GeneratedColumn<String> memberId = GeneratedColumn<String>(
+    'member_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _tagMeta = const VerificationMeta('tag');
+  @override
+  late final GeneratedColumn<String> tag = GeneratedColumn<String>(
+    'tag',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _mediaIdMeta = const VerificationMeta(
     'mediaId',
   );
@@ -22970,6 +22992,8 @@ class $MediaAttachmentsTable extends MediaAttachments
   List<GeneratedColumn> get $columns => [
     id,
     messageId,
+    memberId,
+    tag,
     mediaId,
     mediaType,
     encryptionKeyB64,
@@ -23008,6 +23032,18 @@ class $MediaAttachmentsTable extends MediaAttachments
       context.handle(
         _messageIdMeta,
         messageId.isAcceptableOrUnknown(data['message_id']!, _messageIdMeta),
+      );
+    }
+    if (data.containsKey('member_id')) {
+      context.handle(
+        _memberIdMeta,
+        memberId.isAcceptableOrUnknown(data['member_id']!, _memberIdMeta),
+      );
+    }
+    if (data.containsKey('tag')) {
+      context.handle(
+        _tagMeta,
+        tag.isAcceptableOrUnknown(data['tag']!, _tagMeta),
       );
     }
     if (data.containsKey('media_id')) {
@@ -23138,6 +23174,14 @@ class $MediaAttachmentsTable extends MediaAttachments
         DriftSqlType.string,
         data['${effectivePrefix}message_id'],
       )!,
+      memberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}member_id'],
+      )!,
+      tag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tag'],
+      )!,
       mediaId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}media_id'],
@@ -23214,6 +23258,8 @@ class $MediaAttachmentsTable extends MediaAttachments
 class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
   final String id;
   final String messageId;
+  final String memberId;
+  final String tag;
   final String mediaId;
   final String mediaType;
   final String encryptionKeyB64;
@@ -23233,6 +23279,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
   const MediaAttachment({
     required this.id,
     required this.messageId,
+    required this.memberId,
+    required this.tag,
     required this.mediaId,
     required this.mediaType,
     required this.encryptionKeyB64,
@@ -23255,6 +23303,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['message_id'] = Variable<String>(messageId);
+    map['member_id'] = Variable<String>(memberId);
+    map['tag'] = Variable<String>(tag);
     map['media_id'] = Variable<String>(mediaId);
     map['media_type'] = Variable<String>(mediaType);
     map['encryption_key_b64'] = Variable<String>(encryptionKeyB64);
@@ -23278,6 +23328,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
     return MediaAttachmentsCompanion(
       id: Value(id),
       messageId: Value(messageId),
+      memberId: Value(memberId),
+      tag: Value(tag),
       mediaId: Value(mediaId),
       mediaType: Value(mediaType),
       encryptionKeyB64: Value(encryptionKeyB64),
@@ -23305,6 +23357,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
     return MediaAttachment(
       id: serializer.fromJson<String>(json['id']),
       messageId: serializer.fromJson<String>(json['messageId']),
+      memberId: serializer.fromJson<String>(json['memberId']),
+      tag: serializer.fromJson<String>(json['tag']),
       mediaId: serializer.fromJson<String>(json['mediaId']),
       mediaType: serializer.fromJson<String>(json['mediaType']),
       encryptionKeyB64: serializer.fromJson<String>(json['encryptionKeyB64']),
@@ -23329,6 +23383,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'messageId': serializer.toJson<String>(messageId),
+      'memberId': serializer.toJson<String>(memberId),
+      'tag': serializer.toJson<String>(tag),
       'mediaId': serializer.toJson<String>(mediaId),
       'mediaType': serializer.toJson<String>(mediaType),
       'encryptionKeyB64': serializer.toJson<String>(encryptionKeyB64),
@@ -23351,6 +23407,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
   MediaAttachment copyWith({
     String? id,
     String? messageId,
+    String? memberId,
+    String? tag,
     String? mediaId,
     String? mediaType,
     String? encryptionKeyB64,
@@ -23370,6 +23428,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
   }) => MediaAttachment(
     id: id ?? this.id,
     messageId: messageId ?? this.messageId,
+    memberId: memberId ?? this.memberId,
+    tag: tag ?? this.tag,
     mediaId: mediaId ?? this.mediaId,
     mediaType: mediaType ?? this.mediaType,
     encryptionKeyB64: encryptionKeyB64 ?? this.encryptionKeyB64,
@@ -23391,6 +23451,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
     return MediaAttachment(
       id: data.id.present ? data.id.value : this.id,
       messageId: data.messageId.present ? data.messageId.value : this.messageId,
+      memberId: data.memberId.present ? data.memberId.value : this.memberId,
+      tag: data.tag.present ? data.tag.value : this.tag,
       mediaId: data.mediaId.present ? data.mediaId.value : this.mediaId,
       mediaType: data.mediaType.present ? data.mediaType.value : this.mediaType,
       encryptionKeyB64: data.encryptionKeyB64.present
@@ -23429,6 +23491,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
     return (StringBuffer('MediaAttachment(')
           ..write('id: $id, ')
           ..write('messageId: $messageId, ')
+          ..write('memberId: $memberId, ')
+          ..write('tag: $tag, ')
           ..write('mediaId: $mediaId, ')
           ..write('mediaType: $mediaType, ')
           ..write('encryptionKeyB64: $encryptionKeyB64, ')
@@ -23453,6 +23517,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
   int get hashCode => Object.hash(
     id,
     messageId,
+    memberId,
+    tag,
     mediaId,
     mediaType,
     encryptionKeyB64,
@@ -23476,6 +23542,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
       (other is MediaAttachment &&
           other.id == this.id &&
           other.messageId == this.messageId &&
+          other.memberId == this.memberId &&
+          other.tag == this.tag &&
           other.mediaId == this.mediaId &&
           other.mediaType == this.mediaType &&
           other.encryptionKeyB64 == this.encryptionKeyB64 &&
@@ -23497,6 +23565,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
 class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
   final Value<String> id;
   final Value<String> messageId;
+  final Value<String> memberId;
+  final Value<String> tag;
   final Value<String> mediaId;
   final Value<String> mediaType;
   final Value<String> encryptionKeyB64;
@@ -23517,6 +23587,8 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
   const MediaAttachmentsCompanion({
     this.id = const Value.absent(),
     this.messageId = const Value.absent(),
+    this.memberId = const Value.absent(),
+    this.tag = const Value.absent(),
     this.mediaId = const Value.absent(),
     this.mediaType = const Value.absent(),
     this.encryptionKeyB64 = const Value.absent(),
@@ -23538,6 +23610,8 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
   MediaAttachmentsCompanion.insert({
     required String id,
     this.messageId = const Value.absent(),
+    this.memberId = const Value.absent(),
+    this.tag = const Value.absent(),
     this.mediaId = const Value.absent(),
     this.mediaType = const Value.absent(),
     this.encryptionKeyB64 = const Value.absent(),
@@ -23559,6 +23633,8 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
   static Insertable<MediaAttachment> custom({
     Expression<String>? id,
     Expression<String>? messageId,
+    Expression<String>? memberId,
+    Expression<String>? tag,
     Expression<String>? mediaId,
     Expression<String>? mediaType,
     Expression<String>? encryptionKeyB64,
@@ -23580,6 +23656,8 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (messageId != null) 'message_id': messageId,
+      if (memberId != null) 'member_id': memberId,
+      if (tag != null) 'tag': tag,
       if (mediaId != null) 'media_id': mediaId,
       if (mediaType != null) 'media_type': mediaType,
       if (encryptionKeyB64 != null) 'encryption_key_b64': encryptionKeyB64,
@@ -23603,6 +23681,8 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
   MediaAttachmentsCompanion copyWith({
     Value<String>? id,
     Value<String>? messageId,
+    Value<String>? memberId,
+    Value<String>? tag,
     Value<String>? mediaId,
     Value<String>? mediaType,
     Value<String>? encryptionKeyB64,
@@ -23624,6 +23704,8 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
     return MediaAttachmentsCompanion(
       id: id ?? this.id,
       messageId: messageId ?? this.messageId,
+      memberId: memberId ?? this.memberId,
+      tag: tag ?? this.tag,
       mediaId: mediaId ?? this.mediaId,
       mediaType: mediaType ?? this.mediaType,
       encryptionKeyB64: encryptionKeyB64 ?? this.encryptionKeyB64,
@@ -23652,6 +23734,12 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
     }
     if (messageId.present) {
       map['message_id'] = Variable<String>(messageId.value);
+    }
+    if (memberId.present) {
+      map['member_id'] = Variable<String>(memberId.value);
+    }
+    if (tag.present) {
+      map['tag'] = Variable<String>(tag.value);
     }
     if (mediaId.present) {
       map['media_id'] = Variable<String>(mediaId.value);
@@ -23712,6 +23800,8 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
     return (StringBuffer('MediaAttachmentsCompanion(')
           ..write('id: $id, ')
           ..write('messageId: $messageId, ')
+          ..write('memberId: $memberId, ')
+          ..write('tag: $tag, ')
           ..write('mediaId: $mediaId, ')
           ..write('mediaType: $mediaType, ')
           ..write('encryptionKeyB64: $encryptionKeyB64, ')
@@ -36105,6 +36195,8 @@ typedef $$MediaAttachmentsTableCreateCompanionBuilder =
     MediaAttachmentsCompanion Function({
       required String id,
       Value<String> messageId,
+      Value<String> memberId,
+      Value<String> tag,
       Value<String> mediaId,
       Value<String> mediaType,
       Value<String> encryptionKeyB64,
@@ -36127,6 +36219,8 @@ typedef $$MediaAttachmentsTableUpdateCompanionBuilder =
     MediaAttachmentsCompanion Function({
       Value<String> id,
       Value<String> messageId,
+      Value<String> memberId,
+      Value<String> tag,
       Value<String> mediaId,
       Value<String> mediaType,
       Value<String> encryptionKeyB64,
@@ -36162,6 +36256,16 @@ class $$MediaAttachmentsTableFilterComposer
 
   ColumnFilters<String> get messageId => $composableBuilder(
     column: $table.messageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tag => $composableBuilder(
+    column: $table.tag,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -36265,6 +36369,16 @@ class $$MediaAttachmentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tag => $composableBuilder(
+    column: $table.tag,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get mediaId => $composableBuilder(
     column: $table.mediaId,
     builder: (column) => ColumnOrderings(column),
@@ -36360,6 +36474,12 @@ class $$MediaAttachmentsTableAnnotationComposer
 
   GeneratedColumn<String> get messageId =>
       $composableBuilder(column: $table.messageId, builder: (column) => column);
+
+  GeneratedColumn<String> get memberId =>
+      $composableBuilder(column: $table.memberId, builder: (column) => column);
+
+  GeneratedColumn<String> get tag =>
+      $composableBuilder(column: $table.tag, builder: (column) => column);
 
   GeneratedColumn<String> get mediaId =>
       $composableBuilder(column: $table.mediaId, builder: (column) => column);
@@ -36463,6 +36583,8 @@ class $$MediaAttachmentsTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> messageId = const Value.absent(),
+                Value<String> memberId = const Value.absent(),
+                Value<String> tag = const Value.absent(),
                 Value<String> mediaId = const Value.absent(),
                 Value<String> mediaType = const Value.absent(),
                 Value<String> encryptionKeyB64 = const Value.absent(),
@@ -36483,6 +36605,8 @@ class $$MediaAttachmentsTableTableManager
               }) => MediaAttachmentsCompanion(
                 id: id,
                 messageId: messageId,
+                memberId: memberId,
+                tag: tag,
                 mediaId: mediaId,
                 mediaType: mediaType,
                 encryptionKeyB64: encryptionKeyB64,
@@ -36505,6 +36629,8 @@ class $$MediaAttachmentsTableTableManager
               ({
                 required String id,
                 Value<String> messageId = const Value.absent(),
+                Value<String> memberId = const Value.absent(),
+                Value<String> tag = const Value.absent(),
                 Value<String> mediaId = const Value.absent(),
                 Value<String> mediaType = const Value.absent(),
                 Value<String> encryptionKeyB64 = const Value.absent(),
@@ -36525,6 +36651,8 @@ class $$MediaAttachmentsTableTableManager
               }) => MediaAttachmentsCompanion.insert(
                 id: id,
                 messageId: messageId,
+                memberId: memberId,
+                tag: tag,
                 mediaId: mediaId,
                 mediaType: mediaType,
                 encryptionKeyB64: encryptionKeyB64,
