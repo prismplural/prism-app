@@ -4019,7 +4019,7 @@ abstract class AppLocalizations {
   /// Sheet title when adding a co-fronter to the active session
   ///
   /// In en, this message translates to:
-  /// **'Add Co-Fronter'**
+  /// **'Add Fronter'**
   String get frontingAddCoFronterTitle;
 
   /// Tooltip and semantics label for confirming a new fronting session
@@ -4031,7 +4031,7 @@ abstract class AppLocalizations {
   /// Tooltip and semantics label for confirming a new co-front session
   ///
   /// In en, this message translates to:
-  /// **'Add co-fronter'**
+  /// **'Add fronter'**
   String get frontingAddCoFronterTooltip;
 
   /// Section header when selecting the primary fronter
@@ -4043,7 +4043,7 @@ abstract class AppLocalizations {
   /// Add-front sheet segmented control: additive mode (joins existing fronts)
   ///
   /// In en, this message translates to:
-  /// **'Add as co-fronter'**
+  /// **'Add as fronter'**
   String get frontingAddFrontModeAdditive;
 
   /// Add-front sheet segmented control: replace mode (ends existing fronts, starts new)
@@ -4061,13 +4061,13 @@ abstract class AppLocalizations {
   /// Toggle label to switch between new session and co-front mode
   ///
   /// In en, this message translates to:
-  /// **'Co-front'**
+  /// **'Add fronter'**
   String get frontingCoFrontToggle;
 
   /// Section header for co-fronter selection in add session sheet
   ///
   /// In en, this message translates to:
-  /// **'Co-Fronters'**
+  /// **'Fronters'**
   String get frontingCoFronters;
 
   /// Empty state when no other members are available to add as co-fronters
@@ -4079,7 +4079,7 @@ abstract class AppLocalizations {
   /// Hint text shown in co-front mode on the add session sheet
   ///
   /// In en, this message translates to:
-  /// **'Tap a {term} to add them to the co-front of the current session.'**
+  /// **'Tap a {term} to add them to the current front.'**
   String frontingCoFrontHint(String term);
 
   /// Section header for confidence level picker
@@ -4145,7 +4145,7 @@ abstract class AppLocalizations {
   /// Error toast when adding a co-fronter fails
   ///
   /// In en, this message translates to:
-  /// **'Error adding co-fronter: {error}'**
+  /// **'Error adding fronter: {error}'**
   String frontingErrorAddingCoFronter(Object error);
 
   /// Error toast when creating a fronting session fails
@@ -4157,13 +4157,13 @@ abstract class AppLocalizations {
   /// Header title on the add co-fronters bottom sheet
   ///
   /// In en, this message translates to:
-  /// **'Add Co-Fronters'**
+  /// **'Add Fronters'**
   String get frontingAddCoFrontersTitle;
 
   /// Error toast when adding co-fronters fails
   ///
   /// In en, this message translates to:
-  /// **'Error adding co-fronters: {error}'**
+  /// **'Error adding fronters: {error}'**
   String frontingErrorAddingCoFronters(Object error);
 
   /// Title on the edit fronting session screen
@@ -4313,7 +4313,7 @@ abstract class AppLocalizations {
   /// Section header for the co-fronters list on the period detail screen.
   ///
   /// In en, this message translates to:
-  /// **'Co-fronters'**
+  /// **'Fronters'**
   String get frontingPeriodCoFrontersTitle;
 
   /// Section header for brief visitors on the period detail screen.
@@ -4459,7 +4459,7 @@ abstract class AppLocalizations {
   /// Section header for co-fronters in session detail
   ///
   /// In en, this message translates to:
-  /// **'Co-Fronters'**
+  /// **'Fronters'**
   String get frontingCoFrontersSection;
 
   /// Headline on the active sleep mode card
@@ -4765,13 +4765,13 @@ abstract class AppLocalizations {
   /// Overlap resolution option: create co-fronting session
   ///
   /// In en, this message translates to:
-  /// **'Create co-fronting session'**
+  /// **'Create overlapping fronts'**
   String get frontingOverlapCoFrontOption;
 
   /// Subtitle for co-fronting overlap resolution option
   ///
   /// In en, this message translates to:
-  /// **'Split the overlapping time into shared co-fronting segments.'**
+  /// **'Split the overlapping time into shared fronting segments.'**
   String get frontingOverlapCoFrontSubtitle;
 
   /// Confirmation dialog title when trimming would delete a session entirely
@@ -6034,7 +6034,7 @@ abstract class AppLocalizations {
   /// Confirmation dialog body when fronting multiple members in a group
   ///
   /// In en, this message translates to:
-  /// **'This will start a co-front session with {count} {termForCount}.'**
+  /// **'This will start fronting for {count} {termForCount}.'**
   String memberGroupFrontGroupConfirmMessage(int count, String termForCount);
 
   /// No description provided for @memberGroupFrontGroupSemantics.
@@ -8754,7 +8754,7 @@ abstract class AppLocalizations {
   /// Selected-state explanation for the combined Home fronting view mode
   ///
   /// In en, this message translates to:
-  /// **'Groups matching co-fronts into one combined period.'**
+  /// **'Groups overlapping fronts into one combined period.'**
   String get onboardingFrontingViewCombinedDescription;
 
   /// Selected-state explanation for the individual Home fronting view mode
@@ -8814,7 +8814,7 @@ abstract class AppLocalizations {
   /// Selected-state explanation for additive fronting behavior
   ///
   /// In en, this message translates to:
-  /// **'Keeps everyone currently fronting and adds the new member as a co-fronter.'**
+  /// **'Keeps everyone currently fronting and adds the new member as a fronter.'**
   String get onboardingFrontBehaviorAdditiveDescription;
 
   /// Selected-state explanation for replace fronting behavior
@@ -14838,7 +14838,7 @@ abstract class AppLocalizations {
   /// Option label to co-front with both Prism and PluralKit fronters
   ///
   /// In en, this message translates to:
-  /// **'Co-front (both)'**
+  /// **'Use both'**
   String get pluralkitWhosFrontingCofront;
 
   /// Card action label to set the listed members as fronting
@@ -15258,7 +15258,7 @@ abstract class AppLocalizations {
   /// Smart-default reason: CF only appears as co-fronter
   ///
   /// In en, this message translates to:
-  /// **'Only used as co-fronter'**
+  /// **'Only used as fronter'**
   String get migrationCfReasonCoFronterOnly;
 
   /// Smart-default reason: CF dominates as primary
@@ -15276,7 +15276,7 @@ abstract class AppLocalizations {
   /// Per-CF usage summary: primary / co-fronter / timer counts
   ///
   /// In en, this message translates to:
-  /// **'{primary, plural, =0{Never primary} =1{1 primary} other{{primary} primary}} · {coFront, plural, =0{0 co-front} =1{1 co-front} other{{coFront} co-front}} · {timers, plural, =0{0 timers} =1{1 timer} other{{timers} timers}}'**
+  /// **'{primary, plural, =0{Never primary} =1{1 primary} other{{primary} primary}} · {coFront, plural, =0{0 overlaps} =1{1 overlap} other{{coFront} overlaps}} · {timers, plural, =0{0 timers} =1{1 timer} other{{timers} timers}}'**
   String migrationCfUsageSummary(int primary, int coFront, int timers);
 
   /// Import-preview card summary of the chosen custom-front dispositions
@@ -15293,19 +15293,19 @@ abstract class AppLocalizations {
   /// Warning: sessions dropped because their primary was a skipped CF and nothing could be promoted
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 front-history entry dropped (primary was a skipped custom front with no co-fronters).} other{{count} front-history entries dropped (primary was a skipped custom front with no co-fronters).}}'**
+  /// **'{count, plural, =1{1 front-history entry dropped (primary was a skipped custom front with no fronters).} other{{count} front-history entries dropped (primary was a skipped custom front with no fronters).}}'**
   String migrationWarnCfDroppedEntries(int count);
 
   /// Warning: sleep-converted sessions had co-fronters dropped
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 sleep-mode session had co-fronters that were discarded.} other{{count} sleep-mode sessions had co-fronters that were discarded.}}'**
+  /// **'{count, plural, =1{1 sleep-mode session had fronters that were discarded.} other{{count} sleep-mode sessions had fronters that were discarded.}}'**
   String migrationWarnCfSleepCoFrontersDiscarded(int count);
 
   /// Warning: sleep CF in co-fronter list preserved as note
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 front session had a sleep custom front as co-fronter, preserved as note only.} other{{count} front sessions had a sleep custom front as co-fronter, preserved as note only.}}'**
+  /// **'{count, plural, =1{1 front session had a sleep custom front as fronter, preserved as note only.} other{{count} front sessions had a sleep custom front as fronter, preserved as note only.}}'**
   String migrationWarnCfSleepCoFronterAsNote(int count);
 
   /// Warning: sleep sessions overlap existing/other sessions
@@ -15365,7 +15365,7 @@ abstract class AppLocalizations {
   /// Intro screen body explaining the upgrade
   ///
   /// In en, this message translates to:
-  /// **'Co-fronting now uses one record per {termSingularLower} instead of one shared record. This makes overlaps, edits, and analytics work correctly. We\'ll save a backup of your current data first, then run the upgrade.'**
+  /// **'Overlapping fronts now use one record per {termSingularLower} instead of one shared record. This makes overlaps, edits, and analytics work correctly. We\'ll save a backup of your current data first, then run the upgrade.'**
   String frontingUpgradeIntroBody(String termSingularLower);
 
   /// Primary continue button on the intro screen
@@ -15539,7 +15539,7 @@ abstract class AppLocalizations {
   /// Success counter: native rows fanned out
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{Expanded 1 co-fronting period into per-{termSingularLower} records.} other{Expanded {count} co-fronting periods into per-{termSingularLower} records.}}'**
+  /// **'{count, plural, =1{Expanded 1 overlapping period into per-{termSingularLower} records.} other{Expanded {count} overlapping periods into per-{termSingularLower} records.}}'**
   String frontingUpgradeCountNativeExpanded(
     int count,
     String termSingularLower,
@@ -15575,7 +15575,7 @@ abstract class AppLocalizations {
   /// Success counter: rows whose co_fronter_ids JSON failed to parse and were migrated as single-member fallback
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 session had unreadable co-fronter data and was migrated as single-{termSingularLower}.} other{{count} sessions had unreadable co-fronter data and were migrated as single-{termSingularLower}.}}'**
+  /// **'{count, plural, =1{1 session had unreadable fronter data and was migrated as single-{termSingularLower}.} other{{count} sessions had unreadable fronter data and were migrated as single-{termSingularLower}.}}'**
   String frontingUpgradeCountCorruptCoFronters(
     int count,
     String termSingularLower,
@@ -15590,7 +15590,7 @@ abstract class AppLocalizations {
   /// One-line FYI shown on the upgrade success screen explaining the analytics relabel from 'fronting time' to '{term}-minutes' (e.g., 'member-minutes', 'headmate-minutes').
   ///
   /// In en, this message translates to:
-  /// **'Analytics are now framed as {term}-minutes — when two of you co-front for an hour, that\'s two {term}-hours. Same math as before, clearer label.'**
+  /// **'Analytics are now framed as {term}-minutes — when two of you are fronting at once for an hour, that\'s two {term}-hours. Same math as before, clearer label.'**
   String frontingUpgradeAnalyticsNote(String term);
 
   /// Re-pair guidance for primary devices
@@ -15902,7 +15902,7 @@ abstract class AppLocalizations {
   /// Option label: starting a new front leaves any existing fronts in place; the new member joins as a co-fronter.
   ///
   /// In en, this message translates to:
-  /// **'Add as co-fronter'**
+  /// **'Add as fronter'**
   String get settingsAddFrontDefaultBehaviorAdditive;
 
   /// Option subtitle for the additive add-front default behavior.
@@ -15944,7 +15944,7 @@ abstract class AppLocalizations {
   /// Option label: quick front leaves existing fronts in place; the tapped member joins as a co-fronter.
   ///
   /// In en, this message translates to:
-  /// **'Add as co-fronter'**
+  /// **'Add as fronter'**
   String get settingsQuickFrontDefaultBehaviorAdditive;
 
   /// Option label: quick front ends all existing fronts before the tapped member begins.

@@ -2266,19 +2266,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingLogPastSession => 'Log Past Session';
 
   @override
-  String get frontingAddCoFronterTitle => 'Add Co-Fronter';
+  String get frontingAddCoFronterTitle => 'Add Fronter';
 
   @override
   String get frontingStartSessionTooltip => 'Start session';
 
   @override
-  String get frontingAddCoFronterTooltip => 'Add co-fronter';
+  String get frontingAddCoFronterTooltip => 'Add fronter';
 
   @override
   String get frontingSelectFronter => 'Select Fronter';
 
   @override
-  String get frontingAddFrontModeAdditive => 'Add as co-fronter';
+  String get frontingAddFrontModeAdditive => 'Add as fronter';
 
   @override
   String get frontingAddFrontModeReplace => 'Replace current';
@@ -2289,10 +2289,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get frontingCoFrontToggle => 'Co-front';
+  String get frontingCoFrontToggle => 'Add fronter';
 
   @override
-  String get frontingCoFronters => 'Co-Fronters';
+  String get frontingCoFronters => 'Fronters';
 
   @override
   String frontingNoOtherMembers(String term) {
@@ -2301,7 +2301,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String frontingCoFrontHint(String term) {
-    return 'Tap a $term to add them to the co-front of the current session.';
+    return 'Tap a $term to add them to the current front.';
   }
 
   @override
@@ -2340,7 +2340,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String frontingErrorAddingCoFronter(Object error) {
-    return 'Error adding co-fronter: $error';
+    return 'Error adding fronter: $error';
   }
 
   @override
@@ -2349,11 +2349,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get frontingAddCoFrontersTitle => 'Add Co-Fronters';
+  String get frontingAddCoFrontersTitle => 'Add Fronters';
 
   @override
   String frontingErrorAddingCoFronters(Object error) {
-    return 'Error adding co-fronters: $error';
+    return 'Error adding fronters: $error';
   }
 
   @override
@@ -2444,7 +2444,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingPeriodMemberUnknown => 'Unknown';
 
   @override
-  String get frontingPeriodCoFrontersTitle => 'Co-fronters';
+  String get frontingPeriodCoFrontersTitle => 'Fronters';
 
   @override
   String get frontingPeriodBrieflyJoinedTitle => 'Briefly joined';
@@ -2540,7 +2540,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingNotesSection => 'Notes';
 
   @override
-  String get frontingCoFrontersSection => 'Co-Fronters';
+  String get frontingCoFrontersSection => 'Fronters';
 
   @override
   String get frontingSleepingLabel => 'Sleeping';
@@ -2732,11 +2732,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'Shorten or remove sessions that conflict with your edit.';
 
   @override
-  String get frontingOverlapCoFrontOption => 'Create co-fronting session';
+  String get frontingOverlapCoFrontOption => 'Create overlapping fronts';
 
   @override
   String get frontingOverlapCoFrontSubtitle =>
-      'Split the overlapping time into shared co-fronting segments.';
+      'Split the overlapping time into shared fronting segments.';
 
   @override
   String get frontingOverlapRemoveSessionTitle => 'Remove Session';
@@ -3514,7 +3514,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String memberGroupFrontGroupConfirmMessage(int count, String termForCount) {
-    return 'This will start a co-front session with $count $termForCount.';
+    return 'This will start fronting for $count $termForCount.';
   }
 
   @override
@@ -5161,7 +5161,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingFrontingViewCombinedDescription =>
-      'Groups matching co-fronts into one combined period.';
+      'Groups overlapping fronts into one combined period.';
 
   @override
   String get onboardingFrontingViewIndividualDescription =>
@@ -5197,7 +5197,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingFrontBehaviorAdditiveDescription =>
-      'Keeps everyone currently fronting and adds the new member as a co-fronter.';
+      'Keeps everyone currently fronting and adds the new member as a fronter.';
 
   @override
   String get onboardingFrontBehaviorReplaceDescription =>
@@ -9087,7 +9087,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pluralkitWhosFrontingUsePk => 'Use PluralKit\'s';
 
   @override
-  String get pluralkitWhosFrontingCofront => 'Co-front (both)';
+  String get pluralkitWhosFrontingCofront => 'Use both';
 
   @override
   String pluralkitWhosFrontingSetMembers(String names) {
@@ -9337,7 +9337,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Never used in front history or timers';
 
   @override
-  String get migrationCfReasonCoFronterOnly => 'Only used as co-fronter';
+  String get migrationCfReasonCoFronterOnly => 'Only used as fronter';
 
   @override
   String get migrationCfReasonPrimaryHeavy => 'Used mostly as primary fronter';
@@ -9358,9 +9358,9 @@ class AppLocalizationsEn extends AppLocalizations {
     String _temp1 = intl.Intl.pluralLogic(
       coFront,
       locale: localeName,
-      other: '$coFront co-front',
-      one: '1 co-front',
-      zero: '0 co-front',
+      other: '$coFront overlaps',
+      one: '1 overlap',
+      zero: '0 overlaps',
     );
     String _temp2 = intl.Intl.pluralLogic(
       timers,
@@ -9412,9 +9412,9 @@ class AppLocalizationsEn extends AppLocalizations {
       count,
       locale: localeName,
       other:
-          '$count front-history entries dropped (primary was a skipped custom front with no co-fronters).',
+          '$count front-history entries dropped (primary was a skipped custom front with no fronters).',
       one:
-          '1 front-history entry dropped (primary was a skipped custom front with no co-fronters).',
+          '1 front-history entry dropped (primary was a skipped custom front with no fronters).',
     );
     return '$_temp0';
   }
@@ -9424,8 +9424,8 @@ class AppLocalizationsEn extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count sleep-mode sessions had co-fronters that were discarded.',
-      one: '1 sleep-mode session had co-fronters that were discarded.',
+      other: '$count sleep-mode sessions had fronters that were discarded.',
+      one: '1 sleep-mode session had fronters that were discarded.',
     );
     return '$_temp0';
   }
@@ -9436,9 +9436,9 @@ class AppLocalizationsEn extends AppLocalizations {
       count,
       locale: localeName,
       other:
-          '$count front sessions had a sleep custom front as co-fronter, preserved as note only.',
+          '$count front sessions had a sleep custom front as fronter, preserved as note only.',
       one:
-          '1 front session had a sleep custom front as co-fronter, preserved as note only.',
+          '1 front session had a sleep custom front as fronter, preserved as note only.',
     );
     return '$_temp0';
   }
@@ -9538,7 +9538,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String frontingUpgradeIntroBody(String termSingularLower) {
-    return 'Co-fronting now uses one record per $termSingularLower instead of one shared record. This makes overlaps, edits, and analytics work correctly. We\'ll save a backup of your current data first, then run the upgrade.';
+    return 'Overlapping fronts now use one record per $termSingularLower instead of one shared record. This makes overlaps, edits, and analytics work correctly. We\'ll save a backup of your current data first, then run the upgrade.';
   }
 
   @override
@@ -9659,8 +9659,8 @@ class AppLocalizationsEn extends AppLocalizations {
       count,
       locale: localeName,
       other:
-          'Expanded $count co-fronting periods into per-$termSingularLower records.',
-      one: 'Expanded 1 co-fronting period into per-$termSingularLower records.',
+          'Expanded $count overlapping periods into per-$termSingularLower records.',
+      one: 'Expanded 1 overlapping period into per-$termSingularLower records.',
     );
     return '$_temp0';
   }
@@ -9718,9 +9718,9 @@ class AppLocalizationsEn extends AppLocalizations {
       count,
       locale: localeName,
       other:
-          '$count sessions had unreadable co-fronter data and were migrated as single-$termSingularLower.',
+          '$count sessions had unreadable fronter data and were migrated as single-$termSingularLower.',
       one:
-          '1 session had unreadable co-fronter data and was migrated as single-$termSingularLower.',
+          '1 session had unreadable fronter data and was migrated as single-$termSingularLower.',
     );
     return '$_temp0';
   }
@@ -9731,7 +9731,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String frontingUpgradeAnalyticsNote(String term) {
-    return 'Analytics are now framed as $term-minutes — when two of you co-front for an hour, that\'s two $term-hours. Same math as before, clearer label.';
+    return 'Analytics are now framed as $term-minutes — when two of you are fronting at once for an hour, that\'s two $term-hours. Same math as before, clearer label.';
   }
 
   @override
@@ -9934,7 +9934,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAddFrontDefaultBehaviorLabel => 'When adding a new front';
 
   @override
-  String get settingsAddFrontDefaultBehaviorAdditive => 'Add as co-fronter';
+  String get settingsAddFrontDefaultBehaviorAdditive => 'Add as fronter';
 
   @override
   String get settingsAddFrontDefaultBehaviorAdditiveDescription =>
@@ -9960,7 +9960,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'After 7 days, show active fronts in the pinned header without marking them Always fronting or hiding them from history.';
 
   @override
-  String get settingsQuickFrontDefaultBehaviorAdditive => 'Add as co-fronter';
+  String get settingsQuickFrontDefaultBehaviorAdditive => 'Add as fronter';
 
   @override
   String get settingsQuickFrontDefaultBehaviorReplace =>

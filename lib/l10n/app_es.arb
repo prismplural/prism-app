@@ -660,15 +660,15 @@
   "frontingSessionTimeStartNow": "Empezar ahora",
   "frontingSessionTimePastSession": "Sesión pasada",
   "frontingLogPastSession": "Registrar sesión pasada",
-  "frontingAddCoFronterTitle": "Agregar al co-frente",
+  "frontingAddCoFronterTitle": "Agregar al frente",
   "frontingStartSessionTooltip": "Iniciar sesión",
-  "frontingAddCoFronterTooltip": "Agregar cofronter",
+  "frontingAddCoFronterTooltip": "Agregar al frente",
   "frontingSelectFronter": "Seleccionar quien está al frente",
   "frontingSelectMember": "Seleccionar {term}",
-  "frontingCoFrontToggle": "Co-frente",
-  "frontingCoFronters": "Co-frente",
+  "frontingCoFrontToggle": "Agregar al frente",
+  "frontingCoFronters": "Al frente",
   "frontingNoOtherMembers": "No hay otros {term} disponibles",
-  "frontingCoFrontHint": "Toca un {term} para agregarlo al co-frente de la sesión actual.",
+  "frontingCoFrontHint": "Toca un {term} para agregarlo al frente actual.",
   "frontingConfidenceLevel": "Nivel de confianza",
   "frontingConfidenceUnsure": "Inseguro",
   "frontingConfidenceStrong": "Fuerte",
@@ -679,10 +679,10 @@
   "frontingSearchMembersHint": "Buscar {term}...",
   "frontingNoMembersMatching": "Sin {term} que coincidan con \"{query}\"",
   "frontingFronting": "Al frente",
-  "frontingErrorAddingCoFronter": "Error al agregar al co-frente: {error}",
+  "frontingErrorAddingCoFronter": "Error al agregar al frente: {error}",
   "frontingErrorCreatingSession": "Error al crear la sesión: {error}",
-  "frontingAddCoFrontersTitle": "Agregar al co-frente",
-  "frontingErrorAddingCoFronters": "Error al agregar al co-frente: {error}",
+  "frontingAddCoFrontersTitle": "Agregar al frente",
+  "frontingErrorAddingCoFronters": "Error al agregar al frente: {error}",
   "frontingEditSessionTitle": "Editar sesión",
   "frontingSaveSession": "Guardar sesión",
   "frontingSessionNotFound": "Sesión no encontrada",
@@ -700,7 +700,7 @@
   "frontingSessionDetailDeleteTooltip": "Eliminar",
   "frontingPeriodOngoing": "en curso",
   "frontingPeriodMemberUnknown": "Desconocido",
-  "frontingPeriodCoFrontersTitle": "Co-frentes",
+  "frontingPeriodCoFrontersTitle": "Al frente",
   "frontingPeriodBrieflyJoinedTitle": "Se unió brevemente",
   "frontingPeriodAlwaysPresentTitle": "Siempre presente",
   "frontingPeriodBriefVisitSubtitle": "se unió por {dur} a las {start}",
@@ -722,7 +722,7 @@
   "frontingTimeSection": "Tiempo",
   "frontingConfidenceSection": "Confianza",
   "frontingNotesSection": "Notas",
-  "frontingCoFrontersSection": "Co-frente",
+  "frontingCoFrontersSection": "Al frente",
   "frontingSleepingLabel": "Durmiendo",
   "frontingSleepSince": "Desde las {time}",
   "frontingWakeUp": "Despertar",
@@ -773,8 +773,8 @@
   "frontingOverlapTitle": "{count, plural, =1{Superposición con 1 sesión} other{Superposición con {count} sesiones}}",
   "frontingOverlapTrimOption": "Recortar sesiones superpuestas",
   "frontingOverlapTrimSubtitle": "Acortar o eliminar sesiones que entran en conflicto con tu edición.",
-  "frontingOverlapCoFrontOption": "Crear sesión de co-frente",
-  "frontingOverlapCoFrontSubtitle": "Dividir el tiempo superpuesto en segmentos compartidos de co-frente.",
+  "frontingOverlapCoFrontOption": "Crear frentes superpuestos",
+  "frontingOverlapCoFrontSubtitle": "Dividir el tiempo superpuesto en segmentos de frente compartidos.",
   "frontingOverlapRemoveSessionTitle": "Eliminar sesión",
   "frontingOverlapRemoveSessionMessage": "Esto eliminaría completamente una sesión. ¿Continuar?",
   "frontingOverlapContinue": "Continuar",
@@ -981,7 +981,7 @@
   "memberGroupFrontAllInactive": "{termPluralLower} de {name} están inactivos. ¿Frente de todos modos?",
   "memberGroupFrontGroup": "Frente como grupo",
   "memberGroupFrontGroupConfirmTitle": "¿Frente como {name}?",
-  "memberGroupFrontGroupConfirmMessage": "Se iniciará una sesión de co-frente con {count} {termForCount}.",
+  "memberGroupFrontGroupConfirmMessage": "Se pondrá al frente a {count} {termForCount}.",
   "memberGroupFrontGroupSemantics": "Frente a {termPluralLower} de {name}",
   "memberGroupFrontSomeAlreadyFronting": "{count} {termForCount} ya al frente. ¿Añadir les {remaining} restantes?",
   "memberGroupManageNoGroups": "Aún no hay grupos",
@@ -1442,7 +1442,7 @@
   "onboardingQuickFrontBehaviorDescription": "Elige qué pasa cuando mantienes presionado un botón de frente rápido para un {termSingularLower} que aún no está al frente.",
   "onboardingFrontBehaviorAdditive": "Agregar",
   "onboardingFrontBehaviorReplace": "Reemplazar",
-  "onboardingFrontBehaviorAdditiveDescription": "Mantiene a quienes ya están al frente y agrega al nuevo integrante como cofronter.",
+  "onboardingFrontBehaviorAdditiveDescription": "Mantiene a quienes ya están al frente y agrega al nuevo integrante al frente.",
   "onboardingFrontBehaviorReplaceDescription": "Termina el frente actual primero y luego inicia al nuevo integrante.",
   "onboardingAppearanceTheme": "Tema",
   "onboardingPreferencesTerminology": "Terminología",
@@ -2417,7 +2417,7 @@
   "pluralkitWhosFrontingDecideLater": "Decidir luego",
   "pluralkitWhosFrontingUsePrism": "Usar el de Prism",
   "pluralkitWhosFrontingUsePk": "Usar el de PluralKit",
-  "pluralkitWhosFrontingCofront": "Co-frente (ambos)",
+  "pluralkitWhosFrontingCofront": "Usar ambos",
   "pluralkitWhosFrontingSetMembers": "Marcar a {names} al frente",
   "pluralkitWhosFrontingKeepMembers": "Mantener a {names} al frente",
   "pluralkitWhosFrontingNoneFronting": "Dejar sin nadie al frente",
@@ -2487,10 +2487,10 @@
   "migrationCfOptionSkipDesc": "Sin integrante y sin nota. Las sesiones sin otro fronter se descartan.",
   "migrationCfReasonSleepName": "El nombre coincide con palabras clave de sueño",
   "migrationCfReasonZeroUsage": "Nunca se usa en el historial al frente ni en temporizadores",
-  "migrationCfReasonCoFronterOnly": "Solo se usa como co-fronter",
+  "migrationCfReasonCoFronterOnly": "Solo se usa al frente",
   "migrationCfReasonPrimaryHeavy": "Se usa principalmente como fronter primario",
   "migrationCfReasonFallback": "Uso variado — lo más seguro es conservarlo como nota",
-  "migrationCfUsageSummary": "{primary, plural, =0{Nunca primario} =1{1 primario} other{{primary} primarios}} · {coFront, plural, =0{0 co-front} =1{1 co-front} other{{coFront} co-front}} · {timers, plural, =0{0 temporizadores} =1{1 temporizador} other{{timers} temporizadores}}",
+  "migrationCfUsageSummary": "{primary, plural, =0{Nunca primario} =1{1 primario} other{{primary} primarios}} · {coFront, plural, =0{0 solapamientos} =1{1 solapamiento} other{{coFront} solapamientos}} · {timers, plural, =0{0 temporizadores} =1{1 temporizador} other{{timers} temporizadores}}",
   "@migrationCfUsageSummary": {
     "placeholders": {
       "primary": {
@@ -2521,7 +2521,7 @@
       }
     }
   },
-  "migrationWarnCfDroppedEntries": "{count, plural, =1{Se descartó 1 entrada del historial al frente (el principal era un frente personalizado omitido sin co-fronters).} other{Se descartaron {count} entradas del historial al frente (el principal era un frente personalizado omitido sin co-fronters).}}",
+  "migrationWarnCfDroppedEntries": "{count, plural, =1{Se descartó 1 entrada del historial al frente (el principal era un frente personalizado omitido sin nadie más al frente).} other{Se descartaron {count} entradas del historial al frente (el principal era un frente personalizado omitido sin nadie más al frente).}}",
   "@migrationWarnCfDroppedEntries": {
     "placeholders": {
       "count": {
@@ -2529,7 +2529,7 @@
       }
     }
   },
-  "migrationWarnCfSleepCoFrontersDiscarded": "{count, plural, =1{1 sesión en modo sueño tenía co-fronters que fueron descartados.} other{{count} sesiones en modo sueño tenían co-fronters que fueron descartados.}}",
+  "migrationWarnCfSleepCoFrontersDiscarded": "{count, plural, =1{1 sesión en modo sueño tenía integrantes al frente que fueron descartados.} other{{count} sesiones en modo sueño tenían integrantes al frente que fueron descartados.}}",
   "@migrationWarnCfSleepCoFrontersDiscarded": {
     "placeholders": {
       "count": {
@@ -2537,7 +2537,7 @@
       }
     }
   },
-  "migrationWarnCfSleepCoFronterAsNote": "{count, plural, =1{1 sesión al frente tenía un frente personalizado de sueño como co-fronter; se conservó solo como nota.} other{{count} sesiones al frente tenían un frente personalizado de sueño como co-fronter; se conservaron solo como nota.}}",
+  "migrationWarnCfSleepCoFronterAsNote": "{count, plural, =1{1 sesión al frente tenía un frente personalizado de sueño al frente; se conservó solo como nota.} other{{count} sesiones al frente tenían un frente personalizado de sueño al frente; se conservaron solo como nota.}}",
   "@migrationWarnCfSleepCoFronterAsNote": {
     "placeholders": {
       "count": {
@@ -2609,7 +2609,7 @@
   "@frontingUpgradeIntroHeadline": {
     "description": "Intro screen headline"
   },
-  "frontingUpgradeIntroBody": "El co-frente ahora usa un registro por {termSingularLower} en lugar de un único registro compartido. Esto hace que los solapamientos, las ediciones y las estadísticas funcionen correctamente. Primero guardaremos una copia de seguridad de tus datos actuales y luego haremos la actualización.",
+  "frontingUpgradeIntroBody": "Los frentes superpuestos ahora usan un registro por {termSingularLower} en lugar de un único registro compartido. Esto hace que los solapamientos, las ediciones y las estadísticas funcionen correctamente. Primero guardaremos una copia de seguridad de tus datos actuales y luego haremos la actualización.",
   "@frontingUpgradeIntroBody": {
     "description": "Intro screen body explaining the upgrade"
   },
@@ -2735,7 +2735,7 @@
       }
     }
   },
-  "frontingUpgradeCountNativeExpanded": "{count, plural, =1{Se expandió 1 periodo de co-frente en registros por {termSingularLower}.} other{Se expandieron {count} periodos de co-frente en registros por {termSingularLower}.}}",
+  "frontingUpgradeCountNativeExpanded": "{count, plural, =1{Se expandió 1 periodo superpuesto en registros por {termSingularLower}.} other{Se expandieron {count} periodos superpuestos en registros por {termSingularLower}.}}",
   "@frontingUpgradeCountNativeExpanded": {
     "description": "Success counter: native rows fanned out",
     "placeholders": {
@@ -2775,7 +2775,7 @@
   "@frontingUpgradeCountSentinelCreated": {
     "description": "Success counter: sentinel was created"
   },
-  "frontingUpgradeCountCorruptCoFronters": "{count, plural, =1{1 sesión tenía datos de co-frente ilegibles y se migró como de {termSingularLower} único.} other{{count} sesiones tenían datos de co-frente ilegibles y se migraron como de {termSingularLower} único.}}",
+  "frontingUpgradeCountCorruptCoFronters": "{count, plural, =1{1 sesión tenía datos de frente ilegibles y se migró como de {termSingularLower} único.} other{{count} sesiones tenían datos de frente ilegibles y se migraron como de {termSingularLower} único.}}",
   "@frontingUpgradeCountCorruptCoFronters": {
     "description": "Success counter: rows whose co_fronter_ids JSON failed to parse and were migrated as single-member fallback",
     "placeholders": {
@@ -2788,7 +2788,7 @@
   "@frontingUpgradeIntroPendingSyncWarning": {
     "description": "Warning shown on the upgrade modal's intro screen — the sync state wipe clears pending_ops, so any local writes that haven't been pushed yet will only exist on this device after the upgrade."
   },
-  "frontingUpgradeAnalyticsNote": "Las estadísticas ahora se muestran como minutos por {term} — si dos de ustedes están en co-frente durante una hora, eso son dos horas-{term}. La misma cuenta de antes, con una etiqueta más clara.",
+  "frontingUpgradeAnalyticsNote": "Las estadísticas ahora se muestran como minutos por {term} — si dos de ustedes están al frente a la vez durante una hora, eso son dos horas-{term}. La misma cuenta de antes, con una etiqueta más clara.",
   "@frontingUpgradeAnalyticsNote": {
     "description": "One-line FYI shown on the upgrade success screen explaining the analytics relabel from 'fronting time' to 'member-minutes'."
   },
@@ -2956,7 +2956,7 @@
       }
     }
   },
-  "frontingAddFrontModeAdditive": "Agregar al co-frente",
+  "frontingAddFrontModeAdditive": "Agregar al frente",
   "frontingAddFrontModeReplace": "Reemplazar actual",
   "settingsFrontingSessionDisplaySectionTitle": "Visualización de sesiones y comportamiento del frente",
   "settingsFrontingListViewModeLabel": "Vista de la lista de sesiones",
@@ -2967,14 +2967,14 @@
   "settingsFrontingListViewModeTimeline": "Cronología",
   "settingsFrontingListViewModeTimelineDescription": "Vista de gráfico de barras del frente a lo largo del tiempo",
   "settingsAddFrontDefaultBehaviorLabel": "Al agregar un nuevo frente",
-  "settingsAddFrontDefaultBehaviorAdditive": "Agregar al co-frente",
+  "settingsAddFrontDefaultBehaviorAdditive": "Agregar al frente",
   "settingsAddFrontDefaultBehaviorAdditiveDescription": "Los nuevos frentes se suman a los existentes",
   "settingsAddFrontDefaultBehaviorReplace": "Reemplazar quienes están al frente",
   "settingsAddFrontDefaultBehaviorReplaceDescription": "Termina todos los frentes actuales antes de iniciar uno nuevo",
   "settingsQuickFrontDefaultBehaviorLabel": "Al usar frente rápido",
   "settingsAutoPromoteLongFrontingSessionsLabel": "Mostrar fronts largos en la cabecera",
   "settingsAutoPromoteLongFrontingSessionsDescription": "Después de 7 días, muestra fronts activos en la cabecera fija sin marcarlos como Siempre al frente ni ocultarlos del historial.",
-  "settingsQuickFrontDefaultBehaviorAdditive": "Agregar al co-frente",
+  "settingsQuickFrontDefaultBehaviorAdditive": "Agregar al frente",
   "settingsQuickFrontDefaultBehaviorReplace": "Reemplazar quienes están al frente",
   "settingsComposerDefaultMemberLabel": "Predeterminado al redactar",
   "settingsComposerDefaultMemberLatestFronter": "Último al frente",

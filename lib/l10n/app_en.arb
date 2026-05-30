@@ -3027,7 +3027,7 @@
   "@frontingLogPastSession": {
     "description": "Sheet title and disclosure label for the historical fronting session flow"
   },
-  "frontingAddCoFronterTitle": "Add Co-Fronter",
+  "frontingAddCoFronterTitle": "Add Fronter",
   "@frontingAddCoFronterTitle": {
     "description": "Sheet title when adding a co-fronter to the active session"
   },
@@ -3035,7 +3035,7 @@
   "@frontingStartSessionTooltip": {
     "description": "Tooltip and semantics label for confirming a new fronting session"
   },
-  "frontingAddCoFronterTooltip": "Add co-fronter",
+  "frontingAddCoFronterTooltip": "Add fronter",
   "@frontingAddCoFronterTooltip": {
     "description": "Tooltip and semantics label for confirming a new co-front session"
   },
@@ -3043,7 +3043,7 @@
   "@frontingSelectFronter": {
     "description": "Section header when selecting the primary fronter"
   },
-  "frontingAddFrontModeAdditive": "Add as co-fronter",
+  "frontingAddFrontModeAdditive": "Add as fronter",
   "@frontingAddFrontModeAdditive": {
     "description": "Add-front sheet segmented control: additive mode (joins existing fronts)"
   },
@@ -3056,11 +3056,11 @@
     "description": "Section header when selecting a member in co-front mode",
     "placeholders": { "term": { "type": "String" } }
   },
-  "frontingCoFrontToggle": "Co-front",
+  "frontingCoFrontToggle": "Add fronter",
   "@frontingCoFrontToggle": {
     "description": "Toggle label to switch between new session and co-front mode"
   },
-  "frontingCoFronters": "Co-Fronters",
+  "frontingCoFronters": "Fronters",
   "@frontingCoFronters": {
     "description": "Section header for co-fronter selection in add session sheet"
   },
@@ -3069,7 +3069,7 @@
     "description": "Empty state when no other members are available to add as co-fronters",
     "placeholders": { "term": { "type": "String" } }
   },
-  "frontingCoFrontHint": "Tap a {term} to add them to the co-front of the current session.",
+  "frontingCoFrontHint": "Tap a {term} to add them to the current front.",
   "@frontingCoFrontHint": {
     "description": "Hint text shown in co-front mode on the add session sheet",
     "placeholders": { "term": { "type": "String" } }
@@ -3121,7 +3121,7 @@
   "@frontingFronting": {
     "description": "Badge label shown on a member avatar who is already fronting"
   },
-  "frontingErrorAddingCoFronter": "Error adding co-fronter: {error}",
+  "frontingErrorAddingCoFronter": "Error adding fronter: {error}",
   "@frontingErrorAddingCoFronter": {
     "description": "Error toast when adding a co-fronter fails",
     "placeholders": {
@@ -3139,11 +3139,11 @@
       }
     }
   },
-  "frontingAddCoFrontersTitle": "Add Co-Fronters",
+  "frontingAddCoFrontersTitle": "Add Fronters",
   "@frontingAddCoFrontersTitle": {
     "description": "Header title on the add co-fronters bottom sheet"
   },
-  "frontingErrorAddingCoFronters": "Error adding co-fronters: {error}",
+  "frontingErrorAddingCoFronters": "Error adding fronters: {error}",
   "@frontingErrorAddingCoFronters": {
     "description": "Error toast when adding co-fronters fails",
     "placeholders": {
@@ -3263,7 +3263,7 @@
   "@frontingPeriodMemberUnknown": {
     "description": "Fallback name displayed in place of a member name when the member cannot be resolved."
   },
-  "frontingPeriodCoFrontersTitle": "Co-fronters",
+  "frontingPeriodCoFrontersTitle": "Fronters",
   "@frontingPeriodCoFrontersTitle": {
     "description": "Section header for the co-fronters list on the period detail screen."
   },
@@ -3427,7 +3427,7 @@
   "@frontingNotesSection": {
     "description": "Section header for notes in session detail"
   },
-  "frontingCoFrontersSection": "Co-Fronters",
+  "frontingCoFrontersSection": "Fronters",
   "@frontingCoFrontersSection": {
     "description": "Section header for co-fronters in session detail"
   },
@@ -3674,11 +3674,11 @@
   "@frontingOverlapTrimSubtitle": {
     "description": "Subtitle for trim overlap resolution option"
   },
-  "frontingOverlapCoFrontOption": "Create co-fronting session",
+  "frontingOverlapCoFrontOption": "Create overlapping fronts",
   "@frontingOverlapCoFrontOption": {
     "description": "Overlap resolution option: create co-fronting session"
   },
-  "frontingOverlapCoFrontSubtitle": "Split the overlapping time into shared co-fronting segments.",
+  "frontingOverlapCoFrontSubtitle": "Split the overlapping time into shared fronting segments.",
   "@frontingOverlapCoFrontSubtitle": {
     "description": "Subtitle for co-fronting overlap resolution option"
   },
@@ -4753,7 +4753,7 @@
       "name": { "type": "String" }
     }
   },
-  "memberGroupFrontGroupConfirmMessage": "This will start a co-front session with {count} {termForCount}.",
+  "memberGroupFrontGroupConfirmMessage": "This will start fronting for {count} {termForCount}.",
   "@memberGroupFrontGroupConfirmMessage": {
     "description": "Confirmation dialog body when fronting multiple members in a group",
     "placeholders": {
@@ -6982,7 +6982,7 @@
   "@onboardingFrontingViewTimeline": {
     "description": "Segment label for showing fronting history as a timeline"
   },
-  "onboardingFrontingViewCombinedDescription": "Groups matching co-fronts into one combined period.",
+  "onboardingFrontingViewCombinedDescription": "Groups overlapping fronts into one combined period.",
   "@onboardingFrontingViewCombinedDescription": {
     "description": "Selected-state explanation for the combined Home fronting view mode"
   },
@@ -7025,7 +7025,7 @@
   "@onboardingFrontBehaviorReplace": {
     "description": "Segment label for replacing current fronters with the new member"
   },
-  "onboardingFrontBehaviorAdditiveDescription": "Keeps everyone currently fronting and adds the new member as a co-fronter.",
+  "onboardingFrontBehaviorAdditiveDescription": "Keeps everyone currently fronting and adds the new member as a fronter.",
   "@onboardingFrontBehaviorAdditiveDescription": {
     "description": "Selected-state explanation for additive fronting behavior"
   },
@@ -10009,7 +10009,7 @@
   "@pluralkitWhosFrontingUsePk": {
     "description": "Option label to use PluralKit's current fronters"
   },
-  "pluralkitWhosFrontingCofront": "Co-front (both)",
+  "pluralkitWhosFrontingCofront": "Use both",
   "@pluralkitWhosFrontingCofront": {
     "description": "Option label to co-front with both Prism and PluralKit fronters"
   },
@@ -10245,14 +10245,14 @@
   "@migrationCfReasonSleepName": { "description": "Smart-default reason: CF name looked like sleep" },
   "migrationCfReasonZeroUsage": "Never used in front history or timers",
   "@migrationCfReasonZeroUsage": { "description": "Smart-default reason: CF is unused" },
-  "migrationCfReasonCoFronterOnly": "Only used as co-fronter",
+  "migrationCfReasonCoFronterOnly": "Only used as fronter",
   "@migrationCfReasonCoFronterOnly": { "description": "Smart-default reason: CF only appears as co-fronter" },
   "migrationCfReasonPrimaryHeavy": "Used mostly as primary fronter",
   "@migrationCfReasonPrimaryHeavy": { "description": "Smart-default reason: CF dominates as primary" },
   "migrationCfReasonFallback": "Mixed usage — safest to preserve as a note",
   "@migrationCfReasonFallback": { "description": "Smart-default reason: fallback disposition" },
 
-  "migrationCfUsageSummary": "{primary, plural, =0{Never primary} =1{1 primary} other{{primary} primary}} · {coFront, plural, =0{0 co-front} =1{1 co-front} other{{coFront} co-front}} · {timers, plural, =0{0 timers} =1{1 timer} other{{timers} timers}}",
+  "migrationCfUsageSummary": "{primary, plural, =0{Never primary} =1{1 primary} other{{primary} primary}} · {coFront, plural, =0{0 overlaps} =1{1 overlap} other{{coFront} overlaps}} · {timers, plural, =0{0 timers} =1{1 timer} other{{timers} timers}}",
   "@migrationCfUsageSummary": {
     "description": "Per-CF usage summary: primary / co-fronter / timer counts",
     "placeholders": {
@@ -10273,17 +10273,17 @@
     }
   },
 
-  "migrationWarnCfDroppedEntries": "{count, plural, =1{1 front-history entry dropped (primary was a skipped custom front with no co-fronters).} other{{count} front-history entries dropped (primary was a skipped custom front with no co-fronters).}}",
+  "migrationWarnCfDroppedEntries": "{count, plural, =1{1 front-history entry dropped (primary was a skipped custom front with no fronters).} other{{count} front-history entries dropped (primary was a skipped custom front with no fronters).}}",
   "@migrationWarnCfDroppedEntries": {
     "description": "Warning: sessions dropped because their primary was a skipped CF and nothing could be promoted",
     "placeholders": { "count": { "type": "int" } }
   },
-  "migrationWarnCfSleepCoFrontersDiscarded": "{count, plural, =1{1 sleep-mode session had co-fronters that were discarded.} other{{count} sleep-mode sessions had co-fronters that were discarded.}}",
+  "migrationWarnCfSleepCoFrontersDiscarded": "{count, plural, =1{1 sleep-mode session had fronters that were discarded.} other{{count} sleep-mode sessions had fronters that were discarded.}}",
   "@migrationWarnCfSleepCoFrontersDiscarded": {
     "description": "Warning: sleep-converted sessions had co-fronters dropped",
     "placeholders": { "count": { "type": "int" } }
   },
-  "migrationWarnCfSleepCoFronterAsNote": "{count, plural, =1{1 front session had a sleep custom front as co-fronter, preserved as note only.} other{{count} front sessions had a sleep custom front as co-fronter, preserved as note only.}}",
+  "migrationWarnCfSleepCoFronterAsNote": "{count, plural, =1{1 front session had a sleep custom front as fronter, preserved as note only.} other{{count} front sessions had a sleep custom front as fronter, preserved as note only.}}",
   "@migrationWarnCfSleepCoFronterAsNote": {
     "description": "Warning: sleep CF in co-fronter list preserved as note",
     "placeholders": { "count": { "type": "int" } }
@@ -10328,7 +10328,7 @@
   "@frontingUpgradeTitle": { "description": "Title bar of the per-member fronting upgrade modal" },
   "frontingUpgradeIntroHeadline": "We're upgrading how fronting is stored",
   "@frontingUpgradeIntroHeadline": { "description": "Intro screen headline" },
-  "frontingUpgradeIntroBody": "Co-fronting now uses one record per {termSingularLower} instead of one shared record. This makes overlaps, edits, and analytics work correctly. We'll save a backup of your current data first, then run the upgrade.",
+  "frontingUpgradeIntroBody": "Overlapping fronts now use one record per {termSingularLower} instead of one shared record. This makes overlaps, edits, and analytics work correctly. We'll save a backup of your current data first, then run the upgrade.",
   "@frontingUpgradeIntroBody": {
     "description": "Intro screen body explaining the upgrade",
     "placeholders": { "termSingularLower": { "type": "String" } }
@@ -10402,7 +10402,7 @@
     "description": "Success counter: native rows migrated",
     "placeholders": { "count": { "type": "int" } }
   },
-  "frontingUpgradeCountNativeExpanded": "{count, plural, =1{Expanded 1 co-fronting period into per-{termSingularLower} records.} other{Expanded {count} co-fronting periods into per-{termSingularLower} records.}}",
+  "frontingUpgradeCountNativeExpanded": "{count, plural, =1{Expanded 1 overlapping period into per-{termSingularLower} records.} other{Expanded {count} overlapping periods into per-{termSingularLower} records.}}",
   "@frontingUpgradeCountNativeExpanded": {
     "description": "Success counter: native rows fanned out",
     "placeholders": {
@@ -10433,7 +10433,7 @@
     "description": "Success counter: sentinel was created",
     "placeholders": { "termSingularLower": { "type": "String" } }
   },
-  "frontingUpgradeCountCorruptCoFronters": "{count, plural, =1{1 session had unreadable co-fronter data and was migrated as single-{termSingularLower}.} other{{count} sessions had unreadable co-fronter data and were migrated as single-{termSingularLower}.}}",
+  "frontingUpgradeCountCorruptCoFronters": "{count, plural, =1{1 session had unreadable fronter data and was migrated as single-{termSingularLower}.} other{{count} sessions had unreadable fronter data and were migrated as single-{termSingularLower}.}}",
   "@frontingUpgradeCountCorruptCoFronters": {
     "description": "Success counter: rows whose co_fronter_ids JSON failed to parse and were migrated as single-member fallback",
     "placeholders": {
@@ -10444,7 +10444,7 @@
   "frontingUpgradeIntroPendingSyncWarning": "If you have unsynced changes from offline use, make sure your device is online and synced before you continue. Pending uploads will need to be redone after the upgrade.",
   "@frontingUpgradeIntroPendingSyncWarning": { "description": "Warning shown on the upgrade modal's intro screen — the sync state wipe clears pending_ops, so any local writes that haven't been pushed yet will only exist on this device after the upgrade." },
 
-  "frontingUpgradeAnalyticsNote": "Analytics are now framed as {term}-minutes — when two of you co-front for an hour, that's two {term}-hours. Same math as before, clearer label.",
+  "frontingUpgradeAnalyticsNote": "Analytics are now framed as {term}-minutes — when two of you are fronting at once for an hour, that's two {term}-hours. Same math as before, clearer label.",
   "@frontingUpgradeAnalyticsNote": {
     "description": "One-line FYI shown on the upgrade success screen explaining the analytics relabel from 'fronting time' to '{term}-minutes' (e.g., 'member-minutes', 'headmate-minutes').",
     "placeholders": {
@@ -10647,7 +10647,7 @@
   "@settingsAddFrontDefaultBehaviorLabel": {
     "description": "Row title for the default behavior preference when starting a new front from the add-front sheet."
   },
-  "settingsAddFrontDefaultBehaviorAdditive": "Add as co-fronter",
+  "settingsAddFrontDefaultBehaviorAdditive": "Add as fronter",
   "@settingsAddFrontDefaultBehaviorAdditive": {
     "description": "Option label: starting a new front leaves any existing fronts in place; the new member joins as a co-fronter."
   },
@@ -10675,7 +10675,7 @@
   "@settingsAutoPromoteLongFrontingSessionsDescription": {
     "description": "Switch subtitle for whether long-running fronting sessions should appear in the pinned header even without explicit always-fronting opt-in."
   },
-  "settingsQuickFrontDefaultBehaviorAdditive": "Add as co-fronter",
+  "settingsQuickFrontDefaultBehaviorAdditive": "Add as fronter",
   "@settingsQuickFrontDefaultBehaviorAdditive": {
     "description": "Option label: quick front leaves existing fronts in place; the tapped member joins as a co-fronter."
   },
