@@ -1,6 +1,8 @@
 default_platform(:ios)
 
 require "fileutils"
+require "json"
+require "open3"
 require "shellwords"
 require "tmpdir"
 require "yaml"
@@ -81,6 +83,11 @@ end
 
 def app_version
   File.read(File.expand_path("../pubspec.yaml", __dir__)).match(/^version:\s*(\S+)/)&.captures&.first || "unknown"
+end
+
+def mac_bundle_identifier
+  config = File.read(File.expand_path("../macos/Runner/Configs/AppInfo.xcconfig", __dir__))
+  config.match(/^PRODUCT_BUNDLE_IDENTIFIER\s*=\s*(\S+)/)&.captures&.first || "com.prismplural.prism"
 end
 
 def android_symbols_archive_dir
@@ -190,6 +197,66 @@ def exported_mac_app_path(output_directory)
   app_path = apps.first
   UI.user_error!("No exported .app found in #{output_directory}") unless app_path
   app_path
+end
+
+def verify_macos_release_entitlements(app_path)
+  stdout, stderr, status = Open3.capture3(
+    "codesign -d --entitlements :- #{Shellwords.escape(app_path)}"
+  )
+  unless status.success?
+    UI.user_error!("Could not read exported macOS app entitlements:\n#{stderr}")
+  end
+  if stdout.strip.empty?
+    UI.user_error!(
+      "Exported macOS app has no entitlements. Refusing to package a " \
+      "Developer ID build that would fail sandbox/keychain operations."
+    )
+  end
+
+  Dir.mktmpdir("prism-macos-entitlements") do |dir|
+    entitlements_path = File.join(dir, "entitlements.plist")
+    File.write(entitlements_path, stdout)
+    json, json_err, json_status = Open3.capture3(
+      "plutil -convert json -o - #{Shellwords.escape(entitlements_path)}"
+    )
+    unless json_status.success?
+      UI.user_error!("Could not parse exported macOS app entitlements:\n#{json_err}")
+    end
+
+    entitlements = JSON.parse(json)
+    expected = {
+      "com.apple.application-identifier" => "#{apple_team_id}.#{mac_bundle_identifier}",
+      "com.apple.developer.team-identifier" => apple_team_id,
+      "com.apple.security.app-sandbox" => true,
+      "com.apple.security.network.client" => true,
+      "com.apple.security.files.user-selected.read-write" => true,
+      "com.apple.security.device.camera" => true,
+      "com.apple.security.device.audio-input" => true,
+    }
+    mismatches = expected.filter_map do |key, expected_value|
+      actual_value = entitlements[key]
+      next if actual_value == expected_value
+
+      "#{key}=#{actual_value.inspect} (expected #{expected_value.inspect})"
+    end
+
+    keychain_groups = entitlements["keychain-access-groups"]
+    unless keychain_groups.is_a?(Array)
+      mismatches << "keychain-access-groups=#{keychain_groups.inspect} (expected Array)"
+    end
+    if entitlements["com.apple.security.get-task-allow"] == true
+      mismatches << "com.apple.security.get-task-allow=true (must not be true in Developer ID exports)"
+    end
+
+    unless mismatches.empty?
+      UI.user_error!(
+        "Exported macOS app entitlements are not release-safe:\n" \
+        "#{mismatches.map { |m| "  - #{m}" }.join("\n")}"
+      )
+    end
+  end
+
+  UI.success("Verified exported macOS app entitlements")
 end
 
 def create_macos_dmg(app_path, dmg_path, volume_name)
@@ -319,10 +386,9 @@ platform :mac do
   lane :sideload do
     defines = build_metadata_defines.join(" ")
     version = app_version
-    git_rev = `git rev-parse --short HEAD`.strip
     export_dir = File.expand_path("../build/macos/developer-id/export", __dir__)
     artifact_dir = File.expand_path("../build/release-artifacts/macos", __dir__)
-    dmg_path = File.join(artifact_dir, "Prism-#{version}-#{git_rev}-macos-developer-id.dmg")
+    dmg_path = File.join(artifact_dir, "Prism-#{version}-macos.dmg")
 
     # flutter build writes dart-defines into macos/Flutter/ephemeral/Flutter-Generated.xcconfig
     # so the subsequent xcodebuild archive picks them up without re-specifying them.
@@ -344,6 +410,7 @@ platform :mac do
 
     app_path = exported_mac_app_path(export_dir)
     sh("codesign --verify --deep --strict --verbose=2 #{Shellwords.escape(app_path)}")
+    verify_macos_release_entitlements(app_path)
 
     create_macos_dmg(app_path, dmg_path, "Prism #{version.split("+").first}")
     notarize_and_staple(dmg_path)

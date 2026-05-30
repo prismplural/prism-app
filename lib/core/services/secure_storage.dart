@@ -42,6 +42,13 @@ const secureStorage = FlutterSecureStorage(
   ),
 );
 
+const _macLegacySecureStorage = FlutterSecureStorage(
+  mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+);
+
+@visibleForTesting
+bool debugForceMacSecureStorageEntitlementFallback = false;
+
 const _nativeSecureStorageChannel = MethodChannel(
   'com.prism.prism_plurality/runtime_dek_wrap',
 );
@@ -342,6 +349,9 @@ Future<SecureReadResult> safeSecureRead(
     final value = await storage.read(key: key);
     return SecureReadResult(value: value);
   } on PlatformException catch (e) {
+    if (_shouldTryMacLegacyKeychain(e, storage)) {
+      return safeSecureRead(key, storage: _macLegacySecureStorage);
+    }
     return SecureReadResult(
       failure: classifySecureStorageError(e),
       code: e.code,
@@ -363,6 +373,9 @@ Future<SecureReadAllResult> safeSecureReadAll({
     final all = await storage.readAll();
     return SecureReadAllResult(entries: Map<String, String>.from(all));
   } on PlatformException catch (e) {
+    if (_shouldTryMacLegacyKeychain(e, storage)) {
+      return safeSecureReadAll(storage: _macLegacySecureStorage);
+    }
     return SecureReadAllResult(
       failure: classifySecureStorageError(e),
       code: e.code,
@@ -419,6 +432,9 @@ Future<SecureWriteResult> safeSecureWrite(
     if (commitFailure != null) return commitFailure;
     return const SecureWriteResult();
   } on PlatformException catch (e) {
+    if (_shouldTryMacLegacyKeychain(e, storage)) {
+      return safeSecureWrite(key, value, storage: _macLegacySecureStorage);
+    }
     return SecureWriteResult(
       failure: classifySecureStorageError(e),
       code: e.code,
@@ -520,6 +536,9 @@ Future<SecureDeleteResult> safeSecureDelete(
     await storage.delete(key: key);
     return const SecureDeleteResult();
   } on PlatformException catch (e) {
+    if (_shouldTryMacLegacyKeychain(e, storage)) {
+      return _deleteMacLegacyKeyIfPresent(key);
+    }
     return SecureDeleteResult(
       failure: classifySecureStorageError(e),
       code: e.code,
@@ -539,6 +558,64 @@ Future<SecureDeleteResult> safeSecureDeleteAll({
     );
     if (injected != null) throw injected;
     await storage.deleteAll();
+    return const SecureDeleteResult();
+  } on PlatformException catch (e) {
+    if (_shouldTryMacLegacyKeychain(e, storage)) {
+      return _deleteAllMacLegacyKeychainEntries();
+    }
+    return SecureDeleteResult(
+      failure: classifySecureStorageError(e),
+      code: e.code,
+      message: e.message,
+    );
+  }
+}
+
+bool _shouldTryMacLegacyKeychain(
+  PlatformException e,
+  FlutterSecureStorage storage,
+) {
+  if (identical(storage, _macLegacySecureStorage)) return false;
+  if (kIsWeb) return false;
+  if (!Platform.isMacOS && !debugForceMacSecureStorageEntitlementFallback) {
+    return false;
+  }
+  return _isMissingEntitlement(e);
+}
+
+bool _isMissingEntitlement(PlatformException e) {
+  final details = e.details;
+  if (details is int && details == -34018) return true;
+  final message = e.message?.toLowerCase() ?? '';
+  final code = e.code.toLowerCase();
+  return code.contains('-34018') ||
+      message.contains('-34018') ||
+      message.contains('missingentitlement') ||
+      message.contains('missing entitlement') ||
+      message.contains('required entitlement');
+}
+
+Future<SecureDeleteResult> _deleteMacLegacyKeyIfPresent(String key) async {
+  try {
+    final existing = await _macLegacySecureStorage.read(key: key);
+    if (existing == null) return const SecureDeleteResult();
+    await _macLegacySecureStorage.delete(key: key);
+    return const SecureDeleteResult();
+  } on PlatformException catch (e) {
+    return SecureDeleteResult(
+      failure: classifySecureStorageError(e),
+      code: e.code,
+      message: e.message,
+    );
+  }
+}
+
+Future<SecureDeleteResult> _deleteAllMacLegacyKeychainEntries() async {
+  try {
+    final entries = await _macLegacySecureStorage.readAll();
+    for (final key in entries.keys) {
+      await _macLegacySecureStorage.delete(key: key);
+    }
     return const SecureDeleteResult();
   } on PlatformException catch (e) {
     return SecureDeleteResult(

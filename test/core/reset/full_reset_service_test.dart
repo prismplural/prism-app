@@ -17,6 +17,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
+    debugForceMacSecureStorageEntitlementFallback = false;
     SharedPreferences.setMockInitialValues({});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
@@ -26,6 +27,7 @@ void main() {
   });
 
   tearDown(() {
+    debugForceMacSecureStorageEntitlementFallback = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
@@ -570,6 +572,80 @@ void main() {
   });
 
   test(
+    'wipeLocalData completes when macOS primary keychain delete lacks entitlement',
+    () async {
+      debugForceMacSecureStorageEntitlementFallback = true;
+      final platformSecureStore = _FakePlatformSecureStorage()
+        ..store.addAll({
+          kDatabaseKeyStorageKey: 'database-key',
+          '${kDatabaseKeyStorageKey}_staging': 'database-staging-key',
+          kSyncDatabaseKeyStorageKey: 'sync-key',
+          '${kSyncDatabaseKeyStorageKey}_staging': 'sync-staging-key',
+          'unrelated_secure_key': 'also-cleared',
+        })
+        ..throwOnPrimarySecureStorage = _macMissingEntitlementException();
+      platformSecureStore.install();
+      addTearDown(platformSecureStore.uninstall);
+
+      final tempDir = await Directory.systemTemp.createTemp(
+        'prism-reset-mac-entitlement-test-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      await File(p.join(tempDir.path, 'prism.db')).writeAsString('db');
+      await File(
+        p.join(tempDir.path, AppConstants.syncDatabaseName),
+      ).writeAsString('sync-db');
+      await File(
+        p.join(tempDir.path, 'crypto_boot_log.json'),
+      ).writeAsString('log');
+
+      final nativeKeys = _FakeNativeResetKeys()..hasKeys = true;
+      final service = FullResetService(
+        secureStore: const PlatformFullResetSecureStore(),
+        nativeResetKeys: nativeKeys,
+        appDataDirectory: () async => tempDir,
+        temporaryDirectory: () async => tempDir,
+        mediaCacheDirectory: () async =>
+            Directory(p.join(tempDir.path, 'none')),
+        clearMediaCache: () async {},
+      );
+
+      await service.wipeLocalData();
+
+      expect(platformSecureStore.primaryFailureCalls, greaterThan(0));
+      expect(
+        platformSecureStore.legacyReadAllCalls,
+        greaterThan(0),
+        reason: 'deleteAll should sweep legacy keychain entries after -34018',
+      );
+      expect(platformSecureStore.store, isEmpty);
+      expect(nativeKeys.deleteKnownKeysCalls, 1);
+      expect(nativeKeys.hasKeys, isFalse);
+      expect(await File(p.join(tempDir.path, 'prism.db')).exists(), isFalse);
+      expect(
+        await File(
+          p.join(tempDir.path, AppConstants.syncDatabaseName),
+        ).exists(),
+        isFalse,
+      );
+      expect(
+        await File(p.join(tempDir.path, 'crypto_boot_log.json')).exists(),
+        isFalse,
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
+      expect(prefs.getBool(kFullResetRestartRequiredKey), isTrue);
+      expect(prefs.getString(kFullResetCompletedAtKey), isNotNull);
+    },
+  );
+
+  test(
     'wipeLocalData preserves sync disconnect marker for pairing handoff',
     () async {
       final tempDir = await Directory.systemTemp.createTemp(
@@ -1087,6 +1163,89 @@ class _FakeFullResetSecureStore implements FullResetSecureStore {
   Future<Map<String, String>> readAll() async {
     return Map<String, String>.from(values);
   }
+}
+
+class _FakePlatformSecureStorage {
+  final Map<String, String> store = <String, String>{};
+  PlatformException? throwOnPrimarySecureStorage;
+  int primaryFailureCalls = 0;
+  int legacyReadAllCalls = 0;
+
+  void install() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          (MethodCall call) async {
+            final isPrimary = _usesPrimarySecureStorageOptions(call);
+            if (throwOnPrimarySecureStorage != null && isPrimary) {
+              primaryFailureCalls += 1;
+              throw throwOnPrimarySecureStorage!;
+            }
+
+            switch (call.method) {
+              case 'write':
+                final key = call.arguments['key'] as String;
+                final value = call.arguments['value'] as String?;
+                if (value == null) {
+                  store.remove(key);
+                } else {
+                  store[key] = value;
+                }
+                return null;
+              case 'read':
+                return store[call.arguments['key'] as String];
+              case 'readAll':
+                if (!isPrimary) legacyReadAllCalls += 1;
+                return Map<String, String>.from(store);
+              case 'delete':
+                store.remove(call.arguments['key'] as String);
+                return null;
+              case 'deleteAll':
+                store.clear();
+                return null;
+              case 'containsKey':
+                return store.containsKey(call.arguments['key'] as String);
+              default:
+                return null;
+            }
+          },
+        );
+  }
+
+  void uninstall() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          null,
+        );
+    store.clear();
+  }
+
+  bool _usesPrimarySecureStorageOptions(MethodCall call) {
+    final arguments = call.arguments;
+    if (arguments is! Map) return false;
+    final options = arguments['options'];
+    if (options is! Map) return false;
+
+    final usesDataProtectionKeychain =
+        options['usesDataProtectionKeychain'] ??
+        options['useDataProtectionKeychain'];
+    if (usesDataProtectionKeychain != null) {
+      return usesDataProtectionKeychain != false &&
+          usesDataProtectionKeychain != 'false';
+    }
+
+    return options['resetOnError'] == false ||
+        options['resetOnError'] == 'false';
+  }
+}
+
+PlatformException _macMissingEntitlementException() {
+  return PlatformException(
+    code: 'Unexpected security result code',
+    message: "Code: -34018, Message: A required entitlement isn't present.",
+    details: -34018,
+  );
 }
 
 class _FakeNativeResetKeys implements NativeResetKeys {

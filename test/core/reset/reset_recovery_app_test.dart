@@ -129,7 +129,7 @@ void main() {
         kPrismHadSyncSetup: true,
       });
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: ResetRecoveryScreen(
             mode: ResetRecoveryScreenMode.keychainUnreadable,
           ),
@@ -150,7 +150,7 @@ void main() {
         'prism_sync.relay_hint': 'something',
       });
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: ResetRecoveryScreen(
             mode: ResetRecoveryScreenMode.keychainUnreadable,
           ),
@@ -177,9 +177,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.widgetWithText(PrismButton, 'Reset local data'),
-      );
+      await tester.tap(find.widgetWithText(PrismButton, 'Reset local data'));
       await tester.pumpAndSettle();
 
       expect(find.text('Reset local data?'), findsOneWidget);
@@ -218,7 +216,7 @@ void main() {
             diagnostic: diag,
             shareDiagnostic: (payload) async {
               capturedPayload = payload;
-              return true;
+              return DiagnosticReportShareResult.shared;
             },
           ),
         ),
@@ -234,10 +232,7 @@ void main() {
       expect(capturedPayload, contains('"app_db_primary": "cipher"'));
       expect(capturedPayload, contains('"app_db_state": "unrecoverable"'));
       expect(capturedPayload, contains('"prism_diagnostic_version": 1'));
-      expect(
-        find.textContaining('Diagnostic report saved'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Diagnostic report saved'), findsOneWidget);
     });
 
     testWidgets(
@@ -259,8 +254,9 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              bootSecureStorageDiagnosticProvider
-                  .overrideWithValue(providerDiag),
+              bootSecureStorageDiagnosticProvider.overrideWithValue(
+                providerDiag,
+              ),
             ],
             child: MaterialApp(
               home: ResetRecoveryScreen(
@@ -270,7 +266,7 @@ void main() {
                 // back to the provider.
                 shareDiagnostic: (payload) async {
                   capturedPayload = payload;
-                  return true;
+                  return DiagnosticReportShareResult.shared;
                 },
               ),
             ),
@@ -290,6 +286,46 @@ void main() {
         );
       },
     );
+
+    testWidgets('Save diagnostic report reports clipboard fallback', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnreadable,
+            syncHistoryHintReader: () async => false,
+            shareDiagnostic: (_) async => DiagnosticReportShareResult.copied,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save diagnostic report'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Diagnostic report copied'), findsOneWidget);
+    });
+
+    testWidgets('Save diagnostic report reports total handoff failure', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnreadable,
+            syncHistoryHintReader: () async => false,
+            shareDiagnostic: (_) async => DiagnosticReportShareResult.failed,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save diagnostic report'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Could not save or copy'), findsOneWidget);
+    });
 
     testWidgets(
       'tapping "Restart and unlock once and try again" invokes the exit hook',

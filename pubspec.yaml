@@ -29,7 +29,7 @@ dependencies:
   http: ^1.6.0
 
   # Secure key storage — iOS Keychain / Android Keystore
-  flutter_secure_storage: ^10.2.0
+  flutter_secure_storage: ^10.3.1
   shared_preferences: ^2.2.0
 
   # Share sheet for backup export

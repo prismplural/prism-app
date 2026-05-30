@@ -46,6 +46,9 @@ class _FakeSecureStorage {
   /// [throwOnEvery] is checked).
   PlatformException? throwOnDeleteAll;
 
+  /// Throws for calls using Prism's primary secure-storage options.
+  PlatformException? throwOnPrimarySecureStorage;
+
   /// Per-key throw override for single reads. Useful for slot-probe tests.
   final Map<String, PlatformException> throwOnReadKey =
       <String, PlatformException>{};
@@ -57,6 +60,10 @@ class _FakeSecureStorage {
           const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
           (MethodCall call) async {
             if (throwOnEvery != null) throw throwOnEvery!;
+            if (throwOnPrimarySecureStorage != null &&
+                _usesPrimarySecureStorageOptions(call)) {
+              throw throwOnPrimarySecureStorage!;
+            }
             switch (call.method) {
               case 'write':
                 if (throwOnWrite != null) throw throwOnWrite!;
@@ -108,6 +115,24 @@ class _FakeSecureStorage {
     store.clear();
     readOverrideKey.clear();
   }
+
+  bool _usesPrimarySecureStorageOptions(MethodCall call) {
+    final arguments = call.arguments;
+    if (arguments is! Map) return false;
+    final options = arguments['options'];
+    if (options is! Map) return false;
+
+    final usesDataProtectionKeychain =
+        options['usesDataProtectionKeychain'] ??
+        options['useDataProtectionKeychain'];
+    if (usesDataProtectionKeychain != null) {
+      return usesDataProtectionKeychain != false &&
+          usesDataProtectionKeychain != 'false';
+    }
+
+    return options['resetOnError'] == false ||
+        options['resetOnError'] == 'false';
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -135,6 +160,14 @@ PlatformException _fssCipherException({
     details:
         'at $stackTraceFqcn(SomeFile.java:123)\n'
         '\tat com.it_nomads.fluttersecurestorage.FlutterSecureStorage.read(FlutterSecureStorage.java:200)',
+  );
+}
+
+PlatformException _macMissingEntitlementException() {
+  return PlatformException(
+    code: 'Unexpected security result code',
+    message: "Code: -34018, Message: A required entitlement isn't present.",
+    details: -34018,
   );
 }
 
@@ -388,9 +421,13 @@ void main() {
     setUp(() {
       fake = _FakeSecureStorage();
       fake.install();
+      debugForceMacSecureStorageEntitlementFallback = false;
     });
 
-    tearDown(() => fake.uninstall());
+    tearDown(() {
+      debugForceMacSecureStorageEntitlementFallback = false;
+      fake.uninstall();
+    });
 
     test('returns value on success', () async {
       fake.store['db_key'] = 'deadbeef';
@@ -575,6 +612,29 @@ void main() {
         expect(result.failure, SecureStorageFailure.cipher);
       },
     );
+
+    test(
+      'falls back to the macOS legacy keychain when DP keychain lacks entitlement',
+      () async {
+        debugForceMacSecureStorageEntitlementFallback = true;
+        fake.throwOnPrimarySecureStorage = _macMissingEntitlementException();
+
+        final result = await safeSecureWriteVerified(
+          'db_key',
+          'abc123',
+          storage: secureStorage,
+        );
+
+        expect(
+          result.ok,
+          isTrue,
+          reason:
+              'failure=${result.failure} code=${result.code} '
+              'message=${result.message}',
+        );
+        expect(fake.store['db_key'], 'abc123');
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -587,9 +647,13 @@ void main() {
     setUp(() {
       fake = _FakeSecureStorage();
       fake.install();
+      debugForceMacSecureStorageEntitlementFallback = false;
     });
 
-    tearDown(() => fake.uninstall());
+    tearDown(() {
+      debugForceMacSecureStorageEntitlementFallback = false;
+      fake.uninstall();
+    });
 
     test('deletes successfully', () async {
       fake.store['k'] = 'v';
@@ -657,6 +721,48 @@ void main() {
       );
       expect(result.failure, SecureStorageFailure.cipher);
     });
+
+    test(
+      'safeSecureDelete treats macOS missing entitlement plus absent legacy key as success',
+      () async {
+        debugForceMacSecureStorageEntitlementFallback = true;
+        fake.throwOnPrimarySecureStorage = _macMissingEntitlementException();
+
+        final result = await safeSecureDelete(
+          'missing',
+          storage: secureStorage,
+        );
+
+        expect(
+          result.ok,
+          isTrue,
+          reason:
+              'failure=${result.failure} code=${result.code} '
+              'message=${result.message}',
+        );
+      },
+    );
+
+    test(
+      'safeSecureDeleteAll sweeps legacy macOS entries after DP keychain entitlement failure',
+      () async {
+        debugForceMacSecureStorageEntitlementFallback = true;
+        fake.store['a'] = '1';
+        fake.store['b'] = '2';
+        fake.throwOnPrimarySecureStorage = _macMissingEntitlementException();
+
+        final result = await safeSecureDeleteAll(storage: secureStorage);
+
+        expect(
+          result.ok,
+          isTrue,
+          reason:
+              'failure=${result.failure} code=${result.code} '
+              'message=${result.message}',
+        );
+        expect(fake.store, isEmpty);
+      },
+    );
   });
 
   group('SecureStorageFaultInjector', () {

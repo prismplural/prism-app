@@ -22,12 +22,12 @@ enum ResetRecoveryScreenMode {
   keychainUnreadable,
 }
 
+/// Diagnostic handoff outcome for the recovery screen.
+enum DiagnosticReportShareResult { shared, copied, failed }
+
 /// Hook for tests to substitute the diagnostic share/save step.
-///
-/// Returns `true` when the diagnostic was handed off successfully (so the UI
-/// can show a brief confirmation), `false` on cancel or failure.
 typedef DiagnosticReportShareHandler =
-    Future<bool> Function(String jsonPayload);
+    Future<DiagnosticReportShareResult> Function(String jsonPayload);
 
 /// Hook for tests to substitute the "Re-pair from another device" hint check.
 typedef SyncHistoryHintReader = Future<bool> Function();
@@ -438,12 +438,17 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
     await _run(() async {
       final payload = _buildDiagnosticJson();
       final handler = widget.shareDiagnostic ?? _shareDiagnosticDefault;
-      final shared = await handler(payload);
+      final result = await handler(payload);
       if (mounted) {
         setState(() {
-          _notice = shared
-              ? 'Diagnostic report saved. Share it with support if asked.'
-              : 'Could not save the diagnostic report.';
+          _notice = switch (result) {
+            DiagnosticReportShareResult.shared =>
+              'Diagnostic report saved. Share it with support if asked.',
+            DiagnosticReportShareResult.copied =>
+              'Diagnostic report copied. Paste it into support if asked.',
+            DiagnosticReportShareResult.failed =>
+              'Could not save or copy the diagnostic report.',
+          };
         });
       }
     });
@@ -548,8 +553,11 @@ Future<bool> _defaultSyncHistoryHint() async {
 }
 
 /// Default share handler. Writes the diagnostic JSON to a file in the temp
-/// dir and invokes the platform share sheet.
-Future<bool> _shareDiagnosticDefault(String jsonPayload) async {
+/// dir and invokes the platform share sheet. If the share sheet fails in the
+/// recovery shell, falls back to copying the JSON payload to the clipboard.
+Future<DiagnosticReportShareResult> _shareDiagnosticDefault(
+  String jsonPayload,
+) async {
   try {
     final dir = await getTemporaryDirectory();
     final filename =
@@ -560,9 +568,24 @@ Future<bool> _shareDiagnosticDefault(String jsonPayload) async {
     final result = await SharePlus.instance.share(
       ShareParams(files: [XFile(path)], subject: 'Prism diagnostic report'),
     );
-    return result.status == ShareResultStatus.success ||
-        result.status == ShareResultStatus.dismissed;
+    if (result.status == ShareResultStatus.success ||
+        result.status == ShareResultStatus.dismissed) {
+      return DiagnosticReportShareResult.shared;
+    }
   } catch (_) {
-    return false;
+    return _copyDiagnosticToClipboard(jsonPayload);
+  }
+
+  return _copyDiagnosticToClipboard(jsonPayload);
+}
+
+Future<DiagnosticReportShareResult> _copyDiagnosticToClipboard(
+  String jsonPayload,
+) async {
+  try {
+    await Clipboard.setData(ClipboardData(text: jsonPayload));
+    return DiagnosticReportShareResult.copied;
+  } catch (_) {
+    return DiagnosticReportShareResult.failed;
   }
 }
