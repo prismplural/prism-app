@@ -1354,4 +1354,71 @@ void main() {
       expect(rows.single.id, sessionId);
     });
   });
+
+  group('V1Headmate.fromJson age back-compat', () {
+    test('numeric age (int) coerces to string form', () {
+      final headmate = V1Headmate.fromJson({
+        'id': 'hm-1',
+        'name': 'Tester',
+        'age': 27,
+        'isActive': true,
+        'createdAt': '2026-01-01T00:00:00.000Z',
+        'displayOrder': 0,
+        'isAdmin': false,
+        'customColorEnabled': false,
+        'markdownEnabled': true,
+        'pluralkitSyncIgnored': false,
+      });
+      expect(headmate.age, '27');
+    });
+
+    test('string age passes through unchanged', () {
+      final headmate = V1Headmate.fromJson({
+        'id': 'hm-2',
+        'name': 'Ageless',
+        'age': 'ageless',
+        'isActive': true,
+        'createdAt': '2026-01-01T00:00:00.000Z',
+        'displayOrder': 0,
+        'isAdmin': false,
+        'customColorEnabled': false,
+        'markdownEnabled': true,
+        'pluralkitSyncIgnored': false,
+      });
+      expect(headmate.age, 'ageless');
+    });
+
+    test('null age stays null', () {
+      final headmate = V1Headmate.fromJson({
+        'id': 'hm-3',
+        'name': 'NoAge',
+        'isActive': true,
+        'createdAt': '2026-01-01T00:00:00.000Z',
+        'displayOrder': 0,
+        'isAdmin': false,
+        'customColorEnabled': false,
+        'markdownEnabled': true,
+        'pluralkitSyncIgnored': false,
+      });
+      expect(headmate.age, isNull);
+    });
+
+    test('toJson writes age as string when set', () {
+      final headmate = V1Headmate.fromJson({
+        'id': 'hm-4',
+        'name': 'StringAge',
+        'age': 30,
+        'isActive': true,
+        'createdAt': '2026-01-01T00:00:00.000Z',
+        'displayOrder': 0,
+        'isAdmin': false,
+        'customColorEnabled': false,
+        'markdownEnabled': true,
+        'pluralkitSyncIgnored': false,
+      });
+      final json = headmate.toJson();
+      expect(json['age'], '30');
+      expect(json['age'], isA<String>());
+    });
+  });
 }
