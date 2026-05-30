@@ -2566,7 +2566,7 @@ class PluralKitSyncService {
               birthday: pk.birthday,
               emoji: '❔',
               isActive: true,
-              createdAt: DateTime.now(),
+              createdAt: pk.created ?? DateTime.now(),
               customColorHex: pk.color,
               customColorEnabled: pk.color != null && pk.color!.isNotEmpty,
               proxyTagsJson: pk.proxyTagsJson,

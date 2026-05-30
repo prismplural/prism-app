@@ -78,7 +78,7 @@ class PkLiveFronterResolutionService {
     final member = domain.Member(
       id: _uuid.v4(),
       name: pk.name,
-      createdAt: _now(),
+      createdAt: pk.created ?? _now(),
       pluralkitId: pk.id,
       pluralkitUuid: pk.uuid,
       pluralkitDisplayName: pk.displayName,

@@ -63,6 +63,9 @@ class PKMember {
   /// Missing means "unknown/preserve"; present null means "clear".
   final bool hasBannerField;
 
+  /// PK-assigned creation timestamp (read-only on the API).
+  final DateTime? created;
+
   const PKMember({
     required this.id,
     required this.uuid,
@@ -76,6 +79,7 @@ class PKMember {
     this.proxyTagsJson,
     this.bannerUrl,
     this.hasBannerField = false,
+    this.created,
   });
 
   factory PKMember.fromJson(Map<String, dynamic> json) {
@@ -84,6 +88,12 @@ class PKMember {
     if (rawProxyTags is List) {
       proxyTagsJson = jsonEncode(rawProxyTags);
     }
+    DateTime? created;
+    final rawCreated = json['created'];
+    if (rawCreated is String) {
+      created = DateTime.tryParse(rawCreated);
+    }
+
     return PKMember(
       id: json['id'] as String,
       uuid: json['uuid'] as String,
@@ -97,6 +107,7 @@ class PKMember {
       proxyTagsJson: proxyTagsJson,
       bannerUrl: json['banner'] as String?,
       hasBannerField: json.containsKey('banner'),
+      created: created,
     );
   }
 }

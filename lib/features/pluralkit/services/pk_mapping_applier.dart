@@ -462,7 +462,7 @@ class PkMappingApplier {
       pkBannerCachedUrl: bannerCache.pkBannerCachedUrl,
       pluralkitUuid: d.pkMember.uuid,
       pluralkitId: d.pkMember.id,
-      createdAt: _now(),
+      createdAt: d.pkMember.created ?? _now(),
     );
     await _withReleasedDeletedPkIdentityHolders(
       d.pkMember,
