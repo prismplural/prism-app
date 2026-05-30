@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -438,20 +439,24 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
   Widget? _buildChipAvatar(MemberSearchGroup? group, Color? tintColor) {
     if (group == null) return null;
 
-    final accent = tintColor ?? Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final accent = tintColor ?? theme.colorScheme.primary;
+    final colors = resolveTintedControlColors(
+      theme,
+      accent: accent,
+      fillAlpha: 0.16,
+      foregroundAccentWeight: 0.42,
+    );
     final emoji = group.emoji;
 
     return Container(
       width: 20,
       height: 20,
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.16),
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: colors.fill, shape: BoxShape.circle),
       alignment: Alignment.center,
       child: emoji != null && emoji.isNotEmpty
           ? Text(emoji, style: const TextStyle(fontSize: 11, height: 1))
-          : Icon(AppIcons.group, size: 12, color: accent),
+          : Icon(AppIcons.group, size: 12, color: colors.foreground),
     );
   }
 

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
@@ -317,6 +318,42 @@ void main() {
       );
       expect(chip.avatar, isNotNull);
       expect(chip.tintColor, isNotNull);
+    });
+
+    testWidgets('group chip icon avatar keeps contrast with pastel colors', (
+      tester,
+    ) async {
+      const pastelGroups = [
+        MemberSearchGroup(
+          id: 'g1',
+          name: 'Pastel Team',
+          memberIds: {'a'},
+          colorHex: '#B9F7FF',
+        ),
+      ];
+
+      await tester.pumpWidget(
+        _buildSheet(members: members, groups: pastelGroups),
+      );
+      await tester.pumpAndSettle();
+
+      final avatarDecoration = find
+          .ancestor(
+            of: find.byIcon(AppIcons.group),
+            matching: find.byType(Container),
+          )
+          .evaluate()
+          .map((element) => element.widget)
+          .whereType<Container>()
+          .map((container) => container.decoration)
+          .whereType<BoxDecoration>()
+          .firstWhere((decoration) => decoration.shape == BoxShape.circle);
+      final icon = tester.widget<Icon>(find.byIcon(AppIcons.group));
+
+      expect(
+        contrastRatio(icon.color!, avatarDecoration.color!),
+        greaterThanOrEqualTo(prismMinimumTextContrast - 0.01),
+      );
     });
   });
 

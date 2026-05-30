@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
@@ -40,24 +41,33 @@ class PrismChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = tintColor ?? selectedColor ?? theme.colorScheme.primary;
+    final hasTintedFill = tintColor != null || selected;
+    final hasCustomTint =
+        tintColor != null || (selected && selectedColor != null);
+    final tintColors = hasTintedFill
+        ? resolveTintedControlColors(theme, accent: accent)
+        : null;
 
-    final bgColor = tintColor != null
-        ? tintColor!.withValues(alpha: 0.15)
-        : selected
-            ? accent.withValues(alpha: 0.15)
-            : theme.colorScheme.surfaceContainerHighest;
+    final bgColor =
+        tintColors?.fill ?? theme.colorScheme.surfaceContainerHighest;
 
-    final borderColor = tintColor != null
-        ? tintColor!.withValues(alpha: 0.5)
-        : selected
-            ? accent
-            : theme.colorScheme.outline.withValues(alpha: 0.4);
+    final Color borderColor;
+    if (tintColor != null) {
+      borderColor = tintColors!.border;
+    } else if (selected) {
+      borderColor = tintColors!.accent;
+    } else {
+      borderColor = theme.colorScheme.outline.withValues(alpha: 0.4);
+    }
 
-    final labelColor = tintColor != null
-        ? tintColor!
-        : selected
-            ? accent
-            : theme.colorScheme.onSurfaceVariant;
+    final Color labelColor;
+    if (hasCustomTint) {
+      labelColor = tintColors!.foreground;
+    } else if (selected) {
+      labelColor = accent;
+    } else {
+      labelColor = theme.colorScheme.onSurfaceVariant;
+    }
 
     return Semantics(
       button: true,
@@ -83,27 +93,20 @@ class PrismChip extends StatelessWidget {
               PrismShapes.of(context).radius(PrismTokens.radiusPill),
             ),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                avatar != null ? 8 : 14,
-                6,
-                14,
-                6,
-              ),
+              padding: EdgeInsets.fromLTRB(avatar != null ? 8 : 14, 6, 14, 6),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (avatar != null) ...[
-                    avatar!,
-                    const SizedBox(width: 6),
-                  ],
+                  if (avatar != null) ...[avatar!, const SizedBox(width: 6)],
                   AnimatedDefaultTextStyle(
                     duration: const Duration(milliseconds: 160),
                     style: (theme.textTheme.labelMedium ?? const TextStyle())
                         .copyWith(
-                      color: labelColor,
-                      fontWeight:
-                          selected ? FontWeight.w600 : FontWeight.w500,
-                    ),
+                          color: labelColor,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
                     child: Text(label),
                   ),
                 ],

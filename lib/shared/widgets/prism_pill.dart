@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
@@ -31,27 +32,34 @@ class PrismPill extends StatelessWidget {
           PrismPillTone.accent => theme.colorScheme.primary,
           PrismPillTone.destructive => theme.colorScheme.error,
         };
+    final colors = resolveTintedControlColors(
+      theme,
+      accent: baseColor,
+      fillAlpha: 0.10,
+      foregroundAccentWeight: 0.38,
+      borderAlpha: 0.16,
+    );
 
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: baseColor.withValues(alpha: 0.1),
+        color: colors.fill,
         borderRadius: BorderRadius.circular(
           PrismShapes.of(context).radius(PrismTokens.radiusPill),
         ),
-        border: Border.all(color: baseColor.withValues(alpha: 0.16)),
+        border: Border.all(color: colors.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: baseColor.withValues(alpha: 0.84)),
+            Icon(icon, size: 14, color: colors.foreground),
             const SizedBox(width: 6),
           ],
           Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(
-              color: baseColor.withValues(alpha: 0.84),
+              color: colors.foreground,
               fontWeight: FontWeight.w700,
               height: 1,
             ),

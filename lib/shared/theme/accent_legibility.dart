@@ -140,12 +140,85 @@ Color contrastAdjustedTranslucentAccent(
   return best;
 }
 
+@immutable
+class PrismTintedControlColors {
+  const PrismTintedControlColors({
+    required this.fill,
+    required this.foreground,
+    required this.border,
+    required this.accent,
+  });
+
+  final Color fill;
+  final Color foreground;
+  final Color border;
+  final Color accent;
+}
+
+/// Contrast-safe colors for compact tinted controls.
+PrismTintedControlColors resolveTintedControlColors(
+  ThemeData theme, {
+  required Color accent,
+  Color? fillBase,
+  Color? foregroundBase,
+  double fillAlpha = 0.15,
+  double foregroundAccentWeight = 0.32,
+  double borderAlpha = 0.72,
+  double borderMinRatio = prismMinimumAccentContrast,
+  double foregroundMinRatio = prismMinimumTextContrast,
+}) {
+  final base = (fillBase ?? theme.colorScheme.surfaceContainerHighest)
+      .withValues(alpha: 1);
+  final fill = Color.alphaBlend(accent.withValues(alpha: fillAlpha), base);
+  final visibleAccent = _contrastAdjustedColorOn(
+    accent,
+    fill,
+    minRatio: borderMinRatio,
+  );
+  final baseText = (foregroundBase ?? theme.colorScheme.onSurface).withValues(
+    alpha: 1,
+  );
+  final tintedForeground = Color.lerp(
+    baseText,
+    visibleAccent,
+    foregroundAccentWeight,
+  )!.withValues(alpha: 1);
+  final foreground = contrastRatio(tintedForeground, fill) >= foregroundMinRatio
+      ? tintedForeground
+      : _contrastAdjustedColorOn(
+          tintedForeground,
+          fill,
+          minRatio: foregroundMinRatio,
+        );
+
+  return PrismTintedControlColors(
+    fill: fill,
+    foreground: foreground,
+    border: visibleAccent.withValues(alpha: borderAlpha),
+    accent: visibleAccent,
+  );
+}
+
 /// Pick black or white foreground text for the highest contrast on [background].
 Color highContrastForeground(Color background) {
   final opaqueBackground = background.withValues(alpha: 1);
   final whiteContrast = contrastRatio(Colors.white, opaqueBackground);
   final blackContrast = contrastRatio(Colors.black, opaqueBackground);
   return whiteContrast >= blackContrast ? Colors.white : Colors.black;
+}
+
+Color _contrastAdjustedColorOn(
+  Color color,
+  Color background, {
+  required double minRatio,
+}) {
+  final adjusted = contrastAdjustedAccent(
+    color,
+    background,
+    minRatio: minRatio,
+  );
+  if (contrastRatio(adjusted, background) >= minRatio) return adjusted;
+  return highContrastForeground(background);
 }
 
 double _srgbToLinear(double c) {

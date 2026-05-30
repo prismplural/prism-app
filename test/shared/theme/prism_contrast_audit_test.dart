@@ -6,6 +6,8 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_theme.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 const _minSoftFillContrast = 1.12;
@@ -248,6 +250,95 @@ void main() {
           _borderColor(decoration),
           background,
           _minAvatarRingContrast,
+        );
+      }
+    });
+
+    testWidgets('PrismChip custom tints keep readable labels', (tester) async {
+      final cases = <String, ({ThemeData theme, Color tint})>{
+        'light pastel tint': (
+          theme: AppTheme.light(accentColor: AppColors.prismPurpleLight),
+          tint: const Color(0xFFB9F7FF),
+        ),
+        'dark near-black tint': (
+          theme: AppTheme.dark(accentColor: AppColors.prismPurple),
+          tint: const Color(0xFF1E171F),
+        ),
+      };
+
+      for (final entry in cases.entries) {
+        await _pumpContrastWidget(
+          tester,
+          entry.value.theme,
+          PrismChip(
+            label: 'Tinted',
+            selected: false,
+            tintColor: entry.value.tint,
+            onTap: null,
+          ),
+        );
+
+        final chipDecoration = _animatedDecoration(tester);
+        final chipFill = _compositeOver(
+          chipDecoration.color!,
+          entry.value.theme.scaffoldBackgroundColor,
+        );
+        final labelStyle = find
+            .ancestor(
+              of: find.text('Tinted'),
+              matching: find.byType(AnimatedDefaultTextStyle),
+            )
+            .evaluate()
+            .map(
+              (element) => (element.widget as AnimatedDefaultTextStyle).style,
+            )
+            .firstWhere((style) => style.fontWeight == FontWeight.w500);
+
+        _expectContrast(
+          '${entry.key} PrismChip label',
+          labelStyle.color!,
+          chipFill,
+          prismMinimumTextContrast,
+        );
+      }
+    });
+
+    testWidgets('PrismPill custom tints keep readable labels', (tester) async {
+      final cases = <String, ({ThemeData theme, Color tint})>{
+        'light pastel tint': (
+          theme: AppTheme.light(accentColor: AppColors.prismPurpleLight),
+          tint: const Color(0xFFFCE96A),
+        ),
+        'dark near-black tint': (
+          theme: AppTheme.dark(accentColor: AppColors.prismPurple),
+          tint: const Color(0xFF111827),
+        ),
+      };
+
+      for (final entry in cases.entries) {
+        await _pumpContrastWidget(
+          tester,
+          entry.value.theme,
+          PrismPill(label: 'Tinted', color: entry.value.tint),
+        );
+
+        final pillDecoration =
+            tester
+                    .widget<Container>(
+                      find.descendant(
+                        of: find.byType(PrismPill),
+                        matching: find.byType(Container),
+                      ),
+                    )
+                    .decoration!
+                as BoxDecoration;
+        final labelStyle = tester.widget<Text>(find.text('Tinted')).style!;
+
+        _expectContrast(
+          '${entry.key} PrismPill label',
+          labelStyle.color!,
+          pillDecoration.color!,
+          prismMinimumTextContrast,
         );
       }
     });
