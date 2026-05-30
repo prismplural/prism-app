@@ -6,6 +6,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/member_filter.dart';
+import 'package:prism_plurality/shared/utils/member_picker_order.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -116,6 +117,8 @@ class MemberSearchSheet extends StatefulWidget {
     this.title,
     this.trailingBuilder,
     this.scrollController,
+    this.fronterIds = const {},
+    this.fronterSectionLabel,
   });
 
   /// All candidate members. Filtering is done internally.
@@ -157,6 +160,14 @@ class MemberSearchSheet extends StatefulWidget {
   /// is presented modally, allowing drag-to-dismiss to follow list scrolling.
   final ScrollController? scrollController;
 
+  /// Member ids currently fronting. When non-empty, single-select mode floats
+  /// them to the top of the unfiltered list, separated from the rest. Empty
+  /// keeps the list flat.
+  final Set<String> fronterIds;
+
+  /// Optional muted label above the floated fronter block (e.g. "Fronting").
+  final String? fronterSectionLabel;
+
   /// Show in single-select mode. Never returns `null` — maps a dismissed sheet
   /// to [MemberSearchResultDismissed].
   ///
@@ -171,6 +182,8 @@ class MemberSearchSheet extends StatefulWidget {
     List<MemberSearchGroup> groups = const [],
     List<MemberSearchSpecialRow> specialRows = const [],
     Widget? Function(Member member)? trailingBuilder,
+    Set<String> fronterIds = const {},
+    String? fronterSectionLabel,
   }) async {
     final result = await PrismSheet.showFullScreen<MemberSearchSingleResult>(
       context: context,
@@ -182,6 +195,8 @@ class MemberSearchSheet extends StatefulWidget {
         specialRows: specialRows,
         trailingBuilder: trailingBuilder,
         scrollController: scrollController,
+        fronterIds: fronterIds,
+        fronterSectionLabel: fronterSectionLabel,
       ),
     );
     return result ?? const MemberSearchResultDismissed();
@@ -372,16 +387,7 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
         if (filtered.isEmpty && widget.specialRows.isEmpty)
           SliverFillRemaining(hasScrollBody: false, child: _buildEmptyState())
         else
-          SliverFixedExtentList(
-            itemExtent: _kRowExtent,
-            delegate: SliverChildBuilderDelegate((context, index) {
-              if (index < widget.specialRows.length) {
-                return _buildSpecialRow(widget.specialRows[index]);
-              }
-              final member = filtered[index - widget.specialRows.length];
-              return _buildMemberRow(member);
-            }, childCount: widget.specialRows.length + filtered.length),
-          ),
+          ..._buildListSlivers(filtered),
       ],
     );
 
@@ -420,6 +426,88 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
           ],
         );
       },
+    );
+  }
+
+  /// Builds the member-list slivers, floating current fronters to the top with
+  /// a separator when [MemberSearchSheet.fronterIds] is set. Collapses to a
+  /// flat list during search/group filtering or in multi-select mode.
+  List<Widget> _buildListSlivers(List<Member> filtered) {
+    final specialRows = widget.specialRows;
+
+    final canGroup =
+        !widget.multiSelect &&
+        widget.fronterIds.isNotEmpty &&
+        _query.isEmpty &&
+        _selectedChip == 0;
+    final sections = canGroup
+        ? partitionMembersForPicker(filtered, widget.fronterIds)
+        : null;
+
+    if (sections == null || !sections.hasFronterSection) {
+      return [
+        SliverFixedExtentList(
+          itemExtent: _kRowExtent,
+          delegate: SliverChildBuilderDelegate((context, index) {
+            if (index < specialRows.length) {
+              return _buildSpecialRow(specialRows[index]);
+            }
+            return _buildMemberRow(filtered[index - specialRows.length]);
+          }, childCount: specialRows.length + filtered.length),
+        ),
+      ];
+    }
+
+    final fronters = sections.fronters;
+    final others = sections.others;
+    final label = widget.fronterSectionLabel;
+    return [
+      if (specialRows.isNotEmpty)
+        SliverFixedExtentList(
+          itemExtent: _kRowExtent,
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => _buildSpecialRow(specialRows[index]),
+            childCount: specialRows.length,
+          ),
+        ),
+      if (label != null && label.isNotEmpty)
+        SliverToBoxAdapter(child: _buildFronterSectionLabel(label)),
+      SliverFixedExtentList(
+        itemExtent: _kRowExtent,
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => _buildMemberRow(fronters[index]),
+          childCount: fronters.length,
+        ),
+      ),
+      const SliverToBoxAdapter(
+        // Decorative gap; the header conveys the grouping to screen readers.
+        child: ExcludeSemantics(child: SizedBox(height: 12)),
+      ),
+      SliverFixedExtentList(
+        itemExtent: _kRowExtent,
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => _buildMemberRow(others[index]),
+          childCount: others.length,
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildFronterSectionLabel(String label) {
+    final theme = Theme.of(context);
+    return Semantics(
+      header: true,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.6,
+          ),
+        ),
+      ),
     );
   }
 

@@ -35,6 +35,8 @@ Widget _buildSheet({
   List<MemberSearchSpecialRow> specialRows = const [],
   bool multiSelect = false,
   Set<String> initialSelected = const {},
+  Set<String> fronterIds = const {},
+  String? fronterSectionLabel,
 }) {
   return ProviderScope(
     child: MaterialApp(
@@ -48,6 +50,8 @@ Widget _buildSheet({
           specialRows: specialRows,
           multiSelect: multiSelect,
           initialSelected: initialSelected,
+          fronterIds: fronterIds,
+          fronterSectionLabel: fronterSectionLabel,
         ),
       ),
     ),
@@ -123,6 +127,81 @@ void main() {
   Finder checkButton() => find.byWidgetPredicate(
     (widget) => widget is PrismGlassIconButton && widget.icon == AppIcons.check,
   );
+
+  group('fronters on top', () {
+    final roster = [
+      _member(id: 'a', name: 'Alice'),
+      _member(id: 'b', name: 'Bob'),
+      _member(id: 'c', name: 'Carol'),
+      _member(id: 'd', name: 'Dave'),
+    ];
+
+    testWidgets('floats current fronters above the rest', (tester) async {
+      // Carol + Dave are fronting; they should appear above Alice + Bob even
+      // though they come later in display order.
+      await tester.pumpWidget(
+        _buildSheet(members: roster, fronterIds: const {'c', 'd'}),
+      );
+      await tester.pumpAndSettle();
+
+      final carolY = tester.getTopLeft(find.byKey(const ValueKey('c'))).dy;
+      final daveY = tester.getTopLeft(find.byKey(const ValueKey('d'))).dy;
+      final aliceY = tester.getTopLeft(find.byKey(const ValueKey('a'))).dy;
+      final bobY = tester.getTopLeft(find.byKey(const ValueKey('b'))).dy;
+
+      // Fronters above non-fronters.
+      expect(carolY, lessThan(aliceY));
+      expect(daveY, lessThan(aliceY));
+      // Each group keeps display order (c before d; a before b).
+      expect(carolY, lessThan(daveY));
+      expect(aliceY, lessThan(bobY));
+    });
+
+    testWidgets('renders the section label when provided', (tester) async {
+      await tester.pumpWidget(
+        _buildSheet(
+          members: roster,
+          fronterIds: const {'c'},
+          fronterSectionLabel: 'Fronting',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Fronting'), findsOneWidget);
+    });
+
+    testWidgets('no label/grouping when everyone is fronting', (tester) async {
+      await tester.pumpWidget(
+        _buildSheet(
+          members: roster,
+          fronterIds: const {'a', 'b', 'c', 'd'},
+          fronterSectionLabel: 'Fronting',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Whole roster is one flat group — no boundary label.
+      expect(find.text('Fronting'), findsNothing);
+    });
+
+    testWidgets('collapses to flat list while searching', (tester) async {
+      await tester.pumpWidget(
+        _buildSheet(
+          members: roster,
+          fronterIds: const {'c'},
+          fronterSectionLabel: 'Fronting',
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Fronting'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'a');
+      await tester.pumpAndSettle();
+
+      // Section boundary disappears mid-search.
+      expect(find.text('Fronting'), findsNothing);
+    });
+  });
 
   group('default list display', () {
     testWidgets('shows all members by default', (tester) async {

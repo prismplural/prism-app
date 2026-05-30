@@ -5,6 +5,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/utils/member_picker_order.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -37,6 +38,8 @@ class MemberSelectorPopup extends StatelessWidget {
     required this.onMemberSelected,
     this.groups = const [],
     this.specialRows = const [],
+    this.fronterIds = const {},
+    this.fronterSectionLabel,
     this.searchTitle,
     this.searchLabel,
     this.preferredDirection,
@@ -57,6 +60,14 @@ class MemberSelectorPopup extends StatelessWidget {
   final ValueChanged<String> onMemberSelected;
   final List<MemberSearchGroup> groups;
   final List<MemberSelectorPopupSpecialRow> specialRows;
+
+  /// Member ids currently fronting. When non-empty, floats those members to the
+  /// top of the popup, separated from the rest by a divider.
+  final Set<String> fronterIds;
+
+  /// Forwarded to the full search sheet so its floated fronter block can show
+  /// a matching section label.
+  final String? fronterSectionLabel;
   final String? searchTitle;
   final String? searchLabel;
   final BlurPopupDirection? preferredDirection;
@@ -81,10 +92,18 @@ class MemberSelectorPopup extends StatelessWidget {
 
     final isManual = manualAnchorKey != null;
 
+    final sections = fronterIds.isEmpty
+        ? null
+        : partitionMembersForPicker(members, fronterIds);
     final visibleRows = <_MemberSelectorPopupRow>[
       _SearchPopupRow(),
       for (final row in specialRows) _SpecialPopupRow(row),
-      for (final member in members) _MemberPopupRow(member),
+      if (sections != null && sections.hasFronterSection) ...[
+        for (final member in sections.fronters) _MemberPopupRow(member),
+        _DividerPopupRow(),
+        for (final member in sections.others) _MemberPopupRow(member),
+      ] else
+        for (final member in members) _MemberPopupRow(member),
     ];
     final logicalRows = preferredDirection == BlurPopupDirection.up
         ? visibleRows.reversed.toList(growable: false)
@@ -123,7 +142,18 @@ class MemberSelectorPopup extends StatelessWidget {
         member,
         close,
       ),
+      _DividerPopupRow() => _buildDividerRow(popupContext),
     };
+  }
+
+  Widget _buildDividerRow(BuildContext context) {
+    // Decorative boundary between current fronters and the rest of the roster.
+    return const ExcludeSemantics(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Divider(height: 1),
+      ),
+    );
   }
 
   Widget _buildSearchRow(
@@ -146,6 +176,8 @@ class MemberSelectorPopup extends StatelessWidget {
           termPlural: termPlural,
           title: searchTitle,
           groups: groups,
+          fronterIds: fronterIds,
+          fronterSectionLabel: fronterSectionLabel,
         );
         if (!parentContext.mounted || result is! MemberSearchResultSelected) {
           return;
@@ -250,3 +282,5 @@ final class _MemberPopupRow extends _MemberSelectorPopupRow {
 
   final Member member;
 }
+
+final class _DividerPopupRow extends _MemberSelectorPopupRow {}
