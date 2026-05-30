@@ -41,7 +41,7 @@ class MarkdownText extends StatelessWidget {
     final bodyStyle = sheet.p ?? baseStyle ?? const TextStyle();
 
     return MarkdownBody(
-      data: _normalizeDiscordLikeIndentation(data),
+      data: preserveBlankLines(_normalizeDiscordLikeIndentation(data)),
       selectable: selectable,
       styleSheet: sheet,
       softLineBreak: true,
@@ -275,6 +275,70 @@ class MarkdownText extends StatelessWidget {
   }
 }
 
+/// Inserts NBSP spacer paragraphs for consecutive blank lines so the
+/// markdown renderer preserves user-intended vertical spacing.
+/// Fenced code blocks are left untouched.
+@visibleForTesting
+String preserveBlankLines(String input) {
+  if (input.isEmpty) return input;
+
+  final lines = input.split('\n');
+  final out = <String>[];
+  String? fenceMarker;
+
+  var i = 0;
+  while (i < lines.length) {
+    final line = lines[i];
+
+    if (fenceMarker != null) {
+      out.add(line);
+      final match = _fenceOpenPattern.firstMatch(line);
+      if (match != null) {
+        final marker = match[1]!;
+        if (marker[0] == fenceMarker[0] &&
+            marker.length >= fenceMarker.length &&
+            line.substring(match.end).trim().isEmpty) {
+          fenceMarker = null;
+        }
+      }
+      i++;
+      continue;
+    }
+
+    final match = _fenceOpenPattern.firstMatch(line);
+    if (match != null) {
+      out.add(line);
+      fenceMarker = match[1]!;
+      i++;
+      continue;
+    }
+
+    if (_blankLinePattern.hasMatch(line)) {
+      var count = 0;
+      var j = i;
+      while (j < lines.length && _blankLinePattern.hasMatch(lines[j])) {
+        count++;
+        j++;
+      }
+      // First blank line is the normal paragraph separator.
+      out.add('');
+      // Each additional blank line becomes a non-breaking space paragraph.
+      final extra = (count - 1).clamp(0, 10);
+      for (var k = 0; k < extra; k++) {
+        out.add(_nbsp);
+        out.add('');
+      }
+      i = j;
+      continue;
+    }
+
+    out.add(line);
+    i++;
+  }
+
+  return out.join('\n');
+}
+
 class _MarkdownFence {
   const _MarkdownFence(this.character, this.length);
 
@@ -287,6 +351,9 @@ const _tab = 0x09;
 const _backtick = 0x60;
 const _tilde = 0x7e;
 const _nbsp = '\u00A0';
+
+final _blankLinePattern = RegExp(r'^[ \t\r]*$');
+final _fenceOpenPattern = RegExp(r'^ {0,3}(`{3,}|~{3,})');
 
 final _blockquoteMarker = RegExp(r'^(?:>{1,3})(?:[ \t]|$)');
 final _headingMarker = RegExp(r'^#{1,6}(?:[ \t]|$)');
