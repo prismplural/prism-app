@@ -3684,12 +3684,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberBirthdayClear => 'Borrar cumpleaños';
 
   @override
-  String get memberCreatedAtLabel => 'Created';
-
-  @override
-  String memberCreatedAtChipLabel(String date) {
-    return 'Created $date';
-  }
+  String get memberCreatedAtLabel => 'Creado';
 
   @override
   String get memberCreatedAtHint => 'Tap to set a date';

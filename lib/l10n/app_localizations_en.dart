@@ -3619,11 +3619,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberCreatedAtLabel => 'Created';
 
   @override
-  String memberCreatedAtChipLabel(String date) {
-    return 'Created $date';
-  }
-
-  @override
   String get memberCreatedAtHint => 'Tap to set a date';
 
   @override

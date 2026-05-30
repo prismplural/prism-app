@@ -4883,8 +4883,6 @@
   },
   "memberCreatedAtLabel": "Created",
   "@memberCreatedAtLabel": { "description": "Label for member creation date field" },
-  "memberCreatedAtChipLabel": "Created {date}",
-  "@memberCreatedAtChipLabel": { "description": "Chip label showing member creation date", "placeholders": { "date": { "type": "String" } } },
   "memberCreatedAtHint": "Tap to set a date",
   "@memberCreatedAtHint": { "description": "Hint text for empty creation date field" },
   "memberCreatedAtClear": "Clear creation date",

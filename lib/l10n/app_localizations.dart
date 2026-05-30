@@ -6209,12 +6209,6 @@ abstract class AppLocalizations {
   /// **'Created'**
   String get memberCreatedAtLabel;
 
-  /// Chip label showing member creation date
-  ///
-  /// In en, this message translates to:
-  /// **'Created {date}'**
-  String memberCreatedAtChipLabel(String date);
-
   /// Hint text for empty creation date field
   ///
   /// In en, this message translates to:
