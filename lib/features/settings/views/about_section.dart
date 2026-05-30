@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/utils/safe_link.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
@@ -174,11 +175,14 @@ String _buildInfoVersion() {
 }
 
 Future<void> _openExternalUri(BuildContext context, Uri uri) async {
-  try {
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (opened || !context.mounted) return;
-  } catch (_) {
-    if (!context.mounted) return;
+  final safe = safeExternalUri(uri.toString());
+  if (safe != null) {
+    try {
+      final opened = await launchUrl(safe, mode: LaunchMode.externalApplication);
+      if (opened || !context.mounted) return;
+    } catch (_) {
+      if (!context.mounted) return;
+    }
   }
 
   PrismToast.show(context, message: context.l10n.settingsAboutLinkOpenFailed);

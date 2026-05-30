@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -282,6 +283,53 @@ void main() {
         findsAtLeastNWidgets(1),
       );
     });
+
+    testWidgets(
+      '11b. dangerous-scheme chat links never reach the platform launcher',
+      (tester) async {
+        // Peer-supplied dangerous-scheme links must never reach launchUrl:
+        // SafeLinkBuilder renders them inert and _openExternal's allowlist is
+        // the backstop.
+        const channel = MethodChannel('plugins.flutter.io/url_launcher');
+        final launched = <String>[];
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+          call,
+        ) async {
+          if (call.method == 'launch') {
+            final args = call.arguments as Map<Object?, Object?>;
+            launched.add(args['url']! as String);
+            return true;
+          }
+          return false;
+        });
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger
+              .setMockMethodCallHandler(channel, null),
+        );
+
+        for (final href in const [
+          'javascript:alert(1)',
+          'file:///etc/passwd',
+          'intent://scan/#Intent;scheme=zxing;end',
+        ]) {
+          await tester.pumpWidget(_widget(content: '[tap]($href)'));
+          // No tappable affordance is rendered for non-http(s) schemes.
+          expect(
+            find.ancestor(
+              of: find.textContaining('tap'),
+              matching: find.byType(GestureDetector),
+            ),
+            findsNothing,
+            reason: '$href must not render a tappable link',
+          );
+          // Belt-and-suspenders: tapping the label is a no-op, not a launch.
+          await tester.tap(find.textContaining('tap'));
+          await tester.pump();
+        }
+
+        expect(launched, isEmpty);
+      },
+    );
 
     testWidgets(
       '12. visible mention re-renders when authorMap loads after first paint',

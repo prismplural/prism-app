@@ -6,7 +6,7 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:prism_plurality/shared/utils/safe_link.dart';
 
 /// Renders chat message content with a narrow markdown subset + colored
 /// mentions.
@@ -198,9 +198,8 @@ class _ChatMessageTextState extends State<ChatMessageText> {
   }
 
   Future<void> _openExternal(String href) async {
-    final uri = Uri.tryParse(href);
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    // Chat hrefs are peer-supplied; the helper enforces a scheme allowlist.
+    await launchSafeExternalUri(href);
   }
 
   Object _mentionRenderSignature(
