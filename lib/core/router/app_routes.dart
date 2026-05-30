@@ -56,6 +56,8 @@ abstract final class AppRoutePaths {
   static const settingsPinLock = '/settings/pin-lock';
   static const settingsReminders = '/settings/reminders';
   static const settingsNavigation = '/settings/navigation';
+  static const settingsMedia = '/settings/media';
+  static const settingsMediaUsage = '/settings/media/usage';
   static const settingsSystemInfo = '/settings/system-info';
   static const settingsPalette = '/settings/appearance/palette';
   static const timeline = '/timeline';

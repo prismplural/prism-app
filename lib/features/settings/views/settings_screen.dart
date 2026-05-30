@@ -99,6 +99,12 @@ class SettingsScreen extends ConsumerWidget {
                           context.push(AppRoutePaths.settingsCustomFields),
                     ),
                     _SettingsLink(
+                      icon: AppIcons.photoLibrary,
+                      iconColor: Colors.amber,
+                      title: 'Media',
+                      onTap: () => context.push(AppRoutePaths.settingsMedia),
+                    ),
+                    _SettingsLink(
                       icon: AppIcons.barChartOutlined,
                       iconColor: Colors.green,
                       title: context.l10n.settingsStatistics,

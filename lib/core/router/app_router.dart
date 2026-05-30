@@ -75,6 +75,8 @@ import '../../features/reminders/views/reminders_screen.dart';
 import '../../features/notes/views/notes_list_screen.dart';
 import '../../features/settings/views/system_info_screen.dart';
 import '../../features/settings/views/navigation_settings_screen.dart';
+import '../../features/settings/utils/tag_usage_scan.dart';
+import '../../features/settings/views/media_settings_screen.dart';
 import '../../features/onboarding/views/onboarding_screen.dart';
 import '../../features/settings/providers/settings_providers.dart';
 import '../../shared/widgets/app_shell.dart';
@@ -656,6 +658,20 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'navigation',
                     builder: (context, state) =>
                         const NavigationSettingsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'media',
+                    builder: (context, state) => const MediaSettingsScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'usage',
+                        builder: (context, state) => TagUsageScreen(
+                          usages: state.extra is List<TagUsageRef>
+                              ? state.extra! as List<TagUsageRef>
+                              : const <TagUsageRef>[],
+                        ),
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: 'system-info',

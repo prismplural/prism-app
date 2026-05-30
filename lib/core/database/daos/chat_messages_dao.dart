@@ -87,6 +87,38 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
             ]))
           .get();
 
+  /// Returns the content of non-deleted messages that contain markdown image
+  /// syntax (`![`...). Narrows a large table to the small subset worth
+  /// scanning for image-library tag references (used by the Media settings
+  /// usage view). Avoids loading the entire message table into memory.
+  Future<List<String>> imageMarkdownContents() async {
+    final rows = await customSelect(
+      "SELECT content FROM chat_messages "
+      "WHERE is_deleted = 0 AND content LIKE '%![%'",
+      readsFrom: {chatMessages},
+    ).get();
+    return rows.map((r) => r.read<String>('content')).toList();
+  }
+
+  /// Like [imageMarkdownContents] but also returns the message + conversation
+  /// ids, so the Media usage view can render a tappable jump target per chat
+  /// message that references an image-library tag.
+  Future<List<({String id, String conversationId, String content})>>
+      imageMarkdownMessages() async {
+    final rows = await customSelect(
+      "SELECT id, conversation_id, content FROM chat_messages "
+      "WHERE is_deleted = 0 AND content LIKE '%![%'",
+      readsFrom: {chatMessages},
+    ).get();
+    return rows
+        .map((r) => (
+              id: r.read<String>('id'),
+              conversationId: r.read<String>('conversation_id'),
+              content: r.read<String>('content'),
+            ))
+        .toList();
+  }
+
   Future<ChatMessage?> getMessageById(String id) =>
       (select(chatMessages)..where((m) => m.id.equals(id))).getSingleOrNull();
 
