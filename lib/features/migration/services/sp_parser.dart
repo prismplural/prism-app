@@ -63,6 +63,20 @@ DateTime _parseSpTimeOr(dynamic value, DateTime Function() clock) {
   return _parseSpTime(value) ?? clock().toUtc();
 }
 
+/// Extract creation timestamp from a MongoDB ObjectId string.
+///
+/// The first 4 bytes (8 hex chars) of a 24-char ObjectId encode seconds
+/// since Unix epoch. Returns null for invalid/non-ObjectId strings or
+/// timestamps before 2000 (pre-SP era, likely corrupt).
+DateTime? extractObjectIdTimestamp(String id) {
+  if (id.length < 8) return null;
+  final seconds = int.tryParse(id.substring(0, 8), radix: 16);
+  if (seconds == null) return null;
+  final dt = DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+  if (dt.year < 2000) return null;
+  return dt;
+}
+
 /// Normalize a raw SP color string to a 6-char RGB hex body (no `#`).
 ///
 /// Accepts 6-char hex, 8-char ARGB (alpha stripped), and 3-char shorthand,
