@@ -843,7 +843,7 @@ class ChatNotifier extends AsyncNotifier<void> {
     String conversationId,
     String memberId,
   ) async {
-    state = await AsyncValue.guard(() async {
+    final nextState = await AsyncValue.guard(() async {
       await _mutationPool.withResource(() async {
         final repo = ref.read(conversationRepositoryProvider);
         final conv = await repo.getConversationById(conversationId);
@@ -861,6 +861,9 @@ class ChatNotifier extends AsyncNotifier<void> {
         await repo.setLastReadTimestamps(conversationId, updatedTimestamps);
       });
     });
+    if (ref.mounted) {
+      state = nextState;
+    }
   }
 
   Future<void> markAllConversationsAsRead(String memberId) async {
