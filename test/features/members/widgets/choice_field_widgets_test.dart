@@ -31,6 +31,7 @@ import 'package:prism_plurality/features/members/widgets/custom_field_editor_sco
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -416,6 +417,25 @@ void main() {
         expect(repo.upsertedValues.last.value, contains('"Dragonfruit"'));
       },
     );
+
+    testWidgets('Other free-text field allows two lines for long text', (
+      tester,
+    ) async {
+      final field = _choiceField(
+        options: [_option('a', 'Apples')],
+        allowsOther: true,
+      );
+
+      await tester.pumpWidget(_editorSubject(field: field, value: null));
+      await tester.pump();
+
+      await tester.tap(find.text('Other…'));
+      await tester.pump();
+
+      final input = tester.widget<PrismTextField>(find.byType(PrismTextField));
+      expect(input.minLines, 1);
+      expect(input.maxLines, 2);
+    });
   });
 
   group('ChoiceEditor — deleted option handling', () {

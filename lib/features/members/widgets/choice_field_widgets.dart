@@ -417,6 +417,8 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
                 controller: _otherController,
                 hintText: l10n.customFieldChoiceOtherTextHint,
                 autofocus: true,
+                minLines: 1,
+                maxLines: 2,
                 onChanged: (text) {
                   _pendingOtherText = text;
                   _syncDirtyState();
