@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import 'package:prism_plurality/features/members/services/markdown_table_parser.dart';
@@ -44,8 +45,10 @@ class PrismMarkdownTable extends StatelessWidget {
         rows.fold<int>(0, (max, r) => r.length > max ? r.length : max);
     if (colCount == 0) return const SizedBox.shrink();
 
+    final widths = _columnWidths(rows, colCount);
+
     return Table(
-      columnWidths: _columnWidths(rows, colCount),
+      columnWidths: widths,
       border: _border(context),
       defaultVerticalAlignment: TableCellVerticalAlignment.top,
       children: [
@@ -58,6 +61,9 @@ class PrismMarkdownTable extends StatelessWidget {
                   cell: c < rows[r].length ? rows[r][c] : '',
                   isHeader: r == 0,
                   align: c < table.aligns.length ? table.aligns[c] : null,
+                  // Only intrinsic-width (image-hug) columns are measured, so
+                  // only they need the finite-width guard.
+                  hug: widths[c] is IntrinsicColumnWidth,
                 ),
             ],
           ),
@@ -109,6 +115,7 @@ class PrismMarkdownTable extends StatelessWidget {
     required String cell,
     required bool isHeader,
     required TextAlign? align,
+    required bool hug,
   }) {
     // Header is bold unless borderless (plain layout tables keep a neutral head).
     final bold = isHeader && !borderless;
@@ -122,16 +129,18 @@ class PrismMarkdownTable extends StatelessWidget {
         ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
         : const EdgeInsets.symmetric(horizontal: 12, vertical: 10);
 
+    final content = MarkdownText(
+      data: cell,
+      imgElementBuilder: imgElementBuilder,
+      baseStyle: style,
+    );
+
     return TableCell(
       child: Padding(
         padding: padding,
         child: Align(
           alignment: _alignment(align),
-          child: MarkdownText(
-            data: cell,
-            imgElementBuilder: imgElementBuilder,
-            baseStyle: style,
-          ),
+          child: hug ? _SafeIntrinsicWidth(child: content) : content,
         ),
       ),
     );
@@ -148,4 +157,39 @@ class PrismMarkdownTable extends StatelessWidget {
         return Alignment.topLeft;
     }
   }
+}
+
+/// Reports a finite max-intrinsic width so a [Table]'s [IntrinsicColumnWidth]
+/// column can't be crashed by a cell that measures as non-finite (an `Image`
+/// laid out at infinite width) or throws when measured (a `LayoutBuilder`).
+/// A finite child measurement passes through, so a normal image still hugs.
+class _SafeIntrinsicWidth extends SingleChildRenderObjectWidget {
+  const _SafeIntrinsicWidth({required Widget super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSafeIntrinsicWidth();
+}
+
+class _RenderSafeIntrinsicWidth extends RenderProxyBox {
+  /// Width used when a child can't be measured.
+  static const double _fallbackWidth = 280.0;
+
+  double _finiteOr(double Function() compute) {
+    final double value;
+    try {
+      value = compute();
+    } catch (_) {
+      return _fallbackWidth;
+    }
+    return value.isFinite ? value : _fallbackWidth;
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) =>
+      _finiteOr(() => super.computeMinIntrinsicWidth(height));
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      _finiteOr(() => super.computeMaxIntrinsicWidth(height));
 }

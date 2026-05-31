@@ -206,11 +206,12 @@ class _LoadedImage extends StatelessWidget {
           borderRadius: BorderRadius.circular(
             PrismShapes.of(context).radius(12),
           ),
+          // No width/height: the parent passes tight constraints so the image
+          // fills its box regardless, and omitting them keeps the max-intrinsic
+          // width finite so an IntrinsicColumnWidth table cell can measure it.
           child: Image.memory(
             bytes,
             fit: fit,
-            width: double.infinity,
-            height: double.infinity,
             semanticLabel: label,
           ),
         ),
@@ -339,23 +340,28 @@ class _ErrorPlaceholder extends StatelessWidget {
                 ? AppColors.charcoalSurface
                 : AppColors.parchmentElevated,
             child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    AppIcons.imageBroken,
-                    size: 28,
-                    color: theme.colorScheme.error,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    label,
-                    style: theme.textTheme.labelSmall?.copyWith(
+              // Scale the icon + caption down instead of overflowing a very
+              // small cell (e.g. a tiny `#WxH` image).
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      AppIcons.imageBroken,
+                      size: 28,
                       color: theme.colorScheme.error,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Text(
+                      label,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -387,25 +393,29 @@ class _ExpiredPlaceholder extends StatelessWidget {
               ? AppColors.charcoalSurface
               : AppColors.parchmentElevated,
           child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  AppIcons.imageOutlined,
-                  size: 28,
-                  color: theme.colorScheme.onSurfaceVariant
-                      .withValues(alpha: 0.5),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  style: theme.textTheme.labelSmall?.copyWith(
+            // Scale down instead of overflowing a tiny cell (see _ErrorPlaceholder).
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    AppIcons.imageOutlined,
+                    size: 28,
                     color: theme.colorScheme.onSurfaceVariant
                         .withValues(alpha: 0.5),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    label,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.5),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
