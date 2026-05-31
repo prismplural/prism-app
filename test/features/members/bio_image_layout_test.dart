@@ -72,30 +72,42 @@ void main() {
       );
     });
 
+    test('preserves authored blank line runs elsewhere in image markdown', () {
+      const input = 'first\n\n\nsecond\n\n![](flag#100%)';
+      expect(blockifyImageMarkdown(input), input);
+    });
+
     test('trims when the image is the whole input', () {
       expect(blockifyImageMarkdown('![](flag#100%)'), '![](flag#100%)');
     });
 
-    test('leaves images inside a table row untouched (side-by-side layout)', () {
-      const table = '| ![](flag#96) | some text beside it |\n'
-          '| --- | --- |\n'
-          '| ![](flag#50%) | more text |';
-      // Block-eligible images, but inside table rows → must not be promoted
-      // (a blank line mid-row would break the table).
-      expect(blockifyImageMarkdown(table), table);
-    });
+    test(
+      'leaves images inside a table row untouched (side-by-side layout)',
+      () {
+        const table =
+            '| ![](flag#96) | some text beside it |\n'
+            '| --- | --- |\n'
+            '| ![](flag#50%) | more text |';
+        // Block-eligible images, but inside table rows → must not be promoted
+        // (a blank line mid-row would break the table).
+        expect(blockifyImageMarkdown(table), table);
+      },
+    );
 
-    test('promotes a block image in prose but not the one in an adjacent table',
-        () {
-      const input = 'intro ![](flag#96) text\n'
-          '| ![](flag#96) | beside |\n'
-          '| --- | --- |';
-      expect(
-        blockifyImageMarkdown(input),
-        'intro\n\n![](flag#96)\n\ntext\n'
+    test(
+      'promotes a block image in prose but not the one in an adjacent table',
+      () {
+        const input =
+            'intro ![](flag#96) text\n'
             '| ![](flag#96) | beside |\n'
-            '| --- | --- |',
-      );
-    });
+            '| --- | --- |';
+        expect(
+          blockifyImageMarkdown(input),
+          'intro\n\n![](flag#96)\n\ntext\n'
+          '| ![](flag#96) | beside |\n'
+          '| --- | --- |',
+        );
+      },
+    );
   });
 }

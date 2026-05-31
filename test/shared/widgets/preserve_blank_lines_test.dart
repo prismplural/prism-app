@@ -24,15 +24,11 @@ void main() {
     });
 
     test('three blank lines inserts two spacers', () {
-      expect(
-        preserveBlankLines('A\n\n\n\nB'),
-        'A\n\n$nbsp\n\n$nbsp\n\nB',
-      );
+      expect(preserveBlankLines('A\n\n\n\nB'), 'A\n\n$nbsp\n\n$nbsp\n\nB');
     });
 
     test('caps spacers at 10', () {
       // 20 blank lines in a row — only 10 spacers should be emitted.
-      final lotsOfBlanks = 'A${'\\n' * 0}';
       final input = 'A\n${'\n' * 20}B';
       final result = preserveBlankLines(input);
       final spacerCount = RegExp(RegExp.escape(nbsp)).allMatches(result).length;
@@ -40,42 +36,39 @@ void main() {
     });
 
     test('multiple separate blank line runs', () {
-      final input = 'A\n\n\nB\n\n\n\nC';
+      const input = 'A\n\n\nB\n\n\n\nC';
       final result = preserveBlankLines(input);
       expect(result, 'A\n\n$nbsp\n\nB\n\n$nbsp\n\n$nbsp\n\nC');
     });
 
     test('blank lines inside backtick fence are untouched', () {
-      final input = '```\nA\n\n\nB\n```';
+      const input = '```\nA\n\n\nB\n```';
       expect(preserveBlankLines(input), input);
     });
 
     test('blank lines inside tilde fence are untouched', () {
-      final input = '~~~\nA\n\n\nB\n~~~';
+      const input = '~~~\nA\n\n\nB\n~~~';
       expect(preserveBlankLines(input), input);
     });
 
     test('fence with info string', () {
-      final input = '```dart\nA\n\n\nB\n```';
+      const input = '```dart\nA\n\n\nB\n```';
       expect(preserveBlankLines(input), input);
     });
 
     test('blank lines before and after fence are processed', () {
-      final input = 'before\n\n\n```\ncode\n\n\n```\n\n\nafter';
+      const input = 'before\n\n\n```\ncode\n\n\n```\n\n\nafter';
       final result = preserveBlankLines(input);
-      expect(
-        result,
-        'before\n\n$nbsp\n\n```\ncode\n\n\n```\n\n$nbsp\n\nafter',
-      );
+      expect(result, 'before\n\n$nbsp\n\n```\ncode\n\n\n```\n\n$nbsp\n\nafter');
     });
 
     test('longer closing fence matches', () {
-      final input = '```\nA\n\n\nB\n`````';
+      const input = '```\nA\n\n\nB\n`````';
       expect(preserveBlankLines(input), input);
     });
 
     test('mismatched fence character does not close', () {
-      final input = '```\nA\n\n\nB\n~~~\nC\n```';
+      const input = '```\nA\n\n\nB\n~~~\nC\n```';
       expect(preserveBlankLines(input), input);
     });
 
@@ -103,16 +96,13 @@ void main() {
     });
 
     test('CRLF blank lines are treated as blank', () {
-      expect(
-        preserveBlankLines('A\r\n\r\n\r\nB'),
-        'A\r\n\n$nbsp\n\nB',
-      );
+      expect(preserveBlankLines('A\r\n\r\n\r\nB'), 'A\r\n\n$nbsp\n\nB');
     });
 
     test('indented fences after normalization are still detected', () {
       // After _normalizeDiscordLikeIndentation strips 4-space indent,
       // fences are at column 0. preserveBlankLines must detect them.
-      final input = '```\ncode\n\n\nmore\n```';
+      const input = '```\ncode\n\n\nmore\n```';
       expect(preserveBlankLines(input), input);
     });
   });
@@ -125,9 +115,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark(),
-          home: const Scaffold(
-            body: MarkdownText(data: 'First\n\n\nSecond'),
-          ),
+          home: const Scaffold(body: MarkdownText(data: 'First\n\n\nSecond')),
         ),
       );
       final withBlanks = _countBlockSpacers(tester);
@@ -136,9 +124,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark(),
-          home: const Scaffold(
-            body: MarkdownText(data: 'First\n\nSecond'),
-          ),
+          home: const Scaffold(body: MarkdownText(data: 'First\n\nSecond')),
         ),
       );
       final withoutBlanks = _countBlockSpacers(tester);
@@ -156,9 +142,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark(),
-          home: const Scaffold(
-            body: MarkdownText(data: 'A\n\n\nB'),
-          ),
+          home: const Scaffold(body: MarkdownText(data: 'A\n\n\nB')),
         ),
       );
       final oneExtra = _countBlockSpacers(tester);
@@ -166,14 +150,32 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark(),
-          home: const Scaffold(
-            body: MarkdownText(data: 'A\n\n\n\nB'),
-          ),
+          home: const Scaffold(body: MarkdownText(data: 'A\n\n\n\nB')),
         ),
       );
       final twoExtra = _countBlockSpacers(tester);
 
       expect(twoExtra, greaterThan(oneExtra));
+    });
+
+    testWidgets('more blank lines produce a larger visual gap', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(body: MarkdownText(data: 'A\n\n\nB')),
+        ),
+      );
+      final twoBlankLineGap = _verticalGapBetween(tester, 'A', 'B');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(body: MarkdownText(data: 'A\n\n\n\nB')),
+        ),
+      );
+      final threeBlankLineGap = _verticalGapBetween(tester, 'A', 'B');
+
+      expect(threeBlankLineGap, greaterThan(twoBlankLineGap));
     });
 
     testWidgets('single blank line (normal paragraph) has baseline spacers', (
@@ -182,9 +184,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark(),
-          home: const Scaffold(
-            body: MarkdownText(data: 'A\n\nB'),
-          ),
+          home: const Scaffold(body: MarkdownText(data: 'A\n\nB')),
         ),
       );
 
@@ -235,9 +235,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark(),
-          home: const Scaffold(
-            body: MarkdownText(data: 'line one\nline two'),
-          ),
+          home: const Scaffold(body: MarkdownText(data: 'line one\nline two')),
         ),
       );
 
@@ -320,4 +318,13 @@ int _countBlockSpacers(WidgetTester tester) {
       .widgetList<SizedBox>(find.byType(SizedBox))
       .where((sb) => sb.height != null && sb.height! > 0 && sb.width == null)
       .length;
+}
+
+double _verticalGapBetween(WidgetTester tester, String upper, String lower) {
+  final upperFinder = find.text(upper);
+  final lowerFinder = find.text(lower);
+  expect(upperFinder, findsOneWidget);
+  expect(lowerFinder, findsOneWidget);
+  return tester.getTopLeft(lowerFinder).dy -
+      tester.getBottomLeft(upperFinder).dy;
 }

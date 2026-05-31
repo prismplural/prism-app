@@ -42,29 +42,78 @@ bool isBlockImageSize(BioImageSize size) {
 String blockifyImageMarkdown(String markdown) {
   if (!markdown.contains('![')) return markdown;
 
-  String promote(String line) => line.replaceAllMapped(_imageToken, (m) {
-        final src = m.group(2) ?? '';
-        final hashIdx = src.indexOf('#');
-        final fragment = hashIdx >= 0 ? src.substring(hashIdx + 1) : null;
-        final size = BioImageSize.parse(fragment);
-        if (isBlockImageSize(size)) {
-          // Drop the surrounding spaces (consumed by the match) and isolate.
-          return '\n\n${m.group(1)}\n\n';
-        }
-        return m.group(0)!; // small → leave inline, original spacing intact
-      });
-
-  // Process line by line so images inside a table row (`| ![](img) | … |`,
-  // the side-by-side layout) are left untouched — promoting one would inject a
-  // blank line mid-row and shatter the table.
   final lines = markdown.split('\n');
-  final out = StringBuffer();
-  for (var i = 0; i < lines.length; i++) {
-    if (i > 0) out.write('\n');
-    final line = lines[i];
-    out.write(line.contains('|') ? line : promote(line));
+  final out = <String>[];
+  var pendingBlankAfterImage = false;
+
+  void addLine(String line) {
+    final isBlank = line.trim().isEmpty;
+    if (!isBlank && pendingBlankAfterImage) {
+      if (out.isNotEmpty && out.last.trim().isNotEmpty) out.add('');
+      pendingBlankAfterImage = false;
+    } else if (isBlank) {
+      pendingBlankAfterImage = false;
+    }
+    out.add(line);
   }
 
-  // Collapse the blank-line runs we introduced and trim the edges.
-  return out.toString().replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+  void addBlockImage(String imageToken) {
+    if (out.isNotEmpty && out.last.trim().isNotEmpty) out.add('');
+    out.add(imageToken);
+    pendingBlankAfterImage = true;
+  }
+
+  void addTextSegment(String text) {
+    if (text.isEmpty) return;
+    addLine(text);
+  }
+
+  for (final line in lines) {
+    // Images inside a table row (`| ![](img) | … |`) are left untouched —
+    // promoting one would inject a blank line mid-row and shatter the table.
+    if (line.contains('|')) {
+      addLine(line);
+      continue;
+    }
+
+    final matches = _imageToken.allMatches(line).toList();
+    if (matches.isEmpty) {
+      addLine(line);
+      continue;
+    }
+
+    var cursor = 0;
+    var sawBlockImage = false;
+    final textBuffer = StringBuffer();
+
+    for (final match in matches) {
+      final src = match.group(2) ?? '';
+      final hashIdx = src.indexOf('#');
+      final fragment = hashIdx >= 0 ? src.substring(hashIdx + 1) : null;
+      final size = BioImageSize.parse(fragment);
+      final imageToken = match.group(1)!;
+
+      if (isBlockImageSize(size)) {
+        sawBlockImage = true;
+        textBuffer.write(line.substring(cursor, match.start));
+        addTextSegment(textBuffer.toString());
+        textBuffer.clear();
+        addBlockImage(imageToken);
+      } else {
+        textBuffer
+          ..write(line.substring(cursor, match.start))
+          ..write(match.group(0)!);
+      }
+      cursor = match.end;
+    }
+
+    textBuffer.write(line.substring(cursor));
+    if (sawBlockImage) {
+      addTextSegment(textBuffer.toString());
+    } else {
+      addLine(line);
+    }
+  }
+
+  return out.join('\n');
 }
