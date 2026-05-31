@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -58,7 +57,7 @@ final _allChatMediaProvider =
 /// The first four sources are bounded and scanned in memory. Chat could be
 /// huge, so it's narrowed via a `content LIKE '%![%'` query and reported as a
 /// count.
-final _tagUsageProvider = FutureProvider.autoDispose
+final tagUsageProvider = FutureProvider.autoDispose
     .family<Map<String, List<TagUsageRef>>, AppLocalizations>(
         (ref, l10n) async {
   // Source the referencing surfaces from each provider's CURRENT value
@@ -128,6 +127,7 @@ final _tagUsageProvider = FutureProvider.autoDispose
   try {
     final values =
         await ref.read(customFieldsRepositoryProvider).getAllValues();
+    if (!ref.mounted) return const {};
     for (final v in values) {
       final mName =
           memberName[v.memberId] ?? l10n.mediaUsageLabelUnknownMember;
@@ -141,14 +141,17 @@ final _tagUsageProvider = FutureProvider.autoDispose
       ));
     }
   } catch (e) {
+    if (!ref.mounted) return const {};
     debugPrint('[tagUsage] custom-field values read failed: $e');
   }
 
+  if (!ref.mounted) return const {};
   try {
     final chatMessages = await ref
         .read(databaseProvider)
         .chatMessagesDao
         .imageMarkdownMessages();
+    if (!ref.mounted) return const {};
     for (final msg in chatMessages) {
       final preview = stripImageMarkdown(msg.content).trim();
       sources.add(TagUsageSource(
@@ -162,6 +165,7 @@ final _tagUsageProvider = FutureProvider.autoDispose
       ));
     }
   } catch (e) {
+    if (!ref.mounted) return const {};
     debugPrint('[tagUsage] chat messages read failed: $e');
   }
 
@@ -235,7 +239,7 @@ class MediaSettingsScreen extends ConsumerWidget {
             // Tag → human-readable usage labels across all surfaces. Async
             // (chat is queried), so default to empty while it resolves.
             final tagUsage =
-                ref.watch(_tagUsageProvider(context.l10n)).value ?? const {};
+                ref.watch(tagUsageProvider(context.l10n)).value ?? const {};
 
             // Avatars / banners summary.
             final avatarMembers =
@@ -858,7 +862,7 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
                       ),
                     ),
                   ),
-                  error: (_, __) => Center(
+                  error: (_, _) => Center(
                     child: Icon(AppIcons.imageBroken,
                         color: theme.colorScheme.onSurfaceVariant),
                   ),
@@ -1140,7 +1144,7 @@ class _MediaThumbnail extends ConsumerWidget {
                 ),
               ),
             ),
-            error: (_, __) => Container(
+            error: (_, _) => Container(
               color: theme.colorScheme.surfaceContainerHighest,
               child: Icon(AppIcons.imageBroken,
                   color: theme.colorScheme.onSurfaceVariant),
