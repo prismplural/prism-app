@@ -16,15 +16,25 @@ List<Member> orderCurrentFronters(
   if (activeSessions.isEmpty) return const [];
 
   final membersById = {for (final m in members) m.id: m};
-  final entries = <_FronterEntry>[];
+  // One entry per member, keeping the most-recent start: a member can hold
+  // multiple open sessions (co-front starts merged across devices), and a
+  // repeated member.id would throw a duplicate-key assertion in the keyed Row.
+  final entriesById = <String, _FronterEntry>{};
   for (final session in activeSessions) {
     final memberId = session.memberId;
     if (memberId == null) continue;
     final member = membersById[memberId];
     if (member == null) continue;
-    entries.add(_FronterEntry(member: member, startTime: session.startTime));
+    final existing = entriesById[memberId];
+    if (existing == null || session.startTime.isAfter(existing.startTime)) {
+      entriesById[memberId] = _FronterEntry(
+        member: member,
+        startTime: session.startTime,
+      );
+    }
   }
 
+  final entries = entriesById.values.toList();
   entries.sort((a, b) {
     final startCmp = b.startTime.compareTo(a.startTime);
     if (startCmp != 0) return startCmp;
