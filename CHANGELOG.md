@@ -4,6 +4,41 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-05-31
+
+This release adds Prism's encrypted bio-image system: images can live in the encrypted media store, be inserted into member bios and long-text markdown surfaces, render on profiles, and be managed from a tag-based media library. It also expands Simply Plural import, improves markdown editing, and includes a broad set of sync, fronting, onboarding, and custom-field fixes.
+
+### Added
+- Encrypted bio images. Member bios and long-text editors now have image insertion, tagged library lookup, encrypted storage, markdown rendering, and profile layout support for inline/image-table bios.
+- Tag-based media library in Settings, including add-by-file/URL, tag editing, usage scanning, reference rewriting, copy-markdown actions, and in-place image replacement.
+- Simply Plural bio-image import. Prism can import referenced SP bio/profile images into encrypted media and rewrite imported bios to local image tags.
+- Library images in chat and the shared image viewer, with markdown previews that strip image markers cleanly for conversation lists.
+- Insert-table button for long-text editors, plus Prism markdown table parsing/rendering tuned for bio image layouts.
+- Member creation dates: creation date picker, subtle profile footer, Simply Plural ObjectId backfill, import/export support, and PluralKit `createdAt` pull/backfill.
+- Full-screen searchable Manage Groups sheet and a show/hide-groups toggle in member list view settings.
+- Composer default member preference for chat and boards, and current fronters float to the top of member pickers.
+- Spoiler rendering on all markdown surfaces and `[label](url)` links in short-text custom fields, with launch-safe URL handling.
+
+### Changed
+- Member `age` migrated from integer to free-text string, with old-client numeric sync coercion and full migration/export coverage.
+- Media attachments now sync `member_id` and `tag`, enabling bio media and library rows to converge across paired devices.
+- Markdown rendering preserves blank lines more faithfully across shared/profile surfaces, including image markdown.
+- Simply Plural onboarding/import progress states now use clearer labels and localized copy.
+
+### Fixed
+- Sync resume now self-heals from disconnect-like failures and requires confirmed revoke before wiping local sync state; Rust panic details can be surfaced through the new sync panic diagnostic hook.
+- Fronting history repairs collapse duplicate open or overlapping sessions, prevent duplicate same-member fronts, and dedupe current fronters by member to avoid duplicate-key crashes.
+- Sleep end action stays visible, reminder suppression windows are honored, and quick-switch correction behavior is restored.
+- Image-heavy markdown tables no longer crash layout, and choice "Other" inputs wrap instead of overflowing.
+- Custom field ordering is stable when duplicate order values exist; newly created fields and members append predictably.
+- Member profile sections now respect feature flags, long chip labels wrap, buttons cap expanded touch width, and date pickers clamp out-of-range initial dates.
+- Onboarding handles encrypted Simply Plural chat imports and no longer shows blank import progress states.
+- Settings media usage scans are guarded after disposal.
+
+### Internal
+- prism-sync pin moves from v0.10.1 (`7759293`) to v0.11.0 (`b99d64d`) for cross-platform WebP image encoding, FFI panic capture, relay snapshot idempotency, and registry verification hardening.
+- Added regression coverage across bio image parsing/layout/rendering, media repository replacement, tag reference rewriting and usage scanning, markdown tables, blank-line preservation, age migration/coercion, fronting repair, onboarding import progress, and sync resume recovery.
+
 ## [0.10.1] - 2026-05-28
 
 A polish release building on the 0.10.0 custom-fields rewrite: multi-color slider gradients, a per-type show/hide-title toggle, and a compact/stacked layout choice for scale fields, plus import-reliability fixes (a Simply Plural avatar-zip out-of-memory crash, grouped import warnings) and a longer list of statistics, sync, and profile-rendering fixes.

@@ -1201,23 +1201,29 @@ packages:
   prism_sync:
     dependency: "direct main"
     description:
-      path: "/Users/sky/code/.prism-worktrees/bio-images-encrypted/prism-sync/dart/packages/prism_sync"
-      relative: false
-    source: path
+      path: "dart/packages/prism_sync"
+      ref: b99d64df80201f271f9a0aa75c6495f4db4c98c9
+      resolved-ref: b99d64df80201f271f9a0aa75c6495f4db4c98c9
+      url: "https://github.com/prismplural/prism-sync.git"
+    source: git
     version: "0.1.1"
   prism_sync_drift:
     dependency: "direct main"
     description:
-      path: "/Users/sky/code/.prism-worktrees/bio-images-encrypted/prism-sync/dart/packages/prism_sync_drift"
-      relative: false
-    source: path
+      path: "dart/packages/prism_sync_drift"
+      ref: b99d64df80201f271f9a0aa75c6495f4db4c98c9
+      resolved-ref: b99d64df80201f271f9a0aa75c6495f4db4c98c9
+      url: "https://github.com/prismplural/prism-sync.git"
+    source: git
     version: "0.1.1"
   prism_sync_flutter:
     dependency: "direct main"
     description:
-      path: "/Users/sky/code/.prism-worktrees/bio-images-encrypted/prism-sync/dart/packages/prism_sync_flutter"
-      relative: false
-    source: path
+      path: "dart/packages/prism_sync_flutter"
+      ref: b99d64df80201f271f9a0aa75c6495f4db4c98c9
+      resolved-ref: b99d64df80201f271f9a0aa75c6495f4db4c98c9
+      url: "https://github.com/prismplural/prism-sync.git"
+    source: git
     version: "0.1.1"
   process:
     dependency: transitive
