@@ -82,6 +82,22 @@ CustomField _sliderField({
 
 void main() {
   group('Create/Edit Field Sheet - Slider config', () {
+    testWidgets('shows label inputs as left, center, right', (tester) async {
+      _useTallViewport(tester);
+      final notifier = _FakeCustomFieldNotifier();
+      final field = _sliderField();
+
+      await tester.pumpWidget(_buildSheet(field: field, notifier: notifier));
+      await tester.pumpAndSettle();
+
+      final leftTop = tester.getTopLeft(find.text('Left label (optional)'));
+      final centerTop = tester.getTopLeft(find.text('Center label (optional)'));
+      final rightTop = tester.getTopLeft(find.text('Right label (optional)'));
+
+      expect(leftTop.dy, lessThan(centerTop.dy));
+      expect(centerTop.dy, lessThan(rightTop.dy));
+    });
+
     // ── Legacy compat ───────────────────────────────────────────────────────
 
     testWidgets('selecting a preset preserves inactive custom gradient colors', (
@@ -310,7 +326,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Preview a preset, then switch back to custom.
-      await tester.tap(find.text('Cool ↔ Warm'));
+      await tester.tap(find.text('Cool ↔︎ Warm'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Custom').last);
       await tester.pumpAndSettle();
