@@ -17,6 +17,7 @@ import 'core/services/screen_privacy_controller.dart';
 import 'core/sync/prism_sync_providers.dart';
 import 'features/pluralkit/providers/pk_sync_event_log_provider.dart';
 import 'features/fronting/migration/providers/fronting_migration_providers.dart';
+import 'features/fronting/providers/fronting_session_repair_provider.dart';
 import 'features/habits/providers/habit_providers.dart';
 import 'features/onboarding/providers/onboarding_providers.dart';
 import 'domain/models/system_settings.dart';
@@ -215,6 +216,11 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     // pairing). Building it here guarantees the chain is warm before any
     // sync apply runs. Do not remove without re-testing fresh-install pairing.
     ref.listen(frontingMigrationModeProvider, (_, _) {});
+    // Run the one-time open-session repair once per device, after sync is
+    // configured + healthy and the fronting migration is complete. Collapses
+    // duplicate open sessions and merges overlapping same-member rows through
+    // the sync layer so peers converge. Idempotent; no-ops on later launches.
+    ref.listen(frontingOpenSessionRepairBootstrapProvider, (_, _) {});
     // Trigger the SP boards backfill once on first launch after v15 upgrade.
     // The provider is gated on spBoardsBackfilledAt == null and is a no-op on
     // all subsequent launches. Fire-and-forget — errors are non-fatal.

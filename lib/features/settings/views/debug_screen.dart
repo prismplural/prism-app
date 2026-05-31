@@ -9,6 +9,7 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/services/stress_data_generator.dart';
@@ -46,6 +47,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
   StressPreset? _currentPreset;
   bool _isGenerating = false;
   bool _isClearing = false;
+  bool _isRepairingFronting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -162,6 +164,47 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                     isLoading: _isClearing,
                     enabled: !_isGenerating && !_isClearing,
                     onPressed: () => _confirmClearStressData(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ── Maintenance ─────────────────────────────
+          PrismSectionCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Maintenance',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Collapse duplicate open fronting sessions down to one per '
+                  'member and merge overlapping same-member rows. Runs through '
+                  'the sync layer (peers converge) and is safe to run '
+                  'repeatedly.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: PrismButton(
+                    label: 'Repair fronting sessions',
+                    icon: AppIcons.buildCircleOutlined,
+                    tone: PrismButtonTone.outlined,
+                    expanded: true,
+                    isLoading: _isRepairingFronting,
+                    enabled: !_isRepairingFronting,
+                    onPressed: () => _repairFrontingSessions(context),
                   ),
                 ),
               ],
@@ -385,6 +428,31 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _repairFrontingSessions(BuildContext context) async {
+    setState(() => _isRepairingFronting = true);
+    try {
+      final result = await ref
+          .read(frontingMutationServiceProvider)
+          .repairMemberSessionInvariants();
+      if (!context.mounted) return;
+      final summary = result.dataOrNull;
+      if (result.isSuccess && summary != null) {
+        PrismToast.show(
+          context,
+          message: summary.madeChanges
+              ? 'Repaired ${summary.membersAffected} member(s): closed '
+                    '${summary.openDuplicatesClosed} duplicate open(s), merged '
+                    '${summary.overlapsMerged} overlap(s).'
+              : 'No issues found — fronting sessions are already clean.',
+        );
+      } else {
+        PrismToast.error(context, message: 'Fronting repair failed.');
+      }
+    } finally {
+      if (mounted) setState(() => _isRepairingFronting = false);
+    }
   }
 
   String _formatDateTime(DateTime dt) {

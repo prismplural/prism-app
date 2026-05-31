@@ -28,6 +28,28 @@ class FrontingMutationResult {
   final List<String?> previousMemberIds;
 }
 
+/// Outcome of [FrontingMutationService.repairMemberSessionInvariants].
+class FrontingRepairSummary {
+  const FrontingRepairSummary({
+    required this.openDuplicatesClosed,
+    required this.overlapsMerged,
+    required this.membersAffected,
+  });
+
+  /// Surplus open sessions that were closed so each member keeps at most one
+  /// open session.
+  final int openDuplicatesClosed;
+
+  /// Same-member rows absorbed (deleted) by merging strictly-overlapping
+  /// ranges into a single spanning session.
+  final int overlapsMerged;
+
+  /// Distinct members whose sessions were changed.
+  final int membersAffected;
+
+  bool get madeChanges => openDuplicatesClosed > 0 || overlapsMerged > 0;
+}
+
 class FrontingMutationService {
   FrontingMutationService({
     required FrontingSessionRepository repository,
@@ -101,6 +123,28 @@ class FrontingMutationService {
       (earliest, session) =>
           session.startTime.isBefore(earliest.startTime) ? session : earliest,
     );
+  }
+
+  /// For the explicit always-fronting members among [sessions], returns the
+  /// single open session to preserve per member — the earliest-started, i.e.
+  /// their persistent background session. Non-always-fronting rows, sleep rows,
+  /// and null-member rows are excluded. Any *extra* open sessions for these
+  /// members beyond the returned one are duplicates the caller should close so
+  /// the one-open-per-member invariant holds.
+  Future<Map<String, FrontingSession>> _earliestAlwaysFrontingByMember(
+    List<FrontingSession> sessions,
+  ) async {
+    final byMember = <String, List<FrontingSession>>{};
+    for (final s in sessions) {
+      final memberId = s.memberId;
+      if (s.isSleep || memberId == null) continue;
+      if (!await _isActiveExplicitAlwaysFrontingMember(memberId)) continue;
+      (byMember[memberId] ??= <FrontingSession>[]).add(s);
+    }
+    return {
+      for (final entry in byMember.entries)
+        entry.key: _earliestSession(entry.value)!,
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -404,11 +448,18 @@ class FrontingMutationService {
             .toList();
         final now = startTime ?? DateTime.now();
         _assertTimeRange(now, null);
+        // Preserve exactly one open session per explicit always-fronting member
+        // (their persistent background session); end everything else, including
+        // any duplicate opens for those members so the one-open-per-member
+        // invariant holds through sleep.
+        final preservedIds = {
+          for (final s in (await _earliestAlwaysFrontingByMember(
+            activeSessions,
+          )).values)
+            s.id,
+        };
         for (final session in activeSessions) {
-          if (!session.isSleep &&
-              await _isActiveExplicitAlwaysFrontingMember(session.memberId)) {
-            continue;
-          }
+          if (preservedIds.contains(session.id)) continue;
           await _repository.endSession(session.id, now);
         }
 
@@ -484,15 +535,25 @@ class FrontingMutationService {
         final remaining = await _repository.getAllActiveSessionsUnfiltered();
         final preservedFrontingSessions = <String, FrontingSession>{};
         final previousMemberIds = <String?>[null]; // was sleeping (no member)
-        for (final s in remaining) {
-          if (!s.isSleep &&
-              await _isActiveExplicitAlwaysFrontingMember(s.memberId)) {
-            final memberId = s.memberId;
-            if (memberId != null && selectedMemberIds.contains(memberId)) {
-              preservedFrontingSessions.putIfAbsent(memberId, () => s);
-            }
-            continue;
+
+        // Preserve exactly one open session per always-fronting member (the
+        // earliest = persistent background session). Selected members reuse it
+        // for the new front; non-selected ones simply keep fronting. Every
+        // other open session — including duplicate opens for these members — is
+        // closed so each member ends up with a single open session.
+        final preservedAlwaysFronting = await _earliestAlwaysFrontingByMember(
+          remaining,
+        );
+        final preservedIds = {
+          for (final s in preservedAlwaysFronting.values) s.id,
+        };
+        for (final entry in preservedAlwaysFronting.entries) {
+          if (selectedMemberIds.contains(entry.key)) {
+            preservedFrontingSessions[entry.key] = entry.value;
           }
+        }
+        for (final s in remaining) {
+          if (preservedIds.contains(s.id)) continue;
           await _repository.endSession(s.id, now);
           if (!s.isSleep) previousMemberIds.add(s.memberId);
         }
@@ -927,4 +988,222 @@ class FrontingMutationService {
     }
     return strongest;
   }
+
+  // ---------------------------------------------------------------------------
+  // Repair / data-integrity maintenance
+  // ---------------------------------------------------------------------------
+
+  /// Idempotent repair that restores the per-member session invariants on
+  /// existing data. The mutation-time guards in [startFronting] /
+  /// [replaceFronting] only prevent new duplicates on the device making the
+  /// edit; opens that accumulate across unsynced devices only collapse here.
+  ///
+  ///  1. **At most one open session per member.** When a member has more than
+  ///     one open (`end_time == null`) session, the most-recently started open
+  ///     is kept open and each earlier open is closed at the start of that
+  ///     member's next session, turning stale opens into contiguous history.
+  ///  2. **No strictly-overlapping same-member sessions.** Sessions for the
+  ///     same member whose `[start, end]` ranges strictly overlap are merged
+  ///     into one session spanning the union, preserving notes, confidence,
+  ///     attached comments, and the PluralKit link. Adjacent (touching)
+  ///     sessions are left distinct.
+  ///
+  /// Every write goes through the repository, so each close / merge / delete
+  /// emits a synced CRDT op — running this on one device converges every peer.
+  /// Safe to run repeatedly: a second run finds at most one open per member and
+  /// no strict overlaps, so it emits nothing.
+  Future<MutationResult<FrontingRepairSummary>>
+  repairMemberSessionInvariants() {
+    return _mutationRunner.run<FrontingRepairSummary>(
+      actionLabel: 'Repair fronting sessions',
+      action: () async {
+        final all = await _repository.getFrontingSessions();
+        final byMember = <String, List<FrontingSession>>{};
+        for (final s in all) {
+          final memberId = s.memberId;
+          if (memberId == null) continue;
+          (byMember[memberId] ??= <FrontingSession>[]).add(s);
+        }
+
+        var openDuplicatesClosed = 0;
+        var overlapsMerged = 0;
+        final affected = <String>{};
+        for (final memberId in byMember.keys) {
+          final closed = await _collapseOpenDuplicates(
+            memberId,
+            byMember[memberId]!,
+          );
+          // _mergeOverlappingSessions re-reads the member's rows so the overlap
+          // pass observes the freshly-closed end_times (same transaction →
+          // reads see prior writes).
+          final merged = await _mergeOverlappingSessions(memberId);
+          openDuplicatesClosed += closed;
+          overlapsMerged += merged;
+          if (closed > 0 || merged > 0) affected.add(memberId);
+        }
+
+        return FrontingRepairSummary(
+          openDuplicatesClosed: openDuplicatesClosed,
+          overlapsMerged: overlapsMerged,
+          membersAffected: affected.length,
+        );
+      },
+    );
+  }
+
+  /// Collapses multiple open sessions for [memberId] down to one. Keeps the
+  /// most-recently started open and closes each earlier open at the start of
+  /// the next session in [memberSessions] (clamped to a strictly positive
+  /// duration). [memberSessions] is the pre-repair snapshot of this member's
+  /// non-deleted normal sessions. Returns the number of opens closed.
+  Future<int> _collapseOpenDuplicates(
+    String memberId,
+    List<FrontingSession> memberSessions,
+  ) async {
+    final sorted = [...memberSessions]..sort(_byStartThenId);
+    final opens = [
+      for (final s in sorted)
+        if (s.endTime == null) s,
+    ];
+    if (opens.length <= 1) return 0;
+
+    final keep = opens.last; // most-recently started
+    var closed = 0;
+    for (final open in opens) {
+      if (open.id == keep.id) continue;
+      // Close at the start of the next session that begins after this open —
+      // the moment the member's next (duplicate) front took over.
+      DateTime? nextStart;
+      for (final other in sorted) {
+        if (other.id == open.id) continue;
+        if (other.startTime.isAfter(open.startTime) &&
+            (nextStart == null || other.startTime.isBefore(nextStart))) {
+          nextStart = other.startTime;
+        }
+      }
+      final end = nextStart ?? keep.startTime;
+      final safeEnd = end.isAfter(open.startTime)
+          ? end
+          : open.startTime.add(const Duration(seconds: 1));
+      await _repository.endSession(open.id, safeEnd);
+      closed++;
+    }
+    return closed;
+  }
+
+  /// Merges same-member sessions whose `[start, end]` ranges strictly overlap
+  /// into a single spanning session. Touching/adjacent sessions
+  /// (`end == next.start`) are left as distinct rows. Returns the number of
+  /// rows absorbed by merges.
+  Future<int> _mergeOverlappingSessions(String memberId) async {
+    final fetched = await _repository.getSessionsForMember(memberId);
+    final remaining = [...fetched]..sort(_byStartThenId);
+    var absorbed = 0;
+
+    while (remaining.isNotEmpty) {
+      final seed = remaining.removeAt(0);
+      final group = <FrontingSession>[seed];
+      var groupStart = seed.startTime;
+      DateTime? groupEnd = seed.endTime;
+
+      var changed = true;
+      while (changed) {
+        changed = false;
+        for (var i = remaining.length - 1; i >= 0; i--) {
+          final s = remaining[i];
+          if (!_rangesStrictlyOverlap(
+            groupStart,
+            groupEnd,
+            s.startTime,
+            s.endTime,
+          )) {
+            continue;
+          }
+          group.add(s);
+          remaining.removeAt(i);
+          if (s.startTime.isBefore(groupStart)) groupStart = s.startTime;
+          final end = s.endTime;
+          if (groupEnd != null) {
+            if (end == null) {
+              groupEnd = null;
+            } else if (end.isAfter(groupEnd)) {
+              groupEnd = end;
+            }
+          }
+          changed = true;
+        }
+      }
+
+      if (group.length < 2) continue;
+      await _mergeOverlapGroup(group);
+      absorbed += group.length - 1;
+    }
+    return absorbed;
+  }
+
+  Future<void> _mergeOverlapGroup(List<FrontingSession> group) async {
+    // Sort by start so merged notes read chronologically regardless of the
+    // order rows were absorbed into the group.
+    group.sort(_byStartThenId);
+    final survivor = _pickMergeSurvivor(group);
+    final unionStart = group
+        .map((s) => s.startTime)
+        .reduce((a, b) => a.isBefore(b) ? a : b);
+
+    final merged = survivor.copyWith(
+      startTime: unionStart,
+      endTime: _mergeEndTime(group),
+      notes: _mergeNotes(group.map((s) => s.notes)),
+      confidence: _mergeConfidence(group.map((s) => s.confidence)),
+    );
+    await _repository.updateSession(merged);
+
+    for (final s in group) {
+      if (s.id == survivor.id) continue;
+      await reparentFrontSessionComments(
+        _frontSessionCommentsRepository,
+        fromSessionId: s.id,
+        toSessionId: survivor.id,
+      );
+      await _repository.deleteSession(s.id);
+    }
+  }
+
+  /// Picks the row to keep when merging an overlap group.
+  ///
+  /// Prefers a PluralKit-linked row so its link survives without moving the
+  /// `pluralkit_uuid` onto a different row: the partial unique index on
+  /// `(pluralkit_uuid, member_id)` covers tombstones, so transferring a uuid
+  /// while soft-deleting its previous holder would collide. Ties (and the
+  /// no-link case) break on earliest start, then id.
+  FrontingSession _pickMergeSurvivor(List<FrontingSession> group) {
+    final linked = [
+      for (final s in group)
+        if (s.pluralkitUuid != null && s.pluralkitUuid!.isNotEmpty) s,
+    ];
+    final pool = linked.isNotEmpty ? linked : group;
+    return pool.reduce((a, b) => _byStartThenId(a, b) <= 0 ? a : b);
+  }
+
+  static int _byStartThenId(FrontingSession a, FrontingSession b) {
+    final c = a.startTime.compareTo(b.startTime);
+    if (c != 0) return c;
+    return a.id.compareTo(b.id);
+  }
+
+  /// Two `[start, end]` ranges strictly overlap when each starts before the
+  /// other ends; a null end means open (+infinity). Touching boundaries
+  /// (`aEnd == bStart`) do **not** count — adjacent sessions stay distinct.
+  static bool _rangesStrictlyOverlap(
+    DateTime aStart,
+    DateTime? aEnd,
+    DateTime bStart,
+    DateTime? bEnd,
+  ) {
+    final aE = aEnd ?? _farFuture;
+    final bE = bEnd ?? _farFuture;
+    return aStart.isBefore(bE) && bStart.isBefore(aE);
+  }
+
+  static final DateTime _farFuture = DateTime.utc(9999);
 }
