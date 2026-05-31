@@ -527,6 +527,9 @@ class _ConversationsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final chatEnabled = ref.watch(chatEnabledProvider);
+    if (!chatEnabled) return const SizedBox.shrink();
+
     final theme = Theme.of(context);
     final convsAsync = ref.watch(memberConversationsProvider(memberId));
 

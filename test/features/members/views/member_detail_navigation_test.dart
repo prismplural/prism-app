@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
@@ -11,13 +12,16 @@ import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
+import 'package:prism_plurality/domain/models/note.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -47,6 +51,27 @@ Conversation _conversation({
   createdAt: _now,
   lastActivityAt: _now,
 );
+
+Note _note(String id, {String title = 'Profile note'}) => Note(
+  id: id,
+  title: title,
+  body: 'Note body',
+  memberId: 'alice',
+  date: _now,
+  createdAt: _now,
+  modifiedAt: _now,
+);
+
+MemberBoardPost _boardPost(String id, {String body = 'Board post body'}) =>
+    MemberBoardPost(
+      id: id,
+      targetMemberId: 'alice',
+      authorId: 'bob',
+      audience: 'public',
+      body: body,
+      createdAt: _now,
+      writtenAt: _now,
+    );
 
 GoRouter _router({required String memberId}) {
   return GoRouter(
@@ -164,12 +189,15 @@ Widget _buildApp({
   required Member member,
   List<FrontingSession> recentSessions = const [],
   List<Conversation> conversations = const [],
+  List<Note> notes = const [],
+  MemberBoardSection? boardSection,
   List<MemberGroup> memberGroups = const [],
   SystemSettings settings = const SystemSettings(
     notesEnabled: false,
     boardsEnabled: false,
   ),
 }) {
+  final bob = _member('bob', 'Bob');
   final stats = recentSessions.isEmpty
       ? const MemberFrontingStats(
           totalSessions: 0,
@@ -187,12 +215,9 @@ Widget _buildApp({
   return ProviderScope(
     overrides: [
       systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
-      notesEnabledProvider.overrideWithValue(false),
-      boardsEnabledProvider.overrideWithValue(false),
       memberByIdProvider(member.id).overrideWith((ref) => Stream.value(member)),
-      allMembersProvider.overrideWith(
-        (ref) => Stream.value([member, _member('bob', 'Bob')]),
-      ),
+      allMembersProvider.overrideWith((ref) => Stream.value([member, bob])),
+      activeMembersProvider.overrideWith((ref) => Stream.value([member, bob])),
       activeSessionsProvider.overrideWith((ref) => Stream.value(const [])),
       memberFrontingStatsProvider(member.id).overrideWith((ref) async => stats),
       memberRecentSessionsProvider(
@@ -201,6 +226,15 @@ Widget _buildApp({
       memberConversationsProvider(
         member.id,
       ).overrideWith((ref) async => conversations),
+      recentMemberNotesProvider(
+        member.id,
+      ).overrideWith((ref) => Stream.value(notes)),
+      memberBoardSectionProvider(member.id).overrideWith(
+        (ref) => Stream.value(
+          boardSection ??
+              const MemberBoardSection(publicPosts: [], totalPublic: 0),
+        ),
+      ),
       memberGroupsProvider(
         member.id,
       ).overrideWith((ref) => Stream.value(memberGroups)),
@@ -405,6 +439,88 @@ void main() {
       router.routerDelegate.currentConfiguration.uri.toString(),
       AppRoutePaths.member(member.id),
     );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('member detail hides feature-owned sections when disabled', (
+    tester,
+  ) async {
+    final member = _member('alice', 'Alice');
+    final conversation = _conversation(
+      id: 'c1',
+      title: 'Project chat',
+      participantIds: [member.id, 'bob'],
+    );
+    final note = _note('n1');
+    final boardPost = _boardPost('p1');
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(
+        router: router,
+        member: member,
+        conversations: [conversation],
+        notes: [note],
+        boardSection: MemberBoardSection(
+          publicPosts: [boardPost],
+          totalPublic: 1,
+        ),
+        settings: const SystemSettings(
+          chatEnabled: false,
+          notesEnabled: false,
+          boardsEnabled: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Project chat'), findsNothing);
+    expect(find.text('Profile note'), findsNothing);
+    expect(find.textContaining('Board post body'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('member detail shows feature-owned sections when enabled', (
+    tester,
+  ) async {
+    final member = _member('alice', 'Alice');
+    final conversation = _conversation(
+      id: 'c1',
+      title: 'Project chat',
+      participantIds: [member.id, 'bob'],
+    );
+    final note = _note('n1');
+    final boardPost = _boardPost('p1');
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(
+        router: router,
+        member: member,
+        conversations: [conversation],
+        notes: [note],
+        boardSection: MemberBoardSection(
+          publicPosts: [boardPost],
+          totalPublic: 1,
+        ),
+        settings: const SystemSettings(
+          chatEnabled: true,
+          notesEnabled: true,
+          boardsEnabled: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Project chat'), findsOneWidget);
+    expect(find.text('Profile note'), findsOneWidget);
+    expect(find.textContaining('Board post body'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
