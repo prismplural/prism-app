@@ -262,13 +262,24 @@ class CurrentFrontingPresenceRow extends ConsumerWidget {
   }
 }
 
-class _CurrentSleepPresenceRow extends StatelessWidget {
+class _CurrentSleepPresenceRow extends ConsumerWidget {
   const _CurrentSleepPresenceRow({required this.session});
 
   final FrontingSession session;
 
+  Future<void> _endSleep(BuildContext context, WidgetRef ref) async {
+    try {
+      Haptics.heavy();
+      await ref.read(sleepNotifierProvider.notifier).endSleep(session.id);
+    } catch (e) {
+      if (context.mounted) {
+        PrismToast.error(context, message: e.toString());
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final sleepColor = AppColors.sleep(theme.brightness);
 
@@ -281,43 +292,64 @@ class _CurrentSleepPresenceRow extends StatelessWidget {
         padding: EdgeInsets.zero,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(AppIcons.bedtimeRounded, size: 24, color: sleepColor),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    FrontingDurationText(
-                      startTime: session.startTime,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: sleepColor,
-                        fontFeatures: [const FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    Text(
-                      context.l10n.frontingSleepingLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.6,
+              Row(
+                children: [
+                  Icon(AppIcons.bedtimeRounded, size: 24, color: sleepColor),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FrontingDurationText(
+                          startTime: session.startTime,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: sleepColor,
+                            fontFeatures: [const FontFeature.tabularFigures()],
+                          ),
                         ),
-                      ),
+                        Text(
+                          context.l10n.frontingSleepingLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              PrismButton(
-                label: context.l10n.frontingWakeUp,
-                icon: AppIcons.wbSunnyRounded,
-                onPressed: () => WakeUpSleepSheet.show(context, session),
-                density: PrismControlDensity.compact,
-                tone: PrismButtonTone.filled,
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: PrismButton(
+                      label: context.l10n.frontingEndSessionButton,
+                      icon: AppIcons.closeRounded,
+                      onPressed: () => _endSleep(context, ref),
+                      density: PrismControlDensity.compact,
+                      tone: PrismButtonTone.subtle,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: PrismButton(
+                      label: context.l10n.frontingWakeUp,
+                      icon: AppIcons.wbSunnyRounded,
+                      onPressed: () => WakeUpSleepSheet.show(context, session),
+                      density: PrismControlDensity.compact,
+                      tone: PrismButtonTone.filled,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

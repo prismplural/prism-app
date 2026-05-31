@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/mutations/mutation_result.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_table_ticker_provider.dart';
 
@@ -155,23 +156,25 @@ class SleepNotifier extends Notifier<void> {
     DateTime? startTime,
     SleepQuality? quality,
   }) async {
-    await ref
-        .read(frontingMutationServiceProvider)
-        .startSleep(notes: notes, startTime: startTime, quality: quality);
+    await _unwrap(
+      ref
+          .read(frontingMutationServiceProvider)
+          .startSleep(notes: notes, startTime: startTime, quality: quality),
+    );
   }
 
   Future<void> endSleep(String id) async {
-    await ref.read(frontingMutationServiceProvider).endSleep(id);
+    await _unwrap(ref.read(frontingMutationServiceProvider).endSleep(id));
   }
 
   Future<void> updateSleepQuality(String id, SleepQuality quality) async {
-    await ref
-        .read(frontingMutationServiceProvider)
-        .updateSleepQuality(id, quality);
+    await _unwrap(
+      ref.read(frontingMutationServiceProvider).updateSleepQuality(id, quality),
+    );
   }
 
   Future<void> deleteSleep(String id) async {
-    await ref.read(frontingMutationServiceProvider).deleteSleep(id);
+    await _unwrap(ref.read(frontingMutationServiceProvider).deleteSleep(id));
   }
 
   Future<FrontingSession> logHistoricalSleep({
@@ -180,15 +183,24 @@ class SleepNotifier extends Notifier<void> {
     SleepQuality? quality,
     String? notes,
   }) async {
-    final result = await ref
-        .read(frontingMutationServiceProvider)
-        .logHistoricalSleep(
-          startTime: startTime,
-          endTime: endTime,
-          quality: quality,
-          notes: notes,
-        );
-    return result.dataOrNull!;
+    return _unwrap(
+      ref
+          .read(frontingMutationServiceProvider)
+          .logHistoricalSleep(
+            startTime: startTime,
+            endTime: endTime,
+            quality: quality,
+            notes: notes,
+          ),
+    );
+  }
+
+  Future<T> _unwrap<T>(Future<MutationResult<T>> resultFuture) async {
+    final result = await resultFuture;
+    return result.when(
+      success: (data) => data,
+      failure: (error) => throw error,
+    );
   }
 }
 

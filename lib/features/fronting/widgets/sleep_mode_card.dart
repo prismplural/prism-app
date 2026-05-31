@@ -15,7 +15,9 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 /// Card shown on the fronting screen when a sleep session is active.
 class SleepModeCard extends ConsumerWidget {
@@ -65,6 +67,19 @@ class _ActiveSleepCardState extends ConsumerState<_ActiveSleepCard> {
     super.dispose();
   }
 
+  Future<void> _endSleep() async {
+    try {
+      Haptics.heavy();
+      await ref
+          .read(sleepNotifierProvider.notifier)
+          .endSleep(widget.session.id);
+    } catch (e) {
+      if (mounted) {
+        PrismToast.error(context, message: e.toString());
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -95,51 +110,77 @@ class _ActiveSleepCardState extends ConsumerState<_ActiveSleepCard> {
           onLongPress: () => context.push(AppRoutePaths.sleep),
           behavior: HitTestBehavior.opaque,
           child: Container(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
-            border: Border.all(color: sleepColor.withValues(alpha: 0.3)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Icon(AppIcons.bedtimeRounded, size: 24, color: sleepColor),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(20),
+              ),
+              border: Border.all(color: sleepColor.withValues(alpha: 0.3)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
                   children: [
-                    FrontingDurationText(
-                      startTime: widget.session.startTime,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: sleepColor,
-                        fontFeatures: [const FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    Text(
-                      context.l10n.frontingSleepingLabel,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.5),
+                    Icon(AppIcons.bedtimeRounded, size: 24, color: sleepColor),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FrontingDurationText(
+                            startTime: widget.session.startTime,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: sleepColor,
+                              fontFeatures: [
+                                const FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            context.l10n.frontingSleepingLabel,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              PrismButton(
-                label: context.l10n.frontingWakeUp,
-                icon: AppIcons.wbSunnyRounded,
-                onPressed: () =>
-                    WakeUpSleepSheet.show(context, widget.session),
-                density: PrismControlDensity.compact,
-                tone: PrismButtonTone.filled,
-              ),
-            ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: PrismButton(
+                        label: context.l10n.frontingEndSessionButton,
+                        icon: AppIcons.closeRounded,
+                        onPressed: _endSleep,
+                        density: PrismControlDensity.compact,
+                        tone: PrismButtonTone.subtle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: PrismButton(
+                        label: context.l10n.frontingWakeUp,
+                        icon: AppIcons.wbSunnyRounded,
+                        onPressed: () =>
+                            WakeUpSleepSheet.show(context, widget.session),
+                        density: PrismControlDensity.compact,
+                        tone: PrismButtonTone.filled,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
         ),
       ],
     );
