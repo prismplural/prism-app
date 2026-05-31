@@ -120,6 +120,38 @@ void main() {
     expect(find.text('Downloading avatars...'), findsOneWidget);
     expect(find.text('12/194'), findsOneWidget);
   });
+
+  testWidgets('localizes SP progress labels in Spanish', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          importerProvider.overrideWith(
+            () => _FakeImporterNotifier(
+              MigrationState(
+                step: ImportState.downloadingAvatars,
+                exportData: _plainSpExportData(),
+                current: 12,
+                total: 194,
+                progressLabel: 'Downloading avatars...',
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          locale: Locale('es'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en'), Locale('es')],
+          home: Scaffold(body: ImportDataStep()),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Simply Plural'));
+    await tester.pump();
+
+    expect(find.text('Descargando avatares...'), findsOneWidget);
+    expect(find.text('12/194'), findsOneWidget);
+  });
 }
 
 Uint8List _encryptedSpExportBytes() {

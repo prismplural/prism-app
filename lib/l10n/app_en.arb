@@ -6775,6 +6775,34 @@
   "@onboardingSimplyPluralReadingFile": {
     "description": "Loading text while parsing a Simply Plural file"
   },
+  "onboardingSimplyPluralPreparingImport": "Preparing import...",
+  "@onboardingSimplyPluralPreparingImport": {
+    "description": "Fallback loading text while preparing a Simply Plural import"
+  },
+  "onboardingSimplyPluralPreparingMemberChoices": "Preparing member choices...",
+  "@onboardingSimplyPluralPreparingMemberChoices": {
+    "description": "Loading text while preparing Simply Plural member-link decisions"
+  },
+  "onboardingSimplyPluralImportingData": "Importing Simply Plural data...",
+  "@onboardingSimplyPluralImportingData": {
+    "description": "Fallback loading text while importing Simply Plural data"
+  },
+  "onboardingSimplyPluralImportingAvatarImages": "Importing avatar images...",
+  "@onboardingSimplyPluralImportingAvatarImages": {
+    "description": "Fallback loading text while importing Simply Plural avatar images"
+  },
+  "onboardingSimplyPluralDownloadingAvatars": "Downloading avatars...",
+  "@onboardingSimplyPluralDownloadingAvatars": {
+    "description": "Loading text while downloading Simply Plural avatars"
+  },
+  "onboardingSimplyPluralRetryingAvatars": "Retrying avatars...",
+  "@onboardingSimplyPluralRetryingAvatars": {
+    "description": "Loading text while retrying Simply Plural avatar downloads"
+  },
+  "onboardingSimplyPluralImportingBioImages": "Importing bio images...",
+  "@onboardingSimplyPluralImportingBioImages": {
+    "description": "Loading text while importing images referenced in Simply Plural bios"
+  },
   "onboardingSimplyPluralFoundData": "Found data:",
   "@onboardingSimplyPluralFoundData": {
     "description": "Section header in Simply Plural preview"

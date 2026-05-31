@@ -8454,6 +8454,48 @@ abstract class AppLocalizations {
   /// **'Reading file...'**
   String get onboardingSimplyPluralReadingFile;
 
+  /// Fallback loading text while preparing a Simply Plural import
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing import...'**
+  String get onboardingSimplyPluralPreparingImport;
+
+  /// Loading text while preparing Simply Plural member-link decisions
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing member choices...'**
+  String get onboardingSimplyPluralPreparingMemberChoices;
+
+  /// Fallback loading text while importing Simply Plural data
+  ///
+  /// In en, this message translates to:
+  /// **'Importing Simply Plural data...'**
+  String get onboardingSimplyPluralImportingData;
+
+  /// Fallback loading text while importing Simply Plural avatar images
+  ///
+  /// In en, this message translates to:
+  /// **'Importing avatar images...'**
+  String get onboardingSimplyPluralImportingAvatarImages;
+
+  /// Loading text while downloading Simply Plural avatars
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading avatars...'**
+  String get onboardingSimplyPluralDownloadingAvatars;
+
+  /// Loading text while retrying Simply Plural avatar downloads
+  ///
+  /// In en, this message translates to:
+  /// **'Retrying avatars...'**
+  String get onboardingSimplyPluralRetryingAvatars;
+
+  /// Loading text while importing images referenced in Simply Plural bios
+  ///
+  /// In en, this message translates to:
+  /// **'Importing bio images...'**
+  String get onboardingSimplyPluralImportingBioImages;
+
   /// Section header in Simply Plural preview
   ///
   /// In en, this message translates to:

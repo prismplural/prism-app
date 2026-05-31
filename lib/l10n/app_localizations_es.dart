@@ -5086,6 +5086,34 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingSimplyPluralReadingFile => 'Leyendo archivo...';
 
   @override
+  String get onboardingSimplyPluralPreparingImport =>
+      'Preparando importación...';
+
+  @override
+  String get onboardingSimplyPluralPreparingMemberChoices =>
+      'Preparando opciones de integrantes...';
+
+  @override
+  String get onboardingSimplyPluralImportingData =>
+      'Importando datos de Simply Plural...';
+
+  @override
+  String get onboardingSimplyPluralImportingAvatarImages =>
+      'Importando imágenes de avatar...';
+
+  @override
+  String get onboardingSimplyPluralDownloadingAvatars =>
+      'Descargando avatares...';
+
+  @override
+  String get onboardingSimplyPluralRetryingAvatars =>
+      'Reintentando avatares...';
+
+  @override
+  String get onboardingSimplyPluralImportingBioImages =>
+      'Importando imágenes de biografía...';
+
+  @override
   String get onboardingSimplyPluralFoundData => 'Datos encontrados:';
 
   @override

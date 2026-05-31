@@ -2285,16 +2285,27 @@ String _spPendingStatusLabel(BuildContext context, MigrationState migration) {
       migration.progressLabel.isNotEmpty
           ? migration.progressLabel
           : context.l10n.migrationFetchingData,
-    sp_importer.ImportState.matchMembers => 'Preparing member choices...',
+    sp_importer.ImportState.matchMembers =>
+      context.l10n.onboardingSimplyPluralPreparingMemberChoices,
     sp_importer.ImportState.importing =>
-      migration.progressLabel.isNotEmpty
-          ? migration.progressLabel
-          : 'Importing Simply Plural data...',
+      _localizedSpProgressLabel(context, migration.progressLabel) ??
+          context.l10n.onboardingSimplyPluralImportingData,
     sp_importer.ImportState.downloadingAvatars =>
-      migration.progressLabel.isNotEmpty
-          ? migration.progressLabel
-          : 'Importing avatar images...',
-    _ => 'Preparing import...',
+      _localizedSpProgressLabel(context, migration.progressLabel) ??
+          context.l10n.onboardingSimplyPluralImportingAvatarImages,
+    _ => context.l10n.onboardingSimplyPluralPreparingImport,
+  };
+}
+
+String? _localizedSpProgressLabel(BuildContext context, String label) {
+  return switch (label) {
+    'Downloading avatars...' =>
+      context.l10n.onboardingSimplyPluralDownloadingAvatars,
+    'Retrying avatars...' => context.l10n.onboardingSimplyPluralRetryingAvatars,
+    'Importing bio images...' =>
+      context.l10n.onboardingSimplyPluralImportingBioImages,
+    '' => null,
+    _ => label,
   };
 }
 
