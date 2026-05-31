@@ -2899,6 +2899,82 @@ Future<void> runPostHealthySyncCatchUp({
   }
 }
 
+/// Drive the resume sync-nudge with self-healing, independent of FFI and
+/// Riverpod so it can be unit-tested. `PrismApp._onResume` wires the real
+/// `ffi.*` calls + health provider into the seams.
+///
+/// Invariants — the sync-resume-disconnect fix:
+/// - A failed `onResume` NEVER transitions to `disconnected` and NEVER clears
+///   credentials. It marks a transient `reconnecting`, reconfigures the relay
+///   (`configureEngine` re-reads `relay_url` from the keychain and rebuilds the
+///   in-memory relay), then retries `onResume` ONCE. "Relay not configured" is
+///   treated as retryable here.
+/// - On a successful nudge it transitions `reconnecting → healthy` and kicks an
+///   explicit sync. A persistent failure leaves health at `reconnecting` (not
+///   `disconnected`); the auto-sync driver and the next resume keep retrying.
+/// - The real cause of a failure is surfaced via [takeLastPanic] so the masked
+///   iOS resume panic stops being invisible.
+Future<void> runResumeSyncNudge({
+  required Future<void> Function() onResume,
+  required Future<void> Function() configureEngine,
+  required void Function() triggerSync,
+  required Future<String?> Function() takeLastPanic,
+  required SyncHealthState Function() readHealth,
+  required void Function(SyncHealthState) setHealth,
+  void Function(String message)? log,
+}) async {
+  final emit = log ?? debugPrint;
+
+  void markReconnecting() {
+    // Never clobber needsPassword / disconnected / etc.
+    if (readHealth() == SyncHealthState.healthy) {
+      setHealth(SyncHealthState.reconnecting);
+    }
+  }
+
+  void markHealthy() {
+    if (readHealth() == SyncHealthState.reconnecting) {
+      setHealth(SyncHealthState.healthy);
+    }
+  }
+
+  Future<void> logFailure(String stage, Object error) async {
+    String? panic;
+    try {
+      panic = await takeLastPanic();
+    } catch (_) {
+      panic = null;
+    }
+    final structured = PrismSyncStructuredError.tryParse(error);
+    emit(
+      '$stage failed — recovering, relay stays configured: '
+      '${structured?.userMessage ?? error}'
+      '${panic != null ? ' | rust panic: $panic' : ''}',
+    );
+  }
+
+  try {
+    await onResume();
+    markHealthy();
+    triggerSync();
+    return;
+  } catch (e) {
+    await logFailure('onResume', e);
+  }
+
+  // Transient recovery: keep credentials + relay config, reconfigure, retry.
+  markReconnecting();
+  try {
+    await configureEngine();
+    await onResume();
+    markHealthy();
+    triggerSync();
+  } catch (e) {
+    await logFailure('onResume retry after reconfigure', e);
+    // Stay in `reconnecting` (non-destructive).
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Sync quarantine
 // ---------------------------------------------------------------------------
@@ -3476,6 +3552,15 @@ enum SyncHealthState {
   /// Sync is configured and working.
   healthy,
 
+  /// Transient: a resume/connectivity/auth blip is being retried. Credentials
+  /// and relay config are intact, so this is NOT a reason to re-pair and must
+  /// NEVER surface the destructive "Set up sync again" UI. Distinct from
+  /// [disconnected]: that means credentials are genuinely gone / the device is
+  /// confirmed revoked. `reconnecting` is treated like [healthy] for every
+  /// gate; only the UI may show a subtle "reconnecting…" affordance. The sync
+  /// engine self-heals out of this state (see `_onResume` reconfigure+retry).
+  reconnecting,
+
   /// Wrapped runtime cache is missing but wrapped_dek exists — user must
   /// enter password.
   needsPassword,
@@ -3924,26 +4009,82 @@ bool shouldDrainForCompletedErrorKind(String? errorKind) {
   }
 }
 
-/// Pure decision helper for the device_id self-check used by both
-/// `_handleDeviceRevoked` and `_handleDeviceRevokedFromAuthFailure`.
+/// Outcome of the device_id self-check on a `device_revoked` signal.
 ///
-/// Returns true if the revoke event should result in a credential wipe on
-/// THIS device. Returns false only when the event explicitly carries a
-/// non-empty device_id that differs from our own (sibling-revoke).
+/// We NEVER assume an ambiguous revoke targets us. The old "unknown/unreadable
+/// id ⇒ wipe" behavior turned transient auth blips and momentary
+/// keychain-read failures into permanent, destructive disconnects (the device
+/// stayed `active` server-side, yet the client cleared credentials and showed
+/// "Set up sync again"). Ambiguous signals are now confirmed against the relay
+/// device registry before anything destructive happens.
+enum RevokeSelfCheck {
+  /// The event positively names THIS device — safe to act on directly.
+  confirmedSelf,
+
+  /// The event names a DIFFERENT device — this device's credentials are fine.
+  sibling,
+
+  /// The event carries no usable target id, or this device's own id could not
+  /// be read. Must be confirmed against the relay registry before any wipe.
+  ambiguous,
+}
+
+/// Pure self-check for a `device_revoked` signal. Replaces the old
+/// `shouldWipeForRevokeEvent`, which assumed self on any unknown/unreadable id.
 @visibleForTesting
-bool shouldWipeForRevokeEvent({
+RevokeSelfCheck classifyRevokeSelfCheck({
   required String? revokedDeviceId,
   required String? currentDeviceId,
 }) {
   if (revokedDeviceId == null || revokedDeviceId.isEmpty) {
-    // Legacy / unknown — preserve existing behavior of wiping.
-    return true;
+    // The relay's HTTP-401 `device_revoked` response carries no device_id, so
+    // the event alone cannot tell us whether it targets this device.
+    return RevokeSelfCheck.ambiguous;
   }
   if (currentDeviceId == null || currentDeviceId.isEmpty) {
-    // We can't compare — assume self.
-    return true;
+    // We have a target id but cannot read our own to compare. Do NOT assume
+    // self — confirm against the registry instead.
+    return RevokeSelfCheck.ambiguous;
   }
-  return revokedDeviceId == currentDeviceId;
+  return revokedDeviceId == currentDeviceId
+      ? RevokeSelfCheck.confirmedSelf
+      : RevokeSelfCheck.sibling;
+}
+
+/// Result of confirming an ambiguous revoke against the relay device registry.
+enum RevokeConfirmation {
+  /// The registry positively confirms THIS device is revoked/removed.
+  confirmedRevoked,
+
+  /// The registry still lists THIS device as present/active — false alarm.
+  stillActive,
+
+  /// The registry could not be consulted conclusively (transient/network
+  /// error, unreadable credentials). Stay non-destructive and retry later.
+  unknown,
+}
+
+/// Pure interpretation of a relay `list_devices` result for THIS device. Note
+/// the non-obvious case: a successful listing that simply omits this device is
+/// treated as confirmed-revoked.
+@visibleForTesting
+RevokeConfirmation interpretDeviceRegistryForSelf({
+  required List<Map<String, dynamic>> devices,
+  required String? currentDeviceId,
+}) {
+  if (currentDeviceId == null || currentDeviceId.isEmpty) {
+    return RevokeConfirmation.unknown;
+  }
+  for (final device in devices) {
+    if (device['device_id'] == currentDeviceId) {
+      return device['status'] == 'revoked'
+          ? RevokeConfirmation.confirmedRevoked
+          : RevokeConfirmation.stillActive;
+    }
+  }
+  // A successful listing that omits this device is positive evidence it was
+  // removed from the group.
+  return RevokeConfirmation.confirmedRevoked;
 }
 
 /// Test seam: when non-null, the event-driven drain path in
@@ -3956,6 +4097,13 @@ bool shouldWipeForRevokeEvent({
 /// when it wants to race-test mid-drain aborts.
 @visibleForTesting
 Future<void> Function()? debugDrainRustStoreOverride;
+
+/// Test seam: when non-null, `_confirmRevokeViaRegistry` returns this instead
+/// of consulting the relay device registry over FFI. Lets tests exercise both
+/// the confirmed-revoke escalation and the ambiguous-unconfirmed credential
+/// preservation path without a live handle / secure storage.
+@visibleForTesting
+Future<RevokeConfirmation> Function()? debugRevokeConfirmationOverride;
 
 /// Test seam: when non-null, `SyncStatusNotifier._scheduleDrain` calls
 /// this instead of `debugDrainRustStoreOverride`, passing the per-drain
@@ -4502,35 +4650,36 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     final revokedDeviceId = event.data['device_id'] as String?;
     final wipe = event.remoteWipe;
 
-    // Step 2 — determine whether this event targets us.
-    String? currentDeviceId;
-    try {
-      final raw = await _safeReadValue('${_secureStorePrefix}device_id');
-      if (raw != null && raw.isNotEmpty) {
-        try {
-          currentDeviceId = utf8.decode(base64Decode(raw));
-        } catch (_) {
-          currentDeviceId = raw;
+    // Step 2 — determine whether this event targets us. We NEVER assume an
+    // ambiguous revoke is self-targeted; an unreadable own id or a missing
+    // target id is confirmed against the relay registry first.
+    final currentDeviceId = await _readDecodedCredential('device_id');
+    switch (classifyRevokeSelfCheck(
+      revokedDeviceId: revokedDeviceId,
+      currentDeviceId: currentDeviceId,
+    )) {
+      case RevokeSelfCheck.sibling:
+        // Sibling revoke: our credentials are fine. The pending drain was
+        // cancelled defensively by `_abortPendingDrainSafe`, but
+        // `_credentialsRevoked` is NOT set and no re-cleanup was scheduled,
+        // so THIS device's keychain stays intact.
+        return;
+      case RevokeSelfCheck.ambiguous:
+        final confirmation = await _confirmRevokeViaRegistry();
+        if (confirmation != RevokeConfirmation.confirmedRevoked) {
+          debugPrint(
+            '[SYNC] Ambiguous device_revoked notification not confirmed by '
+            'registry ($confirmation) — preserving credentials',
+          );
+          return;
         }
-      }
-    } catch (_) {
-      // If we can't read the device ID, assume we're the target.
+      case RevokeSelfCheck.confirmedSelf:
+        break;
     }
 
-    if (revokedDeviceId != null &&
-        currentDeviceId != null &&
-        revokedDeviceId != currentDeviceId) {
-      // Sibling revoke: our credentials are fine. The pending drain
-      // was cancelled defensively by `_abortPendingDrainSafe`, but
-      // `_credentialsRevoked` is NOT set and no re-cleanup was
-      // scheduled, so new drains can still be scheduled normally and
-      // THIS device's keychain stays intact.
-      return;
-    }
-
-    // Step 3 — self-revoke (or device id unknown, assume self).
-    // Escalate from safe-abort to the full revoke path: this sets the
-    // suppression flag and schedules the post-revoke re-cleanup timer.
+    // Step 3 — confirmed self-revoke. Escalate from safe-abort to the full
+    // revoke path: this sets the suppression flag and schedules the
+    // post-revoke re-cleanup timer.
     _abortPendingDrainForRevoke();
 
     // Stop auto-sync to prevent background retry loops.
@@ -4571,37 +4720,41 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     // a sibling device.
     _abortPendingDrainSafe();
 
-    // Step 2 — determine whether this event targets us. Mirror the same
-    // device_id self-check that `_handleDeviceRevoked` performs. If the
-    // event carries a device_id and it doesn't match our own, this is a
-    // sibling-revoke and we leave THIS device's credentials alone.
-    String? currentDeviceId;
-    try {
-      final raw = await _safeReadValue('${_secureStorePrefix}device_id');
-      if (raw != null && raw.isNotEmpty) {
-        try {
-          currentDeviceId = utf8.decode(base64Decode(raw));
-        } catch (_) {
-          currentDeviceId = raw;
-        }
-      }
-    } catch (_) {
-      // If we can't read the device ID, assume we're the target.
-    }
-
-    if (!shouldWipeForRevokeEvent(
+    // Step 2 — self-check. Only a POSITIVE self-match acts outright; an
+    // ambiguous signal (the HTTP-401 `device_revoked` response carries no
+    // device_id, or our own id is unreadable) is confirmed against the relay
+    // device registry before anything destructive. We NEVER assume self on an
+    // unknown id — that turned transient auth blips into permanent
+    // disconnects while the device was still active server-side.
+    final currentDeviceId = await _readDecodedCredential('device_id');
+    switch (classifyRevokeSelfCheck(
       revokedDeviceId: revokedDeviceId,
       currentDeviceId: currentDeviceId,
     )) {
-      debugPrint(
-        '[SYNC] Auth-failure revoke targets sibling '
-        '($revokedDeviceId != $currentDeviceId) — skipping wipe',
-      );
-      return;
+      case RevokeSelfCheck.sibling:
+        debugPrint(
+          '[SYNC] Auth-failure revoke targets sibling '
+          '($revokedDeviceId != $currentDeviceId) — keeping credentials',
+        );
+        return;
+      case RevokeSelfCheck.ambiguous:
+        final confirmation = await _confirmRevokeViaRegistry();
+        if (confirmation != RevokeConfirmation.confirmedRevoked) {
+          // Not a confirmed revoke (registry still lists us, or the check was
+          // inconclusive). Keep credentials + relay config so the engine stays
+          // usable and can self-heal — this is the core false-revoke fix.
+          debugPrint(
+            '[SYNC] Ambiguous device_revoked not confirmed by registry '
+            '($confirmation) — preserving credentials',
+          );
+          return;
+        }
+      case RevokeSelfCheck.confirmedSelf:
+        break;
     }
 
-    // Step 3 — self-revoke (or device id unknown, assume self). Escalate
-    // from safe-abort to the full revoke path.
+    // Step 3 — confirmed self-revoke. Escalate from safe-abort to the full
+    // revoke path.
     _abortPendingDrainForRevoke();
     try {
       if (remoteWipe) {
@@ -4619,6 +4772,85 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
         stackTrace: st,
       );
     }
+  }
+
+  /// Read a `prism_sync.<key>` credential from secure storage and decode it
+  /// (base64 → utf8, falling back to the raw value). Returns null when the
+  /// entry is missing/empty or unreadable — callers MUST treat null as
+  /// "unknown", never "assume self".
+  Future<String?> _readDecodedCredential(String key) async {
+    String? raw;
+    try {
+      raw = await _safeReadValue('$_secureStorePrefix$key');
+    } catch (_) {
+      // Read failed (transient, or missing plugin under test) → unknown.
+      return null;
+    }
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return utf8.decode(base64Decode(raw));
+    } catch (_) {
+      return raw; // Already plain text.
+    }
+  }
+
+  /// Confirm whether THIS device is genuinely revoked by consulting the relay
+  /// device registry. Used to resolve an *ambiguous* `device_revoked` signal
+  /// (no target id, or unreadable own id) BEFORE any destructive wipe.
+  ///
+  /// Returns [RevokeConfirmation.confirmedRevoked] only on positive evidence:
+  /// either `list_devices` itself rejects this device as revoked, or the
+  /// listing omits/marks-revoked this device. Anything inconclusive (missing
+  /// credentials, network/transient error, unparseable response) returns a
+  /// non-confirming result so credentials are preserved.
+  Future<RevokeConfirmation> _confirmRevokeViaRegistry() async {
+    final override = debugRevokeConfirmationOverride;
+    if (override != null) return override();
+
+    final handle = ref.read(prismSyncHandleProvider).value;
+    if (handle == null) return RevokeConfirmation.unknown;
+
+    final syncId = await _readDecodedCredential('sync_id');
+    final deviceId = await _readDecodedCredential('device_id');
+    final sessionToken = await _readDecodedCredential('session_token');
+    if (syncId == null || deviceId == null || sessionToken == null) {
+      return RevokeConfirmation.unknown;
+    }
+
+    final String jsonStr;
+    try {
+      jsonStr = await ffi.listDevices(
+        handle: handle,
+        syncId: syncId,
+        deviceId: deviceId,
+        sessionToken: sessionToken,
+      );
+    } catch (e) {
+      // If the registry check ITSELF is rejected as device_revoked, that's an
+      // independent positive confirmation. Anything else (network/timeout/
+      // transient auth) is inconclusive — do NOT wipe.
+      final structured = PrismSyncStructuredError.tryParse(e);
+      if (structured?.isDeviceRevoked ?? false) {
+        return RevokeConfirmation.confirmedRevoked;
+      }
+      debugPrint('[SYNC] Revoke registry check failed (inconclusive): $e');
+      return RevokeConfirmation.unknown;
+    }
+
+    final List<Map<String, dynamic>> devices;
+    try {
+      final decoded = jsonDecode(jsonStr);
+      devices = (decoded as List<dynamic>)
+          .whereType<Map<String, dynamic>>()
+          .toList();
+    } catch (_) {
+      return RevokeConfirmation.unknown;
+    }
+
+    return interpretDeviceRegistryForSelf(
+      devices: devices,
+      currentDeviceId: deviceId,
+    );
   }
 
   /// Delete the sync database file and its WAL/SHM companions, clear all

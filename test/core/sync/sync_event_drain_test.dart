@@ -126,6 +126,17 @@ void main() {
     );
   }
 
+  setUp(() {
+    // An ambiguous device_revoked event (the HTTP-401 path carries no
+    // device_id) now confirms against the relay registry before any
+    // destructive action. These drain-suppression tests assert behavior for a
+    // CONFIRMED revoke, so default the confirmation to positive. The
+    // unconfirmed/false-alarm path is covered by its own test below, which
+    // overrides this.
+    debugRevokeConfirmationOverride =
+        () async => RevokeConfirmation.confirmedRevoked;
+  });
+
   tearDown(() {
     debugDrainRustStoreOverride = null;
     debugDrainRustStoreOverrideWithAbort = null;
@@ -133,6 +144,7 @@ void main() {
     debugPostRevokeRecleanOverride = null;
     debugPostRevokeRecleanOverrideCallback = null;
     debugQueryPendingOpsOverride = null;
+    debugRevokeConfirmationOverride = null;
   });
 
   SyncEvent completedEvent({String? errorKind, String? errorMessage}) {
@@ -497,6 +509,46 @@ void main() {
         0,
         reason:
             'post-revoke success must not re-arm the drain until a new handle exists',
+      );
+    },
+  );
+
+  // ------------------------------------------------------------------
+  // Sync-resume-disconnect false-revoke fix: an ambiguous device_revoked
+  // (HTTP-401 carries no device_id) that the relay registry says is still
+  // active must NOT latch the revoked state. Credentials are preserved and
+  // later drains proceed normally — a transient auth blip is not a revoke.
+  // ------------------------------------------------------------------
+
+  test(
+    'unconfirmed (still-active) device_revoked does NOT suppress later drains',
+    () async {
+      final ctx = bindContainer();
+      addTearDown(() async {
+        ctx.subscription.close();
+        ctx.eventSubscription.close();
+        ctx.container.dispose();
+        await ctx.controller.close();
+      });
+
+      // Registry says THIS device is still active → the ambiguous revoke is a
+      // false alarm; the destructive `_credentialsRevoked` gate is NOT set.
+      debugRevokeConfirmationOverride =
+          () async => RevokeConfirmation.stillActive;
+
+      ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
+      await Future<void>.delayed(settleAfterDebounce);
+
+      // A subsequent successful sync still drains normally, because credentials
+      // were never wiped.
+      ctx.controller.add(completedEvent());
+      await Future<void>.delayed(settleAfterDebounce);
+      expect(
+        ctx.drainCount(),
+        1,
+        reason:
+            'an unconfirmed revoke must not latch the revoked state — later '
+            'drains proceed because credentials were never cleared',
       );
     },
   );

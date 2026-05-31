@@ -939,6 +939,8 @@ class _ConfiguredView extends ConsumerWidget {
           'Re-enter your PIN and recovery phrase to restore your pairing key.',
         SyncHealthState.disconnected =>
           'Sync credentials are missing. Set up sync again to reconnect.',
+        SyncHealthState.reconnecting =>
+          'Sync is reconnecting — this should clear on its own in a moment.',
         SyncHealthState.unpaired => 'Sync is not set up on this device.',
         SyncHealthState.awaitingDeviceUnlock =>
           'Sync paused while the device was locked — it will reconnect '

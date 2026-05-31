@@ -102,30 +102,44 @@ class _PrismAppState extends ConsumerState<PrismApp> {
   void _onResume() {
     _repairPrimaryDatabaseKeySlot();
     final handle = ref.read(prismSyncHandleProvider).value;
-    if (handle != null) {
-      // Re-establish the WebSocket if it dropped while backgrounded,
-      // resetting the exponential backoff for an immediate reconnect.
-      ffi.reconnectWebsocket(handle: handle).catchError((e) {
-        debugPrint('WebSocket reconnect on resume failed (non-fatal): $e');
-      });
-      // Only nudge the sync engine when it's actually configured. Calling
-      // onResume before pairing / unlock produces `sync not configured`
-      // error spam that's not actionable.
-      final health = ref.read(syncHealthProvider);
-      if (health == SyncHealthState.healthy) {
-        ffi.onResume(handle: handle).catchError((e) {
-          final structured = PrismSyncStructuredError.tryParse(e);
-          debugPrint(
-            'onResume failed (non-fatal): ${structured?.userMessage ?? e}',
-          );
-        });
-        // Kick off an explicit sync cycle on resume. `triggerSync` is
-        // fire-and-forget and swallows errors so a failed sync doesn't
-        // crash the UI — the auto-sync driver will retry in the background.
-        // See Appendix B.3 / Bucket 4A of the 2026-04-11 robustness plan.
-        triggerSync(handle);
-      }
+    if (handle == null) return;
+
+    // Re-establish the WebSocket if it dropped while backgrounded,
+    // resetting the exponential backoff for an immediate reconnect.
+    ffi.reconnectWebsocket(handle: handle).catchError((e) {
+      debugPrint('WebSocket reconnect on resume failed (non-fatal): $e');
+    });
+
+    // Only nudge the sync engine when it's actually configured. Calling
+    // onResume before pairing / unlock produces `sync not configured` error
+    // spam that's not actionable. `reconnecting` is a transient sibling of
+    // `healthy` (credentials + relay config intact), so we nudge in both.
+    final health = ref.read(syncHealthProvider);
+    if (health == SyncHealthState.healthy ||
+        health == SyncHealthState.reconnecting) {
+      unawaited(_nudgeSyncOnResume(handle));
     }
+  }
+
+  /// Nudge the sync engine on resume, self-healing a failed `onResume`.
+  ///
+  /// A failed `onResume` must NEVER drop to the destructive "Set up sync again"
+  /// UI, and must not strand the engine "Relay not configured" (which breaks
+  /// every media download → "Image expired"). On failure we surface the real
+  /// cause (the engine now captures the masked iOS resume panic), mark a
+  /// transient `reconnecting`, re-read `relay_url` + rebuild the relay via
+  /// `configureEngine`, and retry once. Credentials + relay config are always
+  /// preserved; the auto-sync driver and the next resume keep retrying.
+  Future<void> _nudgeSyncOnResume(ffi.PrismSyncHandle handle) {
+    return runResumeSyncNudge(
+      onResume: () => ffi.onResume(handle: handle),
+      configureEngine: () => ffi.configureEngine(handle: handle),
+      triggerSync: () => unawaited(triggerSync(handle)),
+      takeLastPanic: ffi.takeLastPanic,
+      readHealth: () => ref.read(syncHealthProvider),
+      setHealth: (state) =>
+          ref.read(syncHealthProvider.notifier).setState(state),
+    );
   }
 
   void _repairPrimaryDatabaseKeySlot() {

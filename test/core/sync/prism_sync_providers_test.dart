@@ -1246,66 +1246,250 @@ void main() {
   });
 
   // --------------------------------------------------------------------
-  // Phase 4C — `_handleDeviceRevokedFromAuthFailure` device_id self-check
+  // `device_revoked` self-check (supersedes the Phase 4C
+  // `shouldWipeForRevokeEvent` helper).
   //
-  // The full handler reaches into FFI / secure storage / providers; we
-  // extract the wipe-decision into the pure helper `shouldWipeForRevokeEvent`
-  // and assert its three branches here.
+  // The destructive wipe path now requires POSITIVE self-targeted
+  // confirmation. An ambiguous signal (no target id, or our own id is
+  // unreadable) is NO LONGER assumed to be self — it is classified
+  // `ambiguous`, and the handler confirms against the relay device registry
+  // before clearing credentials. This is the sync-resume-disconnect
+  // false-revoke fix: a transient auth blip must not masquerade as a
+  // permanent revoke.
   // --------------------------------------------------------------------
 
-  group('shouldWipeForRevokeEvent (Phase 4C)', () {
-    test('wipes when own device_id matches the revoked id', () {
+  group('classifyRevokeSelfCheck', () {
+    test('confirmedSelf when our device_id matches the revoked id', () {
       expect(
-        shouldWipeForRevokeEvent(
+        classifyRevokeSelfCheck(
           revokedDeviceId: 'device-self',
           currentDeviceId: 'device-self',
         ),
-        isTrue,
+        RevokeSelfCheck.confirmedSelf,
       );
     });
 
-    test('does not wipe when revoked id targets a sibling', () {
+    test('sibling when the revoked id targets a different device', () {
       expect(
-        shouldWipeForRevokeEvent(
+        classifyRevokeSelfCheck(
           revokedDeviceId: 'device-sibling',
           currentDeviceId: 'device-self',
         ),
-        isFalse,
+        RevokeSelfCheck.sibling,
       );
     });
 
-    test('wipes when event has no device_id (legacy auth failure)', () {
+    test('ambiguous when the event carries no device_id (HTTP-401 revoke)', () {
+      // Regression: this previously wiped credentials outright.
       expect(
-        shouldWipeForRevokeEvent(
+        classifyRevokeSelfCheck(
           revokedDeviceId: null,
           currentDeviceId: 'device-self',
         ),
-        isTrue,
+        RevokeSelfCheck.ambiguous,
       );
     });
 
-    test('wipes when event device_id is empty string', () {
+    test('ambiguous when the event device_id is the empty string', () {
       expect(
-        shouldWipeForRevokeEvent(
+        classifyRevokeSelfCheck(
           revokedDeviceId: '',
           currentDeviceId: 'device-self',
         ),
-        isTrue,
+        RevokeSelfCheck.ambiguous,
       );
     });
 
     test(
-      'wipes when we cannot read our own device_id (assume self-target)',
+      'ambiguous when we cannot read our own device_id (never assume self)',
       () {
+        // Regression: this previously wiped credentials outright.
         expect(
-          shouldWipeForRevokeEvent(
+          classifyRevokeSelfCheck(
             revokedDeviceId: 'device-anything',
             currentDeviceId: null,
           ),
-          isTrue,
+          RevokeSelfCheck.ambiguous,
         );
       },
     );
+
+    test('ambiguous when our own device_id is the empty string', () {
+      expect(
+        classifyRevokeSelfCheck(
+          revokedDeviceId: 'device-anything',
+          currentDeviceId: '',
+        ),
+        RevokeSelfCheck.ambiguous,
+      );
+    });
+  });
+
+  group('interpretDeviceRegistryForSelf', () {
+    Map<String, dynamic> device(String id, String status) => {
+      'device_id': id,
+      'status': status,
+    };
+
+    test('stillActive when this device is present and active', () {
+      expect(
+        interpretDeviceRegistryForSelf(
+          devices: [device('other', 'active'), device('self', 'active')],
+          currentDeviceId: 'self',
+        ),
+        RevokeConfirmation.stillActive,
+      );
+    });
+
+    test('stillActive when this device is present and stale', () {
+      expect(
+        interpretDeviceRegistryForSelf(
+          devices: [device('self', 'stale')],
+          currentDeviceId: 'self',
+        ),
+        RevokeConfirmation.stillActive,
+      );
+    });
+
+    test('confirmedRevoked when this device is present with revoked status', () {
+      expect(
+        interpretDeviceRegistryForSelf(
+          devices: [device('self', 'revoked')],
+          currentDeviceId: 'self',
+        ),
+        RevokeConfirmation.confirmedRevoked,
+      );
+    });
+
+    test('confirmedRevoked when this device is absent from a listing', () {
+      expect(
+        interpretDeviceRegistryForSelf(
+          devices: [device('other', 'active')],
+          currentDeviceId: 'self',
+        ),
+        RevokeConfirmation.confirmedRevoked,
+      );
+    });
+
+    test('unknown when our own device_id is null', () {
+      expect(
+        interpretDeviceRegistryForSelf(
+          devices: [device('self', 'active')],
+          currentDeviceId: null,
+        ),
+        RevokeConfirmation.unknown,
+      );
+    });
+  });
+
+  // --------------------------------------------------------------------
+  // Resume self-heal: a failed `onResume` must reconfigure + retry and
+  // NEVER drop to the destructive `disconnected` state. Credentials and
+  // relay config are always preserved (sync-resume-disconnect fix).
+  // --------------------------------------------------------------------
+
+  group('runResumeSyncNudge', () {
+    test('healthy resume: kicks sync, stays healthy, no reconfigure', () async {
+      var health = SyncHealthState.healthy;
+      var onResumeCalls = 0;
+      var configureCalls = 0;
+      var triggerCalls = 0;
+
+      await runResumeSyncNudge(
+        onResume: () async => onResumeCalls++,
+        configureEngine: () async => configureCalls++,
+        triggerSync: () => triggerCalls++,
+        takeLastPanic: () async => null,
+        readHealth: () => health,
+        setHealth: (s) => health = s,
+        log: (_) {},
+      );
+
+      expect(onResumeCalls, 1);
+      expect(configureCalls, 0, reason: 'no reconfigure on success');
+      expect(triggerCalls, 1);
+      expect(health, SyncHealthState.healthy);
+    });
+
+    test('failed onResume reconfigures + retries, recovers to healthy', () async {
+      var health = SyncHealthState.healthy;
+      var onResumeCalls = 0;
+      var configureCalls = 0;
+      var triggerCalls = 0;
+      final transitions = <SyncHealthState>[];
+
+      await runResumeSyncNudge(
+        onResume: () async {
+          onResumeCalls++;
+          if (onResumeCalls == 1) {
+            throw Exception('PanicException(failed printing to stderr)');
+          }
+        },
+        configureEngine: () async => configureCalls++,
+        triggerSync: () => triggerCalls++,
+        takeLastPanic: () async => 'api.rs:42:5: real cause',
+        readHealth: () => health,
+        setHealth: (s) {
+          health = s;
+          transitions.add(s);
+        },
+        log: (_) {},
+      );
+
+      expect(onResumeCalls, 2, reason: 'retried after reconfigure');
+      expect(configureCalls, 1, reason: 'reconfigured relay before retry');
+      expect(triggerCalls, 1, reason: 'sync kicked after successful retry');
+      expect(transitions, [
+        SyncHealthState.reconnecting,
+        SyncHealthState.healthy,
+      ]);
+      expect(health, SyncHealthState.healthy);
+    });
+
+    test('persistent failure stays reconnecting, never disconnected', () async {
+      var health = SyncHealthState.healthy;
+      var triggerCalls = 0;
+      final seen = <SyncHealthState>[];
+
+      await runResumeSyncNudge(
+        onResume: () async => throw Exception('still failing'),
+        configureEngine: () async {},
+        triggerSync: () => triggerCalls++,
+        takeLastPanic: () async => null,
+        readHealth: () => health,
+        setHealth: (s) {
+          health = s;
+          seen.add(s);
+        },
+        log: (_) {},
+      );
+
+      expect(health, SyncHealthState.reconnecting);
+      expect(triggerCalls, 0, reason: 'no sync kicked while failing');
+      expect(
+        seen,
+        isNot(contains(SyncHealthState.disconnected)),
+        reason: 'a transient resume failure must never go destructive',
+      );
+    });
+
+    test('already reconnecting: a successful nudge restores healthy', () async {
+      var health = SyncHealthState.reconnecting;
+      var triggerCalls = 0;
+
+      await runResumeSyncNudge(
+        onResume: () async {},
+        configureEngine: () async {},
+        triggerSync: () => triggerCalls++,
+        takeLastPanic: () async => null,
+        readHealth: () => health,
+        setHealth: (s) => health = s,
+        log: (_) {},
+      );
+
+      expect(health, SyncHealthState.healthy);
+      expect(triggerCalls, 1);
+    });
   });
 
   // --------------------------------------------------------------------
