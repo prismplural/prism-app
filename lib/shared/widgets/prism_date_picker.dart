@@ -22,13 +22,23 @@ Future<DateTime?> showPrismDatePicker({
   final anchor = anchorContext ?? context;
   final renderBox = anchor.findRenderObject() as RenderBox?;
   final theme = Theme.of(context);
+  final minimumDate = _dateOnly(firstDate ?? DateTime(1900));
+  final maximumCandidate = _dateOnly(lastDate ?? DateTime(2100));
+  final maximumDate = maximumCandidate.isBefore(minimumDate)
+      ? minimumDate
+      : maximumCandidate;
+  final initialDateOnly = _clampDate(
+    _dateOnly(initialDate),
+    minimumDate,
+    maximumDate,
+  );
 
   return showCupertinoCalendarPicker(
     context,
     widgetRenderBox: renderBox,
-    initialDateTime: initialDate,
-    minimumDateTime: firstDate ?? DateTime(1900),
-    maximumDateTime: lastDate ?? DateTime(2100),
+    initialDateTime: initialDateOnly,
+    minimumDateTime: minimumDate,
+    maximumDateTime: maximumDate,
     mainColor: theme.colorScheme.primary,
     mode: CupertinoCalendarMode.date,
     containerDecoration: PickerContainerDecoration(
@@ -36,4 +46,12 @@ Future<DateTime?> showPrismDatePicker({
       backgroundColor: theme.colorScheme.surface,
     ),
   );
+}
+
+DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+
+DateTime _clampDate(DateTime date, DateTime minimum, DateTime maximum) {
+  if (date.isBefore(minimum)) return minimum;
+  if (date.isAfter(maximum)) return maximum;
+  return date;
 }
