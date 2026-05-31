@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
@@ -126,7 +128,7 @@ class _PrismButtonState extends State<PrismButton> {
       PrismShapes.of(context).radius(999),
     );
 
-    return Semantics(
+    Widget button = Semantics(
       button: true,
       enabled: canPress,
       label: widget.semanticLabel ?? widget.label,
@@ -147,6 +149,7 @@ class _PrismButtonState extends State<PrismButton> {
             borderRadius: buttonRadius,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
+              width: widget.expanded ? double.infinity : null,
               padding: EdgeInsets.symmetric(
                 horizontal: horizontalPadding,
                 vertical: verticalPadding,
@@ -170,6 +173,31 @@ class _PrismButtonState extends State<PrismButton> {
         ),
       ),
     );
+
+    if (widget.expanded) {
+      final expandedButton = button;
+      button = LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.hasBoundedWidth
+              ? math.min(constraints.maxWidth, PrismTokens.buttonMaxWidth)
+              : PrismTokens.buttonMaxWidth;
+          final height = constraints.hasTightHeight
+              ? constraints.maxHeight
+              : null;
+
+          return Align(
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: width,
+              height: height,
+              child: expandedButton,
+            ),
+          );
+        },
+      );
+    }
+
+    return button;
   }
 }
 

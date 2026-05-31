@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
@@ -154,6 +155,70 @@ void main() {
           find.text('Seed sandbox review from first group'),
         );
         expect(text.maxLines, 2);
+      });
+
+      testWidgets('caps expanded buttons on wide layouts and centers them', (
+        tester,
+      ) async {
+        var taps = 0;
+        await tester.pumpWidget(
+          testApp(
+            Center(
+              child: SizedBox(
+                key: const Key('wide-parent'),
+                width: 720,
+                child: PrismButton(
+                  label: 'Open Details',
+                  onPressed: () => taps++,
+                  expanded: true,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final parentRect = tester.getRect(find.byKey(const Key('wide-parent')));
+        final buttonRect = tester.getRect(find.byType(AnimatedContainer));
+        final inkRect = tester.getRect(find.byType(InkWell));
+
+        expect(buttonRect.width, lessThanOrEqualTo(PrismTokens.buttonMaxWidth));
+        expect(buttonRect.center.dx, parentRect.center.dx);
+        expect(inkRect, buttonRect);
+
+        await tester.tapAt(buttonRect.centerRight - const Offset(2, 0));
+        expect(taps, 1);
+      });
+
+      testWidgets('preserves fixed-height expanded button wrappers', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          testApp(
+            Center(
+              child: SizedBox(
+                key: const Key('fixed-height-parent'),
+                width: 720,
+                height: 52,
+                child: PrismButton(
+                  label: 'Continue',
+                  onPressed: () {},
+                  expanded: true,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final parentRect = tester.getRect(
+          find.byKey(const Key('fixed-height-parent')),
+        );
+        final buttonRect = tester.getRect(find.byType(AnimatedContainer));
+        final inkRect = tester.getRect(find.byType(InkWell));
+
+        expect(buttonRect.width, lessThanOrEqualTo(PrismTokens.buttonMaxWidth));
+        expect(buttonRect.height, parentRect.height);
+        expect(buttonRect.center, parentRect.center);
+        expect(inkRect, buttonRect);
       });
     });
 

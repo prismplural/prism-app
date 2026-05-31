@@ -12,6 +12,7 @@ class PrismTokens {
   static const double radiusNav = 32;
 
   static const double dialogMaxWidth = 400;
+  static const double buttonMaxWidth = 360;
 
   static const double desktopBreakpoint = 768;
   static const double desktopBreakpointOff = 720; // hysteresis
