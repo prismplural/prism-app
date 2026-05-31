@@ -214,6 +214,8 @@ class _MemberDetailBody extends ConsumerWidget {
         const SizedBox(height: 8),
         _ConversationsSection(memberId: member.id),
         BoardMessageSection(memberId: member.id),
+        const SizedBox(height: 24),
+        _MemberCreatedAtFooter(member: member),
         const SizedBox(height: 32),
       ],
     );
@@ -280,6 +282,33 @@ class _MemberDetailBody extends ConsumerWidget {
       );
       if (context.mounted) Navigator.of(context).pop();
     }
+  }
+}
+
+class _MemberCreatedAtFooter extends StatelessWidget {
+  const _MemberCreatedAtFooter({required this.member});
+
+  final Member member;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final locale = context.dateLocale;
+    final displayDate = DateFormat.yMMMd(locale).format(member.createdAt);
+    final semanticsDate = DateFormat.yMMMMd(locale).format(member.createdAt);
+
+    return Center(
+      child: Semantics(
+        label: context.l10n.memberAddedAtProfileFooterLabel(semanticsDate),
+        child: Text(
+          context.l10n.memberAddedAtProfileFooterLabel(displayDate),
+          textAlign: TextAlign.center,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+          ),
+        ),
+      ),
+    );
   }
 }
 

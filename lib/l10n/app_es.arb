@@ -883,7 +883,7 @@
   "memberFrontingChip": "Al frente",
   "memberAdminChip": "Administrador",
   "memberInactiveChip": "Inactivo",
-  "memberCreatedAtChipLabel": "Creado {date}",
+  "memberAddedAtProfileFooterLabel": "Añadido {date}",
   "memberSetAsFronter": "Poner al frente",
   "memberNoteTitle": "Nota",
   "memberNoteUntitled": "Sin título",

@@ -4234,9 +4234,9 @@
   "@memberInactiveChip": {
     "description": "Chip label shown when a member is inactive"
   },
-  "memberCreatedAtChipLabel": "Created {date}",
-  "@memberCreatedAtChipLabel": {
-    "description": "Chip label showing the date a member was created",
+  "memberAddedAtProfileFooterLabel": "Added {date}",
+  "@memberAddedAtProfileFooterLabel": {
+    "description": "Subtle footer label showing the date a member was added",
     "placeholders": {
       "date": {
         "type": "String"

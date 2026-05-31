@@ -3141,8 +3141,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberInactiveChip => 'Inactive';
 
   @override
-  String memberCreatedAtChipLabel(String date) {
-    return 'Created $date';
+  String memberAddedAtProfileFooterLabel(String date) {
+    return 'Added $date';
   }
 
   @override

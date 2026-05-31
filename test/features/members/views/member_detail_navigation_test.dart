@@ -370,6 +370,23 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
+  testWidgets('member detail shows creation date as a subtle footer', (
+    tester,
+  ) async {
+    final member = _member('alice', 'Alice');
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(_buildApp(router: router, member: member));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Added May 1, 2026'), findsOneWidget);
+    expect(find.text('Created May 1, 2026'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
   testWidgets('member detail pushes recent session so back returns', (
     tester,
   ) async {
