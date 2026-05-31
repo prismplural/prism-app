@@ -11,6 +11,11 @@
 /// Anything outside a fence renders with the app's default table styling, so
 /// existing bios are unaffected. Fences do not nest; an unclosed fence runs to
 /// the end of the text.
+///
+/// Only a recognized directive opens a fence: `:::plain` or a valid hex color.
+/// Any other `:::` line — an unknown spec, an invalid hex color, or a stray
+/// bare `:::` outside an open fence — is preserved verbatim as literal content
+/// and passed through to the markdown renderer rather than being dropped.
 library;
 
 import 'package:flutter/painting.dart' show Color;
@@ -70,22 +75,31 @@ List<MarkdownSegment> parseStyledSegments(String markdown) {
     if (m != null) {
       final spec = m.group(1) ?? '';
       if (inFence) {
-        // Any `:::` line closes the open fence (spec on a closer is ignored).
-        flush(fenced: true);
-        inFence = false;
-        borderless = false;
-        color = null;
-      } else if (spec.isNotEmpty) {
-        flush(fenced: false); // emit preceding default content
-        inFence = true;
-        if (spec.toLowerCase() == 'plain') {
-          borderless = true;
-        } else {
-          color = parseHexColor(spec); // null (unknown) → default styling
+        if (spec.isEmpty) {
+          // A bare `:::` closes the open fence (and is consumed).
+          flush(fenced: true);
+          inFence = false;
+          borderless = false;
+          color = null;
+          continue;
+        }
+        // A non-empty `:::` spec inside a fence is literal content.
+      } else {
+        // Only `:::plain` or a valid hex color opens a fence; any other `:::`
+        // line falls through to buf.add below as literal content.
+        final isPlain = spec.toLowerCase() == 'plain';
+        final parsed = parseHexColor(spec);
+        if (isPlain || parsed != null) {
+          flush(fenced: false); // emit preceding default content
+          inFence = true;
+          if (isPlain) {
+            borderless = true;
+          } else {
+            color = parsed;
+          }
+          continue;
         }
       }
-      // Bare `:::` outside a fence is a no-op (dropped).
-      continue;
     }
     buf.add(line);
   }

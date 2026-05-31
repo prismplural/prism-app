@@ -16,7 +16,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
-import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -223,7 +223,7 @@ class _PostDetailBody extends ConsumerWidget {
                   ),
                   const SizedBox(height: 14),
                 ],
-                MarkdownText(
+                PrismMarkdownText(
                   data: post.body,
                   baseStyle: theme.textTheme.bodyLarge?.copyWith(
                     color: theme.colorScheme.onSurface,

@@ -108,5 +108,47 @@ void main() {
       final t = blocks.first.table!;
       expect(t.rows[1], ['![](x#64)', 'text']);
     });
+
+    test('does not detect a table inside a ```-fenced code block', () {
+      const source = '```\n| a | b |\n| - | - |\n| 1 | 2 |\n```';
+      final blocks = splitMarkdownBlocks(source);
+      expect(blocks.any((b) => b.isTable), isFalse);
+      // The fenced content is preserved verbatim as a single prose block.
+      expect(blocks, hasLength(1));
+      expect(blocks.single.isTable, isFalse);
+      expect(blocks.single.text, source);
+    });
+
+    test('detects a real table after a closed code fence', () {
+      const source =
+          '```\n| a | b |\n| - | - |\n```\n| x | y |\n| - | - |\n| 1 | 2 |';
+      final blocks = splitMarkdownBlocks(source);
+      final tables = blocks.where((b) => b.isTable).toList();
+      expect(tables, hasLength(1));
+      expect(tables.single.table!.rows, [
+        ['x', 'y'],
+        ['1', '2'],
+      ]);
+      // The fenced block stays prose.
+      expect(blocks.first.isTable, isFalse);
+      expect(blocks.first.text, '```\n| a | b |\n| - | - |\n```');
+    });
+
+    test('does not detect a table inside a ~~~-fenced code block', () {
+      const source = '~~~\n| a | b |\n| - | - |\n| 1 | 2 |\n~~~';
+      final blocks = splitMarkdownBlocks(source);
+      expect(blocks.any((b) => b.isTable), isFalse);
+      expect(blocks, hasLength(1));
+      expect(blocks.single.text, source);
+    });
+
+    test('an unclosed ``` fence runs to EOF as prose', () {
+      const source = '```\n| a | b |\n| - | - |\n| 1 | 2 |';
+      final blocks = splitMarkdownBlocks(source);
+      expect(blocks.any((b) => b.isTable), isFalse);
+      expect(blocks, hasLength(1));
+      expect(blocks.single.isTable, isFalse);
+      expect(blocks.single.text, source);
+    });
   });
 }

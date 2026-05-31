@@ -60,12 +60,15 @@ void main() {
       expect(segs[2].content.trim(), 'outro');
     });
 
-    test('unknown spec → fenced but default styling', () {
+    test('unknown spec no longer opens a fence; markers kept as literal', () {
       const md = ':::wat\n| a |\n:::';
       final segs = parseStyledSegments(md);
+      // `:::wat` is not a recognized directive, so nothing opens a fence and
+      // the trailing bare ::: is a stray marker outside any fence — both are
+      // preserved verbatim alongside the table row.
       expect(segs, hasLength(1));
       expect(segs.first.isDefault, isTrue);
-      expect(segs.first.content.trim(), '| a |');
+      expect(segs.first.content, ':::wat\n| a |\n:::');
     });
 
     test('unclosed fence runs to end of text', () {
@@ -77,15 +80,58 @@ void main() {
       expect(segs[1].content.trim(), '| a |');
     });
 
-    test('bare ::: outside a fence is dropped', () {
+    test('bare ::: outside a fence is preserved as literal content', () {
       const md = 'a\n:::\nb';
       final segs = parseStyledSegments(md);
-      // The stray ::: produces no fence; content is the surrounding lines.
-      expect(segs.map((s) => s.isDefault), everyElement(isTrue));
-      final joined = segs.map((s) => s.content).join('\n');
-      expect(joined.contains(':::'), isFalse);
-      expect(joined.contains('a'), isTrue);
-      expect(joined.contains('b'), isTrue);
+      // The stray ::: opens no fence and is kept verbatim in the content.
+      expect(segs, hasLength(1));
+      expect(segs.first.isDefault, isTrue);
+      expect(segs.first.content, 'a\n:::\nb');
+    });
+
+    test('unrecognized directive is preserved literally (no fence)', () {
+      const md = ':::notadirective';
+      final segs = parseStyledSegments(md);
+      expect(segs, hasLength(1));
+      expect(segs.first.isDefault, isTrue);
+      expect(segs.first.content, contains(':::notadirective'));
+      expect(segs.first.content, ':::notadirective');
+    });
+
+    test('invalid hex spec is preserved literally (no fence)', () {
+      const md = ':::#zzz';
+      final segs = parseStyledSegments(md);
+      expect(segs, hasLength(1));
+      expect(segs.first.isDefault, isTrue);
+      expect(segs.first.content, ':::#zzz');
+    });
+
+    test('plain fence still yields a single borderless segment', () {
+      const md = ':::plain\nhello\n:::';
+      final segs = parseStyledSegments(md);
+      expect(segs, hasLength(1));
+      expect(segs.first.borderless, isTrue);
+      expect(segs.first.borderColor, isNull);
+      expect(segs.first.content, 'hello');
+    });
+
+    test('valid hex fence still yields its border color', () {
+      const md = ':::#FF8800\nhello\n:::';
+      final segs = parseStyledSegments(md);
+      expect(segs, hasLength(1));
+      expect(segs.first.borderColor, const Color(0xFFFF8800));
+      expect(segs.first.borderless, isFalse);
+      expect(segs.first.content, 'hello');
+    });
+
+    test('a valid open fence is still closed by a following bare :::', () {
+      const md = ':::plain\ninside\n:::\noutside';
+      final segs = parseStyledSegments(md);
+      expect(segs, hasLength(2));
+      expect(segs[0].borderless, isTrue);
+      expect(segs[0].content, 'inside');
+      expect(segs[1].isDefault, isTrue);
+      expect(segs[1].content, 'outside');
     });
   });
 }

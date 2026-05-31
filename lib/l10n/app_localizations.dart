@@ -17918,6 +17918,96 @@ abstract class AppLocalizations {
   /// **'Pick a color'**
   String get customFieldColorPickerTitle;
 
+  /// Tooltip for the insert-table button in long-text editors.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert table'**
+  String get tableInsertTooltip;
+
+  /// Title of the insert-table dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert table'**
+  String get tableInsertTitle;
+
+  /// Confirm button label in the insert-table dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert'**
+  String get tableInsertConfirm;
+
+  /// Label for the column-count stepper in the insert-table dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Columns'**
+  String get tableColumnsLabel;
+
+  /// Label for the row-count stepper in the insert-table dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Rows'**
+  String get tableRowsLabel;
+
+  /// Tooltip for the decrement-columns button.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove column'**
+  String get tableRemoveColumn;
+
+  /// Tooltip for the increment-columns button.
+  ///
+  /// In en, this message translates to:
+  /// **'Add column'**
+  String get tableAddColumn;
+
+  /// Tooltip for the decrement-rows button.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove row'**
+  String get tableRemoveRow;
+
+  /// Tooltip for the increment-rows button.
+  ///
+  /// In en, this message translates to:
+  /// **'Add row'**
+  String get tableAddRow;
+
+  /// Label for the show-borders toggle in the insert-table dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Show borders'**
+  String get tableShowBordersLabel;
+
+  /// Label for the border-color picker row in the insert-table dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Border color'**
+  String get tableBorderColorLabel;
+
+  /// Value shown when the table border uses the theme default color.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme default'**
+  String get tableBorderColorDefault;
+
+  /// Label for the header-row toggle in the insert-table dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Header row'**
+  String get tableHeaderRowLabel;
+
+  /// Subtitle explaining the header-row toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'First row is column headings'**
+  String get tableHeaderRowSubtitle;
+
+  /// Hint shown when a header row is enabled on a borderless table.
+  ///
+  /// In en, this message translates to:
+  /// **'Without borders the header row looks the same as other rows.'**
+  String get tableHeaderRowPlainHint;
+
   /// Toggle label for snap-to-positions in labeled slider config
   ///
   /// In en, this message translates to:

@@ -11164,6 +11164,52 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldColorPickerTitle => 'Pick a color';
 
   @override
+  String get tableInsertTooltip => 'Insert table';
+
+  @override
+  String get tableInsertTitle => 'Insert table';
+
+  @override
+  String get tableInsertConfirm => 'Insert';
+
+  @override
+  String get tableColumnsLabel => 'Columns';
+
+  @override
+  String get tableRowsLabel => 'Rows';
+
+  @override
+  String get tableRemoveColumn => 'Remove column';
+
+  @override
+  String get tableAddColumn => 'Add column';
+
+  @override
+  String get tableRemoveRow => 'Remove row';
+
+  @override
+  String get tableAddRow => 'Add row';
+
+  @override
+  String get tableShowBordersLabel => 'Show borders';
+
+  @override
+  String get tableBorderColorLabel => 'Border color';
+
+  @override
+  String get tableBorderColorDefault => 'Theme default';
+
+  @override
+  String get tableHeaderRowLabel => 'Header row';
+
+  @override
+  String get tableHeaderRowSubtitle => 'First row is column headings';
+
+  @override
+  String get tableHeaderRowPlainHint =>
+      'Without borders the header row looks the same as other rows.';
+
+  @override
   String get customFieldSliderSnapToPositions => 'Snap to positions';
 
   @override

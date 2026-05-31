@@ -20,7 +20,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
-import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -325,7 +325,7 @@ class _PostTileContent extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                 ],
-                MarkdownText(
+                PrismMarkdownText(
                   // Keyed by post id so a recycled tile never carries spoiler
                   // reveal state onto a different post with identical body text.
                   key: ValueKey('post-body-${post.id}'),

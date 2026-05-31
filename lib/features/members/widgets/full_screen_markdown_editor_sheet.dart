@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/services/bio_image_processor.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
+import 'package:prism_plurality/features/members/widgets/markdown_table_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -247,9 +248,16 @@ class _FullScreenMarkdownEditorSheetState
           Positioned(
             right: 16,
             bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-            child: MarkdownImageButton(
-              controller: _controller,
-              sessionId: _editSessionId,
+            child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  MarkdownTableButton(controller: _controller),
+                  const SizedBox(width: 4),
+                  MarkdownImageButton(
+                  controller: _controller,
+                  sessionId: _editSessionId,
+            ),
+                ],
             ),
           ),
           ],

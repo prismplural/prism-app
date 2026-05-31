@@ -20,6 +20,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
+import 'package:prism_plurality/features/members/widgets/markdown_table_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
@@ -313,9 +314,16 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
                     Positioned(
                       right: 16,
                       bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-                      child: MarkdownImageButton(
-                        controller: _bodyController,
-                        sessionId: _editSessionId,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          MarkdownTableButton(controller: _bodyController),
+                          const SizedBox(width: 4),
+                          MarkdownImageButton(
+                            controller: _bodyController,
+                            sessionId: _editSessionId,
+                          ),
+                        ],
                       ),
                     ),
                 ],

@@ -58,6 +58,23 @@ List<MarkdownBlock> splitMarkdownBlocks(String markdown) {
   var i = 0;
   while (i < lines.length) {
     final header = lines[i];
+
+    // Fenced code blocks (``` or ~~~) are copied verbatim into prose so that
+    // pipe-table-looking lines inside them are never turned into real tables.
+    final fence = _fenceOpen(header);
+    if (fence != null) {
+      prose.add(header);
+      i += 1;
+      while (i < lines.length) {
+        final inner = lines[i];
+        prose.add(inner);
+        i += 1;
+        if (_fenceCloses(inner, fence)) break;
+      }
+      // An unterminated fence just stays prose through EOF.
+      continue;
+    }
+
     final separator = i + 1 < lines.length ? lines[i + 1] : null;
 
     if (separator != null &&
@@ -88,6 +105,45 @@ List<MarkdownBlock> splitMarkdownBlocks(String markdown) {
 
   flushProse();
   return blocks;
+}
+
+/// Describes an opening code fence: its fence character (`` ` `` or `~`) and the
+/// number of consecutive fence characters that opened it.
+class _FenceOpen {
+  const _FenceOpen(this.char, this.length);
+
+  final String char;
+  final int length;
+}
+
+/// If [line] opens a code fence (its leading non-whitespace run is three or more
+/// backticks or three or more tildes), returns the [_FenceOpen]; otherwise null.
+///
+/// Per CommonMark, the fence run must be the leading run of fence characters on
+/// the line (an info string after the run is allowed and ignored here).
+_FenceOpen? _fenceOpen(String line) {
+  final trimmed = line.trimLeft();
+  if (trimmed.isEmpty) return null;
+  final char = trimmed[0];
+  if (char != '`' && char != '~') return null;
+  var length = 0;
+  while (length < trimmed.length && trimmed[length] == char) {
+    length += 1;
+  }
+  if (length < 3) return null;
+  return _FenceOpen(char, length);
+}
+
+/// Returns true if [line] closes the fence described by [open]: the trimmed line
+/// must consist solely of [open] characters repeated at least [open.length]
+/// times (CommonMark allows a longer closing fence, but not a shorter one).
+bool _fenceCloses(String line, _FenceOpen open) {
+  final trimmed = line.trim();
+  if (trimmed.length < open.length) return false;
+  for (var j = 0; j < trimmed.length; j += 1) {
+    if (trimmed[j] != open.char) return false;
+  }
+  return true;
 }
 
 /// A line that could be a table row: contains an unescaped `|`.

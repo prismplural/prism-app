@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/members/services/bio_image_processor.da
 import 'package:prism_plurality/features/members/widgets/image_library_picker.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/utils/markdown_cursor_insert.dart';
 import 'package:prism_plurality/shared/utils/remote_image_fetcher.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -180,7 +181,9 @@ class _MarkdownImageButtonState extends ConsumerState<MarkdownImageButton> {
 
   Future<void> _insertFromLibrary() async {
     final tag = await showImageLibraryPicker(context, ref);
-    if (tag != null && mounted) _insertAtCursor('![]($tag)');
+    if (tag != null && mounted) {
+      insertMarkdownAtCursor(widget.controller, '![]($tag)');
+    }
   }
 
   Future<void> _stageAndInsert(Uint8List bytes) async {
@@ -200,25 +203,16 @@ class _MarkdownImageButtonState extends ConsumerState<MarkdownImageButton> {
       );
       if (!mounted) return;
       final alt = result.altText ?? '';
-      _insertAtCursor(alt.isEmpty ? '![]($tag)' : '![$alt]($tag)');
+      insertMarkdownAtCursor(
+        widget.controller,
+        alt.isEmpty ? '![]($tag)' : '![$alt]($tag)',
+      );
       notifier.incrementCompleted();
     } catch (e) {
       if (!mounted) return;
       notifier.setError(e.toString());
       PrismToast.error(context, message: e.toString());
     }
-  }
-
-  void _insertAtCursor(String markdown) {
-    final c = widget.controller;
-    final sel = c.selection;
-    final text = c.text;
-    final start = sel.start < 0 ? text.length : sel.start;
-    final end = sel.end < 0 ? text.length : sel.end;
-    c.value = c.value.copyWith(
-      text: text.replaceRange(start, end, markdown),
-      selection: TextSelection.collapsed(offset: start + markdown.length),
-    );
   }
 
   Future<({String tag, String? altText})?> _showTagDialog(

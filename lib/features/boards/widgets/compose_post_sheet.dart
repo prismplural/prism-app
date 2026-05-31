@@ -18,6 +18,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
+import 'package:prism_plurality/features/members/widgets/markdown_table_button.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
@@ -552,6 +553,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
               ),
             ),
             _BottomToolbar(
+              bodyController: _bodyController,
               memberId: _targetMemberId,
               audience: _audience,
               isEditing: isEditing,
@@ -571,6 +573,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
 
 class _BottomToolbar extends ConsumerWidget {
   const _BottomToolbar({
+    required this.bodyController,
     required this.memberId,
     required this.audience,
     required this.isEditing,
@@ -578,6 +581,7 @@ class _BottomToolbar extends ConsumerWidget {
     required this.onAudienceChanged,
   });
 
+  final TextEditingController bodyController;
   final String? memberId;
   final String audience;
   final bool isEditing;
@@ -613,6 +617,8 @@ class _BottomToolbar extends ConsumerWidget {
       ),
       child: Row(
         children: [
+          MarkdownTableButton(controller: bodyController),
+          const SizedBox(width: 4),
           // Author avatar — tap to change who is posting.
           if (!isEditing) ...[
             Semantics(
@@ -654,25 +660,34 @@ class _BottomToolbar extends ConsumerWidget {
             const SizedBox(width: 8),
           ],
           const Spacer(),
-          SizedBox(
-            width: 210,
-            child: IgnorePointer(
-              ignoring: memberId == null,
-              child: Opacity(
-                opacity: memberId == null ? 0.55 : 1,
-                child: PrismSegmentedControl<String>(
-                  segments: [
-                    PrismSegment(
-                      value: 'public',
-                      label: l10n.boardsComposeAudienceEveryone,
+          // Audience selector keeps its 210px width on roomy screens, but
+          // Flexible + scale-down FittedBox lets it shrink on narrow ones
+          // (~320dp) so the toolbar never overflows after the table button.
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: SizedBox(
+                width: 210,
+                child: IgnorePointer(
+                  ignoring: memberId == null,
+                  child: Opacity(
+                    opacity: memberId == null ? 0.55 : 1,
+                    child: PrismSegmentedControl<String>(
+                      segments: [
+                        PrismSegment(
+                          value: 'public',
+                          label: l10n.boardsComposeAudienceEveryone,
+                        ),
+                        PrismSegment(
+                          value: 'private',
+                          label: l10n.boardsComposeAudiencePrivate,
+                        ),
+                      ],
+                      selected: audience,
+                      onChanged: memberId != null ? onAudienceChanged : (_) {},
                     ),
-                    PrismSegment(
-                      value: 'private',
-                      label: l10n.boardsComposeAudiencePrivate,
-                    ),
-                  ],
-                  selected: audience,
-                  onChanged: memberId != null ? onAudienceChanged : (_) {},
+                  ),
                 ),
               ),
             ),
