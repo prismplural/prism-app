@@ -41,6 +41,13 @@ enum _ImportSource { none, pluralKit, prismExport, simplyPlural }
 
 class _ImportDataStepState extends ConsumerState<ImportDataStep> {
   _ImportSource _selected = _ImportSource.none;
+  late ProviderContainer _container;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _container = ProviderScope.containerOf(context, listen: false);
+  }
 
   void _returnToPicker() {
     // Clear any pending import action so the bottom Continue advances
@@ -52,9 +59,14 @@ class _ImportDataStepState extends ConsumerState<ImportDataStep> {
   @override
   void dispose() {
     // Defer to next frame so we don't mutate providers during dispose.
-    final container = ProviderScope.containerOf(context, listen: false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      container.read(onboardingPendingImportActionProvider.notifier).set(null);
+      try {
+        _container
+            .read(onboardingPendingImportActionProvider.notifier)
+            .set(null);
+      } on StateError catch (e) {
+        if (!e.message.contains('already disposed')) rethrow;
+      }
     });
     super.dispose();
   }
@@ -1805,9 +1817,9 @@ class _SimplyPluralImportFlowState
         pendingAction = () async {};
         break;
       case sp_importer.ImportState.encryptedChatsDetected:
-        // The encrypted-chats warning view has its own buttons (skip / fresh
-        // file / cancel); the outer onboarding Continue must not auto-advance.
-        pendingAction = () async {};
+        pendingAction = () async {
+          ref.read(importerProvider.notifier).skipEncryptedChatsAndPreview();
+        };
         break;
       case sp_importer.ImportState.complete:
         pendingAction = () async {
@@ -1945,6 +1957,86 @@ class _SimplyPluralImportFlowState
                 ),
               ),
             ),
+
+          if (migration.step ==
+                  sp_importer.ImportState.encryptedChatsDetected &&
+              migration.exportData != null) ...[
+            Icon(AppIcons.warningAmberRounded, size: 48, color: errorColor),
+            const SizedBox(height: 16),
+            Text(
+              context.l10n.migrationEncryptedChatsTitle,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: textColor,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.l10n.migrationEncryptedChatsDescription(
+                migration.exportData!.encryptedChatMessageCount,
+              ),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: isDark
+                    ? AppColors.mutedTextDark
+                    : AppColors.mutedTextLight,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: errorColor.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(12),
+                ),
+                border: Border.all(color: errorColor.withValues(alpha: 0.22)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(AppIcons.infoOutline, size: 20, color: errorColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.l10n.migrationEncryptedChatsNote,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: isDark
+                            ? AppColors.mutedTextDark
+                            : AppColors.mutedTextLight,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _ActionButton(
+              label: context.l10n.migrationEncryptedChatsSkip,
+              onPressed: () {
+                ref
+                    .read(importerProvider.notifier)
+                    .skipEncryptedChatsAndPreview();
+              },
+            ),
+            const SizedBox(height: 8),
+            _ActionButton(
+              label: context.l10n.migrationEncryptedChatsFresh,
+              tone: PrismButtonTone.outlined,
+              onPressed: () {
+                ref.read(importerProvider.notifier).chooseFreshFileImport();
+              },
+            ),
+            const SizedBox(height: 8),
+            _ActionButton(
+              label: context.l10n.cancel,
+              tone: PrismButtonTone.outlined,
+              onPressed: () {
+                ref.read(importerProvider.notifier).reset();
+              },
+            ),
+          ],
 
           // Preview
           if (migration.step == sp_importer.ImportState.previewing &&
@@ -2155,10 +2247,11 @@ class _SimplyPluralImportFlowState
                 warnings: migration.result!.warnings,
                 onRetryAvatars: migration.result!.hasAvatarDownloadFailures
                     ? () => ref
-                        .read(importerProvider.notifier)
-                        .retryAvatarDownloads()
+                          .read(importerProvider.notifier)
+                          .retryAvatarDownloads()
                     : null,
-                retryInProgress: migration.step ==
+                retryInProgress:
+                    migration.step ==
                     sp_importer.ImportState.downloadingAvatars,
               ),
             ],
