@@ -15,30 +15,29 @@ void main() {
       expect(preserveBlankLines('hello\nworld'), 'hello\nworld');
     });
 
-    test('single blank line (normal paragraph break) unchanged', () {
-      expect(preserveBlankLines('A\n\nB'), 'A\n\nB');
+    test('single blank line becomes a spacer line', () {
+      expect(preserveBlankLines('A\n\nB'), 'A\n$nbsp\nB');
     });
 
-    test('two blank lines inserts one spacer', () {
-      expect(preserveBlankLines('A\n\n\nB'), 'A\n\n$nbsp\n\nB');
+    test('two blank lines become two spacer lines', () {
+      expect(preserveBlankLines('A\n\n\nB'), 'A\n$nbsp\n$nbsp\nB');
     });
 
-    test('three blank lines inserts two spacers', () {
-      expect(preserveBlankLines('A\n\n\n\nB'), 'A\n\n$nbsp\n\n$nbsp\n\nB');
+    test('three blank lines become three spacer lines', () {
+      expect(preserveBlankLines('A\n\n\n\nB'), 'A\n$nbsp\n$nbsp\n$nbsp\nB');
     });
 
-    test('caps spacers at 10', () {
-      // 20 blank lines in a row — only 10 spacers should be emitted.
+    test('preserves long blank line runs', () {
       final input = 'A\n${'\n' * 20}B';
       final result = preserveBlankLines(input);
       final spacerCount = RegExp(RegExp.escape(nbsp)).allMatches(result).length;
-      expect(spacerCount, 10);
+      expect(spacerCount, 20);
     });
 
     test('multiple separate blank line runs', () {
       const input = 'A\n\n\nB\n\n\n\nC';
       final result = preserveBlankLines(input);
-      expect(result, 'A\n\n$nbsp\n\nB\n\n$nbsp\n\n$nbsp\n\nC');
+      expect(result, 'A\n$nbsp\n$nbsp\nB\n$nbsp\n$nbsp\n$nbsp\nC');
     });
 
     test('blank lines inside backtick fence are untouched', () {
@@ -59,7 +58,10 @@ void main() {
     test('blank lines before and after fence are processed', () {
       const input = 'before\n\n\n```\ncode\n\n\n```\n\n\nafter';
       final result = preserveBlankLines(input);
-      expect(result, 'before\n\n$nbsp\n\n```\ncode\n\n\n```\n\n$nbsp\n\nafter');
+      expect(
+        result,
+        'before\n$nbsp\n$nbsp\n```\ncode\n\n\n```\n$nbsp\n$nbsp\nafter',
+      );
     });
 
     test('longer closing fence matches', () {
@@ -73,22 +75,20 @@ void main() {
     });
 
     test('lines with only spaces/tabs count as blank', () {
-      expect(preserveBlankLines('A\n\n  \nB'), 'A\n\n$nbsp\n\nB');
-      expect(preserveBlankLines('A\n\n\t\nB'), 'A\n\n$nbsp\n\nB');
+      expect(preserveBlankLines('A\n\n  \nB'), 'A\n$nbsp\n$nbsp\nB');
+      expect(preserveBlankLines('A\n\n\t\nB'), 'A\n$nbsp\n$nbsp\nB');
     });
 
     test('trailing blank lines produce spacers', () {
-      // 'A\n\n\n' splits to ['A', '', '', ''] — 3 blanks → 2 spacers.
       final result = preserveBlankLines('A\n\n\n');
       final spacerCount = RegExp(RegExp.escape(nbsp)).allMatches(result).length;
-      expect(spacerCount, 2);
+      expect(spacerCount, 3);
     });
 
     test('leading blank lines produce spacers', () {
-      // '\n\n\nA' splits to ['', '', '', 'A'] — 3 blanks → 2 spacers.
       final result = preserveBlankLines('\n\n\nA');
       final spacerCount = RegExp(RegExp.escape(nbsp)).allMatches(result).length;
-      expect(spacerCount, 2);
+      expect(spacerCount, 3);
     });
 
     test('does not modify single newlines (soft line breaks)', () {
@@ -96,7 +96,7 @@ void main() {
     });
 
     test('CRLF blank lines are treated as blank', () {
-      expect(preserveBlankLines('A\r\n\r\n\r\nB'), 'A\r\n\n$nbsp\n\nB');
+      expect(preserveBlankLines('A\r\n\r\n\r\nB'), 'A\r\n$nbsp\n$nbsp\nB');
     });
 
     test('indented fences after normalization are still detected', () {
@@ -108,79 +108,59 @@ void main() {
   });
 
   group('MarkdownText blank line rendering', () {
-    testWidgets('extra blank lines produce more block spacers than normal', (
+    testWidgets('extra blank lines render taller than a single blank line', (
       tester,
     ) async {
-      // With extra blank lines — should have more spacer widgets.
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark(),
-          home: const Scaffold(body: MarkdownText(data: 'First\n\n\nSecond')),
-        ),
-      );
-      final withBlanks = _countBlockSpacers(tester);
+      const style = TextStyle(fontSize: 24, height: 1.25);
 
-      // Without extra blank lines — normal paragraph break.
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark(),
-          home: const Scaffold(body: MarkdownText(data: 'First\n\nSecond')),
-        ),
+      final extraHeight = await _renderedHeightFor(
+        tester,
+        const MarkdownText(data: 'First\n\n\nSecond', baseStyle: style),
       );
-      final withoutBlanks = _countBlockSpacers(tester);
+      final singleHeight = await _renderedHeightFor(
+        tester,
+        const MarkdownText(data: 'First\n\nSecond', baseStyle: style),
+      );
 
-      expect(
-        withBlanks,
-        greaterThan(withoutBlanks),
-        reason: 'extra blank line should produce additional block spacing',
-      );
+      expect(extraHeight, greaterThan(singleHeight));
     });
 
-    testWidgets('more blank lines produce proportionally more spacers', (
+    testWidgets('more blank lines produce a larger rendered height', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark(),
-          home: const Scaffold(body: MarkdownText(data: 'A\n\n\nB')),
-        ),
-      );
-      final oneExtra = _countBlockSpacers(tester);
+      const style = TextStyle(fontSize: 24, height: 1.25);
 
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark(),
-          home: const Scaffold(body: MarkdownText(data: 'A\n\n\n\nB')),
-        ),
+      final twoBlankLineHeight = await _renderedHeightFor(
+        tester,
+        const MarkdownText(data: 'A\n\n\nB', baseStyle: style),
       );
-      final twoExtra = _countBlockSpacers(tester);
+      final threeBlankLineHeight = await _renderedHeightFor(
+        tester,
+        const MarkdownText(data: 'A\n\n\n\nB', baseStyle: style),
+      );
 
-      expect(twoExtra, greaterThan(oneExtra));
+      expect(threeBlankLineHeight, greaterThan(twoBlankLineHeight));
     });
 
-    testWidgets('more blank lines produce a larger visual gap', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark(),
-          home: const Scaffold(body: MarkdownText(data: 'A\n\n\nB')),
-        ),
-      );
-      final twoBlankLineGap = _verticalGapBetween(tester, 'A', 'B');
+    testWidgets('blank line runs match plain text height', (tester) async {
+      const data =
+          'the line breaks,\n\n\nwhich you have requested\n\n\n\n'
+          'are now functional\n\nseperation, anxiety, abounds.';
+      const style = TextStyle(fontSize: 24, height: 1.25);
 
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark(),
-          home: const Scaffold(body: MarkdownText(data: 'A\n\n\n\nB')),
-        ),
+      final plainHeight = await _renderedHeightFor(
+        tester,
+        const Text(data, style: style),
       );
-      final threeBlankLineGap = _verticalGapBetween(tester, 'A', 'B');
+      final markdownHeight = await _renderedHeightFor(
+        tester,
+        const MarkdownText(data: data, baseStyle: style),
+      );
 
-      expect(threeBlankLineGap, greaterThan(twoBlankLineGap));
+      expect(markdownHeight, closeTo(plainHeight, 1));
     });
 
-    testWidgets('single blank line (normal paragraph) has baseline spacers', (
-      tester,
-    ) async {
+    testWidgets('single blank line renders a spacer line', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark(),
@@ -188,10 +168,10 @@ void main() {
         ),
       );
 
-      // Normal paragraph break still renders — just no EXTRA spacers.
-      final rendered = _allRenderedText(tester);
+      final rendered = _allRenderedText(tester).join('\n');
       expect(rendered, contains('A'));
       expect(rendered, contains('B'));
+      expect(rendered, contains(nbsp));
     });
 
     testWidgets('blank lines in fenced code blocks are not spacer-ized', (
@@ -206,7 +186,7 @@ void main() {
         ),
       );
 
-      expect(_allRenderedText(tester).where((t) => t == nbsp), isEmpty);
+      expect(_allRenderedText(tester).join('\n'), isNot(contains(nbsp)));
     });
 
     testWidgets('indented fences from SP bios do not get spacers injected', (
@@ -226,7 +206,7 @@ void main() {
         ),
       );
 
-      expect(_allRenderedText(tester).where((t) => t == nbsp), isEmpty);
+      expect(_allRenderedText(tester).join('\n'), isNot(contains(nbsp)));
     });
 
     testWidgets('soft line breaks still work with blank line preservation', (
@@ -254,11 +234,11 @@ void main() {
         ),
       );
 
-      final texts = _allRenderedText(tester);
-      expect(texts, contains('bold'));
-      expect(texts, contains('italic'));
-      expect(texts.join(), isNot(contains('**')));
-      expect(texts.join(), isNot(contains('*italic*')));
+      final text = _allRenderedText(tester).join('\n');
+      expect(text, contains('bold'));
+      expect(text, contains('italic'));
+      expect(text, isNot(contains('**')));
+      expect(text, isNot(contains('*italic*')));
     });
 
     testWidgets('headings separated by blank lines render correctly', (
@@ -273,9 +253,9 @@ void main() {
         ),
       );
 
-      final texts = _allRenderedText(tester);
-      expect(texts, contains('Title'));
-      expect(texts, contains('Content here'));
+      final text = _allRenderedText(tester).join('\n');
+      expect(text, contains('Title'));
+      expect(text, contains('Content here'));
     });
 
     testWidgets('list items separated by blank lines stay as list', (
@@ -290,9 +270,9 @@ void main() {
         ),
       );
 
-      final texts = _allRenderedText(tester);
-      expect(texts, contains('item one'));
-      expect(texts, contains('item two'));
+      final text = _allRenderedText(tester).join('\n');
+      expect(text, contains('item one'));
+      expect(text, contains('item two'));
     });
   });
 }
@@ -311,20 +291,20 @@ List<String> _allRenderedText(WidgetTester tester) {
   return result;
 }
 
-/// Counts SizedBox widgets used as block spacers by flutter_markdown.
-/// Each block element pair gets a SizedBox(height: blockSpacing) between them.
-int _countBlockSpacers(WidgetTester tester) {
-  return tester
-      .widgetList<SizedBox>(find.byType(SizedBox))
-      .where((sb) => sb.height != null && sb.height! > 0 && sb.width == null)
-      .length;
-}
+Future<double> _renderedHeightFor(WidgetTester tester, Widget child) async {
+  final key = UniqueKey();
 
-double _verticalGapBetween(WidgetTester tester, String upper, String lower) {
-  final upperFinder = find.text(upper);
-  final lowerFinder = find.text(lower);
-  expect(upperFinder, findsOneWidget);
-  expect(lowerFinder, findsOneWidget);
-  return tester.getTopLeft(lowerFinder).dy -
-      tester.getBottomLeft(upperFinder).dy;
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.dark(),
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(key: key, width: 500, child: child),
+        ),
+      ),
+    ),
+  );
+
+  return tester.getSize(find.byKey(key)).height;
 }

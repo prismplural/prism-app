@@ -96,7 +96,7 @@ class MarkdownText extends StatelessWidget {
             onTapLink: (href) => _launchSafeLink(href),
           ),
           'spoiler': SpoilerBuilder(theme: theme),
-          if (imgElementBuilder != null) 'img': imgElementBuilder!,
+          'img': ?imgElementBuilder,
         },
       ),
     );
@@ -358,8 +358,7 @@ class _SpoilerRevealHostState extends State<_SpoilerRevealHost> {
   }
 }
 
-/// Inserts NBSP spacer paragraphs for consecutive blank lines so the
-/// markdown renderer preserves user-intended vertical spacing.
+/// Replaces blank lines with NBSP lines so Markdown keeps plain-text spacing.
 /// Fenced code blocks are left untouched.
 @visibleForTesting
 String preserveBlankLines(String input) {
@@ -403,13 +402,8 @@ String preserveBlankLines(String input) {
         count++;
         j++;
       }
-      // First blank line is the normal paragraph separator.
-      out.add('');
-      // Each additional blank line becomes a non-breaking space paragraph.
-      final extra = (count - 1).clamp(0, 10);
-      for (var k = 0; k < extra; k++) {
+      for (var k = 0; k < count; k++) {
         out.add(_nbsp);
-        out.add('');
       }
       i = j;
       continue;
