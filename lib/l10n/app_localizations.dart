@@ -6740,7 +6740,7 @@ abstract class AppLocalizations {
   /// Semantics label for the speaking-as avatar button
   ///
   /// In en, this message translates to:
-  /// **'Speaking as {name}. Double tap to change.'**
+  /// **'Speaking as {name}. Tap to change.'**
   String chatSpeakingAs(String name);
 
   /// Semantics label for the speaking-as button when no member is selected

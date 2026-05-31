@@ -6,11 +6,8 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 void main() {
   final now = DateTime(2026, 4, 1);
 
-  Member makeMember({required String id, String? name}) => Member(
-        id: id,
-        name: name ?? 'Member $id',
-        createdAt: now,
-      );
+  Member makeMember({required String id, String? name}) =>
+      Member(id: id, name: name ?? 'Member $id', createdAt: now);
 
   Conversation makeConversation({
     String? title,
@@ -19,16 +16,15 @@ void main() {
     List<String> participantIds = const [],
     List<String> archivedByMemberIds = const [],
     Map<String, DateTime> lastReadTimestamps = const {},
-  }) =>
-      Conversation(
-        id: 'conv-1',
-        createdAt: createdAt ?? now,
-        lastActivityAt: lastActivityAt ?? now,
-        title: title,
-        participantIds: participantIds,
-        archivedByMemberIds: archivedByMemberIds,
-        lastReadTimestamps: lastReadTimestamps,
-      );
+  }) => Conversation(
+    id: 'conv-1',
+    createdAt: createdAt ?? now,
+    lastActivityAt: lastActivityAt ?? now,
+    title: title,
+    participantIds: participantIds,
+    archivedByMemberIds: archivedByMemberIds,
+    lastReadTimestamps: lastReadTimestamps,
+  );
 
   ConversationTileData makeTileData({
     Conversation? conversation,
@@ -36,14 +32,13 @@ void main() {
     Map<String, Member>? participantMap,
     int unreadCount = 0,
     bool showUnreadBadge = false,
-  }) =>
-      ConversationTileData(
-        conversation: conversation ?? makeConversation(),
-        participantMap: participantMap ?? const {},
-        unreadCount: unreadCount,
-        showUnreadBadge: showUnreadBadge,
-        speakingAs: speakingAs,
-      );
+  }) => ConversationTileData(
+    conversation: conversation ?? makeConversation(),
+    participantMap: participantMap ?? const {},
+    unreadCount: unreadCount,
+    showUnreadBadge: showUnreadBadge,
+    speakingAs: speakingAs,
+  );
 
   // ── hasUnread ──────────────────────────────────────────────────────────
 
@@ -59,7 +54,7 @@ void main() {
       expect(tile.hasUnread, isFalse);
     });
 
-    test('returns true when lastRead is null but activity is after creation', () {
+    test('returns true when unreadCount is positive', () {
       final tile = makeTileData(
         conversation: makeConversation(
           createdAt: now,
@@ -68,6 +63,7 @@ void main() {
           lastReadTimestamps: {}, // no entry for this member
         ),
         speakingAs: 'member-1',
+        unreadCount: 1,
       );
       expect(tile.hasUnread, isTrue);
     });
@@ -78,9 +74,7 @@ void main() {
           createdAt: now,
           lastActivityAt: now.add(const Duration(hours: 1)),
           participantIds: ['member-1'],
-          lastReadTimestamps: {
-            'member-1': now.add(const Duration(hours: 2)),
-          },
+          lastReadTimestamps: {'member-1': now.add(const Duration(hours: 2))},
         ),
         speakingAs: 'member-1',
       );
@@ -93,28 +87,43 @@ void main() {
           createdAt: now,
           lastActivityAt: now.add(const Duration(hours: 3)),
           participantIds: ['member-1'],
-          lastReadTimestamps: {
-            'member-1': now.add(const Duration(hours: 1)),
-          },
+          lastReadTimestamps: {'member-1': now.add(const Duration(hours: 1))},
         ),
         speakingAs: 'member-1',
+        unreadCount: 1,
       );
       expect(tile.hasUnread, isTrue);
     });
 
-    test('returns false when lastRead equals lastActivityAt (sender just sent)', () {
-      final sentAt = now.add(const Duration(hours: 1));
+    test('returns false when only conversation metadata changed', () {
       final tile = makeTileData(
         conversation: makeConversation(
           createdAt: now,
-          lastActivityAt: sentAt,
+          lastActivityAt: now.add(const Duration(hours: 1)),
           participantIds: ['member-1'],
-          lastReadTimestamps: {'member-1': sentAt},
         ),
         speakingAs: 'member-1',
+        unreadCount: 0,
       );
       expect(tile.hasUnread, isFalse);
     });
+
+    test(
+      'returns false when lastRead equals lastActivityAt (sender just sent)',
+      () {
+        final sentAt = now.add(const Duration(hours: 1));
+        final tile = makeTileData(
+          conversation: makeConversation(
+            createdAt: now,
+            lastActivityAt: sentAt,
+            participantIds: ['member-1'],
+            lastReadTimestamps: {'member-1': sentAt},
+          ),
+          speakingAs: 'member-1',
+        );
+        expect(tile.hasUnread, isFalse);
+      },
+    );
 
     test('returns false for a non-participant viewer', () {
       // Repro of the bug where non-participants saw permanent unread badges:
@@ -148,9 +157,7 @@ void main() {
 
     test('returns false when speakingAs is null', () {
       final tile = makeTileData(
-        conversation: makeConversation(
-          archivedByMemberIds: ['member-1'],
-        ),
+        conversation: makeConversation(archivedByMemberIds: ['member-1']),
         speakingAs: null,
       );
       expect(tile.isArchived, isFalse);
@@ -158,9 +165,7 @@ void main() {
 
     test('returns false when speakingAs is not in archivedByMemberIds', () {
       final tile = makeTileData(
-        conversation: makeConversation(
-          archivedByMemberIds: ['member-2'],
-        ),
+        conversation: makeConversation(archivedByMemberIds: ['member-2']),
         speakingAs: 'member-1',
       );
       expect(tile.isArchived, isFalse);
@@ -207,10 +212,7 @@ void main() {
 
     test('returns "Conversation" when no other participants', () {
       final tile = makeTileData(
-        conversation: makeConversation(
-          title: '',
-          participantIds: ['member-1'],
-        ),
+        conversation: makeConversation(title: '', participantIds: ['member-1']),
         speakingAs: 'member-1',
       );
       expect(tile.displayTitle, 'Conversation');

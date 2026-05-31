@@ -4019,7 +4019,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String chatSpeakingAs(String name) {
-    return 'Hablando como $name. Toca dos veces para cambiar.';
+    return 'Hablando como $name. Toca para cambiar.';
   }
 
   @override

@@ -1092,7 +1092,7 @@
   "chatBroadcastMentionConfirmTitle": "¿Mencionar a todos en este chat?",
   "chatBroadcastMentionConfirmMessage": "Esto notificará a los otros {count} participantes de este chat.",
   "chatRecordVoiceNote": "Grabar nota de voz",
-  "chatSpeakingAs": "Hablando como {name}. Toca dos veces para cambiar.",
+  "chatSpeakingAs": "Hablando como {name}. Toca para cambiar.",
   "chatChooseSpeakingMember": "Elegir {termSingularLower} hablante",
   "chatCancelReply": "Cancelar respuesta",
   "chatAddAttachment": "Agregar archivo adjunto",

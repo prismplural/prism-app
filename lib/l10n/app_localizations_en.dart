@@ -3949,7 +3949,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String chatSpeakingAs(String name) {
-    return 'Speaking as $name. Double tap to change.';
+    return 'Speaking as $name. Tap to change.';
   }
 
   @override

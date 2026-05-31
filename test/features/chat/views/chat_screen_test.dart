@@ -339,6 +339,19 @@ void main() {
     expect(find.text('Dave'), findsOneWidget);
   });
 
+  testWidgets('appbar member picker tooltip matches tap behavior', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildSubject(savedTabIndex: 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Speaking as Alice. Tap to change.'), findsOneWidget);
+    expect(
+      find.byTooltip('Speaking as Alice. Double tap to change.'),
+      findsNothing,
+    );
+  });
+
   testWidgets('appbar member picker Search row opens full member search', (
     tester,
   ) async {

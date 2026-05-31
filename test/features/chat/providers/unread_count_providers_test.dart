@@ -19,6 +19,9 @@ class _FixedSpeakingAsNotifier extends SpeakingAsNotifier {
 }
 
 class _CountingChatMessageRepository implements ChatMessageRepository {
+  _CountingChatMessageRepository({this.unreadCounts});
+
+  final Map<String, int>? unreadCounts;
   int mentionWatchCalls = 0;
 
   @override
@@ -33,7 +36,16 @@ class _CountingChatMessageRepository implements ChatMessageRepository {
   @override
   Stream<Map<String, int>> watchAllUnreadCounts(
     Map<String, DateTime> conversationSince,
-  ) => Stream.value({for (final id in conversationSince.keys) id: 1});
+  ) {
+    final counts = unreadCounts;
+    if (counts == null) {
+      return Stream.value({for (final id in conversationSince.keys) id: 1});
+    }
+    return Stream.value({
+      for (final id in conversationSince.keys)
+        if ((counts[id] ?? 0) > 0) id: counts[id]!,
+    });
+  }
 
   @override
   Future<void> createMessage(ChatMessage message) async {}
@@ -153,7 +165,23 @@ void main() {
     required String? speakingAs,
     required List<Conversation> conversations,
     Map<String, String> badgePrefs = const {},
+    _CountingChatMessageRepository? messageRepo,
   }) {
+    final inferredMessageRepo =
+        messageRepo ??
+        _CountingChatMessageRepository(
+          unreadCounts: {
+            for (final conv in conversations)
+              if (speakingAs != null &&
+                  (conv.lastReadTimestamps[speakingAs] == null
+                      ? conv.lastActivityAt.isAfter(conv.createdAt)
+                      : conv.lastActivityAt.isAfter(
+                          conv.lastReadTimestamps[speakingAs]!,
+                        )))
+                conv.id: 1,
+          },
+        );
+
     return ProviderContainer(
       overrides: [
         speakingAsProvider.overrideWith(
@@ -163,14 +191,15 @@ void main() {
           (ref) => Stream.value(conversations),
         ),
         chatBadgePreferencesProvider.overrideWithValue(badgePrefs),
+        chatMessageRepositoryProvider.overrideWithValue(inferredMessageRepo),
       ],
     );
   }
 
   Future<void> settle(ProviderContainer container) async {
-    // Let the conversationsProvider stream emit its initial value before
-    // synchronous Providers read it.
     container.listen(conversationsProvider, (_, _) {});
+    container.listen(allUnreadCountsProvider, (_, _) {});
+    await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(Duration.zero);
   }
 
@@ -273,6 +302,21 @@ void main() {
       await settle(container);
 
       expect(container.read(unreadDmCountProvider), 1);
+    });
+
+    test('metadata-only activity is not counted as unread', () async {
+      final container = buildContainer(
+        speakingAs: 'alice',
+        conversations: [
+          groupChat('group-1', participants: ['alice', 'bob']),
+        ],
+        messageRepo: _CountingChatMessageRepository(unreadCounts: const {}),
+      );
+      addTearDown(container.dispose);
+      await settle(container);
+
+      expect(container.read(unreadGroupCountProvider), 0);
+      expect(container.read(unreadConversationCountProvider), 0);
     });
   });
 
