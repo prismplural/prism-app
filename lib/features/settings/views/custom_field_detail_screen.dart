@@ -899,6 +899,14 @@ String _formatDateValue(
   }
 }
 
+int _compareFieldOrder(CustomField a, CustomField b) {
+  final byOrder = a.displayOrder.compareTo(b.displayOrder);
+  if (byOrder != 0) return byOrder;
+  final byCreatedAt = a.createdAt.compareTo(b.createdAt);
+  if (byCreatedAt != 0) return byCreatedAt;
+  return a.id.compareTo(b.id);
+}
+
 // ─── Group contents section ─────────────────────────────────────────────────
 
 /// Within-group reorder via drag handles; cross-group moves still use the
@@ -932,7 +940,7 @@ class _GroupContentsSection extends ConsumerWidget {
         final children = allFields
             .where((f) => f.parentFieldId == group.id)
             .toList()
-          ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+          ..sort(_compareFieldOrder);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

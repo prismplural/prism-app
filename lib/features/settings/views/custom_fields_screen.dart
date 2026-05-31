@@ -95,7 +95,15 @@ class _FieldsList extends ConsumerWidget {
   List<CustomField> _childrenOf(String groupId) => fields
       .where((f) => f.parentFieldId == groupId)
       .toList()
-    ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    ..sort(_compareFieldOrder);
+
+  int _compareFieldOrder(CustomField a, CustomField b) {
+    final byOrder = a.displayOrder.compareTo(b.displayOrder);
+    if (byOrder != 0) return byOrder;
+    final byCreatedAt = a.createdAt.compareTo(b.createdAt);
+    if (byCreatedAt != 0) return byCreatedAt;
+    return a.id.compareTo(b.id);
+  }
 
   IconData _iconForField(CustomField field) {
     return customFieldTypeRegistry.lookupById(field.fieldTypeId)?.icon ??

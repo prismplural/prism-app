@@ -18,6 +18,14 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
+int _compareFieldOrder(CustomField a, CustomField b) {
+  final byOrder = a.displayOrder.compareTo(b.displayOrder);
+  if (byOrder != 0) return byOrder;
+  final byCreatedAt = a.createdAt.compareTo(b.createdAt);
+  if (byCreatedAt != 0) return byCreatedAt;
+  return a.id.compareTo(b.id);
+}
+
 // ─── Editor ───────────────────────────────────────────────────────────────────
 
 /// Builds the interactive group editor widget. Called by the renderer registry.
@@ -62,7 +70,7 @@ class _GroupEditorWidget extends ConsumerWidget {
 
           final children =
               allFields.where((f) => f.parentFieldId == field.id).toList()
-                ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+                ..sort(_compareFieldOrder);
 
           return _GroupCard(
             field: field,
@@ -175,7 +183,7 @@ class GroupDisplayWidget extends ConsumerWidget {
         data: (values) {
           final children =
               fields.where((f) => f.parentFieldId == field.id).toList()
-                ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+                ..sort(_compareFieldOrder);
           final valuesByFieldId = {for (final v in values) v.customFieldId: v};
 
           final childEntries = <_GroupChildEntry>[];

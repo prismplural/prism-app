@@ -15,7 +15,11 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
   Stream<List<CustomFieldRow>> watchAllFields() =>
       (select(customFields)
             ..where((f) => f.isDeleted.equals(false))
-            ..orderBy([(f) => OrderingTerm.asc(f.displayOrder)]))
+            ..orderBy([
+              (f) => OrderingTerm.asc(f.displayOrder),
+              (f) => OrderingTerm.asc(f.createdAt),
+              (f) => OrderingTerm.asc(f.id),
+            ]))
           .watch();
 
   Stream<CustomFieldRow?> watchFieldById(String id) =>

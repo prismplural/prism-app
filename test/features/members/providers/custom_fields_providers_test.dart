@@ -106,6 +106,80 @@ void main() {
   );
 
   test(
+    'custom field stream uses creation time to break duplicate order ties',
+    () async {
+      final database = db.AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      final repo = DriftCustomFieldsRepository(database.customFieldsDao, null);
+
+      CustomField field(
+        String id, {
+        required DateTime createdAt,
+        String? parentFieldId,
+        String fieldTypeId = 'text',
+      }) => CustomField(
+        id: id,
+        name: id,
+        fieldType: CustomFieldType.text,
+        displayOrder: 0,
+        createdAt: createdAt,
+        fieldTypeId: fieldTypeId,
+        parentFieldId: parentFieldId,
+      );
+
+      await repo.createField(
+        field(
+          'group-a',
+          createdAt: DateTime.utc(2026, 5, 31, 12),
+          fieldTypeId: 'group',
+        ),
+      );
+      // Simulate legacy duplicate display_order rows replayed out of order.
+      await repo.createField(
+        field(
+          'child-fourth',
+          createdAt: DateTime.utc(2026, 5, 31, 12, 4),
+          parentFieldId: 'group-a',
+        ),
+      );
+      await repo.createField(
+        field(
+          'child-first',
+          createdAt: DateTime.utc(2026, 5, 31, 12, 1),
+          parentFieldId: 'group-a',
+        ),
+      );
+      await repo.createField(
+        field(
+          'child-second',
+          createdAt: DateTime.utc(2026, 5, 31, 12, 2),
+          parentFieldId: 'group-a',
+        ),
+      );
+      await repo.createField(
+        field(
+          'child-third',
+          createdAt: DateTime.utc(2026, 5, 31, 12, 3),
+          parentFieldId: 'group-a',
+        ),
+      );
+
+      final fields = await repo.watchAllFields().first;
+      final childIds = fields
+          .where((field) => field.parentFieldId == 'group-a')
+          .map((field) => field.id);
+
+      expect(childIds, [
+        'child-first',
+        'child-second',
+        'child-third',
+        'child-fourth',
+      ]);
+    },
+  );
+
+  test(
     'custom field notifier appends a new child within its parent order scope',
     () async {
       final database = db.AppDatabase(NativeDatabase.memory());
