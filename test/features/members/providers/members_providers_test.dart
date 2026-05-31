@@ -15,12 +15,14 @@ domain.Member _member({
   required String id,
   bool isActive = true,
   bool isDeleted = false,
+  int displayOrder = 0,
 }) => domain.Member(
   id: id,
   name: id,
   createdAt: DateTime(2024, 1, 1),
   isActive: isActive,
   isDeleted: isDeleted,
+  displayOrder: displayOrder,
 );
 
 class _RecordingMembersDao extends MembersDao {
@@ -219,4 +221,68 @@ void main() {
       expect(updated.map((m) => m.displayOrder), [0, 1, 2]);
     },
   );
+
+  test(
+    'members notifier appends a newly created member after existing display orders',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final repo = DriftMemberRepository(db.membersDao, null);
+      await repo.createMember(_member(id: 'alice').copyWith(displayOrder: 0));
+      await repo.createMember(_member(id: 'bob').copyWith(displayOrder: 1));
+
+      final container = ProviderContainer(
+        overrides: [memberRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(membersNotifierProvider.notifier)
+          .createMember(name: 'Carol');
+
+      final members = await repo.getAllMembers();
+      final created = members.singleWhere((member) => member.name == 'Carol');
+      expect(created.displayOrder, 2);
+    },
+  );
+
+  test('members notifier appends after soft-deleted display orders', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    final repo = DriftMemberRepository(db.membersDao, null);
+    await repo.createMember(_member(id: 'alice', displayOrder: 0));
+    await repo.createMember(_member(id: 'deleted-high', displayOrder: 5));
+    await repo.deleteMember('deleted-high');
+
+    final container = ProviderContainer(
+      overrides: [memberRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(membersNotifierProvider.notifier)
+        .createMember(name: 'Carol');
+
+    final members = await repo.getAllMembers();
+    final created = members.singleWhere((member) => member.name == 'Carol');
+    expect(created.displayOrder, 6);
+  });
+
+  test('member append-at-end assigns unique overlapping orders', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    final repo = DriftMemberRepository(db.membersDao, null);
+
+    await Future.wait(
+      List.generate(5, (index) {
+        return repo.createMemberAtEnd(_member(id: 'member-$index'));
+      }),
+    );
+
+    final members = await repo.getAllMembers();
+    expect(members.map((member) => member.displayOrder), [0, 1, 2, 3, 4]);
+  });
 }

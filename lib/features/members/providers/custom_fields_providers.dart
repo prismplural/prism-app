@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/data/repositories/drift_custom_fields_repository.dart';
 import 'package:prism_plurality/domain/custom_fields/custom_fields_exceptions.dart';
 import 'package:prism_plurality/domain/custom_fields/orphan_promotion.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
@@ -70,7 +71,7 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
     required String name,
     required CustomFieldType fieldType,
     DatePrecision? datePrecision,
-    int displayOrder = 0,
+    int? displayOrder,
     String? fieldTypeId,
     CustomFieldTypeConfig? typeConfig,
     String? parentFieldId,
@@ -83,20 +84,48 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
         name: name,
         fieldType: fieldType,
         datePrecision: datePrecision,
-        displayOrder: displayOrder,
+        displayOrder: displayOrder ?? 0,
         createdAt: DateTime.now(),
         fieldTypeId: fieldTypeId,
         typeConfig: typeConfig,
         parentFieldId: parentFieldId,
       );
       try {
-        await repo.createField(field);
+        if (displayOrder == null && repo is DriftCustomFieldsRepository) {
+          await repo.createFieldAtEnd(field);
+        } else {
+          final resolvedDisplayOrder = await _resolveCreateDisplayOrder(
+            requestedDisplayOrder: displayOrder,
+            parentFieldId: parentFieldId,
+          );
+          await repo.createField(
+            field.copyWith(displayOrder: resolvedDisplayOrder),
+          );
+        }
       } catch (e) {
         failure = e;
         rethrow;
       }
     });
     return failure;
+  }
+
+  Future<int> _resolveCreateDisplayOrder({
+    required int? requestedDisplayOrder,
+    required String? parentFieldId,
+  }) async {
+    if (requestedDisplayOrder != null) return requestedDisplayOrder;
+
+    final repo = ref.read(customFieldsRepositoryProvider);
+    final fields = await repo.getAllFields();
+    var nextOrder = 0;
+    for (final field in fields) {
+      if (field.parentFieldId != parentFieldId) continue;
+      if (field.displayOrder >= nextOrder) {
+        nextOrder = field.displayOrder + 1;
+      }
+    }
+    return nextOrder;
   }
 
   /// Updates [field] via the repository (full-row diff path — for cases

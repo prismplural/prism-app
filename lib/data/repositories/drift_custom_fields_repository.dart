@@ -41,9 +41,9 @@ class DriftCustomFieldsRepository
     //   - the group editor can filter by exact `parentFieldId == groupId`
     //   - write paths never see a promoted (parent-cleared) snapshot, which
     //     would otherwise risk propagating the cleared parent back to disk.
-    return _dao
-        .watchAllFields()
-        .map((rows) => rows.map(CustomFieldMapper.toDomain).toList());
+    return _dao.watchAllFields().map(
+      (rows) => rows.map(CustomFieldMapper.toDomain).toList(),
+    );
   }
 
   @override
@@ -75,6 +75,22 @@ class DriftCustomFieldsRepository
     final companion = CustomFieldMapper.toCompanion(field);
     await _dao.createField(companion);
     await syncRecordCreate(_fieldsTable, field.id, _fieldFields(field));
+  }
+
+  /// Creates a field at the end of its order scope.
+  Future<void> createFieldAtEnd(domain.CustomField field) async {
+    await _validateDepth(field);
+    final companion = CustomFieldMapper.toCompanion(field);
+    final displayOrder = await _dao.createFieldAtEnd(
+      companion,
+      parentFieldId: field.parentFieldId,
+    );
+    final createdField = field.copyWith(displayOrder: displayOrder);
+    await syncRecordCreate(
+      _fieldsTable,
+      createdField.id,
+      _fieldFields(createdField),
+    );
   }
 
   @override
@@ -166,8 +182,7 @@ class DriftCustomFieldsRepository
   Future<void> setFieldDatePrecision(
     String fieldId,
     domain.DatePrecision? newPrecision,
-  ) =>
-      _writePartial(fieldId, {'date_precision': newPrecision?.index});
+  ) => _writePartial(fieldId, {'date_precision': newPrecision?.index});
 
   @override
   Future<void> setFieldDisplayOrder(String fieldId, int newOrder) =>
@@ -217,8 +232,10 @@ class DriftCustomFieldsRepository
     final parentId = field.parentFieldId;
     if (parentId == null) return;
     final parent = await getFieldById(parentId);
-    if (parent == null) return; // Missing parent is tolerated — orphan-promotion
-                                // on read handles the render-side gracefully.
+    if (parent == null) {
+      // Orphan-promotion handles missing parents on read.
+      return;
+    }
     if (parent.parentFieldId != null) {
       throw DepthLimitExceededException(field.id, parentId);
     }
@@ -392,8 +409,9 @@ class DriftCustomFieldsRepository
   static Map<String, dynamic> fieldFields(domain.CustomField f) {
     String? typeConfigJson;
     if (f.typeConfig != null) {
-      typeConfigJson =
-          jsonEncode(CustomFieldTypeConfigCodec.toJson(f.typeConfig!));
+      typeConfigJson = jsonEncode(
+        CustomFieldTypeConfigCodec.toJson(f.typeConfig!),
+      );
     } else if (f.unknownTypeConfigRaw != null) {
       // Preserve raw bytes for fully unrecognized future variants.
       typeConfigJson = f.unknownTypeConfigRaw;

@@ -156,11 +156,29 @@ class MembersNotifier extends AsyncNotifier<void> {
         profileHeaderImageData: profileHeaderImageData,
         createdAt: createdAt ?? DateTime.now(),
       );
-      await repo.createMember(member);
+      if (repo is DriftMemberRepository) {
+        await repo.createMemberAtEnd(member);
+      } else {
+        final displayOrder = await _nextDisplayOrder();
+        await repo.createMember(member.copyWith(displayOrder: displayOrder));
+      }
       if (_isActiveAlwaysFronting(member)) {
         await _ensureAlwaysFrontingSession(member.id);
       }
     });
+  }
+
+  Future<int> _nextDisplayOrder() async {
+    final members = await ref
+        .read(memberRepositoryProvider)
+        .getAllMembersIncludingDeleted();
+    var nextOrder = 0;
+    for (final member in members) {
+      if (member.displayOrder >= nextOrder) {
+        nextOrder = member.displayOrder + 1;
+      }
+    }
+    return nextOrder;
   }
 
   Future<void> updateMember(

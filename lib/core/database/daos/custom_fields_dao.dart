@@ -34,11 +34,39 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
   /// deleted) — without this, the INSERT would hit a UNIQUE constraint and
   /// roll back the entire restore transaction.
   Future<CustomFieldRow?> getFieldByIdIncludingDeleted(String id) =>
-      (select(customFields)..where((f) => f.id.equals(id)))
-          .getSingleOrNull();
+      (select(customFields)..where((f) => f.id.equals(id))).getSingleOrNull();
 
   Future<int> createField(CustomFieldsCompanion companion) =>
       into(customFields).insert(companion);
+
+  /// Inserts at the end of [parentFieldId]'s order scope, including tombstones.
+  Future<int> createFieldAtEnd(
+    CustomFieldsCompanion companion, {
+    required String? parentFieldId,
+  }) async {
+    return transaction(() async {
+      final nextOrder = await nextDisplayOrderIncludingDeleted(parentFieldId);
+      await into(
+        customFields,
+      ).insert(companion.copyWith(displayOrder: Value(nextOrder)));
+      return nextOrder;
+    });
+  }
+
+  Future<int> nextDisplayOrderIncludingDeleted(String? parentFieldId) async {
+    final sql = parentFieldId == null
+        ? 'SELECT COALESCE(MAX(display_order), -1) + 1 AS next FROM custom_fields WHERE parent_field_id IS NULL'
+        : 'SELECT COALESCE(MAX(display_order), -1) + 1 AS next FROM custom_fields WHERE parent_field_id = ?';
+    final rows = await customSelect(
+      sql,
+      variables: parentFieldId != null
+          ? [Variable.withString(parentFieldId)]
+          : [],
+      readsFrom: {customFields},
+    ).get();
+    if (rows.isEmpty) return 0;
+    return rows.single.read<int>('next');
+  }
 
   /// Batch-insert custom fields in a single Drift `batch()` round-trip.
   /// Phase 6 SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
@@ -180,18 +208,20 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
   /// transaction as the update so the caller can emit CRDT sync ops without
   /// a snapshot/write race. Returns empty lists when there's nothing active.
   Future<({List<String> fieldIds, List<String> valueIds})>
-      softDeleteAllCustomFieldData() async {
+  softDeleteAllCustomFieldData() async {
     return transaction(() async {
-      final fieldIds = await (selectOnly(customFields)
-            ..addColumns([customFields.id])
-            ..where(customFields.isDeleted.equals(false)))
-          .map((row) => row.read(customFields.id)!)
-          .get();
-      final valueIds = await (selectOnly(customFieldValues)
-            ..addColumns([customFieldValues.id])
-            ..where(customFieldValues.isDeleted.equals(false)))
-          .map((row) => row.read(customFieldValues.id)!)
-          .get();
+      final fieldIds =
+          await (selectOnly(customFields)
+                ..addColumns([customFields.id])
+                ..where(customFields.isDeleted.equals(false)))
+              .map((row) => row.read(customFields.id)!)
+              .get();
+      final valueIds =
+          await (selectOnly(customFieldValues)
+                ..addColumns([customFieldValues.id])
+                ..where(customFieldValues.isDeleted.equals(false)))
+              .map((row) => row.read(customFieldValues.id)!)
+              .get();
       await (update(customFields)..where((f) => f.isDeleted.equals(false)))
           .write(const CustomFieldsCompanion(isDeleted: Value(true)));
       await (update(customFieldValues)..where((v) => v.isDeleted.equals(false)))

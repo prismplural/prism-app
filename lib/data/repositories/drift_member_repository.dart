@@ -103,6 +103,19 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     );
   }
 
+  /// Creates a member at the end of the display order.
+  Future<void> createMemberAtEnd(domain.Member member) async {
+    final normalizedMember = _normalizeMember(member);
+    final companion = MemberMapper.toCompanion(normalizedMember);
+    final displayOrder = await _dao.insertMemberAtEnd(companion);
+    final createdMember = normalizedMember.copyWith(displayOrder: displayOrder);
+    await syncRecordCreate(
+      _table,
+      createdMember.id,
+      _memberFields(createdMember),
+    );
+  }
+
   @override
   Future<void> updateMember(domain.Member member) async {
     final normalizedMember = _normalizeMember(member);
@@ -628,8 +641,8 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   ///
   /// Public so the Phase 6 batch-member capture path in `sp_importer.dart`
   /// can construct byte-identical `fields` payloads when it bypasses
-  /// `createMember()` for the bulk insert. Single source of truth per
-  /// entity is mandatory (codex v2 finding). See
+  /// `createMember()` for the bulk insert. Single source of truth per entity
+  /// keeps sync emissions aligned. See
   /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
   static Map<String, dynamic> memberFields(domain.Member m) {
     final Uint8List? avatar = m.avatarImageData;

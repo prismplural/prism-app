@@ -38,7 +38,7 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
     required String name,
     required CustomFieldType fieldType,
     DatePrecision? datePrecision,
-    int displayOrder = 0,
+    int? displayOrder,
     String? fieldTypeId,
     CustomFieldTypeConfig? typeConfig,
     String? parentFieldId,
@@ -48,7 +48,7 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
       name: name,
       fieldType: fieldType,
       datePrecision: datePrecision,
-      displayOrder: displayOrder,
+      displayOrder: displayOrder ?? 0,
       createdAt: DateTime(2026),
       fieldTypeId: fieldTypeId,
       typeConfig: typeConfig,
@@ -83,15 +83,10 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
 
 // ── Test helpers ─────────────────────────────────────────────────────────────
 
-Widget _buildSheet({
-  CustomField? field,
-  _FakeCustomFieldNotifier? notifier,
-}) {
+Widget _buildSheet({CustomField? field, _FakeCustomFieldNotifier? notifier}) {
   final fakeNotifier = notifier ?? _FakeCustomFieldNotifier();
   return ProviderScope(
-    overrides: [
-      customFieldNotifierProvider.overrideWith(() => fakeNotifier),
-    ],
+    overrides: [customFieldNotifierProvider.overrideWith(() => fakeNotifier)],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -120,8 +115,9 @@ void main() {
   // ── Text type ─────────────────────────────────────────────────────────────
 
   group('Create/Edit Field Sheet — Show title toggle: Text type', () {
-    testWidgets('toggle is present for text type (default type)',
-        (tester) async {
+    testWidgets('toggle is present for text type (default type)', (
+      tester,
+    ) async {
       _useTallViewport(tester);
       await tester.pumpWidget(_buildSheet());
       await tester.pumpAndSettle();
@@ -130,130 +126,149 @@ void main() {
       expect(find.text('Show title on profiles'), findsOneWidget);
     });
 
-    testWidgets('saving text field with default toggle produces typeConfig == null',
-        (tester) async {
-      _useTallViewport(tester);
-      final notifier = _FakeCustomFieldNotifier();
-      await tester.pumpWidget(_buildSheet(notifier: notifier));
-      await tester.pumpAndSettle();
+    testWidgets(
+      'saving text field with default toggle produces typeConfig == null',
+      (tester) async {
+        _useTallViewport(tester);
+        final notifier = _FakeCustomFieldNotifier();
+        await tester.pumpWidget(_buildSheet(notifier: notifier));
+        await tester.pumpAndSettle();
 
-      // Type is already 'text'; toggle is ON (show title = true) by default.
-      final nameField = find.byType(TextField).first;
-      await tester.enterText(nameField, 'My Text Field');
-      await tester.pump();
+        // Type is already 'text'; toggle is ON (show title = true) by default.
+        final nameField = find.byType(TextField).first;
+        await tester.enterText(nameField, 'My Text Field');
+        await tester.pump();
 
-      await tester.tap(find.byIcon(AppIcons.check));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(AppIcons.check));
+        await tester.pumpAndSettle();
 
-      expect(notifier.lastCreated, isNotNull);
-      // Toggle at default → churn-avoidance → typeConfig must be null.
-      expect(
-        notifier.lastCreated!.typeConfig,
-        isNull,
-        reason: 'Default-title text field should save typeConfig == null',
-      );
-    });
-
-    testWidgets('flipping toggle OFF produces TextConfig(hideTitleOnProfile: true)',
-        (tester) async {
-      _useTallViewport(tester);
-      final notifier = _FakeCustomFieldNotifier();
-      await tester.pumpWidget(_buildSheet(notifier: notifier));
-      await tester.pumpAndSettle();
-
-      final nameField = find.byType(TextField).first;
-      await tester.enterText(nameField, 'Hidden Label Field');
-      await tester.pump();
-
-      // Flip the toggle OFF (switch value false → hideTitleOnProfile = true).
-      final toggleSwitch = tester.widget<Switch>(
-        find
-            .descendant(
-              of: find.widgetWithText(SwitchListTile, 'Show title on profiles'),
-              matching: find.byType(Switch),
-            )
-            .first,
-      );
-      expect(toggleSwitch.value, isTrue); // starts ON
-
-      await tester.tap(find.widgetWithText(SwitchListTile, 'Show title on profiles'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byIcon(AppIcons.check));
-      await tester.pumpAndSettle();
-
-      expect(notifier.lastCreated, isNotNull);
-      final config = notifier.lastCreated!.typeConfig;
-      expect(config, isA<TextConfig>());
-      expect(effectiveHideTitleOnProfile(config), isTrue);
-    });
+        expect(notifier.lastCreated, isNotNull);
+        // Toggle at default → churn-avoidance → typeConfig must be null.
+        expect(
+          notifier.lastCreated!.typeConfig,
+          isNull,
+          reason: 'Default-title text field should save typeConfig == null',
+        );
+      },
+    );
 
     testWidgets(
-        'opening sheet on text field with hideTitleOnProfile: true shows toggle as OFF',
-        (tester) async {
-      _useTallViewport(tester);
-      final existingField = CustomField(
-        id: 'field-text-1',
-        name: 'Hidden',
-        fieldType: CustomFieldType.text,
-        displayOrder: 0,
-        createdAt: DateTime.utc(2026, 1, 1),
-        fieldTypeId: 'text',
-        typeConfig: const TextConfig(hideTitleOnProfile: true),
-      );
+      'flipping toggle OFF produces TextConfig(hideTitleOnProfile: true)',
+      (tester) async {
+        _useTallViewport(tester);
+        final notifier = _FakeCustomFieldNotifier();
+        await tester.pumpWidget(_buildSheet(notifier: notifier));
+        await tester.pumpAndSettle();
 
-      await tester.pumpWidget(_buildSheet(field: existingField));
-      await tester.pumpAndSettle();
+        final nameField = find.byType(TextField).first;
+        await tester.enterText(nameField, 'Hidden Label Field');
+        await tester.pump();
 
-      final sw = tester.widget<Switch>(
-        find
-            .descendant(
-              of: find.widgetWithText(SwitchListTile, 'Show title on profiles'),
-              matching: find.byType(Switch),
-            )
-            .first,
-      );
-      // value = !hideTitleOnProfile → false when hidden
-      expect(sw.value, isFalse);
-    });
+        // Flip the toggle OFF (switch value false → hideTitleOnProfile = true).
+        final toggleSwitch = tester.widget<Switch>(
+          find
+              .descendant(
+                of: find.widgetWithText(
+                  SwitchListTile,
+                  'Show title on profiles',
+                ),
+                matching: find.byType(Switch),
+              )
+              .first,
+        );
+        expect(toggleSwitch.value, isTrue); // starts ON
+
+        await tester.tap(
+          find.widgetWithText(SwitchListTile, 'Show title on profiles'),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(AppIcons.check));
+        await tester.pumpAndSettle();
+
+        expect(notifier.lastCreated, isNotNull);
+        final config = notifier.lastCreated!.typeConfig;
+        expect(config, isA<TextConfig>());
+        expect(effectiveHideTitleOnProfile(config), isTrue);
+      },
+    );
 
     testWidgets(
-        'reverting a hidden-title text field back to default clears the config',
-        (tester) async {
-      _useTallViewport(tester);
-      final existingField = CustomField(
-        id: 'field-text-revert',
-        name: 'Hidden',
-        fieldType: CustomFieldType.text,
-        displayOrder: 0,
-        createdAt: DateTime.utc(2026, 1, 1),
-        fieldTypeId: 'text',
-        typeConfig: const TextConfig(hideTitleOnProfile: true),
-      );
-      final notifier = _FakeCustomFieldNotifier();
-      await tester.pumpWidget(
-        _buildSheet(field: existingField, notifier: notifier),
-      );
-      await tester.pumpAndSettle();
+      'opening sheet on text field with hideTitleOnProfile: true shows toggle as OFF',
+      (tester) async {
+        _useTallViewport(tester);
+        final existingField = CustomField(
+          id: 'field-text-1',
+          name: 'Hidden',
+          fieldType: CustomFieldType.text,
+          displayOrder: 0,
+          createdAt: DateTime.utc(2026, 1, 1),
+          fieldTypeId: 'text',
+          typeConfig: const TextConfig(hideTitleOnProfile: true),
+        );
 
-      // Flip the toggle back ON (show title) → hideTitleOnProfile = false →
-      // _buildTextConfig returns null → the config must be CLEARED, not left
-      // stale. Regression for the codex P1: the old `typeConfig != null`
-      // guard silently dropped this write.
-      await tester.tap(
-        find.widgetWithText(SwitchListTile, 'Show title on profiles'),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(_buildSheet(field: existingField));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(AppIcons.check));
-      await tester.pumpAndSettle();
+        final sw = tester.widget<Switch>(
+          find
+              .descendant(
+                of: find.widgetWithText(
+                  SwitchListTile,
+                  'Show title on profiles',
+                ),
+                matching: find.byType(Switch),
+              )
+              .first,
+        );
+        // value = !hideTitleOnProfile → false when hidden
+        expect(sw.value, isFalse);
+      },
+    );
 
-      expect(notifier.clearTypedConfigCalled, isTrue,
-          reason: 'reverting to default must clear type_config_json');
-      expect(notifier.lastClearedConfigFieldId, 'field-text-revert');
-      expect(notifier.lastWrittenConfig, isNull,
-          reason: 'no stale config should be written on revert');
-    });
+    testWidgets(
+      'reverting a hidden-title text field back to default clears the config',
+      (tester) async {
+        _useTallViewport(tester);
+        final existingField = CustomField(
+          id: 'field-text-revert',
+          name: 'Hidden',
+          fieldType: CustomFieldType.text,
+          displayOrder: 0,
+          createdAt: DateTime.utc(2026, 1, 1),
+          fieldTypeId: 'text',
+          typeConfig: const TextConfig(hideTitleOnProfile: true),
+        );
+        final notifier = _FakeCustomFieldNotifier();
+        await tester.pumpWidget(
+          _buildSheet(field: existingField, notifier: notifier),
+        );
+        await tester.pumpAndSettle();
+
+        // Flip the toggle back ON (show title) → hideTitleOnProfile = false →
+        // _buildTextConfig returns null → the config must be CLEARED, not left
+        // stale. The old `typeConfig != null` guard silently dropped this write.
+        await tester.tap(
+          find.widgetWithText(SwitchListTile, 'Show title on profiles'),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(AppIcons.check));
+        await tester.pumpAndSettle();
+
+        expect(
+          notifier.clearTypedConfigCalled,
+          isTrue,
+          reason: 'reverting to default must clear type_config_json',
+        );
+        expect(notifier.lastClearedConfigFieldId, 'field-text-revert');
+        expect(
+          notifier.lastWrittenConfig,
+          isNull,
+          reason: 'no stale config should be written on revert',
+        );
+      },
+    );
   });
 
   // ── Choice type ───────────────────────────────────────────────────────────
@@ -271,59 +286,66 @@ void main() {
     });
 
     testWidgets(
-        'flipping toggle OFF saves ChoiceConfig with hideTitleOnProfile: true',
-        (tester) async {
-      _useTallViewport(tester);
-      final notifier = _FakeCustomFieldNotifier();
-      await tester.pumpWidget(_buildSheet(notifier: notifier));
-      await tester.pumpAndSettle();
+      'flipping toggle OFF saves ChoiceConfig with hideTitleOnProfile: true',
+      (tester) async {
+        _useTallViewport(tester);
+        final notifier = _FakeCustomFieldNotifier();
+        await tester.pumpWidget(_buildSheet(notifier: notifier));
+        await tester.pumpAndSettle();
 
-      final nameField = find.byType(TextField).first;
-      await tester.enterText(nameField, 'Mood');
-      await tester.pump();
+        final nameField = find.byType(TextField).first;
+        await tester.enterText(nameField, 'Mood');
+        await tester.pump();
 
-      await tester.tap(find.text('Choice'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Choice'));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(SwitchListTile, 'Show title on profiles'));
-      await tester.pumpAndSettle();
+        await tester.tap(
+          find.widgetWithText(SwitchListTile, 'Show title on profiles'),
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(AppIcons.check));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(AppIcons.check));
+        await tester.pumpAndSettle();
 
-      expect(notifier.lastCreated, isNotNull);
-      final config = notifier.lastCreated!.typeConfig as ChoiceConfig?;
-      expect(config, isNotNull);
-      expect(effectiveHideTitleOnProfile(config), isTrue);
-    });
+        expect(notifier.lastCreated, isNotNull);
+        final config = notifier.lastCreated!.typeConfig as ChoiceConfig?;
+        expect(config, isNotNull);
+        expect(effectiveHideTitleOnProfile(config), isTrue);
+      },
+    );
 
     testWidgets(
-        'opening choice field with hideTitleOnProfile: true shows toggle as OFF',
-        (tester) async {
-      _useTallViewport(tester);
-      final existingField = CustomField(
-        id: 'field-choice-1',
-        name: 'Mood',
-        fieldType: CustomFieldType.choice,
-        displayOrder: 0,
-        createdAt: DateTime.utc(2026, 1, 1),
-        fieldTypeId: 'choice',
-        typeConfig: const ChoiceConfig(hideTitleOnProfile: true),
-      );
+      'opening choice field with hideTitleOnProfile: true shows toggle as OFF',
+      (tester) async {
+        _useTallViewport(tester);
+        final existingField = CustomField(
+          id: 'field-choice-1',
+          name: 'Mood',
+          fieldType: CustomFieldType.choice,
+          displayOrder: 0,
+          createdAt: DateTime.utc(2026, 1, 1),
+          fieldTypeId: 'choice',
+          typeConfig: const ChoiceConfig(hideTitleOnProfile: true),
+        );
 
-      await tester.pumpWidget(_buildSheet(field: existingField));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(_buildSheet(field: existingField));
+        await tester.pumpAndSettle();
 
-      final sw = tester.widget<Switch>(
-        find
-            .descendant(
-              of: find.widgetWithText(SwitchListTile, 'Show title on profiles'),
-              matching: find.byType(Switch),
-            )
-            .first,
-      );
-      expect(sw.value, isFalse);
-    });
+        final sw = tester.widget<Switch>(
+          find
+              .descendant(
+                of: find.widgetWithText(
+                  SwitchListTile,
+                  'Show title on profiles',
+                ),
+                matching: find.byType(Switch),
+              )
+              .first,
+        );
+        expect(sw.value, isFalse);
+      },
+    );
   });
 
   // ── Slider type ───────────────────────────────────────────────────────────
@@ -341,65 +363,72 @@ void main() {
     });
 
     testWidgets(
-        'flipping toggle OFF saves SliderConfig with hideTitleOnProfile: true',
-        (tester) async {
-      _useTallViewport(tester);
-      final notifier = _FakeCustomFieldNotifier();
-      await tester.pumpWidget(_buildSheet(notifier: notifier));
-      await tester.pumpAndSettle();
+      'flipping toggle OFF saves SliderConfig with hideTitleOnProfile: true',
+      (tester) async {
+        _useTallViewport(tester);
+        final notifier = _FakeCustomFieldNotifier();
+        await tester.pumpWidget(_buildSheet(notifier: notifier));
+        await tester.pumpAndSettle();
 
-      final nameField = find.byType(TextField).first;
-      await tester.enterText(nameField, 'Energy Level');
-      await tester.pump();
+        final nameField = find.byType(TextField).first;
+        await tester.enterText(nameField, 'Energy Level');
+        await tester.pump();
 
-      await tester.tap(find.text('Slider'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Slider'));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(SwitchListTile, 'Show title on profiles'));
-      await tester.pumpAndSettle();
+        await tester.tap(
+          find.widgetWithText(SwitchListTile, 'Show title on profiles'),
+        );
+        await tester.pumpAndSettle();
 
-      // Use the top-bar save button specifically (size = topBarActionSize).
-      // find.byIcon(AppIcons.check) is ambiguous because the selected gradient
-      // preset chip also renders a check icon.
-      await tester.tap(find.byTooltip('Save'));
-      await tester.pumpAndSettle();
+        // Use the top-bar save button specifically (size = topBarActionSize).
+        // find.byIcon(AppIcons.check) is ambiguous because the selected gradient
+        // preset chip also renders a check icon.
+        await tester.tap(find.byTooltip('Save'));
+        await tester.pumpAndSettle();
 
-      expect(notifier.lastCreated, isNotNull);
-      final config = notifier.lastCreated!.typeConfig as SliderConfig?;
-      expect(config, isNotNull);
-      expect(effectiveHideTitleOnProfile(config), isTrue);
-    });
+        expect(notifier.lastCreated, isNotNull);
+        final config = notifier.lastCreated!.typeConfig as SliderConfig?;
+        expect(config, isNotNull);
+        expect(effectiveHideTitleOnProfile(config), isTrue);
+      },
+    );
 
     testWidgets(
-        'opening slider field with hideTitleOnProfile: true shows toggle as OFF',
-        (tester) async {
-      _useTallViewport(tester);
-      final existingField = CustomField(
-        id: 'field-slider-1',
-        name: 'Energy Level',
-        fieldType: CustomFieldType.text, // legacy int maps to text
-        displayOrder: 0,
-        createdAt: DateTime.utc(2026, 1, 1),
-        fieldTypeId: 'slider',
-        typeConfig: const SliderConfig(
-          mode: SliderMode.labeled,
-          hideTitleOnProfile: true,
-        ),
-      );
+      'opening slider field with hideTitleOnProfile: true shows toggle as OFF',
+      (tester) async {
+        _useTallViewport(tester);
+        final existingField = CustomField(
+          id: 'field-slider-1',
+          name: 'Energy Level',
+          fieldType: CustomFieldType.text, // legacy int maps to text
+          displayOrder: 0,
+          createdAt: DateTime.utc(2026, 1, 1),
+          fieldTypeId: 'slider',
+          typeConfig: const SliderConfig(
+            mode: SliderMode.labeled,
+            hideTitleOnProfile: true,
+          ),
+        );
 
-      await tester.pumpWidget(_buildSheet(field: existingField));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(_buildSheet(field: existingField));
+        await tester.pumpAndSettle();
 
-      final sw = tester.widget<Switch>(
-        find
-            .descendant(
-              of: find.widgetWithText(SwitchListTile, 'Show title on profiles'),
-              matching: find.byType(Switch),
-            )
-            .first,
-      );
-      expect(sw.value, isFalse);
-    });
+        final sw = tester.widget<Switch>(
+          find
+              .descendant(
+                of: find.widgetWithText(
+                  SwitchListTile,
+                  'Show title on profiles',
+                ),
+                matching: find.byType(Switch),
+              )
+              .first,
+        );
+        expect(sw.value, isFalse);
+      },
+    );
   });
 
   // ── Pure Dart unit tests for churn-avoidance helpers ─────────────────────
@@ -417,15 +446,14 @@ void main() {
     });
 
     test('returns false for TextConfig with hideTitleOnProfile: false', () {
-      expect(
-        effectiveHideTitleOnProfile(const TextConfig()),
-        isFalse,
-      );
+      expect(effectiveHideTitleOnProfile(const TextConfig()), isFalse);
     });
 
     test('returns true for ChoiceConfig with hideTitleOnProfile: true', () {
       expect(
-        effectiveHideTitleOnProfile(const ChoiceConfig(hideTitleOnProfile: true)),
+        effectiveHideTitleOnProfile(
+          const ChoiceConfig(hideTitleOnProfile: true),
+        ),
         isTrue,
       );
     });
@@ -433,7 +461,10 @@ void main() {
     test('returns true for SliderConfig with hideTitleOnProfile: true', () {
       expect(
         effectiveHideTitleOnProfile(
-          const SliderConfig(mode: SliderMode.labeled, hideTitleOnProfile: true),
+          const SliderConfig(
+            mode: SliderMode.labeled,
+            hideTitleOnProfile: true,
+          ),
         ),
         isTrue,
       );
@@ -441,7 +472,9 @@ void main() {
 
     test('returns true for ColorConfig with hideTitleOnProfile: true', () {
       expect(
-        effectiveHideTitleOnProfile(const ColorConfig(hideTitleOnProfile: true)),
+        effectiveHideTitleOnProfile(
+          const ColorConfig(hideTitleOnProfile: true),
+        ),
         isTrue,
       );
     });
@@ -464,14 +497,18 @@ void main() {
 
     test('returns true for ScaleConfig with hideTitleOnProfile: true', () {
       expect(
-        effectiveHideTitleOnProfile(const ScaleConfig(hideTitleOnProfile: true)),
+        effectiveHideTitleOnProfile(
+          const ScaleConfig(hideTitleOnProfile: true),
+        ),
         isTrue,
       );
     });
 
     test('returns true for GroupConfig with hideTitleOnProfile: true', () {
       expect(
-        effectiveHideTitleOnProfile(const GroupConfig(hideTitleOnProfile: true)),
+        effectiveHideTitleOnProfile(
+          const GroupConfig(hideTitleOnProfile: true),
+        ),
         isTrue,
       );
     });

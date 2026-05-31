@@ -50,6 +50,17 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   Future<int> insertMember(MembersCompanion member) =>
       into(members).insert(member);
 
+  /// Inserts at the end of the display order, including tombstones.
+  Future<int> insertMemberAtEnd(MembersCompanion member) async {
+    return transaction(() async {
+      final nextOrder = await nextDisplayOrderIncludingDeleted();
+      await into(
+        members,
+      ).insert(member.copyWith(displayOrder: Value(nextOrder)));
+      return nextOrder;
+    });
+  }
+
   /// Batch-insert members in a single Drift `batch()` round-trip.
   ///
   /// Used by the SP importer's Phase 6 capture-replay path
@@ -279,5 +290,14 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
       ..addColumns([count]);
     final row = await query.getSingle();
     return row.read(count)!;
+  }
+
+  Future<int> nextDisplayOrderIncludingDeleted() async {
+    final rows = await customSelect(
+      'SELECT COALESCE(MAX(display_order), -1) + 1 AS next FROM members',
+      readsFrom: {members},
+    ).get();
+    if (rows.isEmpty) return 0;
+    return rows.single.read<int>('next');
   }
 }

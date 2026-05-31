@@ -104,4 +104,220 @@ void main() {
       expect(updated.map((f) => f.displayOrder), [0, 1, 2]);
     },
   );
+
+  test(
+    'custom field notifier appends a new child within its parent order scope',
+    () async {
+      final database = db.AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      final repo = DriftCustomFieldsRepository(database.customFieldsDao, null);
+
+      CustomField field(
+        String id,
+        int order, {
+        String? parentFieldId,
+        String fieldTypeId = 'text',
+      }) => CustomField(
+        id: id,
+        name: id,
+        fieldType: CustomFieldType.text,
+        displayOrder: order,
+        createdAt: DateTime(2024, 1, 1),
+        fieldTypeId: fieldTypeId,
+        parentFieldId: parentFieldId,
+      );
+
+      await repo.createField(field('top-level', 40));
+      await repo.createField(field('group', 0, fieldTypeId: 'group'));
+      await repo.createField(field('child-a', 0, parentFieldId: 'group'));
+      await repo.createField(field('child-b', 1, parentFieldId: 'group'));
+
+      final container = ProviderContainer(
+        overrides: [customFieldsRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(container.dispose);
+
+      final failure = await container
+          .read(customFieldNotifierProvider.notifier)
+          .createField(
+            name: 'New child',
+            fieldType: CustomFieldType.text,
+            fieldTypeId: 'text',
+            parentFieldId: 'group',
+          );
+
+      expect(failure, isNull);
+
+      final created = (await repo.getAllFields()).singleWhere(
+        (field) => field.name == 'New child',
+      );
+      expect(created.parentFieldId, 'group');
+      expect(created.displayOrder, 2);
+    },
+  );
+
+  test(
+    'custom field notifier appends a new top-level field within the top-level scope',
+    () async {
+      final database = db.AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      final repo = DriftCustomFieldsRepository(database.customFieldsDao, null);
+
+      CustomField field(
+        String id,
+        int order, {
+        String? parentFieldId,
+        String fieldTypeId = 'text',
+      }) => CustomField(
+        id: id,
+        name: id,
+        fieldType: CustomFieldType.text,
+        displayOrder: order,
+        createdAt: DateTime(2024, 1, 1),
+        fieldTypeId: fieldTypeId,
+        parentFieldId: parentFieldId,
+      );
+
+      await repo.createField(field('roles', 0));
+      await repo.createField(field('layer', 1));
+      await repo.createField(field('note', 40));
+      await repo.createField(field('group', 2, fieldTypeId: 'group'));
+      await repo.createField(field('child-a', 0, parentFieldId: 'group'));
+      await repo.createField(field('child-b', 1, parentFieldId: 'group'));
+
+      final container = ProviderContainer(
+        overrides: [customFieldsRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(container.dispose);
+
+      final failure = await container
+          .read(customFieldNotifierProvider.notifier)
+          .createField(
+            name: 'New top level',
+            fieldType: CustomFieldType.text,
+            fieldTypeId: 'text',
+          );
+
+      expect(failure, isNull);
+
+      final created = (await repo.getAllFields()).singleWhere(
+        (field) => field.name == 'New top level',
+      );
+      expect(created.parentFieldId, isNull);
+      expect(created.displayOrder, 41);
+    },
+  );
+
+  test(
+    'custom field notifier preserves an explicit zero display order',
+    () async {
+      final database = db.AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      final repo = DriftCustomFieldsRepository(database.customFieldsDao, null);
+      await repo.createField(
+        CustomField(
+          id: 'existing',
+          name: 'existing',
+          fieldType: CustomFieldType.text,
+          displayOrder: 12,
+          createdAt: DateTime(2024, 1, 1),
+          fieldTypeId: 'text',
+        ),
+      );
+
+      final container = ProviderContainer(
+        overrides: [customFieldsRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(container.dispose);
+
+      final failure = await container
+          .read(customFieldNotifierProvider.notifier)
+          .createField(
+            name: 'Pinned zero',
+            fieldType: CustomFieldType.text,
+            displayOrder: 0,
+            fieldTypeId: 'text',
+          );
+
+      expect(failure, isNull);
+
+      final created = (await repo.getAllFields()).singleWhere(
+        (field) => field.name == 'Pinned zero',
+      );
+      expect(created.displayOrder, 0);
+    },
+  );
+
+  test(
+    'custom field notifier appends after soft-deleted display orders',
+    () async {
+      final database = db.AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      final repo = DriftCustomFieldsRepository(database.customFieldsDao, null);
+
+      CustomField field(String id, int order) => CustomField(
+        id: id,
+        name: id,
+        fieldType: CustomFieldType.text,
+        displayOrder: order,
+        createdAt: DateTime(2024, 1, 1),
+        fieldTypeId: 'text',
+      );
+
+      await repo.createField(field('visible', 0));
+      await repo.createField(field('deleted-high', 9));
+      await repo.deleteField('deleted-high');
+
+      final container = ProviderContainer(
+        overrides: [customFieldsRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(container.dispose);
+
+      final failure = await container
+          .read(customFieldNotifierProvider.notifier)
+          .createField(
+            name: 'After tombstone',
+            fieldType: CustomFieldType.text,
+            fieldTypeId: 'text',
+          );
+
+      expect(failure, isNull);
+
+      final created = (await repo.getAllFields()).singleWhere(
+        (field) => field.name == 'After tombstone',
+      );
+      expect(created.displayOrder, 10);
+    },
+  );
+
+  test(
+    'custom field append-at-end assigns unique overlapping orders',
+    () async {
+      final database = db.AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      final repo = DriftCustomFieldsRepository(database.customFieldsDao, null);
+
+      await Future.wait(
+        List.generate(5, (index) {
+          return repo.createFieldAtEnd(
+            CustomField(
+              id: 'field-$index',
+              name: 'Field $index',
+              fieldType: CustomFieldType.text,
+              createdAt: DateTime(2024, 1, 1),
+              fieldTypeId: 'text',
+            ),
+          );
+        }),
+      );
+
+      final fields = await repo.getAllFields();
+      expect(fields.map((field) => field.displayOrder), [0, 1, 2, 3, 4]);
+    },
+  );
 }

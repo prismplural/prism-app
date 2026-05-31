@@ -40,7 +40,7 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
     required String name,
     required CustomFieldType fieldType,
     DatePrecision? datePrecision,
-    int displayOrder = 0,
+    int? displayOrder,
     String? fieldTypeId,
     CustomFieldTypeConfig? typeConfig,
     String? parentFieldId,
@@ -50,7 +50,7 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
       name: name,
       fieldType: fieldType,
       datePrecision: datePrecision,
-      displayOrder: displayOrder,
+      displayOrder: displayOrder ?? 0,
       createdAt: DateTime(2026),
       fieldTypeId: fieldTypeId,
       typeConfig: typeConfig,
@@ -78,15 +78,10 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
 
 // ── Test helpers ─────────────────────────────────────────────────────────────
 
-Widget _buildSheet({
-  CustomField? field,
-  _FakeCustomFieldNotifier? notifier,
-}) {
+Widget _buildSheet({CustomField? field, _FakeCustomFieldNotifier? notifier}) {
   final fakeNotifier = notifier ?? _FakeCustomFieldNotifier();
   return ProviderScope(
-    overrides: [
-      customFieldNotifierProvider.overrideWith(() => fakeNotifier),
-    ],
+    overrides: [customFieldNotifierProvider.overrideWith(() => fakeNotifier)],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -113,8 +108,9 @@ void _useTallViewport(WidgetTester tester) {
 
 void main() {
   group('Create/Edit Field Sheet — Choice config', () {
-    testWidgets('selecting Choice type reveals the options editor',
-        (tester) async {
+    testWidgets('selecting Choice type reveals the options editor', (
+      tester,
+    ) async {
       _useTallViewport(tester);
       await tester.pumpWidget(_buildSheet());
       await tester.pumpAndSettle();
@@ -231,54 +227,59 @@ void main() {
     });
 
     testWidgets(
-        'editing a choice field preserves forward-compat extra keys on save',
-        (tester) async {
-      _useTallViewport(tester);
-      // A field written by a future peer carrying an unknown config key in
-      // `extra`. Editing an unrelated toggle must NOT drop it.
-      final existingField = CustomField(
-        id: 'field-1',
-        name: 'Mood',
-        fieldType: CustomFieldType.choice,
-        displayOrder: 0,
-        createdAt: DateTime.utc(2026, 1, 1),
-        fieldTypeId: 'choice',
-        typeConfig: const CustomFieldTypeConfig.choice(
-          options: [
-            ChoiceOption(
-              id: 'opt-a',
-              label: 'Happy',
-              colorHex: '#E57373',
-              sortOrder: 0,
-            ),
-          ],
-          extra: {'futureFlag': true},
-        ),
-      );
+      'editing a choice field preserves forward-compat extra keys on save',
+      (tester) async {
+        _useTallViewport(tester);
+        // A field written by a future peer carrying an unknown config key in
+        // `extra`. Editing an unrelated toggle must NOT drop it.
+        final existingField = CustomField(
+          id: 'field-1',
+          name: 'Mood',
+          fieldType: CustomFieldType.choice,
+          displayOrder: 0,
+          createdAt: DateTime.utc(2026, 1, 1),
+          fieldTypeId: 'choice',
+          typeConfig: const CustomFieldTypeConfig.choice(
+            options: [
+              ChoiceOption(
+                id: 'opt-a',
+                label: 'Happy',
+                colorHex: '#E57373',
+                sortOrder: 0,
+              ),
+            ],
+            extra: {'futureFlag': true},
+          ),
+        );
 
-      final notifier = _FakeCustomFieldNotifier();
-      await tester.pumpWidget(
-        _buildSheet(field: existingField, notifier: notifier),
-      );
-      await tester.pumpAndSettle();
+        final notifier = _FakeCustomFieldNotifier();
+        await tester.pumpWidget(
+          _buildSheet(field: existingField, notifier: notifier),
+        );
+        await tester.pumpAndSettle();
 
-      // Flip an unrelated toggle so the config is considered changed and the
-      // writeTypedConfig patch fires.
-      await tester.tap(find.text('Allow multiple selections'));
-      await tester.pumpAndSettle();
+        // Flip an unrelated toggle so the config is considered changed and the
+        // writeTypedConfig patch fires.
+        await tester.tap(find.text('Allow multiple selections'));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(AppIcons.check));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(AppIcons.check));
+        await tester.pumpAndSettle();
 
-      final written = notifier.lastWrittenConfig as ChoiceConfig?;
-      expect(written, isNotNull);
-      expect(written!.allowsMultiple, isTrue);
-      expect(written.extra['futureFlag'], isTrue,
-          reason: 'forward-compat extra must survive an edit-and-save');
-    });
+        final written = notifier.lastWrittenConfig as ChoiceConfig?;
+        expect(written, isNotNull);
+        expect(written!.allowsMultiple, isTrue);
+        expect(
+          written.extra['futureFlag'],
+          isTrue,
+          reason: 'forward-compat extra must survive an edit-and-save',
+        );
+      },
+    );
 
-    testWidgets('tapping option swatch opens the color picker dialog',
-        (tester) async {
+    testWidgets('tapping option swatch opens the color picker dialog', (
+      tester,
+    ) async {
       _useTallViewport(tester);
       await tester.pumpWidget(_buildSheet());
       await tester.pumpAndSettle();
@@ -304,8 +305,9 @@ void main() {
       expect(find.byType(ColorPicker), findsNothing);
     });
 
-    testWidgets('picking a color in the dialog saves the chosen hex',
-        (tester) async {
+    testWidgets('picking a color in the dialog saves the chosen hex', (
+      tester,
+    ) async {
       _useTallViewport(tester);
       final notifier = _FakeCustomFieldNotifier();
       await tester.pumpWidget(_buildSheet(notifier: notifier));
@@ -346,8 +348,9 @@ void main() {
       expect(config.options.first.colorHex, '#4287F5');
     });
 
-    testWidgets('opening sheet on existing choice field hydrates state',
-        (tester) async {
+    testWidgets('opening sheet on existing choice field hydrates state', (
+      tester,
+    ) async {
       _useTallViewport(tester);
       final existingField = CustomField(
         id: 'field-1',
