@@ -1249,12 +1249,8 @@ class SpImporter {
         memberRepo,
         skipMemberIds: linkedExistingMemberIds,
         warnings: warnings,
-        onProgress: (count) {
-          onProgress?.call(
-            totalItems,
-            totalItems,
-            'Downloading avatars ($count/${mapped.avatarUrls.length})...',
-          );
+        onProgress: (processed, total) {
+          onProgress?.call(processed, total, 'Downloading avatars...');
         },
       );
       avatarsDownloaded = result.downloaded;
@@ -1277,11 +1273,7 @@ class SpImporter {
         skipMemberIds: linkedExistingMemberIds,
         warnings: warnings,
         onProgress: (count, total) {
-          onProgress?.call(
-            totalItems,
-            totalItems,
-            'Importing bio images ($count/$total)...',
-          );
+          onProgress?.call(count, total, 'Importing bio images...');
         },
       );
     }
@@ -1417,12 +1409,8 @@ class SpImporter {
         mapped.avatarUrls,
         memberRepo,
         warnings: warnings,
-        onProgress: (count) {
-          onProgress?.call(
-            count,
-            totalAvatarSources,
-            'Retrying avatars ($count/${mapped.avatarUrls.length})...',
-          );
+        onProgress: (processed, total) {
+          onProgress?.call(processed, total, 'Retrying avatars...');
         },
       );
       avatarsDownloaded = result.downloaded;
@@ -1482,7 +1470,7 @@ class SpImporter {
     MemberRepository memberRepo, {
     Set<String> skipMemberIds = const {},
     List<String>? warnings,
-    void Function(int count)? onProgress,
+    void Function(int processed, int total)? onProgress,
   }) async {
     final eligible = <Member>[];
     final urlsByMemberId = <String, String>{};
@@ -1543,7 +1531,7 @@ class SpImporter {
           warnings?.add('Avatar download failed for ${result.member.id}');
           failed++;
         }
-        onProgress?.call(downloaded);
+        onProgress?.call(downloaded + failed, eligible.length);
       }
     }
 
@@ -1616,9 +1604,11 @@ class SpImporter {
     void Function(int count, int total)? onProgress,
   }) async {
     final eligible = members
-        .where((m) =>
-            !skipMemberIds.contains(m.id) &&
-            (m.bio?.contains('http') ?? false))
+        .where(
+          (m) =>
+              !skipMemberIds.contains(m.id) &&
+              (m.bio?.contains('http') ?? false),
+        )
         .toList();
     if (eligible.isEmpty) return;
 
@@ -1634,7 +1624,7 @@ class SpImporter {
         if (rewritten != member.bio) {
           final current =
               (await memberRepo.getMembersByIds([member.id])).firstOrNull ??
-                  member;
+              member;
           await memberRepo.updateMember(current.copyWith(bio: rewritten));
         }
       } catch (e) {

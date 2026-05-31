@@ -1937,50 +1937,17 @@ class _SimplyPluralImportFlowState
 
           // Parsing
           if (migration.step == sp_importer.ImportState.parsing)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    PrismSpinner(
-                      color: textColor,
-                      size: 52,
-                      dotCount: 8,
-                      duration: const Duration(milliseconds: 3000),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      context.l10n.onboardingSimplyPluralReadingFile,
-                      style: TextStyle(color: textColor),
-                    ),
-                  ],
-                ),
-              ),
+            _SpImportProgressView(
+              color: textColor,
+              label: _spPendingStatusLabel(context, migration),
             ),
 
           if (migration.step == sp_importer.ImportState.verifying ||
               migration.step == sp_importer.ImportState.fetching ||
               migration.step == sp_importer.ImportState.matchMembers)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    PrismSpinner(
-                      color: textColor,
-                      size: 52,
-                      dotCount: 8,
-                      duration: const Duration(milliseconds: 3000),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _spPendingStatusLabel(context, migration),
-                      style: TextStyle(color: textColor),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
+            _SpImportProgressView(
+              color: textColor,
+              label: _spPendingStatusLabel(context, migration),
             ),
 
           if (migration.step ==
@@ -2205,28 +2172,10 @@ class _SimplyPluralImportFlowState
           // Importing / downloading avatars
           if (migration.step == sp_importer.ImportState.importing ||
               migration.step == sp_importer.ImportState.downloadingAvatars) ...[
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    PrismSpinner(
-                      color: textColor,
-                      size: 52,
-                      dotCount: 8,
-                      duration: const Duration(milliseconds: 3000),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      migration.progressLabel.isNotEmpty
-                          ? migration.progressLabel
-                          : 'Importing... ${(migration.progress * 100).toStringAsFixed(0)}%',
-                      style: TextStyle(color: textColor),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
+            _SpImportProgressView(
+              color: textColor,
+              label: _spPendingStatusLabel(context, migration),
+              detail: _spProgressDetail(migration),
             ),
           ],
 
@@ -2329,14 +2278,29 @@ Color _errorStatusColor(ThemeData theme) => theme.colorScheme.error;
 
 String _spPendingStatusLabel(BuildContext context, MigrationState migration) {
   return switch (migration.step) {
+    sp_importer.ImportState.parsing =>
+      context.l10n.onboardingSimplyPluralReadingFile,
     sp_importer.ImportState.verifying => context.l10n.migrationVerifyingToken,
     sp_importer.ImportState.fetching =>
       migration.progressLabel.isNotEmpty
           ? migration.progressLabel
           : context.l10n.migrationFetchingData,
-    sp_importer.ImportState.matchMembers => 'Preparing import...',
-    _ => context.l10n.onboardingSimplyPluralReadingFile,
+    sp_importer.ImportState.matchMembers => 'Preparing member choices...',
+    sp_importer.ImportState.importing =>
+      migration.progressLabel.isNotEmpty
+          ? migration.progressLabel
+          : 'Importing Simply Plural data...',
+    sp_importer.ImportState.downloadingAvatars =>
+      migration.progressLabel.isNotEmpty
+          ? migration.progressLabel
+          : 'Importing avatar images...',
+    _ => 'Preparing import...',
   };
+}
+
+String? _spProgressDetail(MigrationState migration) {
+  if (migration.total <= 0) return null;
+  return '${migration.current}/${migration.total}';
 }
 
 Color _warningStatusColor(ThemeData theme) {
@@ -2345,6 +2309,54 @@ Color _warningStatusColor(ThemeData theme) {
     theme.scaffoldBackgroundColor,
     minRatio: prismMinimumAccentContrast,
   );
+}
+
+class _SpImportProgressView extends StatelessWidget {
+  const _SpImportProgressView({
+    required this.color,
+    required this.label,
+    this.detail,
+  });
+
+  final Color color;
+  final String label;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = this.detail;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          children: [
+            PrismSpinner(
+              color: color,
+              size: 52,
+              dotCount: 8,
+              duration: const Duration(milliseconds: 3000),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              label,
+              style: TextStyle(color: color),
+              textAlign: TextAlign.center,
+            ),
+            if (detail != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                detail,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: color.withValues(alpha: 0.72),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _BackLink extends StatelessWidget {

@@ -85,7 +85,40 @@ void main() {
     await tester.tap(find.text('Simply Plural'));
     await tester.pump();
 
-    expect(find.text('Preparing import...'), findsOneWidget);
+    expect(find.text('Preparing member choices...'), findsOneWidget);
+  });
+
+  testWidgets('shows SP avatar progress counts during onboarding import', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          importerProvider.overrideWith(
+            () => _FakeImporterNotifier(
+              MigrationState(
+                step: ImportState.downloadingAvatars,
+                exportData: _plainSpExportData(),
+                current: 12,
+                total: 194,
+                progressLabel: 'Downloading avatars...',
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en')],
+          home: Scaffold(body: ImportDataStep()),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Simply Plural'));
+    await tester.pump();
+
+    expect(find.text('Downloading avatars...'), findsOneWidget);
+    expect(find.text('12/194'), findsOneWidget);
   });
 }
 
