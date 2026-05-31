@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
+import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/onboarding/widgets/import_data_step.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -57,6 +58,35 @@ void main() {
     expect(container.read(importerProvider).step, ImportState.previewing);
     expect(find.text('Encrypted Simply Plural chats'), findsNothing);
   });
+
+  testWidgets('shows progress instead of a blank body for SP decision states', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          importerProvider.overrideWith(
+            () => _FakeImporterNotifier(
+              MigrationState(
+                step: ImportState.matchMembers,
+                exportData: _plainSpExportData(),
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en')],
+          home: Scaffold(body: ImportDataStep()),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Simply Plural'));
+    await tester.pump();
+
+    expect(find.text('Preparing import...'), findsOneWidget);
+  });
 }
 
 Uint8List _encryptedSpExportBytes() {
@@ -81,6 +111,30 @@ Uint8List _encryptedSpExportBytes() {
       ],
     }),
   );
+}
+
+SpExportData _plainSpExportData() {
+  return const SpExportData(
+    members: [SpMember(id: 'mem1', name: 'Alice')],
+    customFronts: [],
+    frontHistory: [],
+    groups: [],
+    channels: [],
+    messages: [],
+    polls: [],
+  );
+}
+
+class _FakeImporterNotifier extends ImporterNotifier {
+  _FakeImporterNotifier(this.initialState);
+
+  final MigrationState initialState;
+
+  @override
+  MigrationState build() => initialState;
+
+  @override
+  void continueFromMemberMapping() {}
 }
 
 class _FakePrismFileDialogService implements PrismFileDialogService {

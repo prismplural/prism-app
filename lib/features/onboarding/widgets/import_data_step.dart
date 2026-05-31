@@ -1958,6 +1958,31 @@ class _SimplyPluralImportFlowState
               ),
             ),
 
+          if (migration.step == sp_importer.ImportState.verifying ||
+              migration.step == sp_importer.ImportState.fetching ||
+              migration.step == sp_importer.ImportState.matchMembers)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  children: [
+                    PrismSpinner(
+                      color: textColor,
+                      size: 52,
+                      dotCount: 8,
+                      duration: const Duration(milliseconds: 3000),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _spPendingStatusLabel(context, migration),
+                      style: TextStyle(color: textColor),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           if (migration.step ==
                   sp_importer.ImportState.encryptedChatsDetected &&
               migration.exportData != null) ...[
@@ -2301,6 +2326,18 @@ class _SimplyPluralImportFlowState
 Color _successStatusColor(ThemeData theme) => theme.colorScheme.primary;
 
 Color _errorStatusColor(ThemeData theme) => theme.colorScheme.error;
+
+String _spPendingStatusLabel(BuildContext context, MigrationState migration) {
+  return switch (migration.step) {
+    sp_importer.ImportState.verifying => context.l10n.migrationVerifyingToken,
+    sp_importer.ImportState.fetching =>
+      migration.progressLabel.isNotEmpty
+          ? migration.progressLabel
+          : context.l10n.migrationFetchingData,
+    sp_importer.ImportState.matchMembers => 'Preparing import...',
+    _ => context.l10n.onboardingSimplyPluralReadingFile,
+  };
+}
 
 Color _warningStatusColor(ThemeData theme) {
   return contrastAdjustedAccent(
