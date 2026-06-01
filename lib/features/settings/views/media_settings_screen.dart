@@ -45,132 +45,176 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
-final _allChatMediaProvider =
-    StreamProvider.autoDispose<List<MediaAttachment>>(
+final _allChatMediaProvider = StreamProvider.autoDispose<List<MediaAttachment>>(
   (ref) => ref.watch(mediaAttachmentRepositoryProvider).watchAllChatMedia(),
+);
+
+final _imageMarkdownBoardPostsProvider = StreamProvider.autoDispose(
+  (ref) =>
+      ref.watch(databaseProvider).memberBoardPostsDao.watchImageMarkdownPosts(),
 );
 
 /// Computes where each library tag is referenced, across every surface that
 /// can contain `![](tag)`: bios, notes, group descriptions, long-text custom
-/// fields, and chat messages. Returns tag → human-readable usage labels.
+/// fields, chat messages, and board posts. Returns tag → human-readable usage
+/// labels.
 ///
 /// The first four sources are bounded and scanned in memory. Chat could be
 /// huge, so it's narrowed via a `content LIKE '%![%'` query and reported as a
 /// count.
 final tagUsageProvider = FutureProvider.autoDispose
-    .family<Map<String, List<TagUsageRef>>, AppLocalizations>(
-        (ref, l10n) async {
-  // Source the referencing surfaces from each provider's CURRENT value
-  // (`.value`) rather than awaiting `.future`. Awaiting `.future` on a
-  // stream provider that nothing else is watching (notes/groups/fields aren't
-  // watched by this screen) can stall: the read initializes the provider and
-  // blocks on its first emission, and that single stuck await previously
-  // blanked ALL usage (every image showed "Unused"). Reading the current value
-  // can't hang — if a source isn't loaded yet this recomputes when it emits
-  // (we watch them), and a source that errors just contributes nothing instead
-  // of killing the whole scan.
-  final library = ref.watch(imageLibraryProvider).value ?? const [];
-  final tags =
-      library.map((a) => a.tag).where((t) => t.isNotEmpty).toSet();
-  if (tags.isEmpty) return const {};
+    .family<Map<String, List<TagUsageRef>>, AppLocalizations>((
+      ref,
+      l10n,
+    ) async {
+      // Source the referencing surfaces from each provider's CURRENT value
+      // (`.value`) rather than awaiting `.future`. Awaiting `.future` on a
+      // stream provider that nothing else is watching (notes/groups/fields aren't
+      // watched by this screen) can stall: the read initializes the provider and
+      // blocks on its first emission, and that single stuck await previously
+      // blanked ALL usage (every image showed "Unused"). Reading the current value
+      // can't hang — if a source isn't loaded yet this recomputes when it emits
+      // (we watch them), and a source that errors just contributes nothing instead
+      // of killing the whole scan.
+      final library = ref.watch(imageLibraryProvider).value ?? const [];
+      final tags = library.map((a) => a.tag).where((t) => t.isNotEmpty).toSet();
+      if (tags.isEmpty) return const {};
 
-  final members = ref.watch(allMembersProvider).value ?? const [];
-  final notes = ref.watch(allNotesProvider).value ?? const [];
-  final groups = ref.watch(allGroupsProvider).value ?? const [];
-  final fields = ref.watch(customFieldsProvider).value ?? const [];
+      final members = ref.watch(allMembersProvider).value ?? const [];
+      final notes = ref.watch(allNotesProvider).value ?? const [];
+      final groups = ref.watch(allGroupsProvider).value ?? const [];
+      final fields = ref.watch(customFieldsProvider).value ?? const [];
+      final boardPosts =
+          ref.watch(_imageMarkdownBoardPostsProvider).value ?? const [];
 
-  final memberName = {for (final m in members) m.id: m.name};
-  final fieldName = {for (final f in fields) f.id: f.name};
+      final memberName = {for (final m in members) m.id: m.name};
+      final fieldName = {for (final f in fields) f.id: f.name};
 
-  // Each source carries the label + route to jump to if it references a tag.
-  // Bio/note/group/custom-field use the Settings-tab detail routes so the jump
-  // pushes within Settings (where Media lives) and system back returns to the
-  // Media screen. Chat has no in-Settings route, so it switches tabs (handled
-  // in _showUsage by kind).
-  final sources = <TagUsageSource>[];
-  for (final m in members) {
-    final bio = m.bio;
-    if (bio != null && bio.isNotEmpty) {
-      sources.add(TagUsageSource(
-        text: bio,
-        kind: TagUsageKind.bio,
-        label: l10n.mediaUsageLabelBio(m.name),
-        route: AppRoutePaths.settingsMember(m.id),
-      ));
-    }
-  }
-  for (final n in notes) {
-    final t = n.title.trim();
-    sources.add(TagUsageSource(
-      text: n.body,
-      kind: TagUsageKind.note,
-      label: t.isNotEmpty
-          ? l10n.mediaUsageLabelNote(t)
-          : l10n.mediaUsageLabelUntitledNote,
-      route: AppRoutePaths.settingsNote(n.id),
-    ));
-  }
-  for (final g in groups) {
-    final desc = g.description;
-    if (desc != null && desc.isNotEmpty) {
-      sources.add(TagUsageSource(
-        text: desc,
-        kind: TagUsageKind.group,
-        label: g.name,
-        route: AppRoutePaths.settingsGroup(g.id),
-      ));
-    }
-  }
+      // Each source carries the label + route to jump to if it references a tag.
+      // Bio/note/group/custom-field use the Settings-tab detail routes so the jump
+      // pushes within Settings (where Media lives) and system back returns to the
+      // Media screen. Chat has no in-Settings route, so it switches tabs (handled
+      // in _showUsage by kind).
+      final sources = <TagUsageSource>[];
+      for (final m in members) {
+        final bio = m.bio;
+        if (bio != null && bio.isNotEmpty) {
+          sources.add(
+            TagUsageSource(
+              text: bio,
+              kind: TagUsageKind.bio,
+              label: l10n.mediaUsageLabelBio(m.name),
+              route: AppRoutePaths.settingsMember(m.id),
+            ),
+          );
+        }
+      }
+      for (final n in notes) {
+        final t = n.title.trim();
+        sources.add(
+          TagUsageSource(
+            text: n.body,
+            kind: TagUsageKind.note,
+            label: t.isNotEmpty
+                ? l10n.mediaUsageLabelNote(t)
+                : l10n.mediaUsageLabelUntitledNote,
+            route: AppRoutePaths.settingsNote(n.id),
+          ),
+        );
+      }
+      for (final g in groups) {
+        final desc = g.description;
+        if (desc != null && desc.isNotEmpty) {
+          sources.add(
+            TagUsageSource(
+              text: desc,
+              kind: TagUsageKind.group,
+              label: g.name,
+              route: AppRoutePaths.settingsGroup(g.id),
+            ),
+          );
+        }
+      }
 
-  // Custom-field values + chat are one-shot DB reads — guard each so a failure
-  // contributes nothing rather than blanking the whole result.
-  try {
-    final values =
-        await ref.read(customFieldsRepositoryProvider).getAllValues();
-    if (!ref.mounted) return const {};
-    for (final v in values) {
-      final mName =
-          memberName[v.memberId] ?? l10n.mediaUsageLabelUnknownMember;
-      final fName =
-          fieldName[v.customFieldId] ?? l10n.mediaUsageLabelUnknownField;
-      sources.add(TagUsageSource(
-        text: v.value,
-        kind: TagUsageKind.customField,
-        label: l10n.mediaUsageLabelCustomField(mName, fName),
-        route: AppRoutePaths.settingsMember(v.memberId),
-      ));
-    }
-  } catch (e) {
-    if (!ref.mounted) return const {};
-    debugPrint('[tagUsage] custom-field values read failed: $e');
-  }
+      // Custom-field values + chat + board posts are one-shot DB reads — guard each
+      // so a failure contributes nothing rather than blanking the whole result.
+      try {
+        final values = await ref
+            .read(customFieldsRepositoryProvider)
+            .getAllValues();
+        if (!ref.mounted) return const {};
+        for (final v in values) {
+          final mName =
+              memberName[v.memberId] ?? l10n.mediaUsageLabelUnknownMember;
+          final fName =
+              fieldName[v.customFieldId] ?? l10n.mediaUsageLabelUnknownField;
+          sources.add(
+            TagUsageSource(
+              text: v.value,
+              kind: TagUsageKind.customField,
+              label: l10n.mediaUsageLabelCustomField(mName, fName),
+              route: AppRoutePaths.settingsMember(v.memberId),
+            ),
+          );
+        }
+      } catch (e) {
+        if (!ref.mounted) return const {};
+        debugPrint('[tagUsage] custom-field values read failed: $e');
+      }
 
-  if (!ref.mounted) return const {};
-  try {
-    final chatMessages = await ref
-        .read(databaseProvider)
-        .chatMessagesDao
-        .imageMarkdownMessages();
-    if (!ref.mounted) return const {};
-    for (final msg in chatMessages) {
-      final preview = stripImageMarkdown(msg.content).trim();
-      sources.add(TagUsageSource(
-        text: msg.content,
-        kind: TagUsageKind.chat,
-        label: preview.isEmpty
-            ? l10n.mediaUsageLabelChatMessage
-            : (preview.length > 60 ? '${preview.substring(0, 60)}…' : preview),
-        route: '${AppRoutePaths.chatConversation(msg.conversationId)}'
-            '?messageId=${msg.id}',
-      ));
-    }
-  } catch (e) {
-    if (!ref.mounted) return const {};
-    debugPrint('[tagUsage] chat messages read failed: $e');
-  }
+      if (!ref.mounted) return const {};
+      try {
+        final chatMessages = await ref
+            .read(databaseProvider)
+            .chatMessagesDao
+            .imageMarkdownMessages();
+        if (!ref.mounted) return const {};
+        for (final msg in chatMessages) {
+          final preview = stripImageMarkdown(msg.content).trim();
+          sources.add(
+            TagUsageSource(
+              text: msg.content,
+              kind: TagUsageKind.chat,
+              label: preview.isEmpty
+                  ? l10n.mediaUsageLabelChatMessage
+                  : (preview.length > 60
+                        ? '${preview.substring(0, 60)}…'
+                        : preview),
+              route:
+                  '${AppRoutePaths.chatConversation(msg.conversationId)}'
+                  '?messageId=${msg.id}',
+            ),
+          );
+        }
+      } catch (e) {
+        if (!ref.mounted) return const {};
+        debugPrint('[tagUsage] chat messages read failed: $e');
+      }
 
-  return scanTagUsage(tags: tags, sources: sources);
-});
+      for (final post in boardPosts) {
+        final title = post.title?.trim() ?? '';
+        final preview = stripImageMarkdown(post.body).trim();
+        final label = title.isNotEmpty
+            ? l10n.mediaUsageLabelBoardPost(title)
+            : (preview.isEmpty
+                  ? l10n.mediaUsageLabelBoardPostUntitled
+                  : l10n.mediaUsageLabelBoardPost(
+                      preview.length > 60
+                          ? '${preview.substring(0, 60)}…'
+                          : preview,
+                    ));
+        sources.add(
+          TagUsageSource(
+            text: post.body,
+            kind: TagUsageKind.boardPost,
+            label: label,
+            route: AppRoutePaths.boardPost(post.id),
+          ),
+        );
+      }
+
+      return scanTagUsage(tags: tags, sources: sources);
+    });
 
 enum _AddSource { camera, photoLibrary, file, url }
 
@@ -217,8 +261,7 @@ class MediaSettingsScreen extends ConsumerWidget {
                 icon: AppIcons.link,
               ),
             ],
-            onSelected: (source) =>
-                _handleAddImage(context, ref, source),
+            onSelected: (source) => _handleAddImage(context, ref, source),
           ),
         ],
       ),
@@ -242,14 +285,20 @@ class MediaSettingsScreen extends ConsumerWidget {
                 ref.watch(tagUsageProvider(context.l10n)).value ?? const {};
 
             // Avatars / banners summary.
-            final avatarMembers =
-                allMembers.where((m) => m.avatarImageData != null).toList();
-            final bannerMembers =
-                allMembers.where((m) => m.profileHeaderImageData != null).toList();
+            final avatarMembers = allMembers
+                .where((m) => m.avatarImageData != null)
+                .toList();
+            final bannerMembers = allMembers
+                .where((m) => m.profileHeaderImageData != null)
+                .toList();
             final avatarBytes = avatarMembers.fold<int>(
-                0, (s, m) => s + (m.avatarImageData?.length ?? 0));
+              0,
+              (s, m) => s + (m.avatarImageData?.length ?? 0),
+            );
             final bannerBytes = bannerMembers.fold<int>(
-                0, (s, m) => s + (m.profileHeaderImageData?.length ?? 0));
+              0,
+              (s, m) => s + (m.profileHeaderImageData?.length ?? 0),
+            );
 
             final hasLibrary = libraryImages.isNotEmpty;
             final hasChat = chatAttachments.isNotEmpty;
@@ -262,15 +311,12 @@ class MediaSettingsScreen extends ConsumerWidget {
 
             final totalEncryptedBytes =
                 libraryImages.fold<int>(0, (s, a) => s + a.sizeBytes) +
-                    chatAttachments.fold<int>(0, (s, a) => s + a.sizeBytes);
+                chatAttachments.fold<int>(0, (s, a) => s + a.sizeBytes);
             final totalEncryptedCount =
                 libraryImages.length + chatAttachments.length;
 
             return ListView(
-              padding: EdgeInsets.only(
-                top: 8,
-                bottom: NavBarInset.of(context),
-              ),
+              padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
               children: [
                 // ── Storage overview ──────────────────────────────────────
                 PrismSection(
@@ -282,7 +328,8 @@ class MediaSettingsScreen extends ConsumerWidget {
                         _StorageRow(
                           icon: AppIcons.photoLibrary,
                           label: l10n.mediaStorageEncryptedMedia,
-                          summary: '${l10n.mediaSummaryItems(totalEncryptedCount)}'
+                          summary:
+                              '${l10n.mediaSummaryItems(totalEncryptedCount)}'
                               ' · ${_formatBytes(totalEncryptedBytes)}',
                         ),
                         if (hasAvatars) ...[
@@ -408,20 +455,23 @@ class MediaSettingsScreen extends ConsumerWidget {
 
     switch (source) {
       case _AddSource.camera:
-        final picked =
-            await ImagePicker().pickImage(source: ImageSource.camera);
+        final picked = await ImagePicker().pickImage(
+          source: ImageSource.camera,
+        );
         if (picked == null || !context.mounted) return;
         bytes = await picked.readAsBytes();
 
       case _AddSource.photoLibrary:
-        final picked =
-            await ImagePicker().pickImage(source: ImageSource.gallery);
+        final picked = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+        );
         if (picked == null || !context.mounted) return;
         bytes = await picked.readAsBytes();
 
       case _AddSource.file:
-        final picked =
-            await ImagePicker().pickImage(source: ImageSource.gallery);
+        final picked = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+        );
         // ImagePicker.gallery is the closest cross-platform equivalent.
         // On desktop, PrismFileDialogService could be used instead.
         if (picked == null || !context.mounted) return;
@@ -432,8 +482,10 @@ class MediaSettingsScreen extends ConsumerWidget {
         if (urlResult == null || !context.mounted) return;
         bytes = await fetchRemoteImageBytes(urlResult);
         if (bytes == null && context.mounted) {
-          PrismToast.error(context,
-              message: context.l10n.mediaFetchFromUrlFailed);
+          PrismToast.error(
+            context,
+            message: context.l10n.mediaFetchFromUrlFailed,
+          );
           return;
         }
         sourceUrl = urlResult;
@@ -463,8 +515,10 @@ class MediaSettingsScreen extends ConsumerWidget {
       library = await readImageLibrarySnapshot(ref);
     } catch (e) {
       if (context.mounted) {
-        PrismToast.error(context,
-            message: context.l10n.mediaAddImageFailed('$e'));
+        PrismToast.error(
+          context,
+          message: context.l10n.mediaAddImageFailed('$e'),
+        );
       }
       return;
     }
@@ -475,13 +529,17 @@ class MediaSettingsScreen extends ConsumerWidget {
     if (result.tag.isNotEmpty) {
       final normalized = BioImageProcessor.normalizeTag(result.tag);
       if (normalized.isEmpty) {
-        PrismToast.error(context,
-            message: context.l10n.mediaTagNoUsableCharacters);
+        PrismToast.error(
+          context,
+          message: context.l10n.mediaTagNoUsableCharacters,
+        );
         return;
       }
       if (existingTags.contains(normalized)) {
-        PrismToast.error(context,
-            message: context.l10n.mediaTagAlreadyInUse(normalized));
+        PrismToast.error(
+          context,
+          message: context.l10n.mediaTagAlreadyInUse(normalized),
+        );
         return;
       }
       tag = normalized;
@@ -499,36 +557,42 @@ class MediaSettingsScreen extends ConsumerWidget {
       await mediaService.uploadBioImage(prepared);
 
       final attachmentId = const Uuid().v4();
-      await repo.create(MediaAttachment(
-        id: attachmentId,
-        memberId: '',
-        messageId: '',
-        tag: tag,
-        mediaId: prepared.mediaId,
-        mediaType: 'image',
-        encryptionKeyB64: base64Encode(prepared.encryptionKey),
-        contentHash: prepared.contentHash,
-        plaintextHash: prepared.plaintextHash,
-        mimeType: prepared.mimeType,
-        sizeBytes: prepared.sizeBytes,
-        width: prepared.width,
-        height: prepared.height,
-        durationMs: 0,
-        blurhash: prepared.blurhash,
-        waveformB64: '',
-        thumbnailMediaId: '',
-        sourceUrl: sourceUrl,
-        previewUrl: '',
-      ));
+      await repo.create(
+        MediaAttachment(
+          id: attachmentId,
+          memberId: '',
+          messageId: '',
+          tag: tag,
+          mediaId: prepared.mediaId,
+          mediaType: 'image',
+          encryptionKeyB64: base64Encode(prepared.encryptionKey),
+          contentHash: prepared.contentHash,
+          plaintextHash: prepared.plaintextHash,
+          mimeType: prepared.mimeType,
+          sizeBytes: prepared.sizeBytes,
+          width: prepared.width,
+          height: prepared.height,
+          durationMs: 0,
+          blurhash: prepared.blurhash,
+          waveformB64: '',
+          thumbnailMediaId: '',
+          sourceUrl: sourceUrl,
+          previewUrl: '',
+        ),
+      );
 
       if (context.mounted) {
-        PrismToast.show(context,
-            message: context.l10n.mediaAddedToLibrary(tag));
+        PrismToast.show(
+          context,
+          message: context.l10n.mediaAddedToLibrary(tag),
+        );
       }
     } catch (e) {
       if (context.mounted) {
-        PrismToast.error(context,
-            message: context.l10n.mediaAddImageFailed('$e'));
+        PrismToast.error(
+          context,
+          message: context.l10n.mediaAddImageFailed('$e'),
+        );
       }
     }
   }
@@ -547,7 +611,10 @@ class MediaSettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _deleteLibraryImage(
-      BuildContext context, WidgetRef ref, String id) async {
+    BuildContext context,
+    WidgetRef ref,
+    String id,
+  ) async {
     final confirmed = await _confirmDelete(context);
     if (!confirmed || !context.mounted) return;
     final repo = ref.read(mediaAttachmentRepositoryProvider);
@@ -555,7 +622,10 @@ class MediaSettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _deleteChat(
-      BuildContext context, WidgetRef ref, String id) async {
+    BuildContext context,
+    WidgetRef ref,
+    String id,
+  ) async {
     final confirmed = await _confirmDelete(context);
     if (!confirmed || !context.mounted) return;
     final repo = ref.read(mediaAttachmentRepositoryProvider);
@@ -603,8 +673,7 @@ class MediaSettingsScreen extends ConsumerWidget {
     if (!context.mounted) return;
 
     if (library.any((a) => a.id != attachment.id && a.tag == normalized)) {
-      PrismToast.error(context,
-          message: l10n.mediaTagAlreadyInUse(normalized));
+      PrismToast.error(context, message: l10n.mediaTagAlreadyInUse(normalized));
       return;
     }
 
@@ -688,8 +757,8 @@ class MediaSettingsScreen extends ConsumerWidget {
   }
 
   /// Rewrites `![](oldTag…)` image refs to `![](newTag…)` across bios, custom
-  /// field values, chat messages, notes, and group descriptions. Returns the
-  /// number of records actually updated.
+  /// field values, chat messages, notes, group descriptions, and board posts.
+  /// Returns the number of records actually updated.
   ///
   /// Resolves the repos/DAO from `ref` and delegates the fan-out to
   /// [rewriteTagReferencesAcrossSurfaces] (which is widget-free and
@@ -709,6 +778,8 @@ class MediaSettingsScreen extends ConsumerWidget {
       fieldsRepo: ref.read(customFieldsRepositoryProvider),
       chatRepo: ref.read(chatMessageRepositoryProvider),
       chatDao: ref.read(databaseProvider).chatMessagesDao,
+      boardPostsRepo: ref.read(memberBoardPostsRepositoryProvider),
+      boardPostsDao: ref.read(databaseProvider).memberBoardPostsDao,
       oldTag: oldTag,
       newTag: newTag,
     );
@@ -763,15 +834,15 @@ class MediaSettingsScreen extends ConsumerWidget {
       // in-memory decrypted-bytes cache. The remote relay blob has no
       // owned-media delete signal, so its cleanup relies on the 90-day TTL.
       if (previousMediaId.isNotEmpty && previousMediaId != prepared.mediaId) {
-        await ref
-            .read(downloadManagerProvider)
-            .evictEncrypted(previousMediaId);
+        await ref.read(downloadManagerProvider).evictEncrypted(previousMediaId);
         evictMediaCache(previousMediaId);
       }
     } catch (e) {
       if (context.mounted) {
-        PrismToast.error(context,
-            message: context.l10n.mediaReplaceImageFailed('$e'));
+        PrismToast.error(
+          context,
+          message: context.l10n.mediaReplaceImageFailed('$e'),
+        );
       }
     }
   }
@@ -855,7 +926,8 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
 
     // PrismSection already applies pageHorizontalPadding on both sides.
     // Subtract that plus the 10px spacing between the two cards.
-    final availableWidth = MediaQuery.of(context).size.width -
+    final availableWidth =
+        MediaQuery.of(context).size.width -
         PrismTokens.pageHorizontalPadding * 2;
     final cardWidth = (availableWidth - 10) / 2;
 
@@ -871,8 +943,9 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
           children: [
             // Image thumbnail.
             ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
               child: SizedBox(
                 width: cardWidth,
                 height: cardWidth * 0.65,
@@ -887,22 +960,25 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
                     ),
                   ),
                   error: (_, _) => Center(
-                    child: Icon(AppIcons.imageBroken,
-                        color: theme.colorScheme.onSurfaceVariant),
+                    child: Icon(
+                      AppIcons.imageBroken,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   data: (bytes) {
                     if (bytes == null) {
                       return Center(
-                        child: Icon(AppIcons.imageBroken,
-                            color: theme.colorScheme.onSurfaceVariant),
+                        child: Icon(
+                          AppIcons.imageBroken,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       );
                     }
                     // Decode to roughly the on-screen size rather than the
                     // full (up to 2048px) bitmap — these are small thumbnails.
                     final dpr = MediaQuery.devicePixelRatioOf(context);
                     return GestureDetector(
-                      onTap: () =>
-                          ImageViewer.show(context, imageBytes: bytes),
+                      onTap: () => ImageViewer.show(context, imageBytes: bytes),
                       child: Image.memory(
                         bytes,
                         fit: BoxFit.cover,
@@ -936,8 +1012,9 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
                           Text(
                             widget.usedBy.length == 1
                                 ? widget.usedBy.first.label
-                                : context.l10n
-                                    .mediaUsageUsedInPlaces(widget.usedBy.length),
+                                : context.l10n.mediaUsageUsedInPlaces(
+                                    widget.usedBy.length,
+                                  ),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.primary,
                               fontSize: 11,
@@ -957,85 +1034,92 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
                       ],
                     ),
                   ),
-                  Builder(builder: (context) {
-                    final l10n = context.l10n;
-                    final items = <PrismMenuItem<String>>[
-                      if (widget.usedBy.isNotEmpty)
+                  Builder(
+                    builder: (context) {
+                      final l10n = context.l10n;
+                      final items = <PrismMenuItem<String>>[
+                        if (widget.usedBy.isNotEmpty)
+                          PrismMenuItem(
+                            value: 'view-usage',
+                            label: l10n.mediaMenuViewUsage,
+                            icon: AppIcons.preview,
+                          ),
                         PrismMenuItem(
-                          value: 'view-usage',
-                          label: l10n.mediaMenuViewUsage,
-                          icon: AppIcons.preview,
+                          value: 'copy',
+                          label: l10n.mediaMenuCopyCode,
+                          icon: AppIcons.copy,
                         ),
-                      PrismMenuItem(
-                        value: 'copy',
-                        label: l10n.mediaMenuCopyCode,
-                        icon: AppIcons.copy,
-                      ),
-                      PrismMenuItem(
-                        value: 'edit-tag',
-                        label: l10n.mediaMenuEditTag,
-                        icon: AppIcons.edit,
-                      ),
-                      PrismMenuItem(
-                        value: 'replace',
-                        label: l10n.mediaMenuReplaceImage,
-                        icon: AppIcons.imageOutlined,
-                      ),
-                      PrismMenuItem(
-                        value: 'delete',
-                        label: l10n.mediaMenuDelete,
-                        icon: AppIcons.deleteOutline,
-                        destructive: true,
-                      ),
-                    ];
-                    return BlurPopupAnchor(
-                      key: _menuKey,
-                      trigger: BlurPopupTrigger.manual,
-                      width: 210,
-                      itemCount: items.length,
-                      itemBuilder: (context, index, close) {
-                        final item = items[index];
-                        final iconColor = item.destructive
-                            ? theme.colorScheme.error
-                            : theme.colorScheme.onSurface;
-                        return PrismListRow(
-                          dense: true,
-                          destructive: item.destructive,
-                          leading:
-                              Icon(item.icon, size: 20, color: iconColor),
-                          title: Text(item.label),
-                          onTap: () {
-                            close();
-                            switch (item.value) {
-                              case 'view-usage':
-                                _showUsage();
-                              case 'copy':
-                                Clipboard.setData(ClipboardData(
-                                  text: '![](${attachment.tag})',
-                                ));
-                                PrismToast.show(
-                                  context,
-                                  message: context.l10n.mediaCopiedReference(
-                                    '![](${attachment.tag})',
-                                  ),
-                                );
-                              case 'edit-tag':
-                                widget.onEditTag();
-                              case 'replace':
-                                widget.onReplace();
-                              case 'delete':
-                                widget.onDelete();
-                            }
-                          },
-                        );
-                      },
-                      child: PrismIconButton(
-                        icon: AppIcons.moreVert,
-                        size: 28,
-                        onPressed: () => _menuKey.currentState?.show(),
-                      ),
-                    );
-                  }),
+                        PrismMenuItem(
+                          value: 'edit-tag',
+                          label: l10n.mediaMenuEditTag,
+                          icon: AppIcons.edit,
+                        ),
+                        PrismMenuItem(
+                          value: 'replace',
+                          label: l10n.mediaMenuReplaceImage,
+                          icon: AppIcons.imageOutlined,
+                        ),
+                        PrismMenuItem(
+                          value: 'delete',
+                          label: l10n.mediaMenuDelete,
+                          icon: AppIcons.deleteOutline,
+                          destructive: true,
+                        ),
+                      ];
+                      return BlurPopupAnchor(
+                        key: _menuKey,
+                        trigger: BlurPopupTrigger.manual,
+                        width: 210,
+                        itemCount: items.length,
+                        itemBuilder: (context, index, close) {
+                          final item = items[index];
+                          final iconColor = item.destructive
+                              ? theme.colorScheme.error
+                              : theme.colorScheme.onSurface;
+                          return PrismListRow(
+                            dense: true,
+                            destructive: item.destructive,
+                            leading: Icon(
+                              item.icon,
+                              size: 20,
+                              color: iconColor,
+                            ),
+                            title: Text(item.label),
+                            onTap: () {
+                              close();
+                              switch (item.value) {
+                                case 'view-usage':
+                                  _showUsage();
+                                case 'copy':
+                                  Clipboard.setData(
+                                    ClipboardData(
+                                      text: '![](${attachment.tag})',
+                                    ),
+                                  );
+                                  PrismToast.show(
+                                    context,
+                                    message: context.l10n.mediaCopiedReference(
+                                      '![](${attachment.tag})',
+                                    ),
+                                  );
+                                case 'edit-tag':
+                                  widget.onEditTag();
+                                case 'replace':
+                                  widget.onReplace();
+                                case 'delete':
+                                  widget.onDelete();
+                              }
+                            },
+                          );
+                        },
+                        child: PrismIconButton(
+                          icon: AppIcons.moreVert,
+                          size: 28,
+                          onPressed: () => _menuKey.currentState?.show(),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -1049,7 +1133,9 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
     // Push the usage list as a Settings-branch page (not a modal sheet) so the
     // detail jumps it opens stack on top of it — system back retraces
     // Media ← usage list ← detail.
-    unawaited(context.push(AppRoutePaths.settingsMediaUsage, extra: widget.usedBy));
+    unawaited(
+      context.push(AppRoutePaths.settingsMediaUsage, extra: widget.usedBy),
+    );
   }
 }
 
@@ -1077,9 +1163,12 @@ class _StorageRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              )),
+              Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
               Text(summary, style: theme.textTheme.bodyMedium),
             ],
           ),
@@ -1092,10 +1181,7 @@ class _StorageRow extends StatelessWidget {
 // ── Chat media thumbnail ─────────────────────────────────────────────────────
 
 class _MediaThumbnail extends ConsumerWidget {
-  const _MediaThumbnail({
-    required this.attachment,
-    required this.onDelete,
-  });
+  const _MediaThumbnail({required this.attachment, required this.onDelete});
 
   final MediaAttachment attachment;
   final VoidCallback onDelete;
@@ -1170,15 +1256,19 @@ class _MediaThumbnail extends ConsumerWidget {
             ),
             error: (_, _) => Container(
               color: theme.colorScheme.surfaceContainerHighest,
-              child: Icon(AppIcons.imageBroken,
-                  color: theme.colorScheme.onSurfaceVariant),
+              child: Icon(
+                AppIcons.imageBroken,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             data: (bytes) {
               if (bytes == null) {
                 return Container(
                   color: theme.colorScheme.surfaceContainerHighest,
-                  child: Icon(AppIcons.imageBroken,
-                      color: theme.colorScheme.onSurfaceVariant),
+                  child: Icon(
+                    AppIcons.imageBroken,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 );
               }
               // Decode to roughly the on-screen size rather than the full
@@ -1190,9 +1280,12 @@ class _MediaThumbnail extends ConsumerWidget {
                   imageBytes: bytes,
                   actions: actions,
                 ),
-                child: Image.memory(bytes, fit: BoxFit.cover,
-                    cacheWidth: (_size * dpr).round(),
-                    semanticLabel: l10n.imageSemanticThumbnail),
+                child: Image.memory(
+                  bytes,
+                  fit: BoxFit.cover,
+                  cacheWidth: (_size * dpr).round(),
+                  semanticLabel: l10n.imageSemanticThumbnail,
+                ),
               );
             },
           ),
@@ -1207,12 +1300,16 @@ class _MediaThumbnail extends ConsumerWidget {
   Future<void> _jumpToMessage(BuildContext context, WidgetRef ref) async {
     final messageId = attachment.messageId;
     if (messageId.isEmpty) return;
-    final message =
-        await ref.read(databaseProvider).chatMessagesDao.getMessageById(messageId);
+    final message = await ref
+        .read(databaseProvider)
+        .chatMessagesDao
+        .getMessageById(messageId);
     if (!context.mounted) return;
     if (message == null) {
-      PrismToast.error(context,
-          message: context.l10n.mediaMessageNoLongerExists);
+      PrismToast.error(
+        context,
+        message: context.l10n.mediaMessageNoLongerExists,
+      );
       return;
     }
     context.go(
@@ -1327,8 +1424,9 @@ class _PromptDialog extends StatefulWidget {
 }
 
 class _PromptDialogState extends State<_PromptDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initialText);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialText,
+  );
 
   @override
   void dispose() {
@@ -1391,8 +1489,10 @@ class TagUsageScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     return PrismPageScaffold(
-      topBar:
-          PrismTopBar(title: l10n.mediaUsageScreenTitle, showBackButton: true),
+      topBar: PrismTopBar(
+        title: l10n.mediaUsageScreenTitle,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: usages.isEmpty
           ? Center(child: Text(l10n.mediaUsageNotUsedAnywhere))
@@ -1411,7 +1511,8 @@ class TagUsageScreen extends StatelessWidget {
                   semanticLabel:
                       '${usage.label}. ${_usageKindLabel(l10n, usage.kind)}.',
                   onTap: () {
-                    if (usage.kind == TagUsageKind.chat) {
+                    if (usage.kind == TagUsageKind.chat ||
+                        usage.kind == TagUsageKind.boardPost) {
                       context.go(usage.route);
                     } else {
                       unawaited(context.push(usage.route));
@@ -1459,12 +1560,13 @@ class TagUsageScreen extends StatelessWidget {
 }
 
 IconData _usageIcon(TagUsageKind kind) => switch (kind) {
-      TagUsageKind.bio => AppIcons.personOutline,
-      TagUsageKind.note => AppIcons.noteOutlined,
-      TagUsageKind.group => AppIcons.group,
-      TagUsageKind.customField => AppIcons.labelOutlined,
-      TagUsageKind.chat => AppIcons.chatBubbleOutline,
-    };
+  TagUsageKind.bio => AppIcons.personOutline,
+  TagUsageKind.note => AppIcons.noteOutlined,
+  TagUsageKind.group => AppIcons.group,
+  TagUsageKind.customField => AppIcons.labelOutlined,
+  TagUsageKind.chat => AppIcons.chatBubbleOutline,
+  TagUsageKind.boardPost => AppIcons.forum,
+};
 
 String _usageKindLabel(AppLocalizations l10n, TagUsageKind kind) =>
     switch (kind) {
@@ -1473,4 +1575,5 @@ String _usageKindLabel(AppLocalizations l10n, TagUsageKind kind) =>
       TagUsageKind.group => l10n.mediaUsageKindGroup,
       TagUsageKind.customField => l10n.mediaUsageKindCustomField,
       TagUsageKind.chat => l10n.mediaUsageKindChat,
+      TagUsageKind.boardPost => l10n.mediaUsageKindBoardPost,
     };

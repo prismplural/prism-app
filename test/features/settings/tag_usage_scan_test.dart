@@ -56,7 +56,10 @@ void main() {
           ),
         ],
       );
-      expect(usage['nbflag']!.map((r) => r.route), ['/members/m1', '/groups/g1']);
+      expect(usage['nbflag']!.map((r) => r.route), [
+        '/members/m1',
+        '/groups/g1',
+      ]);
     });
 
     test('credits a source only once even if it references the tag twice', () {
@@ -93,10 +96,27 @@ void main() {
         ],
       );
       expect(usage['nbflag'], hasLength(2));
-      expect(
-        usage['nbflag']!.map((r) => r.route),
-        ['/chat/c1?messageId=msg1', '/chat/c1?messageId=msg2'],
+      expect(usage['nbflag']!.map((r) => r.route), [
+        '/chat/c1?messageId=msg1',
+        '/chat/c1?messageId=msg2',
+      ]);
+    });
+
+    test('records board post usages', () {
+      final usage = scanTagUsage(
+        tags: {'nbflag'},
+        sources: const [
+          TagUsageSource(
+            text: 'board ![](nbflag)',
+            kind: TagUsageKind.boardPost,
+            label: 'Board post: Hello',
+            route: '/boards/post/bp1',
+          ),
+        ],
       );
+      expect(usage['nbflag'], hasLength(1));
+      expect(usage['nbflag']!.single.kind, TagUsageKind.boardPost);
+      expect(usage['nbflag']!.single.route, '/boards/post/bp1');
     });
 
     test('ignores refs that are not library tags', () {
@@ -161,10 +181,7 @@ void main() {
     });
 
     test('does NOT match a prefix-of-oldTag fragment (e.g. fla)', () {
-      expect(
-        rewriteImageTag('![](fla)', 'flag', 'banner'),
-        '![](fla)',
-      );
+      expect(rewriteImageTag('![](fla)', 'flag', 'banner'), '![](fla)');
     });
 
     test('returns non-matching text unchanged', () {
@@ -178,15 +195,9 @@ void main() {
     });
 
     test('escapes regex metacharacters in oldTag', () {
-      expect(
-        rewriteImageTag('![](a.b+c)', 'a.b+c', 'newtag'),
-        '![](newtag)',
-      );
+      expect(rewriteImageTag('![](a.b+c)', 'a.b+c', 'newtag'), '![](newtag)');
       // The metachar tag must not match a different literal string.
-      expect(
-        rewriteImageTag('![](axbxc)', 'a.b+c', 'newtag'),
-        '![](axbxc)',
-      );
+      expect(rewriteImageTag('![](axbxc)', 'a.b+c', 'newtag'), '![](axbxc)');
     });
   });
 

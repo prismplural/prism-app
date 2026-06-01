@@ -1,7 +1,7 @@
 /// Tag-rename reference rewrite: repoints every `![](oldTag)` /
-/// `![](oldTag#frag)` image ref across the five surfaces that can contain
-/// one — bios, custom-field values, chat messages, notes, and group
-/// descriptions — at a new tag.
+/// `![](oldTag#frag)` image ref across the surfaces that can contain
+/// one — bios, custom-field values, chat messages, notes, group descriptions,
+/// and board posts — at a new tag.
 ///
 /// Extracted from `MediaSettingsScreen._rewriteTagReferences` so the core
 /// fan-out logic is widget-free and integration-testable against real
@@ -22,16 +22,19 @@ library;
 import 'package:flutter/foundation.dart';
 
 import 'package:prism_plurality/core/database/daos/chat_messages_dao.dart';
+import 'package:prism_plurality/core/database/daos/member_board_posts_dao.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
+import 'package:prism_plurality/domain/repositories/member_board_posts_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_groups_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/notes_repository.dart';
+import 'package:prism_plurality/data/mappers/member_board_post_mapper.dart';
 import 'package:prism_plurality/features/settings/utils/tag_usage_scan.dart';
 
 /// Rewrites `![](oldTag…)` image refs to `![](newTag…)` across bios, custom
-/// field values, chat messages, notes, and group descriptions. Returns the
-/// number of records actually updated.
+/// field values, chat messages, notes, group descriptions, and board posts.
+/// Returns the number of records actually updated.
 Future<int> rewriteTagReferencesAcrossSurfaces({
   required MemberRepository memberRepo,
   required NotesRepository notesRepo,
@@ -39,6 +42,8 @@ Future<int> rewriteTagReferencesAcrossSurfaces({
   required CustomFieldsRepository fieldsRepo,
   required ChatMessageRepository chatRepo,
   required ChatMessagesDao chatDao,
+  required MemberBoardPostsRepository boardPostsRepo,
+  required MemberBoardPostsDao boardPostsDao,
   required String oldTag,
   required String newTag,
 }) async {
@@ -116,6 +121,22 @@ Future<int> rewriteTagReferencesAcrossSurfaces({
     }
   } catch (e) {
     debugPrint('[tagRename] groups rewrite failed: $e');
+  }
+
+  // Board posts.
+  try {
+    final posts = await boardPostsDao.imageMarkdownPosts();
+    for (final row in posts) {
+      if (!textReferencesTag(row.body, oldTag)) continue;
+      final rewritten = rewriteImageTag(row.body, oldTag, newTag);
+      if (rewritten == row.body) continue;
+      await boardPostsRepo.updatePost(
+        MemberBoardPostMapper.toDomain(row).copyWith(body: rewritten),
+      );
+      updated++;
+    }
+  } catch (e) {
+    debugPrint('[tagRename] board posts rewrite failed: $e');
   }
 
   return updated;

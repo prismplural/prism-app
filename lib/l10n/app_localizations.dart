@@ -18704,6 +18704,12 @@ abstract class AppLocalizations {
   /// **'Chat'**
   String get mediaUsageKindChat;
 
+  /// Usage-kind label: the image is referenced in a board post
+  ///
+  /// In en, this message translates to:
+  /// **'Board post'**
+  String get mediaUsageKindBoardPost;
+
   /// Usage list label pointing at a member's bio, e.g. "Alex's bio"
   ///
   /// In en, this message translates to:
@@ -18733,6 +18739,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Chat message'**
   String get mediaUsageLabelChatMessage;
+
+  /// Usage list label pointing at a board post with a title or preview
+  ///
+  /// In en, this message translates to:
+  /// **'Board post: {title}'**
+  String mediaUsageLabelBoardPost(String title);
+
+  /// Usage list label for a board post that has no title or preview text
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled board post'**
+  String get mediaUsageLabelBoardPostUntitled;
 
   /// Fallback name used in a custom-field usage label when the referenced member can't be resolved
   ///

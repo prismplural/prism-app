@@ -128,6 +128,22 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
     memberBoardPosts,
   )..where((p) => p.id.equals(id))).getSingleOrNull();
 
+  /// Board posts whose body contains at least one Markdown image token.
+  ///
+  /// Used by Media settings for library-tag usage scans and tag renames.
+  Future<List<MemberBoardPostRow>> imageMarkdownPosts() {
+    final q = select(memberBoardPosts)
+      ..where((p) => p.isDeleted.equals(false) & p.body.like('%![%'));
+    return q.get();
+  }
+
+  /// Watches board posts whose body contains at least one Markdown image token.
+  Stream<List<MemberBoardPostRow>> watchImageMarkdownPosts() {
+    final q = select(memberBoardPosts)
+      ..where((p) => p.isDeleted.equals(false) & p.body.like('%![%'));
+    return q.watch();
+  }
+
   // ---------------------------------------------------------------------------
   // Badge / unread counts
   // ---------------------------------------------------------------------------

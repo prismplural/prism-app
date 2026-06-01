@@ -18,12 +18,12 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
     show speakingAsProvider, SpeakingAsNotifier;
+import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
-import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 
 // ---------------------------------------------------------------------------
 // Fake providers
@@ -95,6 +95,14 @@ class _FakeBoardPostNotifier extends MemberBoardPostNotifier {
     updatedTargetMemberId = targetMemberId;
     updatedBody = body;
   }
+}
+
+class _ProcessingImageNotifier extends BioImageProcessingStateNotifier {
+  @override
+  BioImageProcessingState build() => const BioImageProcessingState(
+    status: BioImageProcessingStatus.processing,
+    totalCount: 1,
+  );
 }
 
 class _FakeRepository implements MemberBoardPostsRepository {
@@ -175,6 +183,7 @@ Widget _buildSubject({
   String? editingPostId,
   MemberBoardPost? repoPost,
   _FakeBoardPostNotifier? notifier,
+  bool imageProcessing = false,
   List<FrontingSession> activeSessions = const [],
   ComposerDefaultMember composerDefaultMember =
       ComposerDefaultMember.latestFronter,
@@ -211,6 +220,10 @@ Widget _buildSubject({
         memberByIdProvider(m.id).overrideWith((ref) => Stream.value(m)),
       memberBoardPostsRepositoryProvider.overrideWithValue(fakeRepo),
       memberBoardPostNotifierProvider.overrideWith(() => fakeNotifier),
+      if (imageProcessing)
+        bioImageProcessingStateProvider.overrideWith(
+          _ProcessingImageNotifier.new,
+        ),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -281,12 +294,19 @@ void main() {
       expect(find.text('Private'), findsOneWidget);
     });
 
+    testWidgets('toolbar exposes image insert menu', (tester) async {
+      await tester.pumpWidget(_buildSubject(members: [_alice]));
+      await _openSheet(tester);
+
+      expect(find.byTooltip('Add image'), findsOneWidget);
+    });
+
     testWidgets('top bar has close and save buttons', (tester) async {
       await tester.pumpWidget(_buildSubject(members: [_alice]));
       await _openSheet(tester);
 
-      // PrismSheetTopBar renders two PrismGlassIconButtons: close + save.
-      expect(find.byType(PrismGlassIconButton), findsNWidgets(2));
+      expect(find.byTooltip('Close'), findsOneWidget);
+      expect(find.byTooltip('Post'), findsOneWidget);
     });
 
     testWidgets('save becomes enabled after typing body text', (tester) async {
@@ -297,8 +317,31 @@ void main() {
       await tester.pump();
 
       expect(find.text('Hello headmates!'), findsOneWidget);
-      // Two icon buttons present (close + enabled save).
-      expect(find.byType(PrismGlassIconButton), findsNWidgets(2));
+      expect(find.byTooltip('Post'), findsOneWidget);
+    });
+
+    testWidgets('save stays disabled while an image is processing', (
+      tester,
+    ) async {
+      final notifier = _FakeBoardPostNotifier();
+      await tester.pumpWidget(
+        _buildSubject(
+          members: [_alice],
+          speakingAs: 'alice',
+          imageProcessing: true,
+          notifier: notifier,
+        ),
+      );
+      await _openSheet(tester);
+
+      await tester.enterText(find.byType(TextField).last, 'Hello headmates!');
+      await tester.pump();
+
+      await tester.tap(find.byTooltip('Post'));
+      await tester.pumpAndSettle();
+
+      expect(notifier.createdBody, isNull);
+      expect(find.text('New post'), findsOneWidget);
     });
 
     testWidgets('whitespace-only body does not enable save', (tester) async {
@@ -310,36 +353,31 @@ void main() {
 
       // Post button is rendered (verify no crash; enabled-state verified
       // via notifier not being called on tap).
-      expect(find.byType(PrismGlassIconButton), findsNWidgets(2));
+      expect(find.byTooltip('Post'), findsOneWidget);
     });
 
-    testWidgets(
-      'ask-each-time: multiple co-fronters open the author picker',
-      (tester) async {
-        await tester.pumpWidget(
-          _buildSubject(
-            members: [_alice, _bob],
-            composerDefaultMember: ComposerDefaultMember.askEachTime,
-            activeSessions: [
-              FrontingSession(
-                id: 'front-alice',
-                memberId: 'alice',
-                startTime: _now,
-              ),
-              FrontingSession(
-                id: 'front-bob',
-                memberId: 'bob',
-                startTime: _now,
-              ),
-            ],
-          ),
-        );
-        await _openSheet(tester);
+    testWidgets('ask-each-time: multiple co-fronters open the author picker', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildSubject(
+          members: [_alice, _bob],
+          composerDefaultMember: ComposerDefaultMember.askEachTime,
+          activeSessions: [
+            FrontingSession(
+              id: 'front-alice',
+              memberId: 'alice',
+              startTime: _now,
+            ),
+            FrontingSession(id: 'front-bob', memberId: 'bob', startTime: _now),
+          ],
+        ),
+      );
+      await _openSheet(tester);
 
-        expect(find.byType(MemberSearchSheet), findsOneWidget);
-        expect(find.text('Who is posting?'), findsOneWidget);
-      },
-    );
+      expect(find.byType(MemberSearchSheet), findsOneWidget);
+      expect(find.text('Who is posting?'), findsOneWidget);
+    });
 
     testWidgets(
       'latest-fronter (default): multiple co-fronters do not force a picker',
@@ -374,8 +412,7 @@ void main() {
       await tester.pumpWidget(_buildSubject(members: [_alice]));
       await _openSheet(tester);
 
-      // Tap the leading close button in PrismSheetTopBar.
-      await tester.tap(find.byType(PrismGlassIconButton).first);
+      await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
 
       expect(find.text('Write something...'), findsNothing);
@@ -414,8 +451,7 @@ void main() {
       );
       await _openSheet(tester);
 
-      // Tap the trailing save (check) button.
-      await tester.tap(find.byType(PrismGlassIconButton).last);
+      await tester.tap(find.byTooltip('Post'));
       await tester.pumpAndSettle();
 
       expect(notifier.createdAudience, 'private');
@@ -499,7 +535,7 @@ void main() {
       await tester.enterText(find.byType(TextField).last, 'Updated body');
       await tester.pump();
 
-      await tester.tap(find.byType(PrismGlassIconButton).last);
+      await tester.tap(find.byTooltip('Post'));
       await tester.pumpAndSettle();
 
       expect(notifier.updatedId, 'edit-3');
@@ -538,8 +574,7 @@ void main() {
       await tester.tap(find.text('Private'));
       await tester.pump();
 
-      // Save via the trailing check button.
-      await tester.tap(find.byType(PrismGlassIconButton).last);
+      await tester.tap(find.byTooltip('Post'));
       await tester.pumpAndSettle();
 
       expect(notifier.updatedAudience, 'private');

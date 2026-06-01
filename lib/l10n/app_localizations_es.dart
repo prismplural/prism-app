@@ -11839,6 +11839,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get mediaUsageKindChat => 'Chat';
 
   @override
+  String get mediaUsageKindBoardPost => 'Board post';
+
+  @override
   String mediaUsageLabelBio(String name) {
     return '$name\'s bio';
   }
@@ -11858,6 +11861,14 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get mediaUsageLabelChatMessage => 'Chat message';
+
+  @override
+  String mediaUsageLabelBoardPost(String title) {
+    return 'Board post: $title';
+  }
+
+  @override
+  String get mediaUsageLabelBoardPostUntitled => 'Untitled board post';
 
   @override
   String get mediaUsageLabelUnknownMember => 'a member';

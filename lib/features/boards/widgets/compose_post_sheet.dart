@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
@@ -10,7 +11,9 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
     show speakingAsProvider;
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -27,6 +30,7 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 /// Sheet for composing a new board post or editing an existing one.
 ///
@@ -99,6 +103,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
   late final TextEditingController _titleController;
   late final MarkdownEditingController _bodyController;
   late final FocusNode _bodyFocusNode;
+  final String _editSessionId = const Uuid().v4();
 
   String _audience = 'public';
   String? _targetMemberId;
@@ -203,6 +208,19 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
     setState(() => _isSaving = true);
 
     try {
+      var failedTags = const <String>[];
+      try {
+        failedTags = await ref
+            .read(bioImageProcessorProvider(_editSessionId))
+            .commitStaged();
+      } catch (_) {}
+      if (mounted && failedTags.isNotEmpty) {
+        PrismToast.error(
+          context,
+          message: context.l10n.mediaSomeImagesNotSaved,
+        );
+      }
+
       final notifier = ref.read(memberBoardPostNotifierProvider.notifier);
       final speakingAsId = ref.read(speakingAsProvider);
       MemberBoardPost? result;
@@ -416,12 +434,20 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
     _bodyController.updateTheme(context);
     // In edit mode the author is already set; only new posts require a selection.
     final speakingAs = ref.watch(speakingAsProvider);
-    final canPost = _canSave && (isEditing || speakingAs != null);
+    final isImageProcessing =
+        ref.watch(bioImageProcessingStateProvider).status ==
+        BioImageProcessingStatus.processing;
+    final canPost =
+        _canSave && !isImageProcessing && (isEditing || speakingAs != null);
 
     final targetMember = _targetMemberId != null
         ? ref.watch(activeMemberByIdProvider(_targetMemberId!)).value
         : null;
     final mutedColor = theme.colorScheme.onSurfaceVariant;
+
+    try {
+      ref.watch(bioImageProcessorProvider(_editSessionId));
+    } catch (_) {}
 
     return ListenableBuilder(
       listenable: Listenable.merge([_titleController, _bodyController]),
@@ -554,6 +580,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
             ),
             _BottomToolbar(
               bodyController: _bodyController,
+              editSessionId: _editSessionId,
               memberId: _targetMemberId,
               audience: _audience,
               isEditing: isEditing,
@@ -574,6 +601,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
 class _BottomToolbar extends ConsumerWidget {
   const _BottomToolbar({
     required this.bodyController,
+    required this.editSessionId,
     required this.memberId,
     required this.audience,
     required this.isEditing,
@@ -582,6 +610,7 @@ class _BottomToolbar extends ConsumerWidget {
   });
 
   final TextEditingController bodyController;
+  final String editSessionId;
   final String? memberId;
   final String audience;
   final bool isEditing;
@@ -618,6 +647,11 @@ class _BottomToolbar extends ConsumerWidget {
       child: Row(
         children: [
           MarkdownTableButton(controller: bodyController),
+          const SizedBox(width: 4),
+          MarkdownImageButton(
+            controller: bodyController,
+            sessionId: editSessionId,
+          ),
           const SizedBox(width: 4),
           // Author avatar — tap to change who is posting.
           if (!isEditing) ...[

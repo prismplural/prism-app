@@ -4,13 +4,14 @@
 ///
 /// Kept widget-free and dependency-free so it can be unit-tested directly.
 /// Runs on the calling isolate — the scan is O(total referencing text) and the
-/// inputs are bounded (bios/notes/groups/custom fields, plus chat messages
-/// pre-filtered to those containing `![`), so it's cheap enough to run inline.
+/// inputs are bounded (bios/notes/groups/custom fields/board posts, plus chat
+/// messages pre-filtered to those containing `![`), so it's cheap enough to run
+/// inline.
 library;
 
 /// What kind of surface references a tag (drives the icon + grouping in the
 /// usage view).
-enum TagUsageKind { bio, note, group, customField, chat }
+enum TagUsageKind { bio, note, group, customField, chat, boardPost }
 
 /// A text blob to scan, tagged with the label + navigation target to record if
 /// it references a library tag.
@@ -61,9 +62,8 @@ Iterable<String> imageRefsIn(String text) sync* {
 /// image refs for a specific [oldTag]. The trailing `(#[^)]*)?\)` requires
 /// oldTag to be immediately followed by `#` or `)`, so a longer tag that merely
 /// has oldTag as a prefix (e.g. `flagpole` for oldTag `flag`) does NOT match.
-RegExp _renamePattern(String oldTag) => RegExp(
-      r'!\[([^\]]*)\]\(' + RegExp.escape(oldTag) + r'(#[^)]*)?\)',
-    );
+RegExp _renamePattern(String oldTag) =>
+    RegExp(r'!\[([^\]]*)\]\(' + RegExp.escape(oldTag) + r'(#[^)]*)?\)');
 
 /// Whether [text] contains at least one `![…](oldTag)` / `![…](oldTag#frag)`
 /// image ref. Cheap guard so callers can skip a write when nothing changes.
@@ -102,11 +102,9 @@ Map<String, List<TagUsageRef>> scanTagUsage({
     final creditedHere = <String>{};
     for (final ref in imageRefsIn(src.text)) {
       if (tags.contains(ref) && creditedHere.add(ref)) {
-        usage[ref]!.add(TagUsageRef(
-          kind: src.kind,
-          label: src.label,
-          route: src.route,
-        ));
+        usage[ref]!.add(
+          TagUsageRef(kind: src.kind, label: src.label, route: src.route),
+        );
       }
     }
   }
