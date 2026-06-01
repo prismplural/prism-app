@@ -1,42 +1,92 @@
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 import 'package:platform_image_converter/platform_image_converter.dart';
 
 const int _maxDimension = 4096;
 const int _quality = 92;
 
-/// Re-encodes picker output through the platform's native image decoder
-/// (CGImageSource on iOS) before it reaches Flutter's in-process decoder.
+/// Re-encodes picker output into bytes the cropper can decode reliably.
 ///
-/// Why: `image_picker_ios` calls `UIImageJPEGRepresentation(image, 1.0)` on
-/// the way out, which produces 30–50 MB JPEGs for modern iPhone originals
-/// (24–48 MP, wide-gamut Display-P3). Those bytes can choke `Image.memory`
-/// inside the cropper — the image stream listener never fires, the crop
-/// screen renders blank, and the user sees "Could not process that image"
-/// on Done.
-///
-/// Returns the original bytes unchanged on non-iOS platforms or when the
-/// platform converter throws — the cropper still gets a chance to handle
-/// them. Returns null only for empty input, which is a separate failure
-/// mode (`UIImage initWithData:` returning nil → empty .jpg) that the
-/// caller should surface as an error.
+/// iOS uses ImageIO for large/wide-gamut picker output. Windows/Linux use the
+/// Dart decoder to canonicalize PNGs before they reach Flutter's image codec.
 Future<Uint8List?> normalizePickedImageBytes(
   Uint8List sourceBytes, {
   TargetPlatform? platform,
 }) async {
   if (sourceBytes.isEmpty) return null;
   final resolvedPlatform = platform ?? defaultTargetPlatform;
-  if (resolvedPlatform != TargetPlatform.iOS) return sourceBytes;
-  try {
-    return await ImageConverter.convert(
-      inputData: sourceBytes,
-      format: OutputFormat.jpeg,
-      quality: _quality,
-      resizeMode: const FitResizeMode(
-        width: _maxDimension,
-        height: _maxDimension,
-      ),
-    );
-  } catch (_) {
-    return sourceBytes;
+  if (_usesNativeConverter(resolvedPlatform)) {
+    try {
+      return await ImageConverter.convert(
+        inputData: sourceBytes,
+        format: OutputFormat.jpeg,
+        quality: _quality,
+        resizeMode: const FitResizeMode(
+          width: _maxDimension,
+          height: _maxDimension,
+        ),
+      );
+    } catch (_) {
+      return sourceBytes;
+    }
   }
+  if (_usesDartConverter(resolvedPlatform)) {
+    return compute(_normalizePickedImageBytesWithDart, sourceBytes);
+  }
+  return sourceBytes;
+}
+
+bool _usesNativeConverter(TargetPlatform platform) {
+  return switch (platform) {
+    TargetPlatform.iOS => true,
+    TargetPlatform.android ||
+    TargetPlatform.fuchsia ||
+    TargetPlatform.linux ||
+    TargetPlatform.macOS ||
+    TargetPlatform.windows => false,
+  };
+}
+
+bool _usesDartConverter(TargetPlatform platform) {
+  return switch (platform) {
+    TargetPlatform.linux || TargetPlatform.windows => true,
+    TargetPlatform.android ||
+    TargetPlatform.fuchsia ||
+    TargetPlatform.iOS ||
+    TargetPlatform.macOS => false,
+  };
+}
+
+Uint8List? _normalizePickedImageBytesWithDart(Uint8List sourceBytes) {
+  try {
+    final decoded = img.decodeImage(sourceBytes);
+    if (decoded == null || decoded.width <= 0 || decoded.height <= 0) {
+      return null;
+    }
+    final firstFrame = decoded
+        .getFrame(0)
+        .convert(format: img.Format.uint8, numChannels: 4);
+    final prepared = _resizeForCropper(firstFrame);
+    return Uint8List.fromList(img.encodePng(prepared));
+  } catch (_) {
+    return null;
+  }
+}
+
+img.Image _resizeForCropper(img.Image source) {
+  if (source.width <= _maxDimension && source.height <= _maxDimension) {
+    return source;
+  }
+  if (source.width >= source.height) {
+    return img.copyResize(
+      source,
+      width: _maxDimension,
+      interpolation: img.Interpolation.average,
+    );
+  }
+  return img.copyResize(
+    source,
+    height: _maxDimension,
+    interpolation: img.Interpolation.average,
+  );
 }

@@ -239,7 +239,9 @@ void main() {
         ),
       );
 
-      final pickedBytes = Uint8List.fromList([7, 8, 9]);
+      final pickedSource = img.Image(width: 40, height: 40);
+      img.fill(pickedSource, color: img.ColorRgb8(7, 8, 9));
+      final pickedBytes = Uint8List.fromList(img.encodePng(pickedSource));
       final fileDialogService = _FakeFileDialogService(
         pickedImage: PickedFileHandle(
           name: 'header.png',
@@ -261,32 +263,38 @@ void main() {
             })
           >[];
 
-      final bytes = await ProfileHeaderImagePicker.pickCroppedHeaderBytes(
-        capturedContext,
-        platform: TargetPlatform.windows,
-        fileDialogService: fileDialogService,
-        cropImage:
-            (
-              sourceBytes,
-              context, {
-              required title,
-              required doneButtonTitle,
-              required cancelButtonTitle,
-            }) async {
-              cropCalls.add((
-                sourceBytes: sourceBytes,
-                title: title,
-                doneButtonTitle: doneButtonTitle,
-                cancelButtonTitle: cancelButtonTitle,
-              ));
-              return croppedBytes;
-            },
-        normalizeImage: (value) async => value,
+      final bytes = await tester.runAsync(
+        () => ProfileHeaderImagePicker.pickCroppedHeaderBytes(
+          capturedContext,
+          platform: TargetPlatform.windows,
+          fileDialogService: fileDialogService,
+          cropImage:
+              (
+                sourceBytes,
+                context, {
+                required title,
+                required doneButtonTitle,
+                required cancelButtonTitle,
+              }) async {
+                cropCalls.add((
+                  sourceBytes: sourceBytes,
+                  title: title,
+                  doneButtonTitle: doneButtonTitle,
+                  cancelButtonTitle: cancelButtonTitle,
+                ));
+                return croppedBytes;
+              },
+          normalizeImage: (value) async => value,
+        ),
       );
 
       expect(bytes, croppedBytes);
       expect(cropCalls, hasLength(1));
-      expect(cropCalls.single.sourceBytes, pickedBytes);
+      expect(identical(cropCalls.single.sourceBytes, pickedBytes), isFalse);
+      final normalized = img.decodePng(cropCalls.single.sourceBytes);
+      expect(normalized, isNotNull);
+      expect(normalized!.width, 40);
+      expect(normalized.height, 40);
       expect(fileDialogService.pickImageFileCalls, 1);
     },
   );
