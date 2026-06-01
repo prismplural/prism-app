@@ -69,7 +69,7 @@ A polish release building on the 0.10.0 custom-fields rewrite: multi-color slide
 
 ### Internal
 - prism-sync pin moves from v0.10.0 (`c950e03`) to v0.10.1 for the reshaped snapshot-bootstrap event consumed by the restore-progress indicator.
-- Fastlane: `:internal` lanes renamed to `:beta` and reconfigured to distribute straight to the closed external beta channel (TestFlight external testers, Play Store beta track); beta lanes read the shipping note from the release-notes file's `store_note` frontmatter (validated ≤500 chars before building); iOS/macOS Info.plist declare `ITSAppUsesNonExemptEncryption = true` for the hybrid post-quantum (ML-KEM / FIPS 203) crypto; new macOS Developer-ID sideload DMG lane (signed, hardened-runtime, notarized, stapled, gatekeeper-asserted).
+- Fastlane: `:internal` lanes renamed to `:beta` and reconfigured to distribute straight to the closed external beta channel (TestFlight external testers, Play Store beta track); beta lanes read the shipping note from the release-notes file's `store_note` frontmatter (validated ≤500 chars before building); iOS/macOS Info.plist declare `ITSAppUsesNonExemptEncryption = false` to match the App Store Connect export compliance declaration; new macOS Developer-ID sideload DMG lane (signed, hardened-runtime, notarized, stapled, gatekeeper-asserted).
 - CI stages matching prism-sync crates on Windows.
 - Added forward-compat regression tests for the new TextConfig / ColorConfig / DateConfig / LongTextConfig variants and a `SliderEditState` pure-Dart state model.
 
