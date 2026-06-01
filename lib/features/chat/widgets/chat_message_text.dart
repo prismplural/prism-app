@@ -307,6 +307,8 @@ int? _emojiGraphemeCount(String content) {
 }
 
 bool _isEmojiCluster(String cluster) {
+  if (cluster.contains('\uFE0E')) return false;
+
   if (_keycapEmojiRegex.hasMatch(cluster) ||
       _flagEmojiRegex.hasMatch(cluster)) {
     return true;

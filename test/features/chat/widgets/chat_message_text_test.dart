@@ -396,6 +396,15 @@ void main() {
 
       expect(_renderedFontSize(tester, content), _kBaseStyle.fontSize);
     });
+
+    testWidgets('17. text-presentation symbol stays normal chat size', (
+      tester,
+    ) async {
+      const content = '\u231B\uFE0E';
+      await tester.pumpWidget(_widget(content: content));
+
+      expect(_renderedFontSize(tester, content), _kBaseStyle.fontSize);
+    });
   });
 
   group('emojiStickerFontSize', () {
@@ -420,6 +429,7 @@ void main() {
       expect(emojiStickerFontSize('hey 🥴', _kBaseStyle), isNull);
       expect(emojiStickerFontSize('🥴!', _kBaseStyle), isNull);
       expect(emojiStickerFontSize('||🥴||', _kBaseStyle), isNull);
+      expect(emojiStickerFontSize('\u231B\uFE0E', _kBaseStyle), isNull);
       expect(emojiStickerFontSize('✨✨✨✨✨✨✨', _kBaseStyle), isNull);
     });
 

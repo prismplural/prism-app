@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -61,6 +62,32 @@ void main() {
       expect(stripped.textTheme.displaySmall?.fontFamily, isNull);
       expect(stripped.textTheme.headlineLarge?.fontFamily, isNull);
       expect(stripped.textTheme.headlineLarge?.letterSpacing, 0);
+    });
+
+    test('text themes include symbol fallbacks for text-presentation glyphs', () {
+      final theme = AppTheme.light();
+      final fallback = theme.textTheme.bodyMedium?.fontFamilyFallback;
+
+      expect(fallback, isNotNull);
+      expect(fallback, contains('Noto Sans Symbols'));
+    });
+
+    test('Linux keeps color emoji fallback after text symbol fonts', () {
+      final previousPlatform = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = previousPlatform;
+      });
+
+      final fallback = AppTheme.light().textTheme.bodyMedium?.fontFamilyFallback;
+
+      expect(fallback, isNotNull);
+      expect(fallback, contains('Noto Sans Symbols'));
+      expect(fallback, contains('NotoColorEmoji'));
+      expect(
+        fallback!.indexOf('Noto Sans Symbols'),
+        lessThan(fallback.indexOf('NotoColorEmoji')),
+      );
     });
   });
 

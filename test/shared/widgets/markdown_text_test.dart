@@ -26,6 +26,23 @@ void main() {
     expect(_plainTextWidgets(tester), contains('▹ first line\n▹ second line'));
   });
 
+  testWidgets('numeric HTML entities preserve text presentation selectors', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(
+          body: MarkdownText(data: '&#x231b;&#xFE0E;'),
+        ),
+      ),
+    );
+
+    final text = _plainTextWidgets(tester).join('\n');
+    expect(text, contains('\u231B\uFE0E'));
+    expect(text, isNot(contains('&#x231b;')));
+  });
+
   testWidgets('indented markdown does not become an implicit code block', (
     tester,
   ) async {

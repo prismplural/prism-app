@@ -72,13 +72,17 @@ class AppTheme {
   // Flutter on iOS/macOS already defaults to SF Pro.
   // On Android it defaults to Roboto. No override needed.
   //
-  // Linux has no single default — Flutter engine's built-in chain is
-  // "Ubuntu", "Cantarell", "DejaVu Sans", "Liberation Sans", "Arial" (see
-  // engine PR #16928). We mirror that chain explicitly, prepend "Adwaita
-  // Sans" (GNOME 48+ default, March 2025), and append our bundled
-  // NotoColorEmoji (registered via FontLoader in main.dart) for color
-  // emoji — the system default on Linux distros is monochrome NotoEmoji,
-  // if present at all.
+  // Keep text-symbol fonts ahead of color emoji so VS15 can select text glyphs.
+  static const List<String> _textPresentationSymbolFallback = [
+    'Apple Symbols',
+    'Segoe UI Symbol',
+    'Noto Sans Symbols',
+    'Noto Sans Symbols 2',
+    'Symbola',
+  ];
+
+  // Linux has no single default. Mirror Flutter's chain, then add symbol and
+  // bundled color emoji fallbacks.
   //
   // Applied via TextTheme.apply(fontFamilyFallback:), so:
   //   - null-fontFamily styles (body/label/title) use Adwaita Sans as the
@@ -86,7 +90,7 @@ class AppTheme {
   //   - Unbounded styles (display/headline) keep Unbounded as primary and
   //     only consult this list for codepoints Unbounded lacks (mainly
   //     emoji).
-  static List<String>? get _linuxFontFamilyFallback {
+  static List<String> get _fontFamilyFallback {
     if (defaultTargetPlatform == TargetPlatform.linux) {
       return const [
         'Adwaita Sans',
@@ -95,10 +99,11 @@ class AppTheme {
         'DejaVu Sans',
         'Liberation Sans',
         'Arial',
+        ..._textPresentationSymbolFallback,
         'NotoColorEmoji',
       ];
     }
-    return null;
+    return _textPresentationSymbolFallback;
   }
 
   static bool get _isDesktopPlatform {
@@ -607,7 +612,7 @@ class AppTheme {
       highlightColor: isApple ? Colors.transparent : null,
       textTheme: _adjustTextTheme(
         base.textTheme,
-      ).apply(fontFamilyFallback: _linuxFontFamilyFallback),
+      ).apply(fontFamilyFallback: _fontFamilyFallback),
       scaffoldBackgroundColor: colors.scaffold,
       cardColor: colors.cardColor,
       extensions: <ThemeExtension<dynamic>>[shapes, flavor],
