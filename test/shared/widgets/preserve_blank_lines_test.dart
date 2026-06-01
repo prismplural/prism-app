@@ -95,6 +95,10 @@ void main() {
       expect(preserveBlankLines('A\nB\nC'), 'A\nB\nC');
     });
 
+    test('blank line after blockquote remains a real terminator', () {
+      expect(preserveBlankLines('> warning\n\nnormal'), '> warning\n\nnormal');
+    });
+
     test('CRLF blank lines are treated as blank', () {
       expect(preserveBlankLines('A\r\n\r\n\r\nB'), 'A\r\n$nbsp\n$nbsp\nB');
     });

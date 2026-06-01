@@ -367,6 +367,7 @@ String preserveBlankLines(String input) {
   final lines = input.split('\n');
   final out = <String>[];
   String? fenceMarker;
+  var paragraphHasBlockquote = false;
 
   var i = 0;
   while (i < lines.length) {
@@ -402,14 +403,23 @@ String preserveBlankLines(String input) {
         count++;
         j++;
       }
-      for (var k = 0; k < count; k++) {
+
+      var spacerStart = 0;
+      if (paragraphHasBlockquote) {
+        out.add(line);
+        spacerStart = 1;
+      }
+      for (var k = spacerStart; k < count; k++) {
         out.add(_nbsp);
       }
+      paragraphHasBlockquote = false;
       i = j;
       continue;
     }
 
     out.add(line);
+    paragraphHasBlockquote =
+        paragraphHasBlockquote || _blockquoteMarker.hasMatch(line);
     i++;
   }
 
@@ -432,7 +442,7 @@ const _nbsp = '\u00A0';
 final _blankLinePattern = RegExp(r'^[ \t\r]*$');
 final _fenceOpenPattern = RegExp(r'^ {0,3}(`{3,}|~{3,})');
 
-final _blockquoteMarker = RegExp(r'^(?:>{1,3})(?:[ \t]|$)');
+final _blockquoteMarker = RegExp(r'^[ \t]{0,3}>{1,3}(?:[ \t]|$)');
 final _headingMarker = RegExp(r'^#{1,6}(?:[ \t]|$)');
 final _listMarker = RegExp(r'^(?:[*+-]|\d{1,9}[.)])(?:[ \t]|$)');
 final _subtextMarker = RegExp(r'^-#[ \t]');
