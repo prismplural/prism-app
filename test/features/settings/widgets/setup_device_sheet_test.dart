@@ -1,8 +1,9 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -118,9 +119,8 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
 /// Fake [SyncHealthNotifier] that returns a configurable [VerifyMnemonicPinResult].
 /// Defaults to [VerifyMnemonicPinMatch] so flow-through tests advance automatically.
 class _FakeSyncHealthNotifier extends SyncHealthNotifier {
-  _FakeSyncHealthNotifier({
-    VerifyMnemonicPinResult Function()? verifyResult,
-  }) : _verifyResultFn = verifyResult ?? (() => const VerifyMnemonicPinMatch());
+  _FakeSyncHealthNotifier({VerifyMnemonicPinResult Function()? verifyResult})
+    : _verifyResultFn = verifyResult ?? (() => const VerifyMnemonicPinMatch());
 
   final VerifyMnemonicPinResult Function() _verifyResultFn;
 
@@ -1002,7 +1002,8 @@ void main() {
   );
 
   /// Helper to pump a sheet to the pinPreflight step without advancing further.
-  Future<void> pumpToPreflightPin(WidgetTester tester, {
+  Future<void> pumpToPreflightPin(
+    WidgetTester tester, {
     required List<dynamic> syncHealthOverrides,
   }) async {
     PrismToast.resetForTest();
@@ -1125,38 +1126,34 @@ void main() {
 
       // Should still be on pinPreflight — error text visible
       expect(find.text('Enter your PIN'), findsOneWidget);
-      expect(
-        find.textContaining("don't unlock this device"),
-        findsOneWidget,
-      );
+      expect(find.textContaining("don't unlock this device"), findsOneWidget);
     },
   );
 
-  testWidgets(
-    'pinPreflight NeedsRewrap → pops sheet and shows rewrap toast',
-    (tester) async {
-      await pumpToPreflightPin(
-        tester,
-        syncHealthOverrides: [
-          syncHealthProvider.overrideWith(
-            () => _FakeSyncHealthNotifier(
-              verifyResult: () => const VerifyMnemonicPinNeedsRewrap(),
-            ),
+  testWidgets('pinPreflight NeedsRewrap → pops sheet and shows rewrap toast', (
+    tester,
+  ) async {
+    await pumpToPreflightPin(
+      tester,
+      syncHealthOverrides: [
+        syncHealthProvider.overrideWith(
+          () => _FakeSyncHealthNotifier(
+            verifyResult: () => const VerifyMnemonicPinNeedsRewrap(),
           ),
-        ],
-      );
+        ),
+      ],
+    );
 
-      await enterPinDigits(tester);
+    await enterPinDigits(tester);
 
-      // Sheet should have been popped; rewrap toast shown
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(find.text('Enter your PIN'), findsNothing);
-      expect(find.textContaining('restore your pairing key'), findsOneWidget);
+    // Sheet should have been popped; rewrap toast shown
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Enter your PIN'), findsNothing);
+    expect(find.textContaining('restore your pairing key'), findsOneWidget);
 
-      PrismToast.dismiss();
-    },
-  );
+    PrismToast.dismiss();
+  });
 
   testWidgets(
     'pinPreflight HandleUnavailable → pops sheet and shows unavailable toast',
@@ -1177,10 +1174,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
       expect(find.text('Enter your PIN'), findsNothing);
-      expect(
-        find.textContaining("isn't ready yet"),
-        findsOneWidget,
-      );
+      expect(find.textContaining("isn't ready yet"), findsOneWidget);
 
       PrismToast.dismiss();
     },
@@ -1197,7 +1191,8 @@ void main() {
         syncHealthOverrides: [
           syncHealthProvider.overrideWith(
             () => _FakeSyncHealthNotifier(
-              verifyResult: () => const VerifyMnemonicPinError(message: 'Sync engine error'),
+              verifyResult: () =>
+                  const VerifyMnemonicPinError(message: 'Sync engine error'),
             ),
           ),
         ],
@@ -1210,10 +1205,7 @@ void main() {
       // Must stay on PIN step (no navigation to prompt or error screen)
       expect(find.text('Enter your PIN'), findsOneWidget);
       // Toast with transient-error message must appear
-      expect(
-        find.textContaining("Couldn't verify"),
-        findsOneWidget,
-      );
+      expect(find.textContaining("Couldn't verify"), findsOneWidget);
 
       PrismToast.dismiss();
     },
@@ -1311,8 +1303,11 @@ void main() {
               e is StatefulElement && e.state is SetupDeviceSheetContentState,
         ),
       );
-      expect(sheetState.validatedPinIsNull, isFalse,
-          reason: '_validatedPin should be non-null at SAS step');
+      expect(
+        sheetState.validatedPinIsNull,
+        isFalse,
+        reason: '_validatedPin should be non-null at SAS step',
+      );
 
       // Confirm SAS — _completeInitiator is called with _validatedPin.
       // The fix: consumeBytesAndClear() runs synchronously on the same
@@ -1329,8 +1324,11 @@ void main() {
       await tester.pump();
 
       // _validatedPin must be null — cleared by the lifecycle hook.
-      expect(sheetState.validatedPinIsNull, isTrue,
-          reason: 'lifecycle pause must have cleared _validatedPin');
+      expect(
+        sheetState.validatedPinIsNull,
+        isTrue,
+        reason: 'lifecycle pause must have cleared _validatedPin',
+      );
 
       // Let the flow complete (uploadPairingSnapshot fails in test env,
       // which drives the error path — that's expected and harmless here).
@@ -1429,160 +1427,165 @@ void main() {
   // TODO: Add a test that drives _step = sasVerification with
   // _validatedPin == null and asserts the passwordEntry fallback view appears.
 
-  testWidgets(
-    'dispose during pinPreflight does NOT cancel ceremony',
-    (tester) async {
-      var cancelCalls = 0;
-      const fakeHandle = _FakePrismSyncHandle();
-      final fakeApi = _FakePairingCeremonyApi(
-        cancelPairingCeremonyHandler: ({required handle}) async {
-          cancelCalls++;
-        },
-      );
+  testWidgets('dispose during pinPreflight does NOT cancel ceremony', (
+    tester,
+  ) async {
+    var cancelCalls = 0;
+    const fakeHandle = _FakePrismSyncHandle();
+    final fakeApi = _FakePairingCeremonyApi(
+      cancelPairingCeremonyHandler: ({required handle}) async {
+        cancelCalls++;
+      },
+    );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            pairingCeremonyApiProvider.overrideWith((ref) => fakeApi),
-            prismSyncHandleProvider.overrideWithBuild(
-              (ref, notifier) => fakeHandle,
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          pairingCeremonyApiProvider.overrideWith((ref) => fakeApi),
+          prismSyncHandleProvider.overrideWithBuild(
+            (ref, notifier) => fakeHandle,
+          ),
+          syncHealthProvider.overrideWith(
+            () => _FakeSyncHealthNotifier(
+              verifyResult: () =>
+                  const VerifyMnemonicPinNoMatch(), // stays on preflight
             ),
-            syncHealthProvider.overrideWith(() => _FakeSyncHealthNotifier(
-              verifyResult: () => const VerifyMnemonicPinNoMatch(), // stays on preflight
-            )),
-            relayUrlProvider.overrideWithValue(
-              const AsyncValue<String?>.data('https://relay.example.com'),
-            ),
-            syncDeviceIdProvider.overrideWithValue(
-              const AsyncValue<String?>.data('device-123'),
-            ),
-            syncDeviceSecretPresentProvider.overrideWithValue(
-              const AsyncValue<bool>.data(true),
-            ),
-            syncWrappedDekPresentProvider.overrideWithValue(
-              const AsyncValue<bool>.data(true),
-            ),
-          ],
-          child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: Builder(
-              builder: (context) => Consumer(
-                builder: (context, ref, _) => Scaffold(
-                  body: Center(
-                    child: ElevatedButton(
-                      onPressed: () => SetupDeviceSheet.show(context, ref),
-                      child: const Text('Open'),
-                    ),
+          ),
+          relayUrlProvider.overrideWithValue(
+            const AsyncValue<String?>.data('https://relay.example.com'),
+          ),
+          syncDeviceIdProvider.overrideWithValue(
+            const AsyncValue<String?>.data('device-123'),
+          ),
+          syncDeviceSecretPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
+          syncWrappedDekPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Consumer(
+              builder: (context, ref, _) => Scaffold(
+                body: Center(
+                  child: ElevatedButton(
+                    onPressed: () => SetupDeviceSheet.show(context, ref),
+                    child: const Text('Open'),
                   ),
                 ),
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
 
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
 
-      // Navigate to pinPreflight (enter mnemonic + submit)
-      const phrase =
-          'abandon abandon abandon abandon abandon abandon '
-          'abandon abandon abandon abandon abandon about';
-      final words = phrase.split(' ');
-      for (var i = 0; i < 12; i++) {
-        await tester.enterText(find.byType(TextField).at(i), words[i]);
-        await tester.pump();
-      }
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
-
-      // We are on pinPreflight. Dispose by pumping a new empty widget.
-      await tester.pumpWidget(const SizedBox());
+    // Navigate to pinPreflight (enter mnemonic + submit)
+    const phrase =
+        'abandon abandon abandon abandon abandon abandon '
+        'abandon abandon abandon abandon abandon about';
+    final words = phrase.split(' ');
+    for (var i = 0; i < 12; i++) {
+      await tester.enterText(find.byType(TextField).at(i), words[i]);
       await tester.pump();
+    }
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
 
-      // pinPreflight is in _shouldCancelActiveCeremony false branch —
-      // no cancel should be triggered.
-      expect(cancelCalls, 0);
-    },
-  );
+    // We are on pinPreflight. Dispose by pumping a new empty widget.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
 
-  testWidgets(
-    'app lifecycle pause clears _validatedPin',
-    (tester) async {
-      // Advance to the prompt step (where _validatedPin is held)
-      const fakeHandle = _FakePrismSyncHandle();
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            pairingCeremonyApiProvider.overrideWith(
-              (ref) => _FakePairingCeremonyApi(),
-            ),
-            prismSyncHandleProvider.overrideWithBuild(
-              (ref, notifier) => fakeHandle,
-            ),
-            syncHealthProvider.overrideWith(() => _FakeSyncHealthNotifier(
+    // pinPreflight is in _shouldCancelActiveCeremony false branch —
+    // no cancel should be triggered.
+    expect(cancelCalls, 0);
+  });
+
+  testWidgets('app lifecycle pause clears _validatedPin', (tester) async {
+    // Advance to the prompt step (where _validatedPin is held)
+    const fakeHandle = _FakePrismSyncHandle();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          pairingCeremonyApiProvider.overrideWith(
+            (ref) => _FakePairingCeremonyApi(),
+          ),
+          prismSyncHandleProvider.overrideWithBuild(
+            (ref, notifier) => fakeHandle,
+          ),
+          syncHealthProvider.overrideWith(
+            () => _FakeSyncHealthNotifier(
               verifyResult: () => const VerifyMnemonicPinMatch(),
-            )),
-            relayUrlProvider.overrideWithValue(
-              const AsyncValue<String?>.data('https://relay.example.com'),
             ),
-            syncDeviceIdProvider.overrideWithValue(
-              const AsyncValue<String?>.data('device-123'),
-            ),
-            syncDeviceSecretPresentProvider.overrideWithValue(
-              const AsyncValue<bool>.data(true),
-            ),
-            syncWrappedDekPresentProvider.overrideWithValue(
-              const AsyncValue<bool>.data(true),
-            ),
-          ],
-          child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: Builder(
-              builder: (context) => Consumer(
-                builder: (context, ref, _) => Scaffold(
-                  body: Center(
-                    child: ElevatedButton(
-                      onPressed: () => SetupDeviceSheet.show(context, ref),
-                      child: const Text('Open'),
-                    ),
+          ),
+          relayUrlProvider.overrideWithValue(
+            const AsyncValue<String?>.data('https://relay.example.com'),
+          ),
+          syncDeviceIdProvider.overrideWithValue(
+            const AsyncValue<String?>.data('device-123'),
+          ),
+          syncDeviceSecretPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
+          syncWrappedDekPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Consumer(
+              builder: (context, ref, _) => Scaffold(
+                body: Center(
+                  child: ElevatedButton(
+                    onPressed: () => SetupDeviceSheet.show(context, ref),
+                    child: const Text('Open'),
                   ),
                 ),
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
 
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
 
-      // Advance through mnemonic + preflight to reach prompt step
-      await _advanceThroughPreflight(tester, tapScanButton: false);
+    // Advance through mnemonic + preflight to reach prompt step
+    await _advanceThroughPreflight(tester, tapScanButton: false);
 
-      // At the prompt step — the sheet content state should have _validatedPin set.
-      final sheetState = tester.state<SetupDeviceSheetContentState>(
-        find.byElementPredicate(
-          (e) =>
-              e is StatefulElement &&
-              e.state is SetupDeviceSheetContentState,
-        ),
-      );
-      expect(sheetState.validatedPinIsNull, isFalse,
-          reason: '_validatedPin should be set after successful preflight');
+    // At the prompt step — the sheet content state should have _validatedPin set.
+    final sheetState = tester.state<SetupDeviceSheetContentState>(
+      find.byElementPredicate(
+        (e) => e is StatefulElement && e.state is SetupDeviceSheetContentState,
+      ),
+    );
+    expect(
+      sheetState.validatedPinIsNull,
+      isFalse,
+      reason: '_validatedPin should be set after successful preflight',
+    );
 
-      // Simulate app pause.
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-      await tester.pump();
+    // Simulate app pause.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
 
-      // After pause, _validatedPin must be cleared.
-      expect(sheetState.validatedPinIsNull, isTrue,
-          reason: 'lifecycle pause must zero and null _validatedPin');
-    },
-  );
+    // After pause, _validatedPin must be cleared.
+    expect(
+      sheetState.validatedPinIsNull,
+      isTrue,
+      reason: 'lifecycle pause must zero and null _validatedPin',
+    );
+  });
 
   testWidgets(
     'regression: preflight PIN buffer is non-empty in _validatedPin after view unmounts',
@@ -1651,8 +1654,11 @@ void main() {
       await _advanceThroughPreflight(tester, tapScanButton: false);
 
       // Prompt step is now shown — _PreflightPinView is gone from the tree.
-      expect(find.text("Scan Joiner's QR"), findsOneWidget,
-          reason: 'should be at prompt step after preflight');
+      expect(
+        find.text("Scan Joiner's QR"),
+        findsOneWidget,
+        reason: 'should be at prompt step after preflight',
+      );
 
       final sheetState = tester.state<SetupDeviceSheetContentState>(
         find.byElementPredicate(
@@ -1695,6 +1701,94 @@ void main() {
     }
     return bytes;
   }
+
+  testWidgets(
+    'scanner flow: Windows uses desktop camera instead of mobile scanner',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        const cameraChannel = MethodChannel('flutter_lite_camera');
+        final cameraCalls = <String>[];
+        final frame = Uint8List(4 * 4 * 3);
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(cameraChannel, (call) async {
+              cameraCalls.add(call.method);
+              return switch (call.method) {
+                'getDeviceList' => <String>['Test camera'],
+                'open' => true,
+                'captureFrame' => {'data': frame, 'width': 4, 'height': 4},
+                'release' => null,
+                _ => null,
+              };
+            });
+        addTearDown(() {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(cameraChannel, null);
+        });
+
+        const fakeHandle = _FakePrismSyncHandle();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              pairingCeremonyApiProvider.overrideWith(
+                (ref) => _FakePairingCeremonyApi(),
+              ),
+              prismSyncHandleProvider.overrideWithBuild(
+                (ref, notifier) => fakeHandle,
+              ),
+              syncHealthProvider.overrideWith(_FakeSyncHealthNotifier.new),
+              relayUrlProvider.overrideWithValue(
+                const AsyncValue<String?>.data('https://relay.example.com'),
+              ),
+              syncDeviceIdProvider.overrideWithValue(
+                const AsyncValue<String?>.data('device-123'),
+              ),
+              syncDeviceSecretPresentProvider.overrideWithValue(
+                const AsyncValue<bool>.data(true),
+              ),
+              syncWrappedDekPresentProvider.overrideWithValue(
+                const AsyncValue<bool>.data(true),
+              ),
+            ],
+            child: MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: Builder(
+                builder: (context) => Consumer(
+                  builder: (context, ref, _) => Scaffold(
+                    body: Center(
+                      child: ElevatedButton(
+                        onPressed: () => SetupDeviceSheet.show(context, ref),
+                        child: const Text('Open'),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        await _advanceThroughPreflight(tester, tapScanButton: false);
+
+        expect(find.text("Scan Joiner's QR"), findsOneWidget);
+        await tester.tap(find.text("Scan Joiner's QR"));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        expect(find.byType(MobileScanner), findsNothing);
+        expect(find.text('No camera? Paste a code instead'), findsOneWidget);
+        expect(cameraCalls, contains('getDeviceList'));
+        expect(cameraCalls, contains('open'));
+        expect(cameraCalls, contains('captureFrame'));
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
 
   testWidgets(
     'paste fallback: link on scanner view navigates to paste view with disabled Pair button',
@@ -1748,10 +1842,7 @@ void main() {
       await _advanceThroughPreflight(tester, tapScanButton: true);
 
       // Fallback link is visible on the scanner view.
-      expect(
-        find.text('No camera? Paste a code instead'),
-        findsOneWidget,
-      );
+      expect(find.text('No camera? Paste a code instead'), findsOneWidget);
 
       await tester.tap(find.text('No camera? Paste a code instead'));
       await tester.pumpAndSettle();
@@ -1775,13 +1866,13 @@ void main() {
       final fakeApi = _FakePairingCeremonyApi(
         startInitiatorCeremonyHandler:
             ({required handle, required tokenBytes}) async {
-          capturedTokenBytes = tokenBytes;
-          return jsonEncode({
-            'sas_version': 3,
-            'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
-            'joiner_device_id': 'joiner-dev-xyz',
-          });
-        },
+              capturedTokenBytes = tokenBytes;
+              return jsonEncode({
+                'sas_version': 3,
+                'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
+                'joiner_device_id': 'joiner-dev-xyz',
+              });
+            },
       );
 
       await tester.pumpWidget(

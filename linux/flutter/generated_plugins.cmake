@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   dynamic_color
   emoji_picker_flutter
   file_selector_linux
+  flutter_lite_camera
   flutter_secure_storage_linux
   flutter_timezone
   record_linux

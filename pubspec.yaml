@@ -40,6 +40,8 @@ dependencies:
 
   # QR code scanning
   mobile_scanner: ^7.0.0
+  flutter_lite_camera: ^0.0.2
+  qr_code_dart_decoder: ^0.1.2
 
   # Unicode normalization (NFKC) for search key building
   unorm_dart: ^0.3.2

@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
+import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_lite_camera/flutter_lite_camera.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -31,6 +33,10 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/pin_numpad_cell.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
+
+import 'setup_device_sheet_desktop_decoder_stub.dart'
+    if (dart.library.io) 'setup_device_sheet_desktop_decoder.dart'
+    as desktop_qr;
 
 class SetupDeviceSheet {
   static Future<void> show(BuildContext context, WidgetRef ref) async {
@@ -251,6 +257,29 @@ class SetupDeviceSheetContentState
     return _joinerScannerController ??= MobileScannerController();
   }
 
+  bool get _scannerSupportedForPairing {
+    if (kIsWeb) return true;
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android ||
+      TargetPlatform.iOS ||
+      TargetPlatform.linux ||
+      TargetPlatform.macOS ||
+      TargetPlatform.windows => true,
+      TargetPlatform.fuchsia => false,
+    };
+  }
+
+  bool get _useDesktopPairingScanner {
+    if (kIsWeb) return false;
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.linux || TargetPlatform.windows => true,
+      TargetPlatform.android ||
+      TargetPlatform.fuchsia ||
+      TargetPlatform.iOS ||
+      TargetPlatform.macOS => false,
+    };
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -368,131 +397,131 @@ class SetupDeviceSheetContentState
     final pinBytes = pin.consumeBytesAndClear();
 
     try {
-    setState(() {
-      _step = _InitiatorStep.uploading;
-      _error = null;
-      _uploadBytesSent = null;
-      _uploadBytesTotal = null;
-      _uploadFailureReason = null;
-    });
+      setState(() {
+        _step = _InitiatorStep.uploading;
+        _error = null;
+        _uploadBytesSent = null;
+        _uploadBytesTotal = null;
+        _uploadFailureReason = null;
+      });
 
-    // Subscribe to the sync event stream to drive the upload progress
-    // bar. The stream emits SnapshotUploadProgress during the streamed
-    // PUT and SnapshotUploadFailed if the relay rejects the body.
-    _uploadEventSubscription?.close();
-    _uploadEventSubscription = ref.listenManual<AsyncValue<SyncEvent>>(
-      syncEventStreamProvider,
-      (prev, next) {
-        next.whenData((event) {
-          if (!mounted) return;
-          if (event.type == 'SnapshotUploadProgress') {
-            final sent = _asInt(event.data['bytes_sent']);
-            final total = _asInt(event.data['bytes_total']);
-            if (sent != null && total != null) {
+      // Subscribe to the sync event stream to drive the upload progress
+      // bar. The stream emits SnapshotUploadProgress during the streamed
+      // PUT and SnapshotUploadFailed if the relay rejects the body.
+      _uploadEventSubscription?.close();
+      _uploadEventSubscription = ref.listenManual<AsyncValue<SyncEvent>>(
+        syncEventStreamProvider,
+        (prev, next) {
+          next.whenData((event) {
+            if (!mounted) return;
+            if (event.type == 'SnapshotUploadProgress') {
+              final sent = _asInt(event.data['bytes_sent']);
+              final total = _asInt(event.data['bytes_total']);
+              if (sent != null && total != null) {
+                setState(() {
+                  _uploadBytesSent = sent;
+                  _uploadBytesTotal = total;
+                });
+              }
+            } else if (event.type == 'SnapshotUploadFailed') {
               setState(() {
-                _uploadBytesSent = sent;
-                _uploadBytesTotal = total;
+                _uploadFailureReason =
+                    (event.data['reason'] as String?) ?? 'Upload failed';
               });
             }
-          } else if (event.type == 'SnapshotUploadFailed') {
-            setState(() {
-              _uploadFailureReason =
-                  (event.data['reason'] as String?) ?? 'Upload failed';
-            });
-          }
-        });
-      },
-    );
-
-    try {
-      // Upload the ephemeral snapshot BEFORE sending credentials. The joiner
-      // can't register or try to bootstrap until it receives the credentials
-      // from completeInitiatorCeremony, so uploading first guarantees the
-      // snapshot is on the relay by the time the joiner's bootstrap_from_snapshot
-      // runs. Otherwise the joiner races ahead, finds no snapshot, and ends
-      // up with zero records.
-      //
-      // The snapshot is encrypted with the current (pre-rekey) epoch key,
-      // which matches what the credential bundle will ship to the joiner.
-      //
-      // Fatal on failure: if the snapshot doesn't land on the relay we must
-      // NOT release credentials. Otherwise the joiner registers, finds no
-      // snapshot, falls through to an empty syncNow (first-device data is
-      // still local-only), and ends up with zero records — the exact bug
-      // this fix is meant to prevent. Let the error propagate to the outer
-      // catch so the initiator flow shows an error state instead of a
-      // confusing "synced but empty" success.
-      await ffi.uploadPairingSnapshot(
-        handle: widget.handle,
-        ttlSecs: BigInt.from(86400),
-        forDeviceId: _joinerDeviceId,
+          });
+        },
       );
 
-      if (!mounted) return;
-      setState(() {
-        _step = _InitiatorStep.completing;
-      });
-
-      final mnemonic = _mnemonic;
-      if (mnemonic == null) {
-        // Defensive: should be set by the enterMnemonic step before we arrive
-        // here. Bail out and bounce the user back to re-enter it.
-        throw StateError('Recovery phrase is missing.');
-      }
-
-      final pairingApi = ref.read(pairingCeremonyApiProvider);
-      Uint8List? mnemonicBytes;
       try {
-        mnemonicBytes = secretUtf8Bytes(mnemonic);
-        await pairingApi.completeInitiatorCeremony(
+        // Upload the ephemeral snapshot BEFORE sending credentials. The joiner
+        // can't register or try to bootstrap until it receives the credentials
+        // from completeInitiatorCeremony, so uploading first guarantees the
+        // snapshot is on the relay by the time the joiner's bootstrap_from_snapshot
+        // runs. Otherwise the joiner races ahead, finds no snapshot, and ends
+        // up with zero records.
+        //
+        // The snapshot is encrypted with the current (pre-rekey) epoch key,
+        // which matches what the credential bundle will ship to the joiner.
+        //
+        // Fatal on failure: if the snapshot doesn't land on the relay we must
+        // NOT release credentials. Otherwise the joiner registers, finds no
+        // snapshot, falls through to an empty syncNow (first-device data is
+        // still local-only), and ends up with zero records — the exact bug
+        // this fix is meant to prevent. Let the error propagate to the outer
+        // catch so the initiator flow shows an error state instead of a
+        // confusing "synced but empty" success.
+        await ffi.uploadPairingSnapshot(
           handle: widget.handle,
-          password: pinBytes,
-          mnemonic: mnemonicBytes,
+          ttlSecs: BigInt.from(86400),
+          forDeviceId: _joinerDeviceId,
         );
-      } finally {
-        zeroBytesBestEffort(mnemonicBytes);
-        _mnemonic = null;
-      }
 
-      // Drain store after completion (may mutate epoch / credentials)
-      await drainRustStore(widget.handle);
-      try {
-        await cacheRuntimeKeys(widget.handle, ref.read(databaseProvider));
+        if (!mounted) return;
+        setState(() {
+          _step = _InitiatorStep.completing;
+        });
+
+        final mnemonic = _mnemonic;
+        if (mnemonic == null) {
+          // Defensive: should be set by the enterMnemonic step before we arrive
+          // here. Bail out and bounce the user back to re-enter it.
+          throw StateError('Recovery phrase is missing.');
+        }
+
+        final pairingApi = ref.read(pairingCeremonyApiProvider);
+        Uint8List? mnemonicBytes;
+        try {
+          mnemonicBytes = secretUtf8Bytes(mnemonic);
+          await pairingApi.completeInitiatorCeremony(
+            handle: widget.handle,
+            password: pinBytes,
+            mnemonic: mnemonicBytes,
+          );
+        } finally {
+          zeroBytesBestEffort(mnemonicBytes);
+          _mnemonic = null;
+        }
+
+        // Drain store after completion (may mutate epoch / credentials)
+        await drainRustStore(widget.handle);
+        try {
+          await cacheRuntimeKeys(widget.handle, ref.read(databaseProvider));
+        } catch (e) {
+          debugPrint('[SYNC] Failed to refresh runtime keys after pairing: $e');
+        }
+
+        if (!mounted) return;
+        // Brief confirmation so the user sees the upload actually finished
+        // before we route forward.
+        setState(() {
+          _step = _InitiatorStep.uploadComplete;
+        });
+        _uploadEventSubscription?.close();
+        _uploadEventSubscription = null;
+        await Future<void>.delayed(const Duration(seconds: 2));
+        if (!mounted) return;
+        setState(() {
+          _step = _InitiatorStep.done;
+        });
       } catch (e) {
-        debugPrint('[SYNC] Failed to refresh runtime keys after pairing: $e');
+        _uploadEventSubscription?.close();
+        _uploadEventSubscription = null;
+        debugPrint('[SYNC] Pairing initiator completion failed: $e');
+        if (!mounted) return;
+        setState(() {
+          _error = e.toString();
+          _step = _InitiatorStep.error;
+        });
+      } finally {
+        // Drop the _validatedPin reference now that the buffer has been consumed
+        // (success path: consumeBytesAndClear already zeroed it) or the ceremony
+        // failed (error path: zero any remaining bytes and release the reference).
+        // This prevents a dangling reference to a stale/consumed buffer after
+        // _completeInitiator returns.
+        _validatedPin?.clear();
+        _validatedPin = null;
       }
-
-      if (!mounted) return;
-      // Brief confirmation so the user sees the upload actually finished
-      // before we route forward.
-      setState(() {
-        _step = _InitiatorStep.uploadComplete;
-      });
-      _uploadEventSubscription?.close();
-      _uploadEventSubscription = null;
-      await Future<void>.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
-      setState(() {
-        _step = _InitiatorStep.done;
-      });
-    } catch (e) {
-      _uploadEventSubscription?.close();
-      _uploadEventSubscription = null;
-      debugPrint('[SYNC] Pairing initiator completion failed: $e');
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _step = _InitiatorStep.error;
-      });
-    } finally {
-      // Drop the _validatedPin reference now that the buffer has been consumed
-      // (success path: consumeBytesAndClear already zeroed it) or the ceremony
-      // failed (error path: zero any remaining bytes and release the reference).
-      // This prevents a dangling reference to a stale/consumed buffer after
-      // _completeInitiator returns.
-      _validatedPin?.clear();
-      _validatedPin = null;
-    }
     } finally {
       // Belt-and-suspenders: zero pinBytes on every path including early
       // throws from setState or pre-FFI setup code. The inner mnemonicBytes
@@ -566,10 +595,7 @@ class SetupDeviceSheetContentState
 
   void _onPreflightHandleUnavailable() {
     if (mounted) {
-      PrismToast.error(
-        context,
-        message: context.l10n.syncEngineNotAvailable,
-      );
+      PrismToast.error(context, message: context.l10n.syncEngineNotAvailable);
       Navigator.of(context).pop();
     }
   }
@@ -600,26 +626,47 @@ class SetupDeviceSheetContentState
           const _PreflightStepIndicator(currentStep: _PreflightStep.scan),
           const SizedBox(height: 16),
           _ScanJoinerPrompt(
-            onStartScan: () => setState(() => _step = _InitiatorStep.scanning),
+            scannerSupported: _scannerSupportedForPairing,
+            onStartScan: () => setState(
+              () => _step = _scannerSupportedForPairing
+                  ? _InitiatorStep.scanning
+                  : _InitiatorStep.pasteCode,
+            ),
           ),
         ],
       ),
-      _InitiatorStep.scanning => _JoinerQrScannerView(
-        ensureScanner: _ensureJoinerScanner,
-        scanned: _joinerScanned,
-        error: _error,
-        onBack: _reset,
-        onScanned: (bytes) {
-          setState(() => _joinerScanned = true);
-          _startInitiatorCeremony(bytes);
-        },
-        onPasteFallback: () =>
-            setState(() => _step = _InitiatorStep.pasteCode),
-      ),
+      _InitiatorStep.scanning =>
+        _useDesktopPairingScanner
+            ? _DesktopJoinerQrScannerView(
+                scanned: _joinerScanned,
+                error: _error,
+                onBack: _reset,
+                onScanned: (bytes) {
+                  setState(() => _joinerScanned = true);
+                  _startInitiatorCeremony(bytes);
+                },
+                onPasteFallback: () =>
+                    setState(() => _step = _InitiatorStep.pasteCode),
+              )
+            : _JoinerQrScannerView(
+                ensureScanner: _ensureJoinerScanner,
+                scanned: _joinerScanned,
+                error: _error,
+                onBack: _reset,
+                onScanned: (bytes) {
+                  setState(() => _joinerScanned = true);
+                  _startInitiatorCeremony(bytes);
+                },
+                onPasteFallback: () =>
+                    setState(() => _step = _InitiatorStep.pasteCode),
+              ),
       _InitiatorStep.pasteCode => _PasteCodeView(
         onSubmit: _startInitiatorCeremony,
-        onBackToCamera: () =>
-            setState(() => _step = _InitiatorStep.scanning),
+        onBackToCamera: () => setState(
+          () => _step = _scannerSupportedForPairing
+              ? _InitiatorStep.scanning
+              : _InitiatorStep.prompt,
+        ),
       ),
       _InitiatorStep.connecting => Center(
         child: Padding(
@@ -710,8 +757,7 @@ class _PreflightStepIndicator extends StatelessWidget {
       (l10n.syncSetupStepScan, _PreflightStep.scan),
     ];
 
-    final currentIndex =
-        steps.indexWhere((s) => s.$2 == currentStep);
+    final currentIndex = steps.indexWhere((s) => s.$2 == currentStep);
     final stepNumber = currentIndex + 1;
     final stepName = steps[currentIndex].$1;
 
@@ -730,8 +776,7 @@ class _PreflightStepIndicator extends StatelessWidget {
                   child: Text(
                     '·',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color:
-                          theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                     ),
                   ),
                 ),
@@ -783,8 +828,9 @@ class _PreflightPinViewState extends ConsumerState<_PreflightPinView>
   static const _pinLength = 6;
 
   late final PinBuffer _pin = PinBuffer(length: _pinLength);
-  late final PinLockoutState _lockout =
-      PinLockoutState(prefsScope: 'prism.preflight');
+  late final PinLockoutState _lockout = PinLockoutState(
+    prefsScope: 'prism.preflight',
+  );
 
   bool _hasError = false;
   bool _checking = false;
@@ -819,11 +865,10 @@ class _PreflightPinViewState extends ConsumerState<_PreflightPinView>
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
-    _dotScaleAnim =
-        TweenSequence<double>([
-          TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 1),
-          TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 1),
-        ]).animate(_dotController);
+    _dotScaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 1),
+    ]).animate(_dotController);
 
     _lockout.load().then((_) {
       if (mounted) setState(() {});
@@ -877,11 +922,9 @@ class _PreflightPinViewState extends ConsumerState<_PreflightPinView>
     final pinCopy = PinBuffer(length: _pin.length)..replaceWith(_pin);
 
     try {
-      final result =
-          await ref.read(syncHealthProvider.notifier).verifyMnemonicPin(
-        pin: pinCopy,
-        mnemonic: widget.mnemonic,
-      );
+      final result = await ref
+          .read(syncHealthProvider.notifier)
+          .verifyMnemonicPin(pin: pinCopy, mnemonic: widget.mnemonic);
 
       if (!mounted) return;
 
@@ -928,7 +971,9 @@ class _PreflightPinViewState extends ConsumerState<_PreflightPinView>
 
   String _subtitle(BuildContext context) {
     if (_lockout.isLockedOut) {
-      return context.l10n.syncSetupVerifyPinLockedOut(_lockout.secondsRemaining);
+      return context.l10n.syncSetupVerifyPinLockedOut(
+        _lockout.secondsRemaining,
+      );
     }
     if (_checking) return context.l10n.syncSetupVerifyPinChecking;
     if (_hasError) return context.l10n.syncSetupVerifyPinFailed;
@@ -991,8 +1036,7 @@ class _PreflightPinViewState extends ConsumerState<_PreflightPinView>
                 child: AnimatedBuilder(
                   animation: _dotScaleAnim,
                   builder: (context, child) => Transform.scale(
-                    scale:
-                        i == _lastFilledDotIndex ? _dotScaleAnim.value : 1.0,
+                    scale: i == _lastFilledDotIndex ? _dotScaleAnim.value : 1.0,
                     child: child,
                   ),
                   child: AnimatedContainer(
@@ -1074,11 +1118,7 @@ class _PreflightPinViewState extends ConsumerState<_PreflightPinView>
     }
     return [
       const SizedBox(width: 72, height: 72),
-      PinNumpadCell(
-        label: '0',
-        onTap: () => _onDigit('0'),
-        theme: theme,
-      ),
+      PinNumpadCell(label: '0', onTap: () => _onDigit('0'), theme: theme),
       PinNumpadCell(
         icon: AppIcons.backspaceOutlined,
         onTap: _onBackspace,
@@ -1197,8 +1237,12 @@ class _MnemonicEntryViewState extends State<_MnemonicEntryView> {
 
 /// Prompt for the "Scan Joiner's QR" flow before the camera opens.
 class _ScanJoinerPrompt extends StatelessWidget {
-  const _ScanJoinerPrompt({required this.onStartScan});
+  const _ScanJoinerPrompt({
+    required this.scannerSupported,
+    required this.onStartScan,
+  });
 
+  final bool scannerSupported;
   final VoidCallback onStartScan;
 
   @override
@@ -1208,13 +1252,17 @@ class _ScanJoinerPrompt extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          context.l10n.syncSetupScanJoinerPrompt,
+          scannerSupported
+              ? context.l10n.syncSetupScanJoinerPrompt
+              : context.l10n.syncSetupPasteCodeDescription,
           style: theme.textTheme.bodyMedium,
         ),
         const SizedBox(height: 16),
         PrismButton(
-          label: context.l10n.syncSetupScanJoinerButton,
-          icon: AppIcons.qrCodeScanner,
+          label: scannerSupported
+              ? context.l10n.syncSetupScanJoinerButton
+              : context.l10n.syncSetupPasteCodeTitle,
+          icon: scannerSupported ? AppIcons.qrCodeScanner : AppIcons.paste,
           onPressed: onStartScan,
         ),
       ],
@@ -1292,8 +1340,7 @@ class _JoinerQrScannerView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        // Always visible: camera-availability probing is unreliable on
-        // Windows/Linux desktops.
+        // Keep the paste path available when camera access fails.
         Center(
           child: Semantics(
             button: true,
@@ -1318,13 +1365,282 @@ class _JoinerQrScannerView extends StatelessWidget {
   }
 }
 
+/// Windows/Linux scanner backed by desktop camera frames plus a Dart QR decoder.
+class _DesktopJoinerQrScannerView extends StatefulWidget {
+  const _DesktopJoinerQrScannerView({
+    required this.scanned,
+    required this.error,
+    required this.onBack,
+    required this.onScanned,
+    required this.onPasteFallback,
+  });
+
+  final bool scanned;
+  final String? error;
+  final VoidCallback onBack;
+  final void Function(Uint8List bytes) onScanned;
+  final VoidCallback onPasteFallback;
+
+  @override
+  State<_DesktopJoinerQrScannerView> createState() =>
+      _DesktopJoinerQrScannerViewState();
+}
+
+class _DesktopJoinerQrScannerViewState
+    extends State<_DesktopJoinerQrScannerView> {
+  static const _captureDelay = Duration(milliseconds: 100);
+  static const _decodeDelay = Duration(milliseconds: 350);
+
+  final FlutterLiteCamera _camera = FlutterLiteCamera();
+  bool _capturing = false;
+  bool _reportedScan = false;
+  bool _decoding = false;
+  String? _status;
+  String? _cameraError;
+  DateTime _nextDecodeAt = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime? _lastInvalidToastAt;
+  ui.Image? _latestFrame;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_startCamera());
+  }
+
+  @override
+  void dispose() {
+    _capturing = false;
+    unawaited(_releaseCamera());
+    _latestFrame?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _releaseCamera() async {
+    try {
+      await _camera.release();
+    } catch (error) {
+      debugPrint('[SYNC] Desktop pairing camera release failed: $error');
+    }
+  }
+
+  Future<void> _startCamera() async {
+    try {
+      final devices = await _camera.getDeviceList();
+      if (!mounted) return;
+      if (devices.isEmpty) {
+        setState(() {
+          _status = null;
+          _cameraError = 'No camera was found.';
+        });
+        return;
+      }
+
+      final opened = await _camera.open(0);
+      if (!mounted) return;
+      if (!opened) {
+        setState(() {
+          _status = null;
+          _cameraError = 'Could not open the camera.';
+        });
+        return;
+      }
+
+      setState(() {
+        _status = null;
+        _cameraError = null;
+      });
+      _capturing = true;
+      unawaited(_captureLoop());
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _status = null;
+        _cameraError = error.toString();
+      });
+    }
+  }
+
+  Future<void> _captureLoop() async {
+    while (mounted && _capturing && !_reportedScan) {
+      await _captureFrame();
+      if (mounted && _capturing && !_reportedScan) {
+        await Future<void>.delayed(_captureDelay);
+      }
+    }
+  }
+
+  Future<void> _captureFrame() async {
+    try {
+      final frame = await _camera.captureFrame();
+      final data = frame['data'];
+      final width = (frame['width'] as num?)?.toInt();
+      final height = (frame['height'] as num?)?.toInt();
+      if (data is! Uint8List || width == null || height == null) {
+        return;
+      }
+
+      final rgba = _rgb888ToRgba8888(data, width, height);
+      await _showPreview(rgba, width, height);
+
+      final now = DateTime.now();
+      if (!_decoding && now.isAfter(_nextDecodeAt)) {
+        _nextDecodeAt = now.add(_decodeDelay);
+        unawaited(_decodeFrame(rgba, width, height));
+      }
+    } catch (error) {
+      debugPrint('[SYNC] Desktop pairing camera frame failed: $error');
+    }
+  }
+
+  Future<void> _showPreview(Uint8List rgba, int width, int height) async {
+    final image = await _decodeRgbaImage(rgba, width, height);
+    if (!mounted) {
+      image.dispose();
+      return;
+    }
+
+    final previous = _latestFrame;
+    setState(() => _latestFrame = image);
+    previous?.dispose();
+  }
+
+  Future<void> _decodeFrame(Uint8List rgba, int width, int height) async {
+    _decoding = true;
+    try {
+      final raw = await desktop_qr.decodePairingQr(rgba, width, height);
+      if (!mounted || raw == null || raw.isEmpty) return;
+      _handleRawQr(raw);
+    } catch (error) {
+      debugPrint('[SYNC] Desktop pairing QR decode failed: $error');
+    } finally {
+      _decoding = false;
+    }
+  }
+
+  void _handleRawQr(String raw) {
+    if (widget.scanned || _reportedScan) return;
+    try {
+      final bytes = Uint8List.fromList(base64Decode(raw));
+      _reportedScan = true;
+      _capturing = false;
+      widget.onScanned(bytes);
+    } catch (_) {
+      final now = DateTime.now();
+      final last = _lastInvalidToastAt;
+      if (last != null && now.difference(last) < const Duration(seconds: 2)) {
+        return;
+      }
+      _lastInvalidToastAt = now;
+      if (mounted) {
+        PrismToast.show(
+          context,
+          message: context.l10n.syncSetupInvalidPairingQr,
+        );
+      }
+    }
+  }
+
+  Uint8List _rgb888ToRgba8888(Uint8List rgb, int width, int height) {
+    final pixelCount = width * height;
+    final rgba = Uint8List(pixelCount * 4);
+    final availablePixels = (rgb.length ~/ 3).clamp(0, pixelCount).toInt();
+    for (var pixel = 0; pixel < availablePixels; pixel++) {
+      final src = pixel * 3;
+      final dst = pixel * 4;
+      rgba[dst] = rgb[src];
+      rgba[dst + 1] = rgb[src + 1];
+      rgba[dst + 2] = rgb[src + 2];
+      rgba[dst + 3] = 0xff;
+    }
+    return rgba;
+  }
+
+  Future<ui.Image> _decodeRgbaImage(Uint8List rgba, int width, int height) {
+    final completer = Completer<ui.Image>();
+    ui.decodeImageFromPixels(
+      rgba,
+      width,
+      height,
+      ui.PixelFormat.rgba8888,
+      completer.complete,
+    );
+    return completer.future;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: PrismButton(
+            label: context.l10n.back,
+            onPressed: widget.onBack,
+            icon: AppIcons.arrowBackIosNew,
+            tone: PrismButtonTone.subtle,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          context.l10n.syncSetupScanJoinerDescription,
+          style: theme.textTheme.bodyMedium,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 16),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(16),
+          ),
+          child: SizedBox(
+            height: 280,
+            child: ColoredBox(
+              color: Colors.black,
+              child: _latestFrame != null
+                  ? RawImage(image: _latestFrame, fit: BoxFit.cover)
+                  : Center(
+                      child: Text(
+                        _cameraError ?? _status ?? context.l10n.loading,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Center(
+          child: Semantics(
+            button: true,
+            child: TextButton(
+              onPressed: widget.onPasteFallback,
+              child: Text(context.l10n.syncSetupPasteCodeLink),
+            ),
+          ),
+        ),
+        if (widget.error != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            widget.error!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 /// Pastes the joiner's pairing code and hands the decoded bytes to the
 /// existing initiator ceremony — the camera-less twin of `_JoinerQrScannerView`.
 class _PasteCodeView extends StatefulWidget {
-  const _PasteCodeView({
-    required this.onSubmit,
-    required this.onBackToCamera,
-  });
+  const _PasteCodeView({required this.onSubmit, required this.onBackToCamera});
 
   final void Function(Uint8List tokenBytes) onSubmit;
   final VoidCallback onBackToCamera;
@@ -1664,11 +1980,7 @@ class _InitiatorPinViewState extends State<_InitiatorPinView> {
     }
     return [
       const SizedBox(width: 72, height: 72),
-      PinNumpadCell(
-        label: '0',
-        onTap: () => _onDigit('0'),
-        theme: theme,
-      ),
+      PinNumpadCell(label: '0', onTap: () => _onDigit('0'), theme: theme),
       PinNumpadCell(
         icon: AppIcons.backspaceOutlined,
         onTap: _onBackspace,
