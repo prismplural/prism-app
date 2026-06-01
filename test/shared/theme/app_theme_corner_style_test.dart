@@ -64,6 +64,50 @@ void main() {
       expect(stripped.textTheme.headlineLarge?.letterSpacing, 0);
     });
 
+    test('accessible font preserves enabled display font roles', () {
+      final theme = AppTheme.light();
+      final withAccessibleFont = AppTheme.withAppFontFamily(
+        theme,
+        'AtkinsonHyperlegible',
+        preserveDisplayFont: true,
+      );
+
+      expect(
+        withAccessibleFont.textTheme.bodyMedium?.fontFamily,
+        'AtkinsonHyperlegible',
+      );
+      expect(
+        withAccessibleFont.textTheme.displayLarge?.fontFamily,
+        'Unbounded',
+      );
+      expect(
+        withAccessibleFont.textTheme.headlineLarge?.fontFamily,
+        'Unbounded',
+      );
+    });
+
+    test('accessible font applies to disabled display font roles', () {
+      final theme = AppTheme.withoutDisplayFont(AppTheme.light());
+      final withAccessibleFont = AppTheme.withAppFontFamily(
+        theme,
+        'AtkinsonHyperlegible',
+        preserveDisplayFont: false,
+      );
+
+      expect(
+        withAccessibleFont.textTheme.bodyMedium?.fontFamily,
+        'AtkinsonHyperlegible',
+      );
+      expect(
+        withAccessibleFont.textTheme.displayLarge?.fontFamily,
+        'AtkinsonHyperlegible',
+      );
+      expect(
+        withAccessibleFont.textTheme.headlineLarge?.fontFamily,
+        'AtkinsonHyperlegible',
+      );
+    });
+
     test('text themes do not install symbol fallbacks globally', () {
       final theme = AppTheme.light();
       final fallback = theme.textTheme.bodyMedium?.fontFamilyFallback;

@@ -364,13 +364,16 @@ class _PrismAppState extends ConsumerState<PrismApp> {
           darkTheme = AppTheme.withoutDisplayFont(darkTheme);
         }
 
-        // Run after display font stripping so the selected family wins.
         if (appFontFamily != null) {
-          lightTheme = lightTheme.copyWith(
-            textTheme: lightTheme.textTheme.apply(fontFamily: appFontFamily),
+          lightTheme = AppTheme.withAppFontFamily(
+            lightTheme,
+            appFontFamily,
+            preserveDisplayFont: useDisplayFont,
           );
-          darkTheme = darkTheme.copyWith(
-            textTheme: darkTheme.textTheme.apply(fontFamily: appFontFamily),
+          darkTheme = AppTheme.withAppFontFamily(
+            darkTheme,
+            appFontFamily,
+            preserveDisplayFont: useDisplayFont,
           );
         }
 

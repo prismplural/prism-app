@@ -256,6 +256,26 @@ class AppTheme {
     );
   }
 
+  /// Apply the selected app font, preserving display roles when requested.
+  static ThemeData withAppFontFamily(
+    ThemeData theme,
+    String fontFamily, {
+    required bool preserveDisplayFont,
+  }) {
+    final textTheme = theme.textTheme;
+    final updatedTextTheme = textTheme.apply(fontFamily: fontFamily);
+    return theme.copyWith(
+      textTheme: preserveDisplayFont
+          ? updatedTextTheme.copyWith(
+              displayLarge: textTheme.displayLarge,
+              displayMedium: textTheme.displayMedium,
+              displaySmall: textTheme.displaySmall,
+              headlineLarge: textTheme.headlineLarge,
+            )
+          : updatedTextTheme,
+    );
+  }
+
   static bool _isMonochromePaletteSeed(Color seedColor) {
     return HSLColor.fromColor(seedColor).saturation <= 0.05;
   }
