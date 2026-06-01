@@ -512,6 +512,41 @@ Future<Value<String?>> _normalizeCustomFieldParentForApply(
 bool _isRemoteTombstone(Map<String, dynamic> fields) =>
     _asBool(fields['is_deleted']) == true;
 
+Future<void> _releaseDeletedPkIdentityHoldersForMemberApply(
+  AppDatabase db, {
+  required String incomingId,
+  required String? pkUuid,
+  required String? pkId,
+}) async {
+  final normalizedPkUuid = _nonEmptySyncString(pkUuid);
+  final normalizedPkId = _nonEmptySyncString(pkId);
+  if (normalizedPkUuid == null && normalizedPkId == null) return;
+
+  await (db.update(db.members)..where((t) {
+        final matchingUuid = normalizedPkUuid == null
+            ? const Constant<bool>(false)
+            : t.pluralkitUuid.equals(normalizedPkUuid);
+        final matchingId = normalizedPkId == null
+            ? const Constant<bool>(false)
+            : t.pluralkitId.equals(normalizedPkId);
+
+        return t.id.equals(incomingId).not() &
+            t.isDeleted.equals(true) &
+            (matchingUuid | matchingId);
+      }))
+      .write(
+        const MembersCompanion(
+          pluralkitUuid: Value(null),
+          pluralkitId: Value(null),
+        ),
+      );
+}
+
+String? _nonEmptySyncString(String? value) {
+  final trimmed = value?.trim();
+  return trimmed == null || trimmed.isEmpty ? null : trimmed;
+}
+
 Future<MemberGroupRow?> _memberGroupRowById(AppDatabase db, String id) {
   return (db.select(
     db.memberGroups,
@@ -1518,6 +1553,9 @@ DriftSyncEntity _membersEntity(
       final nextPkUuid = shouldCheckPkUuidChange
           ? _asString(fields['pluralkit_uuid'])
           : null;
+      final nextPkId = fields.containsKey('pluralkit_id')
+          ? _asString(fields['pluralkit_id'])
+          : null;
       final f = _FieldContext(
         entityType: 'members',
         entityId: id,
@@ -1553,6 +1591,14 @@ DriftSyncEntity _membersEntity(
           (t) => t.id.equals(id),
         );
         return;
+      }
+      if (!remoteTombstone) {
+        await _releaseDeletedPkIdentityHoldersForMemberApply(
+          db,
+          incomingId: id,
+          pkUuid: nextPkUuid,
+          pkId: nextPkId,
+        );
       }
       final companion = MembersCompanion(
         id: Value(id),
