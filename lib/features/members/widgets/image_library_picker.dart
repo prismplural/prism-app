@@ -18,16 +18,11 @@ Future<String?> showImageLibraryPicker(
   BuildContext context,
   WidgetRef ref,
 ) async {
-  // Await the first stream emission rather than reading `.value`
-  // synchronously — the provider is autoDispose, so from a cold context
-  // (e.g. a note editor where nothing was watching it yet) `.value` is null
-  // until the stream emits, which would wrongly report an empty library.
-  List<MediaAttachment> library;
-  try {
-    library = await ref.read(imageLibraryProvider.future);
-  } catch (_) {
-    library = ref.read(imageLibraryProvider).value ?? const [];
-  }
+  // Cold auto-dispose streams need a live listener until the first value.
+  final library = await readImageLibrarySnapshot(
+    ref,
+    useCachedValueOnError: true,
+  );
   if (!context.mounted) return null;
 
   if (library.isEmpty) {
@@ -102,7 +97,7 @@ class _ImageLibraryPickerSheet extends ConsumerWidget {
                             loading: () => Container(
                               color: theme.colorScheme.surfaceContainerHighest,
                             ),
-                            error: (_, __) => Container(
+                            error: (error, stackTrace) => Container(
                               color: theme.colorScheme.surfaceContainerHighest,
                               child: Icon(AppIcons.imageBroken,
                                   color: theme.colorScheme.onSurfaceVariant,

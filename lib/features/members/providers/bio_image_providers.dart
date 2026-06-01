@@ -46,6 +46,27 @@ final imageLibraryProvider =
   return repo.watchLibraryImages();
 });
 
+/// Reads the image library for one-shot UI handlers without losing cold streams.
+Future<List<MediaAttachment>> readImageLibrarySnapshot(
+  WidgetRef ref, {
+  bool useCachedValueOnError = false,
+}) async {
+  final keepAlive = ref.listenManual(
+    imageLibraryProvider,
+    (previous, next) {},
+  );
+  try {
+    return await ref.read(imageLibraryProvider.future);
+  } catch (_) {
+    if (useCachedValueOnError) {
+      return ref.read(imageLibraryProvider).value ?? const [];
+    }
+    rethrow;
+  } finally {
+    keepAlive.close();
+  }
+}
+
 /// A version stamp for the image library that changes whenever an image is
 /// added, removed, retagged, or replaced (tag + mediaId identity). Folded into
 /// markdown render keys so cached parses re-run when the (async) library loads

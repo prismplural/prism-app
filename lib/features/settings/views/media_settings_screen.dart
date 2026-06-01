@@ -458,7 +458,20 @@ class MediaSettingsScreen extends ConsumerWidget {
     // processor uses, so a tag typed here can't contain `)`/`#` (which would
     // break `![](tag)` parsing) or collide with an existing tag (which would
     // make references resolve nondeterministically across synced devices).
-    final String tag;
+    final List<MediaAttachment> library;
+    try {
+      library = await readImageLibrarySnapshot(ref);
+    } catch (e) {
+      if (context.mounted) {
+        PrismToast.error(context,
+            message: context.l10n.mediaAddImageFailed('$e'));
+      }
+      return;
+    }
+    if (!context.mounted) return;
+
+    final existingTags = library.map((a) => a.tag).toSet();
+    String tag;
     if (result.tag.isNotEmpty) {
       final normalized = BioImageProcessor.normalizeTag(result.tag);
       if (normalized.isEmpty) {
@@ -466,15 +479,16 @@ class MediaSettingsScreen extends ConsumerWidget {
             message: context.l10n.mediaTagNoUsableCharacters);
         return;
       }
-      final library = ref.read(imageLibraryProvider).value ?? const [];
-      if (library.any((a) => a.tag == normalized)) {
+      if (existingTags.contains(normalized)) {
         PrismToast.error(context,
             message: context.l10n.mediaTagAlreadyInUse(normalized));
         return;
       }
       tag = normalized;
     } else {
-      tag = 'img-${const Uuid().v4().substring(0, 8)}';
+      do {
+        tag = 'img-${const Uuid().v4().substring(0, 8)}';
+      } while (existingTags.contains(tag));
     }
 
     try {
@@ -577,7 +591,17 @@ class MediaSettingsScreen extends ConsumerWidget {
     }
     if (normalized == attachment.tag) return;
 
-    final library = ref.read(imageLibraryProvider).value ?? const [];
+    final List<MediaAttachment> library;
+    try {
+      library = await readImageLibrarySnapshot(ref);
+    } catch (e) {
+      if (context.mounted) {
+        PrismToast.error(context, message: l10n.errorWithDetail('$e'));
+      }
+      return;
+    }
+    if (!context.mounted) return;
+
     if (library.any((a) => a.id != attachment.id && a.tag == normalized)) {
       PrismToast.error(context,
           message: l10n.mediaTagAlreadyInUse(normalized));
