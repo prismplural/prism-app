@@ -1225,61 +1225,55 @@ class _GroupInfoHeader extends ConsumerWidget {
       color: cardColor,
       borderRadius: radius,
       clipBehavior: Clip.antiAlias,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (hasColor && !hasAvatar) Container(width: 4, color: accentColor),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  hasColor && !hasAvatar ? 12 : 16,
-                  16,
-                  16,
-                  16,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    leadingVisual,
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (ancestors.isNotEmpty) ...[
-                            AncestorBreadcrumb(ancestors: ancestors),
-                            const SizedBox(height: 2),
-                          ],
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              group.name,
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          if (group.description != null &&
-                              group.description!.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            PrismMarkdownText(
-                              data: group.description!,
-                              enabled: true,
-                              baseStyle: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+      child: Stack(
+        children: [
+          if (hasColor && !hasAvatar)
+            Positioned.fill(
+              right: null,
+              child: Container(width: 4, color: accentColor),
             ),
-          ],
-        ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                leadingVisual,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (ancestors.isNotEmpty) ...[
+                        AncestorBreadcrumb(ancestors: ancestors),
+                        const SizedBox(height: 2),
+                      ],
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          group.name,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      if (group.description != null &&
+                          group.description!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        PrismMarkdownText(
+                          data: group.description!,
+                          enabled: true,
+                          baseStyle: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1409,7 +1403,8 @@ class _SubGroupsSection extends ConsumerWidget {
     final count = ref.watch(
       groupMemberCountsProvider.select((m) => m[group.id] ?? 0),
     );
-    final hideMemberCount = ref
+    final hideMemberCount =
+        ref
             .watch(hideTotalMemberCountProvider)
             .whenOrNull(data: (value) => value) ??
         true;

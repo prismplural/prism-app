@@ -25,6 +25,7 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_card.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
@@ -154,6 +155,7 @@ Member _member({
 MemberGroup _group({
   required String id,
   required String name,
+  String? description,
   String? parentGroupId,
   String? colorHex,
   String? emoji,
@@ -161,6 +163,7 @@ MemberGroup _group({
 }) => MemberGroup(
   id: id,
   name: name,
+  description: description,
   colorHex: colorHex,
   emoji: emoji,
   parentGroupId: parentGroupId,
@@ -308,6 +311,41 @@ List<Map<Object?, Object?>> _captureSemanticAnnouncements() {
 }
 
 void main() {
+  testWidgets('group header stretches to fit long descriptions', (
+    tester,
+  ) async {
+    final description = List.filled(
+      16,
+      'This composed group description should make the info card grow.',
+    ).join('\n');
+    final group = _group(
+      id: 'group-target',
+      name: 'Target Group',
+      description: description,
+      colorHex: '#8E6AD8',
+    );
+    final notifier = _FakeGroupNotifier();
+
+    await tester.pumpWidget(
+      _buildSubject(
+        group: group,
+        allGroups: [group],
+        allEntries: const [],
+        activeMembers: const [],
+        notifier: notifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final markdown = find.byWidgetPredicate(
+      (widget) => widget is PrismMarkdownText && widget.data == description,
+    );
+    expect(markdown, findsOneWidget);
+
+    final card = find.ancestor(of: markdown, matching: find.byType(Material));
+    expect(tester.getSize(card.first).height, greaterThan(240));
+  });
+
   testWidgets('hides subgroup button until the group list has loaded', (
     tester,
   ) async {
