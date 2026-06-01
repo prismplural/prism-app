@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/utils/safe_link.dart';
+import 'package:prism_plurality/shared/utils/text_presentation.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
@@ -82,8 +83,10 @@ class _FieldInlineMarkdownTextState extends State<FieldInlineMarkdownText> {
 
     final data = widget.data;
     final theme = Theme.of(context);
-    final baseStyle =
-        widget.style ?? theme.textTheme.bodyMedium ?? const TextStyle();
+    final baseStyle = textStyleForTextPresentation(
+      widget.style ?? theme.textTheme.bodyMedium ?? const TextStyle(),
+      data,
+    );
     final codeColor = theme.colorScheme.surfaceContainerHighest;
 
     final segments = <_InlineMarkdownSegment>[];

@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/utils/text_presentation.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 enum MemberAvatarShape { circle, square }
@@ -239,10 +240,13 @@ class MemberAvatar extends ConsumerWidget {
     Widget text = Text(
       displayEmoji,
       strutStyle: StrutStyle.disabled,
-      style: TextStyle(
-        fontSize: fontSize,
-        height: 1.0,
-        leadingDistribution: TextLeadingDistribution.even,
+      style: textStyleForTextPresentation(
+        TextStyle(
+          fontSize: fontSize,
+          height: 1.0,
+          leadingDistribution: TextLeadingDistribution.even,
+        ),
+        displayEmoji,
       ),
       textHeightBehavior: const TextHeightBehavior(
         applyHeightToFirstAscent: false,
