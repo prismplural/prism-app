@@ -3,6 +3,14 @@ import 'dart:typed_data';
 
 import 'package:prism_sync/generated/api.dart' as ffi;
 
+typedef UploadMediaFn =
+    Future<void> Function({
+      required ffi.PrismSyncHandle handle,
+      required String mediaId,
+      required String contentHash,
+      required Uint8List data,
+    });
+
 enum UploadState { pending, uploading, completed, failed }
 
 class UploadProgress {
@@ -34,15 +42,26 @@ class UploadTask {
 }
 
 class UploadQueue {
-  UploadQueue({required this.handle});
+  UploadQueue({
+    required this.handle,
+    Future<ffi.PrismSyncHandle?>? handleFuture,
+    bool completeLocallyWhenUnconfigured = false,
+    UploadMediaFn? uploadMediaFn,
+  }) : _handleFuture = handleFuture,
+       _completeLocallyWhenUnconfigured = completeLocallyWhenUnconfigured,
+       _uploadMediaFn = uploadMediaFn ?? _defaultUploadMediaFn;
 
   final ffi.PrismSyncHandle? handle;
+  final Future<ffi.PrismSyncHandle?>? _handleFuture;
+  final bool _completeLocallyWhenUnconfigured;
+  final UploadMediaFn _uploadMediaFn;
   final List<UploadTask> _queue = [];
   bool _processing = false;
   final Map<String, StreamController<UploadProgress>> _progressControllers = {};
 
   Stream<UploadProgress> progressStream(String mediaId) {
-    _progressControllers[mediaId] ??= StreamController<UploadProgress>.broadcast();
+    _progressControllers[mediaId] ??=
+        StreamController<UploadProgress>.broadcast();
     return _progressControllers[mediaId]!.stream;
   }
 
@@ -74,12 +93,18 @@ class UploadQueue {
       try {
         _emitProgress(task.mediaId, UploadState.uploading);
 
-        if (handle == null) {
+        final resolvedHandle = await _resolveHandle();
+        if (resolvedHandle == null) {
+          if (_completeLocallyWhenUnconfigured) {
+            _emitProgress(task.mediaId, UploadState.completed);
+            task.onSuccess?.call();
+            return;
+          }
           throw StateError('Sync handle not available');
         }
 
-        await ffi.uploadMedia(
-          handle: handle!,
+        await _uploadMediaFn(
+          handle: resolvedHandle,
           mediaId: task.mediaId,
           contentHash: task.contentHash,
           data: task.encryptedData,
@@ -99,15 +124,35 @@ class UploadQueue {
     }
   }
 
+  Future<ffi.PrismSyncHandle?> _resolveHandle() {
+    final currentHandle = handle;
+    if (currentHandle != null) {
+      return Future.value(currentHandle);
+    }
+    return _handleFuture ?? Future.value(null);
+  }
+
+  static Future<void> _defaultUploadMediaFn({
+    required ffi.PrismSyncHandle handle,
+    required String mediaId,
+    required String contentHash,
+    required Uint8List data,
+  }) {
+    return ffi.uploadMedia(
+      handle: handle,
+      mediaId: mediaId,
+      contentHash: contentHash,
+      data: data,
+    );
+  }
+
   void _emitProgress(String mediaId, UploadState state, {String? error}) {
     // ignore: close_sinks
     final controller = _progressControllers[mediaId];
     if (controller != null && !controller.isClosed) {
-      controller.add(UploadProgress(
-        mediaId: mediaId,
-        state: state,
-        error: error,
-      ));
+      controller.add(
+        UploadProgress(mediaId: mediaId, state: state, error: error),
+      );
     }
   }
 

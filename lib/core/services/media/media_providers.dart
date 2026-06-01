@@ -16,8 +16,12 @@ final mediaEncryptionServiceProvider = Provider<MediaEncryptionService>(
 );
 
 final uploadQueueProvider = Provider<UploadQueue>((ref) {
-  final handle = ref.watch(prismSyncHandleProvider).value;
-  final queue = UploadQueue(handle: handle);
+  final handleAsync = ref.watch(prismSyncHandleProvider);
+  final queue = UploadQueue(
+    handle: handleAsync.value,
+    handleFuture: ref.watch(prismSyncHandleProvider.future),
+    completeLocallyWhenUnconfigured: true,
+  );
   ref.onDispose(queue.dispose);
   return queue;
 });

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -146,6 +147,79 @@ void main() {
 
       expect(successCalled, isFalse);
     }, timeout: const Timeout(Duration(seconds: 15)));
+  });
+
+  group('local-only mode', () {
+    test('resolved null handle completes without relay upload', () async {
+      final queue = UploadQueue(
+        handle: null,
+        handleFuture: Future<Never?>.value(),
+        completeLocallyWhenUnconfigured: true,
+      );
+      addTearDown(queue.dispose);
+
+      final events = <UploadProgress>[];
+      final sub = queue.progressStream('local').listen(events.add);
+      addTearDown(sub.cancel);
+
+      var successCalled = false;
+      var failureCalled = false;
+
+      await queue.enqueue(UploadTask(
+        mediaId: 'local',
+        contentHash: 'h',
+        encryptedData: Uint8List(0),
+        onSuccess: () => successCalled = true,
+        onFailure: (_) => failureCalled = true,
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      expect(successCalled, isTrue);
+      expect(failureCalled, isFalse);
+      expect(events.map((e) => e.state), [
+        UploadState.pending,
+        UploadState.uploading,
+        UploadState.completed,
+      ]);
+    });
+
+    test('waits for handle resolution before completing locally', () async {
+      final handleCompleter = Completer<Never?>();
+      final queue = UploadQueue(
+        handle: null,
+        handleFuture: handleCompleter.future,
+        completeLocallyWhenUnconfigured: true,
+      );
+      addTearDown(queue.dispose);
+
+      final events = <UploadProgress>[];
+      final sub = queue.progressStream('loading').listen(events.add);
+      addTearDown(sub.cancel);
+
+      var successCalled = false;
+      final enqueueFuture = queue.enqueue(UploadTask(
+        mediaId: 'loading',
+        contentHash: 'h',
+        encryptedData: Uint8List(0),
+        onSuccess: () => successCalled = true,
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      expect(successCalled, isFalse);
+      expect(events.map((e) => e.state), [
+        UploadState.pending,
+        UploadState.uploading,
+      ]);
+
+      handleCompleter.complete();
+      await enqueueFuture;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(successCalled, isTrue);
+      expect(events.last.state, UploadState.completed);
+    });
   });
 
   // ── Retry behavior with null handle ────────────────────────────────────
