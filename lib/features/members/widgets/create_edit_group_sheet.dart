@@ -116,8 +116,9 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     _initialEmoji = _emoji;
     _initialColorHex = _colorHexController.text;
     _initialParentGroupId = _parentGroupId;
-    _initialAvatarImageData =
-        _avatarImageData == null ? null : Uint8List.fromList(_avatarImageData!);
+    _initialAvatarImageData = _avatarImageData == null
+        ? null
+        : Uint8List.fromList(_avatarImageData!);
 
     if (g != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -141,13 +142,11 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
   }
 
   void _openParentPicker() {
-    PrismSheet.show<void>(
+    GroupParentPicker.show(
       context: context,
-      builder: (sheetContext) => GroupParentPicker(
-        excludeGroupId: widget.group?.id,
-        currentParentId: _parentGroupId,
-        onSelected: (id) => setState(() => _parentGroupId = id),
-      ),
+      excludeGroupId: widget.group?.id,
+      currentParentId: _parentGroupId,
+      onSelected: (id) => setState(() => _parentGroupId = id),
     );
   }
 
@@ -488,8 +487,10 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                                       child: Container(
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          color: _previewColor() ??
-                                              theme.colorScheme
+                                          color:
+                                              _previewColor() ??
+                                              theme
+                                                  .colorScheme
                                                   .surfaceContainerHighest,
                                           border: Border.all(
                                             color: theme.colorScheme.outline,
