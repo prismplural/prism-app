@@ -24,6 +24,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 
 // ---------------------------------------------------------------------------
 // Fake providers
@@ -295,10 +296,61 @@ void main() {
     });
 
     testWidgets('toolbar exposes image insert menu', (tester) async {
-      await tester.pumpWidget(_buildSubject(members: [_alice]));
+      await tester.pumpWidget(
+        _buildSubject(
+          members: [_alice],
+          speakingAs: 'alice',
+          defaultTargetMemberId: 'alice',
+        ),
+      );
       await _openSheet(tester);
 
       expect(find.byTooltip('Add image'), findsOneWidget);
+      expect(
+        tester.getCenter(find.byTooltip('Add image')).dy,
+        lessThan(
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey('boards.compose.authorSelector')),
+              )
+              .dy,
+        ),
+      );
+    });
+
+    testWidgets('toolbar keeps controls full size on narrow screens', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        _buildSubject(
+          members: [_alice],
+          speakingAs: 'alice',
+          defaultTargetMemberId: 'alice',
+        ),
+      );
+      await _openSheet(tester);
+
+      final authorSelectorSize = tester.getSize(
+        find.byKey(const ValueKey('boards.compose.authorSelector')),
+      );
+      final audienceSelectorSize = tester.getSize(
+        find.byKey(const ValueKey('boards.compose.audienceSelector')),
+      );
+      final segmentedControlSize = tester.getSize(
+        find.byType(PrismSegmentedControl<String>),
+      );
+
+      expect(authorSelectorSize, const Size.square(44));
+      expect(audienceSelectorSize, segmentedControlSize);
+      expect(audienceSelectorSize.width, greaterThanOrEqualTo(200));
+      expect(segmentedControlSize.height, 44);
     });
 
     testWidgets('top bar has close and save buttons', (tester) async {

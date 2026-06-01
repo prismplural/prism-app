@@ -476,111 +476,122 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
               ),
             ),
             Expanded(
-              child: GestureDetector(
-                onTap: () => _bodyFocusNode.requestFocus(),
-                behavior: HitTestBehavior.translucent,
-                child: ListView(
-                  controller: widget.scrollController,
-                  padding: const EdgeInsets.fromLTRB(
-                    PrismTokens.pageHorizontalPadding + 8,
-                    8,
-                    PrismTokens.pageHorizontalPadding + 8,
-                    16,
-                  ),
-                  children: [
-                    // ── Recipient picker ─────────────────────────────────────
-                    Semantics(
-                      label:
-                          targetMember?.name ?? l10n.boardsComposeToNoHeadmate,
-                      button: true,
-                      child: InkWell(
-                        onTap: _pickMember,
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Row(
-                            children: [
-                              if (targetMember != null)
-                                MemberAvatar(
-                                  avatarImageData: targetMember.avatarImageData,
-                                  memberName: targetMember.name,
-                                  emoji: targetMember.emoji,
-                                  customColorEnabled:
-                                      targetMember.customColorEnabled,
-                                  customColorHex: targetMember.customColorHex,
-                                  size: 20,
-                                )
-                              else
-                                Icon(
-                                  AppIcons.personOutline,
-                                  size: 20,
-                                  color: mutedColor,
-                                ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  targetMember?.name ??
-                                      l10n.boardsComposeToNoHeadmate,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: targetMember != null
-                                        ? null
-                                        : mutedColor,
+              child: Stack(
+                children: [
+                  GestureDetector(
+                    onTap: () => _bodyFocusNode.requestFocus(),
+                    behavior: HitTestBehavior.translucent,
+                    child: ListView(
+                      controller: widget.scrollController,
+                      padding: const EdgeInsets.fromLTRB(
+                        PrismTokens.pageHorizontalPadding + 8,
+                        8,
+                        PrismTokens.pageHorizontalPadding + 8,
+                        72,
+                      ),
+                      children: [
+                        Semantics(
+                          label:
+                              targetMember?.name ??
+                              l10n.boardsComposeToNoHeadmate,
+                          button: true,
+                          child: InkWell(
+                            onTap: _pickMember,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: Row(
+                                children: [
+                                  if (targetMember != null)
+                                    MemberAvatar(
+                                      avatarImageData:
+                                          targetMember.avatarImageData,
+                                      memberName: targetMember.name,
+                                      emoji: targetMember.emoji,
+                                      customColorEnabled:
+                                          targetMember.customColorEnabled,
+                                      customColorHex:
+                                          targetMember.customColorHex,
+                                      size: 20,
+                                    )
+                                  else
+                                    Icon(
+                                      AppIcons.personOutline,
+                                      size: 20,
+                                      color: mutedColor,
+                                    ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      targetMember?.name ??
+                                          l10n.boardsComposeToNoHeadmate,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: targetMember != null
+                                                ? null
+                                                : mutedColor,
+                                          ),
+                                    ),
                                   ),
-                                ),
+                                  Icon(
+                                    AppIcons.expandMore,
+                                    size: 16,
+                                    color: mutedColor,
+                                  ),
+                                ],
                               ),
-                              Icon(
-                                AppIcons.expandMore,
-                                size: 16,
-                                color: mutedColor,
-                              ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    const Divider(height: 1),
-                    const SizedBox(height: 12),
-                    PrismTextField(
-                      controller: _titleController,
-                      hintText: l10n.boardsComposeTitlePlaceholder,
-                      fieldStyle: PrismTextFieldStyle.borderless,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                      hintStyle: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.4,
+                        const Divider(height: 1),
+                        const SizedBox(height: 12),
+                        PrismTextField(
+                          controller: _titleController,
+                          hintText: l10n.boardsComposeTitlePlaceholder,
+                          fieldStyle: PrismTextFieldStyle.borderless,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          hintStyle: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.4),
+                          ),
+                          maxLines: null,
+                          textCapitalization: TextCapitalization.sentences,
+                          textInputAction: TextInputAction.next,
                         ),
-                      ),
-                      maxLines: null,
-                      textCapitalization: TextCapitalization.sentences,
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 8),
-                    PrismTextField(
-                      controller: _bodyController,
-                      focusNode: _bodyFocusNode,
-                      hintText: l10n.boardsComposeBodyPlaceholder,
-                      fieldStyle: PrismTextFieldStyle.borderless,
-                      style: theme.textTheme.bodyLarge,
-                      hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.4,
+                        const SizedBox(height: 8),
+                        PrismTextField(
+                          controller: _bodyController,
+                          focusNode: _bodyFocusNode,
+                          hintText: l10n.boardsComposeBodyPlaceholder,
+                          fieldStyle: PrismTextFieldStyle.borderless,
+                          style: theme.textTheme.bodyLarge,
+                          hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.4),
+                          ),
+                          minLines: 8,
+                          maxLines: null,
+                          textCapitalization: TextCapitalization.sentences,
+                          autofocus: !isEditing,
                         ),
-                      ),
-                      minLines: 8,
-                      maxLines: null,
-                      textCapitalization: TextCapitalization.sentences,
-                      autofocus: !isEditing,
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  Positioned(
+                    right: PrismTokens.pageHorizontalPadding + 8,
+                    bottom: 12,
+                    child: _EditorMarkdownActions(
+                      bodyController: _bodyController,
+                      editSessionId: _editSessionId,
+                    ),
+                  ),
+                ],
               ),
             ),
             _BottomToolbar(
-              bodyController: _bodyController,
-              editSessionId: _editSessionId,
               memberId: _targetMemberId,
               audience: _audience,
               isEditing: isEditing,
@@ -600,8 +611,6 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
 
 class _BottomToolbar extends ConsumerWidget {
   const _BottomToolbar({
-    required this.bodyController,
-    required this.editSessionId,
     required this.memberId,
     required this.audience,
     required this.isEditing,
@@ -609,13 +618,16 @@ class _BottomToolbar extends ConsumerWidget {
     required this.onAudienceChanged,
   });
 
-  final TextEditingController bodyController;
-  final String editSessionId;
   final String? memberId;
   final String audience;
   final bool isEditing;
   final VoidCallback onPickAuthor;
   final ValueChanged<String> onAudienceChanged;
+
+  static const double _audienceSelectorWidth = 210;
+  static const double _toolbarActionSize = PrismTokens.topBarActionSize;
+  static const double _toolbarGap = 8;
+  static const double _groupGap = 8;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -624,7 +636,6 @@ class _BottomToolbar extends ConsumerWidget {
     final bottomInset = modalBottomInsetOf(context);
     final mutedColor = theme.colorScheme.onSurfaceVariant;
 
-    // Author avatar — only shown for new posts.
     final speakingAsId = isEditing ? null : ref.watch(speakingAsProvider);
     final authorMember = speakingAsId != null
         ? ref.watch(activeMemberByIdProvider(speakingAsId)).value
@@ -644,89 +655,191 @@ class _BottomToolbar extends ConsumerWidget {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          MarkdownTableButton(controller: bodyController),
-          const SizedBox(width: 4),
-          MarkdownImageButton(
-            controller: bodyController,
-            sessionId: editSessionId,
-          ),
-          const SizedBox(width: 4),
-          // Author avatar — tap to change who is posting.
-          if (!isEditing) ...[
-            Semantics(
-              label: authorMember?.name ?? l10n.boardsComposeSelectAuthor,
-              button: true,
-              child: InkWell(
-                onTap: onPickAuthor,
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: authorMember != null
-                      ? MemberAvatar(
-                          avatarImageData: authorMember.avatarImageData,
-                          memberName: authorMember.name,
-                          emoji: authorMember.emoji,
-                          customColorEnabled: authorMember.customColorEnabled,
-                          customColorHex: authorMember.customColorHex,
-                          size: 24,
-                        )
-                      : Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: theme.colorScheme.outlineVariant
-                                  .withValues(alpha: 0.4),
-                            ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final authorSelector = !isEditing
+              ? _AuthorSelectorButton(
+                  label: authorMember?.name ?? l10n.boardsComposeSelectAuthor,
+                  authorMember: authorMember,
+                  mutedColor: mutedColor,
+                  onTap: onPickAuthor,
+                )
+              : null;
+
+          final toolbarActions = <Widget>[?authorSelector];
+
+          final actionGroupWidth = authorSelector == null
+              ? 0
+              : _toolbarActionSize;
+          final singleRowFits =
+              constraints.maxWidth >=
+              actionGroupWidth + _groupGap + _audienceSelectorWidth;
+
+          final audienceSelector = _AudienceSelector(
+            width: constraints.maxWidth < _audienceSelectorWidth
+                ? constraints.maxWidth
+                : _audienceSelectorWidth,
+            enabled: memberId != null,
+            audience: audience,
+            onAudienceChanged: onAudienceChanged,
+          );
+
+          if (singleRowFits) {
+            return Row(
+              children: [
+                ...toolbarActions,
+                if (toolbarActions.isNotEmpty)
+                  const SizedBox(width: _toolbarGap),
+                const Spacer(),
+                audienceSelector,
+              ],
+            );
+          }
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (toolbarActions.isNotEmpty)
+                Row(children: [...toolbarActions, const Spacer()]),
+              if (toolbarActions.isNotEmpty) const SizedBox(height: 8),
+              Align(alignment: Alignment.centerRight, child: audienceSelector),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _EditorMarkdownActions extends StatelessWidget {
+  const _EditorMarkdownActions({
+    required this.bodyController,
+    required this.editSessionId,
+  });
+
+  final TextEditingController bodyController;
+  final String editSessionId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        MarkdownTableButton(controller: bodyController),
+        const SizedBox(width: 4),
+        MarkdownImageButton(
+          controller: bodyController,
+          sessionId: editSessionId,
+        ),
+      ],
+    );
+  }
+}
+
+class _AuthorSelectorButton extends StatelessWidget {
+  const _AuthorSelectorButton({
+    required this.label,
+    required this.authorMember,
+    required this.mutedColor,
+    required this.onTap,
+  });
+
+  final String label;
+  final Member? authorMember;
+  final Color mutedColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Semantics(
+      label: label,
+      button: true,
+      child: SizedBox.square(
+        key: const ValueKey('boards.compose.authorSelector'),
+        dimension: PrismTokens.topBarActionSize,
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Center(
+              child: authorMember != null
+                  ? MemberAvatar(
+                      avatarImageData: authorMember!.avatarImageData,
+                      memberName: authorMember!.name,
+                      emoji: authorMember!.emoji,
+                      customColorEnabled: authorMember!.customColorEnabled,
+                      customColorHex: authorMember!.customColorHex,
+                      size: 32,
+                    )
+                  : Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: theme.colorScheme.outlineVariant.withValues(
+                            alpha: 0.4,
                           ),
-                          child: Icon(
-                            AppIcons.personOutline,
-                            size: 14,
-                            color: mutedColor,
-                          ),
                         ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          const Spacer(),
-          // Audience selector keeps its 210px width on roomy screens, but
-          // Flexible + scale-down FittedBox lets it shrink on narrow ones
-          // (~320dp) so the toolbar never overflows after the table button.
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: SizedBox(
-                width: 210,
-                child: IgnorePointer(
-                  ignoring: memberId == null,
-                  child: Opacity(
-                    opacity: memberId == null ? 0.55 : 1,
-                    child: PrismSegmentedControl<String>(
-                      segments: [
-                        PrismSegment(
-                          value: 'public',
-                          label: l10n.boardsComposeAudienceEveryone,
-                        ),
-                        PrismSegment(
-                          value: 'private',
-                          label: l10n.boardsComposeAudiencePrivate,
-                        ),
-                      ],
-                      selected: audience,
-                      onChanged: memberId != null ? onAudienceChanged : (_) {},
+                      ),
+                      child: Icon(
+                        AppIcons.personOutline,
+                        size: 18,
+                        color: mutedColor,
+                      ),
                     ),
-                  ),
-                ),
-              ),
             ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AudienceSelector extends StatelessWidget {
+  const _AudienceSelector({
+    required this.width,
+    required this.enabled,
+    required this.audience,
+    required this.onAudienceChanged,
+  });
+
+  final double width;
+  final bool enabled;
+  final String audience;
+  final ValueChanged<String> onAudienceChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return SizedBox(
+      key: const ValueKey('boards.compose.audienceSelector'),
+      width: width,
+      child: IgnorePointer(
+        ignoring: !enabled,
+        child: Opacity(
+          opacity: enabled ? 1 : 0.55,
+          child: PrismSegmentedControl<String>(
+            segments: [
+              PrismSegment(
+                value: 'public',
+                label: l10n.boardsComposeAudienceEveryone,
+              ),
+              PrismSegment(
+                value: 'private',
+                label: l10n.boardsComposeAudiencePrivate,
+              ),
+            ],
+            selected: audience,
+            onChanged: enabled ? onAudienceChanged : (_) {},
+          ),
+        ),
       ),
     );
   }
