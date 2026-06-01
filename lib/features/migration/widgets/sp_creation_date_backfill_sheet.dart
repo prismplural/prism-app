@@ -169,7 +169,7 @@ class _SpCreationDateBackfillSheetState
         PrismButton(
           onPressed: _pickAndProcess,
           icon: AppIcons.folderOpen,
-          label: context.l10n.spAvatarZipSelect,
+          label: context.l10n.spCreationDateBackfillSelectJson,
           tone: PrismButtonTone.filled,
           expanded: true,
         ),
@@ -185,7 +185,7 @@ class _SpCreationDateBackfillSheetState
         const PrismLoadingState(),
         const SizedBox(height: 24),
         Text(
-          context.l10n.spAvatarZipImporting,
+          context.l10n.spCreationDateBackfillReadingJson,
           style: theme.textTheme.titleMedium,
         ),
       ],

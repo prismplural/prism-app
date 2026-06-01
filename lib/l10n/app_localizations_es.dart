@@ -10907,6 +10907,12 @@ class AppLocalizationsEs extends AppLocalizations {
       'Simply Plural stores when each member was first created. This updates your Prism members with those original dates.';
 
   @override
+  String get spCreationDateBackfillSelectJson => 'Select SP JSON';
+
+  @override
+  String get spCreationDateBackfillReadingJson => 'Reading SP JSON...';
+
+  @override
   String get spCreationDateBackfillNoMapping =>
       'No Simply Plural import history found. Import your SP data first to set up member links.';
 

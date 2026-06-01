@@ -17200,6 +17200,18 @@ abstract class AppLocalizations {
   /// **'Simply Plural stores when each member was first created. This updates your Prism members with those original dates.'**
   String get spCreationDateBackfillDescription;
 
+  /// Button label for selecting a Simply Plural JSON export in the creation date backfill sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Select SP JSON'**
+  String get spCreationDateBackfillSelectJson;
+
+  /// Loading label while the creation date backfill sheet reads a Simply Plural JSON export
+  ///
+  /// In en, this message translates to:
+  /// **'Reading SP JSON...'**
+  String get spCreationDateBackfillReadingJson;
+
   /// Message when no SP import history exists
   ///
   /// In en, this message translates to:
