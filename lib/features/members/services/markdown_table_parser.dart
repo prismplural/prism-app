@@ -183,27 +183,36 @@ List<TextAlign?> _parseAligns(String separator) {
   }).toList();
 }
 
-/// Split a table row into trimmed cell strings, honoring optional leading and
-/// trailing pipes and not splitting on escaped `\|`.
+/// Split a table row into trimmed cell strings, keeping escaped pipes and
+/// spoiler delimiters inside cells.
 List<String> _splitCells(String line) {
-  var s = line.trim();
-  // Strip a single optional leading/trailing pipe (unescaped).
-  if (s.startsWith('|')) s = s.substring(1);
-  if (s.endsWith('|') && !s.endsWith('\\|')) {
-    s = s.substring(0, s.length - 1);
+  final s = line.trim();
+  final protectedPipes = _protectedSpoilerPipes(s);
+
+  // Leading/trailing table pipes are optional.
+  var start = 0;
+  var end = s.length;
+  if (start < end && s[start] == '|' && !protectedPipes.contains(start)) {
+    start += 1;
+  }
+  if (end > start &&
+      s[end - 1] == '|' &&
+      !protectedPipes.contains(end - 1) &&
+      !_isEscaped(s, end - 1)) {
+    end -= 1;
   }
 
   final cells = <String>[];
   final buf = StringBuffer();
-  for (var i = 0; i < s.length; i++) {
+  for (var i = start; i < end; i++) {
     final ch = s[i];
-    if (ch == '\\' && i + 1 < s.length && s[i + 1] == '|') {
-      // Preserve the escaped pipe verbatim so downstream markdown sees `\|`.
+    if (ch == '\\' && i + 1 < end && s[i + 1] == '|') {
+      // Preserve escaped pipes for inline markdown.
       buf.write('\\|');
       i += 1;
       continue;
     }
-    if (ch == '|') {
+    if (ch == '|' && !protectedPipes.contains(i)) {
       cells.add(buf.toString().trim());
       buf.clear();
       continue;
@@ -212,4 +221,34 @@ List<String> _splitCells(String line) {
   }
   cells.add(buf.toString().trim());
   return cells;
+}
+
+Set<int> _protectedSpoilerPipes(String line) {
+  final protected = <int>{};
+  var inSpoiler = false;
+
+  for (var i = 0; i < line.length; i += 1) {
+    if (line[i] != '|' || _isEscaped(line, i)) continue;
+
+    if (i + 1 < line.length && line[i + 1] == '|') {
+      protected
+        ..add(i)
+        ..add(i + 1);
+      inSpoiler = !inSpoiler;
+      i += 1;
+      continue;
+    }
+
+    if (inSpoiler) protected.add(i);
+  }
+
+  return protected;
+}
+
+bool _isEscaped(String line, int index) {
+  var backslashes = 0;
+  for (var i = index - 1; i >= 0 && line[i] == '\\'; i -= 1) {
+    backslashes += 1;
+  }
+  return backslashes.isOdd;
 }

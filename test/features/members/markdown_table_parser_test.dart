@@ -26,8 +26,9 @@ void main() {
     });
 
     test('alignment row parsing', () {
-      final blocks =
-          splitMarkdownBlocks('| a | b | c | d |\n| :-- | :-: | --: | - |');
+      final blocks = splitMarkdownBlocks(
+        '| a | b | c | d |\n| :-- | :-: | --: | - |',
+      );
       final t = blocks.first.table!;
       expect(t.aligns, [
         TextAlign.left,
@@ -38,15 +39,19 @@ void main() {
     });
 
     test('escaped pipe in a cell is not a column separator', () {
-      final blocks =
-          splitMarkdownBlocks(r'| a \| b | c |' '\n| - | - |\n' r'| x | y |');
+      final blocks = splitMarkdownBlocks(
+        r'| a \| b | c |'
+        '\n| - | - |\n'
+        r'| x | y |',
+      );
       final t = blocks.first.table!;
       expect(t.rows[0], [r'a \| b', 'c']);
       expect(t.rows[1], ['x', 'y']);
     });
 
     test('table sandwiched between prose → 3 blocks in order', () {
-      const md = 'intro line\n'
+      const md =
+          'intro line\n'
           '| a | b |\n| - | - |\n| c | d |\n'
           'outro line';
       final blocks = splitMarkdownBlocks(md);
@@ -62,6 +67,37 @@ void main() {
       expect(t.rows[0], ['a', 'b', 'c']);
       expect(t.rows[1], ['x']);
     });
+
+    test('spoiler delimiters inside cells do not create columns', () {
+      const source =
+          '| Project Alpha |\n'
+          '| --- |\n'
+          '| Status: ||internal draft|| |\n'
+          '| Notes: ready for review |';
+      final blocks = splitMarkdownBlocks(source);
+      final t = blocks.single.table!;
+      expect(t.rows, [
+        ['Project Alpha'],
+        ['Status: ||internal draft||'],
+        ['Notes: ready for review'],
+      ]);
+    });
+
+    test(
+      'spoiler delimiters before a real separator stay in the same cell',
+      () {
+        const source =
+            '| item | note |\n'
+            '| - | - |\n'
+            '| roadmap ||draft|| | publish after review |';
+        final blocks = splitMarkdownBlocks(source);
+        final t = blocks.single.table!;
+        expect(t.rows, [
+          ['item', 'note'],
+          ['roadmap ||draft||', 'publish after review'],
+        ]);
+      },
+    );
 
     test('single `a | b` line with no separator stays text', () {
       final blocks = splitMarkdownBlocks('a | b');
@@ -104,7 +140,8 @@ void main() {
 
     test('image cells retain raw markdown', () {
       final blocks = splitMarkdownBlocks(
-          '| ![](sometag) | hello |\n| - | - |\n| ![](x#64) | text |');
+        '| ![](sometag) | hello |\n| - | - |\n| ![](x#64) | text |',
+      );
       final t = blocks.first.table!;
       expect(t.rows[1], ['![](x#64)', 'text']);
     });
