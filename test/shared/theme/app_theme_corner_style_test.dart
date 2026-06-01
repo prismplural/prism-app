@@ -64,31 +64,33 @@ void main() {
       expect(stripped.textTheme.headlineLarge?.letterSpacing, 0);
     });
 
-    test('text themes include symbol fallbacks for text-presentation glyphs', () {
+    test('text themes do not install symbol fallbacks globally', () {
       final theme = AppTheme.light();
       final fallback = theme.textTheme.bodyMedium?.fontFamilyFallback;
 
-      expect(fallback, isNotNull);
-      expect(fallback, contains('Noto Sans Symbols'));
-    });
-
-    test('Linux keeps color emoji fallback after text symbol fonts', () {
-      final previousPlatform = debugDefaultTargetPlatformOverride;
-      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-      addTearDown(() {
-        debugDefaultTargetPlatformOverride = previousPlatform;
-      });
-
-      final fallback = AppTheme.light().textTheme.bodyMedium?.fontFamilyFallback;
-
-      expect(fallback, isNotNull);
-      expect(fallback, contains('Noto Sans Symbols'));
-      expect(fallback, contains('NotoColorEmoji'));
       expect(
-        fallback!.indexOf('Noto Sans Symbols'),
-        lessThan(fallback.indexOf('NotoColorEmoji')),
+        fallback ?? const <String>[],
+        isNot(contains('Noto Sans Symbols')),
       );
     });
+
+    test(
+      'Linux keeps color emoji fallback without text symbol fonts globally',
+      () {
+        final previousPlatform = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        addTearDown(() {
+          debugDefaultTargetPlatformOverride = previousPlatform;
+        });
+
+        final fallback =
+            AppTheme.light().textTheme.bodyMedium?.fontFamilyFallback;
+
+        expect(fallback, isNotNull);
+        expect(fallback, contains('NotoColorEmoji'));
+        expect(fallback!, isNot(contains('Noto Sans Symbols')));
+      },
+    );
   });
 
   testWidgets(

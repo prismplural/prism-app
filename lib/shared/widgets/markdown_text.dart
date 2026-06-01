@@ -4,6 +4,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/markdown/subtext_syntax.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/utils/text_presentation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Renders text as Markdown when [enabled], otherwise as plain [Text].
@@ -54,7 +55,10 @@ class MarkdownText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!enabled) {
-      return Text(data, style: baseStyle);
+      return Text(
+        data,
+        style: nullableTextStyleForTextPresentation(baseStyle, data),
+      );
     }
 
     final theme = Theme.of(context);
@@ -106,8 +110,10 @@ class MarkdownText extends StatelessWidget {
     final base = MarkdownStyleSheet.fromTheme(theme);
 
     // Strip letter spacing from all text styles and apply reasonable heading caps.
-    TextStyle strip(TextStyle? style) =>
-        (style ?? const TextStyle()).copyWith(letterSpacing: 0);
+    TextStyle strip(TextStyle? style) {
+      final stripped = (style ?? const TextStyle()).copyWith(letterSpacing: 0);
+      return textStyleForTextPresentation(stripped, data);
+    }
 
     final radius = PrismShapes.of(context).radius(8);
     final mutedSurface = theme.colorScheme.surfaceContainerHighest;

@@ -32,15 +32,33 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark(),
-        home: const Scaffold(
-          body: MarkdownText(data: '&#x231b;&#xFE0E;'),
-        ),
+        home: const Scaffold(body: MarkdownText(data: '&#x231b;&#xFE0E;')),
       ),
     );
 
     final text = _plainTextWidgets(tester).join('\n');
     expect(text, contains('\u231B\uFE0E'));
     expect(text, isNot(contains('&#x231b;')));
+    expect(
+      _fontFamilyFallbackForText(tester, '\u231B\uFE0E'),
+      contains('Noto Sans Symbols'),
+    );
+  });
+
+  testWidgets('ordinary emoji markdown does not add symbol fallback', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(body: MarkdownText(data: '✨')),
+      ),
+    );
+
+    expect(
+      _fontFamilyFallbackForText(tester, '✨') ?? const <String>[],
+      isNot(contains('Noto Sans Symbols')),
+    );
   });
 
   testWidgets('indented markdown does not become an implicit code block', (
@@ -213,8 +231,7 @@ void main() {
     final smallText = tester
         .widgetList<Text>(find.byType(Text))
         .firstWhere(
-          (w) =>
-              (w.data ?? w.textSpan?.toPlainText() ?? '') == 'subtle aside',
+          (w) => (w.data ?? w.textSpan?.toPlainText() ?? '') == 'subtle aside',
         );
     final rootStyle = smallText.style ?? smallText.textSpan?.style;
     expect(rootStyle?.fontSize, isNotNull);
@@ -231,10 +248,7 @@ void main() {
       ),
     );
 
-    expect(
-      _plainTextWidgets(tester),
-      contains('tag id -# foo on same line'),
-    );
+    expect(_plainTextWidgets(tester), contains('tag id -# foo on same line'));
   });
 
   testWidgets('`-#` is ignored when markdown is disabled', (tester) async {
@@ -242,10 +256,7 @@ void main() {
       MaterialApp(
         theme: AppTheme.dark(),
         home: const Scaffold(
-          body: MarkdownText(
-            data: '-# small',
-            enabled: false,
-          ),
+          body: MarkdownText(data: '-# small', enabled: false),
         ),
       ),
     );
@@ -272,9 +283,11 @@ void main() {
     // The subtext block is rendered as a Text.rich. Find it by checking
     // for the visible content and then walk the TextSpan tree to assert
     // the bold/italic styling survives.
-    final richTexts = tester.widgetList<Text>(find.byType(Text)).where(
-      (w) => (w.data ?? w.textSpan?.toPlainText() ?? '').contains('bold'),
-    );
+    final richTexts = tester
+        .widgetList<Text>(find.byType(Text))
+        .where(
+          (w) => (w.data ?? w.textSpan?.toPlainText() ?? '').contains('bold'),
+        );
     expect(richTexts, isNotEmpty);
     final root = richTexts.first.textSpan!;
     final spans = <InlineSpan>[];
@@ -301,9 +314,7 @@ void main() {
       MaterialApp(
         theme: AppTheme.dark(),
         home: const Scaffold(
-          body: MarkdownText(
-            data: '-# see [docs](https://example.com/docs)',
-          ),
+          body: MarkdownText(data: '-# see [docs](https://example.com/docs)'),
         ),
       ),
     );
@@ -326,6 +337,7 @@ void main() {
         }
       }
     }
+
     collect(subtextTexts.first.textSpan!);
     // The recognizer must live on a LEAF text span (one with non-empty
     // `text`), because Flutter's hit test resolves to the leaf at the tap
@@ -342,13 +354,12 @@ void main() {
     expect(
       tappableLeafSpans,
       isNotEmpty,
-      reason: 'recognizer must be on a leaf span with text so hit test reaches it',
+      reason:
+          'recognizer must be on a leaf span with text so hit test reaches it',
     );
     // Sanity check: every leaf with text inside the link label carries the
     // same recognizer instance.
-    final recognizers = tappableLeafSpans
-        .map((s) => s.recognizer)
-        .toSet();
+    final recognizers = tappableLeafSpans.map((s) => s.recognizer).toSet();
     expect(recognizers, hasLength(1));
   });
 
@@ -385,9 +396,7 @@ void main() {
       MaterialApp(
         theme: AppTheme.dark(),
         home: const Scaffold(
-          body: MarkdownText(
-            data: '-# first aside\n-# second aside',
-          ),
+          body: MarkdownText(data: '-# first aside\n-# second aside'),
         ),
       ),
     );
@@ -403,9 +412,7 @@ void main() {
       MaterialApp(
         theme: AppTheme.dark(),
         home: const Scaffold(
-          body: MarkdownText(
-            data: '- item one\n- -# muted item',
-          ),
+          body: MarkdownText(data: '- item one\n- -# muted item'),
         ),
       ),
     );
@@ -420,11 +427,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark(),
-        home: const Scaffold(
-          body: MarkdownText(
-            data: '> -# quoted aside',
-          ),
-        ),
+        home: const Scaffold(body: MarkdownText(data: '> -# quoted aside')),
       ),
     );
 
@@ -453,9 +456,7 @@ void main() {
       MaterialApp(
         theme: AppTheme.dark(),
         home: const Scaffold(
-          body: MarkdownText(
-            data: '-# [docs](https://example.com/docs)',
-          ),
+          body: MarkdownText(data: '-# [docs](https://example.com/docs)'),
         ),
       ),
     );
@@ -600,6 +601,40 @@ List<String> _plainTextWidgets(WidgetTester tester) {
       .map((text) => text.data ?? text.textSpan?.toPlainText() ?? '')
       .where((text) => text.isNotEmpty)
       .toList();
+}
+
+List<String>? _fontFamilyFallbackForText(WidgetTester tester, String text) {
+  for (final widget in tester.widgetList<Text>(find.byType(Text))) {
+    final plainText = widget.data ?? widget.textSpan?.toPlainText() ?? '';
+    if (!plainText.contains(text)) continue;
+
+    final span = widget.textSpan;
+    if (span is TextSpan) {
+      return _spanFontFamilyFallback(span, text) ??
+          widget.style?.fontFamilyFallback ??
+          span.style?.fontFamilyFallback;
+    }
+    return widget.style?.fontFamilyFallback;
+  }
+  return null;
+}
+
+List<String>? _spanFontFamilyFallback(
+  TextSpan span,
+  String text, [
+  TextStyle? inheritedStyle,
+]) {
+  final style =
+      inheritedStyle?.merge(span.style) ?? span.style ?? inheritedStyle;
+  if ((span.text ?? '').contains(text)) return style?.fontFamilyFallback;
+
+  for (final child in span.children ?? const <InlineSpan>[]) {
+    if (child is TextSpan) {
+      final result = _spanFontFamilyFallback(child, text, style);
+      if (result != null) return result;
+    }
+  }
+  return null;
 }
 
 const _decorativeSpacerBio = '''

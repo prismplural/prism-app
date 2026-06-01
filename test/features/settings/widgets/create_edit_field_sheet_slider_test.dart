@@ -100,33 +100,34 @@ void main() {
 
     // ── Legacy compat ───────────────────────────────────────────────────────
 
-    testWidgets('selecting a preset preserves inactive custom gradient colors', (
-      tester,
-    ) async {
-      _useTallViewport(tester);
-      final notifier = _FakeCustomFieldNotifier();
-      final field = _sliderField(
-        gradientColorsHex: ['#111111', '#222222', '#333333'],
-      );
+    testWidgets(
+      'selecting a preset preserves inactive custom gradient colors',
+      (tester) async {
+        _useTallViewport(tester);
+        final notifier = _FakeCustomFieldNotifier();
+        final field = _sliderField(
+          gradientColorsHex: ['#111111', '#222222', '#333333'],
+        );
 
-      await tester.pumpWidget(_buildSheet(field: field, notifier: notifier));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(_buildSheet(field: field, notifier: notifier));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('Soft').first);
-      await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('Soft').first);
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Save'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Save'));
+        await tester.pumpAndSettle();
 
-      expect(notifier.lastWrittenConfigFieldId, 'slider-1');
-      final config = notifier.lastWrittenConfig as SliderConfig?;
-      expect(config, isNotNull);
-      expect(config!.gradientPresetId, 'soft-hard');
-      // Legacy mirrored fields are written regardless of preset selection.
-      expect(config.leftColorHex, '#111111');
-      expect(config.centerColorHex, '#222222');
-      expect(config.rightColorHex, '#333333');
-    });
+        expect(notifier.lastWrittenConfigFieldId, 'slider-1');
+        final config = notifier.lastWrittenConfig as SliderConfig?;
+        expect(config, isNotNull);
+        expect(config!.gradientPresetId, 'soft-hard');
+        // Legacy mirrored fields are written regardless of preset selection.
+        expect(config.leftColorHex, '#111111');
+        expect(config.centerColorHex, '#222222');
+        expect(config.rightColorHex, '#333333');
+      },
+    );
 
     testWidgets('custom gradient colors survive preset→custom round-trip', (
       tester,
@@ -165,30 +166,31 @@ void main() {
 
     // ── Hydration from legacy left/center/right ─────────────────────────────
 
-    testWidgets('hydrates from legacy leftColorHex/rightColorHex when gradientColorsHex absent', (
-      tester,
-    ) async {
-      _useTallViewport(tester);
-      final notifier = _FakeCustomFieldNotifier();
-      final field = _sliderField(
-        leftColorHex: '#AAAAAA',
-        rightColorHex: '#555555',
-      );
+    testWidgets(
+      'hydrates from legacy leftColorHex/rightColorHex when gradientColorsHex absent',
+      (tester) async {
+        _useTallViewport(tester);
+        final notifier = _FakeCustomFieldNotifier();
+        final field = _sliderField(
+          leftColorHex: '#AAAAAA',
+          rightColorHex: '#555555',
+        );
 
-      await tester.pumpWidget(_buildSheet(field: field, notifier: notifier));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(_buildSheet(field: field, notifier: notifier));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Save'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Save'));
+        await tester.pumpAndSettle();
 
-      final config = notifier.lastWrittenConfig as SliderConfig?;
-      expect(config, isNotNull);
-      // Should have persisted a 2-color list from the legacy fields.
-      expect(config!.gradientColorsHex, ['#AAAAAA', '#555555']);
-      expect(config.leftColorHex, '#AAAAAA');
-      expect(config.rightColorHex, '#555555');
-      expect(config.centerColorHex, isNull); // 2-color → center must be null
-    });
+        final config = notifier.lastWrittenConfig as SliderConfig?;
+        expect(config, isNotNull);
+        // Should have persisted a 2-color list from the legacy fields.
+        expect(config!.gradientColorsHex, ['#AAAAAA', '#555555']);
+        expect(config.leftColorHex, '#AAAAAA');
+        expect(config.rightColorHex, '#555555');
+        expect(config.centerColorHex, isNull); // 2-color → center must be null
+      },
+    );
 
     // ── Build-config mirroring ──────────────────────────────────────────────
 
@@ -197,9 +199,7 @@ void main() {
     ) async {
       _useTallViewport(tester);
       final notifier = _FakeCustomFieldNotifier();
-      final field = _sliderField(
-        gradientColorsHex: ['#FF0000', '#0000FF'],
-      );
+      final field = _sliderField(gradientColorsHex: ['#FF0000', '#0000FF']);
 
       await tester.pumpWidget(_buildSheet(field: field, notifier: notifier));
       await tester.pumpAndSettle();
@@ -232,10 +232,12 @@ void main() {
 
       final config = notifier.lastWrittenConfig as SliderConfig?;
       expect(config, isNotNull);
-      expect(
-        config!.gradientColorsHex,
-        ['#AA0000', '#BB0000', '#CC0000', '#DD0000'],
-      );
+      expect(config!.gradientColorsHex, [
+        '#AA0000',
+        '#BB0000',
+        '#CC0000',
+        '#DD0000',
+      ]);
       expect(config.leftColorHex, '#AA0000');
       expect(config.rightColorHex, '#DD0000');
       // list.length ~/ 2 = 4 ~/ 2 = 2 → index 2 = '#CC0000'
@@ -341,6 +343,20 @@ void main() {
       expect(config.gradientColorsHex, ['#AA0000', '#BB0000', '#CC0000']);
     });
 
+    testWidgets('gradient preset labels scope text-presentation fallback', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final notifier = _FakeCustomFieldNotifier();
+      final field = _sliderField();
+
+      await tester.pumpWidget(_buildSheet(field: field, notifier: notifier));
+      await tester.pumpAndSettle();
+
+      final label = tester.widget<Text>(find.text('Cool ↔︎ Warm'));
+      expect(label.style?.fontFamilyFallback, contains('Noto Sans Symbols'));
+    });
+
     testWidgets('add-color tile is hidden when 6 colors present', (
       tester,
     ) async {
@@ -369,9 +385,7 @@ void main() {
     ) async {
       _useTallViewport(tester);
       final notifier = _FakeCustomFieldNotifier();
-      final field = _sliderField(
-        gradientColorsHex: ['#AA0000', '#BB0000'],
-      );
+      final field = _sliderField(gradientColorsHex: ['#AA0000', '#BB0000']);
 
       await tester.pumpWidget(_buildSheet(field: field, notifier: notifier));
       await tester.pumpAndSettle();

@@ -20,6 +20,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/custom_field_type_labels.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/utils/text_presentation.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_color_picker_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -128,7 +129,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       _nameController.text != _initialName ||
       _selectedTypeId != _initialTypeId ||
       _selectedPrecision != _initialPrecision ||
-      _hideTitleOnProfile != effectiveHideTitleOnProfile(widget.field?.typeConfig) ||
+      _hideTitleOnProfile !=
+          effectiveHideTitleOnProfile(widget.field?.typeConfig) ||
       (_selectedTypeId == 'choice' && _isChoiceDirty) ||
       (_selectedTypeId == 'scale' && _isScaleDirty) ||
       (_selectedTypeId == 'slider' && _isSliderDirty);
@@ -232,10 +234,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     if (f != null) {
       // Derive canonical type ID. Prefer fieldTypeId (registry-first); fall
       // back to looking up the legacy enum's int in the registry.
-      _selectedTypeId = f.fieldTypeId ??
-          customFieldTypeRegistry
-              .lookupByLegacyInt(f.fieldType.index)
-              ?.id ??
+      _selectedTypeId =
+          f.fieldTypeId ??
+          customFieldTypeRegistry.lookupByLegacyInt(f.fieldType.index)?.id ??
           'text';
       _selectedPrecision = f.datePrecision ?? DatePrecision.full;
       // Hydrate choice config from existing field.
@@ -284,8 +285,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     }
     // Build controllers/focus nodes for any pre-existing options.
     for (final option in _choiceOptions) {
-      _optionControllers[option.id] =
-          TextEditingController(text: option.label);
+      _optionControllers[option.id] = TextEditingController(text: option.label);
       _optionFocusNodes[option.id] = FocusNode();
     }
     _initialName = _nameController.text;
@@ -321,7 +321,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     final color = nextChoicePaletteColor(_visibleOptions.length);
     final maxSortOrder = _choiceOptions.isEmpty
         ? 0
-        : _choiceOptions.map((o) => o.sortOrder).reduce((a, b) => a > b ? a : b);
+        : _choiceOptions
+              .map((o) => o.sortOrder)
+              .reduce((a, b) => a > b ? a : b);
     final newOption = ChoiceOption(
       id: id,
       label: '',
@@ -575,7 +577,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   /// typeConfig row for plain text fields that haven't changed any display setting.
   TextConfig? _buildTextConfig() {
     final existing = widget.field?.typeConfig;
-    final extra = existing is TextConfig ? existing.extra : const <String, dynamic>{};
+    final extra = existing is TextConfig
+        ? existing.extra
+        : const <String, dynamic>{};
     if (!_hideTitleOnProfile && extra.isEmpty) return null;
     return TextConfig(hideTitleOnProfile: _hideTitleOnProfile, extra: extra);
   }
@@ -583,7 +587,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   /// Returns null when at default — see [_buildTextConfig].
   ColorConfig? _buildColorConfig() {
     final existing = widget.field?.typeConfig;
-    final extra = existing is ColorConfig ? existing.extra : const <String, dynamic>{};
+    final extra = existing is ColorConfig
+        ? existing.extra
+        : const <String, dynamic>{};
     if (!_hideTitleOnProfile && extra.isEmpty) return null;
     return ColorConfig(hideTitleOnProfile: _hideTitleOnProfile, extra: extra);
   }
@@ -591,7 +597,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   /// Returns null when at default — see [_buildTextConfig].
   DateConfig? _buildDateConfig() {
     final existing = widget.field?.typeConfig;
-    final extra = existing is DateConfig ? existing.extra : const <String, dynamic>{};
+    final extra = existing is DateConfig
+        ? existing.extra
+        : const <String, dynamic>{};
     if (!_hideTitleOnProfile && extra.isEmpty) return null;
     return DateConfig(hideTitleOnProfile: _hideTitleOnProfile, extra: extra);
   }
@@ -599,9 +607,14 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   /// Returns null when at default — see [_buildTextConfig].
   LongTextConfig? _buildLongTextConfig() {
     final existing = widget.field?.typeConfig;
-    final extra = existing is LongTextConfig ? existing.extra : const <String, dynamic>{};
+    final extra = existing is LongTextConfig
+        ? existing.extra
+        : const <String, dynamic>{};
     if (!_hideTitleOnProfile && extra.isEmpty) return null;
-    return LongTextConfig(hideTitleOnProfile: _hideTitleOnProfile, extra: extra);
+    return LongTextConfig(
+      hideTitleOnProfile: _hideTitleOnProfile,
+      extra: extra,
+    );
   }
 
   // ── Slider numeric validation ───────────────────────────────────────
@@ -637,16 +650,16 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     final seen = <String>{};
     final duplicates = <String>{};
     for (final option in _visibleOptions) {
-      final normalized =
-          (_optionControllers[option.id]?.text ?? option.label)
-              .trim()
-              .toLowerCase();
+      final normalized = (_optionControllers[option.id]?.text ?? option.label)
+          .trim()
+          .toLowerCase();
       if (normalized.isEmpty) continue;
       if (!seen.add(normalized)) {
         // Mark all options with this label.
         for (final o in _visibleOptions) {
-          final l =
-              (_optionControllers[o.id]?.text ?? o.label).trim().toLowerCase();
+          final l = (_optionControllers[o.id]?.text ?? o.label)
+              .trim()
+              .toLowerCase();
           if (l == normalized) duplicates.add(o.id);
         }
       }
@@ -675,8 +688,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       final legacyInt = def?.legacyIntValue;
       final legacyFieldType =
           (legacyInt != null && legacyInt < CustomFieldType.values.length)
-              ? CustomFieldType.values[legacyInt]
-              : CustomFieldType.text;
+          ? CustomFieldType.values[legacyInt]
+          : CustomFieldType.text;
 
       // Derive the typeConfig for types that need it.
       final CustomFieldTypeConfig? typeConfig = switch (_selectedTypeId) {
@@ -697,8 +710,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         // only what actually changed; stale values in this snapshot can't
         // clobber peers' concurrent edits (parent_field_id, display_order).
         final nameChanged = existing.name != name;
-        final newPrecision =
-            _selectedTypeId == 'date' ? _selectedPrecision : null;
+        final newPrecision = _selectedTypeId == 'date'
+            ? _selectedPrecision
+            : null;
         final precisionChanged = existing.datePrecision != newPrecision;
         // typeConfig equality: domain CustomField is `@freezed`, so structural
         // equality applies. For null↔null/non-null, == handles it.
@@ -706,7 +720,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         // Textual type-switch (text ↔ longText) changes the type id/enum.
         // This is the only case where we still need a full-row update because
         // the storage shape's stable type identity itself is moving.
-        final typeIdChanged = existing.fieldTypeId != _selectedTypeId ||
+        final typeIdChanged =
+            existing.fieldTypeId != _selectedTypeId ||
             existing.fieldType != legacyFieldType;
 
         if (typeIdChanged) {
@@ -762,8 +777,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         final err = await notifier.createField(
           name: name,
           fieldType: legacyFieldType,
-          datePrecision:
-              _selectedTypeId == 'date' ? _selectedPrecision : null,
+          datePrecision: _selectedTypeId == 'date' ? _selectedPrecision : null,
           fieldTypeId: _selectedTypeId,
           typeConfig: typeConfig,
           parentFieldId: widget.parentFieldId,
@@ -813,8 +827,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                 title: widget.isEditing
                     ? context.l10n.settingsCreateEditFieldEditTitle
                     : widget.parentFieldId != null
-                        ? context.l10n.customFieldGroupNewChildTitle
-                        : context.l10n.settingsCreateEditFieldNewTitle,
+                    ? context.l10n.customFieldGroupNewChildTitle
+                    : context.l10n.settingsCreateEditFieldNewTitle,
                 trailing: _saving
                     ? SizedBox(
                         width: PrismTokens.topBarActionSize,
@@ -903,8 +917,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          for (final def
-                              in customFieldTypeRegistry.definitions)
+                          for (final def in customFieldTypeRegistry.definitions)
                             if (widget.parentFieldId == null ||
                                 def.id != 'group')
                               PrismChip(
@@ -981,14 +994,12 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         displayLayout: _scaleDisplayLayout,
                         showCustomEmojiInput: _scaleShowCustomEmojiInput,
                         customEmojiController: _scaleCustomEmojiController,
-                        onEmojiSelected: (e) =>
-                            setState(() => _scaleEmoji = e),
+                        onEmojiSelected: (e) => setState(() => _scaleEmoji = e),
                         onToggleCustomEmoji: () => setState(
                           () => _scaleShowCustomEmojiInput =
                               !_scaleShowCustomEmojiInput,
                         ),
-                        onStepsChanged: (v) =>
-                            setState(() => _scaleSteps = v),
+                        onStepsChanged: (v) => setState(() => _scaleSteps = v),
                         onDisplayLayoutChanged: (v) =>
                             setState(() => _scaleDisplayLayout = v),
                       ),
@@ -1012,8 +1023,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         unitController: _sliderUnitController,
                         showTicks: _sliderShowTicks,
                         numericError: sliderError,
-                        onModeSelected: (m) =>
-                            setState(() => _sliderMode = m),
+                        onModeSelected: (m) => setState(() => _sliderMode = m),
                         onPresetSelected: (id) {
                           if (id == null) {
                             // Switching to custom. Seed from the current preset
@@ -1073,7 +1083,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
 
   /// Whether the currently selected type supports textual switching.
   bool get _isCurrentTypeTextual =>
-      customFieldTypeRegistry.lookupById(_selectedTypeId)?.allowsTextualSwitch ??
+      customFieldTypeRegistry
+          .lookupById(_selectedTypeId)
+          ?.allowsTextualSwitch ??
       false;
 
   /// Resolve a registry definition's labelL10nKey into the localized string.
@@ -1246,7 +1258,9 @@ class _ChoiceOptionRow extends StatelessWidget {
               child: Icon(
                 AppIcons.dragHandle,
                 size: 20,
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.6,
+                ),
               ),
             ),
           ),
@@ -1506,9 +1520,7 @@ class _EmojiPickerButton extends StatelessWidget {
             width: isSelected ? 2 : 1,
           ),
         ),
-        child: Center(
-          child: Text(emoji, style: const TextStyle(fontSize: 22)),
-        ),
+        child: Center(child: Text(emoji, style: const TextStyle(fontSize: 22))),
       ),
     );
   }
@@ -1595,6 +1607,7 @@ class _SliderConfigSection extends StatelessWidget {
   final TextEditingController rightLabelController;
   final TextEditingController centerLabelController;
   final String? selectedPresetId;
+
   /// 2–6 custom gradient colors used when [selectedPresetId] is null.
   final List<String> gradientColors;
   final bool snapToPositions;
@@ -1603,11 +1616,13 @@ class _SliderConfigSection extends StatelessWidget {
   final TextEditingController stepController;
   final TextEditingController unitController;
   final bool showTicks;
+
   /// Validation error for numeric mode (min >= max or step <= 0). When
   /// non-null, shown inline below the numeric controls and the Save button is
   /// disabled by the parent.
   final String? numericError;
   final ValueChanged<SliderMode> onModeSelected;
+
   /// Null marks the synthetic "Custom" choice, which reveals the swatch row.
   final ValueChanged<String?> onPresetSelected;
   final ValueChanged<List<String>> onColorsChanged;
@@ -1780,14 +1795,20 @@ class _SliderConfigSection extends StatelessWidget {
           PrismTextField(
             controller: minController,
             labelText: l10n.customFieldSliderMin,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+            keyboardType: const TextInputType.numberWithOptions(
+              decimal: true,
+              signed: true,
+            ),
             onChanged: (_) => onLabelChanged(),
           ),
           const SizedBox(height: 12),
           PrismTextField(
             controller: maxController,
             labelText: l10n.customFieldSliderMax,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+            keyboardType: const TextInputType.numberWithOptions(
+              decimal: true,
+              signed: true,
+            ),
             onChanged: (_) => onLabelChanged(),
           ),
           const SizedBox(height: 12),
@@ -1839,18 +1860,18 @@ class _SliderConfigSection extends StatelessWidget {
     );
   }
 
-  String _categoryLabel(AppLocalizations l10n, SliderGradientCategory category) {
+  String _categoryLabel(
+    AppLocalizations l10n,
+    SliderGradientCategory category,
+  ) {
     return switch (category) {
-      SliderGradientCategory.identity =>
-        l10n.customFieldSliderCategoryIdentity,
+      SliderGradientCategory.identity => l10n.customFieldSliderCategoryIdentity,
       SliderGradientCategory.moodIntensity =>
         l10n.customFieldSliderCategoryMoodIntensity,
       SliderGradientCategory.temperature =>
         l10n.customFieldSliderCategoryTemperature,
-      SliderGradientCategory.palette =>
-        l10n.customFieldSliderCategoryPalette,
-      SliderGradientCategory.neutral =>
-        l10n.customFieldSliderCategoryNeutral,
+      SliderGradientCategory.palette => l10n.customFieldSliderCategoryPalette,
+      SliderGradientCategory.neutral => l10n.customFieldSliderCategoryNeutral,
     };
   }
 
@@ -1860,18 +1881,15 @@ class _SliderConfigSection extends StatelessWidget {
       'sliderGradientPresetSoftHard' => l10n.sliderGradientPresetSoftHard,
       'sliderGradientPresetHighLowGender' =>
         l10n.sliderGradientPresetHighLowGender,
-      'sliderGradientPresetCalmIntense' =>
-        l10n.sliderGradientPresetCalmIntense,
+      'sliderGradientPresetCalmIntense' => l10n.sliderGradientPresetCalmIntense,
       'sliderGradientPresetSadHappy' => l10n.sliderGradientPresetSadHappy,
       'sliderGradientPresetLowHighEnergy' =>
         l10n.sliderGradientPresetLowHighEnergy,
       'sliderGradientPresetSoftBold' => l10n.sliderGradientPresetSoftBold,
       'sliderGradientPresetCoolWarm' => l10n.sliderGradientPresetCoolWarm,
       'sliderGradientPresetDayNight' => l10n.sliderGradientPresetDayNight,
-      'sliderGradientPresetSolidAccent' =>
-        l10n.sliderGradientPresetSolidAccent,
-      'sliderGradientPresetMonochrome' =>
-        l10n.sliderGradientPresetMonochrome,
+      'sliderGradientPresetSolidAccent' => l10n.sliderGradientPresetSolidAccent,
+      'sliderGradientPresetMonochrome' => l10n.sliderGradientPresetMonochrome,
       'sliderGradientPresetPaletteRoseDusk' =>
         l10n.sliderGradientPresetPaletteRoseDusk,
       'sliderGradientPresetPaletteSageMeadow' =>
@@ -1940,8 +1958,8 @@ class _SliderModeCard extends StatelessWidget {
                   color: isDisabled
                       ? theme.colorScheme.onSurfaceVariant
                       : isSelected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant,
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -1951,8 +1969,8 @@ class _SliderModeCard extends StatelessWidget {
                       color: isDisabled
                           ? theme.colorScheme.onSurfaceVariant
                           : isSelected
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurface,
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurface,
                       fontWeight: isSelected ? FontWeight.w600 : null,
                     ),
                   ),
@@ -1998,9 +2016,19 @@ class _GradientPresetChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final leftColor = AppColors.fromHex(preset.leftHex);
-    final centerColor =
-        preset.centerHex == null ? null : AppColors.fromHex(preset.centerHex!);
+    final centerColor = preset.centerHex == null
+        ? null
+        : AppColors.fromHex(preset.centerHex!);
     final rightColor = AppColors.fromHex(preset.rightHex);
+    final labelColor = isSelected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant;
+    final labelStyle = textStyleForTextPresentation(
+      (theme.textTheme.labelSmall ?? const TextStyle()).copyWith(
+        color: labelColor,
+      ),
+      labelText,
+    );
 
     return GestureDetector(
       onTap: onTap,
@@ -2014,8 +2042,7 @@ class _GradientPresetChip extends StatelessWidget {
                 height: 24,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  gradient:
-                      leftColor == rightColor && centerColor == null
+                  gradient: leftColor == rightColor && centerColor == null
                       ? null
                       : () {
                           final stops = sliderGradientStops(
@@ -2042,11 +2069,7 @@ class _GradientPresetChip extends StatelessWidget {
               if (isSelected)
                 Positioned.fill(
                   child: Center(
-                    child: Icon(
-                      AppIcons.check,
-                      size: 14,
-                      color: Colors.white,
-                    ),
+                    child: Icon(AppIcons.check, size: 14, color: Colors.white),
                   ),
                 ),
             ],
@@ -2056,11 +2079,7 @@ class _GradientPresetChip extends StatelessWidget {
             width: 80,
             child: Text(
               labelText,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: isSelected
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurfaceVariant,
-              ),
+              style: labelStyle,
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
               maxLines: 2,
@@ -2097,13 +2116,11 @@ Future<String?> _showSwatchColorPicker(
     },
     actions: [
       PrismButton(
-        onPressed: () =>
-            Navigator.of(context, rootNavigator: true).pop(false),
+        onPressed: () => Navigator.of(context, rootNavigator: true).pop(false),
         label: context.l10n.cancel,
       ),
       PrismButton(
-        onPressed: () =>
-            Navigator.of(context, rootNavigator: true).pop(true),
+        onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
         label: context.l10n.save,
         tone: PrismButtonTone.filled,
       ),
@@ -2179,10 +2196,8 @@ class _GradientSwatchRow extends StatelessWidget {
           onColorsChanged(updated);
           Haptics.selection();
         },
-        proxyDecorator: (child, index, animation) => Material(
-          color: Colors.transparent,
-          child: child,
-        ),
+        proxyDecorator: (child, index, animation) =>
+            Material(color: Colors.transparent, child: child),
         footer: canAdd
             ? Align(
                 alignment: Alignment.topCenter,
@@ -2358,6 +2373,7 @@ class _CustomGradientChip extends StatelessWidget {
 
   final bool isSelected;
   final VoidCallback onTap;
+
   /// 2–6 custom gradient color hex strings.
   final List<String> gradientColors;
   final String labelText;

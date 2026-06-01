@@ -69,41 +69,27 @@ class _PaletteSurfaceTintAlphas {
 class AppTheme {
   AppTheme._();
 
-  // Flutter on iOS/macOS already defaults to SF Pro.
-  // On Android it defaults to Roboto. No override needed.
+  // Linux has no single default. Mirror Flutter's chain and add the bundled
+  // color emoji fallback.
   //
-  // Keep text-symbol fonts ahead of color emoji so VS15 can select text glyphs.
-  static const List<String> _textPresentationSymbolFallback = [
-    'Apple Symbols',
-    'Segoe UI Symbol',
-    'Noto Sans Symbols',
-    'Noto Sans Symbols 2',
-    'Symbola',
-  ];
-
-  // Linux has no single default. Mirror Flutter's chain, then add symbol and
-  // bundled color emoji fallbacks.
-  //
-  // Applied via TextTheme.apply(fontFamilyFallback:), so:
   //   - null-fontFamily styles (body/label/title) use Adwaita Sans as the
   //     effective primary and fall through the list for missing glyphs.
   //   - Unbounded styles (display/headline) keep Unbounded as primary and
   //     only consult this list for codepoints Unbounded lacks (mainly
   //     emoji).
-  static List<String> get _fontFamilyFallback {
-    if (defaultTargetPlatform == TargetPlatform.linux) {
-      return const [
-        'Adwaita Sans',
-        'Ubuntu',
-        'Cantarell',
-        'DejaVu Sans',
-        'Liberation Sans',
-        'Arial',
-        ..._textPresentationSymbolFallback,
-        'NotoColorEmoji',
-      ];
-    }
-    return _textPresentationSymbolFallback;
+  static const List<String> _linuxFontFamilyFallback = [
+    'Adwaita Sans',
+    'Ubuntu',
+    'Cantarell',
+    'DejaVu Sans',
+    'Liberation Sans',
+    'Arial',
+    'NotoColorEmoji',
+  ];
+
+  static TextTheme _applyPlatformFontFallback(TextTheme textTheme) {
+    if (defaultTargetPlatform != TargetPlatform.linux) return textTheme;
+    return textTheme.apply(fontFamilyFallback: _linuxFontFamilyFallback);
   }
 
   static bool get _isDesktopPlatform {
@@ -610,9 +596,7 @@ class AppTheme {
       splashFactory: isApple ? NoSplash.splashFactory : null,
       splashColor: isApple ? Colors.transparent : null,
       highlightColor: isApple ? Colors.transparent : null,
-      textTheme: _adjustTextTheme(
-        base.textTheme,
-      ).apply(fontFamilyFallback: _fontFamilyFallback),
+      textTheme: _applyPlatformFontFallback(_adjustTextTheme(base.textTheme)),
       scaffoldBackgroundColor: colors.scaffold,
       cardColor: colors.cardColor,
       extensions: <ThemeExtension<dynamic>>[shapes, flavor],

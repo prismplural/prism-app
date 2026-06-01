@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/utils/text_presentation.dart';
 
 /// A [TextEditingController] that highlights inline markdown syntax for chat.
 ///
@@ -70,18 +71,19 @@ class ChatMarkdownEditingController extends TextEditingController {
     }
 
     final mergedStyle = style?.merge(_baseStyle) ?? _baseStyle;
+    final textStyle = textStyleForTextPresentation(mergedStyle, text);
     final lines = text.split('\n');
     final spans = <TextSpan>[];
     var isFirstLine = true;
 
     for (final line in lines) {
       if (!isFirstLine) {
-        spans.add(TextSpan(text: '\n', style: mergedStyle));
+        spans.add(TextSpan(text: '\n', style: textStyle));
       }
       isFirstLine = false;
 
       // No heading or horizontal rule handling — render all lines as inline.
-      _parseInlineMarkdown(line, mergedStyle, spans);
+      _parseInlineMarkdown(line, textStyle, spans);
     }
 
     _cachedText = text;

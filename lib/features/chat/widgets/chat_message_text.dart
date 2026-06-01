@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/utils/safe_link.dart';
+import 'package:prism_plurality/shared/utils/text_presentation.dart';
 
 /// Renders chat message content with a narrow markdown subset + colored
 /// mentions.
@@ -131,8 +132,9 @@ class _ChatMessageTextState extends State<ChatMessageText> {
       );
     }
 
+    final effectiveBaseStyle = textStyleForTextPresentation(baseStyle, content);
     final stickerFontSize = allowEmojiSticker
-        ? emojiStickerFontSize(content, baseStyle)
+        ? emojiStickerFontSize(content, effectiveBaseStyle)
         : null;
 
     if (stickerFontSize != null) {
@@ -140,7 +142,7 @@ class _ChatMessageTextState extends State<ChatMessageText> {
         key: renderKey,
         child: Text(
           content.trim(),
-          style: baseStyle.copyWith(
+          style: effectiveBaseStyle.copyWith(
             color: defaultColor,
             fontSize: stickerFontSize,
             height: 1.0,
@@ -162,7 +164,7 @@ class _ChatMessageTextState extends State<ChatMessageText> {
             authorMap: widget.authorMap,
             theme: theme,
             defaultColor: defaultColor,
-            baseStyle: baseStyle,
+            baseStyle: effectiveBaseStyle,
           ),
         ),
       );
@@ -176,7 +178,7 @@ class _ChatMessageTextState extends State<ChatMessageText> {
         child: MarkdownBody(
           key: renderKey,
           data: preprocessed,
-          styleSheet: chatStylesheet(context, baseStyle),
+          styleSheet: chatStylesheet(context, effectiveBaseStyle),
           extensionSet: chatExtensionSet,
           selectable: false,
           softLineBreak: true,

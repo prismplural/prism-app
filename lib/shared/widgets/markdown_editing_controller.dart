@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/utils/text_presentation.dart';
 
 class MarkdownEditingController extends TextEditingController {
   static final _spoilerRegex = RegExp(r'\|\|(.+?)\|\|');
@@ -49,56 +50,63 @@ class MarkdownEditingController extends TextEditingController {
     }
 
     final mergedStyle = style?.merge(_baseStyle) ?? _baseStyle;
+    final textStyle = textStyleForTextPresentation(mergedStyle, text);
     final lines = text.split('\n');
     final spans = <TextSpan>[];
     var isFirstLine = true;
 
     for (final line in lines) {
       if (!isFirstLine) {
-        spans.add(TextSpan(text: '\n', style: mergedStyle));
+        spans.add(TextSpan(text: '\n', style: textStyle));
       }
       isFirstLine = false;
 
       if (line == '---') {
-        spans.add(TextSpan(
-          text: line,
-          style: mergedStyle.copyWith(
-            color: _markerColor,
-            fontSize: (mergedStyle.fontSize ?? 14) * 0.85,
+        spans.add(
+          TextSpan(
+            text: line,
+            style: textStyle.copyWith(
+              color: _markerColor,
+              fontSize: (textStyle.fontSize ?? 14) * 0.85,
+            ),
           ),
-        ));
+        );
         continue;
       }
 
       if (line.startsWith('## ')) {
-        spans.add(TextSpan(
-          text: '## ',
-          style: mergedStyle.copyWith(color: _markerColor),
-        ));
+        spans.add(
+          TextSpan(
+            text: '## ',
+            style: textStyle.copyWith(color: _markerColor),
+          ),
+        );
         // Parse the heading body so inline markers (spoilers, bold, …) still
         // style inside a heading, matching the rendered output.
         _parseInlineMarkdown(
           line.substring(3),
-          mergedStyle.copyWith(fontSize: 18, fontWeight: FontWeight.w600),
+          textStyle.copyWith(fontSize: 18, fontWeight: FontWeight.w600),
           spans,
         );
         continue;
       }
 
       if (line.startsWith('# ')) {
-        spans.add(TextSpan(
-          text: '# ',
-          style: mergedStyle.copyWith(color: _markerColor),
-        ));
+        spans.add(
+          TextSpan(
+            text: '# ',
+            style: textStyle.copyWith(color: _markerColor),
+          ),
+        );
         _parseInlineMarkdown(
           line.substring(2),
-          mergedStyle.copyWith(fontSize: 20, fontWeight: FontWeight.bold),
+          textStyle.copyWith(fontSize: 20, fontWeight: FontWeight.bold),
           spans,
         );
         continue;
       }
 
-      _parseInlineMarkdown(line, mergedStyle, spans);
+      _parseInlineMarkdown(line, textStyle, spans);
     }
 
     _cachedText = text;
@@ -122,16 +130,18 @@ class MarkdownEditingController extends TextEditingController {
       for (var i = match.start; i < match.end; i++) {
         matched[i] = true;
       }
-      segments.add(_Segment(
-        start: match.start,
-        end: match.end,
-        markerBefore: '||',
-        markerAfter: '||',
-        content: match.group(1)!,
-        contentStyle: baseStyle.copyWith(
-          backgroundColor: _onSurface.withAlpha(40),
+      segments.add(
+        _Segment(
+          start: match.start,
+          end: match.end,
+          markerBefore: '||',
+          markerAfter: '||',
+          content: match.group(1)!,
+          contentStyle: baseStyle.copyWith(
+            backgroundColor: _onSurface.withAlpha(40),
+          ),
         ),
-      ));
+      );
     }
 
     for (final match in _boldRegex.allMatches(line)) {
@@ -139,14 +149,16 @@ class MarkdownEditingController extends TextEditingController {
       for (var i = match.start; i < match.end; i++) {
         matched[i] = true;
       }
-      segments.add(_Segment(
-        start: match.start,
-        end: match.end,
-        markerBefore: '**',
-        markerAfter: '**',
-        content: match.group(1)!,
-        contentStyle: baseStyle.copyWith(fontWeight: FontWeight.bold),
-      ));
+      segments.add(
+        _Segment(
+          start: match.start,
+          end: match.end,
+          markerBefore: '**',
+          markerAfter: '**',
+          content: match.group(1)!,
+          contentStyle: baseStyle.copyWith(fontWeight: FontWeight.bold),
+        ),
+      );
     }
 
     for (final match in _underlineRegex.allMatches(line)) {
@@ -154,16 +166,18 @@ class MarkdownEditingController extends TextEditingController {
       for (var i = match.start; i < match.end; i++) {
         matched[i] = true;
       }
-      segments.add(_Segment(
-        start: match.start,
-        end: match.end,
-        markerBefore: '__',
-        markerAfter: '__',
-        content: match.group(1)!,
-        contentStyle: baseStyle.copyWith(
-          decoration: TextDecoration.underline,
+      segments.add(
+        _Segment(
+          start: match.start,
+          end: match.end,
+          markerBefore: '__',
+          markerAfter: '__',
+          content: match.group(1)!,
+          contentStyle: baseStyle.copyWith(
+            decoration: TextDecoration.underline,
+          ),
         ),
-      ));
+      );
     }
 
     for (final match in _italicRegex.allMatches(line)) {
@@ -171,14 +185,16 @@ class MarkdownEditingController extends TextEditingController {
       for (var i = match.start; i < match.end; i++) {
         matched[i] = true;
       }
-      segments.add(_Segment(
-        start: match.start,
-        end: match.end,
-        markerBefore: '*',
-        markerAfter: '*',
-        content: match.group(1)!,
-        contentStyle: baseStyle.copyWith(fontStyle: FontStyle.italic),
-      ));
+      segments.add(
+        _Segment(
+          start: match.start,
+          end: match.end,
+          markerBefore: '*',
+          markerAfter: '*',
+          content: match.group(1)!,
+          contentStyle: baseStyle.copyWith(fontStyle: FontStyle.italic),
+        ),
+      );
     }
 
     segments.sort((a, b) => a.start.compareTo(b.start));
@@ -188,10 +204,12 @@ class MarkdownEditingController extends TextEditingController {
 
     for (final segment in segments) {
       if (cursor < segment.start) {
-        spans.add(TextSpan(
-          text: line.substring(cursor, segment.start),
-          style: baseStyle,
-        ));
+        spans.add(
+          TextSpan(
+            text: line.substring(cursor, segment.start),
+            style: baseStyle,
+          ),
+        );
       }
       spans.add(TextSpan(text: segment.markerBefore, style: markerStyle));
       spans.add(TextSpan(text: segment.content, style: segment.contentStyle));
@@ -200,10 +218,7 @@ class MarkdownEditingController extends TextEditingController {
     }
 
     if (cursor < line.length) {
-      spans.add(TextSpan(
-        text: line.substring(cursor),
-        style: baseStyle,
-      ));
+      spans.add(TextSpan(text: line.substring(cursor), style: baseStyle));
     }
 
     if (segments.isEmpty && line.isEmpty) {

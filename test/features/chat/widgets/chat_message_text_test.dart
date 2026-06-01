@@ -59,6 +59,17 @@ double? _renderedLineHeight(WidgetTester tester, String text) {
   return widget.style?.height ?? (span is TextSpan ? span.style?.height : null);
 }
 
+List<String>? _renderedFontFamilyFallback(WidgetTester tester, String text) {
+  final widget = tester.widget<Text>(find.text(text));
+  final span = widget.textSpan;
+  if (span is TextSpan) {
+    final spanFallback = _fontFallbackForText(span, text);
+    if (spanFallback != null) return spanFallback;
+  }
+  return widget.style?.fontFamilyFallback ??
+      (span is TextSpan ? span.style?.fontFamilyFallback : null);
+}
+
 double? _fontSizeForText(
   TextSpan span,
   String text, [
@@ -71,6 +82,24 @@ double? _fontSizeForText(
   for (final child in span.children ?? const <InlineSpan>[]) {
     if (child is TextSpan) {
       final result = _fontSizeForText(child, text, style);
+      if (result != null) return result;
+    }
+  }
+  return null;
+}
+
+List<String>? _fontFallbackForText(
+  TextSpan span,
+  String text, [
+  TextStyle? inheritedStyle,
+]) {
+  final style =
+      inheritedStyle?.merge(span.style) ?? span.style ?? inheritedStyle;
+  if (span.text == text) return style?.fontFamilyFallback;
+
+  for (final child in span.children ?? const <InlineSpan>[]) {
+    if (child is TextSpan) {
+      final result = _fontFallbackForText(child, text, style);
       if (result != null) return result;
     }
   }
@@ -292,19 +321,22 @@ void main() {
         // the backstop.
         const channel = MethodChannel('plugins.flutter.io/url_launcher');
         final launched = <String>[];
-        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
-          call,
-        ) async {
-          if (call.method == 'launch') {
-            final args = call.arguments as Map<Object?, Object?>;
-            launched.add(args['url']! as String);
-            return true;
-          }
-          return false;
-        });
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          (call) async {
+            if (call.method == 'launch') {
+              final args = call.arguments as Map<Object?, Object?>;
+              launched.add(args['url']! as String);
+              return true;
+            }
+            return false;
+          },
+        );
         addTearDown(
-          () => tester.binding.defaultBinaryMessenger
-              .setMockMethodCallHandler(channel, null),
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            channel,
+            null,
+          ),
         );
 
         for (final href in const [
@@ -369,6 +401,10 @@ void main() {
 
       expect(_renderedFontSize(tester, '🥴'), 48);
       expect(_renderedLineHeight(tester, '🥴'), 1.0);
+      expect(
+        _renderedFontFamilyFallback(tester, '🥴') ?? const <String>[],
+        isNot(contains('Noto Sans Symbols')),
+      );
     });
 
     testWidgets('14. emoji-only message with whitespace is enlarged', (
@@ -395,6 +431,10 @@ void main() {
       await tester.pumpWidget(_widget(content: content));
 
       expect(_renderedFontSize(tester, content), _kBaseStyle.fontSize);
+      expect(
+        _renderedFontFamilyFallback(tester, content) ?? const <String>[],
+        isNot(contains('Noto Sans Symbols')),
+      );
     });
 
     testWidgets('17. text-presentation symbol stays normal chat size', (
@@ -404,6 +444,10 @@ void main() {
       await tester.pumpWidget(_widget(content: content));
 
       expect(_renderedFontSize(tester, content), _kBaseStyle.fontSize);
+      expect(
+        _renderedFontFamilyFallback(tester, content),
+        contains('Noto Sans Symbols'),
+      );
     });
   });
 

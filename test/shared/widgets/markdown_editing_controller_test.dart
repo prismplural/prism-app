@@ -5,9 +5,7 @@ import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart'
 void main() {
   Widget buildApp(MarkdownEditingController controller) {
     return MaterialApp(
-      home: Scaffold(
-        body: TextField(controller: controller),
-      ),
+      home: Scaffold(body: TextField(controller: controller)),
     );
   }
 
@@ -44,6 +42,31 @@ void main() {
         expect(children!.length, 1);
         expect((children[0] as TextSpan).text, 'hello world');
       });
+
+      testWidgets('adds symbol fallback only for text-presentation symbols', (
+        tester,
+      ) async {
+        final controller = MarkdownEditingController(text: '\u231B\uFE0E');
+        final children = await getSpanChildren(tester, controller);
+
+        final fallback =
+            (children!.single as TextSpan).style?.fontFamilyFallback;
+        expect(fallback, contains('Noto Sans Symbols'));
+      });
+
+      testWidgets('does not add symbol fallback for ordinary emoji', (
+        tester,
+      ) async {
+        final controller = MarkdownEditingController(text: '✨');
+        final children = await getSpanChildren(tester, controller);
+
+        final fallback =
+            (children!.single as TextSpan).style?.fontFamilyFallback;
+        expect(
+          fallback ?? const <String>[],
+          isNot(contains('Noto Sans Symbols')),
+        );
+      });
     });
 
     group('bold', () {
@@ -55,10 +78,7 @@ void main() {
         expect(children!.length, 3);
         expect((children[0] as TextSpan).text, '**');
         expect((children[1] as TextSpan).text, 'bold text');
-        expect(
-          (children[1] as TextSpan).style!.fontWeight,
-          FontWeight.bold,
-        );
+        expect((children[1] as TextSpan).style!.fontWeight, FontWeight.bold);
         expect((children[2] as TextSpan).text, '**');
       });
     });
@@ -72,10 +92,7 @@ void main() {
         expect(children!.length, 3);
         expect((children[0] as TextSpan).text, '*');
         expect((children[1] as TextSpan).text, 'italic text');
-        expect(
-          (children[1] as TextSpan).style!.fontStyle,
-          FontStyle.italic,
-        );
+        expect((children[1] as TextSpan).style!.fontStyle, FontStyle.italic);
         expect((children[2] as TextSpan).text, '*');
       });
     });
@@ -108,10 +125,7 @@ void main() {
         expect(children!.length, 3);
         expect((children[0] as TextSpan).text, '||');
         expect((children[1] as TextSpan).text, 'secret');
-        expect(
-          (children[1] as TextSpan).style!.backgroundColor,
-          isNotNull,
-        );
+        expect((children[1] as TextSpan).style!.backgroundColor, isNotNull);
         expect((children[2] as TextSpan).text, '||');
       });
 
@@ -143,10 +157,7 @@ void main() {
         expect((children[0] as TextSpan).text, '# ');
         expect((children[1] as TextSpan).text, '||');
         expect((children[2] as TextSpan).text, 'secret');
-        expect(
-          (children[2] as TextSpan).style!.backgroundColor,
-          isNotNull,
-        );
+        expect((children[2] as TextSpan).style!.backgroundColor, isNotNull);
         expect((children[3] as TextSpan).text, '||');
       });
     });
@@ -161,10 +172,7 @@ void main() {
         expect((children[0] as TextSpan).text, '# ');
         expect((children[1] as TextSpan).text, 'Heading');
         expect((children[1] as TextSpan).style!.fontSize, 20);
-        expect(
-          (children[1] as TextSpan).style!.fontWeight,
-          FontWeight.bold,
-        );
+        expect((children[1] as TextSpan).style!.fontWeight, FontWeight.bold);
       });
 
       testWidgets('parses ## Subheading into 2 children', (tester) async {
@@ -176,10 +184,7 @@ void main() {
         expect((children[0] as TextSpan).text, '## ');
         expect((children[1] as TextSpan).text, 'Subheading');
         expect((children[1] as TextSpan).style!.fontSize, 18);
-        expect(
-          (children[1] as TextSpan).style!.fontWeight,
-          FontWeight.w600,
-        );
+        expect((children[1] as TextSpan).style!.fontWeight, FontWeight.w600);
       });
     });
 
@@ -191,18 +196,17 @@ void main() {
         expect(children, isNotNull);
         expect(children!.length, 1);
         expect((children[0] as TextSpan).text, '---');
-        expect(
-          (children[0] as TextSpan).style!.fontSize,
-          14 * 0.85,
-        );
+        expect((children[0] as TextSpan).style!.fontSize, 14 * 0.85);
       });
     });
 
     group('mixed content', () {
-      testWidgets('parses hello **bold** world into 5 children',
-          (tester) async {
-        final controller =
-            MarkdownEditingController(text: 'hello **bold** world');
+      testWidgets('parses hello **bold** world into 5 children', (
+        tester,
+      ) async {
+        final controller = MarkdownEditingController(
+          text: 'hello **bold** world',
+        );
         final children = await getSpanChildren(tester, controller);
 
         expect(children, isNotNull);
@@ -210,20 +214,17 @@ void main() {
         expect((children[0] as TextSpan).text, 'hello ');
         expect((children[1] as TextSpan).text, '**');
         expect((children[2] as TextSpan).text, 'bold');
-        expect(
-          (children[2] as TextSpan).style!.fontWeight,
-          FontWeight.bold,
-        );
+        expect((children[2] as TextSpan).style!.fontWeight, FontWeight.bold);
         expect((children[3] as TextSpan).text, '**');
         expect((children[4] as TextSpan).text, ' world');
       });
     });
 
     group('unclosed markers', () {
-      testWidgets('renders unclosed **not closed as plain text',
-          (tester) async {
-        final controller =
-            MarkdownEditingController(text: '**not closed');
+      testWidgets('renders unclosed **not closed as plain text', (
+        tester,
+      ) async {
+        final controller = MarkdownEditingController(text: '**not closed');
         final children = await getSpanChildren(tester, controller);
 
         expect(children, isNotNull);
@@ -233,8 +234,9 @@ void main() {
     });
 
     group('fallback cases', () {
-      testWidgets('empty text falls back to super.buildTextSpan',
-          (tester) async {
+      testWidgets('empty text falls back to super.buildTextSpan', (
+        tester,
+      ) async {
         final controller = MarkdownEditingController(text: '');
         final children = await getSpanChildren(tester, controller);
 
@@ -244,18 +246,19 @@ void main() {
       });
 
       testWidgets(
-          'before updateTheme is called falls back to super.buildTextSpan',
-          (tester) async {
-        final controller = MarkdownEditingController(text: '**bold**');
-        final children = await getSpanChildren(
-          tester,
-          controller,
-          callUpdateTheme: false,
-        );
+        'before updateTheme is called falls back to super.buildTextSpan',
+        (tester) async {
+          final controller = MarkdownEditingController(text: '**bold**');
+          final children = await getSpanChildren(
+            tester,
+            controller,
+            callUpdateTheme: false,
+          );
 
-        // Without updateTheme, _themeReady is false, so it falls back.
-        expect(children, isNull);
-      });
+          // Without updateTheme, _themeReady is false, so it falls back.
+          expect(children, isNull);
+        },
+      );
     });
 
     group('marker color', () {

@@ -71,6 +71,31 @@ void main() {
         expect((children[0] as TextSpan).text, 'hello');
       });
 
+      testWidgets('adds symbol fallback only for text-presentation symbols', (
+        tester,
+      ) async {
+        final controller = ChatMarkdownEditingController(text: '\u231B\uFE0E');
+        final children = await getSpanChildren(tester, controller);
+
+        final fallback =
+            (children!.single as TextSpan).style?.fontFamilyFallback;
+        expect(fallback, contains('Noto Sans Symbols'));
+      });
+
+      testWidgets('does not add symbol fallback for ordinary emoji', (
+        tester,
+      ) async {
+        final controller = ChatMarkdownEditingController(text: '✨');
+        final children = await getSpanChildren(tester, controller);
+
+        final fallback =
+            (children!.single as TextSpan).style?.fontFamilyFallback;
+        expect(
+          fallback ?? const <String>[],
+          isNot(contains('Noto Sans Symbols')),
+        );
+      });
+
       testWidgets(
         'renders mention tokens as display names with mention styling',
         (tester) async {
