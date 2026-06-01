@@ -473,6 +473,83 @@ void main() {
     expect(failures, isEmpty);
   });
 
+  test(
+    'sync hardDelete for chat_messages removes child media attachments',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final adapter = buildSyncAdapterWithCompletion(db).adapter;
+      final messages = adapter.entities.singleWhere(
+        (entity) => entity.tableName == 'chat_messages',
+      );
+
+      await messages.applyFields(
+        'message-with-media',
+        Map<String, dynamic>.from(_remoteCreatePayloads['chat_messages']!)
+          ..['conversation_id'] = 'conversation-with-media',
+      );
+      await db
+          .into(db.mediaAttachments)
+          .insert(
+            database.MediaAttachmentsCompanion.insert(
+              id: 'attachment-for-message',
+              messageId: const Value('message-with-media'),
+              mediaId: const Value('media-for-message'),
+              mediaType: const Value('image'),
+            ),
+          );
+
+      await messages.hardDelete('message-with-media');
+
+      expect(await messages.readRow('message-with-media'), isNull);
+      expect(
+        await db.mediaAttachmentsDao.getById('attachment-for-message'),
+        isNull,
+      );
+      expect(await db.mediaAttachmentsDao.watchAllChatMedia().first, isEmpty);
+    },
+  );
+
+  test(
+    'sync hardDelete for empty chat_messages id preserves sentinel media',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final adapter = buildSyncAdapterWithCompletion(db).adapter;
+      final messages = adapter.entities.singleWhere(
+        (entity) => entity.tableName == 'chat_messages',
+      );
+
+      await db
+          .into(db.mediaAttachments)
+          .insert(
+            database.MediaAttachmentsCompanion.insert(
+              id: 'bio-media',
+              messageId: const Value(''),
+              memberId: const Value('member-1'),
+              mediaId: const Value('bio-media-id'),
+              mediaType: const Value('image'),
+            ),
+          );
+      await db
+          .into(db.mediaAttachments)
+          .insert(
+            database.MediaAttachmentsCompanion.insert(
+              id: 'library-media',
+              messageId: const Value(''),
+              tag: const Value('logo'),
+              mediaId: const Value('library-media-id'),
+              mediaType: const Value('image'),
+            ),
+          );
+
+      await messages.hardDelete('');
+
+      expect(await db.mediaAttachmentsDao.getById('bio-media'), isNotNull);
+      expect(await db.mediaAttachmentsDao.getById('library-media'), isNotNull);
+    },
+  );
+
   // ---------------------------------------------------------------------------
   // PK bidirectional sync (plan 08) — round-trip locks for new fields.
   //

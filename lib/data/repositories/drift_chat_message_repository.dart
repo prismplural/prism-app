@@ -100,8 +100,14 @@ class DriftChatMessageRepository
 
   @override
   Future<void> deleteMessage(String id) async {
-    await _dao.softDeleteMessage(id);
-    await syncRecordDelete(_table, id);
+    final result = await _dao.softDeleteMessageAndAttachments(id);
+
+    if (result.messageDeleted) {
+      await syncRecordDelete(_table, id);
+    }
+    for (final attachmentId in result.attachmentIds) {
+      await syncRecordDelete('media_attachments', attachmentId);
+    }
   }
 
   @override
@@ -206,9 +212,11 @@ class DriftChatMessageRepository
           ? Value(fields['is_system_message'] as bool)
           : const Value.absent(),
       editedAt: fields.containsKey('edited_at')
-          ? Value(fields['edited_at'] == null
-              ? null
-              : parseSyncDateTime(fields['edited_at']))
+          ? Value(
+              fields['edited_at'] == null
+                  ? null
+                  : parseSyncDateTime(fields['edited_at']),
+            )
           : const Value.absent(),
       authorId: fields.containsKey('author_id')
           ? Value(fields['author_id'] as String?)

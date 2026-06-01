@@ -36,9 +36,9 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
             m.conversationId.equals(conversationId) & m.isDeleted.equals(false),
       )
       ..orderBy([
-              (m) => OrderingTerm.desc(m.timestamp),
-              (m) => OrderingTerm.asc(m.id),
-            ]);
+        (m) => OrderingTerm.desc(m.timestamp),
+        (m) => OrderingTerm.asc(m.id),
+      ]);
     if (limit != null) {
       query.limit(limit, offset: offset);
     }
@@ -93,8 +93,8 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
   /// usage view). Avoids loading the entire message table into memory.
   Future<List<String>> imageMarkdownContents() async {
     final rows = await customSelect(
-      "SELECT content FROM chat_messages "
-      "WHERE is_deleted = 0 AND content LIKE '%![%'",
+      'SELECT content FROM chat_messages '
+      'WHERE is_deleted = 0 AND content LIKE \'%![%\'',
       readsFrom: {chatMessages},
     ).get();
     return rows.map((r) => r.read<String>('content')).toList();
@@ -104,18 +104,20 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
   /// ids, so the Media usage view can render a tappable jump target per chat
   /// message that references an image-library tag.
   Future<List<({String id, String conversationId, String content})>>
-      imageMarkdownMessages() async {
+  imageMarkdownMessages() async {
     final rows = await customSelect(
-      "SELECT id, conversation_id, content FROM chat_messages "
-      "WHERE is_deleted = 0 AND content LIKE '%![%'",
+      'SELECT id, conversation_id, content FROM chat_messages '
+      'WHERE is_deleted = 0 AND content LIKE \'%![%\'',
       readsFrom: {chatMessages},
     ).get();
     return rows
-        .map((r) => (
-              id: r.read<String>('id'),
-              conversationId: r.read<String>('conversation_id'),
-              content: r.read<String>('content'),
-            ))
+        .map(
+          (r) => (
+            id: r.read<String>('id'),
+            conversationId: r.read<String>('conversation_id'),
+            content: r.read<String>('content'),
+          ),
+        )
         .toList();
   }
 
@@ -144,10 +146,59 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
     )..where((m) => m.id.equals(message.id.value))).write(message);
   }
 
-  Future<void> softDeleteMessage(String id) =>
-      (update(chatMessages)..where((m) => m.id.equals(id))).write(
-        const ChatMessagesCompanion(isDeleted: Value(true)),
+  Future<int> softDeleteMessage(String id) =>
+      (update(chatMessages)
+            ..where((m) => m.id.equals(id) & m.isDeleted.equals(false)))
+          .write(const ChatMessagesCompanion(isDeleted: Value(true)));
+
+  Future<({bool messageDeleted, List<String> attachmentIds})>
+  softDeleteMessageAndAttachments(String id) async {
+    if (id.isEmpty) {
+      return (messageDeleted: false, attachmentIds: const <String>[]);
+    }
+
+    return transaction(() async {
+      final existing = await getMessageById(id);
+      if (existing == null) {
+        return (messageDeleted: false, attachmentIds: const <String>[]);
+      }
+
+      final deletedMessages = existing.isDeleted
+          ? 0
+          : await softDeleteMessage(id);
+
+      final attachmentRows = await customSelect(
+        '''
+        SELECT id
+        FROM media_attachments
+        WHERE message_id = ?
+          AND is_deleted = 0
+        ''',
+        variables: [Variable.withString(id)],
+      ).get();
+      final attachmentIds = attachmentRows
+          .map((row) => row.read<String>('id'))
+          .toList();
+
+      if (attachmentIds.isNotEmpty) {
+        await customUpdate(
+          '''
+          UPDATE media_attachments
+          SET is_deleted = 1
+          WHERE message_id = ?
+            AND is_deleted = 0
+          ''',
+          variables: [Variable.withString(id)],
+          updates: {attachedDatabase.mediaAttachments},
+        );
+      }
+
+      return (
+        messageDeleted: deletedMessages > 0,
+        attachmentIds: attachmentIds,
       );
+    });
+  }
 
   Future<ChatMessage?> getLatestMessage(String conversationId) =>
       (select(chatMessages)

@@ -2054,7 +2054,14 @@ DriftSyncEntity _chatMessagesEntity(
       );
     },
     hardDelete: (String id) async {
-      await (db.delete(db.chatMessages)..where((t) => t.id.equals(id))).go();
+      if (id.isEmpty) return;
+
+      await db.transaction(() async {
+        await (db.delete(
+          db.mediaAttachments,
+        )..where((t) => t.messageId.equals(id))).go();
+        await (db.delete(db.chatMessages)..where((t) => t.id.equals(id))).go();
+      });
     },
     readRow: (String id) async {
       final row = await (db.select(

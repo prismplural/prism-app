@@ -11,6 +11,7 @@
 
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
@@ -82,17 +83,19 @@ void main() {
       expect(captured.single.fields['is_deleted'], isNull);
     });
 
-    test('emits nothing when the domain object matches the stored row',
-        () async {
-      await repo.createMessage(makeMessage());
-      final captured = <CapturedSyncOp>[];
-      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
-      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+    test(
+      'emits nothing when the domain object matches the stored row',
+      () async {
+        await repo.createMessage(makeMessage());
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
 
-      await repo.updateMessage(makeMessage());
+        await repo.updateMessage(makeMessage());
 
-      expect(captured, isEmpty);
-    });
+        expect(captured, isEmpty);
+      },
+    );
 
     test('preserves untouched columns in the database', () async {
       await repo.createMessage(
@@ -126,49 +129,48 @@ void main() {
       expect(row.isDeleted, isFalse);
     });
 
-    test('null-clearing emits the null and writes it to the database',
-        () async {
-      final editedTime = baseTime.add(const Duration(minutes: 5));
-      await repo.createMessage(makeMessage(editedAt: editedTime));
-
-      // Sanity: created row stores the editedAt value.
-      final beforeRow = await dao.getMessageById('m1');
-      expect(beforeRow!.editedAt, isNotNull);
-
-      final captured = <CapturedSyncOp>[];
-      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
-      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
-
-      await repo.updateMessage(makeMessage(editedAt: null));
-
-      expect(captured, hasLength(1));
-      final patch = captured.single.fields;
-      expect(patch.containsKey('edited_at'), isTrue);
-      expect(patch['edited_at'], isNull);
-
-      final row = await dao.getMessageById('m1');
-      expect(row!.editedAt, isNull);
-    });
-
     test(
-      'silently no-ops on a tombstoned row (does not emit, '
-      'does not resurrect)',
+      'null-clearing emits the null and writes it to the database',
       () async {
-        await repo.createMessage(makeMessage());
-        await repo.deleteMessage('m1');
+        final editedTime = baseTime.add(const Duration(minutes: 5));
+        await repo.createMessage(makeMessage(editedAt: editedTime));
+
+        // Sanity: created row stores the editedAt value.
+        final beforeRow = await dao.getMessageById('m1');
+        expect(beforeRow!.editedAt, isNotNull);
+
         final captured = <CapturedSyncOp>[];
         SyncRecordMixin.installCaptureSinkForTesting(captured.add);
         addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
 
-        await repo.updateMessage(makeMessage(content: 'Attempted edit'));
+        await repo.updateMessage(makeMessage(editedAt: null));
 
-        expect(captured, isEmpty);
+        expect(captured, hasLength(1));
+        final patch = captured.single.fields;
+        expect(patch.containsKey('edited_at'), isTrue);
+        expect(patch['edited_at'], isNull);
+
         final row = await dao.getMessageById('m1');
-        expect(row, isNotNull);
-        expect(row!.isDeleted, isTrue);
-        expect(row.content, 'Original content');
+        expect(row!.editedAt, isNull);
       },
     );
+
+    test('silently no-ops on a tombstoned row (does not emit, '
+        'does not resurrect)', () async {
+      await repo.createMessage(makeMessage());
+      await repo.deleteMessage('m1');
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.updateMessage(makeMessage(content: 'Attempted edit'));
+
+      expect(captured, isEmpty);
+      final row = await dao.getMessageById('m1');
+      expect(row, isNotNull);
+      expect(row!.isDeleted, isTrue);
+      expect(row.content, 'Original content');
+    });
 
     test('silently no-ops when the row does not exist', () async {
       final captured = <CapturedSyncOp>[];
@@ -195,42 +197,245 @@ void main() {
     });
 
     test(
-      'reordering reactions produces a reactions patch (order is '
-      'semantically meaningful)',
+      'deleteMessage tombstones message attachments and syncs deletes',
       () async {
-        final r1 = MessageReaction(
-          id: 'r1',
-          emoji: 'thumbs_up',
-          memberId: 'member-1',
-          timestamp: baseTime,
-        );
-        final r2 = MessageReaction(
-          id: 'r2',
-          emoji: 'heart',
-          memberId: 'member-2',
-          timestamp: baseTime.add(const Duration(seconds: 1)),
-        );
+        await repo.createMessage(makeMessage());
+        await db
+            .into(db.mediaAttachments)
+            .insert(
+              MediaAttachmentsCompanion.insert(
+                id: 'att-1',
+                messageId: const Value('m1'),
+                mediaId: const Value('media-1'),
+                mediaType: const Value('image'),
+              ),
+            );
 
-        await repo.createMessage(makeMessage(reactions: [r1, r2]));
         final captured = <CapturedSyncOp>[];
         SyncRecordMixin.installCaptureSinkForTesting(captured.add);
         addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
 
-        // Same elements, swapped order — must show up as a reactions edit
-        // because order is semantically meaningful (display order).
-        await repo.updateMessage(makeMessage(reactions: [r2, r1]));
+        await repo.deleteMessage('m1');
 
-        expect(captured, hasLength(1));
+        final message = await dao.getMessageById('m1');
+        final attachment = await db.mediaAttachmentsDao.getById('att-1');
+        final chatMedia = await db.mediaAttachmentsDao
+            .watchAllChatMedia()
+            .first;
+        expect(message!.isDeleted, isTrue);
+        expect(attachment!.isDeleted, isTrue);
+        expect(chatMedia, isEmpty);
         expect(
-          captured.single.fields.keys.toSet().contains('reactions'),
-          isTrue,
+          captured.map((op) => (op.table, op.entityId, op.opType)).toList(),
+          [
+            ('chat_messages', 'm1', SyncRecordOpType.delete),
+            ('media_attachments', 'att-1', SyncRecordOpType.delete),
+          ],
         );
-        final reactionsPatch = captured.single.fields['reactions'] as String;
-        final decoded = (jsonDecode(reactionsPatch) as List)
-            .map((e) => (e as Map<String, dynamic>)['id'])
-            .toList();
-        expect(decoded, ['r2', 'r1']);
       },
     );
+
+    test(
+      'deleteMessage ignores empty ids without tombstoning sentinel media',
+      () async {
+        await db
+            .into(db.mediaAttachments)
+            .insert(
+              MediaAttachmentsCompanion.insert(
+                id: 'att-bio',
+                messageId: const Value(''),
+                memberId: const Value('member-1'),
+                mediaId: const Value('media-bio'),
+                mediaType: const Value('image'),
+              ),
+            );
+        await db
+            .into(db.mediaAttachments)
+            .insert(
+              MediaAttachmentsCompanion.insert(
+                id: 'att-library',
+                messageId: const Value(''),
+                tag: const Value('logo'),
+                mediaId: const Value('media-library'),
+                mediaType: const Value('image'),
+              ),
+            );
+
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        await repo.deleteMessage('');
+
+        final bio = await db.mediaAttachmentsDao.getById('att-bio');
+        final library = await db.mediaAttachmentsDao.getById('att-library');
+        expect(bio!.isDeleted, isFalse);
+        expect(library!.isDeleted, isFalse);
+        expect(captured, isEmpty);
+      },
+    );
+
+    test(
+      'deleteMessage does not tombstone orphan attachments for missing ids',
+      () async {
+        await db
+            .into(db.mediaAttachments)
+            .insert(
+              MediaAttachmentsCompanion.insert(
+                id: 'att-orphan',
+                messageId: const Value('missing-message'),
+                mediaId: const Value('media-orphan'),
+                mediaType: const Value('image'),
+              ),
+            );
+
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        await repo.deleteMessage('missing-message');
+
+        final orphan = await db.mediaAttachmentsDao.getById('att-orphan');
+        expect(orphan!.isDeleted, isFalse);
+        expect(captured, isEmpty);
+      },
+    );
+
+    test(
+      'deleteMessage cleans up attachments for already-deleted messages',
+      () async {
+        await repo.createMessage(makeMessage());
+        await dao.softDeleteMessage('m1');
+        await db
+            .into(db.mediaAttachments)
+            .insert(
+              MediaAttachmentsCompanion.insert(
+                id: 'att-stale-child',
+                messageId: const Value('m1'),
+                mediaId: const Value('media-stale-child'),
+                mediaType: const Value('image'),
+              ),
+            );
+
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        await repo.deleteMessage('m1');
+
+        final attachment = await db.mediaAttachmentsDao.getById(
+          'att-stale-child',
+        );
+        expect(attachment!.isDeleted, isTrue);
+        expect(
+          captured.map((op) => (op.table, op.entityId, op.opType)).toList(),
+          [('media_attachments', 'att-stale-child', SyncRecordOpType.delete)],
+        );
+      },
+    );
+
+    test('deleteMessage tombstones every attachment for the message', () async {
+      await repo.createMessage(makeMessage());
+      for (final id in ['att-1', 'att-2']) {
+        await db
+            .into(db.mediaAttachments)
+            .insert(
+              MediaAttachmentsCompanion.insert(
+                id: id,
+                messageId: const Value('m1'),
+                mediaId: Value('media-$id'),
+                mediaType: const Value('image'),
+              ),
+            );
+      }
+
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.deleteMessage('m1');
+
+      final first = await db.mediaAttachmentsDao.getById('att-1');
+      final second = await db.mediaAttachmentsDao.getById('att-2');
+      expect(first!.isDeleted, isTrue);
+      expect(second!.isDeleted, isTrue);
+      expect(
+        captured.map((op) => (op.table, op.entityId, op.opType)).toList(),
+        [
+          ('chat_messages', 'm1', SyncRecordOpType.delete),
+          ('media_attachments', 'att-1', SyncRecordOpType.delete),
+          ('media_attachments', 'att-2', SyncRecordOpType.delete),
+        ],
+      );
+    });
+
+    test('watchAllChatMedia hides stale media for deleted messages', () async {
+      await repo.createMessage(makeMessage());
+      await db
+          .into(db.mediaAttachments)
+          .insert(
+            MediaAttachmentsCompanion.insert(
+              id: 'att-stale',
+              messageId: const Value('m1'),
+              mediaId: const Value('media-stale'),
+              mediaType: const Value('image'),
+            ),
+          );
+      await dao.softDeleteMessage('m1');
+
+      final chatMedia = await db.mediaAttachmentsDao.watchAllChatMedia().first;
+
+      expect(chatMedia, isEmpty);
+    });
+
+    test('watchAllChatMedia preserves orphan attachment visibility', () async {
+      await db
+          .into(db.mediaAttachments)
+          .insert(
+            MediaAttachmentsCompanion.insert(
+              id: 'att-orphan',
+              messageId: const Value('missing-message'),
+              mediaId: const Value('media-orphan'),
+              mediaType: const Value('image'),
+            ),
+          );
+
+      final chatMedia = await db.mediaAttachmentsDao.watchAllChatMedia().first;
+
+      expect(chatMedia.map((a) => a.id), ['att-orphan']);
+    });
+
+    test('reordering reactions produces a reactions patch (order is '
+        'semantically meaningful)', () async {
+      final r1 = MessageReaction(
+        id: 'r1',
+        emoji: 'thumbs_up',
+        memberId: 'member-1',
+        timestamp: baseTime,
+      );
+      final r2 = MessageReaction(
+        id: 'r2',
+        emoji: 'heart',
+        memberId: 'member-2',
+        timestamp: baseTime.add(const Duration(seconds: 1)),
+      );
+
+      await repo.createMessage(makeMessage(reactions: [r1, r2]));
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      // Same elements, swapped order — must show up as a reactions edit
+      // because order is semantically meaningful (display order).
+      await repo.updateMessage(makeMessage(reactions: [r2, r1]));
+
+      expect(captured, hasLength(1));
+      expect(captured.single.fields.keys.toSet().contains('reactions'), isTrue);
+      final reactionsPatch = captured.single.fields['reactions'] as String;
+      final decoded = (jsonDecode(reactionsPatch) as List)
+          .map((e) => (e as Map<String, dynamic>)['id'])
+          .toList();
+      expect(decoded, ['r2', 'r1']);
+    });
   });
 }
