@@ -283,20 +283,11 @@ void main() {
       final result = await importFuture;
       expect(result.avatarsDownloaded, 1);
 
-      // Local DB always wrote correct state because the DAO batch only
-      // touches `avatarImageData`. Sanity check: both the rename AND the
-      // avatar landed. We don't compare bytes exactly because the
-      // normalizer may transform them; just check it's non-null.
       final finalRow = (await memberRepo.getAllMembers()).single;
       expect(finalRow.name, 'Renamed Mid Flight');
       expect(finalRow.avatarImageData, isNotNull);
 
-      // The bug was that the avatar-phase emission would carry "Original"
-      // as the `name` field. Post-fix, the emission must carry the
-      // post-rename name. Filter to the emission that carries non-null
-      // avatar bytes — `updateMember` calls (e.g. the mid-flight rename)
-      // also emit a `_memberFields` map but with `avatar_image_data: null`
-      // for the member at that point.
+      // Avatar replay should not ship a stale full-member snapshot.
       final avatarEmission = updateEmissions.singleWhere(
         (op) =>
             op.entityId == finalRow.id &&
@@ -306,11 +297,11 @@ void main() {
         ),
       );
       expect(
-        avatarEmission.fields['name'],
-        'Renamed Mid Flight',
+        avatarEmission.fields.containsKey('name'),
+        isFalse,
         reason:
-            'avatar-phase syncRecordUpdate emitted the pre-rename name; '
-            'peers would resurrect the stale value via field-LWW',
+            'avatar-phase syncRecordUpdate emitted a name field; peers could '
+            'resurrect a stale value via field-LWW',
       );
     },
   );

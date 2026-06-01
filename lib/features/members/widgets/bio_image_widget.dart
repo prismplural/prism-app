@@ -10,7 +10,6 @@ import 'package:prism_plurality/features/chat/providers/media_state_providers.da
 import 'package:prism_plurality/features/chat/widgets/media/image_viewer.dart';
 import 'package:prism_plurality/features/members/services/bio_image_size.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
@@ -64,11 +63,11 @@ class BioImageWidget extends ConsumerWidget {
   static const double _maxHeight = 280.0;
 
   MediaFileParams get _params => (
-        mediaId: mediaId,
-        encryptionKeyB64: encryptionKeyB64,
-        ciphertextHash: ciphertextHash,
-        plaintextHash: plaintextHash,
-      );
+    mediaId: mediaId,
+    encryptionKeyB64: encryptionKeyB64,
+    ciphertextHash: ciphertextHash,
+    plaintextHash: plaintextHash,
+  );
 
   double get _aspectRatio =>
       (width > 0 && height > 0) ? width / height : 16.0 / 9.0;
@@ -114,8 +113,9 @@ class BioImageWidget extends ConsumerWidget {
 
     // No fragment → default: DPR-scaled intrinsic, capped to _maxHeight.
     final maxW = width > 0 ? (width / dpr) : double.infinity;
-    final maxH =
-        height > 0 ? (height / dpr).clamp(0.0, _maxHeight) : _maxHeight;
+    final maxH = height > 0
+        ? (height / dpr).clamp(0.0, _maxHeight)
+        : _maxHeight;
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxH, maxWidth: maxW),
       child: AspectRatio(
@@ -126,11 +126,7 @@ class BioImageWidget extends ConsumerWidget {
   }
 
   Widget _sized(WidgetRef ref, double w, double h, BoxFit fit) {
-    return SizedBox(
-      width: w,
-      height: h,
-      child: _content(ref, fit),
-    );
+    return SizedBox(width: w, height: h, child: _content(ref, fit));
   }
 
   Widget _content(WidgetRef ref, BoxFit fit) {
@@ -157,10 +153,8 @@ class BioImageWidget extends ConsumerWidget {
           fit: fit,
         );
       },
-      loading: () => _LoadingPlaceholder(
-        blurhash: blurhash,
-        aspectRatio: _aspectRatio,
-      ),
+      loading: () =>
+          _LoadingPlaceholder(blurhash: blurhash, aspectRatio: _aspectRatio),
       error: (err, st) => _ErrorPlaceholder(
         onRetry: () => ref.invalidate(mediaFileProvider(_params)),
       ),
@@ -189,7 +183,8 @@ class _LoadedImage extends StatelessWidget {
     // single "owner" to attribute the image to), so fall back to a clean
     // generic "Image" rather than the possessive "Image in 's bio". Explicit
     // [altText] always wins when present.
-    final label = altText ??
+    final label =
+        altText ??
         (memberName.isEmpty
             ? context.l10n.imageSemanticLabel
             : context.l10n.imageSemanticInBio(memberName));
@@ -197,11 +192,8 @@ class _LoadedImage extends StatelessWidget {
       label: label,
       button: true,
       child: GestureDetector(
-        onTap: () => ImageViewer.show(
-          context,
-          imageBytes: bytes,
-          caption: altText,
-        ),
+        onTap: () =>
+            ImageViewer.show(context, imageBytes: bytes, caption: altText),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(
             PrismShapes.of(context).radius(12),
@@ -209,11 +201,7 @@ class _LoadedImage extends StatelessWidget {
           // No width/height: the parent passes tight constraints so the image
           // fills its box regardless, and omitting them keeps the max-intrinsic
           // width finite so an IntrinsicColumnWidth table cell can measure it.
-          child: Image.memory(
-            bytes,
-            fit: fit,
-            semanticLabel: label,
-          ),
+          child: Image.memory(bytes, fit: fit, semanticLabel: label),
         ),
       ),
     );
@@ -237,16 +225,12 @@ class _LoadingPlaceholder extends StatelessWidget {
     return Semantics(
       label: context.l10n.imageSemanticLoading,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(
-          PrismShapes.of(context).radius(12),
-        ),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
         child: ExcludeSemantics(
           child: blurhash.isNotEmpty
               ? _BlurhashPlaceholder(blurhash: blurhash)
               : ColoredBox(
-                  color: theme.brightness == Brightness.dark
-                      ? AppColors.charcoalSurface
-                      : AppColors.parchmentElevated,
+                  color: theme.colorScheme.surfaceContainerHighest,
                   child: const SizedBox.expand(),
                 ),
         ),
@@ -336,9 +320,7 @@ class _ErrorPlaceholder extends StatelessWidget {
             PrismShapes.of(context).radius(12),
           ),
           child: ColoredBox(
-            color: theme.brightness == Brightness.dark
-                ? AppColors.charcoalSurface
-                : AppColors.parchmentElevated,
+            color: theme.colorScheme.surfaceContainerHighest,
             child: Center(
               // Scale the icon + caption down instead of overflowing a very
               // small cell (e.g. a tiny `#WxH` image).
@@ -385,13 +367,9 @@ class _ExpiredPlaceholder extends StatelessWidget {
     return Semantics(
       label: label,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(
-          PrismShapes.of(context).radius(12),
-        ),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
         child: ColoredBox(
-          color: theme.brightness == Brightness.dark
-              ? AppColors.charcoalSurface
-              : AppColors.parchmentElevated,
+          color: theme.colorScheme.surfaceContainerHighest,
           child: Center(
             // Scale down instead of overflowing a tiny cell (see _ErrorPlaceholder).
             child: FittedBox(
@@ -402,15 +380,17 @@ class _ExpiredPlaceholder extends StatelessWidget {
                   Icon(
                     AppIcons.imageOutlined,
                     size: 28,
-                    color: theme.colorScheme.onSurfaceVariant
-                        .withValues(alpha: 0.5),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.5,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     label,
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.5),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.5,
+                      ),
                     ),
                     textAlign: TextAlign.center,
                   ),

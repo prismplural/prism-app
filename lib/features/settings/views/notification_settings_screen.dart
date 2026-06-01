@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/services/notification_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -43,7 +44,10 @@ class NotificationSettingsScreen extends ConsumerWidget {
     final hasPermission = permissionAsync.value ?? false;
 
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: context.l10n.notificationsTitle, showBackButton: true),
+      topBar: PrismTopBar(
+        title: context.l10n.notificationsTitle,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -61,7 +65,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
                 children: [
                   PrismSwitchRow(
                     title: context.l10n.notificationsFrontingRemindersTitle,
-                    subtitle: context.l10n.notificationsFrontingRemindersSubtitle,
+                    subtitle:
+                        context.l10n.notificationsFrontingRemindersSubtitle,
                     value: frontingRemindersEnabled,
                     onChanged: (value) {
                       ref
@@ -72,13 +77,17 @@ class NotificationSettingsScreen extends ConsumerWidget {
                   if (frontingRemindersEnabled) ...[
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     PrismListRow(
-                      title: Text(context.l10n.notificationsReminderIntervalTitle),
-                      subtitle: Text(context.l10n.notificationsReminderIntervalSubtitle),
+                      title: Text(
+                        context.l10n.notificationsReminderIntervalTitle,
+                      ),
+                      subtitle: Text(
+                        context.l10n.notificationsReminderIntervalSubtitle,
+                      ),
                       trailing: PrismSelect<int>.compact(
                         value:
-                            _reminderIntervals(context).containsKey(
-                              frontingReminderInterval,
-                            )
+                            _reminderIntervals(
+                              context,
+                            ).containsKey(frontingReminderInterval)
                             ? frontingReminderInterval
                             : 60,
                         menuWidth: 180,
@@ -149,8 +158,9 @@ class _FrontingReminderSuppressRow extends ConsumerWidget {
     final value = asyncValue.value ?? 5;
     final l10n = context.l10n;
 
-    String labelFor(int v) =>
-        v == 0 ? l10n.notificationsSuppressOff : l10n.notificationsSuppressMinutes(v);
+    String labelFor(int v) => v == 0
+        ? l10n.notificationsSuppressOff
+        : l10n.notificationsSuppressMinutes(v);
 
     final items = <PrismSelectItem<int>>[
       for (final preset in _kSuppressPresets)
@@ -203,48 +213,48 @@ class _FrontingReminderSuppressRow extends ConsumerWidget {
           ? initial.toString()
           : '',
     );
-    return showDialog<int>(
+    return PrismDialog.show<int>(
       context: context,
+      title: l10n.notificationsSuppressCustomDialogTitle,
+      actions: [
+        PrismButton(
+          label: MaterialLocalizations.of(context).cancelButtonLabel,
+          tone: PrismButtonTone.outlined,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        PrismButton(
+          label: MaterialLocalizations.of(context).okButtonLabel,
+          tone: PrismButtonTone.filled,
+          onPressed: () {
+            final parsed = int.tryParse(controller.text);
+            if (parsed != null &&
+                parsed >= _kSuppressMin &&
+                parsed <= _kSuppressMax) {
+              Navigator.of(context).pop(parsed);
+            }
+          },
+        ),
+      ],
       builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(l10n.notificationsSuppressCustomDialogTitle),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            autofocus: true,
-            decoration: InputDecoration(
-              suffixText: l10n.notificationsSuppressCustomSuffix,
-              helperText: l10n.notificationsSuppressCustomDialogHelper,
-            ),
-            onSubmitted: (_) {
-              final parsed = int.tryParse(controller.text);
-              if (parsed != null &&
-                  parsed >= _kSuppressMin &&
-                  parsed <= _kSuppressMax) {
-                Navigator.of(dialogContext).pop(parsed);
-              }
-            },
+        return TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: InputDecoration(
+            suffixText: l10n.notificationsSuppressCustomSuffix,
+            helperText: l10n.notificationsSuppressCustomDialogHelper,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
-            ),
-            TextButton(
-              onPressed: () {
-                final parsed = int.tryParse(controller.text);
-                if (parsed != null &&
-                    parsed >= _kSuppressMin &&
-                    parsed <= _kSuppressMax) {
-                  Navigator.of(dialogContext).pop(parsed);
-                }
-              },
-              child: Text(MaterialLocalizations.of(context).okButtonLabel),
-            ),
-          ],
+          onSubmitted: (_) {
+            final parsed = int.tryParse(controller.text);
+            if (parsed != null &&
+                parsed >= _kSuppressMin &&
+                parsed <= _kSuppressMax) {
+              Navigator.of(dialogContext).pop(parsed);
+            }
+          },
         );
       },
-    );
+    ).whenComplete(controller.dispose);
   }
 }
 

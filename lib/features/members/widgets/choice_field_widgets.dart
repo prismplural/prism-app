@@ -33,6 +33,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_color_picker_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -249,13 +250,17 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
       context: context,
       title: l10n.customFieldChoiceEditLabelDialogTitle,
       actions: [
-        TextButton(
+        PrismButton(
+          label: l10n.cancel,
+          tone: PrismButtonTone.outlined,
+          density: PrismControlDensity.compact,
           onPressed: () => Navigator.of(context).pop(false),
-          child: Text(l10n.cancel),
         ),
-        FilledButton(
+        PrismButton(
+          label: l10n.save,
+          tone: PrismButtonTone.filled,
+          density: PrismControlDensity.compact,
           onPressed: () => Navigator.of(context).pop(true),
-          child: Text(l10n.save),
         ),
       ],
       builder: (ctx) => PrismTextField(

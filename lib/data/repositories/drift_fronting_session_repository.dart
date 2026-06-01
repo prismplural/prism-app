@@ -175,12 +175,25 @@ class DriftFrontingSessionRepository
   @override
   Future<void> updateSession(domain.FrontingSession session) async {
     final existingRow = await _dao.getSessionById(session.id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    if (existingRow == null) return;
+    final canRevivePkRescueTombstone =
+        existingRow.isDeleted &&
+        !session.isDeleted &&
+        existingRow.pluralkitUuid != null &&
+        existingRow.pluralkitUuid!.isNotEmpty &&
+        existingRow.deleteIntentEpoch == null;
+    if (existingRow.isDeleted && !canRevivePkRescueTombstone) return;
 
     final changedFields = diffSyncFields(
       _sessionFieldsFromRow(existingRow),
       _sessionFields(session),
     );
+    if (canRevivePkRescueTombstone) {
+      changedFields['is_deleted'] = false;
+      if (existingRow.deletePushStartedAt != null) {
+        changedFields['delete_push_started_at'] = null;
+      }
+    }
     if (changedFields.isEmpty) return;
 
     final companion = _partialSessionCompanion(changedFields);
@@ -381,6 +394,12 @@ class DriftFrontingSessionRepository
           : const Value.absent(),
       isHealthKitImport: fields.containsKey('is_health_kit_import')
           ? Value(fields['is_health_kit_import'] as bool)
+          : const Value.absent(),
+      isDeleted: fields.containsKey('is_deleted')
+          ? Value(fields['is_deleted'] as bool)
+          : const Value.absent(),
+      deletePushStartedAt: fields.containsKey('delete_push_started_at')
+          ? Value(fields['delete_push_started_at'] as int?)
           : const Value.absent(),
     );
   }

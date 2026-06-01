@@ -25,8 +25,10 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_color_picker_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
@@ -1026,9 +1028,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         onModeSelected: (m) => setState(() => _sliderMode = m),
                         onPresetSelected: (id) {
                           if (id == null) {
-                            // Switching to custom. Seed from the current preset
-                            // only the first time — once custom colors exist
-                            // they're preserved across preset previews.
+                            // Preserve custom colors across preset previews.
                             setState(() {
                               if (!_customColorsInitialized) {
                                 final preset = lookupGradientPreset(
@@ -1145,7 +1145,6 @@ class _ChoiceConfigSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
 
-        // Options list — reorderable.
         if (visibleOptions.isNotEmpty)
           ReorderableListView.builder(
             shrinkWrap: true,
@@ -1170,21 +1169,20 @@ class _ChoiceConfigSection extends StatelessWidget {
             },
           ),
 
-        // Add option button.
-        TextButton.icon(
-          onPressed: onAddOption,
-          icon: Icon(AppIcons.addCircle, size: 18),
-          label: Text(l10n.customFieldChoiceAddOption),
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        Align(
+          alignment: Alignment.centerLeft,
+          child: PrismButton(
+            label: l10n.customFieldChoiceAddOption,
+            icon: AppIcons.addCircle,
+            onPressed: onAddOption,
+            density: PrismControlDensity.compact,
+            tone: PrismButtonTone.subtle,
           ),
         ),
 
         const SizedBox(height: 16),
         const Divider(height: 1),
 
-        // Allow multiple toggle.
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(
@@ -1195,7 +1193,6 @@ class _ChoiceConfigSection extends StatelessWidget {
           onChanged: onAllowsMultipleChanged,
         ),
 
-        // Allow other toggle.
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(
@@ -1250,7 +1247,6 @@ class _ChoiceOptionRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          // Drag handle.
           ReorderableDragStartListener(
             index: index,
             child: Tooltip(
@@ -1447,24 +1443,20 @@ class _ScaleConfigSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        SegmentedButton<DisplayLayout?>(
+        PrismSegmentedControl<DisplayLayout?>(
           segments: [
-            ButtonSegment(
-              value: null,
-              label: Text(l10n.customFieldScaleLayoutAuto),
-            ),
-            ButtonSegment(
+            PrismSegment(value: null, label: l10n.customFieldScaleLayoutAuto),
+            PrismSegment(
               value: DisplayLayout.compact,
-              label: Text(l10n.customFieldScaleLayoutCompact),
+              label: l10n.customFieldScaleLayoutCompact,
             ),
-            ButtonSegment(
+            PrismSegment(
               value: DisplayLayout.stacked,
-              label: Text(l10n.customFieldScaleLayoutStacked),
+              label: l10n.customFieldScaleLayoutStacked,
             ),
           ],
-          selected: {displayLayout},
-          showSelectedIcon: false,
-          onSelectionChanged: (s) => onDisplayLayoutChanged(s.first),
+          selected: displayLayout,
+          onChanged: onDisplayLayoutChanged,
         ),
         if (steps > _layoutSuggestStackedAbove &&
             displayLayout != DisplayLayout.stacked) ...[
@@ -2261,99 +2253,93 @@ class _GradientSwatchRow extends StatelessWidget {
           return Padding(
             key: ValueKey('swatch_$index'),
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Card(
-              margin: EdgeInsets.zero,
-              elevation: 0,
-              color: theme.colorScheme.surfaceContainerHighest,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Color circle (tap to edit) with a small remove badge.
-                    SizedBox(
-                      width: 48,
-                      height: 48,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Semantics(
-                            label: label,
-                            button: true,
-                            child: Tooltip(
-                              message: hex,
+            child: PrismSurface(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              borderRadius: 12,
+              tone: PrismSurfaceTone.strong,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Semantics(
+                          label: label,
+                          button: true,
+                          child: Tooltip(
+                            message: hex,
+                            child: GestureDetector(
+                              onTap: () => _editColor(context, index, hex),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: color,
+                                  border: Border.all(
+                                    color: theme.colorScheme.outline.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (canRemove)
+                          Positioned(
+                            top: -6,
+                            right: -6,
+                            child: Semantics(
+                              label: l10n.customFieldSliderRemoveColor,
+                              button: true,
                               child: GestureDetector(
-                                onTap: () => _editColor(context, index, hex),
+                                onTap: () => _removeColor(index),
                                 child: Container(
-                                  width: 48,
-                                  height: 48,
+                                  width: 22,
+                                  height: 22,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: color,
+                                    color: theme.colorScheme.surface,
                                     border: Border.all(
                                       color: theme.colorScheme.outline
                                           .withValues(alpha: 0.4),
                                     ),
                                   ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (canRemove)
-                            Positioned(
-                              top: -6,
-                              right: -6,
-                              child: Semantics(
-                                label: l10n.customFieldSliderRemoveColor,
-                                button: true,
-                                child: GestureDetector(
-                                  onTap: () => _removeColor(index),
-                                  child: Container(
-                                    width: 22,
-                                    height: 22,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: theme.colorScheme.surface,
-                                      border: Border.all(
-                                        color: theme.colorScheme.outline
-                                            .withValues(alpha: 0.4),
-                                      ),
-                                    ),
-                                    child: Icon(
-                                      Icons.close,
-                                      size: 14,
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 14,
+                                    color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ),
                             ),
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    // Drag handle below the circle — grab to reorder.
-                    ReorderableDragStartListener(
-                      index: index,
-                      child: Semantics(
-                        label: l10n.customFieldSliderReorderHandle,
-                        child: SizedBox(
-                          width: 48,
-                          height: 24,
-                          child: Icon(
-                            AppIcons.dragHandleHorizontal,
-                            size: 20,
-                            color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.4),
+                  ),
+                  const SizedBox(height: 4),
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: Semantics(
+                      label: l10n.customFieldSliderReorderHandle,
+                      child: SizedBox(
+                        width: 48,
+                        height: 24,
+                        child: Icon(
+                          AppIcons.dragHandleHorizontal,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.4,
                           ),
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           );

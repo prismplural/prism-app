@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/pin_numpad_cell.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
@@ -38,8 +39,9 @@ class VerifyBackupScreenState extends ConsumerState<VerifyBackupScreen>
   late final PinBuffer _pin = PinBuffer(length: 6);
   VerifyBackupResult? _result;
 
-  late final PinLockoutState _lockout =
-      PinLockoutState(prefsScope: 'prism.verify_backup');
+  late final PinLockoutState _lockout = PinLockoutState(
+    prefsScope: 'prism.verify_backup',
+  );
 
   MobileScannerController? _scannerController;
 
@@ -60,8 +62,9 @@ class VerifyBackupScreenState extends ConsumerState<VerifyBackupScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       try {
-        final hasWrappedDek =
-            await ref.read(syncWrappedDekPresentProvider.future);
+        final hasWrappedDek = await ref.read(
+          syncWrappedDekPresentProvider.future,
+        );
         if (!hasWrappedDek && mounted) {
           ref
               .read(syncHealthProvider.notifier)
@@ -129,7 +132,8 @@ class VerifyBackupScreenState extends ConsumerState<VerifyBackupScreen>
     final hasWrappedDek =
         ref.watch(syncWrappedDekPresentProvider).value ?? false;
 
-    final canVerify = handle != null &&
+    final canVerify =
+        handle != null &&
         hasCompletePersistentSyncIdentity(
           relayUrl: relayUrl,
           syncId: syncId,
@@ -218,9 +222,7 @@ class VerifyBackupScreenState extends ConsumerState<VerifyBackupScreen>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(
-          PrismShapes.of(context).radius(12),
-        ),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -290,7 +292,11 @@ class VerifyBackupScreenState extends ConsumerState<VerifyBackupScreen>
   Widget _buildPhraseStep(BuildContext context) {
     final l10n = context.l10n;
     return _VerifyPhraseView(
-      stepIndicator: _buildStepIndicator(context, 1, l10n.verifyBackupStepPhrase),
+      stepIndicator: _buildStepIndicator(
+        context,
+        1,
+        l10n.verifyBackupStepPhrase,
+      ),
       ensureScanner: _ensureScanner,
       onSubmit: (mnemonic) {
         _scannerController?.dispose();
@@ -578,11 +584,10 @@ class _VerifyPinViewState extends ConsumerState<_VerifyPinView>
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
-    _dotScaleAnim =
-        TweenSequence<double>([
-          TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 1),
-          TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 1),
-        ]).animate(_dotController);
+    _dotScaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 1),
+    ]).animate(_dotController);
   }
 
   @override
@@ -631,10 +636,9 @@ class _VerifyPinViewState extends ConsumerState<_VerifyPinView>
       ..replaceWith(widget.pin);
 
     try {
-      final result = await ref.read(syncHealthProvider.notifier).verifyMnemonicPin(
-        pin: pinCopy,
-        mnemonic: widget.mnemonic,
-      );
+      final result = await ref
+          .read(syncHealthProvider.notifier)
+          .verifyMnemonicPin(pin: pinCopy, mnemonic: widget.mnemonic);
 
       if (!mounted) return;
 
@@ -669,10 +673,9 @@ class _VerifyPinViewState extends ConsumerState<_VerifyPinView>
           if (mounted) {
             widget.pin.clear();
             setState(() => _checking = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(context.l10n.syncSetupVerifyPinTransientError),
-              ),
+            PrismToast.error(
+              context,
+              message: context.l10n.syncSetupVerifyPinTransientError,
             );
           }
       }
@@ -801,9 +804,7 @@ class _VerifyPinViewState extends ConsumerState<_VerifyPinView>
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Center(
-                child: PrismSpinner(
-                  color: theme.colorScheme.primary,
-                ),
+                child: PrismSpinner(color: theme.colorScheme.primary),
               ),
             ),
         ],
@@ -824,11 +825,7 @@ class _VerifyPinViewState extends ConsumerState<_VerifyPinView>
     }
     return [
       const SizedBox(width: 72, height: 72),
-      PinNumpadCell(
-        label: '0',
-        onTap: () => _onDigit('0'),
-        theme: theme,
-      ),
+      PinNumpadCell(label: '0', onTap: () => _onDigit('0'), theme: theme),
       PinNumpadCell(
         icon: AppIcons.backspaceOutlined,
         onTap: _onBackspace,
@@ -837,4 +834,3 @@ class _VerifyPinViewState extends ConsumerState<_VerifyPinView>
     ];
   }
 }
-

@@ -400,6 +400,7 @@ void main() {
     test(
       'import preserves local values for missing legacy settings fields',
       () async {
+        await importService.systemSettingsRepository.getSettings();
         await importService.systemSettingsRepository.updateSettings(
           const SystemSettings(
             paletteSource: PaletteSource.device,
@@ -637,8 +638,7 @@ void main() {
         expect(await pollRepo.getAllOptions(), isEmpty);
         expect(await pollRepo.getAllVotes(), isEmpty);
         expect(
-          (await db.pollsDao.getAllPollsIncludingDeleted())
-              .map((p) => p.id),
+          (await db.pollsDao.getAllPollsIncludingDeleted()).map((p) => p.id),
           contains(pollId),
         );
 

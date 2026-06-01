@@ -15,6 +15,7 @@ import 'package:prism_plurality/features/members/widgets/custom_field_renderers.
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
@@ -447,14 +448,12 @@ class _EmptyGroupButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextButton.icon(
+    return PrismButton(
+      label: label,
+      icon: AppIcons.add,
       onPressed: onTap,
-      icon: Icon(AppIcons.add, size: 16),
-      label: Text(label),
-      style: TextButton.styleFrom(
-        padding: EdgeInsets.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
+      density: PrismControlDensity.compact,
+      tone: PrismButtonTone.subtle,
     );
   }
 }

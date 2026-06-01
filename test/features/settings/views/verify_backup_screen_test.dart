@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/views/verify_backup_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 // A canonical BIP39 12-word mnemonic with a valid checksum (same as used in
 // setup_device_sheet_test.dart and sync_pin_sheet_lockout_test.dart).
@@ -98,9 +99,9 @@ Widget _buildScreen({
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: const Scaffold(
-        body: VerifyBackupScreen(),
-      ),
+      builder: (context, child) =>
+          PrismToastHost(child: child ?? const SizedBox.shrink()),
+      home: const Scaffold(body: VerifyBackupScreen()),
     ),
   );
 }
@@ -144,7 +145,10 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    PrismToast.resetForTest();
   });
+
+  tearDown(PrismToast.resetForTest);
 
   group('VerifyBackupScreen — phrase step', () {
     testWidgets('shows phrase step on initial load', (tester) async {
@@ -157,7 +161,9 @@ void main() {
       expect(find.widgetWithText(PrismButton, 'Continue'), findsOneWidget);
     });
 
-    testWidgets('BIP39-invalid typed phrase shows inline error', (tester) async {
+    testWidgets('BIP39-invalid typed phrase shows inline error', (
+      tester,
+    ) async {
       _useTallViewport(tester);
       await tester.pumpWidget(_buildScreen());
       await tester.pumpAndSettle();
@@ -173,7 +179,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Should show an error about invalid recovery phrase
-      expect(find.textContaining("valid recovery phrase"), findsOneWidget);
+      expect(find.textContaining('valid recovery phrase'), findsOneWidget);
     });
 
     testWidgets('valid phrase advances to PIN step', (tester) async {
@@ -191,9 +197,9 @@ void main() {
   group('VerifyBackupScreen — PIN step', () {
     testWidgets('wrong PIN (NoMatch) shows no-match result', (tester) async {
       _useTallViewport(tester);
-      await tester.pumpWidget(_buildScreen(
-        verifyResult: const VerifyMnemonicPinNoMatch(),
-      ));
+      await tester.pumpWidget(
+        _buildScreen(verifyResult: const VerifyMnemonicPinNoMatch()),
+      );
       await tester.pumpAndSettle();
 
       await _enterMnemonicAndContinue(tester);
@@ -208,11 +214,13 @@ void main() {
       expect(find.textContaining("That didn't match"), findsOneWidget);
     });
 
-    testWidgets('correct PIN (Match) shows match result with QR', (tester) async {
+    testWidgets('correct PIN (Match) shows match result with QR', (
+      tester,
+    ) async {
       _useTallViewport(tester);
-      await tester.pumpWidget(_buildScreen(
-        verifyResult: const VerifyMnemonicPinMatch(),
-      ));
+      await tester.pumpWidget(
+        _buildScreen(verifyResult: const VerifyMnemonicPinMatch()),
+      );
       await tester.pumpAndSettle();
 
       await _enterMnemonicAndContinue(tester);
@@ -222,12 +230,10 @@ void main() {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
-      // Should show the match headline and QR
       expect(
         find.textContaining('These words unlock this device'),
         findsOneWidget,
       );
-      // QR accessible label
       final semantics = tester.binding.pipelineOwner.semanticsOwner;
       bool foundQr = false;
       if (semantics != null) {
@@ -238,46 +244,43 @@ void main() {
             return true;
           });
         }
+
         walk(semantics.rootSemanticsNode!);
       }
       expect(foundQr, isTrue, reason: 'QR should be accessible via Semantics');
     });
 
-    testWidgets(
-      'Re-enter PIN bounces to PIN step (mnemonic preserved)',
-      (tester) async {
-        _useTallViewport(tester);
-        await tester.pumpWidget(_buildScreen(
-          verifyResult: const VerifyMnemonicPinNoMatch(),
-        ));
-        await tester.pumpAndSettle();
+    testWidgets('Re-enter PIN bounces to PIN step (mnemonic preserved)', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      await tester.pumpWidget(
+        _buildScreen(verifyResult: const VerifyMnemonicPinNoMatch()),
+      );
+      await tester.pumpAndSettle();
 
-        await _enterMnemonicAndContinue(tester);
-        await _tapPin(tester, '123456');
-        for (var i = 0; i < 20; i++) {
-          await tester.pump(const Duration(milliseconds: 50));
-        }
+      await _enterMnemonicAndContinue(tester);
+      await _tapPin(tester, '123456');
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
 
-        // On no-match result, tap Re-enter PIN
-        final reenterButton = find.widgetWithText(PrismButton, 'Re-enter PIN');
-        await tester.ensureVisible(reenterButton);
-        await tester.tap(reenterButton);
-        await tester.pumpAndSettle();
+      final reenterButton = find.widgetWithText(PrismButton, 'Re-enter PIN');
+      await tester.ensureVisible(reenterButton);
+      await tester.tap(reenterButton);
+      await tester.pumpAndSettle();
 
-        // Should be back on PIN step
-        expect(find.textContaining('Enter your PIN'), findsOneWidget);
-        // Not on phrase step (no text fields visible)
-        expect(find.byType(TextField), findsNothing);
-      },
-    );
+      expect(find.textContaining('Enter your PIN'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+    });
 
     testWidgets(
       'Try a different backup bounces to phrase step (mnemonic cleared)',
       (tester) async {
         _useTallViewport(tester);
-        await tester.pumpWidget(_buildScreen(
-          verifyResult: const VerifyMnemonicPinNoMatch(),
-        ));
+        await tester.pumpWidget(
+          _buildScreen(verifyResult: const VerifyMnemonicPinNoMatch()),
+        );
         await tester.pumpAndSettle();
 
         await _enterMnemonicAndContinue(tester);
@@ -286,7 +289,6 @@ void main() {
           await tester.pump(const Duration(milliseconds: 50));
         }
 
-        // On no-match result, tap Try a different backup
         final tryButton = find.widgetWithText(
           PrismButton,
           'Try a different backup',
@@ -295,105 +297,102 @@ void main() {
         await tester.tap(tryButton);
         await tester.pumpAndSettle();
 
-        // Should be back on phrase step (text fields visible)
         expect(find.byType(TextField), findsWidgets);
       },
     );
 
-    testWidgets(
-      'Error result stays on PIN step without incrementing lockout',
-      (tester) async {
-        // VerifyMnemonicPinError is an infrastructure error, not a wrong
-        // credential. The user must stay on the PIN step and the lockout
-        // counter must NOT be incremented so they can retry immediately.
-        _useTallViewport(tester);
-        await tester.pumpWidget(_buildScreen(
-          verifyResult: const VerifyMnemonicPinError(message: 'Sync engine error'),
-        ));
-        await tester.pumpAndSettle();
+    testWidgets('Error result stays on PIN step without incrementing lockout', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      await tester.pumpWidget(
+        _buildScreen(
+          verifyResult: const VerifyMnemonicPinError(
+            message: 'Sync engine error',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        await _enterMnemonicAndContinue(tester);
-        await _tapPin(tester, '123456');
-        for (var i = 0; i < 20; i++) {
-          await tester.pump(const Duration(milliseconds: 50));
-        }
+      await _enterMnemonicAndContinue(tester);
+      await _tapPin(tester, '123456');
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
 
-        // Must still show the PIN step — NOT the result screen.
-        expect(find.textContaining('Enter your PIN'), findsOneWidget);
-        // Must NOT show the no-match result.
-        expect(find.textContaining("That didn't match"), findsNothing);
-        // SnackBar with transient error message must appear.
-        expect(find.textContaining("Couldn't verify"), findsOneWidget);
-      },
-    );
+      expect(find.textContaining('Enter your PIN'), findsOneWidget);
+      expect(find.textContaining("That didn't match"), findsNothing);
+      expect(find.textContaining("Couldn't verify"), findsOneWidget);
+      PrismToast.dismiss();
+    });
 
-    testWidgets(
-      'NeedsRewrap clears PIN buffer (dots reset)',
-      (tester) async {
-        // When NeedsRewrap is returned, the PIN buffer must be cleared so
-        // the digits don't sit in memory after the result is determined.
-        _useTallViewport(tester);
-        await tester.pumpWidget(_buildScreen(
-          verifyResult: const VerifyMnemonicPinNeedsRewrap(),
-        ));
-        await tester.pumpAndSettle();
+    testWidgets('NeedsRewrap clears PIN buffer (dots reset)', (tester) async {
+      _useTallViewport(tester);
+      await tester.pumpWidget(
+        _buildScreen(verifyResult: const VerifyMnemonicPinNeedsRewrap()),
+      );
+      await tester.pumpAndSettle();
 
-        await _enterMnemonicAndContinue(tester);
+      await _enterMnemonicAndContinue(tester);
 
-        // Type 3 digits so pin is partially full
-        await _tapPin(tester, '123');
-        await tester.pump();
+      await _tapPin(tester, '123');
+      await tester.pump();
 
-        final screenState = tester.state<VerifyBackupScreenState>(
-          find.byType(VerifyBackupScreen),
-        );
-        expect(screenState.pinIsEmpty, isFalse,
-            reason: 'pin should be non-empty after typing 3 digits');
+      final screenState = tester.state<VerifyBackupScreenState>(
+        find.byType(VerifyBackupScreen),
+      );
+      expect(
+        screenState.pinIsEmpty,
+        isFalse,
+        reason: 'pin should be non-empty after typing 3 digits',
+      );
 
-        // Type remaining 3 digits to trigger _onPinComplete → NeedsRewrap
-        await _tapPin(tester, '456');
-        for (var i = 0; i < 20; i++) {
-          await tester.pump(const Duration(milliseconds: 50));
-        }
+      await _tapPin(tester, '456');
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
 
-        // After NeedsRewrap, the PIN must be cleared
-        expect(screenState.pinIsEmpty, isTrue,
-            reason: 'NeedsRewrap must clear the PIN buffer');
-      },
-    );
+      expect(
+        screenState.pinIsEmpty,
+        isTrue,
+        reason: 'NeedsRewrap must clear the PIN buffer',
+      );
+    });
 
-    testWidgets(
-      'HandleUnavailable clears PIN buffer (dots reset)',
-      (tester) async {
-        // Same as NeedsRewrap — PIN must be zeroed when HandleUnavailable is returned.
-        _useTallViewport(tester);
-        await tester.pumpWidget(_buildScreen(
-          verifyResult: const VerifyMnemonicPinHandleUnavailable(),
-        ));
-        await tester.pumpAndSettle();
+    testWidgets('HandleUnavailable clears PIN buffer (dots reset)', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      await tester.pumpWidget(
+        _buildScreen(verifyResult: const VerifyMnemonicPinHandleUnavailable()),
+      );
+      await tester.pumpAndSettle();
 
-        await _enterMnemonicAndContinue(tester);
+      await _enterMnemonicAndContinue(tester);
 
-        // Type 3 digits
-        await _tapPin(tester, '123');
-        await tester.pump();
+      await _tapPin(tester, '123');
+      await tester.pump();
 
-        final screenState = tester.state<VerifyBackupScreenState>(
-          find.byType(VerifyBackupScreen),
-        );
-        expect(screenState.pinIsEmpty, isFalse,
-            reason: 'pin should be non-empty after typing 3 digits');
+      final screenState = tester.state<VerifyBackupScreenState>(
+        find.byType(VerifyBackupScreen),
+      );
+      expect(
+        screenState.pinIsEmpty,
+        isFalse,
+        reason: 'pin should be non-empty after typing 3 digits',
+      );
 
-        // Complete the PIN to trigger _onPinComplete → HandleUnavailable
-        await _tapPin(tester, '456');
-        for (var i = 0; i < 20; i++) {
-          await tester.pump(const Duration(milliseconds: 50));
-        }
+      await _tapPin(tester, '456');
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
 
-        expect(screenState.pinIsEmpty, isTrue,
-            reason: 'HandleUnavailable must clear the PIN buffer');
-      },
-    );
+      expect(
+        screenState.pinIsEmpty,
+        isTrue,
+        reason: 'HandleUnavailable must clear the PIN buffer',
+      );
+    });
 
     testWidgets(
       'PIN step shows step indicator with liveRegion (accessibility)',
@@ -423,9 +422,13 @@ void main() {
             return true;
           });
         }
+
         walk(semanticsOwner!.rootSemanticsNode!);
-        expect(foundLiveRegionForPin, isTrue,
-            reason: 'PIN step indicator must have liveRegion: true (Step 2 of 3)');
+        expect(
+          foundLiveRegionForPin,
+          isTrue,
+          reason: 'PIN step indicator must have liveRegion: true (Step 2 of 3)',
+        );
       },
     );
   });
@@ -433,28 +436,22 @@ void main() {
   group('VerifyBackupScreen — SyncHealthState banners', () {
     testWidgets('needsPassword shows locked banner', (tester) async {
       _useTallViewport(tester);
-      await tester.pumpWidget(_buildScreen(
-        healthState: SyncHealthState.needsPassword,
-      ));
+      await tester.pumpWidget(
+        _buildScreen(healthState: SyncHealthState.needsPassword),
+      );
       await tester.pumpAndSettle();
 
-      expect(
-        find.textContaining('Your device is locked'),
-        findsOneWidget,
-      );
-      expect(
-        find.widgetWithText(PrismButton, 'Unlock device'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Your device is locked'), findsOneWidget);
+      expect(find.widgetWithText(PrismButton, 'Unlock device'), findsOneWidget);
     });
 
     testWidgets('runtimeDekRestoreDeferred shows deferred banner', (
       tester,
     ) async {
       _useTallViewport(tester);
-      await tester.pumpWidget(_buildScreen(
-        healthState: SyncHealthState.runtimeDekRestoreDeferred,
-      ));
+      await tester.pumpWidget(
+        _buildScreen(healthState: SyncHealthState.runtimeDekRestoreDeferred),
+      );
       await tester.pumpAndSettle();
 
       expect(
@@ -465,9 +462,9 @@ void main() {
 
     testWidgets('awaitingDeviceUnlock shows awaiting banner', (tester) async {
       _useTallViewport(tester);
-      await tester.pumpWidget(_buildScreen(
-        healthState: SyncHealthState.awaitingDeviceUnlock,
-      ));
+      await tester.pumpWidget(
+        _buildScreen(healthState: SyncHealthState.awaitingDeviceUnlock),
+      );
       await tester.pumpAndSettle();
 
       expect(
@@ -478,9 +475,9 @@ void main() {
 
     testWidgets('needsRewrap shows rewrap banner', (tester) async {
       _useTallViewport(tester);
-      await tester.pumpWidget(_buildScreen(
-        healthState: SyncHealthState.needsRewrap,
-      ));
+      await tester.pumpWidget(
+        _buildScreen(healthState: SyncHealthState.needsRewrap),
+      );
       await tester.pumpAndSettle();
 
       expect(
@@ -561,11 +558,9 @@ void main() {
           ),
         );
 
-        // Allow post-frame callbacks to run
         await tester.pump();
         await tester.pumpAndSettle();
 
-        // The notifier state should now be needsRewrap
         expect(fakeNotifier.state, SyncHealthState.needsRewrap);
       },
     );
@@ -591,18 +586,22 @@ void main() {
           return true;
         });
       }
+
       walk(semanticsOwner!.rootSemanticsNode!);
-      expect(foundLiveRegion, isTrue,
-          reason: 'Step indicator should have liveRegion: true');
+      expect(
+        foundLiveRegion,
+        isTrue,
+        reason: 'Step indicator should have liveRegion: true',
+      );
     });
 
     testWidgets('no-match result headline has liveRegion semantics', (
       tester,
     ) async {
       _useTallViewport(tester);
-      await tester.pumpWidget(_buildScreen(
-        verifyResult: const VerifyMnemonicPinNoMatch(),
-      ));
+      await tester.pumpWidget(
+        _buildScreen(verifyResult: const VerifyMnemonicPinNoMatch()),
+      );
       await tester.pumpAndSettle();
 
       await _enterMnemonicAndContinue(tester);
@@ -628,9 +627,13 @@ void main() {
           return true;
         });
       }
+
       walk(semanticsOwner!.rootSemanticsNode!);
-      expect(foundLiveRegion, isTrue,
-          reason: 'No-match headline should have liveRegion: true');
+      expect(
+        foundLiveRegion,
+        isTrue,
+        reason: 'No-match headline should have liveRegion: true',
+      );
     });
   });
 
@@ -683,9 +686,7 @@ void main() {
                               onPopInvokedWithResult: (didPop, _) {
                                 if (didPop) popped = true;
                               },
-                              child: const Scaffold(
-                                body: VerifyBackupScreen(),
-                              ),
+                              child: const Scaffold(body: VerifyBackupScreen()),
                             ),
                           ),
                         ),
@@ -753,16 +754,22 @@ void main() {
         final screenState = tester.state<VerifyBackupScreenState>(
           find.byType(VerifyBackupScreen),
         );
-        expect(screenState.pinIsEmpty, isFalse,
-            reason: '_pin should be non-empty after typing 3 digits');
+        expect(
+          screenState.pinIsEmpty,
+          isFalse,
+          reason: '_pin should be non-empty after typing 3 digits',
+        );
 
         // Simulate app going to background
         tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
         await tester.pump();
 
         // _pin must now be cleared by didChangeAppLifecycleState.
-        expect(screenState.pinIsEmpty, isTrue,
-            reason: 'lifecycle pause must zero _pin');
+        expect(
+          screenState.pinIsEmpty,
+          isTrue,
+          reason: 'lifecycle pause must zero _pin',
+        );
 
         // Simulate a widget rebuild (e.g. triggered by OS after resume)
         await tester.pump();
@@ -781,8 +788,9 @@ void main() {
         _useTallViewport(tester);
 
         // Seed a future locked-until time so PinLockoutState.load() sees a lockout
-        final futureMs =
-            DateTime.now().add(const Duration(seconds: 30)).millisecondsSinceEpoch;
+        final futureMs = DateTime.now()
+            .add(const Duration(seconds: 30))
+            .millisecondsSinceEpoch;
         SharedPreferences.setMockInitialValues({
           'prism.verify_backup.locked_until_ms': futureMs,
           'prism.verify_backup.failed_attempts': 5,
@@ -805,9 +813,9 @@ void main() {
       'match result QR has correct Semantics label and excluded inner pixels',
       (tester) async {
         _useTallViewport(tester);
-        await tester.pumpWidget(_buildScreen(
-          verifyResult: const VerifyMnemonicPinMatch(),
-        ));
+        await tester.pumpWidget(
+          _buildScreen(verifyResult: const VerifyMnemonicPinMatch()),
+        );
         await tester.pumpAndSettle();
 
         await _enterMnemonicAndContinue(tester);
@@ -816,7 +824,6 @@ void main() {
           await tester.pump(const Duration(milliseconds: 50));
         }
 
-        // QR Semantics container label
         final semantics = tester.getSemantics(
           find.bySemanticsLabel('QR code containing your recovery phrase'),
         );
@@ -824,39 +831,41 @@ void main() {
       },
     );
 
-    testWidgets(
-      'match result headline has liveRegion semantics',
-      (tester) async {
-        _useTallViewport(tester);
-        await tester.pumpWidget(_buildScreen(
-          verifyResult: const VerifyMnemonicPinMatch(),
-        ));
-        await tester.pumpAndSettle();
+    testWidgets('match result headline has liveRegion semantics', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      await tester.pumpWidget(
+        _buildScreen(verifyResult: const VerifyMnemonicPinMatch()),
+      );
+      await tester.pumpAndSettle();
 
-        await _enterMnemonicAndContinue(tester);
-        await _tapPin(tester, '123456');
-        for (var i = 0; i < 20; i++) {
-          await tester.pump(const Duration(milliseconds: 50));
-        }
+      await _enterMnemonicAndContinue(tester);
+      await _tapPin(tester, '123456');
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
 
-        // Match headline should have liveRegion
-        final semanticsOwner = tester.binding.pipelineOwner.semanticsOwner;
-        expect(semanticsOwner, isNotNull);
-        bool foundLiveRegion = false;
-        void walk(SemanticsNode node) {
-          if (node.hasFlag(SemanticsFlag.isLiveRegion) &&
-              node.label.contains('Verified')) {
-            foundLiveRegion = true;
-          }
-          node.visitChildren((child) {
-            walk(child);
-            return true;
-          });
+      final semanticsOwner = tester.binding.pipelineOwner.semanticsOwner;
+      expect(semanticsOwner, isNotNull);
+      bool foundLiveRegion = false;
+      void walk(SemanticsNode node) {
+        if (node.hasFlag(SemanticsFlag.isLiveRegion) &&
+            node.label.contains('Verified')) {
+          foundLiveRegion = true;
         }
-        walk(semanticsOwner!.rootSemanticsNode!);
-        expect(foundLiveRegion, isTrue,
-            reason: 'Match headline should have liveRegion: true');
-      },
-    );
+        node.visitChildren((child) {
+          walk(child);
+          return true;
+        });
+      }
+
+      walk(semanticsOwner!.rootSemanticsNode!);
+      expect(
+        foundLiveRegion,
+        isTrue,
+        reason: 'Match headline should have liveRegion: true',
+      );
+    });
   });
 }

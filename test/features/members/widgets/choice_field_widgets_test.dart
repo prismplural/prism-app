@@ -73,41 +73,6 @@ CustomFieldValue _value(String raw) {
   );
 }
 
-Widget _wrapEditor({
-  required CustomField field,
-  CustomFieldValue? value,
-  _FakeCustomFieldsRepository? repo,
-}) {
-  final r = repo ?? _FakeCustomFieldsRepository();
-  return ProviderScope(
-    overrides: [
-      customFieldsRepositoryProvider.overrideWithValue(r),
-      customFieldsProvider.overrideWithValue(AsyncValue.data([field])),
-      memberCustomFieldValuesProvider(
-        _memberId,
-      ).overrideWithValue(AsyncValue.data(value != null ? [value] : [])),
-    ],
-    child: MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: const [Locale('en')],
-      home: Scaffold(
-        body: buildChoiceEditor(
-          // ignore: prefer_const_constructors  // context is runtime
-          // We call the builder directly to keep this self-contained.
-          // Normally this is called via the renderer registry in
-          // CustomFieldsEditor._buildFieldEditor.
-          _FakeContext(),
-          field,
-          value,
-          _memberId,
-        ),
-      ),
-    ),
-  );
-}
-
-// A fake BuildContext stand-in is not possible without the widget tree.
-// Tests below use tester.pumpWidget to supply the real context.
 Widget _editorSubject({
   required CustomField field,
   CustomFieldValue? value,
@@ -774,11 +739,4 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   Future<void> clearTypedConfig(String fieldId) async {
     writtenConfigs.remove(fieldId);
   }
-}
-
-// Stand-in to satisfy the compiler for the unused _wrapEditor helper above.
-// Actual tests call _editorSubject which constructs context via Consumer.
-class _FakeContext extends BuildContext {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => null;
 }

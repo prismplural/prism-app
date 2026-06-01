@@ -2108,6 +2108,8 @@ class DataImportService {
             MediaAttachmentsCompanion.insert(
               id: a.id,
               messageId: Value(a.messageId),
+              memberId: Value(a.memberId),
+              tag: Value(a.tag),
               mediaId: Value(a.mediaId),
               mediaType: Value(a.mediaType),
               encryptionKeyB64: Value(a.encryptionKeyB64),

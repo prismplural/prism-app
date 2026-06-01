@@ -818,7 +818,12 @@ Future<void> _emitGroupUpdateCapturedIfAllowed(
   await repo.syncRecordUpdate(
     'member_groups',
     _groupEntityId(group),
-    DriftMemberGroupsRepository.groupFields(group),
+    <String, dynamic>{
+      'sort_state': sanitizeSortStateForEmission(
+        group.sortState,
+        contextId: group.id,
+      ),
+    },
   );
 }
 

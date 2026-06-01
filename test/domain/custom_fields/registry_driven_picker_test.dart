@@ -68,9 +68,8 @@ void main() {
 
     test('child picker hides group to prevent nested groups', () {
       // Simulate the picker filter: when parentFieldId != null, hide 'group'.
-      const parentFieldId = 'parent-123';
       final visibleForChild = _fullRegistry.definitions
-          .where((d) => parentFieldId == null || d.id != 'group')
+          .where((d) => d.id != 'group')
           .map((d) => d.id)
           .toList();
       expect(visibleForChild, isNot(contains('group')));

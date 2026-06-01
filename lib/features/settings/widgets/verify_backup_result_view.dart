@@ -4,7 +4,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -69,8 +68,11 @@ class _VerifyBackupResultViewState extends State<VerifyBackupResultView> {
     if (!mounted) return;
 
     final words = matchResult.mnemonic.trim().split(RegExp(r'\s+'));
-    final numberedWords =
-        words.asMap().entries.map((e) => '${e.key + 1}. ${e.value}').join('\n');
+    final numberedWords = words
+        .asMap()
+        .entries
+        .map((e) => '${e.key + 1}. ${e.value}')
+        .join('\n');
     final backupText = l10n.secretKeyBackupFileText(
       numberedWords,
       DateTime.now().toIso8601String().split('T').first,
@@ -83,8 +85,10 @@ class _VerifyBackupResultViewState extends State<VerifyBackupResultView> {
   @override
   Widget build(BuildContext context) {
     return switch (widget.result) {
-      VerifyBackupMatchResult() =>
-        _buildMatch(context, widget.result as VerifyBackupMatchResult),
+      VerifyBackupMatchResult() => _buildMatch(
+        context,
+        widget.result as VerifyBackupMatchResult,
+      ),
       VerifyBackupNoMatchResult() => _buildNoMatch(context),
     };
   }
@@ -101,7 +105,8 @@ class _VerifyBackupResultViewState extends State<VerifyBackupResultView> {
         children: [
           Semantics(
             liveRegion: true,
-            label: '${l10n.verifyBackupSrAnnounceMatch}. ${l10n.verifyBackupMatchHeadline}',
+            label:
+                '${l10n.verifyBackupSrAnnounceMatch}. ${l10n.verifyBackupMatchHeadline}',
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -123,10 +128,7 @@ class _VerifyBackupResultViewState extends State<VerifyBackupResultView> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            l10n.verifyBackupMatchBody,
-            style: theme.textTheme.bodyMedium,
-          ),
+          Text(l10n.verifyBackupMatchBody, style: theme.textTheme.bodyMedium),
           const SizedBox(height: 12),
           Text(
             _maskedPhrase(result.mnemonic),
@@ -151,7 +153,7 @@ class _VerifyBackupResultViewState extends State<VerifyBackupResultView> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.warmWhite,
+                    color: theme.colorScheme.surfaceContainerLowest,
                     borderRadius: BorderRadius.circular(
                       PrismShapes.of(context).radius(12),
                     ),
@@ -202,7 +204,8 @@ class _VerifyBackupResultViewState extends State<VerifyBackupResultView> {
         children: [
           Semantics(
             liveRegion: true,
-            label: '${l10n.verifyBackupSrAnnounceNoMatch}. ${l10n.verifyBackupNoMatchHeadline}',
+            label:
+                '${l10n.verifyBackupSrAnnounceNoMatch}. ${l10n.verifyBackupNoMatchHeadline}',
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -224,10 +227,7 @@ class _VerifyBackupResultViewState extends State<VerifyBackupResultView> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            l10n.verifyBackupNoMatchBody,
-            style: theme.textTheme.bodyMedium,
-          ),
+          Text(l10n.verifyBackupNoMatchBody, style: theme.textTheme.bodyMedium),
           const SizedBox(height: 24),
           PrismButton(
             label: l10n.verifyBackupTryDifferentBackup,

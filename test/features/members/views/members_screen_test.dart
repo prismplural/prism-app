@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -20,6 +21,8 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 Member _member(String id, {int displayOrder = 0, String? pronouns}) => Member(
   id: id,
@@ -80,9 +83,12 @@ Widget _buildSubject({
           supportedLocales: [Locale('en')],
           home: MembersScreen(showBackButton: false),
         );
+  final appPrefs = FakeAppPreferenceRepository();
+  addTearDown(appPrefs.close);
 
   return ProviderScope(
     overrides: [
+      appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       allMembersProvider.overrideWith((ref) => Stream.value(members)),

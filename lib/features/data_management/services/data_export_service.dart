@@ -243,6 +243,8 @@ class DataExportService {
           (a) => V1MediaAttachment(
             id: a.id,
             messageId: a.messageId,
+            memberId: a.memberId,
+            tag: a.tag,
             mediaId: a.mediaId,
             mediaType: a.mediaType,
             encryptionKeyB64: a.encryptionKeyB64,

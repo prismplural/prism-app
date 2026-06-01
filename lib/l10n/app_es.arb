@@ -3378,15 +3378,25 @@
   "pkLinkManagementChangeLinkConfirmTitle": "Change PluralKit link for {localName}?",
   "@pkLinkManagementChangeLinkConfirmTitle": {
     "description": "Title of the confirmation dialog before overwriting a resolved PluralKit link on a Synced row.",
-    "placeholders": { "localName": { "type": "String" } }
+    "placeholders": {
+      "localName": {
+        "type": "String"
+      }
+    }
   },
   "pkLinkManagementChangeLinkConfirmMessage": "Currently linked to {currentPkName} ({currentPkId}). The new link will replace it. Switch history already imported from the old PluralKit member stays attributed to this {termSingularLower}.",
   "@pkLinkManagementChangeLinkConfirmMessage": {
     "description": "Body of the confirmation dialog before overwriting a resolved PluralKit link on a Synced row.",
     "placeholders": {
-      "currentPkName": { "type": "String" },
-      "currentPkId": { "type": "String" },
-      "termSingularLower": { "type": "String" }
+      "currentPkName": {
+        "type": "String"
+      },
+      "currentPkId": {
+        "type": "String"
+      },
+      "termSingularLower": {
+        "type": "String"
+      }
     }
   },
   "pkLinkManagementChangeLinkConfirmAction": "Change link",
@@ -3413,7 +3423,9 @@
   "@pkLinkManagementLinkFailed": {
     "description": "Generic error toast when a Link decision from the Manage PluralKit links screen fails. The raw cause is logged via debugPrint; this user-facing message is intentionally generic to avoid surfacing English StateError text from the applier.",
     "placeholders": {
-      "pkName": {"type": "String"}
+      "pkName": {
+        "type": "String"
+      }
     }
   },
   "pkLinkManagementRefresh": "Refresh from PluralKit",
@@ -3522,5 +3534,1130 @@
   "memberEditorPluralKitLinkAction": "Link to PluralKit member…",
   "@memberEditorPluralKitLinkAction": {
     "description": "Action button in the editor sheet's PluralKit section that opens a search to link this member to a PluralKit member."
+  },
+  "memberShowGroupSectionsLabel": "Groups",
+  "@memberShowGroupSectionsLabel": {
+    "description": "Section label for the show/hide groups toggle in view settings"
+  },
+  "memberShowGroupSectionsToggle": "Show group sections",
+  "@memberShowGroupSectionsToggle": {
+    "description": "Toggle label for showing group structure in the members list"
+  },
+  "memberShowGroupSectionsToggleDescription": "Organizes members into group headers or folders.",
+  "@memberShowGroupSectionsToggleDescription": {
+    "description": "Description for the show group sections toggle"
+  },
+  "memberBioPreviewTooltip": "Preview",
+  "@memberBioPreviewTooltip": {
+    "description": "Tooltip for the button that switches the full-screen markdown editor into rendered preview mode"
+  },
+  "memberCreatedAtHint": "Tap to set a date",
+  "@memberCreatedAtHint": {
+    "description": "Hint text for empty creation date field"
+  },
+  "memberCreatedAtClear": "Clear creation date",
+  "@memberCreatedAtClear": {
+    "description": "Tooltip for clearing the creation date"
+  },
+  "memberSavePartialFailureSingle": "Saved, but couldn't save {fieldName} — try again.",
+  "@memberSavePartialFailureSingle": {
+    "description": "Toast when a member is saved successfully but one custom field write failed. The field stays dirty so the user can retry.",
+    "placeholders": {
+      "fieldName": {
+        "type": "String"
+      }
+    }
+  },
+  "memberSavePartialFailureMultiple": "Saved, but couldn't save {count} fields — try again.",
+  "@memberSavePartialFailureMultiple": {
+    "description": "Toast when a member is saved successfully but multiple custom field writes failed. The fields stay dirty so the user can retry.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memberCustomFieldsPendingNote": "Your custom field changes are still pending — fix the errors above and tap Save.",
+  "@memberCustomFieldsPendingNote": {
+    "description": "Toast shown when form validation fails AND custom field edits are still staged. Reassures the user that their custom field work was not lost."
+  },
+  "customFieldTypeChoice": "Choice",
+  "@customFieldTypeChoice": {
+    "description": "Label for the choice (single/multi-select) custom field type"
+  },
+  "customFieldChoiceOptionsHeading": "Options",
+  "@customFieldChoiceOptionsHeading": {
+    "description": "Section heading for the choice field options list in the create/edit field sheet"
+  },
+  "customFieldChoiceAddOption": "Add option",
+  "@customFieldChoiceAddOption": {
+    "description": "Button label to add a new choice option"
+  },
+  "customFieldChoiceOptionPlaceholder": "Option label",
+  "@customFieldChoiceOptionPlaceholder": {
+    "description": "Placeholder text inside a choice option label text field"
+  },
+  "customFieldChoiceAllowMultipleLabel": "Allow multiple selections",
+  "@customFieldChoiceAllowMultipleLabel": {
+    "description": "Toggle label for allowing multiple selections in a choice field"
+  },
+  "customFieldChoiceAllowOtherLabel": "Allow 'Other' free text",
+  "@customFieldChoiceAllowOtherLabel": {
+    "description": "Toggle label for allowing an 'Other' free-text entry in a choice field"
+  },
+  "customFieldChoiceDuplicateLabel": "Duplicate label",
+  "@customFieldChoiceDuplicateLabel": {
+    "description": "Warning chip shown when a choice option label duplicates another option"
+  },
+  "customFieldChoiceRemoveOptionTooltip": "Remove option",
+  "@customFieldChoiceRemoveOptionTooltip": {
+    "description": "Tooltip for the remove button on a choice option row"
+  },
+  "customFieldChoiceReorderHandleTooltip": "Drag to reorder",
+  "@customFieldChoiceReorderHandleTooltip": {
+    "description": "Tooltip for the drag handle on a choice option row"
+  },
+  "customFieldChoiceColorCycleTooltip": "Change color",
+  "@customFieldChoiceColorCycleTooltip": {
+    "description": "Tooltip for the color swatch button that opens the color picker"
+  },
+  "customFieldChoiceEditLabelDialogTitle": "Edit option label",
+  "@customFieldChoiceEditLabelDialogTitle": {
+    "description": "Title for the dialog that lets a user rename a choice option"
+  },
+  "customFieldChoiceOptionLabelHint": "Option label",
+  "@customFieldChoiceOptionLabelHint": {
+    "description": "Hint text for the text field inside the edit-label dialog"
+  },
+  "customFieldChoiceDeleteOptionTitle": "Delete option",
+  "@customFieldChoiceDeleteOptionTitle": {
+    "description": "Title of the confirm-delete dialog for a choice option"
+  },
+  "customFieldChoiceDeleteOptionMessage": "\"{label}\" will be soft-deleted. Members who selected it will still see it (faded) but can no longer choose it. This affects all members.",
+  "@customFieldChoiceDeleteOptionMessage": {
+    "description": "Body of the confirm-delete dialog for a choice option",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "customFieldChoiceEditMenuLabel": "Edit label",
+  "@customFieldChoiceEditMenuLabel": {
+    "description": "Context-menu item to rename a choice option chip"
+  },
+  "customFieldChoiceChangeColorMenuLabel": "Change color",
+  "@customFieldChoiceChangeColorMenuLabel": {
+    "description": "Context-menu item to open the color picker for a choice option chip"
+  },
+  "customFieldChoiceDeleteMenuLabel": "Delete",
+  "@customFieldChoiceDeleteMenuLabel": {
+    "description": "Context-menu item to soft-delete a choice option"
+  },
+  "customFieldChoiceOtherChipLabel": "Other…",
+  "@customFieldChoiceOtherChipLabel": {
+    "description": "Label for the 'Other' chip that toggles the free-text entry"
+  },
+  "customFieldChoiceOtherTextHint": "Specify…",
+  "@customFieldChoiceOtherTextHint": {
+    "description": "Hint text inside the Other free-text field"
+  },
+  "customFieldChoiceRemovedSuffix": "(removed)",
+  "@customFieldChoiceRemovedSuffix": {
+    "description": "Tooltip shown on a soft-deleted option chip to signal it is no longer choosable"
+  },
+  "customFieldChoiceOtherPrefix": "Other: {value}",
+  "@customFieldChoiceOtherPrefix": {
+    "description": "Chip/text label for an Other free-text answer, e.g. 'Other: my answer'",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "customFieldChoiceSelectedSuffix": "selected",
+  "@customFieldChoiceSelectedSuffix": {
+    "description": "Accessibility suffix appended to a choice chip label when the option is selected"
+  },
+  "customFieldChoiceNotSelectedSuffix": "not selected",
+  "@customFieldChoiceNotSelectedSuffix": {
+    "description": "Accessibility suffix appended to a choice chip label when the option is not selected"
+  },
+  "customFieldChoiceOtherSemanticLabel": "Other, free text",
+  "@customFieldChoiceOtherSemanticLabel": {
+    "description": "Semantics label for the Other free-text field (accessibility)"
+  },
+  "dataManagementSpCreationDateRowTitle": "Update creation dates",
+  "@dataManagementSpCreationDateRowTitle": {
+    "description": "Title for SP creation date backfill row in import/export settings"
+  },
+  "dataManagementSpCreationDateRowSubtitle": "Import original creation dates from a Simply Plural export",
+  "@dataManagementSpCreationDateRowSubtitle": {
+    "description": "Subtitle for SP creation date backfill row"
+  },
+  "spCreationDateBackfillTitle": "Update Creation Dates",
+  "@spCreationDateBackfillTitle": {
+    "description": "Title of the creation date backfill sheet"
+  },
+  "spCreationDateBackfillDescription": "Simply Plural stores when each member was first created. This updates your Prism members with those original dates.",
+  "@spCreationDateBackfillDescription": {
+    "description": "Description text in the backfill sheet"
+  },
+  "spCreationDateBackfillSelectJson": "Select SP JSON",
+  "@spCreationDateBackfillSelectJson": {
+    "description": "Button label for selecting a Simply Plural JSON export in the creation date backfill sheet"
+  },
+  "spCreationDateBackfillReadingJson": "Reading SP JSON...",
+  "@spCreationDateBackfillReadingJson": {
+    "description": "Loading label while the creation date backfill sheet reads a Simply Plural JSON export"
+  },
+  "spCreationDateBackfillNoMapping": "No Simply Plural import history found. Import your SP data first to set up member links.",
+  "@spCreationDateBackfillNoMapping": {
+    "description": "Message when no SP import history exists"
+  },
+  "spCreationDateBackfillNoMatches": "None of the members in this export matched your current members.",
+  "@spCreationDateBackfillNoMatches": {
+    "description": "Message when no members matched in backfill"
+  },
+  "spCreationDateBackfillPreviewTitle": "Preview changes",
+  "@spCreationDateBackfillPreviewTitle": {
+    "description": "Title above the preview list in backfill sheet"
+  },
+  "spCreationDateBackfillApply": "Apply",
+  "@spCreationDateBackfillApply": {
+    "description": "Button label to apply the backfill"
+  },
+  "spCreationDateBackfillSuccess": "Updated creation dates for {count} members.",
+  "@spCreationDateBackfillSuccess": {
+    "description": "Success message after backfill",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "spCreationDateBackfillCurrent": "Current: {date}",
+  "@spCreationDateBackfillCurrent": {
+    "description": "Label showing current creation date in preview",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "spCreationDateBackfillNew": "New: {date}",
+  "@spCreationDateBackfillNew": {
+    "description": "Label showing new creation date in preview",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "spCreationDateBackfillUnmatched": "{count} members could not be matched",
+  "@spCreationDateBackfillUnmatched": {
+    "description": "Message showing count of unmatched members in backfill",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "spImportWarningsTitle": "Your data is in.",
+  "@spImportWarningsTitle": {
+    "description": "Heading shown above the grouped SP import warning summary. Leads with reassurance."
+  },
+  "spImportWarningsSubtitle": "Here’s what to know:",
+  "@spImportWarningsSubtitle": {
+    "description": "Subtitle shown below the title on the grouped SP import warning summary."
+  },
+  "spImportWarningsShowAll": "{count, plural, =1{Show 1 more} other{Show all {count} more}}",
+  "@spImportWarningsShowAll": {
+    "description": "Button label to expand a warning category beyond the first 10 items.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "spImportWarningsRetry": "Retry",
+  "@spImportWarningsRetry": {
+    "description": "Button label to retry avatar downloads on the SP import warning summary."
+  },
+  "spImportWarningsRetrying": "Retrying…",
+  "@spImportWarningsRetrying": {
+    "description": "Button label shown while avatar downloads are being retried."
+  },
+  "spImportWarningsCountSemantics": "{count, plural, =1{1 warning in this category} other{{count} warnings in this category}}",
+  "@spImportWarningsCountSemantics": {
+    "description": "Accessibility label for the warning count chip on a category tile.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "spImportWarningsAvatarsHeadline": "Avatar downloads",
+  "@spImportWarningsAvatarsHeadline": {
+    "description": "Category headline for avatar download failures in the SP import warning summary."
+  },
+  "spImportWarningsAvatarsExplanation": "Simply Plural is shutting down and these URLs no longer load. Pair this import with an avatar ZIP export to keep the pixels.",
+  "@spImportWarningsAvatarsExplanation": {
+    "description": "Plain-language explanation for avatar download failures in the SP import warning summary."
+  },
+  "spImportWarningsMissingReferencesHeadline": "Sessions missing a member",
+  "@spImportWarningsMissingReferencesHeadline": {
+    "description": "Category headline for missing-reference warnings in the SP import warning summary."
+  },
+  "spImportWarningsMissingReferencesExplanation": "These imported fine — they just don’t have a member attached, because that member was deleted in Simply Plural before the export.",
+  "@spImportWarningsMissingReferencesExplanation": {
+    "description": "Plain-language explanation for missing-reference warnings in the SP import warning summary."
+  },
+  "spImportWarningsCustomFrontAdjustmentsHeadline": "Custom front adjustments",
+  "@spImportWarningsCustomFrontAdjustmentsHeadline": {
+    "description": "Category headline for custom-front adjustment warnings in the SP import warning summary."
+  },
+  "spImportWarningsCustomFrontAdjustmentsExplanation": "Some sleep sessions were clamped or merged, or custom fronts were handled as notes.",
+  "@spImportWarningsCustomFrontAdjustmentsExplanation": {
+    "description": "Plain-language explanation for custom-front adjustment warnings in the SP import warning summary."
+  },
+  "spImportWarningsEncryptedMessagesHeadline": "Encrypted chat messages",
+  "@spImportWarningsEncryptedMessagesHeadline": {
+    "description": "Category headline for encrypted message warnings in the SP import warning summary."
+  },
+  "spImportWarningsEncryptedMessagesExplanation": "Some chat messages were still encrypted in this export and couldn’t be imported.",
+  "@spImportWarningsEncryptedMessagesExplanation": {
+    "description": "Plain-language explanation for encrypted message warnings in the SP import warning summary."
+  },
+  "spImportWarningsDataQualityHeadline": "Data quality drops",
+  "@spImportWarningsDataQualityHeadline": {
+    "description": "Category headline for data-quality warnings in the SP import warning summary."
+  },
+  "spImportWarningsDataQualityExplanation": "Some records were missing required fields in the source export and were skipped.",
+  "@spImportWarningsDataQualityExplanation": {
+    "description": "Plain-language explanation for data-quality warnings in the SP import warning summary."
+  },
+  "spImportWarningsSyncEmissionHeadline": "Sync emissions",
+  "@spImportWarningsSyncEmissionHeadline": {
+    "description": "Category headline for sync-emission warnings in the SP import warning summary."
+  },
+  "spImportWarningsSyncEmissionExplanation": "Some imported entries didn’t sync to other devices automatically. Local data is correct; peers may be missing these until you edit them or re-run sync.",
+  "@spImportWarningsSyncEmissionExplanation": {
+    "description": "Plain-language explanation for sync-emission warnings in the SP import warning summary."
+  },
+  "spImportWarningsOtherHeadline": "Other",
+  "@spImportWarningsOtherHeadline": {
+    "description": "Category headline for unclassified warnings in the SP import warning summary."
+  },
+  "spImportWarningsOtherExplanation": "These warnings don’t match a known category. If anything looks unexpected, send them to support.",
+  "@spImportWarningsOtherExplanation": {
+    "description": "Plain-language explanation for unclassified warnings in the SP import warning summary."
+  },
+  "customFieldTypeGroup": "Group",
+  "@customFieldTypeGroup": {
+    "description": "Label for the group custom field type (shown in settings list subtitle)"
+  },
+  "customFieldGroupAddChildButton": "Add field to this group",
+  "@customFieldGroupAddChildButton": {
+    "description": "Button label shown inside an empty group editor to add the first child field"
+  },
+  "customFieldGroupNewChildTitle": "Add field to group",
+  "@customFieldGroupNewChildTitle": {
+    "description": "Sheet title when creating a new field nested inside a group"
+  },
+  "customFieldGroupDeleteTitle": "Delete {name}?",
+  "@customFieldGroupDeleteTitle": {
+    "description": "Title of the delete-group confirm dialog",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "customFieldGroupDeleteMessage": "What should happen to the fields inside this group?",
+  "@customFieldGroupDeleteMessage": {
+    "description": "Body of the delete-group confirm dialog explaining the choice for child fields"
+  },
+  "customFieldGroupPromoteChildren": "Promote to top level",
+  "@customFieldGroupPromoteChildren": {
+    "description": "Action button in the delete-group dialog that promotes child fields to top level instead of deleting them"
+  },
+  "customFieldGroupDeleteChildren": "Delete them too",
+  "@customFieldGroupDeleteChildren": {
+    "description": "Action button in the delete-group dialog that deletes all child fields along with the group"
+  },
+  "customFieldGroupShowTitleLabel": "Show title on profiles",
+  "@customFieldGroupShowTitleLabel": {
+    "description": "Toggle label in the group editor sheet that controls whether the group's name renders as a header on member profiles"
+  },
+  "customFieldGroupShowTitleSubtitle": "Hide to use the group as a visual container only.",
+  "@customFieldGroupShowTitleSubtitle": {
+    "description": "Sub-label under the show-title toggle explaining what hiding the title means"
+  },
+  "customFieldShowTitleLabel": "Show title on profiles",
+  "@customFieldShowTitleLabel": {
+    "description": "Toggle label in the field editor sheet (all field types) that controls whether the field's label renders next to its value on member profiles"
+  },
+  "customFieldShowTitleSubtitle": "Hide to render the value without a label.",
+  "@customFieldShowTitleSubtitle": {
+    "description": "Sub-label under the show-title toggle for any custom field type, explaining what hiding the title means"
+  },
+  "customFieldDisplaySectionHeader": "Display",
+  "@customFieldDisplaySectionHeader": {
+    "description": "Small section header in the field editor sheet above presentation options like the show-title toggle"
+  },
+  "customFieldGroupUntitledFallback": "Untitled group",
+  "@customFieldGroupUntitledFallback": {
+    "description": "Fallback label for a group whose name is empty; shown in the settings list and on the detail screen so users can still find/edit it"
+  },
+  "customFieldGroupChildrenHeading": "Fields in this group",
+  "@customFieldGroupChildrenHeading": {
+    "description": "Section heading on the group detail screen for the list of child fields"
+  },
+  "customFieldGroupChildrenCount": "{count, plural, =0{No fields yet} =1{1 field} other{{count} fields}}",
+  "@customFieldGroupChildrenCount": {
+    "description": "Count line under the group children heading on the detail screen",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "customFieldGroupAddChildButtonShort": "Add field",
+  "@customFieldGroupAddChildButtonShort": {
+    "description": "Short label for the CTA that adds a new field to the group, used on the detail screen"
+  },
+  "customFieldGroupChildrenEmptyTitle": "No fields yet",
+  "@customFieldGroupChildrenEmptyTitle": {
+    "description": "Empty-state title shown on the group detail screen when the group has no child fields"
+  },
+  "customFieldGroupChildrenEmptySubtitle": "Add fields to organize related details together.",
+  "@customFieldGroupChildrenEmptySubtitle": {
+    "description": "Empty-state subtitle shown on the group detail screen when the group has no child fields"
+  },
+  "customFieldTypeScale": "Scale",
+  "@customFieldTypeScale": {
+    "description": "Label for the Scale custom field type in the type picker"
+  },
+  "customFieldScaleEmojiHeading": "Emoji",
+  "@customFieldScaleEmojiHeading": {
+    "description": "Section heading for the emoji picker in scale field config"
+  },
+  "customFieldScaleStepsHeading": "Steps",
+  "@customFieldScaleStepsHeading": {
+    "description": "Section heading for the steps slider in scale field config"
+  },
+  "customFieldScaleAdvancedEmoji": "Advanced: any emoji",
+  "@customFieldScaleAdvancedEmoji": {
+    "description": "Deprecated; replaced by customFieldScaleCustomEmoji."
+  },
+  "customFieldScaleCustomEmoji": "Custom",
+  "@customFieldScaleCustomEmoji": {
+    "description": "Tooltip/label for the custom-emoji button that lets users type any emoji."
+  },
+  "customFieldScaleCustomEmojiHint": "Type or paste an emoji",
+  "@customFieldScaleCustomEmojiHint": {
+    "description": "Hint text for the custom emoji text field in scale field config"
+  },
+  "customFieldScaleStepsHelpFew": "{count} steps",
+  "@customFieldScaleStepsHelpFew": {
+    "description": "Live label showing the current number of steps in the scale steps slider",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "customFieldScaleStepsHelpMany": "Larger scales may be cramped on small screens",
+  "@customFieldScaleStepsHelpMany": {
+    "description": "Soft warning shown below the steps slider when steps > 7"
+  },
+  "customFieldScaleLayoutHeading": "Layout",
+  "@customFieldScaleLayoutHeading": {
+    "description": "Section heading for the scale field layout choice (auto/compact/stacked) in field settings"
+  },
+  "customFieldScaleLayoutAuto": "Auto",
+  "@customFieldScaleLayoutAuto": {
+    "description": "Layout choice meaning 'use the type-aware default' (currently compact for scale)"
+  },
+  "customFieldScaleLayoutCompact": "Compact",
+  "@customFieldScaleLayoutCompact": {
+    "description": "Layout choice: label-left, emojis-right on one row"
+  },
+  "customFieldScaleLayoutStacked": "Stacked",
+  "@customFieldScaleLayoutStacked": {
+    "description": "Layout choice: label above, emojis on their own row below"
+  },
+  "customFieldScaleLayoutSuggestStacked": "Stacked layout reads better with this many steps",
+  "@customFieldScaleLayoutSuggestStacked": {
+    "description": "Soft suggestion shown below the layout chooser when steps > 5 and layout is not stacked"
+  },
+  "customFieldScaleClearTooltip": "Clear rating",
+  "@customFieldScaleClearTooltip": {
+    "description": "Tooltip for the × clear button in the scale field editor"
+  },
+  "customFieldScaleClearedAnnouncement": "Cleared rating",
+  "@customFieldScaleClearedAnnouncement": {
+    "description": "Screen-reader announcement spoken when the scale rating is cleared via long-press"
+  },
+  "customFieldScaleSemanticLabel": "{name}: {step} of {total}",
+  "@customFieldScaleSemanticLabel": {
+    "description": "Accessibility label for the scale emoji row, describing the current rating",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "step": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "customFieldTypeSlider": "Slider",
+  "@customFieldTypeSlider": {
+    "description": "Label for the Slider custom field type in the type picker"
+  },
+  "customFieldSliderModeHeading": "Slider type",
+  "@customFieldSliderModeHeading": {
+    "description": "Section heading for the slider mode chooser (labeled vs numeric)"
+  },
+  "customFieldSliderModeLabeled": "Mood / Intensity",
+  "@customFieldSliderModeLabeled": {
+    "description": "Label for the labeled slider mode card"
+  },
+  "customFieldSliderModeLabeledDescription": "A spectrum with named endpoints.",
+  "@customFieldSliderModeLabeledDescription": {
+    "description": "Description text on the labeled slider mode card"
+  },
+  "customFieldSliderModeNumeric": "Measurement",
+  "@customFieldSliderModeNumeric": {
+    "description": "Label for the numeric slider mode card"
+  },
+  "customFieldSliderModeNumericDescription": "A scale with numbers you can define.",
+  "@customFieldSliderModeNumericDescription": {
+    "description": "Description text on the numeric slider mode card"
+  },
+  "customFieldSliderModeLockNotice": "Slider type is fixed once the field is created.",
+  "@customFieldSliderModeLockNotice": {
+    "description": "Notice shown in edit mode explaining the slider mode cannot be changed"
+  },
+  "customFieldSliderLeftLabel": "Left label (optional)",
+  "@customFieldSliderLeftLabel": {
+    "description": "Label for the left anchor text field in labeled slider config"
+  },
+  "customFieldSliderRightLabel": "Right label (optional)",
+  "@customFieldSliderRightLabel": {
+    "description": "Label for the right anchor text field in labeled slider config"
+  },
+  "customFieldSliderCenterLabel": "Center label (optional)",
+  "@customFieldSliderCenterLabel": {
+    "description": "Label for the center anchor text field in labeled slider config; when set, adds a center snap position"
+  },
+  "customFieldSliderGradientHeading": "Gradient",
+  "@customFieldSliderGradientHeading": {
+    "description": "Section heading for the gradient preset picker in labeled slider config"
+  },
+  "customFieldSliderAdvancedColors": "Advanced: custom colors",
+  "@customFieldSliderAdvancedColors": {
+    "description": "Deprecated; replaced by customFieldSliderCustomGradient."
+  },
+  "customFieldSliderCustomGradient": "Custom",
+  "@customFieldSliderCustomGradient": {
+    "description": "Chip label that selects custom per-anchor colors instead of a gradient preset."
+  },
+  "customFieldSliderColorAnchorTitle": "Pick a color",
+  "@customFieldSliderColorAnchorTitle": {
+    "description": "Title of the color picker dialog for a slider anchor (left/center/right)."
+  },
+  "tableInsertTooltip": "Insert table",
+  "@tableInsertTooltip": {
+    "description": "Tooltip for the insert-table button in long-text editors."
+  },
+  "tableInsertTitle": "Insert table",
+  "@tableInsertTitle": {
+    "description": "Title of the insert-table dialog."
+  },
+  "tableInsertConfirm": "Insert",
+  "@tableInsertConfirm": {
+    "description": "Confirm button label in the insert-table dialog."
+  },
+  "tableColumnsLabel": "Columns",
+  "@tableColumnsLabel": {
+    "description": "Label for the column-count stepper in the insert-table dialog."
+  },
+  "tableRowsLabel": "Rows",
+  "@tableRowsLabel": {
+    "description": "Label for the row-count stepper in the insert-table dialog."
+  },
+  "tableRemoveColumn": "Remove column",
+  "@tableRemoveColumn": {
+    "description": "Tooltip for the decrement-columns button."
+  },
+  "tableAddColumn": "Add column",
+  "@tableAddColumn": {
+    "description": "Tooltip for the increment-columns button."
+  },
+  "tableRemoveRow": "Remove row",
+  "@tableRemoveRow": {
+    "description": "Tooltip for the decrement-rows button."
+  },
+  "tableAddRow": "Add row",
+  "@tableAddRow": {
+    "description": "Tooltip for the increment-rows button."
+  },
+  "tableShowBordersLabel": "Show borders",
+  "@tableShowBordersLabel": {
+    "description": "Label for the show-borders toggle in the insert-table dialog."
+  },
+  "tableBorderColorLabel": "Border color",
+  "@tableBorderColorLabel": {
+    "description": "Label for the border-color picker row in the insert-table dialog."
+  },
+  "tableBorderColorDefault": "Theme default",
+  "@tableBorderColorDefault": {
+    "description": "Value shown when the table border uses the theme default color."
+  },
+  "tableHeaderRowLabel": "Header row",
+  "@tableHeaderRowLabel": {
+    "description": "Label for the header-row toggle in the insert-table dialog."
+  },
+  "tableHeaderRowSubtitle": "First row is column headings",
+  "@tableHeaderRowSubtitle": {
+    "description": "Subtitle explaining the header-row toggle."
+  },
+  "tableHeaderRowPlainHint": "Without borders the header row looks the same as other rows.",
+  "@tableHeaderRowPlainHint": {
+    "description": "Hint shown when a header row is enabled on a borderless table."
+  },
+  "customFieldSliderSnapToPositions": "Snap to positions",
+  "@customFieldSliderSnapToPositions": {
+    "description": "Toggle label for snap-to-positions in labeled slider config"
+  },
+  "customFieldSliderMin": "Min",
+  "@customFieldSliderMin": {
+    "description": "Label for the minimum value text field in numeric slider config"
+  },
+  "customFieldSliderMax": "Max",
+  "@customFieldSliderMax": {
+    "description": "Label for the maximum value text field in numeric slider config"
+  },
+  "customFieldSliderStep": "Step",
+  "@customFieldSliderStep": {
+    "description": "Label for the step size text field in numeric slider config"
+  },
+  "customFieldSliderUnit": "Unit (optional)",
+  "@customFieldSliderUnit": {
+    "description": "Label for the unit suffix text field in numeric slider config"
+  },
+  "customFieldSliderShowTicks": "Show tick marks",
+  "@customFieldSliderShowTicks": {
+    "description": "Toggle label for showing tick marks in numeric slider config"
+  },
+  "customFieldSliderValueLabel": "Closer to {anchor}, {percent}%",
+  "@customFieldSliderValueLabel": {
+    "description": "Value indicator pill text for labeled slider mode, shown above the thumb",
+    "placeholders": {
+      "anchor": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "customFieldSliderValueLabelCentered": "{anchor}, {percent}%",
+  "@customFieldSliderValueLabelCentered": {
+    "description": "Value indicator pill text when the thumb is exactly on the center anchor in labeled slider mode",
+    "placeholders": {
+      "anchor": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "customFieldSliderNumericValueLabel": "{value}{unit}",
+  "@customFieldSliderNumericValueLabel": {
+    "description": "Value indicator pill text for numeric slider mode; unit may be empty",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "customFieldSliderSemanticLabel": "{name}, {value} {unit}",
+  "@customFieldSliderSemanticLabel": {
+    "description": "Screen-reader label for numeric slider mode",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "customFieldSliderSemanticLabelLabeled": "{name}, {description}",
+  "@customFieldSliderSemanticLabelLabeled": {
+    "description": "Screen-reader label for labeled slider mode; description is the pill text",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "customFieldMenuEdit": "Edit",
+  "@customFieldMenuEdit": {
+    "description": "Context menu item to edit a custom field"
+  },
+  "customFieldMenuMoveIntoGroup": "Move into group",
+  "@customFieldMenuMoveIntoGroup": {
+    "description": "Context menu item to move a field into a group; tapping shows a submenu of groups"
+  },
+  "customFieldMenuMoveOutOfGroup": "Move out of group",
+  "@customFieldMenuMoveOutOfGroup": {
+    "description": "Context menu item to move a nested field back to top level"
+  },
+  "customFieldMenuMoveToAnotherGroup": "Move to another group",
+  "@customFieldMenuMoveToAnotherGroup": {
+    "description": "Context menu item to move a nested field into a different group"
+  },
+  "customFieldMenuDelete": "Delete",
+  "@customFieldMenuDelete": {
+    "description": "Context menu item to delete a custom field"
+  },
+  "customFieldDetailInsideGroup": "Inside: {group}",
+  "@customFieldDetailInsideGroup": {
+    "description": "Badge shown on the custom field detail screen when the field is nested inside a group",
+    "placeholders": {
+      "group": {
+        "type": "String"
+      }
+    }
+  },
+  "customFieldFirstGroupTip": "Long-press a field to move it into a group",
+  "@customFieldFirstGroupTip": {
+    "description": "One-shot snackbar tip shown after the first group field is created"
+  },
+  "customFieldNoEligibleGroups": "No groups to move into",
+  "@customFieldNoEligibleGroups": {
+    "description": "Disabled menu item shown when there are no eligible target groups for a move action"
+  },
+  "mediaScreenTitle": "Media",
+  "@mediaScreenTitle": {
+    "description": "Title of the Media settings screen, which manages the encrypted image library, chat images, and avatars/banners"
+  },
+  "mediaAddImageTooltip": "Add image",
+  "@mediaAddImageTooltip": {
+    "description": "Tooltip on the add-image button in the Media screen top bar; opens a menu of image sources"
+  },
+  "mediaSourceCamera": "Camera",
+  "@mediaSourceCamera": {
+    "description": "Add-image source menu item: take a photo with the camera"
+  },
+  "mediaSourcePhotoLibrary": "Photo library",
+  "@mediaSourcePhotoLibrary": {
+    "description": "Add-image source menu item: pick from the device's photo library"
+  },
+  "mediaSourceFile": "File",
+  "@mediaSourceFile": {
+    "description": "Add-image source menu item: pick an image file"
+  },
+  "mediaSourceUrl": "URL",
+  "@mediaSourceUrl": {
+    "description": "Add-image source menu item: fetch an image from a web URL"
+  },
+  "mediaSourcePrismLibrary": "Prism library",
+  "@mediaSourcePrismLibrary": {
+    "description": "Add-image source menu item: insert an image already stored in the shared Prism image library"
+  },
+  "mediaAddToLibraryTitle": "Add to library",
+  "@mediaAddToLibraryTitle": {
+    "description": "Title of the dialog for adding a picked image to the shared image library"
+  },
+  "mediaAddImageToLibraryTitle": "Add image to library",
+  "@mediaAddImageToLibraryTitle": {
+    "description": "Title of the dialog (shown from a markdown editor) for staging a picked image into the image library"
+  },
+  "mediaImageUrlTitle": "Image URL",
+  "@mediaImageUrlTitle": {
+    "description": "Title of the dialog prompting for an image's web URL"
+  },
+  "mediaImageUrlHint": "https://example.com/image.png",
+  "@mediaImageUrlHint": {
+    "description": "Hint/placeholder text for the image URL input field. Example URL — keep it a plausible image URL."
+  },
+  "mediaTagFieldHint": "Tag (optional) e.g. nbflag",
+  "@mediaTagFieldHint": {
+    "description": "Hint for the optional tag field when adding an image to the library. 'nbflag' is an example tag (a short identifier the user types to reference the image as the markdown code); leave it untranslated as it's example data."
+  },
+  "mediaAltTextFieldHint": "Alt text (optional)",
+  "@mediaAltTextFieldHint": {
+    "description": "Hint for the optional alternative-text field when adding an image (describes the image for screen readers)"
+  },
+  "mediaEditTagHint": "e.g. nbflag, divider",
+  "@mediaEditTagHint": {
+    "description": "Hint for the tag field when editing an existing image's tag. 'nbflag' and 'divider' are example tags; leave untranslated as example data."
+  },
+  "mediaFetchButton": "Fetch",
+  "@mediaFetchButton": {
+    "description": "Confirm button on the image-URL dialog; fetches the image from the entered URL"
+  },
+  "mediaAddedToLibrary": "Added \"{tag}\" to library",
+  "@mediaAddedToLibrary": {
+    "description": "Toast confirming an image was added to the library under the given tag",
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "mediaAddImageFailed": "Failed to add image: {error}",
+  "@mediaAddImageFailed": {
+    "description": "Error toast when adding an image to the library fails",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mediaReplaceImageFailed": "Failed to replace image: {error}",
+  "@mediaReplaceImageFailed": {
+    "description": "Error toast when replacing an existing library image's bytes fails",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mediaFetchFromUrlFailed": "Could not fetch image from URL",
+  "@mediaFetchFromUrlFailed": {
+    "description": "Error toast when an image cannot be fetched from the entered URL (Media screen)"
+  },
+  "mediaFetchImageFailed": "Could not fetch image",
+  "@mediaFetchImageFailed": {
+    "description": "Error toast when an image cannot be fetched from the entered URL (markdown editor)"
+  },
+  "mediaTagNoUsableCharacters": "Tag has no usable characters",
+  "@mediaTagNoUsableCharacters": {
+    "description": "Error toast when a typed image tag normalizes to an empty string (all characters were stripped as invalid)"
+  },
+  "mediaTagAlreadyInUse": "Tag \"{tag}\" is already in use",
+  "@mediaTagAlreadyInUse": {
+    "description": "Error toast when the typed image tag collides with an existing library tag",
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "mediaTagRenamed": "Renamed",
+  "@mediaTagRenamed": {
+    "description": "Toast confirming an image tag was renamed (no references needed updating)"
+  },
+  "mediaTagRenamedWithReferences": "{count, plural, =1{Renamed; updated 1 reference} other{Renamed; updated {count} references}}",
+  "@mediaTagRenamedWithReferences": {
+    "description": "Toast confirming an image tag was renamed and that this many references to it were repointed",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mediaSomeImagesNotSaved": "Some images couldn't be saved",
+  "@mediaSomeImagesNotSaved": {
+    "description": "Error toast shown when committing a markdown edit but one or more staged images failed to upload"
+  },
+  "mediaCopiedReference": "Copied {reference}",
+  "@mediaCopiedReference": {
+    "description": "Toast confirming the image's markdown reference code was copied to the clipboard. {reference} is the literal markdown code and should not be translated.",
+    "placeholders": {
+      "reference": {
+        "type": "String"
+      }
+    }
+  },
+  "mediaMessageNoLongerExists": "Message no longer exists",
+  "@mediaMessageNoLongerExists": {
+    "description": "Error toast when jumping to the chat message that used an image, but that message has been deleted"
+  },
+  "mediaDeleteImageTitle": "Delete image?",
+  "@mediaDeleteImageTitle": {
+    "description": "Title of the confirmation dialog for deleting a stored image"
+  },
+  "mediaDeleteImageMessage": "This will remove the image from all synced devices. Any bios referencing it will show a missing image.",
+  "@mediaDeleteImageMessage": {
+    "description": "Body of the confirmation dialog for deleting a stored image"
+  },
+  "mediaUpdateReferencesTitle": "Update references?",
+  "@mediaUpdateReferencesTitle": {
+    "description": "Title of the dialog asking whether to repoint existing references when renaming an in-use image tag"
+  },
+  "mediaUpdateReferencesMessage": "{count, plural, =1{\"{oldTag}\" is used in 1 place. Update that reference to \"{newTag}\", or leave it on \"{oldTag}\" — e.g. to free up the name for a different image?} other{\"{oldTag}\" is used in {count} places. Update those references to \"{newTag}\", or leave them on \"{oldTag}\" — e.g. to free up the name for a different image?}}",
+  "@mediaUpdateReferencesMessage": {
+    "description": "Body of the rename-references dialog. Explains how many places reference the old tag and offers to update them to the new tag or leave them.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "oldTag": {
+        "type": "String"
+      },
+      "newTag": {
+        "type": "String"
+      }
+    }
+  },
+  "mediaActionLeave": "Leave",
+  "@mediaActionLeave": {
+    "description": "Button on the rename-references dialog: keep existing references pointing at the old tag"
+  },
+  "mediaActionUpdate": "Update",
+  "@mediaActionUpdate": {
+    "description": "Button on the rename-references dialog: repoint existing references to the new tag"
+  },
+  "mediaSectionStorage": "Storage",
+  "@mediaSectionStorage": {
+    "description": "Section title for the storage overview on the Media screen"
+  },
+  "mediaStorageEncryptedMedia": "Encrypted media",
+  "@mediaStorageEncryptedMedia": {
+    "description": "Storage row label for end-to-end encrypted media (library + chat images)"
+  },
+  "mediaStorageMemberData": "Member data",
+  "@mediaStorageMemberData": {
+    "description": "Storage row label for member avatars and banners stored locally"
+  },
+  "mediaSectionImageLibrary": "Image library",
+  "@mediaSectionImageLibrary": {
+    "description": "Section title for the shared, reusable image library on the Media screen"
+  },
+  "mediaSectionChatImages": "Chat images",
+  "@mediaSectionChatImages": {
+    "description": "Section title for images attached to chat messages on the Media screen"
+  },
+  "mediaSectionAvatarsBanners": "Avatars & banners",
+  "@mediaSectionAvatarsBanners": {
+    "description": "Section title for member avatars and profile banners on the Media screen"
+  },
+  "mediaAvatarsBannersFooter": "Managed from the member edit sheet. Stored locally on device.",
+  "@mediaAvatarsBannersFooter": {
+    "description": "Footer note under the avatars & banners section explaining where they're managed and that they stay on-device"
+  },
+  "mediaLabelAvatars": "Avatars",
+  "@mediaLabelAvatars": {
+    "description": "Storage row label for member avatars"
+  },
+  "mediaLabelBanners": "Banners",
+  "@mediaLabelBanners": {
+    "description": "Storage row label for member profile banners"
+  },
+  "mediaNoStoredMedia": "No stored media",
+  "@mediaNoStoredMedia": {
+    "description": "Empty-state text on the Media screen when there are no library images, chat images, avatars, or banners"
+  },
+  "mediaSummaryItems": "{count, plural, =1{{count} item} other{{count} items}}",
+  "@mediaSummaryItems": {
+    "description": "Count fragment in a storage summary, e.g. '3 items'. Joined with a size like '3 items, 1.2 MB'.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mediaSummaryAvatars": "{count, plural, =1{{count} avatar} other{{count} avatars}}",
+  "@mediaSummaryAvatars": {
+    "description": "Count fragment in a storage summary for avatars, e.g. '2 avatars'.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mediaSummaryBanners": "{count, plural, =1{{count} banner} other{{count} banners}}",
+  "@mediaSummaryBanners": {
+    "description": "Count fragment in a storage summary for banners, e.g. '2 banners'.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mediaUsageUnused": "Unused",
+  "@mediaUsageUnused": {
+    "description": "Label on a library image card indicating the image isn't referenced anywhere"
+  },
+  "mediaUsageUsedInPlaces": "{count, plural, =1{Used in 1 place} other{Used in {count} places}}",
+  "@mediaUsageUsedInPlaces": {
+    "description": "Label on a library image card indicating how many surfaces reference the image",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mediaMenuViewUsage": "View usage",
+  "@mediaMenuViewUsage": {
+    "description": "Context menu item: show the list of places that reference this library image"
+  },
+  "mediaMenuCopyCode": "Copy code",
+  "@mediaMenuCopyCode": {
+    "description": "Context menu item: copy the markdown reference code for this image to the clipboard"
+  },
+  "mediaMenuEditTag": "Edit tag",
+  "@mediaMenuEditTag": {
+    "description": "Context menu item: rename this image's tag"
+  },
+  "mediaMenuReplaceImage": "Replace image",
+  "@mediaMenuReplaceImage": {
+    "description": "Context menu item: swap this image's pixels while keeping its tag and references"
+  },
+  "mediaMenuDelete": "Delete",
+  "@mediaMenuDelete": {
+    "description": "Context menu item: delete this image"
+  },
+  "mediaMenuJumpToMessage": "Jump to message",
+  "@mediaMenuJumpToMessage": {
+    "description": "Context menu item on a chat image: navigate to the message that contains it"
+  },
+  "mediaUsageScreenTitle": "Used by",
+  "@mediaUsageScreenTitle": {
+    "description": "Title of the screen listing every surface that references a library image"
+  },
+  "mediaUsageNotUsedAnywhere": "Not used anywhere",
+  "@mediaUsageNotUsedAnywhere": {
+    "description": "Empty-state text on the image-usage screen when nothing references the image"
+  },
+  "mediaUsageKindBio": "Bio",
+  "@mediaUsageKindBio": {
+    "description": "Usage-kind label: the image is referenced in a member's bio"
+  },
+  "mediaUsageKindNote": "Note",
+  "@mediaUsageKindNote": {
+    "description": "Usage-kind label: the image is referenced in a note"
+  },
+  "mediaUsageKindGroup": "Group",
+  "@mediaUsageKindGroup": {
+    "description": "Usage-kind label: the image is referenced in a group description"
+  },
+  "mediaUsageKindCustomField": "Custom field",
+  "@mediaUsageKindCustomField": {
+    "description": "Usage-kind label: the image is referenced in a custom field value"
+  },
+  "mediaUsageKindChat": "Chat",
+  "@mediaUsageKindChat": {
+    "description": "Usage-kind label: the image is referenced in a chat message"
+  },
+  "mediaUsageKindBoardPost": "Board post",
+  "@mediaUsageKindBoardPost": {
+    "description": "Usage-kind label: the image is referenced in a board post"
+  },
+  "mediaUsageLabelBio": "{name}'s bio",
+  "@mediaUsageLabelBio": {
+    "description": "Usage list label pointing at a member's bio, e.g. \"Alex's bio\"",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mediaUsageLabelNote": "Note: {title}",
+  "@mediaUsageLabelNote": {
+    "description": "Usage list label pointing at a titled note",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "mediaUsageLabelUntitledNote": "Untitled note",
+  "@mediaUsageLabelUntitledNote": {
+    "description": "Usage list label for a note that has no title"
+  },
+  "mediaUsageLabelCustomField": "{member} · {field}",
+  "@mediaUsageLabelCustomField": {
+    "description": "Usage list label pointing at a member's custom-field value, e.g. \"Alex · Pronouns\". The middle dot separator should be kept.",
+    "placeholders": {
+      "member": {
+        "type": "String"
+      },
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "mediaUsageLabelChatMessage": "Chat message",
+  "@mediaUsageLabelChatMessage": {
+    "description": "Usage list label for a chat message that references the image but has no other preview text"
+  },
+  "mediaUsageLabelBoardPost": "Board post: {title}",
+  "@mediaUsageLabelBoardPost": {
+    "description": "Usage list label pointing at a board post with a title or preview",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "mediaUsageLabelBoardPostUntitled": "Untitled board post",
+  "@mediaUsageLabelBoardPostUntitled": {
+    "description": "Usage list label for a board post that has no title or preview text"
+  },
+  "mediaUsageLabelUnknownMember": "a member",
+  "@mediaUsageLabelUnknownMember": {
+    "description": "Fallback name used in a custom-field usage label when the referenced member can't be resolved"
+  },
+  "mediaUsageLabelUnknownField": "a field",
+  "@mediaUsageLabelUnknownField": {
+    "description": "Fallback name used in a custom-field usage label when the referenced field can't be resolved"
+  },
+  "mediaLibraryPickerTitle": "Image library",
+  "@mediaLibraryPickerTitle": {
+    "description": "Title of the full-screen picker for choosing an image from the shared library to insert"
+  },
+  "mediaLibraryEmpty": "No images in library yet",
+  "@mediaLibraryEmpty": {
+    "description": "Toast shown when opening the image-library picker but the library has no images"
+  },
+  "imageSemanticLabel": "Image",
+  "@imageSemanticLabel": {
+    "description": "Screen-reader label for an image with no caption and no owning member (e.g. a chat image)"
+  },
+  "imageSemanticInBio": "Image in {name}'s bio",
+  "@imageSemanticInBio": {
+    "description": "Screen-reader label for an image embedded in a member's bio, e.g. \"Image in Alex's bio\"",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "imageSemanticLoading": "Image loading",
+  "@imageSemanticLoading": {
+    "description": "Screen-reader label for an image placeholder while the image is loading"
+  },
+  "imageSemanticLoadFailed": "Image couldn't load",
+  "@imageSemanticLoadFailed": {
+    "description": "Screen-reader label and visible caption for an image that failed to load (tap to retry)"
+  },
+  "imageSemanticExpired": "Image expired",
+  "@imageSemanticExpired": {
+    "description": "Screen-reader label and visible caption for an image whose remote blob has expired and is no longer available"
+  },
+  "imageSemanticThumbnail": "Media thumbnail",
+  "@imageSemanticThumbnail": {
+    "description": "Screen-reader label for a small image thumbnail"
   }
 }

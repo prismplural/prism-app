@@ -3393,21 +3393,20 @@ class PluralKitSyncService {
     //
     // Corrective import also clears delete-push bookkeeping because a
     // resurrected PK row is no longer a pending local deletion.
-    await _frontingSessionRepository.updateSession(
-      existing.copyWith(
-        isDeleted: corrective ? false : existing.isDeleted,
-        startTime: switchEntry.timestamp,
-        memberId: localId,
-        pluralkitUuid: switchEntry.id,
-        pkImportSource: switchImportSource ?? existing.pkImportSource,
-        pkFileSwitchId: switchImportSource == null
-            ? existing.pkFileSwitchId
-            : pkFileSwitchId,
-        endTime: corrective ? null : existing.endTime,
-        deleteIntentEpoch: corrective ? null : existing.deleteIntentEpoch,
-        deletePushStartedAt: corrective ? null : existing.deletePushStartedAt,
-      ),
+    final corrected = existing.copyWith(
+      isDeleted: corrective ? false : existing.isDeleted,
+      startTime: switchEntry.timestamp,
+      memberId: localId,
+      pluralkitUuid: switchEntry.id,
+      pkImportSource: switchImportSource ?? existing.pkImportSource,
+      pkFileSwitchId: switchImportSource == null
+          ? existing.pkFileSwitchId
+          : pkFileSwitchId,
+      endTime: corrective ? null : existing.endTime,
+      deleteIntentEpoch: corrective ? null : existing.deleteIntentEpoch,
+      deletePushStartedAt: corrective ? null : existing.deletePushStartedAt,
     );
+    await _frontingSessionRepository.updateSession(corrected);
     return _PkUpsertOutcome.row(existing.id);
   }
 

@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -92,10 +93,9 @@ class _FieldsList extends ConsumerWidget {
       fields.where((f) => f.parentFieldId == null).toList();
 
   /// Children of [groupId], sorted by displayOrder.
-  List<CustomField> _childrenOf(String groupId) => fields
-      .where((f) => f.parentFieldId == groupId)
-      .toList()
-    ..sort(_compareFieldOrder);
+  List<CustomField> _childrenOf(String groupId) =>
+      fields.where((f) => f.parentFieldId == groupId).toList()
+        ..sort(_compareFieldOrder);
 
   int _compareFieldOrder(CustomField a, CustomField b) {
     final byOrder = a.displayOrder.compareTo(b.displayOrder);
@@ -320,10 +320,13 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
   /// Unnamed groups need a clickable label in toasts/dialogs too.
   String _displayName(BuildContext context, CustomField f) =>
       f.fieldTypeId == 'group' && f.name.trim().isEmpty
-          ? context.l10n.customFieldGroupUntitledFallback
-          : f.name;
+      ? context.l10n.customFieldGroupUntitledFallback
+      : f.name;
 
-  Future<void> _moveIntoGroup(BuildContext context, CustomField targetGroup) async {
+  Future<void> _moveIntoGroup(
+    BuildContext context,
+    CustomField targetGroup,
+  ) async {
     final movedName = _displayName(context, widget.field);
     final failure = await ref
         .read(customFieldNotifierProvider.notifier)
@@ -349,10 +352,7 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
       PrismToast.error(context, message: failure.toString());
       return;
     }
-    PrismToast.show(
-      context,
-      message: '$movedName moved to top level',
-    );
+    PrismToast.show(context, message: '$movedName moved to top level');
   }
 
   Future<void> _openEditSheet(BuildContext context) async {
@@ -372,35 +372,32 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
       displayName,
     );
 
-    bool? deleteChildren; // null = cancel, false = promote, true = delete children
+    bool?
+    deleteChildren; // null = cancel, false = promote, true = delete children
 
     if (widget.field.fieldTypeId == 'group') {
-      deleteChildren = await showDialog<bool?>(
+      deleteChildren = await PrismDialog.show<bool?>(
         context: context,
-        builder: (ctx) {
-          final theme = Theme.of(ctx);
-          return AlertDialog(
-            title: Text(context.l10n.customFieldGroupDeleteTitle(displayName)),
-            content: Text(context.l10n.customFieldGroupDeleteMessage),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(null),
-                child: Text(context.l10n.cancel),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                style: TextButton.styleFrom(
-                  foregroundColor: theme.colorScheme.error,
-                ),
-                child: Text(context.l10n.customFieldGroupDeleteChildren),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: Text(context.l10n.customFieldGroupPromoteChildren),
-              ),
-            ],
-          );
-        },
+        title: context.l10n.customFieldGroupDeleteTitle(displayName),
+        message: context.l10n.customFieldGroupDeleteMessage,
+        actions: [
+          PrismButton(
+            label: context.l10n.cancel,
+            tone: PrismButtonTone.outlined,
+            onPressed: () => Navigator.of(context).pop(null),
+          ),
+          PrismButton(
+            label: context.l10n.customFieldGroupDeleteChildren,
+            tone: PrismButtonTone.destructive,
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+          PrismButton(
+            label: context.l10n.customFieldGroupPromoteChildren,
+            tone: PrismButtonTone.filled,
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+        ],
+        builder: (_) => const SizedBox.shrink(),
       );
       if (deleteChildren == null) return; // user cancelled
     } else {
@@ -416,10 +413,9 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     }
 
     Haptics.heavy();
-    await ref.read(customFieldNotifierProvider.notifier).deleteField(
-          widget.field.id,
-          deleteChildren: deleteChildren,
-        );
+    await ref
+        .read(customFieldNotifierProvider.notifier)
+        .deleteField(widget.field.id, deleteChildren: deleteChildren);
     if (context.mounted) {
       PrismToast.show(context, message: deletedToast);
     }
@@ -428,42 +424,61 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     if (navigator.canPop()) navigator.pop();
   }
 
-  /// Shows a submenu (second BlurPopup) of group choices to move into.
-  /// Uses a plain dialog-style AlertDialog for simplicity — avoids nesting
-  /// two BlurPopups which can conflict on overlay sizing.
   Future<void> _showGroupPicker(
     BuildContext context, {
     required List<CustomField> groups,
     required String title,
     required void Function(CustomField group) onSelected,
   }) async {
-    final selected = await showDialog<CustomField>(
+    final selected = await PrismDialog.show<CustomField>(
       context: context,
-      builder: (ctx) => SimpleDialog(
-        title: Text(title),
-        children: [
-          for (final group in groups)
-            SimpleDialogOption(
-              onPressed: () => Navigator.of(ctx).pop(group),
-              child: Row(
-                children: [
-                  Icon(AppIcons.folderOutlined, size: 20),
-                  const SizedBox(width: 12),
-                  Text(group.name),
-                ],
-              ),
-            ),
-          if (groups.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              child: Text(
-                context.l10n.customFieldNoEligibleGroups,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+      title: title,
+      builder: (ctx) => ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 320),
+        child: groups.isEmpty
+            ? Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  context.l10n.customFieldNoEligibleGroups,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
+              )
+            : ListView.separated(
+                shrinkWrap: true,
+                itemCount: groups.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 4),
+                itemBuilder: (context, index) {
+                  final group = groups[index];
+                  return Semantics(
+                    button: true,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => Navigator.of(ctx).pop(group),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(AppIcons.folderOutlined, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                group.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-            ),
-        ],
       ),
     );
     if (selected != null) onSelected(selected);
@@ -474,7 +489,9 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     final field = widget.field;
     final isGroup = field.fieldTypeId == 'group';
     final isNested = field.parentFieldId != null;
-    final eligibleForMoveInto = !isGroup ? _eligibleGroups(excludeCurrent: true) : <CustomField>[];
+    final eligibleForMoveInto = !isGroup
+        ? _eligibleGroups(excludeCurrent: true)
+        : <CustomField>[];
     final otherGroups = isNested
         ? _eligibleGroups(excludeCurrent: true)
         : <CustomField>[];
@@ -495,7 +512,10 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
         : field.name;
 
     final Widget rowContent = PrismListRow(
-      leading: Icon(widget.iconForField(field), color: theme.colorScheme.primary),
+      leading: Icon(
+        widget.iconForField(field),
+        color: theme.colorScheme.primary,
+      ),
       title: Text(
         displayName,
         style: isPlaceholderName
@@ -518,9 +538,7 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
             index: widget.index,
             child: Icon(
               AppIcons.dragHandle,
-              color: theme.colorScheme.onSurfaceVariant.withValues(
-                alpha: 0.4,
-              ),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
             ),
           ),
           const SizedBox(width: 8),
@@ -542,7 +560,12 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
       preferredDirection: BlurPopupDirection.down,
       width: 240,
       maxHeight: 360,
-      itemCount: _menuItemCount(isGroup: isGroup, isNested: isNested, hasEligible: eligibleForMoveInto.isNotEmpty, hasOtherGroups: otherGroups.isNotEmpty),
+      itemCount: _menuItemCount(
+        isGroup: isGroup,
+        isNested: isNested,
+        hasEligible: eligibleForMoveInto.isNotEmpty,
+        hasOtherGroups: otherGroups.isNotEmpty,
+      ),
       itemBuilder: (popupContext, index, close) {
         return _buildMenuItem(
           context: context,
@@ -596,91 +619,103 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     final items = <_MenuItem>[];
 
     // Edit
-    items.add(_MenuItem(
-      icon: AppIcons.editOutlined,
-      label: context.l10n.customFieldMenuEdit,
-      enabled: true,
-      destructive: false,
-      onTap: () {
-        close();
-        _openEditSheet(context);
-      },
-    ));
+    items.add(
+      _MenuItem(
+        icon: AppIcons.editOutlined,
+        label: context.l10n.customFieldMenuEdit,
+        enabled: true,
+        destructive: false,
+        onTap: () {
+          close();
+          _openEditSheet(context);
+        },
+      ),
+    );
 
     // Move actions (non-group fields only)
     if (!isGroup) {
       if (eligibleGroups.isNotEmpty) {
-        items.add(_MenuItem(
-          icon: AppIcons.folderOutlined,
-          label: context.l10n.customFieldMenuMoveIntoGroup,
-          enabled: true,
-          destructive: false,
-          onTap: () {
-            close();
-            _showGroupPicker(
-              context,
-              groups: eligibleGroups,
-              title: context.l10n.customFieldMenuMoveIntoGroup,
-              onSelected: (g) => _moveIntoGroup(context, g),
-            );
-          },
-        ));
+        items.add(
+          _MenuItem(
+            icon: AppIcons.folderOutlined,
+            label: context.l10n.customFieldMenuMoveIntoGroup,
+            enabled: true,
+            destructive: false,
+            onTap: () {
+              close();
+              _showGroupPicker(
+                context,
+                groups: eligibleGroups,
+                title: context.l10n.customFieldMenuMoveIntoGroup,
+                onSelected: (g) => _moveIntoGroup(context, g),
+              );
+            },
+          ),
+        );
       } else if (_allGroups.isNotEmpty) {
         // There are groups but field is already in all of them (edge case) or
         // only the current parent remains — show disabled hint.
-        items.add(_MenuItem(
-          icon: AppIcons.folderOutlined,
-          label: context.l10n.customFieldNoEligibleGroups,
-          enabled: false,
-          destructive: false,
-          onTap: null,
-        ));
+        items.add(
+          _MenuItem(
+            icon: AppIcons.folderOutlined,
+            label: context.l10n.customFieldNoEligibleGroups,
+            enabled: false,
+            destructive: false,
+            onTap: null,
+          ),
+        );
       }
       // If no groups exist at all, omit the move item entirely.
     }
 
     if (isNested) {
-      items.add(_MenuItem(
-        icon: AppIcons.arrowUpward,
-        label: context.l10n.customFieldMenuMoveOutOfGroup,
-        enabled: true,
-        destructive: false,
-        onTap: () {
-          close();
-          _moveOutOfGroup(context);
-        },
-      ));
-
-      if (otherGroups.isNotEmpty) {
-        items.add(_MenuItem(
-          icon: AppIcons.arrowForward,
-          label: context.l10n.customFieldMenuMoveToAnotherGroup,
+      items.add(
+        _MenuItem(
+          icon: AppIcons.arrowUpward,
+          label: context.l10n.customFieldMenuMoveOutOfGroup,
           enabled: true,
           destructive: false,
           onTap: () {
             close();
-            _showGroupPicker(
-              context,
-              groups: otherGroups,
-              title: context.l10n.customFieldMenuMoveToAnotherGroup,
-              onSelected: (g) => _moveIntoGroup(context, g),
-            );
+            _moveOutOfGroup(context);
           },
-        ));
+        ),
+      );
+
+      if (otherGroups.isNotEmpty) {
+        items.add(
+          _MenuItem(
+            icon: AppIcons.arrowForward,
+            label: context.l10n.customFieldMenuMoveToAnotherGroup,
+            enabled: true,
+            destructive: false,
+            onTap: () {
+              close();
+              _showGroupPicker(
+                context,
+                groups: otherGroups,
+                title: context.l10n.customFieldMenuMoveToAnotherGroup,
+                onSelected: (g) => _moveIntoGroup(context, g),
+              );
+            },
+          ),
+        );
       }
     }
 
     // Delete (always last)
-    items.add(_MenuItem(
-      icon: AppIcons.deleteOutline,
-      label: context.l10n.customFieldMenuDelete,
-      enabled: true,
-      destructive: true,
-      onTap: () {
-        close();
-        _confirmDelete(context);
-      },
-    ));
+    items.add(
+      _MenuItem(
+        icon: AppIcons.deleteOutline,
+        label: context.l10n.customFieldMenuDelete,
+        enabled: true,
+        destructive: true,
+        onTap: () {
+          close();
+          _confirmDelete(context);
+        },
+      ),
+    );
 
     if (index >= items.length) return const SizedBox.shrink();
     final item = items[index];

@@ -430,6 +430,7 @@ void main() {
         membersFrontButtonBehavior: FrontStartBehavior.replace,
         bioMarkdownEnabled: false,
       );
+      await exportService.systemSettingsRepository.getSettings();
       await exportService.systemSettingsRepository.updateSettings(settings);
 
       final habit = Habit(
@@ -500,6 +501,8 @@ void main() {
         datePrecision: DatePrecision.timestamp,
         displayOrder: 5,
         createdAt: now,
+        fieldTypeId: 'date',
+        parentFieldId: 'coverage-parent-field',
       );
       await exportService.customFieldsRepository.createField(customField);
       const customFieldValue = CustomFieldValue(
@@ -595,6 +598,8 @@ void main() {
       const mediaAttachment = MediaAttachment(
         id: 'coverage-attachment',
         messageId: 'coverage-message',
+        memberId: 'coverage-member',
+        tag: 'coverage-tag',
         mediaId: 'media-id',
         mediaType: 'image',
         encryptionKeyB64: 'key',

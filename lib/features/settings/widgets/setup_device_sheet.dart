@@ -1342,12 +1342,11 @@ class _JoinerQrScannerView extends StatelessWidget {
         const SizedBox(height: 12),
         // Keep the paste path available when camera access fails.
         Center(
-          child: Semantics(
-            button: true,
-            child: TextButton(
-              onPressed: onPasteFallback,
-              child: Text(context.l10n.syncSetupPasteCodeLink),
-            ),
+          child: PrismButton(
+            label: context.l10n.syncSetupPasteCodeLink,
+            onPressed: onPasteFallback,
+            density: PrismControlDensity.compact,
+            tone: PrismButtonTone.subtle,
           ),
         ),
         if (error != null) ...[
@@ -1614,12 +1613,11 @@ class _DesktopJoinerQrScannerViewState
         ),
         const SizedBox(height: 12),
         Center(
-          child: Semantics(
-            button: true,
-            child: TextButton(
-              onPressed: widget.onPasteFallback,
-              child: Text(context.l10n.syncSetupPasteCodeLink),
-            ),
+          child: PrismButton(
+            label: context.l10n.syncSetupPasteCodeLink,
+            onPressed: widget.onPasteFallback,
+            density: PrismControlDensity.compact,
+            tone: PrismButtonTone.subtle,
           ),
         ),
         if (widget.error != null) ...[

@@ -2187,6 +2187,8 @@ class V1MediaAttachment {
   V1MediaAttachment({
     required this.id,
     required this.messageId,
+    this.memberId = '',
+    this.tag = '',
     required this.mediaId,
     required this.mediaType,
     required this.encryptionKeyB64,
@@ -2207,6 +2209,8 @@ class V1MediaAttachment {
 
   final String id;
   final String messageId;
+  final String memberId;
+  final String tag;
   final String mediaId;
   final String mediaType;
   final String encryptionKeyB64;
@@ -2227,6 +2231,8 @@ class V1MediaAttachment {
   Map<String, dynamic> toJson() => {
     'id': id,
     'messageId': messageId,
+    if (memberId.isNotEmpty) 'memberId': memberId,
+    if (tag.isNotEmpty) 'tag': tag,
     'mediaId': mediaId,
     'mediaType': mediaType,
     'encryptionKeyB64': encryptionKeyB64,
@@ -2249,6 +2255,8 @@ class V1MediaAttachment {
       V1MediaAttachment(
         id: json['id'] as String,
         messageId: json['messageId'] as String,
+        memberId: json['memberId'] as String? ?? '',
+        tag: json['tag'] as String? ?? '',
         mediaId: json['mediaId'] as String,
         mediaType: json['mediaType'] as String,
         encryptionKeyB64: json['encryptionKeyB64'] as String,

@@ -170,10 +170,12 @@ void main() {
         const password = 'dummy-test-password';
         final now = DateTime.utc(2026, 5, 1, 10);
 
-        await DriftSystemSettingsRepository(
+        final sourceSettingsRepo = DriftSystemSettingsRepository(
           sourceDb.systemSettingsDao,
           null,
-        ).updateSettings(
+        );
+        await sourceSettingsRepo.getSettings();
+        await sourceSettingsRepo.updateSettings(
           const SystemSettings(
             systemName: 'Encrypted Roundtrip',
             boardsEnabled: true,
