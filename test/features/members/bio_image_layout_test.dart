@@ -94,6 +94,13 @@ void main() {
       },
     );
 
+    test('leaves pipe-based side-by-side prose untouched', () {
+      expect(
+        blockifyImageMarkdown('before | ![](flag#96) after'),
+        'before | ![](flag#96) after',
+      );
+    });
+
     test(
       'promotes a block image in prose but not the one in an adjacent table',
       () {

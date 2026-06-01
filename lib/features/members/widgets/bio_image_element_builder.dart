@@ -9,6 +9,11 @@ import 'package:prism_plurality/features/members/services/bio_image_processor.da
 import 'package:prism_plurality/features/members/services/bio_image_size.dart';
 import 'package:prism_plurality/features/members/widgets/bio_image_widget.dart';
 
+const EdgeInsets _bioImageGutter = EdgeInsets.symmetric(
+  horizontal: 4,
+  vertical: 4,
+);
+
 /// Resolves `img` markdown elements to [BioImageWidget]s against the shared
 /// encrypted image library. Receives the raw `src` attribute (with any `#WxH`
 /// fragment) so author sizing is preserved.
@@ -116,36 +121,51 @@ class BioImageElementBuilder extends MarkdownElementBuilder {
   }
 
   Widget _widget(MediaAttachment a, String? alt, BioImageSize size) {
-    return BioImageWidget(
-      mediaId: a.mediaId,
-      encryptionKeyB64: a.encryptionKeyB64,
-      ciphertextHash: a.contentHash,
-      plaintextHash: a.plaintextHash,
-      blurhash: a.blurhash,
-      width: a.width,
-      height: a.height,
-      altText: alt,
-      memberName: memberName,
-      size: size,
-      maxContentWidth: contentWidth,
+    return _withGutter(
+      BioImageWidget(
+        mediaId: a.mediaId,
+        encryptionKeyB64: a.encryptionKeyB64,
+        ciphertextHash: a.contentHash,
+        plaintextHash: a.plaintextHash,
+        blurhash: a.blurhash,
+        width: a.width,
+        height: a.height,
+        altText: alt,
+        memberName: memberName,
+        size: size,
+        maxContentWidth: _innerContentWidth,
+      ),
     );
   }
 
   Widget _staged(Uint8List bytes, String? alt, BioImageSize size) {
-    return BioImageWidget(
-      mediaId: '',
-      encryptionKeyB64: '',
-      ciphertextHash: '',
-      plaintextHash: '',
-      blurhash: '',
-      width: 0,
-      height: 0,
-      altText: alt,
-      memberName: memberName,
-      size: size,
-      overrideBytes: bytes,
-      maxContentWidth: contentWidth,
+    return _withGutter(
+      BioImageWidget(
+        mediaId: '',
+        encryptionKeyB64: '',
+        ciphertextHash: '',
+        plaintextHash: '',
+        blurhash: '',
+        width: 0,
+        height: 0,
+        altText: alt,
+        memberName: memberName,
+        size: size,
+        overrideBytes: bytes,
+        maxContentWidth: _innerContentWidth,
+      ),
     );
+  }
+
+  double? get _innerContentWidth {
+    final width = contentWidth;
+    if (width == null || !width.isFinite) return width;
+    final adjusted = width - _bioImageGutter.horizontal;
+    return adjusted < 0 ? 0 : adjusted;
+  }
+
+  Widget _withGutter(Widget child) {
+    return Padding(padding: _bioImageGutter, child: child);
   }
 
   MediaAttachment? _firstWhere(

@@ -89,6 +89,33 @@ const _tinyImageTable = ':::plain\n'
 
 void main() {
   group('PrismMarkdownText image-layout table', () {
+    testWidgets('applies a visual gutter around inline bio images', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap('before | ![](flag#120) after', bytes: _kOnePxPng),
+      );
+      await tester.pumpAndSettle();
+
+      final imageBox = find.byWidgetPredicate(
+        (w) => w is SizedBox && w.width == 120 && w.height == 60,
+      );
+      expect(imageBox, findsOneWidget);
+
+      expect(
+        find.ancestor(
+          of: imageBox,
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is Padding &&
+                w.padding ==
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('lays out a loaded image-beside-text table without throwing',
         (tester) async {
       await tester.pumpWidget(_wrap(_sizedImageTable, bytes: _kOnePxPng));

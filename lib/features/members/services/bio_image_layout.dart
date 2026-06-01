@@ -69,8 +69,7 @@ String blockifyImageMarkdown(String markdown) {
   }
 
   for (final line in lines) {
-    // Images inside a table row (`| ![](img) | … |`) are left untouched —
-    // promoting one would inject a blank line mid-row and shatter the table.
+    // Pipe layouts stay inline; the image builder supplies the gutter.
     if (line.contains('|')) {
       addLine(line);
       continue;
