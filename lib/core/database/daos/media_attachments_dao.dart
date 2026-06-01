@@ -86,6 +86,7 @@ class MediaAttachmentsDao extends DatabaseAccessor<AppDatabase>
           ON m.id = a.message_id
         WHERE a.message_id != ''
           AND a.is_deleted = 0
+          AND a.media_type = 'image'
           AND (m.id IS NULL OR m.is_deleted = 0)
         ORDER BY a.id DESC
         ''',
