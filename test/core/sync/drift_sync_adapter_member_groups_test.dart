@@ -2222,6 +2222,80 @@ void main() {
       },
     );
   });
+
+  group('deferred PK group-entry replay batches per sync batch', () {
+    test('controller coalesces replays during a batch into one run', () async {
+      var runs = 0;
+      final controller = DeferredPkEntryReplayController(() async {
+        runs++;
+      });
+
+      await controller.requestReplay();
+      expect(runs, 1, reason: 'with no batch open, a request replays at once');
+
+      controller.beginBatch();
+      await controller.requestReplay();
+      await controller.requestReplay();
+      expect(runs, 1, reason: 'requests during a batch are deferred');
+
+      await controller.completeBatch();
+      expect(
+        runs,
+        2,
+        reason: 'the deferred replay runs once on batch complete',
+      );
+    });
+
+    test(
+      'a sync batch replays deferred PK entries once, not per member_group',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        await _ensurePkGroupPhase1RuntimeSchema(db);
+
+        final sync = buildSyncAdapterWithCompletion(db);
+        DriftSyncEntity entityFor(String table) =>
+            sync.adapter.entities.singleWhere((e) => e.tableName == table);
+
+        // A deferred entry whose group and member never arrive stays unresolved
+        // through every replay pass, so retry_count counts the passes: each pass
+        // bumps it and (inside the terminal grace) never deletes it.
+        const deferredId = 'member_group_entries:orphan';
+        await entityFor('member_group_entries').applyFields('orphan', {
+          'pk_group_uuid': 'absent-group',
+          'pk_member_uuid': 'absent-member',
+          'is_deleted': false,
+        });
+
+        const groupCount = 4;
+        final createdAt = DateTime.utc(2026, 5, 31, 12).toIso8601String();
+        sync.beginSyncBatch();
+        for (var i = 0; i < groupCount; i++) {
+          await entityFor('member_groups').applyFields('pk-group:batch-$i', {
+            'name': 'Batch Group $i',
+            'display_order': i,
+            'group_type': 0,
+            'created_at': createdAt,
+            'pluralkit_uuid': 'batch-group-$i',
+            'is_deleted': false,
+          });
+        }
+        await sync.completeSyncBatch();
+
+        final deferred = await db
+            .customSelect(
+              'SELECT retry_count FROM pk_group_entry_deferred_sync_ops '
+              'WHERE id = ?',
+              variables: [Variable<String>(deferredId)],
+            )
+            .getSingle();
+        // One replay for the whole batch. Inline per-row replay made this
+        // groupCount + 1, and the O(rows x deferred-ops) work made initial sync
+        // over a PK snapshot never finish.
+        expect(deferred.data['retry_count'], 1);
+      },
+    );
+  });
 }
 
 DriftSyncEntity _entityFor(AppDatabase db, String tableName) {
