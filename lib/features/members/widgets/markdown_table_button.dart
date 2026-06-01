@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_color_picker_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 
 /// A button that inserts a markdown table into [controller] at the cursor.
 ///
@@ -27,8 +28,8 @@ class MarkdownTableButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(PhosphorIcons.table()),
+    return PrismTopBarAction(
+      icon: PhosphorIcons.table(),
       tooltip: context.l10n.tableInsertTooltip,
       onPressed: () => _open(context),
     );
@@ -44,10 +45,8 @@ class MarkdownTableButton extends StatelessWidget {
     final confirmed = await PrismDialog.show<bool>(
       context: context,
       title: l10n.tableInsertTitle,
-      builder: (_) => _InsertTableForm(
-        initial: spec,
-        onChanged: (s) => spec = s,
-      ),
+      builder: (_) =>
+          _InsertTableForm(initial: spec, onChanged: (s) => spec = s),
       actions: [
         PrismButton(
           label: l10n.cancel,
@@ -107,7 +106,9 @@ class TableSpec {
       rows: rows ?? this.rows,
       headerRow: headerRow ?? this.headerRow,
       showBorders: showBorders ?? this.showBorders,
-      borderColorHex: clearColor ? null : (borderColorHex ?? this.borderColorHex),
+      borderColorHex: clearColor
+          ? null
+          : (borderColorHex ?? this.borderColorHex),
     );
   }
 }
@@ -276,9 +277,7 @@ class _BorderColorRow extends StatelessWidget {
     if (hex == null) return Theme.of(context).colorScheme.primary;
     final cleaned = hex.replaceFirst('#', '');
     final value = int.tryParse('FF$cleaned', radix: 16);
-    return value == null
-        ? Theme.of(context).colorScheme.primary
-        : Color(value);
+    return value == null ? Theme.of(context).colorScheme.primary : Color(value);
   }
 
   @override
