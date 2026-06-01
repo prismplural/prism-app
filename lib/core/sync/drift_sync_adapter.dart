@@ -27,18 +27,19 @@ class SyncAdapterWithCompletion {
   SyncAdapterWithCompletion(
     this.adapter,
     this._pendingQuarantineWrites,
-    this._runDeferredPkEntryReplay,
+    this._deferredPkEntryReplay,
   );
 
   final DriftSyncAdapter adapter;
   final List<Future<void>> _pendingQuarantineWrites;
-  final Future<void> Function() _runDeferredPkEntryReplay;
+  final DeferredPkEntryReplayController _deferredPkEntryReplay;
 
   Completer<void>? _batchCompleter;
 
   /// Call before starting a sync to create a new completion signal.
   void beginSyncBatch() {
     _batchCompleter = Completer<void>();
+    _deferredPkEntryReplay.beginBatch();
   }
 
   /// Completes when all pending writes from the current batch are committed.
@@ -63,12 +64,38 @@ class SyncAdapterWithCompletion {
       }
     }
 
-    await _runDeferredPkEntryReplay();
+    await _deferredPkEntryReplay.completeBatch();
 
     if (!completer.isCompleted) {
       completer.complete();
     }
     _batchCompleter = null;
+  }
+}
+
+class DeferredPkEntryReplayController {
+  DeferredPkEntryReplayController(this._run);
+
+  final Future<void> Function() _run;
+  bool _batchActive = false;
+
+  void beginBatch() {
+    _batchActive = true;
+  }
+
+  Future<void> requestReplay() {
+    if (_batchActive) {
+      return Future.value();
+    }
+    return _run();
+  }
+
+  Future<void> completeBatch() async {
+    try {
+      await _run();
+    } finally {
+      _batchActive = false;
+    }
   }
 }
 
@@ -154,9 +181,22 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
 }) {
   final pendingQuarantineWrites = <Future<void>>[];
   final gate = applyGate ?? ((_) => null);
+  late final DeferredPkEntryReplayController deferredPkEntryReplay;
+  deferredPkEntryReplay = DeferredPkEntryReplayController(
+    () => _retryDeferredPkBackedMemberGroupEntryOps(
+      db,
+      quarantine: quarantine,
+      trackQuarantineWrite: pendingQuarantineWrites.add,
+    ),
+  );
   final adapter = DriftSyncAdapter(
     entities: [
-      _membersEntity(db, quarantine, pendingQuarantineWrites.add),
+      _membersEntity(
+        db,
+        quarantine,
+        pendingQuarantineWrites.add,
+        deferredPkEntryReplay.requestReplay,
+      ),
       _frontingSessionsEntity(
         db,
         quarantine,
@@ -183,7 +223,12 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
         pendingQuarantineWrites.add,
       ),
       _remindersEntity(db, quarantine, pendingQuarantineWrites.add),
-      _memberGroupsEntity(db, quarantine, pendingQuarantineWrites.add),
+      _memberGroupsEntity(
+        db,
+        quarantine,
+        pendingQuarantineWrites.add,
+        deferredPkEntryReplay.requestReplay,
+      ),
       _memberGroupEntriesEntity(db, quarantine, pendingQuarantineWrites.add),
       _customFieldsEntity(db, quarantine, pendingQuarantineWrites.add),
       _customFieldValuesEntity(db, quarantine, pendingQuarantineWrites.add),
@@ -202,11 +247,7 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
   return SyncAdapterWithCompletion(
     adapter,
     pendingQuarantineWrites,
-    () => _retryDeferredPkBackedMemberGroupEntryOps(
-      db,
-      quarantine: quarantine,
-      trackQuarantineWrite: pendingQuarantineWrites.add,
-    ),
+    deferredPkEntryReplay,
   );
 }
 
@@ -1410,6 +1451,7 @@ DriftSyncEntity _membersEntity(
   AppDatabase db,
   SyncQuarantineService? quarantine,
   void Function(Future<void> write) trackQuarantineWrite,
+  Future<void> Function() requestDeferredPkEntryReplay,
 ) {
   return DriftSyncEntity(
     tableName: 'members',
@@ -1567,11 +1609,7 @@ DriftSyncEntity _membersEntity(
           pkMemberUuid: tombstonePkMemberUuid,
         );
       } else if (shouldCheckPkUuidChange && priorPkUuid != nextPkUuid) {
-        await _retryDeferredPkBackedMemberGroupEntryOps(
-          db,
-          quarantine: quarantine,
-          trackQuarantineWrite: trackQuarantineWrite,
-        );
+        await requestDeferredPkEntryReplay();
       }
     },
     hardDelete: (String id) async {
@@ -2977,6 +3015,7 @@ DriftSyncEntity _memberGroupsEntity(
   AppDatabase db,
   SyncQuarantineService? quarantine,
   void Function(Future<void> write) trackQuarantineWrite,
+  Future<void> Function() requestDeferredPkEntryReplay,
 ) {
   return DriftSyncEntity(
     tableName: 'member_groups',
@@ -3122,11 +3161,7 @@ DriftSyncEntity _memberGroupsEntity(
           pkGroupUuid: tombstonePkGroupUuid,
         );
       } else {
-        await _retryDeferredPkBackedMemberGroupEntryOps(
-          db,
-          quarantine: quarantine,
-          trackQuarantineWrite: trackQuarantineWrite,
-        );
+        await requestDeferredPkEntryReplay();
       }
     },
     hardDelete: (String id) async {

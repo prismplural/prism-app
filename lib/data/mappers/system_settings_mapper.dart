@@ -17,16 +17,36 @@ class SystemSettingsMapper {
       showQuickFront: row.showQuickFront,
       accentColorHex: row.accentColorHex,
       perMemberAccentColors: row.perMemberAccentColors,
-      terminology: domain.SystemTerminology.values[row.terminology],
+      terminology: enumByIndex(
+        row.terminology,
+        domain.SystemTerminology.values,
+        domain.SystemTerminology.members,
+      ),
       customTerminology: row.customTerminology,
       customPluralTerminology: row.customPluralTerminology,
       terminologyUseEnglish: row.terminologyUseEnglish,
       frontingRemindersEnabled: row.frontingRemindersEnabled,
       frontingReminderIntervalMinutes: row.frontingReminderIntervalMinutes,
-      themeMode: domain.AppThemeMode.values[row.themeMode],
-      themeBrightness: domain.ThemeBrightness.values[row.themeBrightness],
-      themeStyle: domain.ThemeStyle.values[row.themeStyle],
-      cornerStyle: domain.CornerStyle.values[row.themeCornerStyle],
+      themeMode: enumByIndex(
+        row.themeMode,
+        domain.AppThemeMode.values,
+        domain.AppThemeMode.system,
+      ),
+      themeBrightness: enumByIndex(
+        row.themeBrightness,
+        domain.ThemeBrightness.values,
+        domain.ThemeBrightness.system,
+      ),
+      themeStyle: enumByIndex(
+        row.themeStyle,
+        domain.ThemeStyle.values,
+        domain.ThemeStyle.standard,
+      ),
+      cornerStyle: enumByIndex(
+        row.themeCornerStyle,
+        domain.CornerStyle.values,
+        domain.CornerStyle.rounded,
+      ),
       paletteSource: enumByIndex(
         row.paletteSource,
         domain.PaletteSource.values,
@@ -60,7 +80,11 @@ class SystemSettingsMapper {
       hasCompletedOnboarding: row.hasCompletedOnboarding,
       syncThemeEnabled: row.syncThemeEnabled,
       habitsBadgeEnabled: row.habitsBadgeEnabled,
-      timingMode: domain.FrontingTimingMode.values[row.timingMode],
+      timingMode: enumByIndex(
+        row.timingMode,
+        domain.FrontingTimingMode.values,
+        domain.FrontingTimingMode.flexible,
+      ),
       notesEnabled: row.notesEnabled,
       previousAccentColorHex: row.previousAccentColorHex,
       systemDescription: row.systemDescription,
@@ -72,7 +96,11 @@ class SystemSettingsMapper {
           : null,
       remindersEnabled: row.remindersEnabled,
       localeOverride: row.localeOverride,
-      gifConsentState: domain.GifConsentState.values[row.gifConsentState],
+      gifConsentState: enumByIndex(
+        row.gifConsentState,
+        domain.GifConsentState.values,
+        domain.GifConsentState.unknown,
+      ),
       fontScale: row.fontScale,
       fontFamily: enumByIndex(
         row.fontFamily,
@@ -87,9 +115,7 @@ class SystemSettingsMapper {
       navBarOverflowItems: _decodeNavBarItems(row.navBarOverflowItems),
       syncNavigationEnabled: row.syncNavigationEnabled,
       chatBadgePreferences: decodeBadgePrefs(row.chatBadgePreferences),
-      defaultSleepQuality: row.defaultSleepQuality != null
-          ? SleepQuality.values.byName(row.defaultSleepQuality!)
-          : null,
+      defaultSleepQuality: _sleepQualityByName(row.defaultSleepQuality),
       frontingListViewMode: enumByIndex(
         row.frontingListViewMode,
         domain.FrontingListViewMode.values,
@@ -245,5 +271,13 @@ class SystemSettingsMapper {
   static String encodeBadgePrefs(Map<String, String> prefs) {
     if (prefs.isEmpty) return '{}';
     return jsonEncode(prefs);
+  }
+
+  static SleepQuality? _sleepQualityByName(String? raw) {
+    if (raw == null) return null;
+    for (final quality in SleepQuality.values) {
+      if (quality.name == raw) return quality;
+    }
+    return null;
   }
 }

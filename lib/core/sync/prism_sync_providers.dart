@@ -3058,6 +3058,9 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
     }
     if (event.isRemoteChanges) {
       final strict = strictCoordinator.isStrict;
+      Object? applyError;
+      StackTrace? applyStackTrace;
+      syncAdapter.beginSyncBatch();
       try {
         final totalChanges = event.changes.length;
         if (strict) {
@@ -3098,10 +3101,14 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
             st,
           );
         } else {
-          rethrow;
+          applyError = e;
+          applyStackTrace = st;
         }
       }
       await syncAdapter.completeSyncBatch();
+      if (applyError != null) {
+        Error.throwWithStackTrace(applyError, applyStackTrace!);
+      }
       await catchUpPkBackedSyncOnceAfterCutover(handle, db);
       // Signal the strict-apply coordinator so the joiner's pre-registered
       // latch resolves with success. No-op when not in strict mode.
@@ -3642,12 +3649,11 @@ class _ProductionSyncVerifyMnemonicPinFns implements SyncVerifyMnemonicPinFns {
     required ffi.PrismSyncHandle handle,
     required Uint8List password,
     required List<int> secretKey,
-  }) =>
-      ffi.verifyMnemonicPin(
-        handle: handle,
-        password: password,
-        secretKey: secretKey,
-      );
+  }) => ffi.verifyMnemonicPin(
+    handle: handle,
+    password: password,
+    secretKey: secretKey,
+  );
 }
 
 class SyncHealthNotifier extends Notifier<SyncHealthState> {
@@ -3787,8 +3793,9 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle == null) return const VerifyMnemonicPinHandleUnavailable();
 
-    final wrappedDekPresent =
-        await ref.read(syncWrappedDekPresentProvider.future);
+    final wrappedDekPresent = await ref.read(
+      syncWrappedDekPresentProvider.future,
+    );
     if (!wrappedDekPresent) return const VerifyMnemonicPinNeedsRewrap();
 
     // Past this point we commit to attempting verification — drain the PIN
@@ -3800,8 +3807,7 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
     try {
       try {
         mnemonicBytes = secretUtf8Bytes(normalized);
-        secretKeyBytes =
-            await verifyFns.mnemonicToBytes(mnemonicBytes);
+        secretKeyBytes = await verifyFns.mnemonicToBytes(mnemonicBytes);
       } catch (_) {
         // Invalid mnemonic — don't disclose which input was wrong.
         return const VerifyMnemonicPinNoMatch();

@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
@@ -171,52 +172,49 @@ void main() {
       );
     });
 
-    test(
-      'merges strictly-overlapping same-member sessions, preserving notes, '
-      'confidence and comments',
-      () async {
-        await closed(
-          'a',
-          'mel',
-          DateTime(2026, 4, 1, 8),
-          DateTime(2026, 4, 1, 10),
-          notes: 'first',
-        );
-        await closed(
-          'b',
-          'mel',
-          DateTime(2026, 4, 1, 9),
-          DateTime(2026, 4, 1, 11),
-          notes: 'second',
-          confidence: FrontConfidence.strong,
-        );
-        await commentsRepository.createComment(
-          FrontSessionComment(
-            id: 'c1',
-            sessionId: 'b',
-            body: 'keep me',
-            timestamp: DateTime(2026, 4, 1, 9, 30),
-            createdAt: DateTime(2026, 4, 1, 9, 30),
-          ),
-        );
+    test('merges strictly-overlapping same-member sessions, preserving notes, '
+        'confidence and comments', () async {
+      await closed(
+        'a',
+        'mel',
+        DateTime(2026, 4, 1, 8),
+        DateTime(2026, 4, 1, 10),
+        notes: 'first',
+      );
+      await closed(
+        'b',
+        'mel',
+        DateTime(2026, 4, 1, 9),
+        DateTime(2026, 4, 1, 11),
+        notes: 'second',
+        confidence: FrontConfidence.strong,
+      );
+      await commentsRepository.createComment(
+        FrontSessionComment(
+          id: 'c1',
+          sessionId: 'b',
+          body: 'keep me',
+          timestamp: DateTime(2026, 4, 1, 9, 30),
+          createdAt: DateTime(2026, 4, 1, 9, 30),
+        ),
+      );
 
-        final result = await service.repairMemberSessionInvariants();
-        expect(result.dataOrNull!.overlapsMerged, 1);
+      final result = await service.repairMemberSessionInvariants();
+      expect(result.dataOrNull!.overlapsMerged, 1);
 
-        final sessions = await repository.getSessionsForMember('mel');
-        expect(sessions, hasLength(1));
-        final merged = sessions.single;
-        expect(merged.id, 'a', reason: 'survivor is the earliest start');
-        expect(merged.startTime, DateTime(2026, 4, 1, 8));
-        expect(merged.endTime, DateTime(2026, 4, 1, 11));
-        expect(merged.notes, 'first\n\nsecond');
-        expect(merged.confidence, FrontConfidence.strong);
+      final sessions = await repository.getSessionsForMember('mel');
+      expect(sessions, hasLength(1));
+      final merged = sessions.single;
+      expect(merged.id, 'a', reason: 'survivor is the earliest start');
+      expect(merged.startTime, DateTime(2026, 4, 1, 8));
+      expect(merged.endTime, DateTime(2026, 4, 1, 11));
+      expect(merged.notes, 'first\n\nsecond');
+      expect(merged.confidence, FrontConfidence.strong);
 
-        final comments = await commentsRepository.getAllComments();
-        expect(comments, hasLength(1));
-        expect(comments.single.sessionId, 'a');
-      },
-    );
+      final comments = await commentsRepository.getAllComments();
+      expect(comments, hasLength(1));
+      expect(comments.single.sessionId, 'a');
+    });
 
     test('leaves adjacent (touching) same-member sessions distinct', () async {
       await closed(
@@ -235,6 +233,33 @@ void main() {
       final result = await service.repairMemberSessionInvariants();
       expect(result.dataOrNull!.madeChanges, isFalse);
       expect(await repository.getSessionsForMember('mel'), hasLength(2));
+    });
+
+    test('no-op repair stays fast for large clean same-member history', () async {
+      final base = DateTime.utc(2024);
+      final rows = [
+        for (var i = 0; i < 50000; i++)
+          FrontingSessionsCompanion.insert(
+            id: 'history-$i',
+            startTime: base.add(Duration(hours: i)),
+            memberId: const Value('mel'),
+            endTime: Value(base.add(Duration(hours: i, minutes: 30))),
+          ),
+      ];
+      await db.batch((b) => b.insertAll(db.frontingSessions, rows));
+
+      final stopwatch = Stopwatch()..start();
+      final result = await service.repairMemberSessionInvariants();
+      stopwatch.stop();
+
+      expect(result.isSuccess, isTrue);
+      expect(result.dataOrNull!.madeChanges, isFalse);
+      expect(
+        stopwatch.elapsed,
+        lessThan(const Duration(seconds: 2)),
+        reason:
+            'startup repair must not monopolize the database before history streams emit',
+      );
     });
 
     test('overlap merge keeps the PluralKit-linked row as survivor', () async {
@@ -390,70 +415,64 @@ void main() {
       },
     );
 
-    test(
-      'wakeUp keeps one always-fronting open per selected member, closes '
-      'duplicates',
-      () async {
-        final repo = FakeFrontingSessionRepository();
-        final memberRepo = FakeMemberRepository();
-        memberRepo.seed([
-          Member(
-            id: 'host',
-            name: 'Host',
-            createdAt: DateTime(2026),
-            isAlwaysFronting: true,
-          ),
-        ]);
-        await repo.createSession(
-          FrontingSession(
-            id: 'host-a',
-            startTime: DateTime(2026, 3, 11, 8),
-            memberId: 'host',
-          ),
-        );
-        await repo.createSession(
-          FrontingSession(
-            id: 'host-b',
-            startTime: DateTime(2026, 3, 11, 9),
-            memberId: 'host',
-          ),
-        );
-        await repo.createSession(
-          FrontingSession(
-            id: 'sleep-1',
-            startTime: DateTime(2026, 3, 11, 22),
-            memberId: null,
-            sessionType: SessionType.sleep,
-          ),
-        );
+    test('wakeUp keeps one always-fronting open per selected member, closes '
+        'duplicates', () async {
+      final repo = FakeFrontingSessionRepository();
+      final memberRepo = FakeMemberRepository();
+      memberRepo.seed([
+        Member(
+          id: 'host',
+          name: 'Host',
+          createdAt: DateTime(2026),
+          isAlwaysFronting: true,
+        ),
+      ]);
+      await repo.createSession(
+        FrontingSession(
+          id: 'host-a',
+          startTime: DateTime(2026, 3, 11, 8),
+          memberId: 'host',
+        ),
+      );
+      await repo.createSession(
+        FrontingSession(
+          id: 'host-b',
+          startTime: DateTime(2026, 3, 11, 9),
+          memberId: 'host',
+        ),
+      );
+      await repo.createSession(
+        FrontingSession(
+          id: 'sleep-1',
+          startTime: DateTime(2026, 3, 11, 22),
+          memberId: null,
+          sessionType: SessionType.sleep,
+        ),
+      );
 
-        final svc = FrontingMutationService(
-          repository: repo,
-          memberRepository: memberRepo,
-          mutationRunner: MutationRunner(
-            transactionRunner: _passthroughTransactionRunner,
-          ),
-        );
+      final svc = FrontingMutationService(
+        repository: repo,
+        memberRepository: memberRepo,
+        mutationRunner: MutationRunner(
+          transactionRunner: _passthroughTransactionRunner,
+        ),
+      );
 
-        final result = await svc.wakeUp(
-          'sleep-1',
-          frontingMemberIds: ['host'],
-        );
-        expect(result.isSuccess, isTrue);
+      final result = await svc.wakeUp('sleep-1', frontingMemberIds: ['host']);
+      expect(result.isSuccess, isTrue);
 
-        final hostRows = repo.sessions.where((s) => s.memberId == 'host');
-        expect(hostRows.where((s) => s.isActive), hasLength(1));
-        expect(
-          repo.sessions.singleWhere((s) => s.id == 'host-a').isActive,
-          isTrue,
-        );
-        expect(
-          repo.sessions.singleWhere((s) => s.id == 'host-b').isActive,
-          isFalse,
-        );
-        // The reused front is the preserved earliest session, not a new row.
-        expect(result.dataOrNull!.sessions.map((s) => s.id), ['host-a']);
-      },
-    );
+      final hostRows = repo.sessions.where((s) => s.memberId == 'host');
+      expect(hostRows.where((s) => s.isActive), hasLength(1));
+      expect(
+        repo.sessions.singleWhere((s) => s.id == 'host-a').isActive,
+        isTrue,
+      );
+      expect(
+        repo.sessions.singleWhere((s) => s.id == 'host-b').isActive,
+        isFalse,
+      );
+      // The reused front is the preserved earliest session, not a new row.
+      expect(result.dataOrNull!.sessions.map((s) => s.id), ['host-a']);
+    });
   });
 }

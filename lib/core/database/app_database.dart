@@ -840,9 +840,7 @@ class AppDatabase extends _$AppDatabase {
         await migrator.alterTable(
           TableMigration(
             members,
-            columnTransformer: {
-              members.age: members.age.cast<String>(),
-            },
+            columnTransformer: {members.age: members.age.cast<String>()},
           ),
         );
         current = 31;
@@ -903,9 +901,7 @@ class AppDatabase extends _$AppDatabase {
       final cols = await customSelect('PRAGMA table_info($table)').get();
       final names = cols.map((r) => r.read<String>('name')).toSet();
       if (!names.contains(column)) {
-        await customStatement(
-          'ALTER TABLE $table ADD COLUMN $column $ddlType',
-        );
+        await customStatement('ALTER TABLE $table ADD COLUMN $column $ddlType');
       }
     }
 
@@ -1412,10 +1408,17 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_member_groups_parent_id '
       'ON member_groups (parent_group_id) WHERE parent_group_id IS NOT NULL',
     );
-    await customStatement(
-      'CREATE INDEX IF NOT EXISTS idx_custom_fields_parent '
-      'ON custom_fields(parent_field_id) WHERE parent_field_id IS NOT NULL',
-    );
+    if (await _columnExists('custom_fields', 'parent_field_id')) {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_custom_fields_parent '
+        'ON custom_fields(parent_field_id) WHERE parent_field_id IS NOT NULL',
+      );
+    }
+  }
+
+  Future<bool> _columnExists(String table, String column) async {
+    final cols = await customSelect('PRAGMA table_info($table)').get();
+    return cols.any((r) => r.read<String>('name') == column);
   }
 
   Future<void> _createPreferenceValueIndexes() async {

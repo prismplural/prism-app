@@ -23,6 +23,14 @@ void main() {
     bool membersShowGroups = true,
     int membersFrontButtonBehavior = 0,
     int fontFamily = 0,
+    int terminology = 0,
+    int themeMode = 0,
+    int themeBrightness = 0,
+    int themeStyle = 0,
+    int themeCornerStyle = 0,
+    int timingMode = 0,
+    int gifConsentState = 0,
+    String? defaultSleepQuality,
   }) {
     return SystemSettingsData(
       id: 'singleton',
@@ -30,16 +38,16 @@ void main() {
       showQuickFront: true,
       accentColorHex: '#AF8EE9',
       perMemberAccentColors: false,
-      terminology: 0,
+      terminology: terminology,
       customTerminology: null,
       customPluralTerminology: null,
       terminologyUseEnglish: false,
       frontingRemindersEnabled: false,
       frontingReminderIntervalMinutes: 60,
-      themeMode: 0,
-      themeBrightness: 0,
-      themeStyle: 0,
-      themeCornerStyle: 0,
+      themeMode: themeMode,
+      themeBrightness: themeBrightness,
+      themeStyle: themeStyle,
+      themeCornerStyle: themeCornerStyle,
       paletteSource: 1,
       paletteSeedColorHex: '#9070A0',
       paletteMood: 0,
@@ -57,7 +65,7 @@ void main() {
       hasCompletedOnboarding: false,
       syncThemeEnabled: false,
       habitsBadgeEnabled: true,
-      timingMode: 0,
+      timingMode: timingMode,
       notesEnabled: true,
       pkGroupSyncV2Enabled: false,
       previousAccentColorHex: '',
@@ -66,7 +74,7 @@ void main() {
       systemTag: null,
       systemAvatarData: null,
       remindersEnabled: true,
-      gifConsentState: 0,
+      gifConsentState: gifConsentState,
       fontScale: 1.0,
       fontFamily: fontFamily,
       pinLockEnabled: false,
@@ -78,6 +86,7 @@ void main() {
       navBarOverflowItems: '',
       syncNavigationEnabled: true,
       chatBadgePreferences: '{}',
+      defaultSleepQuality: defaultSleepQuality,
       sleepSuggestionEnabled: false,
       sleepSuggestionHour: 22,
       sleepSuggestionMinute: 0,
@@ -134,6 +143,32 @@ void main() {
         SystemSettingsMapper.toDomain(makeDbRow(fontFamily: 999)).fontFamily,
         FontFamily.system,
       );
+    });
+  });
+
+  group('SystemSettingsMapper — legacy enum resilience', () {
+    test('invalid stored settings enums fall back instead of throwing', () {
+      final settings = SystemSettingsMapper.toDomain(
+        makeDbRow(
+          terminology: 999,
+          themeMode: 999,
+          themeBrightness: 999,
+          themeStyle: 999,
+          themeCornerStyle: 999,
+          timingMode: 999,
+          gifConsentState: 999,
+          defaultSleepQuality: 'future-quality',
+        ),
+      );
+
+      expect(settings.terminology, SystemTerminology.members);
+      expect(settings.themeMode, AppThemeMode.system);
+      expect(settings.themeBrightness, ThemeBrightness.system);
+      expect(settings.themeStyle, ThemeStyle.standard);
+      expect(settings.cornerStyle, CornerStyle.rounded);
+      expect(settings.timingMode, FrontingTimingMode.flexible);
+      expect(settings.gifConsentState, GifConsentState.unknown);
+      expect(settings.defaultSleepQuality, isNull);
     });
   });
 

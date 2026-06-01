@@ -1090,6 +1090,77 @@ void main() {
     expect(deferred, isNull);
   });
 
+  test('sync batch defers PK entry replay until batch completion', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await _ensurePkGroupPhase1RuntimeSchema(db);
+
+    final adapterWithCompletion = buildSyncAdapterWithCompletion(db);
+    final entriesEntity = adapterWithCompletion.adapter.entities.singleWhere(
+      (entity) => entity.tableName == 'member_group_entries',
+    );
+    final groupsEntity = adapterWithCompletion.adapter.entities.singleWhere(
+      (entity) => entity.tableName == 'member_groups',
+    );
+    final now = DateTime.utc(2026, 4, 18, 12);
+
+    await db
+        .into(db.members)
+        .insert(
+          MembersCompanion.insert(
+            id: 'member-local-1',
+            name: 'Alice',
+            createdAt: now,
+            pluralkitUuid: const Value('pk-member-1'),
+          ),
+        );
+
+    adapterWithCompletion.beginSyncBatch();
+    await entriesEntity.applyFields('entry-batch-deferred', {
+      'pk_group_uuid': 'pk-group-1',
+      'pk_member_uuid': 'pk-member-1',
+      'is_deleted': false,
+    });
+    await groupsEntity.applyFields('pk-group:pk-group-1', {
+      'name': 'Imported',
+      'display_order': 0,
+      'group_type': 0,
+      'created_at': now.toIso8601String(),
+      'pluralkit_uuid': 'pk-group-1',
+      'is_deleted': false,
+    });
+
+    expect(
+      await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals('entry-batch-deferred'))).getSingleOrNull(),
+      isNull,
+      reason:
+          'per-row replay inside a sync batch would repeatedly scan the '
+          'deferred queue for large PK snapshots',
+    );
+    expect(
+      await db.pkGroupEntryDeferredSyncOpsDao.getById(
+        'member_group_entries:entry-batch-deferred',
+      ),
+      isNotNull,
+    );
+
+    await adapterWithCompletion.completeSyncBatch();
+
+    final applied = await (db.select(
+      db.memberGroupEntries,
+    )..where((t) => t.id.equals('entry-batch-deferred'))).getSingle();
+    expect(applied.groupId, 'pk-group:pk-group-1');
+    expect(applied.memberId, 'member-local-1');
+    expect(
+      await db.pkGroupEntryDeferredSyncOpsDao.getById(
+        'member_group_entries:entry-batch-deferred',
+      ),
+      isNull,
+    );
+  });
+
   test('sync batch completion prefers canonical deferred PK entry ids and '
       'skips legacy siblings for the same logical edge', () async {
     final db = AppDatabase(NativeDatabase.memory());

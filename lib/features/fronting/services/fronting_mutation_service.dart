@@ -1029,17 +1029,15 @@ class FrontingMutationService {
         var overlapsMerged = 0;
         final affected = <String>{};
         for (final memberId in byMember.keys) {
-          final closed = await _collapseOpenDuplicates(
+          final collapse = await _collapseOpenDuplicates(
             memberId,
             byMember[memberId]!,
           );
-          // _mergeOverlappingSessions re-reads the member's rows so the overlap
-          // pass observes the freshly-closed end_times (same transaction →
-          // reads see prior writes).
-          final merged = await _mergeOverlappingSessions(memberId);
-          openDuplicatesClosed += closed;
+          // Avoid per-member DB re-reads on large histories.
+          final merged = await _mergeOverlappingSessions(collapse.sessions);
+          openDuplicatesClosed += collapse.closed;
           overlapsMerged += merged;
-          if (closed > 0 || merged > 0) affected.add(memberId);
+          if (collapse.closed > 0 || merged > 0) affected.add(memberId);
         }
 
         return FrontingRepairSummary(
@@ -1054,9 +1052,9 @@ class FrontingMutationService {
   /// Collapses multiple open sessions for [memberId] down to one. Keeps the
   /// most-recently started open and closes each earlier open at the start of
   /// the next session in [memberSessions] (clamped to a strictly positive
-  /// duration). [memberSessions] is the pre-repair snapshot of this member's
-  /// non-deleted normal sessions. Returns the number of opens closed.
-  Future<int> _collapseOpenDuplicates(
+  /// duration). Returns the repaired snapshot for the overlap pass.
+  Future<({int closed, List<FrontingSession> sessions})>
+  _collapseOpenDuplicates(
     String memberId,
     List<FrontingSession> memberSessions,
   ) async {
@@ -1065,7 +1063,7 @@ class FrontingMutationService {
       for (final s in sorted)
         if (s.endTime == null) s,
     ];
-    if (opens.length <= 1) return 0;
+    if (opens.length <= 1) return (closed: 0, sessions: sorted);
 
     final keep = opens.last; // most-recently started
     var closed = 0;
@@ -1086,51 +1084,48 @@ class FrontingMutationService {
           ? end
           : open.startTime.add(const Duration(seconds: 1));
       await _repository.endSession(open.id, safeEnd);
+      final index = sorted.indexWhere((s) => s.id == open.id);
+      if (index >= 0) {
+        sorted[index] = sorted[index].copyWith(endTime: safeEnd);
+      }
       closed++;
     }
-    return closed;
+    return (closed: closed, sessions: sorted);
   }
 
   /// Merges same-member sessions whose `[start, end]` ranges strictly overlap
   /// into a single spanning session. Touching/adjacent sessions
   /// (`end == next.start`) are left as distinct rows. Returns the number of
   /// rows absorbed by merges.
-  Future<int> _mergeOverlappingSessions(String memberId) async {
-    final fetched = await _repository.getSessionsForMember(memberId);
-    final remaining = [...fetched]..sort(_byStartThenId);
+  Future<int> _mergeOverlappingSessions(
+    List<FrontingSession> memberSessions,
+  ) async {
+    final sorted = [...memberSessions]..sort(_byStartThenId);
     var absorbed = 0;
 
-    while (remaining.isNotEmpty) {
-      final seed = remaining.removeAt(0);
+    for (var i = 0; i < sorted.length; i++) {
+      final seed = sorted[i];
       final group = <FrontingSession>[seed];
       var groupStart = seed.startTime;
       DateTime? groupEnd = seed.endTime;
 
-      var changed = true;
-      while (changed) {
-        changed = false;
-        for (var i = remaining.length - 1; i >= 0; i--) {
-          final s = remaining[i];
-          if (!_rangesStrictlyOverlap(
+      while (i + 1 < sorted.length &&
+          _rangesStrictlyOverlap(
             groupStart,
             groupEnd,
-            s.startTime,
-            s.endTime,
+            sorted[i + 1].startTime,
+            sorted[i + 1].endTime,
           )) {
-            continue;
+        final s = sorted[++i];
+        group.add(s);
+        if (s.startTime.isBefore(groupStart)) groupStart = s.startTime;
+        final end = s.endTime;
+        if (groupEnd != null) {
+          if (end == null) {
+            groupEnd = null;
+          } else if (end.isAfter(groupEnd)) {
+            groupEnd = end;
           }
-          group.add(s);
-          remaining.removeAt(i);
-          if (s.startTime.isBefore(groupStart)) groupStart = s.startTime;
-          final end = s.endTime;
-          if (groupEnd != null) {
-            if (end == null) {
-              groupEnd = null;
-            } else if (end.isAfter(groupEnd)) {
-              groupEnd = end;
-            }
-          }
-          changed = true;
         }
       }
 
