@@ -89,6 +89,11 @@
   </screenshots>
 
   <releases>
+    <release version="0.11.2" date="2026-06-01">
+      <description>
+        <p>Patch release for text and emoji presentation, PluralKit member identity cleanup, and desktop profile banner image picks. See CHANGELOG.md for full notes.</p>
+      </description>
+    </release>
     <release version="0.11.1" date="2026-06-01">
       <description>
         <p>Patch release for local media uploads, PluralKit group replay, markdown spacing, and text variation rendering. See CHANGELOG.md for full notes.</p>

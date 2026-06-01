@@ -4,6 +4,20 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-06-01
+
+This patch release follows 0.11.1 with fixes for text/emoji presentation, PluralKit member identity cleanup, and desktop profile banner image picks. It keeps the 0.11.0 sync pin.
+
+### Fixed
+- Text variation selector fallback is now scoped so Prism preserves explicit emoji/text presentation without forcing unrelated characters through the fallback path.
+- Emoji presentation is covered across additional member, custom-field, chat, markdown, and theme surfaces.
+- Deleted PluralKit member identities are released during pairing/member apply flows, avoiding stale identity state after sync.
+- Desktop profile banner image picks are normalized before storage, so PNGs and other desktop-picked images follow the same profile-header path as other platforms.
+
+### Internal
+- Added regression coverage for text presentation utilities, emoji presentation surfaces, deleted PluralKit member identity release, and desktop profile banner normalization.
+- prism-sync remains pinned to v0.11.0 (`b99d64d`); no new sync tag is needed for this app patch release.
+
 ## [0.11.1] - 2026-06-01
 
 This patch release tightens Prism's post-0.11.0 markdown, media, member-profile, and sync behavior. It keeps the 0.11.0 sync pin and focuses on fixes for bio-image layout, markdown table editing, local-only images, PluralKit group replay, blockquote spacing, and text variation rendering.
