@@ -4,6 +4,22 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-06-01
+
+This patch release tightens Prism's post-0.11.0 markdown, media, member-profile, and sync behavior. It keeps the 0.11.0 sync pin and focuses on fixes for bio-image layout, markdown table editing, local-only images, PluralKit group replay, blockquote spacing, and text variation rendering.
+
+### Fixed
+- Local-only media uploads can now be queued without sync metadata, so images created before or outside sync setup no longer fail the upload path.
+- Bio images now keep a visible gutter in profile markdown layouts, including image-heavy tables.
+- The markdown table insert button now matches the editor toolbar's button sizing.
+- PluralKit group-entry replay now batches sync work more efficiently and has regression coverage for large replays.
+- Markdown preserves blank lines inside blockquotes more faithfully.
+- Text variation selectors are honored in chat and shared markdown rendering, preventing emoji/text presentation from being normalized away.
+
+### Internal
+- Added regression coverage for local media upload queueing, bio-image layout gutters, markdown table button sizing, PluralKit group-entry replay batching, blockquote blank-line preservation, and text variation selector rendering.
+- prism-sync remains pinned to v0.11.0 (`b99d64d`); no new sync tag is needed for this app patch release.
+
 ## [0.11.0] - 2026-05-31
 
 This release adds Prism's encrypted bio-image system: images can live in the encrypted media store, be inserted into member bios and long-text markdown surfaces, render on profiles, and be managed from a tag-based media library. It also expands Simply Plural import, improves markdown editing, and includes a broad set of sync, fronting, onboarding, and custom-field fixes.
