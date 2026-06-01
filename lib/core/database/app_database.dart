@@ -101,8 +101,10 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
+  static const currentSchemaVersion = 31;
+
   @override
-  int get schemaVersion => 31;
+  int get schemaVersion => currentSchemaVersion;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

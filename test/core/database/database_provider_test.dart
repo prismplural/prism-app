@@ -84,9 +84,10 @@ String _hexKeyForByte(int fill) => fill.toRadixString(16).padLeft(2, '0') * 32;
 
 /// Create an encrypted SQLite file at [path] using SQLite3MultipleCiphers
 /// with [hexKey].
-void _createEncryptedDb(String path, String hexKey) {
+void _createEncryptedDb(String path, String hexKey, {int userVersion = 0}) {
   final db = raw.sqlite3.open(path);
   db.execute("PRAGMA key = \"x'$hexKey'\";");
+  db.execute('PRAGMA user_version = $userVersion;');
   db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY);');
   db.execute('INSERT INTO t (id) VALUES (1);');
   db.close();
@@ -188,7 +189,7 @@ void main() {
     test('ready via primary slot — valid key opens the on-disk DB', () async {
       final hex = _hexKeyForByte(0xab);
       final dbPath = '${tempDir.path}/prism.db';
-      _createEncryptedDb(dbPath, hex);
+      _createEncryptedDb(dbPath, hex, userVersion: 30);
       storageStub.store[kDatabaseKeyStorageKey] = hex;
 
       final report = await probeAppDatabaseStartup(
@@ -199,6 +200,7 @@ void main() {
       expect(report.state, DbStartupState.ready);
       expect(report.usedRecoverySlot, 'primary');
       expect(report.keyInMemory, equals(hex));
+      expect(report.schemaVersionBeforeOpen, 30);
       // Primary path does NOT set the repair flag.
       expect(await isKeychainRepairPending(), isFalse);
       final state = await degradedStateService.read();
@@ -209,7 +211,7 @@ void main() {
         'repair-pending set', () async {
       final hex = _hexKeyForByte(0xcd);
       final dbPath = '${tempDir.path}/prism.db';
-      _createEncryptedDb(dbPath, hex);
+      _createEncryptedDb(dbPath, hex, userVersion: 29);
 
       // Primary slot read throws cipher exception → classified to null.
       storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
@@ -226,6 +228,7 @@ void main() {
       expect(report.state, DbStartupState.ready);
       expect(report.usedRecoverySlot, 'sync');
       expect(report.keyInMemory, equals(hex));
+      expect(report.schemaVersionBeforeOpen, 29);
       expect(await isKeychainRepairPending(), isTrue);
       final state = await degradedStateService.read();
       expect(state.appDbKey, SlotState.ok);
@@ -235,7 +238,7 @@ void main() {
         '→ ready via sync_staging, repair-pending set', () async {
       final hex = _hexKeyForByte(0xef);
       final dbPath = '${tempDir.path}/prism.db';
-      _createEncryptedDb(dbPath, hex);
+      _createEncryptedDb(dbPath, hex, userVersion: 28);
 
       storageStub.throwOnReadKeyQueue[kDatabaseKeyStorageKey] = [
         _cipherException(),
@@ -253,6 +256,7 @@ void main() {
       expect(report.state, DbStartupState.ready);
       expect(report.usedRecoverySlot, 'sync_staging');
       expect(report.keyInMemory, equals(hex));
+      expect(report.schemaVersionBeforeOpen, 28);
       expect(await isKeychainRepairPending(), isTrue);
     });
 

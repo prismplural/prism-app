@@ -6,6 +6,7 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'core/database/app_database.dart';
 import 'core/database/database_encryption.dart';
 import 'core/database/database_provider.dart';
 import 'core/router/app_router.dart';
@@ -23,10 +24,24 @@ import 'features/onboarding/providers/onboarding_providers.dart';
 import 'domain/models/system_settings.dart';
 import 'features/settings/providers/settings_providers.dart';
 import 'shared/theme/app_colors.dart';
+import 'shared/theme/app_icons.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/prism_shapes.dart' as ui_shapes;
+import 'shared/widgets/prism_button.dart';
 import 'shared/widgets/prism_keyboard_dismiss_scope.dart';
+import 'shared/widgets/prism_spinner.dart';
 import 'shared/widgets/prism_toast.dart';
+
+const _databaseStartupStatusDelay = Duration(milliseconds: 500);
+
+final _databaseStartupStatusDelayProvider = FutureProvider.autoDispose<void>((
+  ref,
+) {
+  final completer = Completer<void>();
+  final timer = Timer(_databaseStartupStatusDelay, completer.complete);
+  ref.onDispose(timer.cancel);
+  return completer.future;
+});
 
 class PrismApp extends ConsumerStatefulWidget {
   const PrismApp({super.key});
@@ -39,14 +54,12 @@ class _PrismAppState extends ConsumerState<PrismApp> {
   late final AppLifecycleListener _appLifecycleListener;
   bool _ranOrphanMediaReconcile = false;
   bool _ranBioMediaReconcile = false;
+  bool _ranPrimaryDatabaseKeyRepair = false;
 
   @override
   void initState() {
     super.initState();
     _appLifecycleListener = AppLifecycleListener(onResume: _onResume);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _repairPrimaryDatabaseKeySlot();
-    });
   }
 
   /// Run the on-disk media cache sweep exactly once per app launch, after
@@ -101,7 +114,8 @@ class _PrismAppState extends ConsumerState<PrismApp> {
   }
 
   void _onResume() {
-    _repairPrimaryDatabaseKeySlot();
+    if (!ref.read(databaseReadyProvider).hasValue) return;
+    _repairPrimaryDatabaseKeySlotOnce();
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle == null) return;
 
@@ -143,21 +157,30 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     );
   }
 
+  void _repairPrimaryDatabaseKeySlotOnce() {
+    if (_ranPrimaryDatabaseKeyRepair) return;
+    _ranPrimaryDatabaseKeyRepair = true;
+    _repairPrimaryDatabaseKeySlot();
+  }
+
   void _repairPrimaryDatabaseKeySlot() {
     String? verifiedStartupKey;
+    Future<PrimaryDatabaseKeyRepairOutcome> Function(String?) repair;
     try {
       verifiedStartupKey = ref.read(verifiedStartupKeyProvider);
+      repair = ref.read(primaryDatabaseKeyRepairProvider);
     } catch (_) {
       return;
     }
-    unawaited(_repairPrimaryDatabaseKeySlotAsync(verifiedStartupKey));
+    unawaited(_repairPrimaryDatabaseKeySlotAsync(verifiedStartupKey, repair));
   }
 
   Future<void> _repairPrimaryDatabaseKeySlotAsync(
     String? verifiedStartupKey,
+    Future<PrimaryDatabaseKeyRepairOutcome> Function(String?) repair,
   ) async {
     try {
-      await repairPrimaryDatabaseKeyFromVerifiedMemory(verifiedStartupKey);
+      await repair(verifiedStartupKey);
     } catch (e, st) {
       FlutterError.reportError(
         FlutterErrorDetails(
@@ -174,6 +197,12 @@ class _PrismAppState extends ConsumerState<PrismApp> {
 
   @override
   Widget build(BuildContext context) {
+    final databaseReady = ref.watch(databaseReadyProvider);
+    if (!databaseReady.hasValue) {
+      return _DatabaseStartupApp(databaseReady: databaseReady);
+    }
+    _repairPrimaryDatabaseKeySlotOnce();
+
     // Run the orphan-media reconcile pass once `prismSyncHandleProvider`
     // has finished its first resolve. Picks up `.enc` files stranded by a
     // crash mid-_resetChat / _resetAll (DB rows deleted, OS killed the
@@ -380,6 +409,248 @@ class _PrismAppState extends ConsumerState<PrismApp> {
           debugShowCheckedModeBanner: false,
         );
       },
+    );
+  }
+}
+
+class _DatabaseStartupApp extends ConsumerWidget {
+  const _DatabaseStartupApp({required this.databaseReady});
+
+  final AsyncValue<DatabaseReadyReport> databaseReady;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final brightness = ref.watch(cachedThemeBrightnessProvider);
+    final style = effectiveThemeStyleForPlatform(
+      ref.watch(cachedThemeStyleProvider),
+      ref.watch(targetPlatformProvider),
+    );
+    final cornerStyle = ref.watch(cachedCornerStyleProvider);
+    final accentHex = ref.watch(cachedAccentColorHexProvider);
+    final accentColor = accentHex != null
+        ? AppColors.fromHex(accentHex)
+        : AppColors.prismPurple;
+
+    final schemaVersionBeforeOpen = ref.watch(
+      databaseSchemaVersionBeforeOpenProvider,
+    );
+
+    return DynamicColorBuilder(
+      builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+        ThemeData lightTheme;
+        ThemeData darkTheme;
+
+        switch (style) {
+          case ThemeStyle.materialYou:
+            lightTheme = AppTheme.materialYouLight(
+              lightDynamic,
+              cornerStyle: cornerStyle,
+            );
+            darkTheme = AppTheme.materialYouDark(
+              darkDynamic,
+              cornerStyle: cornerStyle,
+            );
+          case ThemeStyle.oled:
+            lightTheme = AppTheme.light(
+              accentColor: accentColor,
+              cornerStyle: cornerStyle,
+            );
+            darkTheme = AppTheme.oled(
+              accentColor: accentColor,
+              cornerStyle: cornerStyle,
+            );
+          case ThemeStyle.standard:
+            lightTheme = AppTheme.light(
+              accentColor: accentColor,
+              cornerStyle: cornerStyle,
+            );
+            darkTheme = AppTheme.dark(
+              accentColor: accentColor,
+              cornerStyle: cornerStyle,
+            );
+        }
+
+        return MaterialApp(
+          title: 'Prism',
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en'), Locale('es')],
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          themeMode: switch (brightness) {
+            ThemeBrightness.system => ThemeMode.system,
+            ThemeBrightness.light => ThemeMode.light,
+            ThemeBrightness.dark => ThemeMode.dark,
+          },
+          home: _DatabaseStartupScreen(
+            databaseReady: databaseReady,
+            schemaVersionBeforeOpen: schemaVersionBeforeOpen,
+          ),
+          debugShowCheckedModeBanner: false,
+        );
+      },
+    );
+  }
+}
+
+class _DatabaseStartupScreen extends ConsumerWidget {
+  const _DatabaseStartupScreen({
+    required this.databaseReady,
+    required this.schemaVersionBeforeOpen,
+  });
+
+  final AsyncValue<DatabaseReadyReport> databaseReady;
+  final AsyncValue<int?> schemaVersionBeforeOpen;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final schemaVersion = schemaVersionBeforeOpen.whenOrNull(
+      data: (version) => version,
+    );
+    final isKnownMigration =
+        schemaVersion != null &&
+        schemaVersion < AppDatabase.currentSchemaVersion;
+    final canStartFallbackDelay =
+        !isKnownMigration &&
+        (schemaVersionBeforeOpen.hasValue || schemaVersionBeforeOpen.hasError);
+    final showDelayedStatus =
+        canStartFallbackDelay &&
+        ref.watch(_databaseStartupStatusDelayProvider).hasValue;
+
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            child: databaseReady.when(
+              data: (_) => PrismSpinner(
+                color: Theme.of(context).colorScheme.primary,
+                size: 52,
+              ),
+              loading: () {
+                if (isKnownMigration || showDelayedStatus) {
+                  return _DatabaseStartupStatus(
+                    schemaVersionBeforeOpen: schemaVersion,
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+              error: (error, _) => _DatabaseStartupError(
+                error: error,
+                onRetry: () {
+                  ref.invalidate(databaseProvider);
+                  ref.invalidate(databaseSchemaVersionBeforeOpenProvider);
+                  ref.invalidate(databaseReadyProvider);
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DatabaseStartupStatus extends StatelessWidget {
+  const _DatabaseStartupStatus({required this.schemaVersionBeforeOpen});
+
+  final int? schemaVersionBeforeOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final before = schemaVersionBeforeOpen;
+    final title = before == null
+        ? 'Setting up Prism'
+        : before < AppDatabase.currentSchemaVersion
+        ? 'Updating Prism data'
+        : 'Opening Prism';
+    final message = before == null
+        ? 'Preparing your local database.'
+        : before < AppDatabase.currentSchemaVersion
+        ? 'Updating database schema v$before to v${AppDatabase.currentSchemaVersion}. Keep Prism open until this finishes.'
+        : 'Preparing your workspace.';
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 360),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PrismSpinner(color: theme.colorScheme.primary, size: 52),
+          const SizedBox(height: 28),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DatabaseStartupError extends StatelessWidget {
+  const _DatabaseStartupError({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            AppIcons.errorOutlineRounded,
+            size: 44,
+            color: theme.colorScheme.error,
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Prism could not finish opening its database.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            error.toString(),
+            textAlign: TextAlign.center,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 24),
+          PrismButton(
+            label: 'Try again',
+            icon: AppIcons.refresh,
+            tone: PrismButtonTone.filled,
+            onPressed: onRetry,
+          ),
+        ],
+      ),
     );
   }
 }

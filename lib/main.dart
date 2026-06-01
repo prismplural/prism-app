@@ -271,6 +271,9 @@ void main() async {
         // §6 probe results threaded into the riverpod tree. These overrides
         // satisfy the throw-by-default providers declared in §3/§5.
         verifiedStartupKeyProvider.overrideWithValue(appProbe.keyInMemory),
+        databaseSchemaVersionBeforeOpenProvider.overrideWith(
+          (ref) async => appProbe.schemaVersionBeforeOpen,
+        ),
         syncDatabaseStartupProvider.overrideWithValue(syncProbe),
         // §10 — make the captured per-boot diagnostic reachable by the
         // in-app banner / settings entry / recovery UI.

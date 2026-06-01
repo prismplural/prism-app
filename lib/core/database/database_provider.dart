@@ -78,6 +78,7 @@ class DbStartupReport {
     required this.keyInMemory,
     required this.usedRecoverySlot,
     required this.diagnostic,
+    this.schemaVersionBeforeOpen,
   });
 
   /// Terminal state.
@@ -102,7 +103,72 @@ class DbStartupReport {
   /// Diagnostic record. §10 will extend this; for §4 it captures
   /// per-slot outcomes and which slot produced the verified key.
   final SecureStorageDiagnostic? diagnostic;
+
+  /// The on-disk SQLite user_version observed by the boot probe before Drift
+  /// opens the app DB. Null means no app DB existed yet, or the version was
+  /// not available.
+  final int? schemaVersionBeforeOpen;
 }
+
+@immutable
+class DatabaseReadyReport {
+  const DatabaseReadyReport({
+    required this.schemaVersionBeforeOpen,
+    required this.schemaVersionAfterOpen,
+  });
+
+  /// Null means no on-disk app DB existed before Drift opened it.
+  final int? schemaVersionBeforeOpen;
+  final int schemaVersionAfterOpen;
+
+  bool get createdFresh => schemaVersionBeforeOpen == null;
+
+  bool get migrated =>
+      schemaVersionBeforeOpen != null &&
+      schemaVersionBeforeOpen! < schemaVersionAfterOpen;
+}
+
+/// Reads SQLite user_version before Drift opens the database.
+///
+/// Production overrides this with the boot probe value.
+final databaseSchemaVersionBeforeOpenProvider = FutureProvider<int?>((
+  ref,
+) async {
+  final hexKey = ref.watch(verifiedStartupKeyProvider);
+  if (hexKey == null) {
+    throw StateError(
+      'databaseSchemaVersionBeforeOpenProvider read before '
+      'verifiedStartupKeyProvider was overridden.',
+    );
+  }
+  final file = await getDatabaseFile();
+  if (!file.existsSync()) return null;
+  return _readEncryptedUserVersion(file.path, hexKey);
+});
+
+/// Opens Drift before DB-backed routes can render.
+final databaseReadyProvider = FutureProvider<DatabaseReadyReport>((ref) async {
+  final schemaVersionBeforeOpen = ref.watch(
+    databaseSchemaVersionBeforeOpenProvider.future,
+  );
+  final db = ref.watch(databaseProvider);
+  final before = await schemaVersionBeforeOpen.catchError((
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    debugPrint(
+      '[DB_PROVIDER] Startup schema-version probe failed; continuing without '
+      'migration status copy: $error',
+    );
+    return null;
+  });
+  await db.customSelect('SELECT 1').getSingle();
+  final after = await _readDriftUserVersion(db);
+  return DatabaseReadyReport(
+    schemaVersionBeforeOpen: before,
+    schemaVersionAfterOpen: after,
+  );
+});
 
 /// Probe the app DB at startup, returning a verified key in memory or
 /// signalling unrecoverable so the boot path can short-circuit to the
@@ -144,6 +210,17 @@ Future<DbStartupReport> probeAppDatabaseStartup({
   final slotOutcomes = <String, String>{};
   final file = await getDatabaseFile(directory: directory);
   final dbPath = file.path;
+
+  int? readSchemaVersionBeforeOpen(String hexKey) {
+    try {
+      return _readEncryptedUserVersion(dbPath, hexKey);
+    } catch (e) {
+      debugPrint(
+        '[DB_PROVIDER] Failed to read pre-open schema version from app DB: $e',
+      );
+      return null;
+    }
+  }
 
   Future<SecureStorageDiagnostic> buildDiagnostic({
     required String? recoveredVia,
@@ -269,6 +346,7 @@ Future<DbStartupReport> probeAppDatabaseStartup({
           recoveredVia: 'primary',
           appDbState: DbStartupStateName.ready,
         ),
+        schemaVersionBeforeOpen: readSchemaVersionBeforeOpen(primaryRead.hex!),
       );
     }
     slotOutcomes[DiagnosticSlotIds.appDbPrimary] = 'threw: present-but-stale';
@@ -301,6 +379,7 @@ Future<DbStartupReport> probeAppDatabaseStartup({
           recoveredVia: 'sync',
           appDbState: DbStartupStateName.ready,
         ),
+        schemaVersionBeforeOpen: readSchemaVersionBeforeOpen(syncRead.hex!),
       );
     }
     slotOutcomes[DiagnosticSlotIds.appDbSync] = 'threw: present-but-stale';
@@ -330,6 +409,9 @@ Future<DbStartupReport> probeAppDatabaseStartup({
         diagnostic: await buildDiagnostic(
           recoveredVia: 'sync_staging',
           appDbState: DbStartupStateName.ready,
+        ),
+        schemaVersionBeforeOpen: readSchemaVersionBeforeOpen(
+          syncStagingRead.hex!,
         ),
       );
     }
@@ -406,6 +488,11 @@ enum PrimaryDatabaseKeyRepairOutcome {
   skippedVerifiedKeyDoesNotOpenDb,
   writeFailed,
 }
+
+final primaryDatabaseKeyRepairProvider =
+    Provider<Future<PrimaryDatabaseKeyRepairOutcome> Function(String?)>(
+      (ref) => repairPrimaryDatabaseKeyFromVerifiedMemory,
+    );
 
 /// Opportunistically repair the primary app-DB key slot from the key that
 /// already opened `prism.db` during this process.
@@ -568,6 +655,25 @@ bool _tryOpenEncrypted(String path, String hexKey) {
   } catch (_) {
     return false;
   }
+}
+
+int _readEncryptedUserVersion(String path, String hexKey) {
+  final db = raw.sqlite3.open(path);
+  try {
+    configurePrismSqliteConnection(db, hexKey: hexKey);
+    final rows = db.select('PRAGMA user_version;');
+    if (rows.isEmpty) return 0;
+    final value = rows.first['user_version'];
+    return value is int ? value : int.parse(value.toString());
+  } finally {
+    db.close();
+  }
+}
+
+Future<int> _readDriftUserVersion(AppDatabase db) async {
+  final row = await db.customSelect('PRAGMA user_version;').getSingle();
+  final value = row.data['user_version'];
+  return value is int ? value : int.parse(value.toString());
 }
 
 /// Promote the staging key to the primary slot if — and only if — the DB
