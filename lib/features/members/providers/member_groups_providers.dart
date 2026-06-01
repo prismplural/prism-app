@@ -275,6 +275,12 @@ class UngroupedSectionItem extends GroupedMemberListItem {
   const UngroupedSectionItem();
 }
 
+int _compareMembersByDisplayOrder(Member a, Member b) {
+  final order = a.displayOrder.compareTo(b.displayOrder);
+  if (order != 0) return order;
+  return a.id.compareTo(b.id);
+}
+
 /// Fully-expanded structural list (no collapse applied).
 /// Rebuilds only when tree, entries, or members change — not on every toggle.
 final _groupedMemberListStructureProvider = Provider<List<GroupedMemberListItem>>((
@@ -308,7 +314,12 @@ final _groupedMemberListStructureProvider = Provider<List<GroupedMemberListItem>
     for (final child in tree[group.id] ?? []) {
       visitGroup(child, depth + 1);
     }
-    for (final member in directMembersByGroup[group.id] ?? []) {
+    final directMembers = directMembersByGroup[group.id] ?? const <Member>[];
+    final orderedDirectMembers = directMembers.length < 2
+        ? directMembers
+        : (List<Member>.from(directMembers)
+            ..sort(_compareMembersByDisplayOrder));
+    for (final member in orderedDirectMembers) {
       result.add(MemberRowItem(member: member, depth: depth));
     }
   }
@@ -317,11 +328,15 @@ final _groupedMemberListStructureProvider = Provider<List<GroupedMemberListItem>
     visitGroup(root, 0);
   }
 
-  final ungrouped = allMembers
-      .where(
-        (m) => (showInactive || m.isActive) && !groupedMemberIds.contains(m.id),
-      )
-      .toList();
+  final ungrouped =
+      allMembers
+          .where(
+            (m) =>
+                (showInactive || m.isActive) &&
+                !groupedMemberIds.contains(m.id),
+          )
+          .toList()
+        ..sort(_compareMembersByDisplayOrder);
   if (ungrouped.isNotEmpty) {
     result.add(const UngroupedSectionItem());
     for (final m in ungrouped) {
