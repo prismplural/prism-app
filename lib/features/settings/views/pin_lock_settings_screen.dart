@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -32,6 +33,8 @@ class PinLockSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
+  bool _biometricToggleInFlight = false;
+
   void _showSetPinFlow() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -78,6 +81,42 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
     unawaited(ref.read(hardLockSyncOnAppLockProvider.notifier).set(false));
   }
 
+  Future<void> _setBiometricLockEnabled(bool value) async {
+    if (_biometricToggleInFlight) return;
+
+    if (!value) {
+      unawaited(
+        ref
+            .read(settingsNotifierProvider.notifier)
+            .updateBiometricLockEnabled(false),
+      );
+      return;
+    }
+
+    setState(() => _biometricToggleInFlight = true);
+    try {
+      final available = await ref
+          .read(pinLockServiceProvider)
+          .isBiometricAvailable();
+      if (!mounted) return;
+
+      if (!available) {
+        Haptics.selection();
+        PrismToast.error(
+          context,
+          message: 'Biometric unlock is not available on this device.',
+        );
+        return;
+      }
+
+      await ref
+          .read(settingsNotifierProvider.notifier)
+          .updateBiometricLockEnabled(true);
+    } finally {
+      if (mounted) setState(() => _biometricToggleInFlight = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Guard: wait for settings to load before showing interactive controls.
@@ -90,14 +129,14 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
     final biometricLockEnabled = ref.watch(biometricLockEnabledProvider);
     final autoLockDelay = ref.watch(autoLockDelaySecondsProvider);
     final isPinSetAsync = ref.watch(isPinSetProvider);
-    final biometricAvailableAsync = ref.watch(isBiometricAvailableProvider);
     final hardLockSyncAsync = ref.watch(hardLockSyncOnAppLockProvider);
     final screenPrivacyAsync = ref.watch(screenPrivacyEnabledProvider);
     final targetPlatform = ref.watch(targetPlatformProvider);
     // Use Riverpod's targetPlatformProvider (not dart:io Platform) so the
     // gate respects test overrides and Theme.of(context).platform-style
     // changes in the surrounding app.
-    final screenPrivacySupported = targetPlatform == TargetPlatform.android ||
+    final screenPrivacySupported =
+        targetPlatform == TargetPlatform.android ||
         targetPlatform == TargetPlatform.iOS;
     final showScreenPrivacy =
         screenPrivacySupported && screenPrivacyAsync.hasValue;
@@ -107,7 +146,11 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
 
     final pinSet = isPinSetAsync.value ?? false;
     final pinReady = isPinEnabled && pinSet;
-    final biometricAvailable = biometricAvailableAsync.value ?? false;
+    final biometricPlatformSupported =
+        targetPlatform == TargetPlatform.android ||
+        targetPlatform == TargetPlatform.iOS;
+    final canOfferBiometricToggle =
+        biometricLockEnabled || biometricPlatformSupported;
     final hardLockSyncEnabled = hardLockSyncAsync.value ?? false;
 
     if (!settingsLoaded) {
@@ -188,7 +231,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
               child: PrismSectionCard(
                 child: Column(
                   children: [
-                    if (biometricAvailable) ...[
+                    if (canOfferBiometricToggle) ...[
                       PrismSwitchRow(
                         icon: AppIcons.fingerprint,
                         iconColor: Colors.teal,
@@ -197,12 +240,8 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                             ? context.l10n.pinLockBiometricSubtitle
                             : context.l10n.pinLockBiometricDisabledSubtitle,
                         value: biometricLockEnabled,
-                        enabled: pinReady,
-                        onChanged: (value) {
-                          ref
-                              .read(settingsNotifierProvider.notifier)
-                              .updateBiometricLockEnabled(value);
-                        },
+                        enabled: pinReady && !_biometricToggleInFlight,
+                        onChanged: _setBiometricLockEnabled,
                       ),
                       const Divider(height: 1, indent: 56, endIndent: 12),
                     ],

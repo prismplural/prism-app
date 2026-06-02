@@ -47,15 +47,8 @@ class _BiometricSetupStepState extends ConsumerState<BiometricSetupStep> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      // Auto-skip if DEK not available or biometrics unavailable.
+      // Defer the biometric probe until explicit opt-in; iOS may prompt.
       if (widget.dekBytes == null) {
-        widget.onSkipped();
-        return;
-      }
-      final service = ref.read(biometricServiceProvider);
-      final available = await service.isAvailable();
-      if (!mounted) return;
-      if (!available) {
         widget.onSkipped();
       }
     });
@@ -70,6 +63,12 @@ class _BiometricSetupStepState extends ConsumerState<BiometricSetupStep> {
     setState(() => _isLoading = true);
     try {
       final service = ref.read(biometricServiceProvider);
+      final available = await service.isAvailable();
+      if (!mounted) return;
+      if (!available) {
+        widget.onSkipped();
+        return;
+      }
       await service.enroll(dek);
       if (mounted) widget.onEnrolled();
     } finally {
@@ -103,11 +102,7 @@ class _BiometricSetupStepState extends ConsumerState<BiometricSetupStep> {
               shape: BoxShape.circle,
               color: primary.withValues(alpha: 0.12),
             ),
-            child: Icon(
-              _platformIcon,
-              size: 40,
-              color: primary,
-            ),
+            child: Icon(_platformIcon, size: 40, color: primary),
           ),
 
           const SizedBox(height: 24),
@@ -127,7 +122,9 @@ class _BiometricSetupStepState extends ConsumerState<BiometricSetupStep> {
             l10n.onboardingBiometricDescription,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
+              color: isDark
+                  ? AppColors.mutedTextDark
+                  : AppColors.mutedTextLight,
             ),
           ),
 

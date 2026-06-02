@@ -266,11 +266,11 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
     final accentColor = theme.colorScheme.primary;
     final canOfferBiometric =
         widget.allowBiometric && widget.mode == PinInputMode.unlock;
-    final biometricAvailable = canOfferBiometric
-        ? ref.watch(isBiometricAvailableProvider).value ?? false
-        : false;
     final biometricEnabled = canOfferBiometric
         ? ref.watch(biometricLockEnabledProvider)
+        : false;
+    final biometricAvailable = biometricEnabled
+        ? ref.watch(isBiometricAvailableProvider).value ?? false
         : false;
     final showBiometric =
         canOfferBiometric && biometricAvailable && biometricEnabled;

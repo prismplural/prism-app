@@ -15,11 +15,15 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 class _FakeBiometricService implements BiometricService {
   bool available;
   bool enrollCalled = false;
+  int availabilityChecks = 0;
 
   _FakeBiometricService({this.available = true});
 
   @override
-  Future<bool> isAvailable() async => available;
+  Future<bool> isAvailable() async {
+    availabilityChecks++;
+    return available;
+  }
 
   @override
   Future<void> enroll(Uint8List dekBytes) async {
@@ -47,9 +51,7 @@ Widget _buildStep({
   required VoidCallback onSkipped,
 }) {
   return ProviderScope(
-    overrides: [
-      biometricServiceProvider.overrideWithValue(fakeService),
-    ],
+    overrides: [biometricServiceProvider.overrideWithValue(fakeService)],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
@@ -92,7 +94,7 @@ void main() {
     expect(find.text('Not now'), findsOneWidget);
   });
 
-  testWidgets('auto-calls onSkipped when biometric unavailable', (
+  testWidgets('does not check availability before user taps Enable', (
     tester,
   ) async {
     final fake = _FakeBiometricService(available: false);
@@ -107,11 +109,13 @@ void main() {
       ),
     );
 
-    // Post-frame callback fires, then async isAvailable resolves.
     await tester.pump();
     await tester.pump();
 
-    expect(skipped, isTrue);
+    expect(fake.availabilityChecks, 0);
+    expect(skipped, isFalse);
+    expect(find.text('Enable biometrics'), findsOneWidget);
+    expect(find.text('Not now'), findsOneWidget);
   });
 
   testWidgets('Enable button calls enroll then onEnrolled', (tester) async {
@@ -133,7 +137,31 @@ void main() {
     await tester.pump();
 
     expect(fake.enrollCalled, isTrue);
+    expect(fake.availabilityChecks, 1);
     expect(enrolled, isTrue);
+  });
+
+  testWidgets('Enable button skips when biometric unavailable', (tester) async {
+    final fake = _FakeBiometricService(available: false);
+    var skipped = false;
+
+    await tester.pumpWidget(
+      _buildStep(
+        fakeService: fake,
+        dek: dek,
+        onEnrolled: () {},
+        onSkipped: () => skipped = true,
+      ),
+    );
+
+    await tester.pump();
+
+    await tester.tap(find.text('Enable biometrics'));
+    await tester.pump();
+
+    expect(fake.availabilityChecks, 1);
+    expect(fake.enrollCalled, isFalse);
+    expect(skipped, isTrue);
   });
 
   testWidgets('Not-now button calls onSkipped', (tester) async {
