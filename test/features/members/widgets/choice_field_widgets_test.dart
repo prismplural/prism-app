@@ -511,6 +511,24 @@ void main() {
 
       expect(find.text('Other: Mango'), findsOneWidget);
     });
+
+    testWidgets('Other pill uses neutral text tint instead of accent color', (
+      tester,
+    ) async {
+      final field = _choiceField(options: [], allowsOther: true);
+      final value = _value('{"other":"Mango"}');
+
+      await tester.pumpWidget(_displaySubject(field: field, value: value));
+      await tester.pump();
+
+      final context = tester.element(find.byType(Scaffold));
+      final chip = tester.widget<PrismChip>(
+        find.widgetWithText(PrismChip, 'Other: Mango'),
+      );
+
+      expect(chip.selected, isTrue);
+      expect(chip.tintColor, Theme.of(context).colorScheme.onSurface);
+    });
   });
 
   // ─── Compact tests ───────────────────────────────────────────────────────────
@@ -592,6 +610,26 @@ void main() {
       // A Text widget with the compact plain-text representation is rendered
       // directly instead.
       expect(find.byType(PrismChip), findsNothing);
+    });
+
+    testWidgets('Other chip uses neutral text tint instead of accent color', (
+      tester,
+    ) async {
+      final field = _choiceField(options: [], allowsOther: true);
+      final value = _value('{"other":"Mango"}');
+
+      await tester.pumpWidget(
+        _compactSubject(field: field, value: value, width: 500),
+      );
+      await tester.pump();
+
+      final context = tester.element(find.byType(Scaffold));
+      final chip = tester.widget<PrismChip>(
+        find.widgetWithText(PrismChip, 'Other: Mango'),
+      );
+
+      expect(chip.selected, isTrue);
+      expect(chip.tintColor, Theme.of(context).colorScheme.onSurface);
     });
   });
 

@@ -603,6 +603,10 @@ List<ChoiceOption> _selectedOptionsInSettingsOrder(
       .toList();
 }
 
+Color _choiceOtherTint(BuildContext context) {
+  return Theme.of(context).colorScheme.onSurface;
+}
+
 /// Builds the read-only display chip row for a Choice field value.
 Widget buildChoiceDisplay(
   BuildContext context,
@@ -677,7 +681,12 @@ class _ChoiceDisplayWidget extends StatelessWidget {
           button: false,
           label: '${field.name}, $otherLabel',
           excludeSemantics: true,
-          child: PrismChip(label: otherLabel, selected: true, onTap: null),
+          child: PrismChip(
+            label: otherLabel,
+            selected: true,
+            tintColor: _choiceOtherTint(context),
+            onTap: null,
+          ),
         ),
       );
     }
@@ -781,6 +790,7 @@ class _ChoiceCompactWidget extends StatelessWidget {
                 child: PrismChip(
                   label: resolvedLabels[i],
                   selected: true,
+                  tintColor: _choiceOtherTint(context),
                   onTap: null,
                 ),
               ),
