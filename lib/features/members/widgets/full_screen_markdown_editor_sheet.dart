@@ -6,6 +6,7 @@ import 'package:prism_plurality/features/members/providers/bio_image_providers.d
 import 'package:prism_plurality/features/members/services/bio_image_processor.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_table_button.dart';
+import 'package:prism_plurality/features/members/widgets/remote_markdown_image_import_prompt.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -92,6 +93,14 @@ class _FullScreenMarkdownEditorSheetState
       ref.read(bioImageProcessorProvider(_editSessionId));
 
   Future<void> _save() async {
+    final shouldContinue = await promptAndStageRemoteMarkdownImages(
+      context: context,
+      ref: ref,
+      controller: _controller,
+      sessionId: _editSessionId,
+    );
+    if (!shouldContinue || !mounted) return;
+
     // Commit any images staged during this edit (upload + library record)
     // before returning. Done here — while the editor is still mounted and the
     // processor is alive — so it works uniformly across every surface that
@@ -165,7 +174,8 @@ class _FullScreenMarkdownEditorSheetState
                     children: [
                       PrismGlassIconButton(
                         icon: _showPreview ? AppIcons.edit : AppIcons.preview,
-                        onPressed: () => setState(() => _showPreview = !_showPreview),
+                        onPressed: () =>
+                            setState(() => _showPreview = !_showPreview),
                         tooltip: _showPreview
                             ? l10n.memberBioEditorTooltip
                             : l10n.memberBioPreviewTooltip,
@@ -185,81 +195,82 @@ class _FullScreenMarkdownEditorSheetState
                 ),
                 if (isProcessing) const LinearProgressIndicator(),
                 Expanded(
-              child: _showPreview
-                  ? ListView(
-                      controller: widget.scrollController,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: PrismTokens.pageHorizontalPadding + 8,
-                        vertical: 16,
-                      ),
-                      children: [
-                        if (_controller.text.trim().isEmpty)
-                          Text(
-                            widget.hintText,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.4),
-                            ),
-                          )
-                        else
-                          PrismMarkdownText(
-                            data: _controller.text,
-                            enabled: true,
-                            baseStyle: theme.textTheme.bodyLarge,
-                            memberId: widget.memberId,
-                            memberName: '',
-                            editSessionId: _editSessionId,
+                  child: _showPreview
+                      ? ListView(
+                          controller: widget.scrollController,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: PrismTokens.pageHorizontalPadding + 8,
+                            vertical: 16,
                           ),
-                      ],
-                    )
-                  : GestureDetector(
-                      onTap: () => _focusNode.requestFocus(),
-                      behavior: HitTestBehavior.translucent,
-                      child: ListView(
-                        controller: widget.scrollController,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: PrismTokens.pageHorizontalPadding + 8,
-                          vertical: 16,
+                          children: [
+                            if (_controller.text.trim().isEmpty)
+                              Text(
+                                widget.hintText,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.4),
+                                ),
+                              )
+                            else
+                              PrismMarkdownText(
+                                data: _controller.text,
+                                enabled: true,
+                                baseStyle: theme.textTheme.bodyLarge,
+                                memberId: widget.memberId,
+                                memberName: '',
+                                editSessionId: _editSessionId,
+                              ),
+                          ],
+                        )
+                      : GestureDetector(
+                          onTap: () => _focusNode.requestFocus(),
+                          behavior: HitTestBehavior.translucent,
+                          child: ListView(
+                            controller: widget.scrollController,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: PrismTokens.pageHorizontalPadding + 8,
+                              vertical: 16,
+                            ),
+                            children: [
+                              PrismTextField(
+                                controller: _controller,
+                                focusNode: _focusNode,
+                                hintText: widget.hintText,
+                                fieldStyle: PrismTextFieldStyle.borderless,
+                                style: theme.textTheme.bodyLarge,
+                                hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.4),
+                                ),
+                                minLines: 12,
+                                maxLines: null,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                autofocus: true,
+                              ),
+                            ],
+                          ),
                         ),
-                        children: [
-                          PrismTextField(
-                            controller: _controller,
-                            focusNode: _focusNode,
-                            hintText: widget.hintText,
-                            fieldStyle: PrismTextFieldStyle.borderless,
-                            style: theme.textTheme.bodyLarge,
-                            hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.4),
-                            ),
-                            minLines: 12,
-                            maxLines: null,
-                            textCapitalization: TextCapitalization.sentences,
-                            autofocus: true,
-                          ),
-                        ],
-                      ),
-                    ),
-              ),
-            ],
-          ),
-          // Floating image button — sits above keyboard when open. Available
-          // on every surface; the image library is user-scoped.
-          Positioned(
-            right: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-            child: Row(
+                ),
+              ],
+            ),
+            // Floating image button — sits above keyboard when open. Available
+            // on every surface; the image library is user-scoped.
+            Positioned(
+              right: 16,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   MarkdownTableButton(controller: _controller),
                   const SizedBox(width: 4),
                   MarkdownImageButton(
-                  controller: _controller,
-                  sessionId: _editSessionId,
-            ),
+                    controller: _controller,
+                    sessionId: _editSessionId,
+                  ),
                 ],
+              ),
             ),
-          ),
           ],
         ),
       ),

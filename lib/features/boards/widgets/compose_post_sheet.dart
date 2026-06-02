@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
+import 'package:prism_plurality/features/members/widgets/remote_markdown_image_import_prompt.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -208,6 +209,17 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
     setState(() => _isSaving = true);
 
     try {
+      final shouldContinue = await promptAndStageRemoteMarkdownImages(
+        context: context,
+        ref: ref,
+        controller: _bodyController,
+        sessionId: _editSessionId,
+      );
+      if (!shouldContinue || !mounted) {
+        if (mounted) setState(() => _isSaving = false);
+        return;
+      }
+
       var failedTags = const <String>[];
       try {
         failedTags = await ref

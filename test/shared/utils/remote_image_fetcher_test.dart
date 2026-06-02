@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -230,6 +232,50 @@ void main() {
         ),
         isNull,
       );
+    });
+
+    test('pinned HTTPS connections are upgraded to TLS', () async {
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(server.close);
+
+      final firstBytes = Completer<List<int>>();
+      final serverSub = server.listen((socket) {
+        final bytes = <int>[];
+        late StreamSubscription<List<int>> socketSub;
+        socketSub = socket.listen(
+          (chunk) {
+            bytes.addAll(chunk);
+            if (bytes.length >= 3 && !firstBytes.isCompleted) {
+              firstBytes.complete(bytes.take(3).toList());
+              socket.destroy();
+              unawaited(socketSub.cancel());
+            }
+          },
+          onDone: () {
+            if (!firstBytes.isCompleted) firstBytes.complete(bytes);
+          },
+        );
+      });
+      addTearDown(serverSub.cancel);
+
+      final rawTask = ConnectionTask.fromSocket(
+        Socket.connect(server.address, server.port),
+        () {},
+      );
+      final upgradedTask = upgradePinnedConnectionForTesting(
+        rawTask,
+        Uri.parse('https://example.com/image.png'),
+      );
+      final clientFuture = upgradedTask.socket
+          .then((socket) => socket.destroy())
+          .catchError((_) {});
+
+      final bytes = await firstBytes.future.timeout(const Duration(seconds: 5));
+      await clientFuture;
+
+      expect(bytes, hasLength(greaterThanOrEqualTo(3)));
+      expect(bytes[0], 0x16, reason: 'TLS handshake record type');
+      expect(bytes[1], 0x03, reason: 'TLS major version');
     });
   });
 }

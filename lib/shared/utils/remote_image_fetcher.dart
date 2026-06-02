@@ -5,6 +5,7 @@ import 'dart:io'
         HttpClient,
         InternetAddress,
         InternetAddressType,
+        SecureSocket,
         Socket,
         SocketException;
 import 'dart:typed_data';
@@ -35,9 +36,7 @@ Future<bool> _isPrivateHost(String host) async {
   final lc = host.toLowerCase();
 
   // Reject well-known private hostnames immediately.
-  if (lc == 'localhost' ||
-      lc == 'metadata.internal' ||
-      lc.endsWith('.local')) {
+  if (lc == 'localhost' || lc == 'metadata.internal' || lc.endsWith('.local')) {
     return true;
   }
 
@@ -89,7 +88,8 @@ bool _isPrivateAddress(InternetAddress addr) {
     // fe80::/10 — link-local (also caught by isLinkLocal)
     if (raw[0] == 0xFE && (raw[1] & 0xC0) == 0x80) return true;
 
-    final firstTwelveZeroExceptTail = raw[4] == 0 &&
+    final firstTwelveZeroExceptTail =
+        raw[4] == 0 &&
         raw[5] == 0 &&
         raw[6] == 0 &&
         raw[7] == 0 &&
@@ -97,7 +97,8 @@ bool _isPrivateAddress(InternetAddress addr) {
         raw[9] == 0;
 
     // IPv4-mapped: ::ffff:0:0/96 — validate the embedded IPv4 (bytes 12–15).
-    final isV4Mapped = raw[0] == 0 &&
+    final isV4Mapped =
+        raw[0] == 0 &&
         raw[1] == 0 &&
         raw[2] == 0 &&
         raw[3] == 0 &&
@@ -108,7 +109,8 @@ bool _isPrivateAddress(InternetAddress addr) {
 
     // NAT64 well-known prefix 64:ff9b::/96 — translates to arbitrary IPv4,
     // including internal hosts; block the whole range.
-    final isNat64 = raw[0] == 0x00 &&
+    final isNat64 =
+        raw[0] == 0x00 &&
         raw[1] == 0x64 &&
         raw[2] == 0xFF &&
         raw[3] == 0x9B &&
@@ -161,8 +163,32 @@ Future<ConnectionTask<Socket>> _pinnedConnect(
       );
     }
   }
-  // Connect to the exact validated address — no second DNS resolution.
-  return Socket.startConnect(addresses.first, url.port);
+  // Connect to the exact validated address — no second DNS resolution. When a
+  // custom HttpClient.connectionFactory is set, Dart does not perform the
+  // HTTPS upgrade for us, so wrap the raw socket with TLS while preserving the
+  // original hostname for SNI and certificate validation.
+  final rawTask = await Socket.startConnect(addresses.first, url.port);
+  return _upgradePinnedConnectionForUri(rawTask, url);
+}
+
+/// Test hook for verifying the custom connection factory keeps HTTPS as TLS.
+ConnectionTask<Socket> upgradePinnedConnectionForTesting(
+  ConnectionTask<Socket> rawTask,
+  Uri url,
+) => _upgradePinnedConnectionForUri(rawTask, url);
+
+ConnectionTask<Socket> _upgradePinnedConnectionForUri(
+  ConnectionTask<Socket> rawTask,
+  Uri url,
+) {
+  if (url.scheme != 'https') return rawTask;
+
+  return ConnectionTask.fromSocket(
+    rawTask.socket.then(
+      (socket) => SecureSocket.secure(socket, host: url.host),
+    ),
+    rawTask.cancel,
+  );
 }
 
 /// Returns `true` if the first 256 bytes of [data] look like an SVG/XML file.
@@ -256,8 +282,7 @@ Future<({Uint8List? bytes, bool retryable})> _fetchRemoteImageBytesOnce(
   var currentUri = uri;
 
   for (var hop = 0; hop <= maxRedirects; hop++) {
-    final request = http.Request('GET', currentUri)
-      ..followRedirects = false;
+    final request = http.Request('GET', currentUri)..followRedirects = false;
     final response = await client.send(request).timeout(timeout);
 
     final status = response.statusCode;
@@ -303,8 +328,7 @@ Future<({Uint8List? bytes, bool retryable})> _fetchRemoteImageBytesOnce(
 
     // ── 200 OK — validate content-type ──────────────────────────────────────
     final contentType = response.headers['content-type'] ?? '';
-    final mimeType =
-        contentType.toLowerCase().split(';').first.trim();
+    final mimeType = contentType.toLowerCase().split(';').first.trim();
     if (!_allowedMimeTypes.contains(mimeType)) {
       response.stream.drain<void>().ignore();
       return (bytes: null, retryable: false);

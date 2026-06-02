@@ -21,6 +21,7 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_table_button.dart';
+import 'package:prism_plurality/features/members/widgets/remote_markdown_image_import_prompt.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
@@ -99,6 +100,14 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
 
   Future<void> _save() async {
     if (!_isValid) return;
+    final shouldContinue = await promptAndStageRemoteMarkdownImages(
+      context: context,
+      ref: ref,
+      controller: _bodyController,
+      sessionId: _editSessionId,
+    );
+    if (!shouldContinue || !mounted) return;
+
     // Commit any images staged via the image button before persisting.
     var failedTags = const <String>[];
     try {
@@ -242,72 +251,74 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
                     onTap: () => _bodyFocusNode.requestFocus(),
                     behavior: HitTestBehavior.translucent,
                     child: ListView(
-                  controller: widget.scrollController,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: PrismTokens.pageHorizontalPadding + 8,
-                    vertical: 16,
-                  ),
-                  children: _showPreview
-                      ? [
-                          if (_titleController.text.trim().isNotEmpty) ...[
-                            Text(
-                              _titleController.text.trim(),
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
+                      controller: widget.scrollController,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: PrismTokens.pageHorizontalPadding + 8,
+                        vertical: 16,
+                      ),
+                      children: _showPreview
+                          ? [
+                              if (_titleController.text.trim().isNotEmpty) ...[
+                                Text(
+                                  _titleController.text.trim(),
+                                  style: theme.textTheme.headlineSmall
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                              if (_bodyController.text.trim().isEmpty)
+                                Text(
+                                  l10n.memberNoteBodyHint,
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.4),
+                                  ),
+                                )
+                              else
+                                PrismMarkdownText(
+                                  data: _bodyController.text,
+                                  enabled: true,
+                                  baseStyle: theme.textTheme.bodyLarge,
+                                  editSessionId: _editSessionId,
+                                ),
+                            ]
+                          : [
+                              PrismTextField(
+                                controller: _titleController,
+                                hintText: l10n.memberNoteTitleHint,
+                                fieldStyle: PrismTextFieldStyle.borderless,
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                hintStyle: theme.textTheme.headlineSmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.colorScheme.onSurfaceVariant
+                                          .withValues(alpha: 0.4),
+                                    ),
+                                maxLines: null,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                textInputAction: TextInputAction.next,
+                                autofocus: !_isEditing,
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                          if (_bodyController.text.trim().isEmpty)
-                            Text(
-                              l10n.memberNoteBodyHint,
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant
-                                    .withValues(alpha: 0.4),
+                              const SizedBox(height: 8),
+                              PrismTextField(
+                                controller: _bodyController,
+                                focusNode: _bodyFocusNode,
+                                hintText: l10n.memberNoteBodyHint,
+                                fieldStyle: PrismTextFieldStyle.borderless,
+                                style: theme.textTheme.bodyLarge,
+                                hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.4),
+                                ),
+                                minLines: 12,
+                                maxLines: null,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
                               ),
-                            )
-                          else
-                            PrismMarkdownText(
-                              data: _bodyController.text,
-                              enabled: true,
-                              baseStyle: theme.textTheme.bodyLarge,
-                              editSessionId: _editSessionId,
-                            ),
-                        ]
-                      : [
-                          PrismTextField(
-                            controller: _titleController,
-                            hintText: l10n.memberNoteTitleHint,
-                            fieldStyle: PrismTextFieldStyle.borderless,
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                            hintStyle: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.4),
-                            ),
-                            maxLines: null,
-                            textCapitalization: TextCapitalization.sentences,
-                            textInputAction: TextInputAction.next,
-                            autofocus: !_isEditing,
-                          ),
-                          const SizedBox(height: 8),
-                          PrismTextField(
-                            controller: _bodyController,
-                            focusNode: _bodyFocusNode,
-                            hintText: l10n.memberNoteBodyHint,
-                            fieldStyle: PrismTextFieldStyle.borderless,
-                            style: theme.textTheme.bodyLarge,
-                            hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.4),
-                            ),
-                            minLines: 12,
-                            maxLines: null,
-                            textCapitalization: TextCapitalization.sentences,
-                          ),
-                        ],
+                            ],
                     ),
                   ),
                   if (!_showPreview)

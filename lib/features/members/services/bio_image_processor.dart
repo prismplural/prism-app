@@ -66,8 +66,8 @@ class BioImageProcessor {
   BioImageProcessor({
     required MediaService mediaService,
     required DriftMediaAttachmentRepository repository,
-  })  : _mediaService = mediaService,
-        _repository = repository;
+  }) : _mediaService = mediaService,
+       _repository = repository;
 
   /// Upload a device-picked image to the library with a user-defined tag.
   /// Stages locally — not uploaded until [commitStaged].
@@ -83,8 +83,11 @@ class BioImageProcessor {
     }
 
     // Check for tag conflicts with existing library images.
-    final existing = await _repository.getForMember(''); // Library images have no member
-    final tagExists = existing.any((a) => a.tag == normalizedTag) ||
+    final existing = await _repository.getForMember(
+      '',
+    ); // Library images have no member
+    final tagExists =
+        existing.any((a) => a.tag == normalizedTag) ||
         staged.any((s) => s.tag == normalizedTag);
     if (tagExists) {
       throw StateError('Tag "$normalizedTag" is already in use');
@@ -98,13 +101,15 @@ class BioImageProcessor {
       );
     }
 
-    staged.add(StagedBioImage(
-      mediaId: prepared.mediaId,
-      tag: normalizedTag,
-      prepared: prepared,
-      decryptedBytes: bytes,
-      altText: altText,
-    ));
+    staged.add(
+      StagedBioImage(
+        mediaId: prepared.mediaId,
+        tag: normalizedTag,
+        prepared: prepared,
+        decryptedBytes: bytes,
+        altText: altText,
+      ),
+    );
 
     return normalizedTag;
   }
@@ -121,6 +126,14 @@ class BioImageProcessor {
       throw StateError('Tag cannot be empty');
     }
 
+    final existing = await _repository.getForMember('');
+    final tagExists =
+        existing.any((a) => a.tag == normalizedTag) ||
+        staged.any((s) => s.tag == normalizedTag);
+    if (tagExists) {
+      throw StateError('Tag "$normalizedTag" is already in use');
+    }
+
     final bytes = await fetchRemoteImageBytes(url, maxBytes: _maxBytesPerImage);
     if (bytes == null) {
       throw StateError('Could not fetch image from URL');
@@ -134,14 +147,16 @@ class BioImageProcessor {
       );
     }
 
-    staged.add(StagedBioImage(
-      mediaId: prepared.mediaId,
-      tag: normalizedTag,
-      prepared: prepared,
-      decryptedBytes: bytes,
-      sourceUrl: url,
-      altText: altText,
-    ));
+    staged.add(
+      StagedBioImage(
+        mediaId: prepared.mediaId,
+        tag: normalizedTag,
+        prepared: prepared,
+        decryptedBytes: bytes,
+        sourceUrl: url,
+        altText: altText,
+      ),
+    );
 
     return normalizedTag;
   }
@@ -161,30 +176,34 @@ class BioImageProcessor {
         await _mediaService.uploadBioImage(image.prepared);
 
         final attachmentId = _uuid.v4();
-        await _repository.create(MediaAttachment(
-          id: attachmentId,
-          memberId: '',
-          messageId: '',
-          tag: image.tag,
-          mediaId: image.mediaId,
-          mediaType: 'image',
-          encryptionKeyB64: base64Encode(image.prepared.encryptionKey),
-          contentHash: image.prepared.contentHash,
-          plaintextHash: image.prepared.plaintextHash,
-          mimeType: image.prepared.mimeType,
-          sizeBytes: image.prepared.sizeBytes,
-          width: image.prepared.width,
-          height: image.prepared.height,
-          durationMs: 0,
-          blurhash: image.prepared.blurhash,
-          waveformB64: '',
-          thumbnailMediaId: '',
-          sourceUrl: image.sourceUrl ?? '',
-          previewUrl: '',
-        ));
+        await _repository.create(
+          MediaAttachment(
+            id: attachmentId,
+            memberId: '',
+            messageId: '',
+            tag: image.tag,
+            mediaId: image.mediaId,
+            mediaType: 'image',
+            encryptionKeyB64: base64Encode(image.prepared.encryptionKey),
+            contentHash: image.prepared.contentHash,
+            plaintextHash: image.prepared.plaintextHash,
+            mimeType: image.prepared.mimeType,
+            sizeBytes: image.prepared.sizeBytes,
+            width: image.prepared.width,
+            height: image.prepared.height,
+            durationMs: 0,
+            blurhash: image.prepared.blurhash,
+            waveformB64: '',
+            thumbnailMediaId: '',
+            sourceUrl: image.sourceUrl ?? '',
+            previewUrl: '',
+          ),
+        );
       } catch (e) {
-        debugPrint('[BioImageProcessor] failed to commit staged image '
-            '${image.tag}: $e');
+        debugPrint(
+          '[BioImageProcessor] failed to commit staged image '
+          '${image.tag}: $e',
+        );
         failedTags.add(image.tag);
       }
     }
