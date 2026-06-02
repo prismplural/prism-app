@@ -353,12 +353,14 @@ void main() {
             (ref) => _FakePairingCeremonyApi(),
           ),
           prismSyncHandleProvider.overrideWith(() => handleNotifier),
-          syncDatabaseStartupProvider.overrideWithValue(
-            const DbStartupReport(
-              state: DbStartupState.unrecoverable,
-              keyInMemory: null,
-              usedRecoverySlot: null,
-              diagnostic: null,
+          syncDatabaseStartupReportStateProvider.overrideWith(
+            () => SyncDatabaseStartupReportNotifier(
+              const DbStartupReport(
+                state: DbStartupState.unrecoverable,
+                keyInMemory: null,
+                usedRecoverySlot: null,
+                diagnostic: null,
+              ),
             ),
           ),
           relayUrlProvider.overrideWithValue(

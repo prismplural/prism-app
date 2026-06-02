@@ -7,6 +7,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/services/crypto_boot_log.dart';
 import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/core/services/secure_storage_diagnostic.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
@@ -109,6 +110,7 @@ class _CryptoStorageDebugScreenState
       capturedAt: DateTime.now(),
       lastUnwrapFailure: RuntimeDekUnwrapFailureRegistry.last,
       platformDiagnostics: platformDiagnostics,
+      bootDiagnostic: ref.read(bootSecureStorageDiagnosticProvider),
     );
   }
 
@@ -202,6 +204,13 @@ class _CryptoStorageDebugScreenState
         ..writeln()
         ..writeln('Platform diagnostics:')
         ..writeln(jsonIndent.convert(snapshot.platformDiagnostics));
+    }
+
+    if (snapshot.bootDiagnostic != null) {
+      buf
+        ..writeln()
+        ..writeln('Startup storage probe:')
+        ..writeln(jsonIndent.convert(snapshot.bootDiagnostic!.toJson()));
     }
 
     buf
@@ -852,6 +861,7 @@ class _SnapshotData {
     required this.capturedAt,
     this.lastUnwrapFailure,
     this.platformDiagnostics,
+    this.bootDiagnostic,
   });
 
   final List<_KeyStatus> entries;
@@ -861,4 +871,5 @@ class _SnapshotData {
   final DateTime capturedAt;
   final RuntimeDekUnwrapFailure? lastUnwrapFailure;
   final Map<String, dynamic>? platformDiagnostics;
+  final SecureStorageDiagnostic? bootDiagnostic;
 }

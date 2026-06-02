@@ -843,6 +843,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     // 8. Reset sync-group-scoped one-time flags so a fresh pairing can run the
     // catch-up/migration passes for the new group.
     await _clearSyncOneTimeFlags();
+    _markSyncDatabaseFreshAfterReset();
 
     try {
       if (marker != null) {
@@ -870,6 +871,23 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     ref.invalidate(syncEventStreamProvider);
     ref.invalidate(websocketConnectedProvider);
     ref.read(syncHealthProvider.notifier).setState(SyncHealthState.unpaired);
+  }
+
+  void _markSyncDatabaseFreshAfterReset() {
+    try {
+      ref
+          .read(syncDatabaseStartupReportStateProvider.notifier)
+          .setReport(
+            const DbStartupReport(
+              state: DbStartupState.ready,
+              keyInMemory: null,
+              usedRecoverySlot: 'fresh',
+              diagnostic: null,
+            ),
+          );
+    } catch (e) {
+      _log('Sync DB startup report refresh skipped after reset: $e');
+    }
   }
 
   Future<void> _resetAll() async {

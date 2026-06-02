@@ -274,7 +274,9 @@ void main() async {
         databaseSchemaVersionBeforeOpenProvider.overrideWith(
           (ref) async => appProbe.schemaVersionBeforeOpen,
         ),
-        syncDatabaseStartupProvider.overrideWithValue(syncProbe),
+        syncDatabaseStartupReportStateProvider.overrideWith(
+          () => SyncDatabaseStartupReportNotifier(syncProbe),
+        ),
         // §10 — make the captured per-boot diagnostic reachable by the
         // in-app banner / settings entry / recovery UI.
         bootSecureStorageDiagnosticProvider.overrideWithValue(

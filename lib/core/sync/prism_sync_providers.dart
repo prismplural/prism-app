@@ -207,17 +207,39 @@ class SyncDbUnrecoverableException implements Exception {
 // handle is just null and the in-app banner surfaces re-pair guidance.
 // See §6/§7 for the boot wiring and recovery UI.
 
-/// Riverpod provider exposing the sync DB startup probe result.
+/// Mutable holder for the sync DB startup probe result.
 ///
 /// `main.dart` (§6) overrides this via `ProviderScope.overrides` with the
-/// output of [probeSyncDatabaseStartup]. The default override throws so
-/// any code that forgets to set it up fails loudly in tests rather than
-/// silently mis-routing the recovery flow.
+/// output of [probeSyncDatabaseStartup]. Sync reset may update the state in
+/// the same app session after deleting `prism_sync.db`, so setup does not stay
+/// blocked on a stale boot-time `unrecoverable` report.
+final syncDatabaseStartupReportStateProvider =
+    NotifierProvider<SyncDatabaseStartupReportNotifier, DbStartupReport>(
+      SyncDatabaseStartupReportNotifier.new,
+    );
+
+class SyncDatabaseStartupReportNotifier extends Notifier<DbStartupReport> {
+  SyncDatabaseStartupReportNotifier([this._initial]);
+
+  final DbStartupReport? _initial;
+
+  @override
+  DbStartupReport build() {
+    final initial = _initial;
+    if (initial != null) return initial;
+    throw UnimplementedError(
+      'syncDatabaseStartupReportStateProvider must be overridden by main.dart '
+      'with the sync DB probe result. See '
+      'docs/0.9.2-secure-storage-remediation.md §5.',
+    );
+  }
+
+  void setReport(DbStartupReport report) => state = report;
+}
+
+/// Riverpod provider exposing the current sync DB startup probe result.
 final syncDatabaseStartupProvider = Provider<DbStartupReport>((ref) {
-  throw UnimplementedError(
-    'syncDatabaseStartupProvider must be overridden by main.dart with the '
-    'sync DB probe result. See docs/0.9.2-secure-storage-remediation.md §5.',
-  );
+  return ref.watch(syncDatabaseStartupReportStateProvider);
 });
 
 /// Probe `prism_sync.db` at startup, returning a verified key in memory or

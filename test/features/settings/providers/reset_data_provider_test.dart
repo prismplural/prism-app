@@ -885,6 +885,33 @@ void main() {
       expect(await harness.syncShmFile.exists(), isFalse);
     });
 
+    test(
+      'sync reset clears stale unrecoverable startup probe for same-session setup',
+      () async {
+        final harness = await _ResetHarness.create(
+          syncStartupReportOverride: const DbStartupReport(
+            state: DbStartupState.unrecoverable,
+            keyInMemory: null,
+            usedRecoverySlot: null,
+            diagnostic: null,
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        expect(
+          harness.container.read(sync.syncDatabaseStartupProvider).state,
+          DbStartupState.unrecoverable,
+        );
+
+        await harness.reset(ResetCategory.sync);
+
+        final report = harness.container.read(sync.syncDatabaseStartupProvider);
+        expect(report.state, DbStartupState.ready);
+        expect(report.keyInMemory, isNull);
+        expect(report.usedRecoverySlot, 'fresh');
+      },
+    );
+
     test('sync reset records a local-only disconnect marker', () async {
       final harness = await _ResetHarness.create();
       addTearDown(harness.dispose);
@@ -2570,6 +2597,7 @@ class _ResetHarness {
     ffi.PrismSyncHandle? handleOverride,
     ResetSyncFfi? ffiOverride,
     ResetFileDeleteObserver? deleteObserver,
+    DbStartupReport? syncStartupReportOverride,
     bool dynamicDatabaseProvider = false,
     bool? isAndroidOverride,
     bool? requiresRestartAfterPairingWipeOverride,
@@ -2621,6 +2649,12 @@ class _ResetHarness {
           (ref) async => mediaCacheDir,
         ),
         resetSyncHandleProvider.overrideWithValue(handleOverride),
+        if (syncStartupReportOverride != null)
+          sync.syncDatabaseStartupReportStateProvider.overrideWith(
+            () => sync.SyncDatabaseStartupReportNotifier(
+              syncStartupReportOverride,
+            ),
+          ),
         if (isAndroidOverride != null)
           resetIsAndroidProvider.overrideWithValue(isAndroidOverride),
         if (requiresRestartAfterPairingWipeOverride != null)

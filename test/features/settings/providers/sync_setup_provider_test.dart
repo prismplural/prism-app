@@ -508,12 +508,14 @@ void main() {
         final container = makeContainer(
           handleNotifier: handleNotifier,
           overrides: [
-            syncDatabaseStartupProvider.overrideWithValue(
-              const DbStartupReport(
-                state: DbStartupState.unrecoverable,
-                keyInMemory: null,
-                usedRecoverySlot: null,
-                diagnostic: null,
+            syncDatabaseStartupReportStateProvider.overrideWith(
+              () => SyncDatabaseStartupReportNotifier(
+                const DbStartupReport(
+                  state: DbStartupState.unrecoverable,
+                  keyInMemory: null,
+                  usedRecoverySlot: null,
+                  diagnostic: null,
+                ),
               ),
             ),
           ],
