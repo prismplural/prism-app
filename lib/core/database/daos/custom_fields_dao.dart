@@ -167,8 +167,43 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
           ))
           .getSingleOrNull();
 
-  Future<int> upsertValue(CustomFieldValuesCompanion companion) =>
-      into(customFieldValues).insertOnConflictUpdate(companion);
+  Future<int> upsertValue(CustomFieldValuesCompanion companion) {
+    final id = companion.id.value;
+    final customFieldId = companion.customFieldId.value;
+    final memberId = companion.memberId.value;
+
+    return transaction(() async {
+      final activeLogical = await getValueForField(customFieldId, memberId);
+      if (activeLogical != null && activeLogical.id != id) {
+        final target = await (select(
+          customFieldValues,
+        )..where((v) => v.id.equals(id))).getSingleOrNull();
+        if (target != null) {
+          await (update(customFieldValues)
+                ..where((v) => v.id.equals(activeLogical.id)))
+              .write(const CustomFieldValuesCompanion(isDeleted: Value(true)));
+          return (update(
+            customFieldValues,
+          )..where((v) => v.id.equals(id))).write(companion);
+        }
+
+        return (update(
+          customFieldValues,
+        )..where((v) => v.id.equals(activeLogical.id))).write(companion);
+      }
+
+      final existing = await (select(
+        customFieldValues,
+      )..where((v) => v.id.equals(id))).getSingleOrNull();
+      if (existing != null) {
+        return (update(
+          customFieldValues,
+        )..where((v) => v.id.equals(id))).write(companion);
+      }
+
+      return into(customFieldValues).insert(companion);
+    });
+  }
 
   /// Batch-upsert custom-field values in a single Drift `batch()` round-trip.
   /// Mirrors the single-row [upsertValue]'s `insertOnConflictUpdate` policy so

@@ -21,9 +21,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 
 void main() {
+  tearDown(() {
+    SyncRecordMixin.debugClearStartupDeferredOpsForTesting();
+    syncAutoConfigureInProgress.value = false;
+    syncCurrentHandle.value = null;
+  });
+
   group('SyncRecordMixin.suppress', () {
     test(
       'short-circuits syncRecordCreate / Update / Delete inside body',
@@ -178,13 +185,48 @@ void main() {
     });
   });
 
+  group('SyncRecordMixin startup deferred ops', () {
+    test(
+      'queues record update when startup is configuring with no handle',
+      () async {
+        final repo = _ProbeRepository();
+        syncAutoConfigureInProgress.value = true;
+
+        await repo.syncRecordUpdate('members', 'm1', {
+          'avatar_image_data': 'base64-avatar',
+        });
+
+        expect(repo.handleAccessCount, 1);
+        expect(SyncRecordMixin.debugStartupDeferredOpCount, 1);
+      },
+    );
+
+    test('queues provisional-handle sync-not-configured failures', () async {
+      final repo = _FixedHandleRepository(const _FakePrismSyncHandle());
+      syncAutoConfigureInProgress.value = true;
+
+      await repo.debugRunWithConfiguredRetryForTesting(
+        const CapturedSyncOp('members', 'm1', SyncRecordOpType.update, {
+          'profile_header_image_data': 'base64-banner',
+        }),
+        (_) async => throw StateError('sync not configured'),
+      );
+
+      expect(SyncRecordMixin.debugStartupDeferredOpCount, 1);
+    });
+
+    test('keeps local-only null-handle behavior outside startup', () async {
+      final repo = _ProbeRepository();
+
+      await repo.syncRecordUpdate('members', 'm1', {'name': 'Later'});
+
+      expect(repo.handleAccessCount, 1);
+      expect(SyncRecordMixin.debugStartupDeferredOpCount, 0);
+    });
+  });
+
   group('SyncRecordMixin.suppressAndCapture', () {
-    // Phase 5 codex-review fix-up: `suppress` keeps its historical
-    // drop-emissions semantic. `suppressAndCapture` is the new API for the
-    // SP-import post-commit replay path. Nesting `suppress` inside
-    // `suppressAndCapture` must drop inner emissions (not bubble to the
-    // outer sink), and nested `suppressAndCapture` calls route inner
-    // emissions only to the innermost sink.
+    // `suppress` drops emissions; `suppressAndCapture` routes them to a sink.
 
     test('plain suppress drops emissions', () async {
       final repo = _ProbeRepository();
@@ -302,10 +344,7 @@ void main() {
   });
 
   group('SyncRecordMixin capture sink install/remove guard', () {
-    // Phase 0 codex-review fix-up: installCaptureSinkForTesting must throw
-    // StateError when a sink is already installed. Flutter's default test
-    // concurrency is >1 in the same isolate, so a silent overwrite would
-    // let two parity tests steal each other's emissions.
+    // Parallel tests must not overwrite each other's capture sink.
 
     tearDown(SyncRecordMixin.removeCaptureSinkForTesting);
 
@@ -349,6 +388,22 @@ class _ProbeRepository with SyncRecordMixin {
     handleAccessCount++;
     return null;
   }
+}
+
+class _FixedHandleRepository with SyncRecordMixin {
+  _FixedHandleRepository(this._handle);
+
+  final ffi.PrismSyncHandle _handle;
+
+  @override
+  ffi.PrismSyncHandle? get syncHandle => _handle;
+}
+
+class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
+  const _FakePrismSyncHandle();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 /// Test double whose `syncHandle` getter throws on access. The throw

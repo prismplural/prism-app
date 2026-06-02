@@ -762,9 +762,7 @@ class _ConfiguredView extends ConsumerWidget {
         ),
 
         // Recovery — verify saved backup
-        if (canSetUpAnotherDevice &&
-            nodeId != null &&
-            nodeId.isNotEmpty)
+        if (canSetUpAnotherDevice && nodeId != null && nodeId.isNotEmpty)
           PrismSection(
             title: 'Recovery',
             child: PrismGroupedSectionCard(
@@ -772,9 +770,8 @@ class _ConfiguredView extends ConsumerWidget {
                 icon: AppIcons.shieldOutlined,
                 title: context.l10n.verifyBackupRowTitle,
                 subtitle: context.l10n.verifyBackupRowSubtitle,
-                onTap: () => context.push(
-                  AppRoutePaths.settingsSyncVerifyBackup,
-                ),
+                onTap: () =>
+                    context.push(AppRoutePaths.settingsSyncVerifyBackup),
               ),
             ),
           ),
@@ -796,34 +793,52 @@ class _ConfiguredView extends ConsumerWidget {
           ),
         ),
 
-        // Quarantine section — only visible when there are stuck records
-        if (syncStatus.hasQuarantinedItems)
+        if (syncStatus.hasSyncIssues)
           PrismSection(
             title: context.l10n.syncIssuesSection,
             description: context.l10n.syncIssuesDescription,
             child: PrismGroupedSectionCard(
               child: Column(
                 children: [
-                  ...quarantinedAsync.whenOrNull(
-                        data: (items) => items
-                            .map((item) => _QuarantineItemTile(item: item))
-                            .toList(),
-                      ) ??
-                      [],
-                  if (quarantinedAsync.hasValue &&
-                      quarantinedAsync.value!.isNotEmpty)
+                  if (syncStatus.quarantinedBatchCount > 0)
+                    PrismSettingsRow(
+                      icon: AppIcons.warningAmberRounded,
+                      iconColor: Colors.amber.shade700,
+                      title: context.l10n.syncQuarantinedBatchBannerTitle(
+                        syncStatus.quarantinedBatchCount,
+                      ),
+                      subtitle: context.l10n.syncQuarantinedBatchBannerBody,
+                      onTap: () => context.push(
+                        AppRoutePaths.settingsSyncTroubleshooting,
+                      ),
+                    ),
+                  if (syncStatus.quarantinedBatchCount > 0 &&
+                      syncStatus.hasQuarantinedItems)
                     const Divider(height: 1),
-                  PrismListRow(
-                    title: Text(context.l10n.syncClearAll),
-                    destructive: true,
-                    onTap: () async {
-                      await ref.read(syncQuarantineServiceProvider).clearAll();
-                      ref.invalidate(quarantinedItemsProvider);
-                      ref
-                          .read(syncStatusProvider.notifier)
-                          .clearQuarantineFlag();
-                    },
-                  ),
+                  if (syncStatus.hasQuarantinedItems) ...[
+                    ...quarantinedAsync.whenOrNull(
+                          data: (items) => items
+                              .map((item) => _QuarantineItemTile(item: item))
+                              .toList(),
+                        ) ??
+                        [],
+                    if (quarantinedAsync.hasValue &&
+                        quarantinedAsync.value!.isNotEmpty)
+                      const Divider(height: 1),
+                    PrismListRow(
+                      title: Text(context.l10n.syncClearAll),
+                      destructive: true,
+                      onTap: () async {
+                        await ref
+                            .read(syncQuarantineServiceProvider)
+                            .clearAll();
+                        ref.invalidate(quarantinedItemsProvider);
+                        ref
+                            .read(syncStatusProvider.notifier)
+                            .clearQuarantineFlag();
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1149,8 +1164,7 @@ class _StatusCard extends StatelessWidget {
       statusIcon = AppIcons.sync;
       statusText = context.l10n.syncStatusSyncing;
       statusDetail = context.l10n.syncStatusSyncInProgress;
-    } else if (syncStatus.lastSyncAt != null &&
-        syncStatus.hasQuarantinedItems) {
+    } else if (syncStatus.lastSyncAt != null && syncStatus.hasSyncIssues) {
       statusColor = Colors.amber.shade700;
       statusIcon = AppIcons.cloudDone;
       statusText = context.l10n.syncStatusSyncedWithIssues;

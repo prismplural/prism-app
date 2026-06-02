@@ -160,7 +160,7 @@ class SettingsScreen extends ConsumerWidget {
                       title: context.l10n.settingsSync,
                       statusIcon: syncStatus.lastError != null
                           ? (icon: AppIcons.errorOutline, color: Colors.red)
-                          : syncStatus.hasQuarantinedItems
+                          : syncStatus.hasSyncIssues
                           ? (
                               icon: AppIcons.warningAmber,
                               color: Colors.amber.shade700,

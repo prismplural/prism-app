@@ -5,6 +5,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/custom_field_namespaces.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart' as database;
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
@@ -390,6 +391,80 @@ void main() {
       );
     },
   );
+
+  test(
+    'custom_field_values applyFields merges active logical row with different '
+    'remote id',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final adapter = buildSyncAdapterWithCompletion(db).adapter;
+      final values = adapter.entities.singleWhere(
+        (entity) => entity.tableName == 'custom_field_values',
+      );
+
+      await db
+          .into(db.customFieldValues)
+          .insert(
+            database.CustomFieldValuesCompanion.insert(
+              id: 'local-random-value',
+              customFieldId: 'field-1',
+              memberId: 'member-1',
+              value: 'local',
+            ),
+          );
+
+      await values.applyFields('remote-random-value', {
+        'custom_field_id': 'field-1',
+        'member_id': 'member-1',
+        'value': 'remote',
+        'is_deleted': false,
+      });
+
+      final rows = await db.select(db.customFieldValues).get();
+      expect(rows, hasLength(1));
+      expect(rows.single.id, 'local-random-value');
+      expect(rows.single.value, 'remote');
+    },
+  );
+
+  test('custom_field_values applyFields canonicalizes active logical row when '
+      'remote id is deterministic', () async {
+    final db = database.AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final adapter = buildSyncAdapterWithCompletion(db).adapter;
+    final values = adapter.entities.singleWhere(
+      (entity) => entity.tableName == 'custom_field_values',
+    );
+    final deterministicId = deriveCustomFieldValueId(
+      customFieldId: 'field-1',
+      memberId: 'member-1',
+    );
+
+    await db
+        .into(db.customFieldValues)
+        .insert(
+          database.CustomFieldValuesCompanion.insert(
+            id: 'local-random-value',
+            customFieldId: 'field-1',
+            memberId: 'member-1',
+            value: 'local',
+          ),
+        );
+
+    await values.applyFields(deterministicId, {
+      'custom_field_id': 'field-1',
+      'member_id': 'member-1',
+      'value': 'remote',
+      'is_deleted': false,
+    });
+
+    final rows = await db.select(db.customFieldValues).get();
+    expect(rows, hasLength(1));
+    expect(rows.single.id, deterministicId);
+    expect(rows.single.value, 'remote');
+    expect(await values.readRow(deterministicId), isNotNull);
+  });
 
   test(
     'remote tombstones for unknown rows do not abort pairing apply',

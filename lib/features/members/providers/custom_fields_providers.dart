@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/constants/custom_field_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/data/repositories/drift_custom_fields_repository.dart';
 import 'package:prism_plurality/domain/custom_fields/custom_fields_exceptions.dart';
@@ -281,8 +282,6 @@ final customFieldNotifierProvider =
 
 /// Notifier for custom field value mutations.
 class CustomFieldValueNotifier extends AsyncNotifier<void> {
-  static const _uuid = Uuid();
-
   @override
   Future<void> build() async {}
 
@@ -303,11 +302,12 @@ class CustomFieldValueNotifier extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
       try {
-        final existing = existingId == null
-            ? await repo.getValueForField(customFieldId, memberId)
-            : null;
+        final deterministicId = deriveCustomFieldValueId(
+          customFieldId: customFieldId,
+          memberId: memberId,
+        );
         final fieldValue = CustomFieldValue(
-          id: existingId ?? existing?.id ?? _uuid.v4(),
+          id: deterministicId,
           customFieldId: customFieldId,
           memberId: memberId,
           value: value,

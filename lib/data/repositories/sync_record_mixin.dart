@@ -59,8 +59,8 @@ typedef SyncRecordCaptureSink = void Function(CapturedSyncOp op);
 mixin SyncRecordMixin {
   ffi.PrismSyncHandle? get syncHandle;
 
-  static const int _notConfiguredRetryAttempts = 10;
-  static const Duration _notConfiguredRetryDelay = Duration(milliseconds: 100);
+  static final List<CapturedSyncOp> _startupDeferredOps = <CapturedSyncOp>[];
+  static bool _flushingStartupDeferredOps = false;
 
   /// While `true`, every `syncRecord*` call short-circuits before the FFI.
   /// Toggled exclusively via [suppress]; never written directly.
@@ -114,6 +114,15 @@ mixin SyncRecordMixin {
   /// this to assert clean install/remove pairing.
   @visibleForTesting
   static bool get hasCaptureSink => _captureSink != null;
+
+  @visibleForTesting
+  static int get debugStartupDeferredOpCount => _startupDeferredOps.length;
+
+  @visibleForTesting
+  static void debugClearStartupDeferredOpsForTesting() {
+    _startupDeferredOps.clear();
+    _flushingStartupDeferredOps = false;
+  }
 
   /// Install a [SyncRecordCaptureSink]. Always returns `null` (the previous
   /// sink slot must be empty — see below).
@@ -231,28 +240,89 @@ mixin SyncRecordMixin {
   static bool _isNotConfigured(Object error) =>
       error.toString().contains('sync not configured');
 
+  static void _deferStartupOp(CapturedSyncOp op) {
+    _startupDeferredOps.add(op);
+  }
+
+  /// Replay sync emissions captured while startup configuration was in flight.
+  static Future<void> flushStartupDeferredOps(
+    ffi.PrismSyncHandle handle,
+  ) async {
+    if (_flushingStartupDeferredOps || _startupDeferredOps.isEmpty) return;
+    _flushingStartupDeferredOps = true;
+    try {
+      while (_startupDeferredOps.isNotEmpty) {
+        final op = _startupDeferredOps.removeAt(0);
+        try {
+          await _dispatchCapturedOp(handle, op);
+        } catch (e, st) {
+          ErrorReportingService.instance.report(
+            'Deferred sync ${op.opType.name} failed: $e',
+            severity: ErrorSeverity.error,
+            stackTrace: st,
+          );
+        }
+      }
+    } finally {
+      _flushingStartupDeferredOps = false;
+    }
+  }
+
+  static Future<void> _dispatchCapturedOp(
+    ffi.PrismSyncHandle handle,
+    CapturedSyncOp op,
+  ) {
+    final payload = jsonEncode(op.fields);
+    return switch (op.opType) {
+      SyncRecordOpType.create => ffi.recordCreate(
+        handle: handle,
+        table: op.table,
+        entityId: op.entityId,
+        fieldsJson: payload,
+      ),
+      SyncRecordOpType.update => ffi.recordUpdate(
+        handle: handle,
+        table: op.table,
+        entityId: op.entityId,
+        changedFieldsJson: payload,
+      ),
+      SyncRecordOpType.delete => ffi.recordDelete(
+        handle: handle,
+        table: op.table,
+        entityId: op.entityId,
+      ),
+    };
+  }
+
   Future<void> _runWithConfiguredRetry(
+    CapturedSyncOp op,
     Future<void> Function(ffi.PrismSyncHandle handle) attempt,
   ) async {
-    for (var i = 0; i < _notConfiguredRetryAttempts; i++) {
-      final handle = syncHandle;
-      if (handle == null) return;
-      try {
-        await attempt(handle);
-        return;
-      } catch (e) {
-        if (!_isNotConfigured(e)) {
-          rethrow;
-        }
-        if (!syncAutoConfigureInProgress.value) {
-          return;
-        }
-        if (i == _notConfiguredRetryAttempts - 1) {
-          return;
-        }
-        await Future<void>.delayed(_notConfiguredRetryDelay);
+    final handle = syncCurrentHandle.value ?? syncHandle;
+    if (handle == null) {
+      if (syncAutoConfigureInProgress.value) {
+        _deferStartupOp(op);
+      }
+      return;
+    }
+    try {
+      await attempt(handle);
+    } catch (e) {
+      if (!_isNotConfigured(e)) {
+        rethrow;
+      }
+      if (syncAutoConfigureInProgress.value) {
+        _deferStartupOp(op);
       }
     }
+  }
+
+  @visibleForTesting
+  Future<void> debugRunWithConfiguredRetryForTesting(
+    CapturedSyncOp op,
+    Future<void> Function(ffi.PrismSyncHandle handle) attempt,
+  ) {
+    return _runWithConfiguredRetry(op, attempt);
   }
 
   Future<void> syncRecordCreate(
@@ -260,35 +330,27 @@ mixin SyncRecordMixin {
     String entityId,
     Map<String, dynamic> fields,
   ) async {
+    final op = CapturedSyncOp(
+      table,
+      entityId,
+      SyncRecordOpType.create,
+      Map<String, dynamic>.of(fields),
+    );
     if (_suppressed) {
       final captureSink = _suppressCapture;
       if (captureSink != null) {
-        captureSink(
-          CapturedSyncOp(
-            table,
-            entityId,
-            SyncRecordOpType.create,
-            Map<String, dynamic>.of(fields),
-          ),
-        );
+        captureSink(op);
       }
       return;
     }
     final sink = _captureSink;
     if (sink != null) {
-      sink(
-        CapturedSyncOp(
-          table,
-          entityId,
-          SyncRecordOpType.create,
-          Map<String, dynamic>.of(fields),
-        ),
-      );
+      sink(op);
       return;
     }
     final payload = jsonEncode(fields);
     try {
-      await _runWithConfiguredRetry((handle) {
+      await _runWithConfiguredRetry(op, (handle) {
         return ffi.recordCreate(
           handle: handle,
           table: table,
@@ -316,35 +378,27 @@ mixin SyncRecordMixin {
     String entityId,
     Map<String, dynamic> fields,
   ) async {
+    final op = CapturedSyncOp(
+      table,
+      entityId,
+      SyncRecordOpType.update,
+      Map<String, dynamic>.of(fields),
+    );
     if (_suppressed) {
       final captureSink = _suppressCapture;
       if (captureSink != null) {
-        captureSink(
-          CapturedSyncOp(
-            table,
-            entityId,
-            SyncRecordOpType.update,
-            Map<String, dynamic>.of(fields),
-          ),
-        );
+        captureSink(op);
       }
       return;
     }
     final sink = _captureSink;
     if (sink != null) {
-      sink(
-        CapturedSyncOp(
-          table,
-          entityId,
-          SyncRecordOpType.update,
-          Map<String, dynamic>.of(fields),
-        ),
-      );
+      sink(op);
       return;
     }
     final payload = jsonEncode(fields);
     try {
-      await _runWithConfiguredRetry((handle) {
+      await _runWithConfiguredRetry(op, (handle) {
         return ffi.recordUpdate(
           handle: handle,
           table: table,
@@ -364,34 +418,26 @@ mixin SyncRecordMixin {
   }
 
   Future<void> syncRecordDelete(String table, String entityId) async {
+    final op = CapturedSyncOp(
+      table,
+      entityId,
+      SyncRecordOpType.delete,
+      const <String, dynamic>{},
+    );
     if (_suppressed) {
       final captureSink = _suppressCapture;
       if (captureSink != null) {
-        captureSink(
-          CapturedSyncOp(
-            table,
-            entityId,
-            SyncRecordOpType.delete,
-            const <String, dynamic>{},
-          ),
-        );
+        captureSink(op);
       }
       return;
     }
     final sink = _captureSink;
     if (sink != null) {
-      sink(
-        CapturedSyncOp(
-          table,
-          entityId,
-          SyncRecordOpType.delete,
-          const <String, dynamic>{},
-        ),
-      );
+      sink(op);
       return;
     }
     try {
-      await _runWithConfiguredRetry((handle) {
+      await _runWithConfiguredRetry(op, (handle) {
         return ffi.recordDelete(
           handle: handle,
           table: table,

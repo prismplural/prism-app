@@ -86,6 +86,12 @@ void main() {
     expect(next.hasQuarantinedItems, isTrue);
   });
 
+  test('SyncStatus treats push quarantine as a sync issue', () {
+    expect(const SyncStatus().hasSyncIssues, isFalse);
+    expect(const SyncStatus(hasQuarantinedItems: true).hasSyncIssues, isTrue);
+    expect(const SyncStatus(quarantinedBatchCount: 1).hasSyncIssues, isTrue);
+  });
+
   test('syncStatusAfterCompleted treats empty-string error as success', () {
     final completedAt = DateTime.utc(2026, 3, 18, 12, 10, 0);
 
@@ -1351,15 +1357,18 @@ void main() {
       );
     });
 
-    test('confirmedRevoked when this device is present with revoked status', () {
-      expect(
-        interpretDeviceRegistryForSelf(
-          devices: [device('self', 'revoked')],
-          currentDeviceId: 'self',
-        ),
-        RevokeConfirmation.confirmedRevoked,
-      );
-    });
+    test(
+      'confirmedRevoked when this device is present with revoked status',
+      () {
+        expect(
+          interpretDeviceRegistryForSelf(
+            devices: [device('self', 'revoked')],
+            currentDeviceId: 'self',
+          ),
+          RevokeConfirmation.confirmedRevoked,
+        );
+      },
+    );
 
     test('confirmedRevoked when this device is absent from a listing', () {
       expect(
@@ -1411,40 +1420,43 @@ void main() {
       expect(health, SyncHealthState.healthy);
     });
 
-    test('failed onResume reconfigures + retries, recovers to healthy', () async {
-      var health = SyncHealthState.healthy;
-      var onResumeCalls = 0;
-      var configureCalls = 0;
-      var triggerCalls = 0;
-      final transitions = <SyncHealthState>[];
+    test(
+      'failed onResume reconfigures + retries, recovers to healthy',
+      () async {
+        var health = SyncHealthState.healthy;
+        var onResumeCalls = 0;
+        var configureCalls = 0;
+        var triggerCalls = 0;
+        final transitions = <SyncHealthState>[];
 
-      await runResumeSyncNudge(
-        onResume: () async {
-          onResumeCalls++;
-          if (onResumeCalls == 1) {
-            throw Exception('PanicException(failed printing to stderr)');
-          }
-        },
-        configureEngine: () async => configureCalls++,
-        triggerSync: () => triggerCalls++,
-        takeLastPanic: () async => 'api.rs:42:5: real cause',
-        readHealth: () => health,
-        setHealth: (s) {
-          health = s;
-          transitions.add(s);
-        },
-        log: (_) {},
-      );
+        await runResumeSyncNudge(
+          onResume: () async {
+            onResumeCalls++;
+            if (onResumeCalls == 1) {
+              throw Exception('PanicException(failed printing to stderr)');
+            }
+          },
+          configureEngine: () async => configureCalls++,
+          triggerSync: () => triggerCalls++,
+          takeLastPanic: () async => 'api.rs:42:5: real cause',
+          readHealth: () => health,
+          setHealth: (s) {
+            health = s;
+            transitions.add(s);
+          },
+          log: (_) {},
+        );
 
-      expect(onResumeCalls, 2, reason: 'retried after reconfigure');
-      expect(configureCalls, 1, reason: 'reconfigured relay before retry');
-      expect(triggerCalls, 1, reason: 'sync kicked after successful retry');
-      expect(transitions, [
-        SyncHealthState.reconnecting,
-        SyncHealthState.healthy,
-      ]);
-      expect(health, SyncHealthState.healthy);
-    });
+        expect(onResumeCalls, 2, reason: 'retried after reconfigure');
+        expect(configureCalls, 1, reason: 'reconfigured relay before retry');
+        expect(triggerCalls, 1, reason: 'sync kicked after successful retry');
+        expect(transitions, [
+          SyncHealthState.reconnecting,
+          SyncHealthState.healthy,
+        ]);
+        expect(health, SyncHealthState.healthy);
+      },
+    );
 
     test('persistent failure stays reconnecting, never disconnected', () async {
       var health = SyncHealthState.healthy;

@@ -11,12 +11,17 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/settings_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 import '../../../helpers/fake_repositories.dart';
 
-class _IdleSyncStatusNotifier extends SyncStatusNotifier {
+class _StubSyncStatusNotifier extends SyncStatusNotifier {
+  _StubSyncStatusNotifier(this._status);
+
+  final SyncStatus _status;
+
   @override
-  SyncStatus build() => const SyncStatus();
+  SyncStatus build() => _status;
 }
 
 void main() {
@@ -36,6 +41,7 @@ void main() {
   Widget buildSubject({
     List<Member>? subjectMembers,
     bool hideTotalMemberCount = false,
+    SyncStatus syncStatus = const SyncStatus(),
   }) {
     final appPrefs = FakeAppPreferenceRepository();
     if (hideTotalMemberCount) {
@@ -53,7 +59,9 @@ void main() {
         activeMembersProvider.overrideWith(
           (ref) => Stream<List<Member>>.value(subjectMembers ?? members),
         ),
-        syncStatusProvider.overrideWith(_IdleSyncStatusNotifier.new),
+        syncStatusProvider.overrideWith(
+          () => _StubSyncStatusNotifier(syncStatus),
+        ),
       ],
       child: const MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -92,6 +100,20 @@ void main() {
 
       expect(find.text('9 headmates'), findsNothing);
       expect(find.text('+1'), findsNothing);
+    });
+
+    testWidgets('shows sync warning for push-quarantined batches', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildSubject(syncStatus: const SyncStatus(quarantinedBatchCount: 1)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Prism Sync'), 300);
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(AppIcons.warningAmber), findsOneWidget);
     });
   });
 }

@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:prism_sync_drift/prism_sync_drift.dart';
 
+import 'package:prism_plurality/core/constants/custom_field_namespaces.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
@@ -472,6 +473,68 @@ Future<void> _insertOrUpdateById<T extends Table, D>(
   }
 
   await (db.update(table)..where(matchesId)).write(companion);
+}
+
+Future<void> _insertOrUpdateCustomFieldValueForApply(
+  AppDatabase db,
+  String id,
+  CustomFieldValuesCompanion companion,
+  Map<String, dynamic> fields,
+) async {
+  final customFieldId = _asString(fields['custom_field_id']);
+  final memberId = _asString(fields['member_id']);
+  var targetId = id;
+  CustomFieldValueRow? existingLogical;
+  if (customFieldId != null && memberId != null) {
+    final deterministicId = deriveCustomFieldValueId(
+      customFieldId: customFieldId,
+      memberId: memberId,
+    );
+    existingLogical =
+        await (db.select(db.customFieldValues)..where(
+              (t) =>
+                  t.customFieldId.equals(customFieldId) &
+                  t.memberId.equals(memberId) &
+                  t.isDeleted.equals(false),
+            ))
+            .getSingleOrNull();
+    if (existingLogical != null) {
+      targetId = id == deterministicId || existingLogical.id == deterministicId
+          ? deterministicId
+          : existingLogical.id;
+    }
+  }
+  final targetCompanion = targetId == id
+      ? companion
+      : companion.copyWith(id: Value(targetId));
+
+  final existingByTarget = await (db.select(
+    db.customFieldValues,
+  )..where((t) => t.id.equals(targetId))).getSingleOrNull();
+  if (existingLogical != null && existingLogical.id != targetId) {
+    if (existingByTarget != null) {
+      await (db.update(db.customFieldValues)
+            ..where((t) => t.id.equals(existingLogical!.id)))
+          .write(const CustomFieldValuesCompanion(isDeleted: Value(true)));
+      await (db.update(
+        db.customFieldValues,
+      )..where((t) => t.id.equals(targetId))).write(targetCompanion);
+    } else {
+      await (db.update(
+        db.customFieldValues,
+      )..where((t) => t.id.equals(existingLogical!.id))).write(targetCompanion);
+    }
+    return;
+  }
+
+  if (existingByTarget != null) {
+    await (db.update(
+      db.customFieldValues,
+    )..where((t) => t.id.equals(targetId))).write(targetCompanion);
+    return;
+  }
+
+  await db.into(db.customFieldValues).insertOnConflictUpdate(targetCompanion);
 }
 
 /// Sync-inbound normalization for a `custom_fields.parent_field_id` value.
@@ -3541,12 +3604,7 @@ DriftSyncEntity _customFieldValuesEntity(
         value: f.stringField('value'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await _insertOrUpdateById(
-        db,
-        db.customFieldValues,
-        companion,
-        (t) => t.id.equals(id),
-      );
+      await _insertOrUpdateCustomFieldValueForApply(db, id, companion, fields);
     },
     hardDelete: (String id) async {
       await (db.delete(

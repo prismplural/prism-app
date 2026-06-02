@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/custom_field_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart' as db;
 import 'package:prism_plurality/core/database/daos/custom_fields_dao.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
@@ -31,11 +32,15 @@ class _RecordingCustomFieldsDao extends CustomFieldsDao {
 
 void main() {
   test(
-    'setValue updates the existing field/member row when stream is stale',
+    'setValue canonicalizes the existing field/member row when stream is stale',
     () async {
       final database = db.AppDatabase(NativeDatabase.memory());
       addTearDown(database.close);
       final repo = DriftCustomFieldsRepository(database.customFieldsDao, null);
+      final expectedId = deriveCustomFieldValueId(
+        customFieldId: 'field-1',
+        memberId: 'member-1',
+      );
       const existing = CustomFieldValue(
         id: 'existing-value',
         customFieldId: 'field-1',
@@ -58,8 +63,12 @@ void main() {
 
       final values = await database.customFieldsDao.getAllValues();
       expect(values, hasLength(1));
-      expect(values.single.id, 'existing-value');
+      expect(values.single.id, expectedId);
       expect(values.single.value, 'new');
+
+      final rawRows = await database.select(database.customFieldValues).get();
+      expect(rawRows, hasLength(1));
+      expect(rawRows.single.id, expectedId);
     },
   );
 

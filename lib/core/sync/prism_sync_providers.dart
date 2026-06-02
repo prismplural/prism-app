@@ -43,6 +43,7 @@ import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_cat
 import 'package:prism_plurality/features/migration/services/sp_boards_backfill_service.dart';
 import 'package:prism_plurality/features/migration/services/group_chat_visibility_sync_reemit_service.dart';
 import 'package:prism_plurality/features/migration/services/sp_reply_quote_backfill_service.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 
@@ -50,9 +51,8 @@ import 'package:prism_plurality/data/repositories/drift_system_settings_reposito
 // persistence (seed/drain), health state machine, and sync event routing.
 //
 // Keychain keys (all prefixed prism_sync.*) are written by both Dart (during
-// setup/pairing) and Rust FFI (drainRustStore). If you rename a key here, also
-// update the Rust SecureStore drain in prism-sync-ffi/src/api.rs and the key
-// table in app/CLAUDE.md.
+// setup/pairing) and Rust FFI (drainRustStore). If you rename a key here,
+// update the Rust SecureStore drain in prism-sync-ffi/src/api.rs too.
 //
 // Signal model: a device-bound wrapped runtime DEK is cached after first
 // Argon2id unlock so subsequent launches can fast-restore without the
@@ -561,6 +561,9 @@ Future<void> wipeSyncDatabaseForRepair({
   // 2. Stop any in-flight sync handle. workmanager jobs are currently
   //    disabled — when re-enabled, cancel via Workmanager().cancelAll().
   try {
+    if (identical(syncCurrentHandle.value, currentHandle)) {
+      syncCurrentHandle.value = null;
+    }
     currentHandle?.dispose();
   } catch (e) {
     debugPrint('[SYNC_WIPE] handle.dispose() threw (continuing): $e');
@@ -648,6 +651,9 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // `state.value` inside onDispose — Riverpod forbids accessing state
     // inside lifecycle callbacks.
     ref.onDispose(() {
+      if (identical(syncCurrentHandle.value, _handle)) {
+        syncCurrentHandle.value = null;
+      }
       _handle?.dispose();
       _handle = null;
     });
@@ -722,6 +728,9 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       );
       if (identical(_handle, previousHandle)) {
         _handle = null;
+        if (identical(syncCurrentHandle.value, previousHandle)) {
+          syncCurrentHandle.value = null;
+        }
         state = const AsyncData(null);
       }
       discardedUnpairedDb = true;
@@ -800,6 +809,7 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       previousHandle.dispose();
     }
     _handle = handle;
+    syncCurrentHandle.value = handle;
     state = AsyncData(handle);
 
     // Auto-configure sync engine if credentials already exist (app restart).
@@ -872,6 +882,8 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // Persist any Rust state changes from configureEngine (prevents credential
     // loss if the app crashes before an explicit drain happens).
     if (health == SyncHealthState.healthy) {
+      await SyncRecordMixin.flushStartupDeferredOps(handle);
+
       // Refresh the runtime cache and app DB key now that runtime keys are
       // restored.
       try {
@@ -949,6 +961,7 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       final health = await _autoConfigureIfReady(handle);
       ref.read(syncHealthProvider.notifier).setState(health);
       if (health == SyncHealthState.healthy) {
+        await SyncRecordMixin.flushStartupDeferredOps(handle);
         await runPostHealthySyncCatchUp(
           handle: handle,
           db: ref.read(databaseProvider),
@@ -1419,6 +1432,9 @@ Future<void> _discardUnpairedSyncDatabase({
   ffi.PrismSyncHandle? currentHandle,
 }) async {
   try {
+    if (identical(syncCurrentHandle.value, currentHandle)) {
+      syncCurrentHandle.value = null;
+    }
     currentHandle?.dispose();
   } catch (e) {
     debugPrint('[SYNC] handle.dispose() before unpaired DB discard threw: $e');
@@ -3934,6 +3950,8 @@ class SyncStatus {
     this.hasQuarantinedItems = false,
     this.quarantinedBatchCount = 0,
   });
+
+  bool get hasSyncIssues => hasQuarantinedItems || quarantinedBatchCount > 0;
 
   SyncStatus copyWith({
     bool? isSyncing,
