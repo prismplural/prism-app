@@ -7609,6 +7609,54 @@
   "@pollsRemoveOptionTooltip": {
     "description": "Tooltip for the remove option button in create poll"
   },
+  "pollsOptionColorTitle": "Option color",
+  "@pollsOptionColorTitle": {
+    "description": "Title of the full color picker dialog for a poll option's color"
+  },
+  "pollsOptionColorNone": "No color",
+  "@pollsOptionColorNone": {
+    "description": "Label for the swatch that clears a poll option's color"
+  },
+  "pollsOptionColorCustom": "Custom color",
+  "@pollsOptionColorCustom": {
+    "description": "Label for the swatch that opens the full custom color picker for a poll option"
+  },
+  "pollsOptionColorRed": "Red",
+  "@pollsOptionColorRed": {
+    "description": "Name of the red quick-pick swatch for a poll option color"
+  },
+  "pollsOptionColorOrange": "Orange",
+  "@pollsOptionColorOrange": {
+    "description": "Name of the orange quick-pick swatch for a poll option color"
+  },
+  "pollsOptionColorYellow": "Yellow",
+  "@pollsOptionColorYellow": {
+    "description": "Name of the yellow quick-pick swatch for a poll option color"
+  },
+  "pollsOptionColorGreen": "Green",
+  "@pollsOptionColorGreen": {
+    "description": "Name of the green quick-pick swatch for a poll option color"
+  },
+  "pollsOptionColorCyan": "Cyan",
+  "@pollsOptionColorCyan": {
+    "description": "Name of the cyan quick-pick swatch for a poll option color"
+  },
+  "pollsOptionColorBlue": "Blue",
+  "@pollsOptionColorBlue": {
+    "description": "Name of the blue quick-pick swatch for a poll option color"
+  },
+  "pollsOptionColorViolet": "Violet",
+  "@pollsOptionColorViolet": {
+    "description": "Name of the violet quick-pick swatch for a poll option color"
+  },
+  "pollsOptionColorPink": "Pink",
+  "@pollsOptionColorPink": {
+    "description": "Name of the pink quick-pick swatch for a poll option color"
+  },
+  "pollsOptionColorGray": "Gray",
+  "@pollsOptionColorGray": {
+    "description": "Name of the gray quick-pick swatch for a poll option color"
+  },
   "pollsAddOption": "Add option",
   "@pollsAddOption": {
     "description": "Button label to add another poll option"

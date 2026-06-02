@@ -9540,6 +9540,78 @@ abstract class AppLocalizations {
   /// **'Remove option'**
   String get pollsRemoveOptionTooltip;
 
+  /// Title of the full color picker dialog for a poll option's color
+  ///
+  /// In en, this message translates to:
+  /// **'Option color'**
+  String get pollsOptionColorTitle;
+
+  /// Label for the swatch that clears a poll option's color
+  ///
+  /// In en, this message translates to:
+  /// **'No color'**
+  String get pollsOptionColorNone;
+
+  /// Label for the swatch that opens the full custom color picker for a poll option
+  ///
+  /// In en, this message translates to:
+  /// **'Custom color'**
+  String get pollsOptionColorCustom;
+
+  /// Name of the red quick-pick swatch for a poll option color
+  ///
+  /// In en, this message translates to:
+  /// **'Red'**
+  String get pollsOptionColorRed;
+
+  /// Name of the orange quick-pick swatch for a poll option color
+  ///
+  /// In en, this message translates to:
+  /// **'Orange'**
+  String get pollsOptionColorOrange;
+
+  /// Name of the yellow quick-pick swatch for a poll option color
+  ///
+  /// In en, this message translates to:
+  /// **'Yellow'**
+  String get pollsOptionColorYellow;
+
+  /// Name of the green quick-pick swatch for a poll option color
+  ///
+  /// In en, this message translates to:
+  /// **'Green'**
+  String get pollsOptionColorGreen;
+
+  /// Name of the cyan quick-pick swatch for a poll option color
+  ///
+  /// In en, this message translates to:
+  /// **'Cyan'**
+  String get pollsOptionColorCyan;
+
+  /// Name of the blue quick-pick swatch for a poll option color
+  ///
+  /// In en, this message translates to:
+  /// **'Blue'**
+  String get pollsOptionColorBlue;
+
+  /// Name of the violet quick-pick swatch for a poll option color
+  ///
+  /// In en, this message translates to:
+  /// **'Violet'**
+  String get pollsOptionColorViolet;
+
+  /// Name of the pink quick-pick swatch for a poll option color
+  ///
+  /// In en, this message translates to:
+  /// **'Pink'**
+  String get pollsOptionColorPink;
+
+  /// Name of the gray quick-pick swatch for a poll option color
+  ///
+  /// In en, this message translates to:
+  /// **'Gray'**
+  String get pollsOptionColorGray;
+
   /// Button label to add another poll option
   ///
   /// In en, this message translates to:

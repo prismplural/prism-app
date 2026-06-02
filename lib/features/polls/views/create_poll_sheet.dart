@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -13,7 +15,9 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_color_picker_dialog.dart';
 import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -125,6 +129,33 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
         time.minute,
       );
     });
+  }
+
+  /// Opens the full color picker for option [index]. Runs from the state so the
+  /// async dialog is `mounted`-guarded; option colors are bare hex, so the
+  /// picker's `#RRGGBB` result has its `#` stripped.
+  Future<void> _pickCustomColor(int index) async {
+    final current = _optionColors[index];
+    Color initialColor;
+    try {
+      initialColor = current != null
+          ? Color(int.parse('FF$current', radix: 16))
+          : Theme.of(context).colorScheme.primary;
+    } catch (_) {
+      initialColor = Theme.of(context).colorScheme.primary;
+    }
+
+    final picked = await showPrismColorPickerDialog(
+      context: context,
+      initialColor: initialColor,
+      title: context.l10n.pollsOptionColorTitle,
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      _optionColors[index] = picked.replaceFirst('#', '').toUpperCase();
+    });
+    Haptics.selection();
   }
 
   Future<void> _createPoll() async {
@@ -249,8 +280,10 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                             _OptionColorDot(
                               colorHex: _optionColors[i],
                               onColorSelected: (hex) {
+                                Haptics.selection();
                                 setState(() => _optionColors[i] = hex);
                               },
+                              onCustomRequested: () => _pickCustomColor(i),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -362,16 +395,22 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
   }
 }
 
-/// A small color dot that opens a palette popover for choosing option colors.
+/// A color dot that opens a popover of quick [_palette] swatches plus a custom
+/// tile. Swatches report a bare-hex value (or null) via [onColorSelected]; the
+/// custom flow is delegated to [onCustomRequested] so its dialog runs in the
+/// `mounted` parent state.
 class _OptionColorDot extends StatelessWidget {
   const _OptionColorDot({
     required this.colorHex,
     required this.onColorSelected,
+    required this.onCustomRequested,
   });
 
   final String? colorHex;
   final ValueChanged<String?> onColorSelected;
+  final VoidCallback onCustomRequested;
 
+  /// Quick-pick swatches as bare uppercase `RRGGBB` hex. `null` is "no color".
   static const _palette = [
     null, // no color
     'EF4444', // red
@@ -385,77 +424,184 @@ class _OptionColorDot extends StatelessWidget {
     '6B7280', // gray
   ];
 
-  Color _parseColor(String hex) {
-    return Color(int.parse('FF$hex', radix: 16));
+  Color _parseColor(String hex) => Color(int.parse('FF$hex', radix: 16));
+
+  /// Uppercased so swatch matching is case-insensitive.
+  String? get _selectedHex => colorHex?.toUpperCase();
+
+  /// True when the color isn't a quick swatch, so the custom tile shows selected.
+  bool get _isCustom =>
+      _selectedHex != null && !_palette.contains(_selectedHex);
+
+  String _swatchLabel(BuildContext context, String? hex) {
+    final l10n = context.l10n;
+    return switch (hex) {
+      null => l10n.pollsOptionColorNone,
+      'EF4444' => l10n.pollsOptionColorRed,
+      'F97316' => l10n.pollsOptionColorOrange,
+      'EAB308' => l10n.pollsOptionColorYellow,
+      '22C55E' => l10n.pollsOptionColorGreen,
+      '06B6D4' => l10n.pollsOptionColorCyan,
+      '3B82F6' => l10n.pollsOptionColorBlue,
+      '8B5CF6' => l10n.pollsOptionColorViolet,
+      'EC4899' => l10n.pollsOptionColorPink,
+      '6B7280' => l10n.pollsOptionColorGray,
+      _ => '#$hex',
+    };
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final shapes = PrismShapes.of(context);
     final dotColor = colorHex != null
         ? _parseColor(colorHex!)
         : theme.colorScheme.outlineVariant;
 
     return BlurPopupAnchor(
       itemCount: 1,
-      width: 200,
-      maxHeight: 120,
+      width: 248,
+      maxHeight: 260,
+      semanticLabel: context.l10n.pollsOptionColorTitle,
       itemBuilder: (context, index, close) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
             for (final hex in _palette)
-              GestureDetector(
+              _PollColorSwatch(
+                label: _swatchLabel(context, hex),
+                color: hex != null ? _parseColor(hex) : null,
+                isSelected: hex == _selectedHex,
                 onTap: () {
                   onColorSelected(hex);
                   close();
                 },
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    shape: PrismShapes.of(context).avatarShape(),
-                    borderRadius: PrismShapes.of(context).avatarBorderRadius(),
-                    color: hex != null
-                        ? _parseColor(hex)
-                        : theme.colorScheme.surfaceContainerHighest,
-                    border: hex == colorHex
-                        ? Border.all(
-                            color: theme.colorScheme.primary,
-                            width: 2.5,
-                          )
-                        : null,
-                  ),
-                  child: hex == null
-                      ? Icon(
-                          AppIcons.block,
-                          size: 16,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        )
-                      : null,
-                ),
               ),
+            _PollColorSwatch(
+              label: context.l10n.pollsOptionColorCustom,
+              color: _isCustom ? _parseColor(colorHex!) : null,
+              isSelected: _isCustom,
+              isCustom: true,
+              onTap: () {
+                // Close before the dialog so the two overlays don't stack.
+                close();
+                onCustomRequested();
+              },
+            ),
           ],
         ),
       ),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          shape: PrismShapes.of(context).avatarShape(),
-          borderRadius: PrismShapes.of(context).avatarBorderRadius(),
-          color: colorHex != null ? _parseColor(colorHex!) : null,
-          border: Border.all(color: dotColor, width: 2),
+      child: Tooltip(
+        message: context.l10n.pollsOptionColorTitle,
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: shapes.avatarShape(),
+            borderRadius: shapes.avatarBorderRadius(),
+            color: colorHex != null ? _parseColor(colorHex!) : null,
+            border: Border.all(color: dotColor, width: 2),
+          ),
+          child: colorHex == null
+              ? Icon(
+                  AppIcons.paletteOutlined,
+                  size: 18,
+                  color: theme.colorScheme.onSurfaceVariant,
+                )
+              : null,
         ),
-        child: colorHex == null
-            ? Icon(
-                AppIcons.paletteOutlined,
-                size: 18,
-                color: theme.colorScheme.onSurfaceVariant,
-              )
-            : null,
+      ),
+    );
+  }
+}
+
+/// A 44×44 swatch in the option color popover: a quick color, the "no color"
+/// slash, or the custom-picker tile. Selection adds a ring + check so it isn't
+/// signalled by color alone.
+class _PollColorSwatch extends StatelessWidget {
+  const _PollColorSwatch({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    this.color,
+    this.isCustom = false,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final Color? color;
+  final bool isCustom;
+
+  /// An icon color that stays legible on top of [fill].
+  Color _onColor(Color fill) =>
+      ThemeData.estimateBrightnessForColor(fill) == Brightness.light
+      ? const Color(0xFF1A1A1A)
+      : AppColors.warmWhite;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shapes = PrismShapes.of(context);
+    final hasColor = color != null;
+    final fill = color ?? theme.colorScheme.surfaceContainerHighest;
+
+    Widget? child;
+    if (isSelected && hasColor) {
+      child = Icon(AppIcons.check, size: 20, color: _onColor(fill));
+    } else if (isCustom) {
+      child = Icon(
+        AppIcons.colorize,
+        size: 20,
+        color: theme.colorScheme.onSurfaceVariant,
+      );
+    } else if (color == null) {
+      // "No color": a diagonal slash.
+      child = Transform.rotate(
+        angle: -math.pi / 4,
+        child: Container(
+          width: 30,
+          height: 2.5,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      );
+    }
+
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Center(
+              child: Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: shapes.avatarShape(),
+                  borderRadius: shapes.avatarBorderRadius(),
+                  color: fill,
+                  border: Border.all(
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outlineVariant,
+                    width: isSelected ? 3 : 1.5,
+                  ),
+                ),
+                child: child,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -5627,6 +5627,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pollsRemoveOptionTooltip => 'Remove option';
 
   @override
+  String get pollsOptionColorTitle => 'Option color';
+
+  @override
+  String get pollsOptionColorNone => 'No color';
+
+  @override
+  String get pollsOptionColorCustom => 'Custom color';
+
+  @override
+  String get pollsOptionColorRed => 'Red';
+
+  @override
+  String get pollsOptionColorOrange => 'Orange';
+
+  @override
+  String get pollsOptionColorYellow => 'Yellow';
+
+  @override
+  String get pollsOptionColorGreen => 'Green';
+
+  @override
+  String get pollsOptionColorCyan => 'Cyan';
+
+  @override
+  String get pollsOptionColorBlue => 'Blue';
+
+  @override
+  String get pollsOptionColorViolet => 'Violet';
+
+  @override
+  String get pollsOptionColorPink => 'Pink';
+
+  @override
+  String get pollsOptionColorGray => 'Gray';
+
+  @override
   String get pollsAddOption => 'Add option';
 
   @override

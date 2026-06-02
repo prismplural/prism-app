@@ -15,9 +15,17 @@ class PollOptionMapper {
       text: row.optionText,
       sortOrder: row.sortOrder,
       isOtherOption: row.isOtherOption,
-      colorHex: row.colorHex,
+      colorHex: _normalizeColorHex(row.colorHex),
       votes: const [],
     );
+  }
+
+  /// Poll colors render as bare hex (`int.parse('FF$hex')`); strip a stray `#`
+  /// (imports, older builds, a peer on another version) so it can't crash those
+  /// render sites.
+  static String? _normalizeColorHex(String? hex) {
+    if (hex == null) return null;
+    return hex.startsWith('#') ? hex.substring(1) : hex;
   }
 
   static PollOptionsCompanion toCompanion(
