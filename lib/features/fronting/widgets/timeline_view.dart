@@ -9,6 +9,8 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
+import 'package:prism_plurality/features/fronting/views/session_detail_screen.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/timeline_painter.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
@@ -58,6 +60,8 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   static const double _headerRowHeight = 56.0;
   static const double _minColumnWidth = 36.0;
   static const double _maxColumnWidth = 48.0;
+  static const double _wideMaxColumnWidth = 64.0;
+  static const double _wideColumnBreakpoint = 900.0;
   static const double _columnPadding = 4.0;
   static const double _timeGutterWidth = 52.0;
   static const double _loadMoreThreshold = 500.0;
@@ -171,12 +175,15 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth - _timeGutterWidth;
+        final maxColumnWidth = constraints.maxWidth >= _wideColumnBreakpoint
+            ? _wideMaxColumnWidth
+            : _maxColumnWidth;
         final idealColumnWidth = rows.isNotEmpty
             ? (availableWidth / rows.length - _columnPadding).clamp(
                 _minColumnWidth,
-                _maxColumnWidth,
+                maxColumnWidth,
               )
-            : _maxColumnWidth;
+            : maxColumnWidth;
         // Viewport height for the scrollable area:
         // total height minus header row and divider.
         final scrollableHeight = constraints.maxHeight - _headerRowHeight - 1;
@@ -265,6 +272,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         ? rows.length * totalColumnWidth
         : availableWidth;
     final needsHorizontalScroll = columnsWidth > availableWidth;
+    final chartWidth = _timeGutterWidth + columnsWidth;
 
     final mergedListenable = Listenable.merge([
       _nowNotifier,
@@ -299,42 +307,101 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       );
     }
 
+    Widget centerShortTimeline(Widget child) {
+      if (needsHorizontalScroll) return child;
+      return Center(
+        child: SizedBox(width: chartWidth, child: child),
+      );
+    }
+
+    Widget buildHeaderRow() {
+      return Row(
+        children: [
+          const SizedBox(width: _timeGutterWidth),
+          if (needsHorizontalScroll)
+            Expanded(
+              child: _HeaderRow(
+                rows: rows,
+                columnsWidth: columnsWidth,
+                totalColumnWidth: totalColumnWidth,
+                columnWidth: columnWidth,
+                primaryColor: theme.colorScheme.primary,
+                brightness: theme.brightness,
+                controller: _horizontalController,
+              ),
+            )
+          else
+            _HeaderRow(
+              rows: rows,
+              columnsWidth: columnsWidth,
+              totalColumnWidth: totalColumnWidth,
+              columnWidth: columnWidth,
+              primaryColor: theme.colorScheme.primary,
+              brightness: theme.brightness,
+            ),
+        ],
+      );
+    }
+
+    Widget buildScrollableRow() {
+      return Row(
+        children: [
+          SizedBox(
+            width: _timeGutterWidth,
+            height: totalHeight,
+            child: CustomPaint(
+              size: Size(_timeGutterWidth, totalHeight),
+              painter: TimelineTimeGutterPainter(
+                pixelsPerHour: pxPerHour,
+                viewStart: viewStart,
+                viewEnd: viewEnd,
+                textColor: theme.colorScheme.onSurfaceVariant,
+                gridColor: theme.colorScheme.onSurface.withValues(alpha: 0.12),
+                scrollOffsetNotifier: _scrollOffsetNotifier,
+                viewportHeight: scrollableViewportHeight,
+                locale: context.dateLocale,
+                repaintListenable: _scrollOffsetNotifier,
+              ),
+            ),
+          ),
+          if (needsHorizontalScroll)
+            Expanded(
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollUpdateNotification) {
+                    _horizontalController.jumpTo(notification.metrics.pixels);
+                  }
+                  return false;
+                },
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: buildSessionColumns(),
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              width: columnsWidth,
+              height: totalHeight,
+              child: buildSessionColumns(),
+            ),
+        ],
+      );
+    }
+
     return Column(
       children: [
         // Sticky header row: member avatars/names
         SizedBox(
           height: _headerRowHeight,
-          child: Row(
-            children: [
-              const SizedBox(width: _timeGutterWidth),
-              if (needsHorizontalScroll)
-                Expanded(
-                  child: _HeaderRow(
-                    rows: rows,
-                    columnsWidth: columnsWidth,
-                    totalColumnWidth: totalColumnWidth,
-                    columnWidth: columnWidth,
-                    primaryColor: theme.colorScheme.primary,
-                    brightness: theme.brightness,
-                    controller: _horizontalController,
-                  ),
-                )
-              else
-                _HeaderRow(
-                  rows: rows,
-                  columnsWidth: columnsWidth,
-                  totalColumnWidth: totalColumnWidth,
-                  columnWidth: columnWidth,
-                  primaryColor: theme.colorScheme.primary,
-                  brightness: theme.brightness,
-                ),
-            ],
-          ),
+          child: centerShortTimeline(buildHeaderRow()),
         ),
         // Divider
-        Container(
-          height: 1,
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+        centerShortTimeline(
+          Container(
+            height: 1,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+          ),
         ),
         // Scrollable timeline area
         Expanded(
@@ -343,51 +410,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
             padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
             child: SizedBox(
               height: totalHeight,
-              child: Row(
-                children: [
-                  // Time gutter (sticky left labels)
-                  SizedBox(
-                    width: _timeGutterWidth,
-                    height: totalHeight,
-                    child: CustomPaint(
-                      size: Size(_timeGutterWidth, totalHeight),
-                      painter: TimelineTimeGutterPainter(
-                        pixelsPerHour: pxPerHour,
-                        viewStart: viewStart,
-                        viewEnd: viewEnd,
-                        textColor: theme.colorScheme.onSurfaceVariant,
-                        gridColor: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.12,
-                        ),
-                        scrollOffsetNotifier: _scrollOffsetNotifier,
-                        viewportHeight: scrollableViewportHeight,
-                        locale: context.dateLocale,
-                        repaintListenable: _scrollOffsetNotifier,
-                      ),
-                    ),
-                  ),
-                  // Session columns
-                  if (needsHorizontalScroll)
-                    Expanded(
-                      child: NotificationListener<ScrollNotification>(
-                        onNotification: (notification) {
-                          if (notification is ScrollUpdateNotification) {
-                            _horizontalController.jumpTo(
-                              notification.metrics.pixels,
-                            );
-                          }
-                          return false;
-                        },
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: buildSessionColumns(),
-                        ),
-                      ),
-                    )
-                  else
-                    Expanded(child: buildSessionColumns()),
-                ],
-              ),
+              child: centerShortTimeline(buildScrollableRow()),
             ),
           ),
         ),
@@ -570,8 +593,16 @@ class _SessionPreviewSheet extends ConsumerWidget {
             tone: PrismButtonTone.filled,
             expanded: true,
             onPressed: () {
+              final useSheet = shouldUseDetailSideSheet(context);
               Navigator.of(context).pop();
-              GoRouter.of(context).push(AppRoutePaths.session(session.id));
+              if (useSheet) {
+                showDetailSideSheet(
+                  context,
+                  builder: (_) => SessionDetailScreen(sessionId: session.id),
+                );
+              } else {
+                GoRouter.of(context).push(AppRoutePaths.session(session.id));
+              }
             },
           ),
         ),

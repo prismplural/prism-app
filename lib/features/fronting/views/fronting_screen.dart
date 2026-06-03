@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -23,7 +24,6 @@ import 'package:prism_plurality/features/fronting/views/start_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/always_present_header.dart';
 import 'package:prism_plurality/features/fronting/widgets/quick_front_section.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_history_list.dart';
-import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
@@ -48,6 +48,8 @@ import 'package:prism_plurality/features/fronting/providers/timeline_providers.d
 import 'package:prism_plurality/features/fronting/widgets/timeline_view.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/clamped_body.dart';
 
 const _frontingHistoryPrefetchScreens = 2.5;
 const _frontingHistoryMinPrefetchExtent = 900.0;
@@ -77,6 +79,38 @@ int frontingHistoryPrefetchPagesForRemaining({
 @visibleForTesting
 Widget frontingHistoryLoadMoreSliver({required bool hasMore}) {
   return SliverToBoxAdapter(child: SizedBox(height: hasMore ? 1 : 0));
+}
+
+// Centers a sliver without creating a second scroll region.
+Widget _clampSliver(
+  Widget sliver, {
+  double maxWidth = PrismTokens.contentMaxWidth,
+}) {
+  return SliverCrossAxisGroup(
+    slivers: [
+      const SliverCrossAxisExpanded(
+        flex: 1,
+        sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
+      ),
+      SliverConstrainedCrossAxis(maxExtent: maxWidth, sliver: sliver),
+      const SliverCrossAxisExpanded(
+        flex: 1,
+        sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
+      ),
+    ],
+  );
+}
+
+Widget _clampHomeBox(
+  Widget child, {
+  double maxWidth = PrismTokens.contentMaxWidth,
+}) {
+  return Center(
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: SizedBox(width: double.infinity, child: child),
+    ),
+  );
 }
 
 class FrontingScreen extends ConsumerStatefulWidget {
@@ -287,6 +321,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
       controller: _scrollController,
       slivers: [
         SliverPinnedTopBar(
+          maxWidth: PrismTokens.contentMaxWidth,
           child: PrismTopBar(
             title: systemName,
             leading: _buildViewToggle(),
@@ -297,7 +332,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
           ),
         ),
 
-        // 1. Quick Front (shown based on user setting)
+        // Quick Front stays full width.
         if (showQuickFront)
           const SliverToBoxAdapter(
             child: Padding(
@@ -306,43 +341,45 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
             ),
           ),
 
-        // 2. Action banners stay near the top of the home feed.
-        const SliverToBoxAdapter(child: FrontingActionBannerStack()),
-
-        // 3. Always-present fronters sit under Quick Front, then pin while
-        // the rest of the fronting feed scrolls.
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: AlwaysPresentSliverDelegate(count: alwaysPresentCount),
+        _clampSliver(
+          const SliverToBoxAdapter(child: FrontingActionBannerStack()),
         ),
 
-        // 4. Sleep-oriented banners stay out of timeline mode.
-        SliverToBoxAdapter(child: FrontingSleepBannerStack(theme: theme)),
+        _clampSliver(
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: AlwaysPresentSliverDelegate(count: alwaysPresentCount),
+          ),
+        ),
 
-        // 5. Active sleep session card
+        _clampSliver(
+          SliverToBoxAdapter(child: FrontingSleepBannerStack(theme: theme)),
+        ),
+
         if (isSleeping)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: SleepModeCard(),
+          _clampSliver(
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: SleepModeCard(),
+              ),
             ),
           ),
 
-        // 6. Sessions grouped by day (active session naturally at top)
-        const SessionHistoryList(),
+        _clampSliver(const SessionHistoryList()),
 
-        // 7. Quiet sentinel for infinite scroll. Data prefetching is driven by
-        // scroll position; the history list shouldn't display an idle spinner.
-        Consumer(
-          builder: (context, ref, _) {
-            final limit = ref.watch(sessionLimitProvider);
-            final sessions = ref.watch(unifiedHistoryProvider).value;
-            final hasMore = sessions != null && sessions.length >= limit;
-            return frontingHistoryLoadMoreSliver(hasMore: hasMore);
-          },
+        // Quiet sentinel for infinite scroll.
+        _clampSliver(
+          Consumer(
+            builder: (context, ref, _) {
+              final limit = ref.watch(sessionLimitProvider);
+              final sessions = ref.watch(unifiedHistoryProvider).value;
+              final hasMore = sessions != null && sessions.length >= limit;
+              return frontingHistoryLoadMoreSliver(hasMore: hasMore);
+            },
+          ),
         ),
 
-        // Bottom padding to clear floating nav bar
         SliverPadding(
           padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
         ),
@@ -358,34 +395,37 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     final showQuickFront = ref.watch(showQuickFrontProvider);
     return Column(
       children: [
-        PrismTopBar(
-          title: systemName,
-          leading: _buildViewToggle(),
-          trailing: _AddButton(
-            isSleeping: isSleeping,
-            sleepSession: sleepSession,
+        _clampHomeBox(
+          PrismTopBar(
+            title: systemName,
+            leading: _buildViewToggle(),
+            trailing: _AddButton(
+              isSleeping: isSleeping,
+              sleepSession: sleepSession,
+            ),
           ),
         ),
+        // Timeline canvas stays full width.
         if (showQuickFront)
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: _QuickFrontHomeBlock(),
           ),
-        const FrontingActionBannerStack(),
+        const ClampedBody(child: FrontingActionBannerStack()),
         Expanded(
           child: Padding(
             padding: EdgeInsets.only(
               top: showQuickFront ? 0 : 8,
               bottom: NavBarInset.of(context),
             ),
-            child: const Stack(
+            child: Stack(
               children: [
-                Positioned.fill(child: TimelineView()),
+                const Positioned.fill(child: TimelineView()),
                 Positioned(
                   left: 0,
                   right: 0,
                   bottom: 12,
-                  child: CurrentFrontingPresenceRow(),
+                  child: _clampHomeBox(const CurrentFrontingPresenceRow()),
                 ),
               ],
             ),
@@ -735,7 +775,9 @@ class _AddButtonState extends ConsumerState<_AddButton> {
     final session = sleepSession;
     if (session == null) return;
 
-    final members = await ref.read(activeMemberListProvider.future);
+    final members = (await ref.read(memberRepositoryProvider).getAllMembers())
+        .where((member) => member.isActive)
+        .toList(growable: false);
     if (!mounted || !context.mounted) return;
     final groups = readMemberSearchGroups(ref, members);
 

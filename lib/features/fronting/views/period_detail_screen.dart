@@ -16,9 +16,12 @@ import 'package:prism_plurality/features/fronting/services/period_lookup.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/views/period_detail_args.dart';
+import 'package:prism_plurality/features/fronting/views/session_detail_screen.dart';
 import 'package:prism_plurality/features/fronting/widgets/comments_for_range_section.dart';
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
@@ -35,6 +38,7 @@ import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 
 /// Detail screen for a multi-contributor fronting period.
 ///
@@ -60,6 +64,31 @@ class PeriodDetailScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<PeriodDetailScreen> createState() => _PeriodDetailScreenState();
+}
+
+void _openSessionDetail(BuildContext context, String sessionId) {
+  if (shouldUseDetailSideSheet(context)) {
+    showDetailSideSheet<void>(
+      context,
+      builder: (_) => SessionDetailScreen(sessionId: sessionId),
+    );
+  } else {
+    context.push(AppRoutePaths.session(sessionId));
+  }
+}
+
+void _openMemberDetail(BuildContext context, String memberId) {
+  if (shouldUseDetailSideSheet(context)) {
+    showDetailSideSheet<void>(
+      context,
+      builder: (_) => MemberDetailScreen(
+        memberId: memberId,
+        branch: MemberNavigationBranch.members,
+      ),
+    );
+  } else {
+    context.push(AppRoutePaths.member(memberId));
+  }
 }
 
 class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
@@ -110,13 +139,8 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
   /// otherwise return the first match when two distinct periods share
   /// the same contributor set). Falls back to the live match on the
   /// deep-link path; returns null only when neither is available.
-  ({
-    DateTime start,
-    DateTime end,
-    bool isOngoing,
-    Set<String> sessionIds,
-  })?
-      _resolvePeriodBounds() {
+  ({DateTime start, DateTime end, bool isOngoing, Set<String> sessionIds})?
+  _resolvePeriodBounds() {
     final hint = widget.hint;
     if (hint != null) {
       return (
@@ -731,7 +755,7 @@ class _CoFronterRow extends ConsumerWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => context.push(AppRoutePaths.session(session.id)),
+          onTap: () => _openSessionDetail(context, session.id),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
@@ -884,10 +908,7 @@ class _BrieflyJoinedSection extends ConsumerWidget {
 
 /// One row in [_BrieflyJoinedSection].
 class _BriefVisitorRow extends StatelessWidget {
-  const _BriefVisitorRow({
-    required this.visit,
-    required this.member,
-  });
+  const _BriefVisitorRow({required this.visit, required this.member});
 
   final EphemeralVisit visit;
   final Member? member;
@@ -942,8 +963,7 @@ class _BriefVisitorRow extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () =>
-              GoRouter.of(context).push(AppRoutePaths.session(visit.sessionId)),
+          onTap: () => _openSessionDetail(context, visit.sessionId),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
@@ -1115,7 +1135,7 @@ class _AlwaysPresentRow extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: member != null
-              ? () => GoRouter.of(context).push(AppRoutePaths.member(memberId))
+              ? () => _openMemberDetail(context, memberId)
               : null,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

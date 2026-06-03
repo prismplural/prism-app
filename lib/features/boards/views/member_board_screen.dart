@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
+import 'package:prism_plurality/features/boards/views/post_detail_screen.dart';
 import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
 import 'package:prism_plurality/features/boards/widgets/post_tile.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
@@ -10,6 +13,8 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/clamped_body.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -48,6 +53,20 @@ class MemberBoardScreen extends ConsumerWidget {
 
   void _openCompose(BuildContext context) {
     ComposePostSheet.show(context, defaultTargetMemberId: memberId);
+  }
+}
+
+/// Opens a board post's detail view. Wide windows present it as a modal side
+/// sheet over the clamped feed; narrow windows push the full-screen route
+/// (matching [PostTile]'s default tap behavior).
+void _openMemberBoardPost(BuildContext context, String postId) {
+  if (shouldUseDetailSideSheet(context)) {
+    showDetailSideSheet(
+      context,
+      builder: (_) => PostDetailScreen(postId: postId),
+    );
+  } else {
+    context.push(AppRoutePaths.boardPost(postId));
   }
 }
 
@@ -133,9 +152,7 @@ class _MemberBoardBodyState extends ConsumerState<_MemberBoardBody> {
     final loaded = feed.value?.length ?? 0;
     final currentLimit = ref.read(memberBoardLimitProvider(widget.memberId));
     if (loaded >= currentLimit) {
-      ref
-          .read(memberBoardLimitProvider(widget.memberId).notifier)
-          .loadMore();
+      ref.read(memberBoardLimitProvider(widget.memberId).notifier).loadMore();
     }
   }
 
@@ -162,23 +179,30 @@ class _MemberBoardBodyState extends ConsumerState<_MemberBoardBody> {
           );
         }
 
-        return CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              sliver: SliverList.builder(
-                itemCount: posts.length,
-                itemBuilder: (context, index) {
-                  return PostTile(
-                    post: posts[index],
-                    viewerMember: widget.viewerMember,
-                    showAudiencePill: false,
-                  );
-                },
+        return ClampedBody(
+          child: CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                sliver: SliverList.builder(
+                  itemCount: posts.length,
+                  itemBuilder: (context, index) {
+                    final post = posts[index];
+                    return PostTile(
+                      post: post,
+                      viewerMember: widget.viewerMember,
+                      showAudiencePill: false,
+                      onTap: () => _openMemberBoardPost(context, post.id),
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );

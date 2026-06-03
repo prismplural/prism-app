@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
@@ -27,10 +28,14 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_servi
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 class _FakeSleepNotifier extends SleepNotifier {
   final List<String> endedIds = [];
@@ -172,11 +177,18 @@ Widget _buildSubject({
   _FakePluralKitSyncNotifier? pluralKitSyncNotifier,
   PkSyncMode syncMode = PkSyncMode.fullSync,
   PkSyncDirection syncDirection = PkSyncDirection.pullOnly,
+  FrontingListViewMode frontingListViewMode =
+      FrontingListViewMode.combinedPeriods,
+  List<FrontingSession> timelineSessions = const [],
+  List<FrontingPeriod> derivedPeriods = const [],
 }) {
+  final memberRepo = FakeMemberRepository()..seed(members);
+  final timelineRepo = FakeFrontingSessionRepository();
+  timelineRepo.sessions.addAll(timelineSessions);
   final settings = SystemSettings(
     systemName: 'Test System',
     showQuickFront: showQuickFront,
-    frontingListViewMode: FrontingListViewMode.combinedPeriods,
+    frontingListViewMode: frontingListViewMode,
     wakeSuggestionEnabled: false,
   );
 
@@ -187,6 +199,15 @@ Widget _buildSubject({
       activeSleepSessionProvider.overrideWith(
         (ref) => Stream.value(activeSleepSession),
       ),
+      recentSleepSessionsPaginatedProvider.overrideWith(
+        (ref, limit) => Stream.value(
+          activeSleepSession == null
+              ? const <FrontingSession>[]
+              : [activeSleepSession],
+        ),
+      ),
+      frontingSessionRepositoryProvider.overrideWithValue(timelineRepo),
+      memberRepositoryProvider.overrideWithValue(memberRepo),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       allMembersProvider.overrideWith((ref) => Stream.value(members)),
       activeSessionsProvider.overrideWith((ref) => Stream.value(const [])),
@@ -201,7 +222,7 @@ Widget _buildSubject({
         (ref) => Stream.value(const <FrontingSession>[]),
       ),
       derivedPeriodsProvider.overrideWith(
-        (ref) => const AsyncValue.data(<FrontingPeriod>[]),
+        (ref) => AsyncValue.data(derivedPeriods),
       ),
       membersByIdsProvider.overrideWith((ref, _) => Stream.value(const {})),
       alwaysPresentMembersProvider.overrideWith(
@@ -241,6 +262,14 @@ Finder _confirmSelectionButton() => find.byWidgetPredicate(
   (widget) => widget is PrismGlassIconButton && widget.icon == AppIcons.check,
 );
 
+Future<void> _tapWakeUpAs(WidgetTester tester) async {
+  await tester.tap(find.text('Wake Up As...'));
+  await tester.runAsync(() async {
+    await Future<void>.delayed(Duration.zero);
+  });
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -248,6 +277,45 @@ void main() {
   tearDown(PrismToast.resetForTest);
 
   group('FrontingScreen quick front header', () {
+    testWidgets('timeline mode clamps the home app bar on wide layouts', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1400, 900);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        _buildSubject(
+          sleepNotifier: _FakeSleepNotifier(),
+          frontingNotifier: _FakeFrontingNotifier(),
+          members: [_member('m1', 'Alice')],
+          frontingListViewMode: FrontingListViewMode.timeline,
+          timelineSessions: [
+            FrontingSession(
+              id: 'session-1',
+              memberId: 'm1',
+              startTime: DateTime.now().subtract(const Duration(hours: 2)),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final topBarRect = tester.getRect(find.byType(PrismTopBar).first);
+
+      expect(topBarRect.width, lessThanOrEqualTo(PrismTokens.contentMaxWidth));
+      expect(
+        topBarRect.left,
+        closeTo((1400 - PrismTokens.contentMaxWidth) / 2, 1),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
     testWidgets('labels Quick Front and its hold interaction on home', (
       tester,
     ) async {
@@ -492,8 +560,7 @@ void main() {
 
       await tester.longPress(_addButton());
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Wake Up As...'));
-      await tester.pumpAndSettle();
+      await _tapWakeUpAs(tester);
 
       expect(find.byType(MemberSearchSheet), findsOneWidget);
 
@@ -532,8 +599,7 @@ void main() {
 
       await tester.longPress(_addButton());
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Wake Up As...'));
-      await tester.pumpAndSettle();
+      await _tapWakeUpAs(tester);
       await tester.tap(find.bySemanticsLabel('Close'));
       await tester.pumpAndSettle();
 
@@ -561,8 +627,7 @@ void main() {
 
       await tester.longPress(_addButton());
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Wake Up As...'));
-      await tester.pumpAndSettle();
+      await _tapWakeUpAs(tester);
 
       await tester.tap(find.text('Unknown'));
       await tester.pumpAndSettle();

@@ -16,6 +16,7 @@ import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
+import 'package:prism_plurality/features/fronting/views/edit_front_session_screen.dart';
 import 'package:prism_plurality/features/fronting/views/edit_sleep_sheet.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -33,7 +34,11 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_comments_section.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
+import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/modal_side_sheet_marker.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 
@@ -61,8 +66,7 @@ class SessionDetailScreen extends ConsumerWidget {
                   tooltip: context.l10n.frontingSessionDetailEditTooltip,
                   onPressed: isSleep
                       ? () => _editSleep(context, session)
-                      : () =>
-                            context.push(AppRoutePaths.sessionEdit(sessionId)),
+                      : () => _editFrontSession(context),
                 ),
                 PrismTopBarAction(
                   icon: AppIcons.deleteOutline,
@@ -92,6 +96,18 @@ class SessionDetailScreen extends ConsumerWidget {
 
   Future<void> _editSleep(BuildContext context, FrontingSession session) async {
     await EditSleepSheet.show(context, session);
+  }
+
+  void _editFrontSession(BuildContext context) {
+    if (ModalSideSheetMarker.of(context)) {
+      showDetailSideSheet(
+        context,
+        builder: (_) => EditFrontSessionScreen(sessionId: sessionId),
+      );
+      return;
+    }
+
+    context.push(AppRoutePaths.sessionEdit(sessionId));
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
@@ -156,6 +172,20 @@ class SessionDetailScreen extends ConsumerWidget {
     if (context.mounted) {
       Navigator.of(context).pop();
     }
+  }
+}
+
+void _openMemberDetail(BuildContext context, String memberId) {
+  if (shouldUseDetailSideSheet(context)) {
+    showDetailSideSheet<void>(
+      context,
+      builder: (_) => MemberDetailScreen(
+        memberId: memberId,
+        branch: MemberNavigationBranch.settings,
+      ),
+    );
+  } else {
+    context.push(AppRoutePaths.settingsMember(memberId));
   }
 }
 
@@ -492,7 +522,7 @@ class _FronterSection extends ConsumerWidget {
 
         if (header.hasImage) {
           return PrismSurface(
-            onTap: () => context.push(AppRoutePaths.settingsMember(member.id)),
+            onTap: () => _openMemberDetail(context, member.id),
             padding: EdgeInsets.zero,
             borderColor: Colors.transparent,
             child: Stack(
@@ -538,7 +568,7 @@ class _FronterSection extends ConsumerWidget {
         }
 
         return PrismSurface(
-          onTap: () => context.push(AppRoutePaths.settingsMember(member.id)),
+          onTap: () => _openMemberDetail(context, member.id),
           padding: const EdgeInsets.all(20),
           child: _FronterMemberRow(member: member),
         );

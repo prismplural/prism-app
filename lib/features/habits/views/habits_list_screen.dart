@@ -12,6 +12,9 @@ import 'package:prism_plurality/features/habits/widgets/habit_row.dart';
 import 'package:prism_plurality/features/habits/widgets/today_habits_container.dart';
 import 'package:prism_plurality/features/habits/views/add_edit_habit_sheet.dart';
 import 'package:prism_plurality/features/habits/views/complete_habit_sheet.dart';
+import 'package:prism_plurality/features/habits/views/habit_detail_screen.dart';
+import 'package:prism_plurality/shared/widgets/clamped_body.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
@@ -38,7 +41,16 @@ class HabitsListScreen extends ConsumerWidget {
   };
 
   void _openHabit(BuildContext context, Habit habit) {
-    context.push(_habitPath(habit.id));
+    // Habits is a content-primary feed: open the detail in a modal side sheet
+    // over the clamped list on wide windows, push the route on narrow.
+    if (shouldUseDetailSideSheet(context)) {
+      showDetailSideSheet(
+        context,
+        builder: (_) => HabitDetailScreen(habitId: habit.id),
+      );
+    } else {
+      context.push(_habitPath(habit.id));
+    }
   }
 
   @override
@@ -49,117 +61,122 @@ class HabitsListScreen extends ConsumerWidget {
     final weeklyAsync = ref.watch(weeklyCompletionsProvider);
 
     return Scaffold(
-      body: habitsAsync.when(
-        skipLoadingOnReload: true,
-        loading: () => const PrismLoadingState(),
-        error: (_, _) => Center(child: Text(context.l10n.error)),
-        data: (habits) {
-          final todayCompletions = todayAsync.value ?? <HabitCompletion>[];
-          final allCompletions =
-              allCompletionsAsync.value ?? <HabitCompletion>[];
-          final weeklyCompletions = weeklyAsync.value ?? <HabitCompletion>[];
-          final completedHabitIds = todayCompletions
-              .map((c) => c.habitId)
-              .toSet();
-          // Pre-index weekly completions by habitId for O(1) lookup in rows.
-          final weeklyByHabit = <String, List<HabitCompletion>>{};
-          for (final c in weeklyCompletions) {
-            (weeklyByHabit[c.habitId] ??= []).add(c);
-          }
-
-          final due = <Habit>[];
-          final complete = <Habit>[];
-          final upcoming = <Habit>[];
-          final inactive = <Habit>[];
-
-          final now = ref.watch(currentDateProvider);
-          for (final habit in habits) {
-            if (!habit.isActive) {
-              inactive.add(habit);
-              continue;
+      body: ClampedBody(
+        child: habitsAsync.when(
+          skipLoadingOnReload: true,
+          loading: () => const PrismLoadingState(),
+          error: (_, _) => Center(child: Text(context.l10n.error)),
+          data: (habits) {
+            final todayCompletions = todayAsync.value ?? <HabitCompletion>[];
+            final allCompletions =
+                allCompletionsAsync.value ?? <HabitCompletion>[];
+            final weeklyCompletions = weeklyAsync.value ?? <HabitCompletion>[];
+            final completedHabitIds = todayCompletions
+                .map((c) => c.habitId)
+                .toSet();
+            // Pre-index weekly completions by habitId for O(1) lookup in rows.
+            final weeklyByHabit = <String, List<HabitCompletion>>{};
+            for (final c in weeklyCompletions) {
+              (weeklyByHabit[c.habitId] ??= []).add(c);
             }
-            final isDue = isHabitDueToday(
-              habit: habit,
-              todayCompletions: todayCompletions,
-              allCompletions: allCompletions,
-              now: now,
-            );
-            final completedToday = completedHabitIds.contains(habit.id);
-            // Completed always wins — a completed-and-still-due habit lives
-            // in the Complete section, not Due.
-            if (completedToday) {
-              complete.add(habit);
-            } else if (isDue) {
-              due.add(habit);
-            } else {
-              upcoming.add(habit);
-            }
-          }
 
-          return CustomScrollView(
-            physics: habits.isEmpty
-                ? const NeverScrollableScrollPhysics()
-                : null,
-            slivers: [
-              SliverPinnedTopBar(
-                child: PrismTopBar(
-                  title: context.l10n.habitsListTitle,
-                  trailing: PrismTopBarAction(
-                    icon: AppIcons.add,
-                    tooltip: context.l10n.habitsCreateHabitTooltip,
-                    onPressed: () => _showAddHabit(context),
+            final due = <Habit>[];
+            final complete = <Habit>[];
+            final upcoming = <Habit>[];
+            final inactive = <Habit>[];
+
+            final now = ref.watch(currentDateProvider);
+            for (final habit in habits) {
+              if (!habit.isActive) {
+                inactive.add(habit);
+                continue;
+              }
+              final isDue = isHabitDueToday(
+                habit: habit,
+                todayCompletions: todayCompletions,
+                allCompletions: allCompletions,
+                now: now,
+              );
+              final completedToday = completedHabitIds.contains(habit.id);
+              // Completed always wins — a completed-and-still-due habit lives
+              // in the Complete section, not Due.
+              if (completedToday) {
+                complete.add(habit);
+              } else if (isDue) {
+                due.add(habit);
+              } else {
+                upcoming.add(habit);
+              }
+            }
+
+            return CustomScrollView(
+              physics: habits.isEmpty
+                  ? const NeverScrollableScrollPhysics()
+                  : null,
+              slivers: [
+                SliverPinnedTopBar(
+                  child: PrismTopBar(
+                    title: context.l10n.habitsListTitle,
+                    trailing: PrismTopBarAction(
+                      icon: AppIcons.add,
+                      tooltip: context.l10n.habitsCreateHabitTooltip,
+                      onPressed: () => _showAddHabit(context),
+                    ),
                   ),
                 ),
-              ),
-              if (habits.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: EmptyState(
-                    icon: Icon(AppIcons.checkCircleOutline),
-                    title: context.l10n.habitsEmptyTitle,
-                    subtitle: context.l10n.habitsEmptySubtitle,
-                    actionLabel: context.l10n.habitsEmptyCreateLabel,
-                    actionIcon: AppIcons.add,
-                    onAction: () => _showAddHabit(context),
-                  ),
-                )
-              else ...[
-                if (due.isNotEmpty || complete.isNotEmpty)
-                  TodayHabitsContainer(
-                    due: due,
-                    complete: complete,
-                    todayCompletions: todayCompletions,
-                    weeklyByHabit: weeklyByHabit,
-                    onTap: (h) => _openHabit(context, h),
-                    onQuickComplete: (h) => _showCompleteSheet(context, ref, h),
-                  ),
-                if (upcoming.isNotEmpty)
-                  _HabitSection(
-                    title: context.l10n.habitsSectionUpcoming,
-                    habits: upcoming,
-                    completions: todayCompletions,
-                    completedHabitIds: completedHabitIds,
-                    weeklyByHabit: weeklyByHabit,
-                    onTap: (h) => _openHabit(context, h),
-                    onQuickComplete: (h) => _showCompleteSheet(context, ref, h),
-                  ),
-                if (inactive.isNotEmpty)
-                  _HabitSection(
-                    title: context.l10n.habitsSectionInactive,
-                    habits: inactive,
-                    completions: todayCompletions,
-                    completedHabitIds: completedHabitIds,
-                    weeklyByHabit: weeklyByHabit,
-                    onTap: (h) => _openHabit(context, h),
-                    onQuickComplete: (h) => _showCompleteSheet(context, ref, h),
-                  ),
+                if (habits.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: EmptyState(
+                      icon: Icon(AppIcons.checkCircleOutline),
+                      title: context.l10n.habitsEmptyTitle,
+                      subtitle: context.l10n.habitsEmptySubtitle,
+                      actionLabel: context.l10n.habitsEmptyCreateLabel,
+                      actionIcon: AppIcons.add,
+                      onAction: () => _showAddHabit(context),
+                    ),
+                  )
+                else ...[
+                  if (due.isNotEmpty || complete.isNotEmpty)
+                    TodayHabitsContainer(
+                      due: due,
+                      complete: complete,
+                      todayCompletions: todayCompletions,
+                      weeklyByHabit: weeklyByHabit,
+                      onTap: (h) => _openHabit(context, h),
+                      onQuickComplete: (h) =>
+                          _showCompleteSheet(context, ref, h),
+                    ),
+                  if (upcoming.isNotEmpty)
+                    _HabitSection(
+                      title: context.l10n.habitsSectionUpcoming,
+                      habits: upcoming,
+                      completions: todayCompletions,
+                      completedHabitIds: completedHabitIds,
+                      weeklyByHabit: weeklyByHabit,
+                      onTap: (h) => _openHabit(context, h),
+                      onQuickComplete: (h) =>
+                          _showCompleteSheet(context, ref, h),
+                    ),
+                  if (inactive.isNotEmpty)
+                    _HabitSection(
+                      title: context.l10n.habitsSectionInactive,
+                      habits: inactive,
+                      completions: todayCompletions,
+                      completedHabitIds: completedHabitIds,
+                      weeklyByHabit: weeklyByHabit,
+                      onTap: (h) => _openHabit(context, h),
+                      onQuickComplete: (h) =>
+                          _showCompleteSheet(context, ref, h),
+                    ),
+                ],
+                SliverPadding(
+                  padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+                ),
               ],
-              SliverPadding(
-                padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
-              ),
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

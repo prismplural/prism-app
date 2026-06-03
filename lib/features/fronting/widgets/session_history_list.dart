@@ -6,6 +6,9 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/features/fronting/views/session_detail_screen.dart';
+import 'package:prism_plurality/features/fronting/views/period_detail_screen.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -49,6 +52,19 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 const _frontingPlaceholderDelay = Duration(milliseconds: 800);
 const _historyLoadingReservedHeight = 336.0;
 const _historySkeletonRows = 4;
+
+/// Opens a single session's detail: as a side sheet over the dashboard on wide
+/// windows, or the full-screen route on narrow ones.
+void _openSession(BuildContext context, String sessionId) {
+  if (shouldUseDetailSideSheet(context)) {
+    showDetailSideSheet(
+      context,
+      builder: (_) => SessionDetailScreen(sessionId: sessionId),
+    );
+  } else {
+    context.push(AppRoutePaths.session(sessionId));
+  }
+}
 
 /// A day-grouped list of fronting history rendered per the user's
 /// `fronting_list_view_mode` preference (1B):
@@ -1170,7 +1186,7 @@ class _PerMemberSessionTile extends ConsumerWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => context.push(AppRoutePaths.session(session.id)),
+        onTap: () => _openSession(context, session.id),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
@@ -1557,27 +1573,36 @@ class _PeriodTile extends ConsumerWidget {
           // period.end), not the slice bounds, so a midnight-crossing period
           // shows its complete extent on the detail view.
           if (period.sessionIds.isEmpty) return;
+          final wide = shouldUseDetailSideSheet(context);
           if (period.sessionIds.length == 1 &&
               period.alwaysPresentMembers.isEmpty) {
-            context.push(AppRoutePaths.session(period.sessionIds.first));
+            _openSession(context, period.sessionIds.first);
             return;
           }
-          context.push(
-            AppRoutePaths.period(period.sessionIds),
-            extra: PeriodDetailArgs(
-              activeMembers: period.activeMembers
-                  .map((id) => membersMap[id])
-                  .whereType<Member>()
-                  .toList(),
-              start: period.start,
-              end: period.end,
-              isOpenEnded: period.isOpenEnded,
-              alwaysPresentMembers: period.alwaysPresentMembers
-                  .map((id) => membersMap[id])
-                  .whereType<Member>()
-                  .toList(),
-            ),
+          final hint = PeriodDetailArgs(
+            activeMembers: period.activeMembers
+                .map((id) => membersMap[id])
+                .whereType<Member>()
+                .toList(),
+            start: period.start,
+            end: period.end,
+            isOpenEnded: period.isOpenEnded,
+            alwaysPresentMembers: period.alwaysPresentMembers
+                .map((id) => membersMap[id])
+                .whereType<Member>()
+                .toList(),
           );
+          // On wide windows open the period over the dashboard in a side sheet;
+          // push the full-screen route on narrow.
+          if (wide) {
+            showDetailSideSheet(
+              context,
+              builder: (_) =>
+                  PeriodDetailScreen(sessionIds: period.sessionIds, hint: hint),
+            );
+          } else {
+            context.push(AppRoutePaths.period(period.sessionIds), extra: hint);
+          }
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1983,7 +2008,7 @@ class _InlineSleepTile extends ConsumerWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => context.push(AppRoutePaths.session(session.id)),
+          onTap: () => _openSession(context, session.id),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(

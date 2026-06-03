@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
+import 'package:prism_plurality/features/fronting/views/session_detail_screen.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
 import 'package:prism_plurality/features/fronting/views/start_sleep_sheet.dart';
@@ -15,6 +17,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/clamped_body.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -78,7 +81,16 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
   }
 
   void _openSessionDetail(FrontingSession session) {
-    context.push(AppRoutePaths.sleepSession(session.id));
+    // Open the sleep session detail in the modal side sheet over the clamped
+    // list on wide windows; push the full-screen route on narrow.
+    if (shouldUseDetailSideSheet(context)) {
+      showDetailSideSheet(
+        context,
+        builder: (_) => SessionDetailScreen(sessionId: session.id),
+      );
+    } else {
+      context.push(AppRoutePaths.sleepSession(session.id));
+    }
   }
 
   @override
@@ -90,54 +102,56 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          SliverPinnedTopBar(
-            child: PrismTopBar(
-              title: l10n.sleepScreenTitle,
-              showBackButton: widget.showBackButton,
-              actions: [
-                PrismTopBarAction(
-                  icon: AppIcons.navSettings,
-                  tooltip: l10n.sleepScreenSettingsTooltip,
-                  onPressed: _openSettings,
-                ),
-                PrismTopBarAction(
-                  icon: AppIcons.add,
-                  tooltip: l10n.sleepScreenAddTooltip,
-                  onPressed: _openAddSheet,
-                ),
-              ],
-            ),
-          ),
-
-          if (activeSleep != null)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: SleepModeCard(),
+      body: ClampedBody(
+        child: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            SliverPinnedTopBar(
+              child: PrismTopBar(
+                title: l10n.sleepScreenTitle,
+                showBackButton: widget.showBackButton,
+                actions: [
+                  PrismTopBarAction(
+                    icon: AppIcons.navSettings,
+                    tooltip: l10n.sleepScreenSettingsTooltip,
+                    onPressed: _openSettings,
+                  ),
+                  PrismTopBarAction(
+                    icon: AppIcons.add,
+                    tooltip: l10n.sleepScreenAddTooltip,
+                    onPressed: _openAddSheet,
+                  ),
+                ],
               ),
             ),
 
-          // Stat cards (visibility rule lives inside the widget)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: SleepStatCards(),
+            if (activeSleep != null)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: SleepModeCard(),
+                ),
+              ),
+
+            // Stat cards (visibility rule lives inside the widget)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: SleepStatCards(),
+              ),
             ),
-          ),
 
-          ..._buildBody(
-            l10n: l10n,
-            sessionsAsync: sessionsAsync,
-            statsAsync: statsAsync,
-          ),
+            ..._buildBody(
+              l10n: l10n,
+              sessionsAsync: sessionsAsync,
+              statsAsync: statsAsync,
+            ),
 
-          SliverPadding(
-            padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
-          ),
-        ],
+            SliverPadding(
+              padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+            ),
+          ],
+        ),
       ),
     );
   }

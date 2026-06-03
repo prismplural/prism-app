@@ -2,10 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
+import 'package:prism_plurality/features/boards/views/post_detail_screen.dart';
 import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
 import 'package:prism_plurality/features/boards/widgets/post_tile.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
@@ -18,6 +21,8 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/clamped_body.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_selector_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -37,6 +42,24 @@ const _kLastSubTabKey = 'boards.last_sub_tab';
 // ---------------------------------------------------------------------------
 
 enum _BoardsSubTab { public, inbox }
+
+// ---------------------------------------------------------------------------
+// Post-tap navigation
+// ---------------------------------------------------------------------------
+
+/// Opens a board post's detail view. Wide windows present it as a modal side
+/// sheet over the clamped feed; narrow windows push the full-screen route
+/// (matching [PostTile]'s default tap behavior).
+void _openBoardPost(BuildContext context, String postId) {
+  if (shouldUseDetailSideSheet(context)) {
+    showDetailSideSheet(
+      context,
+      builder: (_) => PostDetailScreen(postId: postId),
+    );
+  } else {
+    context.push(AppRoutePaths.boardPost(postId));
+  }
+}
 
 // ---------------------------------------------------------------------------
 // BoardsScreen
@@ -123,15 +146,20 @@ class _BoardsScreenState extends ConsumerState<BoardsScreen> {
     return PrismPageScaffold(
       bodyPadding: EdgeInsets.zero,
       topBar: _BoardsTopBar(onComposeTap: _openCompose),
+      topBarMaxWidth: PrismTokens.contentMaxWidth,
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: _BoardsSegmentedControl(
-              activeTab: _activeTab,
-              hasPublicUnread: hasUnreadDot,
-              inboxBadge: badgeCount,
-              onTabSelected: _selectTab,
+          // Clamp the tab switcher to the same column as the post lists so the
+          // header aligns with the content on wide windows.
+          ClampedBody(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: _BoardsSegmentedControl(
+                activeTab: _activeTab,
+                hasPublicUnread: hasUnreadDot,
+                inboxBadge: badgeCount,
+                onTabSelected: _selectTab,
+              ),
             ),
           ),
           Expanded(
@@ -484,17 +512,21 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
             ref.invalidate(publicBoardFeedProvider);
             ref.invalidate(publicBoardLimitProvider);
           },
-          child: ListView.builder(
-            controller: _scrollController,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            itemCount: filteredPosts.length,
-            itemBuilder: (context, index) {
-              return PostTile(
-                post: filteredPosts[index],
-                viewerMember: viewerMember,
-                showAudiencePill: true,
-              );
-            },
+          child: ClampedBody(
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              itemCount: filteredPosts.length,
+              itemBuilder: (context, index) {
+                final post = filteredPosts[index];
+                return PostTile(
+                  post: post,
+                  viewerMember: viewerMember,
+                  showAudiencePill: true,
+                  onTap: () => _openBoardPost(context, post.id),
+                );
+              },
+            ),
           ),
         );
       },
@@ -622,17 +654,21 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
                   ),
           );
         }
-        return ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          itemCount: posts.length,
-          itemBuilder: (context, index) {
-            return PostTile(
-              post: posts[index],
-              viewerMember: viewerMember,
-              showAudiencePill: false,
-            );
-          },
+        return ClampedBody(
+          child: ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            itemCount: posts.length,
+            itemBuilder: (context, index) {
+              final post = posts[index];
+              return PostTile(
+                post: post,
+                viewerMember: viewerMember,
+                showAudiencePill: false,
+                onTap: () => _openBoardPost(context, post.id),
+              );
+            },
+          ),
         );
       },
     );

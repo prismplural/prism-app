@@ -31,6 +31,9 @@ double _timelineCanvasHeight(WidgetTester tester) {
   return renderObject.size.height;
 }
 
+Rect _timelineCanvasRect(WidgetTester tester) =>
+    tester.getRect(_timelineCanvasFinder());
+
 Widget _buildSubject(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
@@ -43,6 +46,109 @@ Widget _buildSubject(ProviderContainer container) {
 }
 
 void main() {
+  testWidgets('short timelines center their chart instead of stretching it', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 700);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final repo = FakeFrontingSessionRepository();
+    final now = DateTime.now();
+    final members = [
+      Member(id: 'alice', name: 'Alice', createdAt: DateTime(2026, 1, 1)),
+      Member(id: 'bob', name: 'Bob', createdAt: DateTime(2026, 1, 1)),
+    ];
+    repo.sessions.addAll([
+      FrontingSession(
+        id: 'alice-session',
+        memberId: 'alice',
+        startTime: now.subtract(const Duration(hours: 3)),
+        endTime: now.subtract(const Duration(hours: 1)),
+      ),
+      FrontingSession(
+        id: 'bob-session',
+        memberId: 'bob',
+        startTime: now.subtract(const Duration(hours: 2)),
+        endTime: now.subtract(const Duration(minutes: 30)),
+      ),
+    ]);
+
+    final container = ProviderContainer(
+      overrides: [
+        frontingSessionRepositoryProvider.overrideWithValue(repo),
+        allMembersProvider.overrideWith((ref) => Stream.value(members)),
+        recentSleepSessionsPaginatedProvider.overrideWith(
+          (ref, limit) => Stream.value(const <FrontingSession>[]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(_buildSubject(container));
+    await tester.pumpAndSettle();
+
+    final canvasRect = _timelineCanvasRect(tester);
+    const timeGutterWidth = 52.0;
+    final expectedChartLeft = (1000 - (timeGutterWidth + canvasRect.width)) / 2;
+
+    expect(canvasRect.width, closeTo(136, 1));
+    expect(canvasRect.left, closeTo(expectedChartLeft + timeGutterWidth, 1));
+  });
+
+  testWidgets('many-member timelines still overflow horizontally', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 700);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final repo = FakeFrontingSessionRepository();
+    final now = DateTime.now();
+    final members = [
+      for (var i = 0; i < 40; i++)
+        Member(
+          id: 'member-$i',
+          name: 'Member $i',
+          createdAt: DateTime(2026, 1, 1),
+        ),
+    ];
+    repo.sessions.addAll([
+      for (final member in members)
+        FrontingSession(
+          id: '${member.id}-session',
+          memberId: member.id,
+          startTime: now.subtract(const Duration(hours: 3)),
+          endTime: now.subtract(const Duration(hours: 1)),
+        ),
+    ]);
+
+    final container = ProviderContainer(
+      overrides: [
+        frontingSessionRepositoryProvider.overrideWithValue(repo),
+        allMembersProvider.overrideWith((ref) => Stream.value(members)),
+        recentSleepSessionsPaginatedProvider.overrideWith(
+          (ref, limit) => Stream.value(const <FrontingSession>[]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(_buildSubject(container));
+    await tester.pumpAndSettle();
+
+    final canvasRect = _timelineCanvasRect(tester);
+
+    expect(canvasRect.width, greaterThan(1000 - 52));
+    expect(canvasRect.left, closeTo(52, 1));
+  });
+
   testWidgets('zooming out after auto-scroll keeps culling offset in bounds', (
     tester,
   ) async {
