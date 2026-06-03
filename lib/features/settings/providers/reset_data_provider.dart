@@ -247,7 +247,6 @@ final resetFileDeleteObserverProvider = Provider<ResetFileDeleteObserver>((
   return (_) {};
 });
 
-
 final fullResetServiceProvider = Provider<FullResetService>((ref) {
   return FullResetService(
     secureStore: ref.watch(resetSecureStoreProvider),
@@ -276,10 +275,7 @@ enum ResetCategory {
   polls('Polls', 'Deletes all polls, options, and votes.'),
   habits('Habits', 'Deletes all habits and completion records.'),
   sleep('Sleep Sessions', 'Deletes all sleep tracking data.'),
-  customFields(
-    'Custom Fields',
-    'Deletes all custom fields and their values.',
-  ),
+  customFields('Custom Fields', 'Deletes all custom fields and their values.'),
   sync(
     'Disconnect Sync',
     'Stops syncing on this device while keeping local Prism data.',
@@ -471,9 +467,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       await db.customStatement(
         'UPDATE chat_messages SET author_id = NULL, reply_to_author_id = NULL',
       );
-      await db.customStatement(
-        'UPDATE conversations SET creator_id = NULL',
-      );
+      await db.customStatement('UPDATE conversations SET creator_id = NULL');
       await db.customStatement(
         "UPDATE conversations SET participant_ids = '[]', "
         "archived_by_member_ids = '[]', muted_by_member_ids = '[]', "
@@ -483,9 +477,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       await db.customStatement(
         'UPDATE pk_mapping_state SET local_member_id = NULL',
       );
-      await db.customStatement(
-        'UPDATE reminders SET target_member_id = NULL',
-      );
+      await db.customStatement('UPDATE reminders SET target_member_id = NULL');
       // JSON maps keyed by memberId — reset to defaults so stale keys don't
       // hang around. chat_badge_preferences defaults to '{}'; field_sync_config
       // is nullable.
@@ -500,9 +492,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       await db.customStatement('DELETE FROM habit_completions');
       await db.customStatement('DELETE FROM member_board_posts');
       await db.customStatement('DELETE FROM member_group_entries');
-      await db.customStatement(
-        'DELETE FROM member_profile_preference_values',
-      );
+      await db.customStatement('DELETE FROM member_profile_preference_values');
       await db.customStatement('DELETE FROM notes');
       await db.customStatement('DELETE FROM poll_votes');
       // Bio images are per-member child data (member_id set on creation via
@@ -569,9 +559,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       final captured = await db
           .customSelect('SELECT media_id FROM media_attachments')
           .get()
-          .then(
-            (rows) => rows.map((r) => r.read<String>('media_id')).toList(),
-          );
+          .then((rows) => rows.map((r) => r.read<String>('media_id')).toList());
       // FTS first — the chat_messages_fts_delete trigger does a full FTS
       // table scan per deleted row. Wiping FTS up front makes the trigger
       // a no-op and turns a minutes-long delete into milliseconds on large
@@ -727,11 +715,8 @@ class ResetDataNotifier extends AsyncNotifier<void> {
         : RelayCleanupMarkerOutcome.skippedMissingCredentials;
 
     // 1. Try to deregister from relay (best-effort — may fail if offline).
-    //    If this is the last active device the relay rejects deregister with a
-    //    403 and tells us to delete the sync group instead — fall through to
-    //    `deleteSyncGroup` via the shared helper so the relay drops all
-    //    encrypted data. User-facing disconnect keeps the conservative
-    //    fallback policy; full app reset opts into the aggressive fallback.
+    //    User-facing disconnect leaves the old relay group intact if the relay
+    //    says this is the last active device; full app reset may delete it.
     if (handle != null) {
       try {
         final syncId = identity.syncId;
@@ -746,6 +731,8 @@ class ResetDataNotifier extends AsyncNotifier<void> {
             deregister: syncFfi.deregisterDevice,
             deleteSyncGroup: syncFfi.deleteSyncGroup,
             log: _log,
+            fallbackOnLastActiveDevice:
+                cleanupPolicy == SyncRelayCleanupPolicy.aggressive,
             fallbackOnAnyDeregisterFailure:
                 cleanupPolicy == SyncRelayCleanupPolicy.aggressive,
           );
@@ -1014,6 +1001,8 @@ RelayCleanupMarkerOutcome _markerOutcomeForRelayCleanup(
   return switch (outcome) {
     RelayCleanupOutcome.deregistered => RelayCleanupMarkerOutcome.deregistered,
     RelayCleanupOutcome.groupDeleted => RelayCleanupMarkerOutcome.groupDeleted,
+    RelayCleanupOutcome.skippedLastActiveDevice =>
+      RelayCleanupMarkerOutcome.skippedLastActiveDevice,
     RelayCleanupOutcome.fallbackFailed =>
       RelayCleanupMarkerOutcome.fallbackFailed,
     RelayCleanupOutcome.failed => RelayCleanupMarkerOutcome.failed,

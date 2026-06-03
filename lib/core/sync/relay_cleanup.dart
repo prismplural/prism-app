@@ -7,10 +7,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 /// (`SyncSetupNotifier._complete` catch path) and the explicit reset
 /// (`ResetDataNotifier._resetSyncSystem`).
 ///
-/// Both paths need the same two-step "deregister then `deleteSyncGroup` on
-/// last-active-device 403" semantics. Centralising them here keeps the
-/// last-device fallback in one place — adding it to one path and forgetting
-/// the other is exactly the drift this helper exists to prevent.
+/// Centralising this keeps deregister/delete policy in one place.
 
 /// Result of a [cleanupRelayRegistration] call. Production callers log the
 /// result but never branch on it for control flow — the existing setup
@@ -22,6 +19,10 @@ enum RelayCleanupOutcome {
   /// Deregister was rejected with the relay's "last active device" 403 and
   /// `deleteSyncGroup` succeeded.
   groupDeleted,
+
+  /// Deregister was rejected with the relay's "last active device" 403, but
+  /// the caller chose not to delete the sync group.
+  skippedLastActiveDevice,
 
   /// Deregister was rejected with the relay's "last active device" 403 and
   /// the `deleteSyncGroup` fallback also failed.
@@ -72,9 +73,7 @@ bool isAtomicRevokeRequiredError(Object error) {
           msg.contains('use post /v1/sync'));
 }
 
-/// Try `deregisterDevice`; if the relay rejects with the sole-device 403,
-/// fall back to `deleteSyncGroup`. Mirrors the policy in
-/// `_resetSyncSystem` (`reset_data_provider.dart:461-503`).
+/// Try `deregisterDevice`, then optionally fall back to `deleteSyncGroup`.
 ///
 /// `log` is invoked with single-line breadcrumbs so callers can surface them
 /// via `ErrorReportingService` (info for reset, warning for setup-failure
@@ -84,10 +83,8 @@ bool isAtomicRevokeRequiredError(Object error) {
 /// `fallbackOnAnyDeregisterFailure` controls when the destructive
 /// `deleteSyncGroup` step runs after a `deregister` failure:
 ///
-/// - `false` (default, used by setup-failure rollback): only attempt
-///   `deleteSyncGroup` when the deregister failure matches the relay's
-///   sole-device 403. A transient network blip during setup must NOT
-///   nuke the entire sync group.
+/// - `false` (default): only attempt `deleteSyncGroup` when the deregister
+///   failure matches the relay's sole-device 403.
 /// - `true` (used by full reset): attempt `deleteSyncGroup` after ANY
 ///   deregister failure except the relay's multi-device atomic-revoke conflict.
 ///   That conflict means peers still exist, so the group-delete fallback is not
@@ -112,6 +109,7 @@ Future<RelayCleanupOutcome> cleanupRelayRegistration({
   })
   deleteSyncGroup,
   void Function(String message)? log,
+  bool fallbackOnLastActiveDevice = true,
   bool fallbackOnAnyDeregisterFailure = false,
 }) async {
   try {
@@ -124,6 +122,12 @@ Future<RelayCleanupOutcome> cleanupRelayRegistration({
     return RelayCleanupOutcome.deregistered;
   } catch (e) {
     if (isLastActiveDeviceError(e)) {
+      if (!fallbackOnLastActiveDevice) {
+        log?.call(
+          'Relay reports this is the last active device; leaving relay state intact: $e',
+        );
+        return RelayCleanupOutcome.skippedLastActiveDevice;
+      }
       log?.call('Last device; attempting sync group deletion: $e');
     } else if (isAtomicRevokeRequiredError(e)) {
       log?.call(
@@ -132,7 +136,7 @@ Future<RelayCleanupOutcome> cleanupRelayRegistration({
       return RelayCleanupOutcome.failed;
     } else if (fallbackOnAnyDeregisterFailure) {
       log?.call(
-        'Relay deregister failed; reset path forcing sync group '
+        'Relay deregister failed; full reset forcing sync group '
         'deletion: $e',
       );
     } else {

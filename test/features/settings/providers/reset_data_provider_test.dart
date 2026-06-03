@@ -133,11 +133,7 @@ const _memberRefColumns = <_MemberRef>[
   _MemberRef('custom_field_values', 'member_id', _RefType.deleted),
   _MemberRef('notes', 'member_id', _RefType.deleted),
   _MemberRef('poll_votes', 'member_id', _RefType.deleted),
-  _MemberRef(
-    'habit_completions',
-    'completed_by_member_id',
-    _RefType.deleted,
-  ),
+  _MemberRef('habit_completions', 'completed_by_member_id', _RefType.deleted),
   _MemberRef('member_board_posts', 'target_member_id', _RefType.deleted),
   _MemberRef('member_board_posts', 'author_id', _RefType.deleted),
 
@@ -265,79 +261,76 @@ void main() {
       },
     );
 
-    test(
-      'members reset clears member_profile_preference_values',
-      () async {
-        final harness = await _ResetHarness.create();
-        addTearDown(harness.dispose);
+    test('members reset clears member_profile_preference_values', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
 
-        // Seed two preference rows: one for a regular member that will be
-        // deleted, and one for the Unknown sentinel member. The sentinel is
-        // inserted by _resetMembers itself (InsertOrIgnore), so we pre-insert
-        // it here to simulate it having stale preferences.
-        final db = harness.db;
-        final now = DateTime.utc(2026, 3, 18, 12);
-        await db
-            .into(db.members)
-            .insert(
-              MembersCompanion(
-                id: const Value('member-pref-1'),
-                name: const Value('PrefMember'),
-                emoji: const Value('P'),
-                createdAt: Value(now),
-              ),
-            );
-        await db
-            .into(db.members)
-            .insert(
-              MembersCompanion(
-                id: Value(unknownSentinelMemberId),
-                name: const Value('Unknown'),
-                emoji: const Value('❔'),
-                createdAt: Value(now),
-              ),
-              mode: InsertMode.insertOrIgnore,
-            );
-        await db
-            .into(db.memberProfilePreferenceValues)
-            .insert(
-              const MemberProfilePreferenceValuesCompanion(
-                id: Value('mppv-regular'),
-                memberId: Value('member-pref-1'),
-                key: Value('profile.show_pronouns'),
-                valueType: Value('bool'),
-                valueJson: Value('true'),
-              ),
-            );
-        await db
-            .into(db.memberProfilePreferenceValues)
-            .insert(
-              MemberProfilePreferenceValuesCompanion(
-                id: const Value('mppv-sentinel'),
-                memberId: Value(unknownSentinelMemberId),
-                key: const Value('profile.show_pronouns'),
-                valueType: const Value('bool'),
-                valueJson: const Value('false'),
-              ),
-            );
+      // Seed two preference rows: one for a regular member that will be
+      // deleted, and one for the Unknown sentinel member. The sentinel is
+      // inserted by _resetMembers itself (InsertOrIgnore), so we pre-insert
+      // it here to simulate it having stale preferences.
+      final db = harness.db;
+      final now = DateTime.utc(2026, 3, 18, 12);
+      await db
+          .into(db.members)
+          .insert(
+            MembersCompanion(
+              id: const Value('member-pref-1'),
+              name: const Value('PrefMember'),
+              emoji: const Value('P'),
+              createdAt: Value(now),
+            ),
+          );
+      await db
+          .into(db.members)
+          .insert(
+            MembersCompanion(
+              id: Value(unknownSentinelMemberId),
+              name: const Value('Unknown'),
+              emoji: const Value('❔'),
+              createdAt: Value(now),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      await db
+          .into(db.memberProfilePreferenceValues)
+          .insert(
+            const MemberProfilePreferenceValuesCompanion(
+              id: Value('mppv-regular'),
+              memberId: Value('member-pref-1'),
+              key: Value('profile.show_pronouns'),
+              valueType: Value('bool'),
+              valueJson: Value('true'),
+            ),
+          );
+      await db
+          .into(db.memberProfilePreferenceValues)
+          .insert(
+            MemberProfilePreferenceValuesCompanion(
+              id: const Value('mppv-sentinel'),
+              memberId: Value(unknownSentinelMemberId),
+              key: const Value('profile.show_pronouns'),
+              valueType: const Value('bool'),
+              valueJson: const Value('false'),
+            ),
+          );
 
-        await harness.reset(ResetCategory.members);
+      await harness.reset(ResetCategory.members);
 
-        final reopened = await harness.reopenDatabase();
-        addTearDown(reopened.close);
+      final reopened = await harness.reopenDatabase();
+      addTearDown(reopened.close);
 
-        // Both rows are cleared — member_profile_preference_values has no FK
-        // so a full DELETE FROM is the correct cleanup (no sentinel exemption).
-        expect(
-          await _countRows(reopened, 'member_profile_preference_values'),
-          0,
-          reason:
-              'member_profile_preference_values must be emptied on members '
-              'reset to prevent orphan rows when a member is re-created with '
-              'the same ID',
-        );
-      },
-    );
+      // Both rows are cleared — member_profile_preference_values has no FK
+      // so a full DELETE FROM is the correct cleanup (no sentinel exemption).
+      expect(
+        await _countRows(reopened, 'member_profile_preference_values'),
+        0,
+        reason:
+            'member_profile_preference_values must be emptied on members '
+            'reset to prevent orphan rows when a member is re-created with '
+            'the same ID',
+      );
+    });
 
     test('members reset nulls out dangling member references', () async {
       final harness = await _ResetHarness.create();
@@ -347,71 +340,85 @@ void main() {
       final now = DateTime.utc(2026, 3, 18, 12);
 
       // Seed members
-      await db.into(db.members).insert(
-        MembersCompanion(
-          id: const Value('member-1'),
-          name: const Value('Alpha'),
-          emoji: const Value('A'),
-          createdAt: Value(now),
-        ),
-      );
-      await db.into(db.members).insert(
-        MembersCompanion(
-          id: const Value('member-2'),
-          name: const Value('Beta'),
-          emoji: const Value('B'),
-          createdAt: Value(now),
-        ),
-      );
+      await db
+          .into(db.members)
+          .insert(
+            MembersCompanion(
+              id: const Value('member-1'),
+              name: const Value('Alpha'),
+              emoji: const Value('A'),
+              createdAt: Value(now),
+            ),
+          );
+      await db
+          .into(db.members)
+          .insert(
+            MembersCompanion(
+              id: const Value('member-2'),
+              name: const Value('Beta'),
+              emoji: const Value('B'),
+              createdAt: Value(now),
+            ),
+          );
 
       // Seed a reminder with target_member_id
-      await db.into(db.reminders).insert(
-        RemindersCompanion(
-          id: const Value('reminder-ref-1'),
-          name: const Value('Switch reminder'),
-          message: const Value('Hey'),
-          trigger: const Value(0),
-          targetMemberId: const Value('member-1'),
-          createdAt: Value(now),
-          modifiedAt: Value(now),
-        ),
-      );
+      await db
+          .into(db.reminders)
+          .insert(
+            RemindersCompanion(
+              id: const Value('reminder-ref-1'),
+              name: const Value('Switch reminder'),
+              message: const Value('Hey'),
+              trigger: const Value(0),
+              targetMemberId: const Value('member-1'),
+              createdAt: Value(now),
+              modifiedAt: Value(now),
+            ),
+          );
 
       // Seed a habit with assigned_member_id
-      await db.into(db.habits).insert(
-        HabitsCompanion(
-          id: const Value('habit-ref-1'),
-          name: const Value('Drink water'),
-          assignedMemberId: const Value('member-2'),
-          createdAt: Value(now),
-          modifiedAt: Value(now),
-        ),
-      );
+      await db
+          .into(db.habits)
+          .insert(
+            HabitsCompanion(
+              id: const Value('habit-ref-1'),
+              name: const Value('Drink water'),
+              assignedMemberId: const Value('member-2'),
+              createdAt: Value(now),
+              modifiedAt: Value(now),
+            ),
+          );
 
       // Seed a conversation with creator_id and all JSON member-list columns
-      await db.into(db.conversations).insert(
-        ConversationsCompanion(
-          id: const Value('conv-ref-1'),
-          createdAt: Value(now),
-          lastActivityAt: Value(now),
-          creatorId: const Value('member-1'),
-          participantIds: const Value('["member-1","member-2"]'),
-          archivedByMemberIds: const Value('["member-1"]'),
-          mutedByMemberIds: const Value('["member-2"]'),
-          lastReadTimestamps: const Value('{"member-1":1000,"member-2":2000}'),
-        ),
-      );
+      await db
+          .into(db.conversations)
+          .insert(
+            ConversationsCompanion(
+              id: const Value('conv-ref-1'),
+              createdAt: Value(now),
+              lastActivityAt: Value(now),
+              creatorId: const Value('member-1'),
+              participantIds: const Value('["member-1","member-2"]'),
+              archivedByMemberIds: const Value('["member-1"]'),
+              mutedByMemberIds: const Value('["member-2"]'),
+              lastReadTimestamps: const Value(
+                '{"member-1":1000,"member-2":2000}',
+              ),
+            ),
+          );
 
       // Seed a chat message with author_id
-      await db.into(db.chatMessages).insert(
-        ChatMessagesCompanion(
-          id: const Value('msg-ref-1'),
-          content: const Value('hello'),
-          timestamp: Value(now),
-          authorId: const Value('member-1'),
-          conversationId: const Value('conv-ref-1'),
-        ),
-      );
+      await db
+          .into(db.chatMessages)
+          .insert(
+            ChatMessagesCompanion(
+              id: const Value('msg-ref-1'),
+              content: const Value('hello'),
+              timestamp: Value(now),
+              authorId: const Value('member-1'),
+              conversationId: const Value('conv-ref-1'),
+            ),
+          );
 
       await harness.reset(ResetCategory.members);
 
@@ -497,25 +504,156 @@ void main() {
       expect(await _countRows(reopened, 'polls'), 1);
     });
 
-    test('chat reset clears media_attachments + collects on-disk .enc files',
-        () async {
-      final harness = await _ResetHarness.create();
-      addTearDown(harness.dispose);
+    test(
+      'chat reset clears media_attachments + collects on-disk .enc files',
+      () async {
+        final harness = await _ResetHarness.create();
+        addTearDown(harness.dispose);
 
-      final db = harness.db;
+        final db = harness.db;
+        final now = DateTime.utc(2026, 3, 18, 12);
+
+        // Seed a conversation + message so foreign-key-like references are
+        // satisfied (no actual FK enforcement, but mirrors production shape).
+        await db
+            .into(db.conversations)
+            .insert(
+              ConversationsCompanion(
+                id: const Value('conv-media-1'),
+                createdAt: Value(now),
+                lastActivityAt: Value(now),
+                title: const Value('Media Conv'),
+                creatorId: const Value('member-media-1'),
+                participantIds: const Value('[]'),
+              ),
+            );
+        await db
+            .into(db.chatMessages)
+            .insert(
+              ChatMessagesCompanion(
+                id: const Value('msg-media-1'),
+                content: const Value('has attachment'),
+                timestamp: Value(now),
+                authorId: const Value('member-media-1'),
+                conversationId: const Value('conv-media-1'),
+              ),
+            );
+        await db
+            .into(db.mediaAttachments)
+            .insert(
+              const MediaAttachmentsCompanion(
+                id: Value('att-1'),
+                messageId: Value('msg-media-1'),
+                mediaId: Value('media-file-abc'),
+                mediaType: Value('image'),
+              ),
+            );
+
+        // Seed the on-disk encrypted file that production code would have
+        // written when the message was sent.
+        await harness.mediaCacheDir.create(recursive: true);
+        final encFile = File(
+          p.join(harness.mediaCacheDir.path, 'media-file-abc.enc'),
+        );
+        await encFile.writeAsString('fake-ciphertext');
+        expect(await encFile.exists(), isTrue);
+
+        expect(await _countRows(db, 'media_attachments'), 1);
+
+        await harness.reset(ResetCategory.chat);
+
+        final reopened = await harness.reopenDatabase();
+        addTearDown(reopened.close);
+
+        expect(
+          await _countRows(reopened, 'media_attachments'),
+          0,
+          reason: 'chat reset must delete all media_attachments rows',
+        );
+        expect(await _countRows(reopened, 'chat_messages'), 0);
+        expect(await _countRows(reopened, 'conversations'), 0);
+        expect(
+          await encFile.exists(),
+          isFalse,
+          reason:
+              'chat reset must collect the on-disk .enc file for every '
+              'media_attachments row it deletes',
+        );
+      },
+    );
+
+    test('chat reset captures media_ids inside the transaction '
+        '(no SELECT-then-DELETE race window)', () async {
+      // Regression for the chat-reset hygiene bug closed alongside the
+      // 5cb9b6d9 custom-fields fix: the SELECT that captured media_ids ran
+      // outside the transaction, so a sync-inbound `media_attachments` row
+      // INSERTed between the SELECT and the bulk DELETE would be DB-deleted
+      // (the DELETE is broad: `DELETE FROM media_attachments`) without its
+      // `.enc` file ever being collected — permanent on-disk leak.
+      //
+      // Strategy: install a drift `QueryInterceptor` that records every
+      // statement with a flag for whether it ran inside a transaction.
+      // The structural invariant the fix guarantees is:
+      //   the `SELECT media_id FROM media_attachments` MUST run inside
+      //   the same transaction as the `DELETE FROM media_attachments`.
+      // That single shared snapshot is what makes the .enc cleanup
+      // race-free; verifying it directly is more robust than trying
+      // to provoke an interleaved INSERT (the timing is fragile and
+      // can be lock-serialized away in either direction).
+      final tempDir = await Directory.systemTemp.createTemp(
+        'prism-chat-reset-tx-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final appDbFile = File(p.join(tempDir.path, 'prism.db'));
+      final mediaCacheDir = Directory(p.join(tempDir.path, 'prism_media'));
+
+      final recorder = _RecordingTxInterceptor();
+      final wrappedExecutor = NativeDatabase(appDbFile).interceptWith(recorder);
+      final db = AppDatabase(wrappedExecutor);
+      addTearDown(db.close);
+
+      final secureStore = _FakeResetSecureStore();
+      final nativeResetKeys = _FakeNativeResetKeys();
+      final downloadManager = DownloadManager(
+        handle: null,
+        encryption: MediaEncryptionService(),
+        cacheDirOverride: mediaCacheDir,
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          systemSettingsRepositoryProvider.overrideWithValue(
+            DriftSystemSettingsRepository(db.systemSettingsDao, null),
+          ),
+          resetSecureStoreProvider.overrideWithValue(secureStore),
+          resetNativeKeysProvider.overrideWithValue(nativeResetKeys),
+          resetDocumentsDirectoryProvider.overrideWith((ref) async => tempDir),
+          resetTemporaryDirectoryProvider.overrideWith((ref) async => tempDir),
+          resetMediaCacheDirectoryProvider.overrideWith(
+            (ref) async => mediaCacheDir,
+          ),
+          resetSyncHandleProvider.overrideWithValue(null),
+          downloadManagerProvider.overrideWithValue(downloadManager),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Seed one media_attachments row + its .enc file so the file
+      // cleanup loop has something to do (otherwise the post-reset
+      // observable behavior is indistinguishable between fix and bug).
       final now = DateTime.utc(2026, 3, 18, 12);
-
-      // Seed a conversation + message so foreign-key-like references are
-      // satisfied (no actual FK enforcement, but mirrors production shape).
       await db
           .into(db.conversations)
           .insert(
             ConversationsCompanion(
-              id: const Value('conv-media-1'),
+              id: const Value('conv-tx'),
               createdAt: Value(now),
               lastActivityAt: Value(now),
-              title: const Value('Media Conv'),
-              creatorId: const Value('member-media-1'),
               participantIds: const Value('[]'),
             ),
           );
@@ -523,193 +661,71 @@ void main() {
           .into(db.chatMessages)
           .insert(
             ChatMessagesCompanion(
-              id: const Value('msg-media-1'),
-              content: const Value('has attachment'),
+              id: const Value('msg-tx-a'),
+              content: const Value('a'),
               timestamp: Value(now),
-              authorId: const Value('member-media-1'),
-              conversationId: const Value('conv-media-1'),
+              conversationId: const Value('conv-tx'),
             ),
           );
       await db
           .into(db.mediaAttachments)
           .insert(
             const MediaAttachmentsCompanion(
-              id: Value('att-1'),
-              messageId: Value('msg-media-1'),
-              mediaId: Value('media-file-abc'),
+              id: Value('att-tx-a'),
+              messageId: Value('msg-tx-a'),
+              mediaId: Value('media-tx-a'),
               mediaType: Value('image'),
             ),
           );
+      await mediaCacheDir.create(recursive: true);
+      await File(
+        p.join(mediaCacheDir.path, 'media-tx-a.enc'),
+      ).writeAsString('cipher-a');
 
-      // Seed the on-disk encrypted file that production code would have
-      // written when the message was sent.
-      await harness.mediaCacheDir.create(recursive: true);
-      final encFile = File(
-        p.join(harness.mediaCacheDir.path, 'media-file-abc.enc'),
-      );
-      await encFile.writeAsString('fake-ciphertext');
-      expect(await encFile.exists(), isTrue);
+      // Clear recorder noise from seeding; only care about reset traffic.
+      recorder.clear();
 
-      expect(await _countRows(db, 'media_attachments'), 1);
+      await container
+          .read(resetDataNotifierProvider.notifier)
+          .reset(ResetCategory.chat);
 
-      await harness.reset(ResetCategory.chat);
-
-      final reopened = await harness.reopenDatabase();
-      addTearDown(reopened.close);
-
-      expect(await _countRows(reopened, 'media_attachments'), 0,
-          reason: 'chat reset must delete all media_attachments rows');
-      expect(await _countRows(reopened, 'chat_messages'), 0);
-      expect(await _countRows(reopened, 'conversations'), 0);
+      // Find every `SELECT media_id FROM media_attachments` statement
+      // that ran during the reset, and confirm at least one ran inside a
+      // transaction. Pre-fix, the only such SELECT runs at the top-level
+      // executor (inTransaction == false), and this assertion fails.
+      final mediaIdSelects = recorder.events
+          .where(
+            (e) =>
+                e.kind == _TxEventKind.runSelect &&
+                e.sql.contains('SELECT media_id FROM media_attachments'),
+          )
+          .toList();
       expect(
-        await encFile.exists(),
+        mediaIdSelects,
+        isNotEmpty,
+        reason: 'chat reset should capture media_ids before deleting rows',
+      );
+      expect(
+        mediaIdSelects.where((e) => e.inTransaction),
+        isNotEmpty,
+        reason:
+            'chat reset must run the media_id SELECT inside the same '
+            'transaction as the bulk DELETE — otherwise a sync-inbound '
+            'row INSERTed between SELECT and DELETE is DB-deleted but '
+            'its .enc file is never collected (permanent on-disk leak). '
+            'Recorded SELECTs: $mediaIdSelects',
+      );
+
+      // Sanity: the file-side effect (closing HIGH #6 end-to-end) — the
+      // .enc file for the seeded row is gone after the reset.
+      expect(
+        await File(p.join(mediaCacheDir.path, 'media-tx-a.enc')).exists(),
         isFalse,
-        reason: 'chat reset must collect the on-disk .enc file for every '
-            'media_attachments row it deletes',
+        reason:
+            'chat reset must collect the .enc file for every row '
+            'it deletes from media_attachments',
       );
     });
-
-    test(
-      'chat reset captures media_ids inside the transaction '
-      '(no SELECT-then-DELETE race window)',
-      () async {
-        // Regression for the chat-reset hygiene bug closed alongside the
-        // 5cb9b6d9 custom-fields fix: the SELECT that captured media_ids ran
-        // outside the transaction, so a sync-inbound `media_attachments` row
-        // INSERTed between the SELECT and the bulk DELETE would be DB-deleted
-        // (the DELETE is broad: `DELETE FROM media_attachments`) without its
-        // `.enc` file ever being collected — permanent on-disk leak.
-        //
-        // Strategy: install a drift `QueryInterceptor` that records every
-        // statement with a flag for whether it ran inside a transaction.
-        // The structural invariant the fix guarantees is:
-        //   the `SELECT media_id FROM media_attachments` MUST run inside
-        //   the same transaction as the `DELETE FROM media_attachments`.
-        // That single shared snapshot is what makes the .enc cleanup
-        // race-free; verifying it directly is more robust than trying
-        // to provoke an interleaved INSERT (the timing is fragile and
-        // can be lock-serialized away in either direction).
-        final tempDir = await Directory.systemTemp.createTemp(
-          'prism-chat-reset-tx-',
-        );
-        addTearDown(() async {
-          if (await tempDir.exists()) {
-            await tempDir.delete(recursive: true);
-          }
-        });
-        final appDbFile = File(p.join(tempDir.path, 'prism.db'));
-        final mediaCacheDir = Directory(p.join(tempDir.path, 'prism_media'));
-
-        final recorder = _RecordingTxInterceptor();
-        final wrappedExecutor = NativeDatabase(appDbFile)
-            .interceptWith(recorder);
-        final db = AppDatabase(wrappedExecutor);
-        addTearDown(db.close);
-
-        final secureStore = _FakeResetSecureStore();
-        final nativeResetKeys = _FakeNativeResetKeys();
-        final downloadManager = DownloadManager(
-          handle: null,
-          encryption: MediaEncryptionService(),
-          cacheDirOverride: mediaCacheDir,
-        );
-
-        final container = ProviderContainer(
-          overrides: [
-            databaseProvider.overrideWithValue(db),
-            systemSettingsRepositoryProvider.overrideWithValue(
-              DriftSystemSettingsRepository(db.systemSettingsDao, null),
-            ),
-            resetSecureStoreProvider.overrideWithValue(secureStore),
-            resetNativeKeysProvider.overrideWithValue(nativeResetKeys),
-            resetDocumentsDirectoryProvider.overrideWith(
-              (ref) async => tempDir,
-            ),
-            resetTemporaryDirectoryProvider.overrideWith(
-              (ref) async => tempDir,
-            ),
-            resetMediaCacheDirectoryProvider.overrideWith(
-              (ref) async => mediaCacheDir,
-            ),
-            resetSyncHandleProvider.overrideWithValue(null),
-            downloadManagerProvider.overrideWithValue(downloadManager),
-          ],
-        );
-        addTearDown(container.dispose);
-
-        // Seed one media_attachments row + its .enc file so the file
-        // cleanup loop has something to do (otherwise the post-reset
-        // observable behavior is indistinguishable between fix and bug).
-        final now = DateTime.utc(2026, 3, 18, 12);
-        await db.into(db.conversations).insert(
-              ConversationsCompanion(
-                id: const Value('conv-tx'),
-                createdAt: Value(now),
-                lastActivityAt: Value(now),
-                participantIds: const Value('[]'),
-              ),
-            );
-        await db.into(db.chatMessages).insert(
-              ChatMessagesCompanion(
-                id: const Value('msg-tx-a'),
-                content: const Value('a'),
-                timestamp: Value(now),
-                conversationId: const Value('conv-tx'),
-              ),
-            );
-        await db.into(db.mediaAttachments).insert(
-              const MediaAttachmentsCompanion(
-                id: Value('att-tx-a'),
-                messageId: Value('msg-tx-a'),
-                mediaId: Value('media-tx-a'),
-                mediaType: Value('image'),
-              ),
-            );
-        await mediaCacheDir.create(recursive: true);
-        await File(p.join(mediaCacheDir.path, 'media-tx-a.enc'))
-            .writeAsString('cipher-a');
-
-        // Clear recorder noise from seeding; only care about reset traffic.
-        recorder.clear();
-
-        await container.read(resetDataNotifierProvider.notifier).reset(
-              ResetCategory.chat,
-            );
-
-        // Find every `SELECT media_id FROM media_attachments` statement
-        // that ran during the reset, and confirm at least one ran inside a
-        // transaction. Pre-fix, the only such SELECT runs at the top-level
-        // executor (inTransaction == false), and this assertion fails.
-        final mediaIdSelects = recorder.events
-            .where((e) =>
-                e.kind == _TxEventKind.runSelect &&
-                e.sql.contains('SELECT media_id FROM media_attachments'))
-            .toList();
-        expect(
-          mediaIdSelects,
-          isNotEmpty,
-          reason: 'chat reset should capture media_ids before deleting rows',
-        );
-        expect(
-          mediaIdSelects.where((e) => e.inTransaction),
-          isNotEmpty,
-          reason: 'chat reset must run the media_id SELECT inside the same '
-              'transaction as the bulk DELETE — otherwise a sync-inbound '
-              'row INSERTed between SELECT and DELETE is DB-deleted but '
-              'its .enc file is never collected (permanent on-disk leak). '
-              'Recorded SELECTs: $mediaIdSelects',
-        );
-
-        // Sanity: the file-side effect (closing HIGH #6 end-to-end) — the
-        // .enc file for the seeded row is gone after the reset.
-        expect(
-          await File(p.join(mediaCacheDir.path, 'media-tx-a.enc')).exists(),
-          isFalse,
-          reason: 'chat reset must collect the .enc file for every row '
-              'it deletes from media_attachments',
-        );
-      },
-    );
 
     test('polls reset clears polls, options, and votes', () async {
       final harness = await _ResetHarness.create();
@@ -768,7 +784,10 @@ void main() {
       await harness.reset(ResetCategory.customFields);
 
       expect(await _countRows(harness.db, 'custom_fields'), 3);
-      expect(await _countRows(harness.db, 'custom_fields', activeOnly: true), 0);
+      expect(
+        await _countRows(harness.db, 'custom_fields', activeOnly: true),
+        0,
+      );
       expect(
         await _countRows(harness.db, 'custom_field_values'),
         greaterThanOrEqualTo(5),
@@ -1382,8 +1401,7 @@ void main() {
     test(
       'sync reset does not delete group after generic deregister failure',
       () async {
-        // User-facing sync disconnect uses the conservative policy: only the
-        // relay's last-active-device 403 should fall through to deleteSyncGroup.
+        // User-facing sync disconnect keeps relay deletion conservative.
         final fakeHandle = _FakeSyncHandle();
         final recordingFfi = _RecordingResetSyncFfi()
           ..throwOnDeregister = Exception('Network unreachable');
@@ -1421,6 +1439,56 @@ void main() {
           reason:
               'sync-only disconnect must not attempt deleteSyncGroup after a '
               'generic deregister failure',
+        );
+      },
+    );
+
+    test(
+      'sync reset preserves relay group after last-active-device rejection',
+      () async {
+        final fakeHandle = _FakeSyncHandle();
+        final recordingFfi = _RecordingResetSyncFfi()
+          ..throwOnDeregister = Exception(
+            'HTTP 403: Cannot deregister the last active device; '
+            'delete the sync group instead',
+          );
+
+        final harness = await _ResetHarness.create(
+          handleOverride: fakeHandle,
+          ffiOverride: recordingFfi,
+        );
+        addTearDown(harness.dispose);
+
+        harness.secureStore
+          ..seedSyncValue(
+            'prism_sync.sync_id',
+            base64Encode(utf8.encode('sync-abc')),
+          )
+          ..seedSyncValue(
+            'prism_sync.device_id',
+            base64Encode(utf8.encode('device-abc')),
+          )
+          ..seedSyncValue(
+            'prism_sync.session_token',
+            base64Encode(utf8.encode('session-abc')),
+          );
+
+        await harness.reset(ResetCategory.sync);
+
+        expect(recordingFfi.calls, contains('deregisterDevice'));
+        expect(
+          recordingFfi.calls,
+          isNot(contains('deleteSyncGroup')),
+          reason:
+              'preserved-data sync reset must not delete the previous relay group',
+        );
+
+        final marker = await const SyncDisconnectMarkerStore()
+            .readForCurrentInstall();
+        expect(marker, isNotNull);
+        expect(
+          marker!.relayCleanupOutcome,
+          RelayCleanupMarkerOutcome.skippedLastActiveDevice,
         );
       },
     );
@@ -2215,245 +2283,289 @@ void main() {
         const victimId = 'member-victim';
 
         // Seed the victim member.
-        await db.into(db.members).insert(
-          MembersCompanion(
-            id: const Value(victimId),
-            name: const Value('Victim'),
-            emoji: const Value('V'),
-            createdAt: Value(now),
-          ),
-        );
+        await db
+            .into(db.members)
+            .insert(
+              MembersCompanion(
+                id: const Value(victimId),
+                name: const Value('Victim'),
+                emoji: const Value('V'),
+                createdAt: Value(now),
+              ),
+            );
 
         // Seed prerequisite rows needed to satisfy NOT NULL constraints for
         // some child tables.
-        await db.into(db.conversations).insert(
-          ConversationsCompanion(
-            id: const Value('conv-orphan-1'),
-            createdAt: Value(now),
-            lastActivityAt: Value(now),
-            participantIds: const Value('[]'),
-          ),
-        );
-        await db.into(db.habits).insert(
-          HabitsCompanion(
-            id: const Value('habit-orphan-1'),
-            name: const Value('Orphan habit'),
-            createdAt: Value(now),
-            modifiedAt: Value(now),
-          ),
-        );
-        await db.into(db.polls).insert(
-          PollsCompanion(
-            id: const Value('poll-orphan-1'),
-            question: const Value('Q?'),
-            createdAt: Value(now),
-          ),
-        );
-        await db.into(db.pollOptions).insert(
-          const PollOptionsCompanion(
-            id: Value('opt-orphan-1'),
-            pollId: Value('poll-orphan-1'),
-            optionText: Value('Yes'),
-          ),
-        );
-        await db.into(db.customFields).insert(
-          CustomFieldsCompanion(
-            id: const Value('field-orphan-1'),
-            name: const Value('Field'),
-            fieldType: const Value(0),
-            createdAt: Value(now),
-          ),
-        );
-        await db.into(db.memberGroups).insert(
-          MemberGroupsCompanion(
-            id: const Value('group-orphan-1'),
-            name: const Value('Group'),
-            createdAt: Value(now),
-          ),
-        );
+        await db
+            .into(db.conversations)
+            .insert(
+              ConversationsCompanion(
+                id: const Value('conv-orphan-1'),
+                createdAt: Value(now),
+                lastActivityAt: Value(now),
+                participantIds: const Value('[]'),
+              ),
+            );
+        await db
+            .into(db.habits)
+            .insert(
+              HabitsCompanion(
+                id: const Value('habit-orphan-1'),
+                name: const Value('Orphan habit'),
+                createdAt: Value(now),
+                modifiedAt: Value(now),
+              ),
+            );
+        await db
+            .into(db.polls)
+            .insert(
+              PollsCompanion(
+                id: const Value('poll-orphan-1'),
+                question: const Value('Q?'),
+                createdAt: Value(now),
+              ),
+            );
+        await db
+            .into(db.pollOptions)
+            .insert(
+              const PollOptionsCompanion(
+                id: Value('opt-orphan-1'),
+                pollId: Value('poll-orphan-1'),
+                optionText: Value('Yes'),
+              ),
+            );
+        await db
+            .into(db.customFields)
+            .insert(
+              CustomFieldsCompanion(
+                id: const Value('field-orphan-1'),
+                name: const Value('Field'),
+                fieldType: const Value(0),
+                createdAt: Value(now),
+              ),
+            );
+        await db
+            .into(db.memberGroups)
+            .insert(
+              MemberGroupsCompanion(
+                id: const Value('group-orphan-1'),
+                name: const Value('Group'),
+                createdAt: Value(now),
+              ),
+            );
 
         // Seed one row per _memberRefColumns entry.
         const rowId = 'orphan-row';
 
         // fronting_sessions.member_id
-        await db.into(db.frontingSessions).insert(
-          FrontingSessionsCompanion(
-            id: const Value('$rowId-fronting'),
-            startTime: Value(now),
-            memberId: const Value(victimId),
-            sessionType: const Value(0),
-          ),
-        );
+        await db
+            .into(db.frontingSessions)
+            .insert(
+              FrontingSessionsCompanion(
+                id: const Value('$rowId-fronting'),
+                startTime: Value(now),
+                memberId: const Value(victimId),
+                sessionType: const Value(0),
+              ),
+            );
 
         // chat_messages.author_id + reply_to_author_id (both nulled on reset).
-        await db.into(db.chatMessages).insert(
-          ChatMessagesCompanion(
-            id: const Value('$rowId-chat-msg'),
-            content: const Value('hello'),
-            timestamp: Value(now),
-            authorId: const Value(victimId),
-            replyToAuthorId: const Value(victimId),
-            conversationId: const Value('conv-orphan-1'),
-          ),
-        );
+        await db
+            .into(db.chatMessages)
+            .insert(
+              ChatMessagesCompanion(
+                id: const Value('$rowId-chat-msg'),
+                content: const Value('hello'),
+                timestamp: Value(now),
+                authorId: const Value(victimId),
+                replyToAuthorId: const Value(victimId),
+                conversationId: const Value('conv-orphan-1'),
+              ),
+            );
 
         // conversations.creator_id
-        await db.into(db.conversations).insert(
-          ConversationsCompanion(
-            id: const Value('$rowId-conv'),
-            createdAt: Value(now),
-            lastActivityAt: Value(now),
-            creatorId: const Value(victimId),
-            participantIds: const Value('[]'),
-          ),
-        );
+        await db
+            .into(db.conversations)
+            .insert(
+              ConversationsCompanion(
+                id: const Value('$rowId-conv'),
+                createdAt: Value(now),
+                lastActivityAt: Value(now),
+                creatorId: const Value(victimId),
+                participantIds: const Value('[]'),
+              ),
+            );
 
         // habits.assigned_member_id
-        await db.into(db.habits).insert(
-          HabitsCompanion(
-            id: const Value('$rowId-habit'),
-            name: const Value('Orphan habit 2'),
-            assignedMemberId: const Value(victimId),
-            createdAt: Value(now),
-            modifiedAt: Value(now),
-          ),
-        );
+        await db
+            .into(db.habits)
+            .insert(
+              HabitsCompanion(
+                id: const Value('$rowId-habit'),
+                name: const Value('Orphan habit 2'),
+                assignedMemberId: const Value(victimId),
+                createdAt: Value(now),
+                modifiedAt: Value(now),
+              ),
+            );
 
         // reminders.target_member_id
-        await db.into(db.reminders).insert(
-          RemindersCompanion(
-            id: const Value('$rowId-reminder'),
-            name: const Value('Orphan reminder'),
-            message: const Value('msg'),
-            trigger: const Value(0),
-            targetMemberId: const Value(victimId),
-            createdAt: Value(now),
-            modifiedAt: Value(now),
-          ),
-        );
+        await db
+            .into(db.reminders)
+            .insert(
+              RemindersCompanion(
+                id: const Value('$rowId-reminder'),
+                name: const Value('Orphan reminder'),
+                message: const Value('msg'),
+                trigger: const Value(0),
+                targetMemberId: const Value(victimId),
+                createdAt: Value(now),
+                modifiedAt: Value(now),
+              ),
+            );
 
         // pk_mapping_state.local_member_id
-        await db.into(db.pkMappingState).insert(
-          PkMappingStateCompanion(
-            id: const Value('$rowId-pk-mapping'),
-            decisionType: const Value('link'),
-            localMemberId: const Value(victimId),
-            pkMemberUuid: const Value('00000000-0000-0000-0000-000000000001'),
-            createdAt: Value(now),
-            updatedAt: Value(now),
-          ),
-        );
+        await db
+            .into(db.pkMappingState)
+            .insert(
+              PkMappingStateCompanion(
+                id: const Value('$rowId-pk-mapping'),
+                decisionType: const Value('link'),
+                localMemberId: const Value(victimId),
+                pkMemberUuid: const Value(
+                  '00000000-0000-0000-0000-000000000001',
+                ),
+                createdAt: Value(now),
+                updatedAt: Value(now),
+              ),
+            );
 
         // JSON maps keyed by memberId — system_settings (singleton) and
         // plural_kit_sync_state are seeded with member-keyed JSON so the
         // post-reset assertions below can verify both are cleared.
-        await db.into(db.systemSettingsTable).insert(
-          const SystemSettingsTableCompanion(
-            id: Value('singleton'),
-            chatBadgePreferences: Value(
-              '{"$victimId": "mentions_only"}',
-            ),
-          ),
-          mode: InsertMode.insertOrReplace,
-        );
-        await db.into(db.pluralKitSyncState).insert(
-          const PluralKitSyncStateCompanion(
-            id: Value('pk_config'),
-            fieldSyncConfig: Value(
-              '{"$victimId": {"name": "push"}}',
-            ),
-          ),
-          mode: InsertMode.insertOrReplace,
-        );
+        await db
+            .into(db.systemSettingsTable)
+            .insert(
+              const SystemSettingsTableCompanion(
+                id: Value('singleton'),
+                chatBadgePreferences: Value('{"$victimId": "mentions_only"}'),
+              ),
+              mode: InsertMode.insertOrReplace,
+            );
+        await db
+            .into(db.pluralKitSyncState)
+            .insert(
+              const PluralKitSyncStateCompanion(
+                id: Value('pk_config'),
+                fieldSyncConfig: Value('{"$victimId": {"name": "push"}}'),
+              ),
+              mode: InsertMode.insertOrReplace,
+            );
 
         // member_profile_preference_values.member_id
-        await db.into(db.memberProfilePreferenceValues).insert(
-          const MemberProfilePreferenceValuesCompanion(
-            id: Value('$rowId-mppv'),
-            memberId: Value(victimId),
-            key: Value('profile.show_pronouns'),
-            valueType: Value('bool'),
-            valueJson: Value('true'),
-          ),
-        );
+        await db
+            .into(db.memberProfilePreferenceValues)
+            .insert(
+              const MemberProfilePreferenceValuesCompanion(
+                id: Value('$rowId-mppv'),
+                memberId: Value(victimId),
+                key: Value('profile.show_pronouns'),
+                valueType: Value('bool'),
+                valueJson: Value('true'),
+              ),
+            );
 
         // member_group_entries.member_id
-        await db.into(db.memberGroupEntries).insert(
-          const MemberGroupEntriesCompanion(
-            id: Value('$rowId-group-entry'),
-            groupId: Value('group-orphan-1'),
-            memberId: Value(victimId),
-          ),
-        );
+        await db
+            .into(db.memberGroupEntries)
+            .insert(
+              const MemberGroupEntriesCompanion(
+                id: Value('$rowId-group-entry'),
+                groupId: Value('group-orphan-1'),
+                memberId: Value(victimId),
+              ),
+            );
 
         // custom_field_values.member_id
-        await db.into(db.customFieldValues).insert(
-          const CustomFieldValuesCompanion(
-            id: Value('$rowId-cfv'),
-            customFieldId: Value('field-orphan-1'),
-            memberId: Value(victimId),
-            value: Value('42'),
-          ),
-        );
+        await db
+            .into(db.customFieldValues)
+            .insert(
+              const CustomFieldValuesCompanion(
+                id: Value('$rowId-cfv'),
+                customFieldId: Value('field-orphan-1'),
+                memberId: Value(victimId),
+                value: Value('42'),
+              ),
+            );
 
         // notes.member_id
-        await db.into(db.notes).insert(
-          NotesCompanion(
-            id: const Value('$rowId-note'),
-            title: const Value('Orphan note'),
-            body: const Value('body'),
-            memberId: const Value(victimId),
-            date: Value(now),
-            createdAt: Value(now),
-            modifiedAt: Value(now),
-          ),
-        );
+        await db
+            .into(db.notes)
+            .insert(
+              NotesCompanion(
+                id: const Value('$rowId-note'),
+                title: const Value('Orphan note'),
+                body: const Value('body'),
+                memberId: const Value(victimId),
+                date: Value(now),
+                createdAt: Value(now),
+                modifiedAt: Value(now),
+              ),
+            );
 
         // poll_votes.member_id
-        await db.into(db.pollVotes).insert(
-          PollVotesCompanion(
-            id: const Value('$rowId-vote'),
-            pollOptionId: const Value('opt-orphan-1'),
-            memberId: const Value(victimId),
-            votedAt: Value(now),
-          ),
-        );
+        await db
+            .into(db.pollVotes)
+            .insert(
+              PollVotesCompanion(
+                id: const Value('$rowId-vote'),
+                pollOptionId: const Value('opt-orphan-1'),
+                memberId: const Value(victimId),
+                votedAt: Value(now),
+              ),
+            );
 
         // habit_completions.completed_by_member_id
-        await db.into(db.habitCompletions).insert(
-          HabitCompletionsCompanion(
-            id: const Value('$rowId-completion'),
-            habitId: const Value('habit-orphan-1'),
-            completedAt: Value(now),
-            completedByMemberId: const Value(victimId),
-            createdAt: Value(now),
-            modifiedAt: Value(now),
-          ),
-        );
+        await db
+            .into(db.habitCompletions)
+            .insert(
+              HabitCompletionsCompanion(
+                id: const Value('$rowId-completion'),
+                habitId: const Value('habit-orphan-1'),
+                completedAt: Value(now),
+                completedByMemberId: const Value(victimId),
+                createdAt: Value(now),
+                modifiedAt: Value(now),
+              ),
+            );
 
         // media_attachments.member_id (bio image attached to a member)
-        await db.into(db.mediaAttachments).insert(
-          const MediaAttachmentsCompanion(
-            id: Value('$rowId-media_attachments'),
-            mediaId: Value('$rowId-media-file'),
-            mediaType: Value('image'),
-            memberId: Value(victimId),
-          ),
-        );
+        await db
+            .into(db.mediaAttachments)
+            .insert(
+              const MediaAttachmentsCompanion(
+                id: Value('$rowId-media_attachments'),
+                mediaId: Value('$rowId-media-file'),
+                mediaType: Value('image'),
+                memberId: Value(victimId),
+              ),
+            );
 
         // member_board_posts.target_member_id
         // member_board_posts.author_id (seed both on one row)
-        await db.into(db.memberBoardPosts).insert(
-          MemberBoardPostsCompanion(
-            id: const Value('$rowId-board-post'),
-            targetMemberId: const Value(victimId),
-            authorId: const Value(victimId),
-            audience: const Value('public'),
-            body: const Value('post body'),
-            createdAt: Value(now),
-            writtenAt: Value(now),
-          ),
-        );
+        await db
+            .into(db.memberBoardPosts)
+            .insert(
+              MemberBoardPostsCompanion(
+                id: const Value('$rowId-board-post'),
+                targetMemberId: const Value(victimId),
+                authorId: const Value(victimId),
+                audience: const Value('public'),
+                body: const Value('post body'),
+                createdAt: Value(now),
+                writtenAt: Value(now),
+              ),
+            );
 
         // Run _resetMembers via the public reset path.
         await harness.reset(ResetCategory.members);
@@ -2507,7 +2619,11 @@ void main() {
               } else {
                 rowSuffix = ref.table;
               }
-              final val = await colValue(ref.table, ref.column, '$rowId-$rowSuffix');
+              final val = await colValue(
+                ref.table,
+                ref.column,
+                '$rowId-$rowSuffix',
+              );
               expect(
                 val,
                 isNull,
@@ -3302,23 +3418,27 @@ Future<void> _seedCustomFields(
   final now = DateTime.utc(2026, 3, 18, 12);
   for (var i = 0; i < fieldCount; i++) {
     final fieldId = 'cf-$i';
-    await db.into(db.customFields).insert(
-      CustomFieldsCompanion(
-        id: Value(fieldId),
-        name: Value('field-$i'),
-        fieldType: const Value(0),
-        createdAt: Value(now),
-      ),
-    );
+    await db
+        .into(db.customFields)
+        .insert(
+          CustomFieldsCompanion(
+            id: Value(fieldId),
+            name: Value('field-$i'),
+            fieldType: const Value(0),
+            createdAt: Value(now),
+          ),
+        );
     for (var j = 0; j < valuesPerField; j++) {
-      await db.into(db.customFieldValues).insert(
-        CustomFieldValuesCompanion(
-          id: Value('cfv-$i-$j'),
-          customFieldId: Value(fieldId),
-          memberId: Value('member-$i-$j'),
-          value: Value('v-$i-$j'),
-        ),
-      );
+      await db
+          .into(db.customFieldValues)
+          .insert(
+            CustomFieldValuesCompanion(
+              id: Value('cfv-$i-$j'),
+              customFieldId: Value(fieldId),
+              memberId: Value('member-$i-$j'),
+              value: Value('v-$i-$j'),
+            ),
+          );
     }
   }
 }

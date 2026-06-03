@@ -24,22 +24,24 @@ void main() {
           syncId: 'sync',
           deviceId: 'dev',
           sessionToken: 'token',
-          deregister: ({
-            required ffi.PrismSyncHandle handle,
-            required String syncId,
-            required String deviceId,
-            required String sessionToken,
-          }) async {
-            deregisterCalls++;
-          },
-          deleteSyncGroup: ({
-            required ffi.PrismSyncHandle handle,
-            required String syncId,
-            required String deviceId,
-            required String sessionToken,
-          }) async {
-            deleteGroupCalls++;
-          },
+          deregister:
+              ({
+                required ffi.PrismSyncHandle handle,
+                required String syncId,
+                required String deviceId,
+                required String sessionToken,
+              }) async {
+                deregisterCalls++;
+              },
+          deleteSyncGroup:
+              ({
+                required ffi.PrismSyncHandle handle,
+                required String syncId,
+                required String deviceId,
+                required String sessionToken,
+              }) async {
+                deleteGroupCalls++;
+              },
           log: logs.add,
         );
 
@@ -50,45 +52,84 @@ void main() {
       },
     );
 
-    test(
-      'falls back to deleteSyncGroup on last-active-device 403',
-      () async {
-        const handle = _FakePrismSyncHandle();
-        var deleteGroupCalls = 0;
-        final logs = <String>[];
+    test('falls back to deleteSyncGroup on last-active-device 403', () async {
+      const handle = _FakePrismSyncHandle();
+      var deleteGroupCalls = 0;
+      final logs = <String>[];
 
-        final result = await cleanupRelayRegistration(
-          handle: handle,
-          syncId: 'sync',
-          deviceId: 'dev',
-          sessionToken: 'token',
-          deregister: ({
-            required ffi.PrismSyncHandle handle,
-            required String syncId,
-            required String deviceId,
-            required String sessionToken,
-          }) async {
-            throw Exception(
-              'HTTP 403: Cannot deregister the last active device; '
-              'delete the sync group instead',
-            );
-          },
-          deleteSyncGroup: ({
-            required ffi.PrismSyncHandle handle,
-            required String syncId,
-            required String deviceId,
-            required String sessionToken,
-          }) async {
-            deleteGroupCalls++;
-          },
-          log: logs.add,
-        );
+      final result = await cleanupRelayRegistration(
+        handle: handle,
+        syncId: 'sync',
+        deviceId: 'dev',
+        sessionToken: 'token',
+        deregister:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String syncId,
+              required String deviceId,
+              required String sessionToken,
+            }) async {
+              throw Exception(
+                'HTTP 403: Cannot deregister the last active device; '
+                'delete the sync group instead',
+              );
+            },
+        deleteSyncGroup:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String syncId,
+              required String deviceId,
+              required String sessionToken,
+            }) async {
+              deleteGroupCalls++;
+            },
+        log: logs.add,
+      );
 
-        expect(result, RelayCleanupOutcome.groupDeleted);
-        expect(deleteGroupCalls, 1);
-        expect(logs.any((l) => l.contains('Last device')), isTrue);
-      },
-    );
+      expect(result, RelayCleanupOutcome.groupDeleted);
+      expect(deleteGroupCalls, 1);
+      expect(logs.any((l) => l.contains('Last device')), isTrue);
+    });
+
+    test('can leave relay group intact on last-active-device 403', () async {
+      const handle = _FakePrismSyncHandle();
+      var deleteGroupCalls = 0;
+      final logs = <String>[];
+
+      final result = await cleanupRelayRegistration(
+        handle: handle,
+        syncId: 'sync',
+        deviceId: 'dev',
+        sessionToken: 'token',
+        deregister:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String syncId,
+              required String deviceId,
+              required String sessionToken,
+            }) async {
+              throw Exception(
+                'HTTP 403: Cannot deregister the last active device; '
+                'delete the sync group instead',
+              );
+            },
+        deleteSyncGroup:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String syncId,
+              required String deviceId,
+              required String sessionToken,
+            }) async {
+              deleteGroupCalls++;
+            },
+        log: logs.add,
+        fallbackOnLastActiveDevice: false,
+      );
+
+      expect(result, RelayCleanupOutcome.skippedLastActiveDevice);
+      expect(deleteGroupCalls, 0);
+      expect(logs.any((l) => l.contains('leaving relay state intact')), isTrue);
+    });
 
     test('does not fall back to deleteSyncGroup on unrelated error', () async {
       const handle = _FakePrismSyncHandle();
@@ -100,22 +141,24 @@ void main() {
         syncId: 'sync',
         deviceId: 'dev',
         sessionToken: 'token',
-        deregister: ({
-          required ffi.PrismSyncHandle handle,
-          required String syncId,
-          required String deviceId,
-          required String sessionToken,
-        }) async {
-          throw Exception('Network unreachable');
-        },
-        deleteSyncGroup: ({
-          required ffi.PrismSyncHandle handle,
-          required String syncId,
-          required String deviceId,
-          required String sessionToken,
-        }) async {
-          deleteGroupCalls++;
-        },
+        deregister:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String syncId,
+              required String deviceId,
+              required String sessionToken,
+            }) async {
+              throw Exception('Network unreachable');
+            },
+        deleteSyncGroup:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String syncId,
+              required String deviceId,
+              required String sessionToken,
+            }) async {
+              deleteGroupCalls++;
+            },
         log: logs.add,
       );
 
@@ -123,98 +166,95 @@ void main() {
       expect(
         deleteGroupCalls,
         0,
-        reason: 'must not fall back unless the relay returned the sole-device 403',
+        reason:
+            'must not fall back unless the relay returned the sole-device 403',
       );
       expect(logs.any((l) => l.contains('non-fatal')), isTrue);
     });
 
-    test(
-      'returns fallbackFailed when deleteSyncGroup also throws',
-      () async {
-        const handle = _FakePrismSyncHandle();
-        final logs = <String>[];
+    test('returns fallbackFailed when deleteSyncGroup also throws', () async {
+      const handle = _FakePrismSyncHandle();
+      final logs = <String>[];
 
-        final result = await cleanupRelayRegistration(
-          handle: handle,
-          syncId: 'sync',
-          deviceId: 'dev',
-          sessionToken: 'token',
-          deregister: ({
-            required ffi.PrismSyncHandle handle,
-            required String syncId,
-            required String deviceId,
-            required String sessionToken,
-          }) async {
-            throw Exception('HTTP 403: last active device');
-          },
-          deleteSyncGroup: ({
-            required ffi.PrismSyncHandle handle,
-            required String syncId,
-            required String deviceId,
-            required String sessionToken,
-          }) async {
-            throw Exception('Relay 502');
-          },
-          log: logs.add,
-        );
+      final result = await cleanupRelayRegistration(
+        handle: handle,
+        syncId: 'sync',
+        deviceId: 'dev',
+        sessionToken: 'token',
+        deregister:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String syncId,
+              required String deviceId,
+              required String sessionToken,
+            }) async {
+              throw Exception('HTTP 403: last active device');
+            },
+        deleteSyncGroup:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String syncId,
+              required String deviceId,
+              required String sessionToken,
+            }) async {
+              throw Exception('Relay 502');
+            },
+        log: logs.add,
+      );
 
-        expect(result, RelayCleanupOutcome.fallbackFailed);
-        expect(logs.any((l) => l.contains('sync group delete failed')), isTrue);
-      },
-    );
+      expect(result, RelayCleanupOutcome.fallbackFailed);
+      expect(logs.any((l) => l.contains('sync group delete failed')), isTrue);
+    });
 
-    // ── Fallback policy: setup-failure default vs reset-path opt-in ────
+    // ── Fallback policy: default vs full-reset opt-in ────
 
-    test(
-      'fallbackOnAnyDeregisterFailure: true forces deleteSyncGroup on any '
-      'deregister error (reset-path semantics)',
-      () async {
-        const handle = _FakePrismSyncHandle();
-        var deleteGroupCalls = 0;
-        final logs = <String>[];
+    test('fallbackOnAnyDeregisterFailure: true forces deleteSyncGroup on any '
+        'deregister error (full-reset semantics)', () async {
+      const handle = _FakePrismSyncHandle();
+      var deleteGroupCalls = 0;
+      final logs = <String>[];
 
-        final result = await cleanupRelayRegistration(
-          handle: handle,
-          syncId: 'sync',
-          deviceId: 'dev',
-          sessionToken: 'token',
-          deregister: ({
-            required ffi.PrismSyncHandle handle,
-            required String syncId,
-            required String deviceId,
-            required String sessionToken,
-          }) async {
-            // Generic transient failure — neither last-active nor 403.
-            throw Exception('Network unreachable');
-          },
-          deleteSyncGroup: ({
-            required ffi.PrismSyncHandle handle,
-            required String syncId,
-            required String deviceId,
-            required String sessionToken,
-          }) async {
-            deleteGroupCalls++;
-          },
-          log: logs.add,
-          fallbackOnAnyDeregisterFailure: true,
-        );
+      final result = await cleanupRelayRegistration(
+        handle: handle,
+        syncId: 'sync',
+        deviceId: 'dev',
+        sessionToken: 'token',
+        deregister:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String syncId,
+              required String deviceId,
+              required String sessionToken,
+            }) async {
+              // Generic transient failure — neither last-active nor 403.
+              throw Exception('Network unreachable');
+            },
+        deleteSyncGroup:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String syncId,
+              required String deviceId,
+              required String sessionToken,
+            }) async {
+              deleteGroupCalls++;
+            },
+        log: logs.add,
+        fallbackOnAnyDeregisterFailure: true,
+      );
 
-        expect(result, RelayCleanupOutcome.groupDeleted);
-        expect(
-          deleteGroupCalls,
-          1,
-          reason:
-              'reset path must force deleteSyncGroup so the relay-side '
-              'group does not linger after a transient deregister failure',
-        );
-        expect(
-          logs.any(
-            (l) => l.contains('reset path forcing sync group deletion'),
-          ),
-          isTrue,
-        );
-      },
-    );
+      expect(result, RelayCleanupOutcome.groupDeleted);
+      expect(
+        deleteGroupCalls,
+        1,
+        reason:
+            'full reset must force deleteSyncGroup so the relay-side '
+            'group does not linger after a transient deregister failure',
+      );
+      expect(
+        logs.any((l) => l.contains('full reset forcing sync group deletion')),
+        isTrue,
+      );
+    });
 
     test(
       'fallbackOnAnyDeregisterFailure: false (default) skips deleteSyncGroup '
@@ -229,22 +269,24 @@ void main() {
           syncId: 'sync',
           deviceId: 'dev',
           sessionToken: 'token',
-          deregister: ({
-            required ffi.PrismSyncHandle handle,
-            required String syncId,
-            required String deviceId,
-            required String sessionToken,
-          }) async {
-            throw Exception('HTTP 401: token expired');
-          },
-          deleteSyncGroup: ({
-            required ffi.PrismSyncHandle handle,
-            required String syncId,
-            required String deviceId,
-            required String sessionToken,
-          }) async {
-            deleteGroupCalls++;
-          },
+          deregister:
+              ({
+                required ffi.PrismSyncHandle handle,
+                required String syncId,
+                required String deviceId,
+                required String sessionToken,
+              }) async {
+                throw Exception('HTTP 401: token expired');
+              },
+          deleteSyncGroup:
+              ({
+                required ffi.PrismSyncHandle handle,
+                required String syncId,
+                required String deviceId,
+                required String sessionToken,
+              }) async {
+                deleteGroupCalls++;
+              },
           log: logs.add,
           // explicit for clarity; this is also the default
           fallbackOnAnyDeregisterFailure: false,
@@ -255,47 +297,46 @@ void main() {
       },
     );
 
-    test(
-      'fallbackOnAnyDeregisterFailure: true skips deleteSyncGroup when relay '
-      'requires atomic revoke',
-      () async {
-        const handle = _FakePrismSyncHandle();
-        var deleteGroupCalls = 0;
-        final logs = <String>[];
+    test('fallbackOnAnyDeregisterFailure: true skips deleteSyncGroup when relay '
+        'requires atomic revoke', () async {
+      const handle = _FakePrismSyncHandle();
+      var deleteGroupCalls = 0;
+      final logs = <String>[];
 
-        final result = await cleanupRelayRegistration(
-          handle: handle,
-          syncId: 'sync',
-          deviceId: 'dev',
-          sessionToken: 'token',
-          deregister: ({
-            required ffi.PrismSyncHandle handle,
-            required String syncId,
-            required String deviceId,
-            required String sessionToken,
-          }) async {
-            throw Exception(
-              'HTTP 409: use_atomic_revoke; self-deregister with active peers '
-              'requires atomic revoke',
-            );
-          },
-          deleteSyncGroup: ({
-            required ffi.PrismSyncHandle handle,
-            required String syncId,
-            required String deviceId,
-            required String sessionToken,
-          }) async {
-            deleteGroupCalls++;
-          },
-          log: logs.add,
-          fallbackOnAnyDeregisterFailure: true,
-        );
+      final result = await cleanupRelayRegistration(
+        handle: handle,
+        syncId: 'sync',
+        deviceId: 'dev',
+        sessionToken: 'token',
+        deregister:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String syncId,
+              required String deviceId,
+              required String sessionToken,
+            }) async {
+              throw Exception(
+                'HTTP 409: use_atomic_revoke; self-deregister with active peers '
+                'requires atomic revoke',
+              );
+            },
+        deleteSyncGroup:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String syncId,
+              required String deviceId,
+              required String sessionToken,
+            }) async {
+              deleteGroupCalls++;
+            },
+        log: logs.add,
+        fallbackOnAnyDeregisterFailure: true,
+      );
 
-        expect(result, RelayCleanupOutcome.failed);
-        expect(deleteGroupCalls, 0);
-        expect(logs.any((l) => l.contains('requires atomic revoke')), isTrue);
-      },
-    );
+      expect(result, RelayCleanupOutcome.failed);
+      expect(deleteGroupCalls, 0);
+      expect(logs.any((l) => l.contains('requires atomic revoke')), isTrue);
+    });
   });
 
   group('isLastActiveDeviceError (tightened detector)', () {
@@ -328,9 +369,7 @@ void main() {
       () {
         expect(
           isLastActiveDeviceError(
-            Exception(
-              'Cannot delete: last active device — internal error 500',
-            ),
+            Exception('Cannot delete: last active device — internal error 500'),
           ),
           isFalse,
         );
@@ -338,9 +377,15 @@ void main() {
     );
 
     test('false for unrelated errors', () {
-      expect(isLastActiveDeviceError(Exception('Network unreachable')), isFalse);
+      expect(
+        isLastActiveDeviceError(Exception('Network unreachable')),
+        isFalse,
+      );
       expect(isLastActiveDeviceError(Exception('Timeout after 30s')), isFalse);
-      expect(isLastActiveDeviceError(Exception('HTTP 500: bad gateway')), isFalse);
+      expect(
+        isLastActiveDeviceError(Exception('HTTP 500: bad gateway')),
+        isFalse,
+      );
     });
   });
 
@@ -361,9 +406,18 @@ void main() {
     });
 
     test('false for unrelated conflicts or messages', () {
-      expect(isAtomicRevokeRequiredError(Exception('HTTP 409: snapshot stale')), isFalse);
-      expect(isAtomicRevokeRequiredError(Exception('requires atomic revoke')), isFalse);
-      expect(isAtomicRevokeRequiredError(Exception('HTTP 403: use_atomic_revoke')), isFalse);
+      expect(
+        isAtomicRevokeRequiredError(Exception('HTTP 409: snapshot stale')),
+        isFalse,
+      );
+      expect(
+        isAtomicRevokeRequiredError(Exception('requires atomic revoke')),
+        isFalse,
+      );
+      expect(
+        isAtomicRevokeRequiredError(Exception('HTTP 403: use_atomic_revoke')),
+        isFalse,
+      );
     });
   });
 

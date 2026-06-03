@@ -30,6 +30,7 @@ enum SyncDisconnectReason {
 enum RelayCleanupMarkerOutcome {
   deregistered('deregistered'),
   groupDeleted('group_deleted'),
+  skippedLastActiveDevice('skipped_last_active_device'),
   fallbackFailed('fallback_failed'),
   failed('failed'),
   skippedMissingCredentials('skipped_missing_credentials'),
