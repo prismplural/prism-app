@@ -434,6 +434,15 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   }
 
   void _showSessionPreview(BuildContext context, FrontingSession session) {
+    // On wide layouts the detail already opens as a side sheet, so the compact
+    // preview is a redundant empty-looking step — skip straight to the detail.
+    if (shouldUseDetailSideSheet(context)) {
+      showDetailSideSheet(
+        context,
+        builder: (_) => SessionDetailScreen(sessionId: session.id),
+      );
+      return;
+    }
     PrismSheet.show(
       context: context,
       builder: (sheetContext) => _SessionPreviewSheet(session: session),
