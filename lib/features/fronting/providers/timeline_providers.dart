@@ -73,8 +73,13 @@ class TimelineSessionLimitNotifier extends Notifier<int> {
   void increase(int amount) => state = state + amount;
 }
 
+/// Screen-scoped timeline page limit.
+///
+/// This intentionally resets after the timeline leaves the widget tree, so a
+/// deep scroll through dense history does not become the next visit's initial
+/// query size.
 final timelineSessionLimitProvider =
-    NotifierProvider<TimelineSessionLimitNotifier, int>(
+    NotifierProvider.autoDispose<TimelineSessionLimitNotifier, int>(
       TimelineSessionLimitNotifier.new,
     );
 
@@ -148,10 +153,10 @@ final timelineRowsProvider = Provider.autoDispose<AsyncValue<TimelineData>>((
     recentSleepSessionsPaginatedProvider(20),
   );
   // History view: include inactive (but not hard-deleted) members so their
-  // past sessions still render. `activeMembersProvider` would silently drop
+  // past sessions still render. `activeMemberListProvider` would silently drop
   // any session whose member has since been set inactive, leaving phantom
   // gaps in the historical timeline.
-  final membersAsync = ref.watch(allMembersProvider);
+  final membersAsync = ref.watch(allMemberListProvider);
 
   final sessions = sessionsAsync.value;
   if (sessions == null) {

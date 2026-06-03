@@ -675,7 +675,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
   // ---------------------------------------------------------------------------
 
   Widget _buildCompactList(BuildContext context) {
-    final searchGroups = watchMemberSearchGroups(ref, widget.members);
+    watchMemberSearchGroupSources(ref);
     final unknownSelected = widget.selectedIds.contains(widget.unknownId);
 
     return Column(
@@ -683,7 +683,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
       children: [
         if (unknownSelected)
           _CompactUnknownSelection(
-            onPressed: () => _openSearch(context, widget.members, searchGroups),
+            onPressed: () => _openSearch(context, widget.members),
           )
         else
           SelectedMultiMemberPicker(
@@ -692,7 +692,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
             selectedMemberIds: widget.selectedIds
                 .where((id) => id != widget.unknownId)
                 .toSet(),
-            onPressed: () => _openSearch(context, widget.members, searchGroups),
+            onPressed: () => _openSearch(context, widget.members),
           ),
       ],
     );
@@ -702,8 +702,8 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
   Future<void> _openSearch(
     BuildContext context,
     List<Member> candidates,
-    List<MemberSearchGroup> groups,
   ) async {
+    final groups = readMemberSearchGroups(ref, candidates);
     final result = await MemberSearchSheet.showMulti(
       context,
       members: candidates,

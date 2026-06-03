@@ -307,9 +307,19 @@ void main() {
       );
 
       // Wait for the overlap stream's first emission.
-      await container.read(unifiedHistoryOverlapProvider.future);
+      final bundle = await container.read(unifiedHistoryOverlapProvider.future);
       await container.read(allMembersProvider.future);
       await Future<void>.delayed(Duration.zero);
+
+      expect(
+        bundle.rangeStart.isAfter(
+          DateTime.now().subtract(const Duration(days: 1)),
+        ),
+        isTrue,
+        reason:
+            'a dense recent first page should not force the initial derived '
+            'history sweep to the maximum lookback window',
+      );
 
       final periods = container.read(derivedPeriodsProvider).value!;
       // Assert the host appears in at least one period — the overlap

@@ -9,7 +9,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 ///
 /// Memoized via Riverpod's natural caching: the provider recomputes only
 /// when the upstream session stream emits a new list or the
-/// [allMembersProvider] changes (the `is_always_fronting` lookup depends
+/// [allMemberListProvider] changes (the `is_always_fronting` lookup depends
 /// on it). On every other rebuild the cached value is returned.
 ///
 /// Source stream: [unifiedHistoryOverlapProvider] — the overlap query
@@ -21,7 +21,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 final derivedPeriodsProvider =
     Provider.autoDispose<AsyncValue<List<FrontingPeriod>>>((ref) {
       final bundleAsync = ref.watch(unifiedHistoryOverlapProvider);
-      final membersAsync = ref.watch(allMembersProvider);
+      final membersAsync = ref.watch(allMemberListProvider);
 
       final bundle = bundleAsync.value;
       if (bundle == null) {
@@ -32,7 +32,14 @@ final derivedPeriodsProvider =
         );
       }
 
-      final members = membersAsync.value ?? const <Member>[];
+      final members = membersAsync.value;
+      if (members == null) {
+        return membersAsync.when(
+          loading: () => const AsyncValue.loading(),
+          error: AsyncValue.error,
+          data: (_) => const AsyncValue.loading(),
+        );
+      }
       // Thread the provider's `rangeStart` through. Without this, a
       // 400-day continuous host (whose start was clamped by the DAO
       // query) would push the sweep's `rangeStart` 400 days back,

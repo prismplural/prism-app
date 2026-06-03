@@ -97,8 +97,8 @@ class _EditFrontSessionScreenState
   Future<void> _openFronterPicker(
     List<Member> members,
     String termPlural,
-    List<MemberSearchGroup> groups,
   ) async {
+    final groups = readMemberSearchGroups(ref, members);
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,
@@ -404,17 +404,11 @@ class _EditFrontSessionScreenState
                       final selected = members.firstWhereOrNull(
                         (m) => m.id == _memberId,
                       );
-                      final searchGroups = watchMemberSearchGroups(
-                        ref,
-                        members,
-                      );
+                      watchMemberSearchGroupSources(ref);
                       return _FronterPickerRow(
                         selectedMember: selected,
-                        onPickerOpen: () => _openFronterPicker(
-                          members,
-                          termPlural,
-                          searchGroups,
-                        ),
+                        onPickerOpen: () =>
+                            _openFronterPicker(members, termPlural),
                       );
                     },
                   ),

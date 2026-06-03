@@ -494,7 +494,7 @@ class _SessionPreviewSheet extends ConsumerWidget {
     // and offer "see this period" to open the period-detail screen (§3.1).
     final memberIds = <String>{if (session.memberId != null) session.memberId!};
     final membersAsync = ref.watch(
-      membersByIdsProvider(memberIdsKey(memberIds)),
+      membersByIdsListProvider(memberIdsKey(memberIds)),
     );
     final membersMap = membersAsync.whenOrNull(data: (m) => m) ?? {};
 
@@ -532,6 +532,8 @@ class _SessionPreviewSheet extends ConsumerWidget {
                 customColorEnabled: member?.customColorEnabled ?? false,
                 customColorHex: member?.customColorHex,
                 avatarImageData: member?.avatarImageData,
+                memberId: member?.id,
+                deferAvatarLookup: true,
                 size: 44,
               ),
               const SizedBox(width: 12),
@@ -661,6 +663,8 @@ class _MemberHeader extends StatelessWidget {
             customColorEnabled: row.member.customColorEnabled,
             customColorHex: row.member.customColorHex,
             avatarImageData: row.member.avatarImageData,
+            memberId: row.member.id,
+            deferAvatarLookup: true,
             size: 28,
             tintOverride: color,
           ),

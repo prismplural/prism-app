@@ -41,11 +41,8 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
     ...widget.existingCoFronterIds,
   };
 
-  Future<void> _openSearch(
-    List<Member> available,
-    String termPlural,
-    List<MemberSearchGroup> groups,
-  ) async {
+  Future<void> _openSearch(List<Member> available, String termPlural) async {
+    final groups = readMemberSearchGroups(ref, available);
     final result = await MemberSearchSheet.showMulti(
       context,
       members: available,
@@ -88,13 +85,12 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
     final terms = watchTerminology(context, ref);
     final membersAsync = ref.watch(activeMembersProvider);
 
-    // Pre-compute available members so the header search action can use them.
     final availableForSearch =
         membersAsync.value
             ?.where((m) => !_excludedIds.contains(m.id))
             .toList() ??
         [];
-    final searchGroups = watchMemberSearchGroups(ref, availableForSearch);
+    watchMemberSearchGroupSources(ref);
 
     return UnsavedChangesGuard<bool>(
       hasUnsavedChanges: _selectedIds.isNotEmpty,
@@ -152,7 +148,6 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                               : () => _openSearch(
                                   availableForSearch,
                                   terms.plural,
-                                  searchGroups,
                                 ),
                         ),
                       PrismButton(

@@ -64,6 +64,39 @@ void main() {
     });
   });
 
+  group('timeline pagination limit', () {
+    test('resets after listeners go away', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final firstSub = container.listen(
+        timelineSessionLimitProvider,
+        (_, _) {},
+      );
+      container
+          .read(timelineSessionLimitProvider.notifier)
+          .increase(timelineSessionPageSize);
+      expect(
+        container.read(timelineSessionLimitProvider),
+        timelineSessionPageSize * 2,
+      );
+
+      firstSub.close();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      final secondSub = container.listen(
+        timelineSessionLimitProvider,
+        (_, _) {},
+      );
+      addTearDown(secondSub.close);
+      expect(
+        container.read(timelineSessionLimitProvider),
+        timelineSessionPageSize,
+      );
+    });
+  });
+
   // ══════════════════════════════════════════════════════════════════════════
   // TimelineMemberRow
   // ══════════════════════════════════════════════════════════════════════════

@@ -5,12 +5,13 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
+import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/quick_front_hint_provider.dart';
 import 'package:prism_plurality/features/fronting/utils/current_fronters_order.dart';
-import 'package:prism_plurality/features/fronting/utils/member_frequency_sort.dart';
-import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -18,8 +19,39 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
-import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+
+const _quickFrontRecentSessionLimit = 50;
+const _quickFrontSuggestionLimit = 12;
+const _frontingPlaceholderDelay = Duration(milliseconds: 800);
+
+final quickFrontCandidateMembersProvider =
+    StreamProvider.autoDispose<List<Member>>((ref) {
+      final repo = ref.watch(memberRepositoryProvider);
+      if (repo is DriftMemberRepository) {
+        return _markQuickFrontCandidateStream(
+          repo.watchQuickFrontMembersForList(
+            recentLimit: _quickFrontRecentSessionLimit,
+            suggestionLimit: _quickFrontSuggestionLimit,
+            excludedSuggestionMemberId: unknownSentinelMemberId,
+          ),
+        );
+      }
+
+      return _markQuickFrontCandidateStream(repo.watchActiveMembers());
+    });
+
+Stream<List<Member>> _markQuickFrontCandidateStream(
+  Stream<List<Member>> stream,
+) {
+  return stream.map((members) {
+    BootTimings.markOnce(
+      'quickFront candidates first emit',
+      'count=${members.length}',
+    );
+    return members;
+  });
+}
 
 /// Horizontal strip of member tiles for quick-switching the front.
 ///
@@ -35,16 +67,22 @@ class QuickFrontSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(activeMembersProvider);
+    final membersAsync = ref.watch(quickFrontCandidateMembersProvider);
     final sessionsAsync = ref.watch(activeSessionsProvider);
-    final countsAsync = ref.watch(memberFrontingCountsProvider);
+    final quickFrontBehavior = ref.watch(quickFrontDefaultBehaviorProvider);
 
     return membersAsync.when(
-      loading: () => const SizedBox(height: 100, child: PrismLoadingState()),
+      skipLoadingOnReload: true,
+      loading: () => const _QuickFrontLoadingPlaceholder(),
       error: (_, _) => Text(context.l10n.error),
       data: (members) {
         final activeSessions = sessionsAsync.value ?? const <FrontingSession>[];
-        final counts = countsAsync.value ?? const <String, int>{};
+        if (sessionsAsync.hasValue) {
+          BootTimings.markOnce(
+            'quickFront active sessions first emit',
+            'count=${activeSessions.length}',
+          );
+        }
 
         return LayoutBuilder(
           builder: (context, constraints) {
@@ -75,24 +113,21 @@ class QuickFrontSection extends ConsumerWidget {
             if (currentFronters.length <=
                 slotCount - _frequentPadWhenNotScrolling) {
               final frequentSlots = slotCount - currentFronters.length;
-              final frequent = sortMembersByFrequency(
-                nonFronters,
-                counts,
-                take: frequentSlots,
-              );
+              final frequent = nonFronters.take(frequentSlots);
               tiles = [...currentFronters, ...frequent];
               scrolls = false;
             } else {
               // Show every current fronter so co-fronts always have a
               // quick-remove tile.
-              final frequent = sortMembersByFrequency(
-                nonFronters,
-                counts,
-                take: _frequentTilesWhenScrolling,
-              );
+              final frequent = nonFronters.take(_frequentTilesWhenScrolling);
               tiles = [...currentFronters, ...frequent];
               scrolls = true;
             }
+            BootTimings.markOnce(
+              'quickFront row first ready',
+              'tiles=${tiles.length} current=${currentFronters.length} '
+                  'scrolls=$scrolls',
+            );
 
             return _AnimatedQuickFrontRow(
               members: tiles,
@@ -100,8 +135,99 @@ class QuickFrontSection extends ConsumerWidget {
               slotCount: slotCount,
               scrolls: scrolls,
               maxWidth: constraints.maxWidth,
+              quickFrontBehavior: quickFrontBehavior,
             );
           },
+        );
+      },
+    );
+  }
+}
+
+class _QuickFrontLoadingPlaceholder extends StatefulWidget {
+  const _QuickFrontLoadingPlaceholder();
+
+  @override
+  State<_QuickFrontLoadingPlaceholder> createState() =>
+      _QuickFrontLoadingPlaceholderState();
+}
+
+class _QuickFrontLoadingPlaceholderState
+    extends State<_QuickFrontLoadingPlaceholder> {
+  Timer? _timer;
+  bool _showSkeleton = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(_frontingPlaceholderDelay, () {
+      if (mounted) setState(() => _showSkeleton = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final slotCount = _slotCountForWidth(constraints.maxWidth);
+        final slotWidth = constraints.maxWidth / slotCount;
+        final ringSize = slotWidth < quickFrontRingSize
+            ? slotWidth
+            : quickFrontRingSize;
+        final labelHeight = _quickFrontLabelHeight(context);
+        final rowHeight = ringSize + _kQuickFrontLabelGap + labelHeight;
+
+        if (!_showSkeleton) return SizedBox(height: rowHeight);
+
+        final theme = Theme.of(context);
+        final color = theme.colorScheme.onSurface.withValues(
+          alpha: theme.brightness == Brightness.dark ? 0.11 : 0.07,
+        );
+        final radius = PrismShapes.of(context).radius(999);
+
+        return ExcludeSemantics(
+          child: SizedBox(
+            height: rowHeight,
+            child: Row(
+              children: [
+                for (var i = 0; i < slotCount; i++)
+                  SizedBox(
+                    width: slotWidth,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: ringSize,
+                          height: ringSize,
+                          decoration: BoxDecoration(
+                            shape: PrismShapes.of(context).avatarShape(),
+                            borderRadius: PrismShapes.of(
+                              context,
+                            ).avatarBorderRadius(),
+                            color: color,
+                          ),
+                        ),
+                        const SizedBox(height: _kQuickFrontLabelGap + 2),
+                        Container(
+                          width: slotWidth * 0.58,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(radius),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -121,6 +247,7 @@ class _AnimatedQuickFrontRow extends StatefulWidget {
     required this.slotCount,
     required this.scrolls,
     required this.maxWidth,
+    required this.quickFrontBehavior,
   });
 
   final List<Member> members;
@@ -128,6 +255,7 @@ class _AnimatedQuickFrontRow extends StatefulWidget {
   final int slotCount;
   final bool scrolls;
   final double maxWidth;
+  final FrontStartBehavior quickFrontBehavior;
 
   @override
   State<_AnimatedQuickFrontRow> createState() => _AnimatedQuickFrontRowState();
@@ -190,11 +318,7 @@ class _AnimatedQuickFrontRowState extends State<_AnimatedQuickFrontRow> {
     final ringSize = slotWidth < quickFrontRingSize
         ? slotWidth
         : quickFrontRingSize;
-    final labelHeight = _measureQuickFrontLabelHeight(
-      context,
-      members: widget.members,
-      maxWidth: slotWidth,
-    );
+    final labelHeight = _quickFrontLabelHeight(context);
     final rowHeight = ringSize + _kQuickFrontLabelGap + labelHeight;
 
     if (widget.scrolls) {
@@ -213,6 +337,7 @@ class _AnimatedQuickFrontRowState extends State<_AnimatedQuickFrontRow> {
                   member: member,
                   isFronting: widget.frontingIds.contains(member.id),
                   ringSize: ringSize,
+                  quickFrontBehavior: widget.quickFrontBehavior,
                 ),
               ),
           ],
@@ -269,13 +394,14 @@ class _AnimatedQuickFrontRowState extends State<_AnimatedQuickFrontRow> {
                   0.0,
                   1.0,
                 );
-            return Opacity(opacity: opacity, child: child);
+            return Icon(
+              AppIcons.chevronRight,
+              size: _kScrollChevronSize,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: opacity),
+            );
           },
-          child: Icon(
-            AppIcons.chevronRight,
-            size: _kScrollChevronSize,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
         ),
       );
 
@@ -311,6 +437,7 @@ class _AnimatedQuickFrontRowState extends State<_AnimatedQuickFrontRow> {
                   member: widget.members[i],
                   isFronting: widget.frontingIds.contains(widget.members[i].id),
                   ringSize: ringSize,
+                  quickFrontBehavior: widget.quickFrontBehavior,
                 ),
               ),
             ),
@@ -366,35 +493,15 @@ int _slotCountForWidth(double width) {
   return raw;
 }
 
-double _measureQuickFrontLabelHeight(
-  BuildContext context, {
-  required List<Member> members,
-  required double maxWidth,
-}) {
-  if (members.isEmpty) return 0;
-
+double _quickFrontLabelHeight(BuildContext context) {
   final theme = Theme.of(context);
   final baseStyle =
       theme.textTheme.bodyMedium ?? DefaultTextStyle.of(context).style;
   final labelStyle = baseStyle.copyWith(fontWeight: FontWeight.bold);
-  final textDirection = Directionality.of(context);
-  final textScaler = MediaQuery.textScalerOf(context);
-  var height = 0.0;
-
-  for (final member in members) {
-    final painter = TextPainter(
-      text: TextSpan(text: member.name, style: labelStyle),
-      textAlign: TextAlign.center,
-      textDirection: textDirection,
-      textScaler: textScaler,
-      maxLines: _kQuickFrontLabelMaxLines,
-      ellipsis: '...',
-    )..layout(maxWidth: maxWidth);
-
-    if (painter.height > height) height = painter.height;
-  }
-
-  return height;
+  final fontSize = labelStyle.fontSize ?? 14.0;
+  final lineHeight = labelStyle.height ?? 1.2;
+  final scaledFontSize = MediaQuery.textScalerOf(context).scale(fontSize);
+  return scaledFontSize * lineHeight * _kQuickFrontLabelMaxLines;
 }
 
 /// Quick-front tile for a single member.
@@ -408,11 +515,13 @@ class _QuickFrontButton extends ConsumerStatefulWidget {
     required this.member,
     required this.isFronting,
     required this.ringSize,
+    required this.quickFrontBehavior,
   });
 
   final Member member;
   final bool isFronting;
   final double ringSize;
+  final FrontStartBehavior quickFrontBehavior;
 
   @override
   ConsumerState<_QuickFrontButton> createState() => _QuickFrontButtonState();
@@ -507,17 +616,6 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
         ? AppColors.fromHex(member.customColorHex!)
         : theme.colorScheme.primary;
 
-    // Watch the persisted default for the non-fronting hold path. Watching
-    // (rather than reading on tap) ensures the StreamProvider is subscribed
-    // before the user presses — otherwise the first hold may fire while the
-    // stream is still in `AsyncLoading`, silently falling back to additive
-    // even when the synced setting says replace.
-    final pref =
-        ref
-            .watch(systemSettingsProvider)
-            .whenOrNull(data: (s) => s.quickFrontDefaultBehavior) ??
-        FrontStartBehavior.additive;
-
     return Semantics(
       button: true,
       enabled: true,
@@ -525,8 +623,8 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
       onLongPressHint: context.l10n.frontingQuickFrontHoldHint,
       child: GestureDetector(
         onLongPressStart: (_) => _onPressStart(),
-        onLongPressEnd: (_) => _onPressEnd(pref),
-        onLongPressCancel: () => _onPressEnd(pref),
+        onLongPressEnd: (_) => _onPressEnd(widget.quickFrontBehavior),
+        onLongPressCancel: () => _onPressEnd(widget.quickFrontBehavior),
         child: AnimatedScale(
           scale: _isPressed ? 0.93 : 1.0,
           duration: const Duration(milliseconds: 100),
@@ -577,6 +675,8 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
                     // Avatar
                     MemberAvatar(
                       avatarImageData: member.avatarImageData,
+                      memberId: member.id,
+                      deferAvatarLookup: true,
                       memberName: member.name,
                       emoji: member.emoji,
                       customColorEnabled: member.customColorEnabled,

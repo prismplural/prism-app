@@ -77,7 +77,7 @@ class AlwaysPresentMember {
 ///   - `frontingTableTickerProvider` — fires on any write to
 ///     `fronting_sessions`.
 ///   - `activeSessionsProvider` — Drift `.watch()` fires on relevant rows.
-///   - `allMembersProvider` — Drift `.watch()` fires on `is_always_fronting`
+///   - `allMemberListProvider` — Drift `.watch()` fires on `is_always_fronting`
 ///     toggles and other member edits.
 ///   - A `Timer` scheduled for the next not-yet-promoted threshold-crossing
 ///     moment, so a session crossing 7d at wall-clock triggers a rebuild
@@ -95,7 +95,7 @@ final alwaysPresentMembersProvider =
       ref.watch(frontingTableTickerProvider);
 
       final activeSessions = ref.watch(activeSessionsProvider);
-      final members = ref.watch(allMembersProvider);
+      final members = ref.watch(allMemberListProvider);
       final clock = ref.watch(alwaysPresentClockProvider);
       final autoPromoteLongFrontingSessions = ref.watch(
         autoPromoteLongFrontingSessionsProvider,

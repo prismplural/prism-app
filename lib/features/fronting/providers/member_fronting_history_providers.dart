@@ -61,11 +61,9 @@ final _memberFrontingHistoryTargetSessionsProvider = StreamProvider.autoDispose
 /// up a fresh instance with no `.value`, forcing the outer provider to a bare
 /// `AsyncLoading` mid-scroll — that collapses the list, resets the scroll
 /// position, and is exactly the flicker we hit before.
-final _memberFrontingHistoryOverlappingSessionsProvider =
-    StreamProvider.autoDispose.family<List<FrontingSession>, String>((
-      ref,
-      memberId,
-    ) {
+final _memberFrontingHistoryOverlappingSessionsProvider = StreamProvider
+    .autoDispose
+    .family<List<FrontingSession>, String>((ref, memberId) {
       final targetSessions =
           ref
               .watch(_memberFrontingHistoryTargetSessionsProvider(memberId))
@@ -91,9 +89,15 @@ final memberFrontingHistoryProvider = Provider.autoDispose
       final targetAsync = ref.watch(
         _memberFrontingHistoryTargetSessionsProvider(memberId),
       );
-      final members =
-          ref.watch(allMembersProvider).whenOrNull(data: (list) => list) ??
-          const <Member>[];
+      final membersAsync = ref.watch(allMemberListProvider);
+      final members = membersAsync.value;
+      if (members == null) {
+        return membersAsync.when(
+          loading: () => const AsyncValue.loading(),
+          error: AsyncValue.error,
+          data: (_) => const AsyncValue.loading(),
+        );
+      }
 
       final targetSessions = targetAsync.value;
       if (targetSessions == null) {

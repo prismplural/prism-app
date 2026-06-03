@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,11 +8,13 @@ import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/utils/member_frequency_sort.dart';
 import 'package:prism_plurality/features/fronting/widgets/quick_front_section.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Member _m(String id, String name, {int displayOrder = 0}) => Member(
@@ -36,6 +40,11 @@ Widget _harness({
   return ProviderScope(
     overrides: [
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+      quickFrontCandidateMembersProvider.overrideWith(
+        (ref) => Stream.value(
+          sortMembersByFrequency(members, counts, take: members.length),
+        ),
+      ),
       activeSessionsProvider.overrideWith(
         (ref) => Stream.value(activeSessions),
       ),
@@ -73,6 +82,48 @@ List<String> _renderedTileOrderByName(
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  testWidgets('loading reserves row space without showing a spinner', (
+    tester,
+  ) async {
+    final controller = StreamController<List<Member>>();
+    addTearDown(controller.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          quickFrontCandidateMembersProvider.overrideWith(
+            (ref) => controller.stream,
+          ),
+          activeSessionsProvider.overrideWith(
+            (ref) => Stream.value(const <FrontingSession>[]),
+          ),
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en')],
+          home: Scaffold(
+            body: SizedBox(width: 400, child: QuickFrontSection()),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    expect(find.byType(PrismLoadingState), findsNothing);
+    expect(
+      tester.getSize(find.byType(QuickFrontSection)).height,
+      greaterThan(0),
+    );
+
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(find.byType(PrismLoadingState), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('no fronters: fills slots with frequent picks, no scroll', (
@@ -242,40 +293,34 @@ void main() {
     ]);
   });
 
-  testWidgets(
-    'Unknown sentinel appears in the bar when actively fronting',
-    (tester) async {
-      // When fronting as Unknown, the bar needs a tile for it so the user
-      // can quick-end that session. It's a real active state, even if it's
-      // a placeholder member.
-      final unknown = _m(unknownSentinelMemberId, 'Unknown');
-      final members = [
-        _m('a', 'Alex'),
-        _m('b', 'Bea'),
-        _m('c', 'Cy'),
-        unknown,
-      ];
-      final t = DateTime(2026, 1, 1, 12);
-      final sessions = [_session(unknownSentinelMemberId, t)];
+  testWidgets('Unknown sentinel appears in the bar when actively fronting', (
+    tester,
+  ) async {
+    // When fronting as Unknown, the bar needs a tile for it so the user
+    // can quick-end that session. It's a real active state, even if it's
+    // a placeholder member.
+    final unknown = _m(unknownSentinelMemberId, 'Unknown');
+    final members = [_m('a', 'Alex'), _m('b', 'Bea'), _m('c', 'Cy'), unknown];
+    final t = DateTime(2026, 1, 1, 12);
+    final sessions = [_session(unknownSentinelMemberId, t)];
 
-      await tester.pumpWidget(
-        _harness(
-          members: members,
-          activeSessions: sessions,
-          counts: {'a': 10, 'b': 5, 'c': 3},
-        ),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      _harness(
+        members: members,
+        activeSessions: sessions,
+        counts: {'a': 10, 'b': 5, 'c': 3},
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      // Unknown leads (only current fronter), then top frequent picks.
-      expect(_renderedTileOrderByName(tester, members), [
-        unknownSentinelMemberId,
-        'a',
-        'b',
-        'c',
-      ]);
-    },
-  );
+    // Unknown leads (only current fronter), then top frequent picks.
+    expect(_renderedTileOrderByName(tester, members), [
+      unknownSentinelMemberId,
+      'a',
+      'b',
+      'c',
+    ]);
+  });
 
   testWidgets(
     'Unknown sentinel is never offered as a frequent pick when not fronting',
@@ -284,12 +329,7 @@ void main() {
       // It still must not appear in the suggestions — nobody deliberately
       // quick-switches *to* Unknown; that's the add-front sheet's job.
       final unknown = _m(unknownSentinelMemberId, 'Unknown');
-      final members = [
-        _m('a', 'Alex'),
-        _m('b', 'Bea'),
-        _m('c', 'Cy'),
-        unknown,
-      ];
+      final members = [_m('a', 'Alex'), _m('b', 'Bea'), _m('c', 'Cy'), unknown];
 
       await tester.pumpWidget(
         _harness(

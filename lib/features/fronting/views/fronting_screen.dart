@@ -12,9 +12,11 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/migration/widgets/fronting_upgrade_banner.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
+import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/quick_front_hint_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
+import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
 import 'package:prism_plurality/features/fronting/views/add_front_session_sheet.dart';
 import 'package:prism_plurality/features/fronting/views/empty_system_view.dart';
 import 'package:prism_plurality/features/fronting/views/start_sleep_sheet.dart';
@@ -46,7 +48,36 @@ import 'package:prism_plurality/features/fronting/providers/timeline_providers.d
 import 'package:prism_plurality/features/fronting/widgets/timeline_view.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+
+const _frontingHistoryPrefetchScreens = 2.5;
+const _frontingHistoryMinPrefetchExtent = 900.0;
+const _frontingHistoryMaxPrefetchExtent = 2400.0;
+const _frontingHistoryAnnouncementExtent = 300.0;
+
+@visibleForTesting
+double frontingHistoryPrefetchExtentForViewport(double viewportDimension) {
+  final scaled = viewportDimension * _frontingHistoryPrefetchScreens;
+  if (scaled < _frontingHistoryMinPrefetchExtent) {
+    return _frontingHistoryMinPrefetchExtent;
+  }
+  if (scaled > _frontingHistoryMaxPrefetchExtent) {
+    return _frontingHistoryMaxPrefetchExtent;
+  }
+  return scaled;
+}
+
+@visibleForTesting
+int frontingHistoryPrefetchPagesForRemaining({
+  required double remainingExtent,
+  required double viewportDimension,
+}) {
+  return remainingExtent <= viewportDimension ? 2 : 1;
+}
+
+@visibleForTesting
+Widget frontingHistoryLoadMoreSliver({required bool hasMore}) {
+  return SliverToBoxAdapter(child: SizedBox(height: hasMore ? 1 : 0));
+}
 
 class FrontingScreen extends ConsumerStatefulWidget {
   const FrontingScreen({super.key});
@@ -57,8 +88,6 @@ class FrontingScreen extends ConsumerStatefulWidget {
 
 class _FrontingScreenState extends ConsumerState<FrontingScreen> {
   final _scrollController = ScrollController();
-  bool _graceElapsed = false;
-  Timer? _graceTimer;
   bool _markedMembersFirstEmit = false;
   // 1B: latches when we've seeded `timelineViewActiveProvider` from
   // the user's `fronting_list_view_mode` preference for this screen
@@ -73,9 +102,6 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _graceTimer = Timer(const Duration(milliseconds: 400), () {
-      if (mounted) setState(() => _graceElapsed = true);
-    });
   }
 
   /// Seeds `timelineViewActiveProvider` from the user's
@@ -103,15 +129,30 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
   }
 
   void _onScroll() {
+    _maybePrefetchHistory(announce: true);
+  }
+
+  void _maybePrefetchHistory({required bool announce}) {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
-    if (pos.pixels >= pos.maxScrollExtent - 300) {
-      final currentLimit = ref.read(sessionLimitProvider);
-      final history = ref.read(unifiedHistoryProvider);
-      if (history.isLoading) return;
-      final sessions = history.value;
-      if (sessions != null && sessions.length >= currentLimit) {
-        ref.read(sessionLimitProvider.notifier).loadMore();
+    final remainingExtent = pos.maxScrollExtent - pos.pixels;
+    final remaining = remainingExtent < 0 ? 0.0 : remainingExtent;
+    final threshold = frontingHistoryPrefetchExtentForViewport(
+      pos.viewportDimension,
+    );
+    if (remaining > threshold) return;
+
+    final currentLimit = ref.read(sessionLimitProvider);
+    final history = ref.read(unifiedHistoryProvider);
+    if (history.isLoading) return;
+    final sessions = history.value;
+    if (sessions != null && sessions.length >= currentLimit) {
+      final pages = frontingHistoryPrefetchPagesForRemaining(
+        remainingExtent: remaining,
+        viewportDimension: pos.viewportDimension,
+      );
+      ref.read(sessionLimitProvider.notifier).loadMore(pages: pages);
+      if (announce && remaining <= _frontingHistoryAnnouncementExtent) {
         SemanticsService.sendAnnouncement(
           View.of(context),
           context.l10n.frontingLoadingOlderSessions,
@@ -123,7 +164,6 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
 
   @override
   void dispose() {
-    _graceTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -131,11 +171,15 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final membersAsync = ref.watch(activeMembersProvider);
+    final membersAsync = ref.watch(quickFrontCandidateMembersProvider);
+    final firstCandidateMembers = membersAsync.value;
 
-    if (!_markedMembersFirstEmit && !membersAsync.isLoading) {
+    if (!_markedMembersFirstEmit && firstCandidateMembers != null) {
       _markedMembersFirstEmit = true;
-      BootTimings.mark('members first emit');
+      BootTimings.markOnce(
+        'fronting screen candidates first emit',
+        'count=${firstCandidateMembers.length}',
+      );
     }
 
     // 1B: seed the list↔timeline toggle from the
@@ -155,6 +199,16 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
           curve: Curves.easeOutCubic,
         );
       }
+    });
+    ref.listen<AsyncValue<List<FrontingPeriod>>>(derivedPeriodsProvider, (
+      _,
+      next,
+    ) {
+      if (next.isLoading || !next.hasValue) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _maybePrefetchHistory(announce: false);
+      });
     });
 
     final isEmpty = membersAsync.whenOrNull(data: (members) => members.isEmpty);
@@ -177,27 +231,12 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     final isSleeping = sleepAsync.value != null;
     final isTimelineView = ref.watch(timelineViewActiveProvider);
 
-    // "Initial load only" — hasValue is false while the stream has not
-    // emitted yet; reloads keep hasValue=true so this flag goes false and we
-    // show the stale content normally while new data fetches.
-    bool initialLoading(AsyncValue v) => v.isLoading && !v.hasValue;
-
-    final showInitialLoader =
-        !isTimelineView &&
-        _graceElapsed &&
-        (initialLoading(membersAsync) || initialLoading(sleepAsync));
-
-    if (showInitialLoader) {
-      return Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Column(
-          children: [
-            PrismTopBar(title: systemName),
-            const Expanded(child: Center(child: PrismLoadingState())),
-          ],
-        ),
-      );
-    }
+    BootTimings.markOnce(
+      isTimelineView
+          ? 'fronting screen timeline first build'
+          : 'fronting screen list first build',
+      'sleeping=$isSleeping',
+    );
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -292,21 +331,14 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
         // 6. Sessions grouped by day (active session naturally at top)
         const SessionHistoryList(),
 
-        // 7. Loading indicator for infinite scroll
+        // 7. Quiet sentinel for infinite scroll. Data prefetching is driven by
+        // scroll position; the history list shouldn't display an idle spinner.
         Consumer(
           builder: (context, ref, _) {
             final limit = ref.watch(sessionLimitProvider);
             final sessions = ref.watch(unifiedHistoryProvider).value;
             final hasMore = sessions != null && sessions.length >= limit;
-            if (!hasMore) {
-              return const SliverToBoxAdapter(child: SizedBox.shrink());
-            }
-            return const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: PrismLoadingState(),
-              ),
-            );
+            return frontingHistoryLoadMoreSliver(hasMore: hasMore);
           },
         ),
 
@@ -448,8 +480,6 @@ class _AddButtonState extends ConsumerState<_AddButton> {
   @override
   Widget build(BuildContext context) {
     final terms = watchTerminology(context, ref);
-    final activeMembers = ref.watch(activeMembersProvider).value ?? const [];
-    final wakeUpGroups = watchMemberSearchGroups(ref, activeMembers);
     final pkState = ref.watch(pluralKitSyncProvider);
     final pkReady = pkState.canAutoSync && !pkState.isSyncing;
 
@@ -463,13 +493,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
           label: context.l10n.frontingMenuWakeUpAs,
           onTap: (close) {
             close();
-            _showWakeUpPicker(
-              context,
-              ref,
-              activeMembers,
-              terms.plural,
-              wakeUpGroups,
-            );
+            unawaited(_showWakeUpPicker(context, ref, terms.plural));
           },
         ),
       );
@@ -706,12 +730,14 @@ class _AddButtonState extends ConsumerState<_AddButton> {
   Future<void> _showWakeUpPicker(
     BuildContext context,
     WidgetRef ref,
-    List<Member> members,
     String termPlural,
-    List<MemberSearchGroup> groups,
   ) async {
     final session = sleepSession;
     if (session == null) return;
+
+    final members = await ref.read(activeMemberListProvider.future);
+    if (!mounted || !context.mounted) return;
+    final groups = readMemberSearchGroups(ref, members);
 
     final result = await MemberSearchSheet.showMulti(
       context,

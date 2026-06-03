@@ -2,6 +2,8 @@
 // the §2.3 / §4.6 derived-period rendering: one row per period with avatar
 // stacks, day-group headers, brief-visitor chips, and tap navigation.
 
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +22,7 @@ import 'package:prism_plurality/features/fronting/providers/derived_periods_prov
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
+import 'package:prism_plurality/features/fronting/providers/member_fronting_history_providers.dart';
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
 import 'package:prism_plurality/features/fronting/utils/period_day_grouping.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_history_list.dart';
@@ -28,6 +31,7 @@ import 'package:prism_plurality/features/members/providers/members_batch_provide
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 import '../../../helpers/fake_repositories.dart';
 
@@ -41,6 +45,9 @@ FrontingSession _s({
   DateTime? end,
 }) =>
     FrontingSession(id: id, memberId: memberId, startTime: start, endTime: end);
+
+Stream<List<Member>> _memberListStream(Map<String, Member> members) =>
+    Stream.value(members.values.toList());
 
 Widget _buildSubject({
   required List<FrontingSession> sessions,
@@ -71,6 +78,7 @@ Widget _buildSubject({
       unifiedHistoryProvider.overrideWith((ref) => Stream.value(sessions)),
       derivedPeriodsProvider.overrideWith((ref) => AsyncValue.data(periods)),
       membersByIdsProvider.overrideWith((ref, _) => Stream.value(members)),
+      allMemberListProvider.overrideWith((ref) => _memberListStream(members)),
       // 1B: SessionHistoryList now reads `systemSettingsProvider` to
       // pick the inline view mode. Default to the post-1A
       // `combinedPeriods` mode so the existing tests continue to
@@ -89,6 +97,102 @@ Widget _buildSubject({
 
 void main() {
   group('SessionHistoryList – derived-period rendering', () {
+    testWidgets('initial loading reserves space, then shows static skeleton', (
+      tester,
+    ) async {
+      final t0 = DateTime(2026, 4, 1, 10);
+      final members = {'a': _member('a', 'Alice')};
+      final sessions = [
+        _s(
+          id: 's1',
+          memberId: 'a',
+          start: t0,
+          end: t0.add(const Duration(hours: 1)),
+        ),
+      ];
+      final periods = computeDerivedPeriods(
+        sessions,
+        members.values.toList(),
+        now: t0.add(const Duration(hours: 2)),
+        rangeStart: t0.subtract(const Duration(days: 1)),
+      );
+      AsyncValue<List<FrontingPeriod>> periodsAsync =
+          const AsyncValue.loading();
+      final container = ProviderContainer(
+        overrides: [
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+          derivedPeriodsProvider.overrideWith((ref) => periodsAsync),
+          unifiedHistoryProvider.overrideWith((ref) => Stream.value(sessions)),
+          allMemberListProvider.overrideWith(
+            (ref) => _memberListStream(members),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: [Locale('en')],
+            home: Scaffold(
+              body: CustomScrollView(slivers: [SessionHistoryList()]),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      expect(find.byType(PrismLoadingState), findsNothing);
+      expect(find.byType(FrontingHistoryLoadingSkeletonMarker), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.byType(PrismLoadingState), findsNothing);
+      expect(find.byType(FrontingHistoryLoadingSkeletonMarker), findsOneWidget);
+
+      periodsAsync = AsyncValue.data(periods);
+      container.invalidate(derivedPeriodsProvider);
+      container.read(derivedPeriodsProvider);
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(FrontingHistoryLoadingSkeletonMarker), findsNothing);
+      expect(find.text('Alice'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('member history loading reserves space without spinner', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            memberFrontingHistoryProvider.overrideWith(
+              (ref, memberId) => const AsyncValue.loading(),
+            ),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: CustomScrollView(
+                slivers: [MemberFrontingHistoryList(memberId: 'a')],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      expect(find.byType(PrismLoadingState), findsNothing);
+      expect(find.byType(FrontingHistoryLoadingSkeletonMarker), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.byType(PrismLoadingState), findsNothing);
+      expect(find.byType(FrontingHistoryLoadingSkeletonMarker), findsOneWidget);
+    });
+
     testWidgets('renders one row per period with avatar stack', (tester) async {
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 11);
@@ -350,6 +454,138 @@ void main() {
       expect(find.byType(Icon), findsWidgets);
     });
 
+    testWidgets('appending older rows keeps the visible list stable', (
+      tester,
+    ) async {
+      final base = DateTime(2026, 4, 30, 12);
+      DateTime startFor(int index) => base.subtract(Duration(days: index));
+
+      FrontingPeriod periodFor(int index) {
+        final start = startFor(index);
+        return FrontingPeriod(
+          start: start,
+          end: start.add(const Duration(hours: 1)),
+          activeMembers: const ['a'],
+          briefVisitors: const [],
+          sessionIds: ['s-$index'],
+          alwaysPresentMembers: const [],
+          isOpenEnded: false,
+        );
+      }
+
+      FrontingSession sessionFor(int index) {
+        final start = startFor(index);
+        return _s(
+          id: 's-$index',
+          memberId: 'a',
+          start: start,
+          end: start.add(const Duration(hours: 1)),
+        );
+      }
+
+      final initialPeriods = List.generate(18, periodFor);
+      final expandedPeriods = List.generate(32, periodFor);
+      var currentPeriods = initialPeriods;
+      var currentSessions = List.generate(18, sessionFor);
+      final members = {'a': _member('a', 'Alice')};
+      final scrollController = ScrollController();
+      final container = ProviderContainer(
+        overrides: [
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+          unifiedHistoryProvider.overrideWith(
+            (ref) => Stream.value(currentSessions),
+          ),
+          derivedPeriodsProvider.overrideWith(
+            (ref) => AsyncValue.data(currentPeriods),
+          ),
+          allMemberListProvider.overrideWith(
+            (ref) => _memberListStream(members),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(scrollController.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Scaffold(
+              body: CustomScrollView(
+                controller: scrollController,
+                slivers: const [SessionHistoryList()],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(PrismLoadingState), findsNothing);
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -900));
+      await tester.pumpAndSettle();
+      final offsetBeforeAppend = scrollController.offset;
+      expect(offsetBeforeAppend, greaterThan(0));
+
+      currentSessions = List.generate(32, sessionFor);
+      currentPeriods = expandedPeriods;
+      container.invalidate(unifiedHistoryProvider);
+      container.invalidate(derivedPeriodsProvider);
+      await tester.pump();
+
+      expect(find.byType(PrismLoadingState), findsNothing);
+      expect(scrollController.offset, closeTo(offsetBeforeAppend, 1));
+
+      await tester.pumpAndSettle();
+      expect(scrollController.offset, closeTo(offsetBeforeAppend, 1));
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('row ink is clipped to the rounded history row shape', (
+      tester,
+    ) async {
+      final t0 = DateTime(2026, 4, 1, 10);
+      final t1 = DateTime(2026, 4, 1, 11);
+
+      await tester.pumpWidget(
+        _buildSubject(
+          sessions: [_s(id: 's-a', memberId: 'a', start: t0, end: t1)],
+          periods: [
+            FrontingPeriod(
+              start: t0,
+              end: t1,
+              activeMembers: const ['a'],
+              briefVisitors: const [],
+              sessionIds: const ['s-a'],
+              alwaysPresentMembers: const [],
+              isOpenEnded: false,
+            ),
+          ],
+          members: {'a': _member('a', 'Alice')},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final clippedRowMaterials = tester
+          .widgetList<Material>(
+            find.ancestor(
+              of: find.byType(FrontingHistoryRowMarker),
+              matching: find.byType(Material),
+            ),
+          )
+          .where(
+            (material) =>
+                material.clipBehavior == Clip.antiAlias &&
+                material.shape is RoundedRectangleBorder,
+          );
+
+      expect(clippedRowMaterials, isNotEmpty);
+    });
+
     testWidgets(
       'brief visitor before midnight does NOT duplicate on continuation day',
       (tester) async {
@@ -579,9 +815,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('+'), findsNothing);
+      expect(find.text('+2'), findsOneWidget);
       expect(
-        find.text('Alexandria, Benedict, Catherine, Dominique & Evangeline'),
+        find.textContaining('Alexandria, Benedict & Catherine'),
         findsOneWidget,
       );
     });
@@ -723,6 +959,12 @@ void main() {
               Member(id: 'b', name: 'Bob', createdAt: DateTime(2026, 1, 1)),
             ]),
           ),
+          allMemberListProvider.overrideWith(
+            (ref) => Stream.value([
+              Member(id: 'a', name: 'Alice', createdAt: DateTime(2026, 1, 1)),
+              Member(id: 'b', name: 'Bob', createdAt: DateTime(2026, 1, 1)),
+            ]),
+          ),
           membersByIdsProvider.overrideWith(
             (ref, _) => Stream.value({
               'a': Member(
@@ -832,6 +1074,9 @@ void main() {
           membersByIdsProvider.overrideWith((ref, _) => Stream.value(members)),
           allMembersProvider.overrideWith(
             (ref) => Stream.value(members.values.toList()),
+          ),
+          allMemberListProvider.overrideWith(
+            (ref) => _memberListStream(members),
           ),
         ],
         child: MaterialApp.router(
@@ -1078,8 +1323,7 @@ void main() {
   // ─────────────────────────────────────────────────────────────────────
 
   group('SessionHistoryList – long-press delete', () {
-    testWidgets(
-        'long-press a 2-contributor period → Delete → '
+    testWidgets('long-press a 2-contributor period → Delete → '
         'period strategy dialog appears with options', (tester) async {
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 12);
@@ -1113,6 +1357,12 @@ void main() {
           ),
           membersByIdsProvider.overrideWith(
             (ref, _) => Stream.value({
+              'a': _member('a', 'Alice'),
+              'b': _member('b', 'Bob'),
+            }),
+          ),
+          allMemberListProvider.overrideWith(
+            (ref) => _memberListStream({
               'a': _member('a', 'Alice'),
               'b': _member('b', 'Bob'),
             }),

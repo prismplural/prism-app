@@ -139,9 +139,9 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
   Future<void> _showMemberPicker(
     BuildContext context,
     List<Member> candidates,
-    List<MemberSearchGroup> groups,
   ) async {
     final termPlural = readTerminology(context, ref).plural;
+    final groups = readMemberSearchGroups(ref, candidates);
 
     final result = await MemberSearchSheet.showMulti(
       context,
@@ -266,12 +266,12 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
               builder: (context) {
                 final members = membersAsync.value ?? [];
                 final morningCounts = morningCountsAsync.value ?? {};
+                watchMemberSearchGroupSources(ref);
                 final topMembers = sortMembersByFrequency(
                   members,
                   morningCounts,
                   take: 4,
                 );
-                final searchGroups = watchMemberSearchGroups(ref, members);
                 final hasOthers = members.length > 4;
                 final topMemberIds = topMembers.map((m) => m.id).toSet();
                 final selectedOutsideTopIds = _selectedMemberIds
@@ -359,8 +359,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                     const SizedBox(height: 4),
                     InkWell(
                       key: const Key('wakeUpMemberSearchButton'),
-                      onTap: () =>
-                          _showMemberPicker(context, members, searchGroups),
+                      onTap: () => _showMemberPicker(context, members),
                       borderRadius: BorderRadius.circular(
                         PrismShapes.of(context).radius(8),
                       ),

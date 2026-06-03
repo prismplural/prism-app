@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
@@ -22,13 +23,14 @@ import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dar
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
 import 'package:prism_plurality/features/fronting/widgets/wake_up_sleep_sheet.dart';
-import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -40,10 +42,13 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
-import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/features/fronting/views/period_detail_args.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+
+const _frontingPlaceholderDelay = Duration(milliseconds: 800);
+const _historyLoadingReservedHeight = 336.0;
+const _historySkeletonRows = 4;
 
 /// A day-grouped list of fronting history rendered per the user's
 /// `fronting_list_view_mode` preference (1B):
@@ -79,6 +84,16 @@ class SessionHistoryList extends ConsumerWidget {
   }
 }
 
+@visibleForTesting
+class FrontingHistoryRowMarker extends StatelessWidget {
+  const FrontingHistoryRowMarker({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => child;
+}
+
 class MemberFrontingHistoryList extends ConsumerWidget {
   const MemberFrontingHistoryList({
     super.key,
@@ -97,9 +112,7 @@ class MemberFrontingHistoryList extends ConsumerWidget {
 
     return historyAsync.when(
       skipLoadingOnReload: true,
-      loading: () => const SliverToBoxAdapter(
-        child: Padding(padding: EdgeInsets.all(24), child: PrismLoadingState()),
-      ),
+      loading: _historyMembersLoadingSliver,
       error: (e, _) => SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -137,17 +150,9 @@ class MemberFrontingHistoryList extends ConsumerWidget {
           );
         }
 
-        final allMemberIds = <String>{};
-        for (final p in history.periods) {
-          allMemberIds.addAll(p.activeMembers);
-          allMemberIds.addAll(p.alwaysPresentMembers);
-          for (final v in p.briefVisitors) {
-            allMemberIds.add(v.memberId);
-          }
-        }
-        final key = memberIdsKey(allMemberIds);
-        final membersAsync = ref.watch(membersByIdsProvider(key));
-        final membersMap = membersAsync.whenOrNull(data: (m) => m) ?? {};
+        final membersAsync = ref.watch(allMemberListProvider);
+        final membersMap = _loadedMembersMapOrNull(membersAsync);
+        if (membersMap == null) return _historyMembersLoadingSliver();
 
         final grouped = groupHistoryByDay(
           periods: history.periods,
@@ -205,16 +210,9 @@ class CurrentFrontingSessionChip extends ConsumerWidget {
       orElse: () => slices.last,
     );
 
-    final memberIds = <String>{
-      ...period.activeMembers,
-      ...period.alwaysPresentMembers,
-      for (final visitor in slice.briefVisitors) visitor.memberId,
-    };
-    final membersAsync = ref.watch(
-      membersByIdsProvider(memberIdsKey(memberIds)),
-    );
-    final membersMap =
-        membersAsync.whenOrNull(data: (members) => members) ?? {};
+    final membersAsync = ref.watch(allMemberListProvider);
+    final membersMap = _loadedMembersMapOrNull(membersAsync);
+    if (membersMap == null) return const SizedBox.shrink();
     final tint = _periodTint(context, period, membersMap);
     final chipKey = slice.isContinuation
         ? '${period.sessionIds.join("|")}-current-${slice.displayStart.toDayKey()}'
@@ -382,6 +380,207 @@ Color _periodTint(
   return Theme.of(context).colorScheme.primary;
 }
 
+Map<String, Member>? _loadedMembersMapOrNull(
+  AsyncValue<List<Member>> membersAsync,
+) {
+  final members = membersAsync.value;
+  if (members == null) return null;
+  return {for (final member in members) member.id: member};
+}
+
+Widget _historyMembersLoadingSliver() {
+  return const _DelayedHistoryLoadingSliver(
+    key: ValueKey('fronting-history-members-loading'),
+    skeletonMarkerLabel: 'frontingHistory members skeleton shown',
+  );
+}
+
+class _DelayedHistoryLoadingSliver extends StatefulWidget {
+  const _DelayedHistoryLoadingSliver({
+    super.key,
+    required this.skeletonMarkerLabel,
+  });
+
+  final String skeletonMarkerLabel;
+
+  @override
+  State<_DelayedHistoryLoadingSliver> createState() =>
+      _DelayedHistoryLoadingSliverState();
+}
+
+class _DelayedHistoryLoadingSliverState
+    extends State<_DelayedHistoryLoadingSliver> {
+  Timer? _timer;
+  bool _showSkeleton = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(_frontingPlaceholderDelay, () {
+      if (mounted) setState(() => _showSkeleton = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_showSkeleton) {
+      return const SliverToBoxAdapter(
+        child: SizedBox(height: _historyLoadingReservedHeight),
+      );
+    }
+    BootTimings.markOnce(widget.skeletonMarkerLabel);
+    return const SliverToBoxAdapter(child: _HistoryLoadingSkeleton());
+  }
+}
+
+@visibleForTesting
+class FrontingHistoryLoadingSkeletonMarker extends StatelessWidget {
+  const FrontingHistoryLoadingSkeletonMarker({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => child;
+}
+
+class _HistoryLoadingSkeleton extends StatelessWidget {
+  const _HistoryLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final radius = PrismShapes.of(context).radius(PrismTokens.radiusMedium);
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(radius),
+      side: BorderSide(
+        color: theme.colorScheme.outlineVariant.withValues(
+          alpha: theme.brightness == Brightness.dark ? 0.35 : 0.28,
+        ),
+      ),
+    );
+    final fill = theme.colorScheme.onSurface.withValues(
+      alpha: theme.brightness == Brightness.dark ? 0.10 : 0.06,
+    );
+    final chipFill = theme.colorScheme.onSurface.withValues(
+      alpha: theme.brightness == Brightness.dark ? 0.12 : 0.08,
+    );
+
+    return ExcludeSemantics(
+      child: FrontingHistoryLoadingSkeletonMarker(
+        child: SizedBox(
+          height: _historyLoadingReservedHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                child: _SkeletonBlock(
+                  width: 74,
+                  height: 24,
+                  color: chipFill,
+                  radius: 999,
+                ),
+              ),
+              for (var i = 0; i < _historySkeletonRows; i++)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    12,
+                    0,
+                    12,
+                    i == _historySkeletonRows - 1 ? 0 : 6,
+                  ),
+                  child: Material(
+                    color: theme.cardColor,
+                    shape: shape,
+                    clipBehavior: Clip.antiAlias,
+                    child: SizedBox(
+                      height: 66,
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 16),
+                          _SkeletonBlock(
+                            width: 40,
+                            height: 40,
+                            color: fill,
+                            radius: 999,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _SkeletonBlock(
+                                  width: i == 0 ? 154 : 128,
+                                  height: 13,
+                                  color: fill,
+                                  radius: 999,
+                                ),
+                                const SizedBox(height: 9),
+                                _SkeletonBlock(
+                                  width: i == 0 ? 108 : 88,
+                                  height: 10,
+                                  color: fill,
+                                  radius: 999,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          _SkeletonBlock(
+                            width: 48,
+                            height: 12,
+                            color: fill,
+                            radius: 999,
+                          ),
+                          const SizedBox(width: 16),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonBlock extends StatelessWidget {
+  const _SkeletonBlock({
+    required this.width,
+    required this.height,
+    required this.color,
+    required this.radius,
+  });
+
+  final double width;
+  final double height;
+  final Color color;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(
+          PrismShapes.of(context).radius(radius),
+        ),
+      ),
+    );
+  }
+}
+
 /// 1A combined-period rendering: one row per derived period with avatar
 /// stacks per period and inline sleep tiles. Default mode.
 class _CombinedPeriodsList extends ConsumerWidget {
@@ -391,12 +590,23 @@ class _CombinedPeriodsList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final periodsAsync = ref.watch(derivedPeriodsProvider);
     final sessionsAsync = ref.watch(unifiedHistoryProvider);
+    final sessions = sessionsAsync.value;
+    if (sessions != null) {
+      BootTimings.markOnce(
+        'frontingHistory combined sessions first emit',
+        'count=${sessions.length}',
+      );
+    }
 
     return periodsAsync.when(
       skipLoadingOnReload: true,
-      loading: () => const SliverToBoxAdapter(
-        child: Padding(padding: EdgeInsets.all(24), child: PrismLoadingState()),
-      ),
+      loading: () {
+        BootTimings.markOnce('frontingHistory combined periods loader shown');
+        return const _DelayedHistoryLoadingSliver(
+          key: ValueKey('fronting-history-combined-loading'),
+          skeletonMarkerLabel: 'frontingHistory combined skeleton shown',
+        );
+      },
       error: (e, _) => SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -404,6 +614,10 @@ class _CombinedPeriodsList extends ConsumerWidget {
         ),
       ),
       data: (periods) {
+        BootTimings.markOnce(
+          'frontingHistory combined periods first emit',
+          'count=${periods.length}',
+        );
         // Sleep tiles still come from the raw session stream — derived
         // periods only cover fronting (sleep is rendered as its own kind
         // of row). We pull sleep sessions out of the same upstream list
@@ -443,33 +657,50 @@ class _CombinedPeriodsList extends ConsumerWidget {
           );
         }
 
-        // Batch-load every member referenced by any period (active,
-        // ephemeral, or always-present) plus sleep sessions in a single
-        // query.
-        final allMemberIds = <String>{};
-        for (final p in periods) {
-          allMemberIds.addAll(p.activeMembers);
-          allMemberIds.addAll(p.alwaysPresentMembers);
-          for (final v in p.briefVisitors) {
-            allMemberIds.add(v.memberId);
-          }
+        final membersAsync = ref.watch(allMemberListProvider);
+        final membersMap = _loadedMembersMapOrNull(membersAsync);
+        if (membersMap == null) {
+          BootTimings.markOnce('frontingHistory combined members loader shown');
+          return _historyMembersLoadingSliver();
         }
-        final key = memberIdsKey(allMemberIds);
-        final membersAsync = ref.watch(membersByIdsProvider(key));
-        final membersMap = membersAsync.whenOrNull(data: (m) => m) ?? {};
+        BootTimings.markOnce(
+          'frontingHistory combined members first emit',
+          'count=${membersMap.length}',
+        );
 
         final grouped = groupHistoryByDay(
           periods: periods,
           sleepSessions: sleepSessions,
         );
+        final entries = _combinedHistoryEntries(grouped);
+        BootTimings.markOnce(
+          'frontingHistory combined rows first ready',
+          'entries=${entries.length} groups=${grouped.length} '
+              'sleep=${sleepSessions.length}',
+        );
 
         return SliverList.builder(
-          itemCount: grouped.length,
-          itemBuilder: (context, index) => _DayGroupWidget(
-            group: grouped[index],
-            isFirstGroup: index == 0,
-            membersMap: membersMap,
-          ),
+          itemCount: entries.length,
+          itemBuilder: (context, index) {
+            final entry = entries[index];
+            if (entry is _HistoryDayHeaderEntry) {
+              return _HistoryDayHeader(
+                dayKey: entry.dayKey,
+                isFirstGroup: entry.isFirstGroup,
+              );
+            }
+            if (entry is _CombinedHistoryRowEntry) {
+              return _HistoryRowSurface(
+                isLastInGroup: entry.isLastInGroup,
+                child: _combinedHistoryTile(
+                  item: entry.item,
+                  isLatest: entry.isLatest,
+                  membersMap: membersMap,
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          },
         );
       },
     );
@@ -498,12 +729,30 @@ class _PerMemberRowsList extends ConsumerWidget {
     final bundleAsync = ref.watch(unifiedHistoryOverlapProvider);
     final unifiedAsync = ref.watch(unifiedHistoryProvider);
     final alwaysPresentAsync = ref.watch(alwaysPresentMembersProvider);
+    final unifiedSessions = unifiedAsync.value;
+    if (unifiedSessions != null) {
+      BootTimings.markOnce(
+        'frontingHistory perMember unified sessions first emit',
+        'count=${unifiedSessions.length}',
+      );
+    }
+    final alwaysPresent = alwaysPresentAsync.value;
+    if (alwaysPresent != null) {
+      BootTimings.markOnce(
+        'frontingHistory perMember always-present first emit',
+        'count=${alwaysPresent.length}',
+      );
+    }
 
     return bundleAsync.when(
       skipLoadingOnReload: true,
-      loading: () => const SliverToBoxAdapter(
-        child: Padding(padding: EdgeInsets.all(24), child: PrismLoadingState()),
-      ),
+      loading: () {
+        BootTimings.markOnce('frontingHistory perMember bundle loader shown');
+        return const _DelayedHistoryLoadingSliver(
+          key: ValueKey('fronting-history-per-member-loading'),
+          skeletonMarkerLabel: 'frontingHistory perMember skeleton shown',
+        );
+      },
       error: (e, _) => SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -511,6 +760,10 @@ class _PerMemberRowsList extends ConsumerWidget {
         ),
       ),
       data: (bundle) {
+        BootTimings.markOnce(
+          'frontingHistory perMember bundle first emit',
+          'sessions=${bundle.sessions.length}',
+        );
         // Build the per-member always-present anchor map: memberId →
         // earliest startTime of an always-present (qualifying) session.
         // Sessions for this member at or after that anchor are filtered
@@ -584,14 +837,18 @@ class _PerMemberRowsList extends ConsumerWidget {
           );
         }
 
-        // Batch-load every member referenced by any visible session.
-        final memberIds = <String>{};
-        for (final s in frontingSessions) {
-          if (s.memberId != null) memberIds.add(s.memberId!);
+        final membersAsync = ref.watch(allMemberListProvider);
+        final membersMap = _loadedMembersMapOrNull(membersAsync);
+        if (membersMap == null) {
+          BootTimings.markOnce(
+            'frontingHistory perMember members loader shown',
+          );
+          return _historyMembersLoadingSliver();
         }
-        final key = memberIdsKey(memberIds);
-        final membersAsync = ref.watch(membersByIdsProvider(key));
-        final membersMap = membersAsync.whenOrNull(data: (m) => m) ?? {};
+        BootTimings.markOnce(
+          'frontingHistory perMember members first emit',
+          'count=${membersMap.length}',
+        );
 
         // Reuse groupSessionsByDay so day headers + midnight-split
         // semantics match combinedPeriods mode exactly.
@@ -616,16 +873,36 @@ class _PerMemberRowsList extends ConsumerWidget {
         }
         final dayKeys = mergedByKey.keys.toList()
           ..sort((a, b) => b.compareTo(a));
+        final entries = _perMemberHistoryEntries(dayKeys, mergedByKey);
+        BootTimings.markOnce(
+          'frontingHistory perMember rows first ready',
+          'entries=${entries.length} groups=${dayKeys.length} '
+              'fronting=${frontingSessions.length} sleep=${sleepSessions.length}',
+        );
 
         return SliverList.builder(
-          itemCount: dayKeys.length,
+          itemCount: entries.length,
           itemBuilder: (context, index) {
-            final group = mergedByKey[dayKeys[index]]!;
-            return _PerMemberDayGroupWidget(
-              group: group,
-              isFirstGroup: index == 0,
-              membersMap: membersMap,
-            );
+            final entry = entries[index];
+            if (entry is _HistoryDayHeaderEntry) {
+              return _HistoryDayHeader(
+                dayKey: entry.dayKey,
+                isFirstGroup: entry.isFirstGroup,
+              );
+            }
+            if (entry is _PerMemberHistoryRowEntry) {
+              return _HistoryRowSurface(
+                isLastInGroup: entry.isLastInGroup,
+                child: entry.slice.session.isSleep
+                    ? _InlineSleepTile(displaySession: entry.slice)
+                    : _PerMemberSessionTile(
+                        slice: entry.slice,
+                        isLatest: entry.isLatest,
+                        membersMap: membersMap,
+                      ),
+              );
+            }
+            return const SizedBox.shrink();
           },
         );
       },
@@ -654,62 +931,153 @@ class _PerMemberDayGroup {
 
   final String dayKey;
   final List<DisplaySession> entries;
-
-  int get length => entries.length;
 }
 
-class _PerMemberDayGroupWidget extends StatelessWidget {
-  const _PerMemberDayGroupWidget({
-    required this.group,
-    this.isFirstGroup = false,
-    required this.membersMap,
+sealed class _HistoryListEntry {
+  const _HistoryListEntry();
+}
+
+class _HistoryDayHeaderEntry extends _HistoryListEntry {
+  const _HistoryDayHeaderEntry({
+    required this.dayKey,
+    required this.isFirstGroup,
   });
 
-  final _PerMemberDayGroup group;
+  final String dayKey;
   final bool isFirstGroup;
-  final Map<String, Member> membersMap;
+}
+
+class _CombinedHistoryRowEntry extends _HistoryListEntry {
+  const _CombinedHistoryRowEntry({
+    required this.item,
+    required this.isLatest,
+    required this.isLastInGroup,
+  });
+
+  final HistoryDisplayItem item;
+  final bool isLatest;
+  final bool isLastInGroup;
+}
+
+class _PerMemberHistoryRowEntry extends _HistoryListEntry {
+  const _PerMemberHistoryRowEntry({
+    required this.slice,
+    required this.isLatest,
+    required this.isLastInGroup,
+  });
+
+  final DisplaySession slice;
+  final bool isLatest;
+  final bool isLastInGroup;
+}
+
+List<_HistoryListEntry> _combinedHistoryEntries(List<HistoryDayGroup> groups) {
+  final entries = <_HistoryListEntry>[];
+  for (var groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+    final group = groups[groupIndex];
+    entries.add(
+      _HistoryDayHeaderEntry(
+        dayKey: group.dayKey,
+        isFirstGroup: groupIndex == 0,
+      ),
+    );
+    for (var itemIndex = 0; itemIndex < group.items.length; itemIndex++) {
+      entries.add(
+        _CombinedHistoryRowEntry(
+          item: group.items[itemIndex],
+          isLatest: groupIndex == 0 && itemIndex == 0,
+          isLastInGroup: itemIndex == group.items.length - 1,
+        ),
+      );
+    }
+  }
+  return entries;
+}
+
+List<_HistoryListEntry> _perMemberHistoryEntries(
+  List<String> dayKeys,
+  Map<String, _PerMemberDayGroup> groupsByKey,
+) {
+  final entries = <_HistoryListEntry>[];
+  for (var groupIndex = 0; groupIndex < dayKeys.length; groupIndex++) {
+    final group = groupsByKey[dayKeys[groupIndex]];
+    if (group == null) continue;
+    entries.add(
+      _HistoryDayHeaderEntry(
+        dayKey: group.dayKey,
+        isFirstGroup: groupIndex == 0,
+      ),
+    );
+    for (var itemIndex = 0; itemIndex < group.entries.length; itemIndex++) {
+      entries.add(
+        _PerMemberHistoryRowEntry(
+          slice: group.entries[itemIndex],
+          isLatest: groupIndex == 0 && itemIndex == 0,
+          isLastInGroup: itemIndex == group.entries.length - 1,
+        ),
+      );
+    }
+  }
+  return entries;
+}
+
+class _HistoryDayHeader extends StatelessWidget {
+  const _HistoryDayHeader({required this.dayKey, required this.isFirstGroup});
+
+  final String dayKey;
+  final bool isFirstGroup;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, isFirstGroup ? 20 : 18, 16, 8),
+      child: DateChip(date: DateTime.parse(dayKey)),
+    );
+  }
+}
+
+class _HistoryRowSurface extends StatelessWidget {
+  const _HistoryRowSurface({required this.child, required this.isLastInGroup});
+
+  final Widget child;
+  final bool isLastInGroup;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final total = group.length;
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-          child: DateChip(date: DateTime.parse(group.dayKey)),
+    final radius = PrismShapes.of(context).radius(PrismTokens.radiusMedium);
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(radius),
+      side: BorderSide(
+        color: theme.colorScheme.outlineVariant.withValues(
+          alpha: theme.brightness == Brightness.dark ? 0.50 : 0.52,
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: PrismGroupedSectionCard(
-            child: Column(
-              children: [
-                for (var i = 0; i < group.entries.length; i++) ...[
-                  if (group.entries[i].session.isSleep)
-                    _InlineSleepTile(displaySession: group.entries[i])
-                  else
-                    _PerMemberSessionTile(
-                      slice: group.entries[i],
-                      isLatest: isFirstGroup && i == 0,
-                      membersMap: membersMap,
-                    ),
-                  if (i < total - 1)
-                    Divider(
-                      height: 1,
-                      indent: group.entries[i].session.isSleep ? 16 : 64,
-                      endIndent: 12,
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.08,
-                      ),
-                    ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ],
+      ),
+    );
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12, 0, 12, isLastInGroup ? 0 : 6),
+      child: Material(
+        color: theme.cardColor,
+        shape: shape,
+        clipBehavior: Clip.antiAlias,
+        child: FrontingHistoryRowMarker(child: child),
+      ),
     );
   }
+}
+
+Widget _combinedHistoryTile({
+  required HistoryDisplayItem item,
+  required bool isLatest,
+  required Map<String, Member> membersMap,
+}) {
+  if (item is DisplaySleepItem) {
+    return _InlineSleepTile(displaySession: item.slice);
+  }
+  if (item is DisplayPeriod) {
+    return _PeriodTile(slice: item, isLatest: isLatest, membersMap: membersMap);
+  }
+  return const SizedBox.shrink();
 }
 
 /// One row per per-member session in `perMemberRows` mode. Visually
@@ -762,6 +1130,8 @@ class _PerMemberSessionTile extends ConsumerWidget {
           )
         : MemberAvatar(
             avatarImageData: member.avatarImageData,
+            memberId: member.id,
+            deferAvatarLookup: true,
             memberName: member.name,
             emoji: member.emoji,
             customColorEnabled: member.customColorEnabled,
@@ -925,6 +1295,10 @@ class _DayGroupWidget extends StatelessWidget {
 }
 
 /// One row per derived period.
+const _periodRosterNameLimit = 3;
+const _periodAvatarMemberLimit = 4;
+const _briefVisitorChipLimit = 4;
+
 class _PeriodTile extends ConsumerWidget {
   const _PeriodTile({
     required this.slice,
@@ -948,15 +1322,6 @@ class _PeriodTile extends ConsumerWidget {
       return '$startStr – ongoing';
     }
     return '$startStr – ${context.formatTime(slice.displayEnd)}';
-  }
-
-  String _fullRosterLabel() {
-    final names = period.activeMembers
-        .map((id) => membersMap[id]?.name ?? 'Unknown')
-        .toList();
-    if (names.isEmpty) return 'Unknown';
-    if (names.length == 1) return names.first;
-    return names.join(', ');
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
@@ -1065,25 +1430,33 @@ class _PeriodTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    final activeMemberObjs = period.activeMembers
-        .map((id) => membersMap[id])
-        .whereType<Member>()
-        .toList();
-    final isUnknown = period.activeMembers.isEmpty;
+    final avatarMembers = <Member>[];
+    final rosterNames = <String>[];
+    for (final id in period.activeMembers) {
+      final member = membersMap[id];
+      if (rosterNames.length < _periodRosterNameLimit) {
+        rosterNames.add(member?.name ?? 'Unknown');
+      }
+      if (member != null && avatarMembers.length < _periodAvatarMemberLimit) {
+        avatarMembers.add(member);
+      }
+      if (rosterNames.length >= _periodRosterNameLimit &&
+          avatarMembers.length >= _periodAvatarMemberLimit) {
+        break;
+      }
+    }
+    final hiddenRosterCount = period.activeMembers.length - rosterNames.length;
+    final isUnknown = period.activeMembers.isEmpty || avatarMembers.isEmpty;
 
     final accentColor =
-        activeMemberObjs.isNotEmpty &&
-            activeMemberObjs.first.customColorEnabled &&
-            activeMemberObjs.first.customColorHex != null
-        ? AppColors.fromHex(activeMemberObjs.first.customColorHex!)
+        avatarMembers.isNotEmpty &&
+            avatarMembers.first.customColorEnabled &&
+            avatarMembers.first.customColorHex != null
+        ? AppColors.fromHex(avatarMembers.first.customColorHex!)
         : theme.colorScheme.primary;
     final durationAccentColor = _durationAccentColor(context, accentColor);
 
     final timeRange = _timeRange(context);
-    final rosterNames = period.activeMembers
-        .map((id) => membersMap[id]?.name ?? 'Unknown')
-        .toList();
-
     final leadingWidget = isUnknown
         ? Container(
             width: 40,
@@ -1101,9 +1474,11 @@ class _PeriodTile extends ConsumerWidget {
         : GroupMemberAvatar(
             size: 40,
             members: [
-              for (final m in activeMemberObjs)
+              for (final m in avatarMembers)
                 GroupAvatarMember(
+                  memberId: m.id,
                   avatarImageData: m.avatarImageData,
+                  deferAvatarLookup: true,
                   emoji: m.emoji,
                   customColorEnabled: m.customColorEnabled,
                   customColorHex: m.customColorHex,
@@ -1148,9 +1523,15 @@ class _PeriodTile extends ConsumerWidget {
               spacing: 6,
               runSpacing: 4,
               children: [
-                for (final v in slice.briefVisitors)
+                for (final v in slice.briefVisitors.take(
+                  _briefVisitorChipLimit,
+                ))
                   _BriefVisitorChip(
                     name: membersMap[v.memberId]?.name ?? 'Unknown',
+                  ),
+                if (slice.briefVisitors.length > _briefVisitorChipLimit)
+                  _BriefVisitorOverflowChip(
+                    count: slice.briefVisitors.length - _briefVisitorChipLimit,
                   ),
               ],
             ),
@@ -1184,7 +1565,10 @@ class _PeriodTile extends ConsumerWidget {
           context.push(
             AppRoutePaths.period(period.sessionIds),
             extra: PeriodDetailArgs(
-              activeMembers: activeMemberObjs,
+              activeMembers: period.activeMembers
+                  .map((id) => membersMap[id])
+                  .whereType<Member>()
+                  .toList(),
               start: period.start,
               end: period.end,
               isOpenEnded: period.isOpenEnded,
@@ -1230,7 +1614,11 @@ class _PeriodTile extends ConsumerWidget {
                       .withValues(alpha: 0.5),
                   overflowChipForeground:
                       theme.colorScheme.onSecondaryContainer,
-                  semanticsLabel: _fullRosterLabel(),
+                  hiddenNameCount: hiddenRosterCount,
+                  semanticsLabel: _cappedRosterLabel(
+                    rosterNames,
+                    hiddenRosterCount,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1300,6 +1688,7 @@ class _PeriodTitleBlock extends StatelessWidget {
     required this.alwaysPresentLine,
     required this.overflowChipColor,
     required this.overflowChipForeground,
+    required this.hiddenNameCount,
     required this.semanticsLabel,
   });
 
@@ -1311,6 +1700,7 @@ class _PeriodTitleBlock extends StatelessWidget {
   final Widget? alwaysPresentLine;
   final Color overflowChipColor;
   final Color overflowChipForeground;
+  final int hiddenNameCount;
   final String semanticsLabel;
 
   @override
@@ -1334,6 +1724,7 @@ class _PeriodTitleBlock extends StatelessWidget {
       children: [
         _AdaptiveRosterSummary(
           names: names,
+          hiddenNameCount: hiddenNameCount,
           titleStyle: effectiveTitleStyle,
           overflowChipColor: overflowChipColor,
           overflowChipForeground: overflowChipForeground,
@@ -1352,6 +1743,7 @@ class _PeriodTitleBlock extends StatelessWidget {
 class _AdaptiveRosterSummary extends StatelessWidget {
   const _AdaptiveRosterSummary({
     required this.names,
+    required this.hiddenNameCount,
     required this.titleStyle,
     required this.overflowChipColor,
     required this.overflowChipForeground,
@@ -1360,6 +1752,7 @@ class _AdaptiveRosterSummary extends StatelessWidget {
   });
 
   final List<String> names;
+  final int hiddenNameCount;
   final TextStyle titleStyle;
   final Color overflowChipColor;
   final Color overflowChipForeground;
@@ -1372,52 +1765,30 @@ class _AdaptiveRosterSummary extends StatelessWidget {
       return Text('Unknown', style: titleStyle);
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final textDirection = Directionality.of(context);
-        final textScaler = MediaQuery.textScalerOf(context);
-        final locale = Localizations.maybeLocaleOf(context);
-        final maxWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : double.infinity;
-        final visibleCount = _visibleNameCountForWidth(
-          names: names,
-          maxWidth: maxWidth,
-          titleStyle: titleStyle,
-          overflowChipTextStyle: overflowChipTextStyle,
-          textDirection: textDirection,
-          textScaler: textScaler,
-          locale: locale,
-        );
-        final visibleNames = names.take(visibleCount).toList();
-        final hiddenCount = names.length - visibleCount;
-
-        return Text.rich(
-          TextSpan(
-            style: titleStyle,
-            children: [
-              TextSpan(text: _formatRosterNames(visibleNames)),
-              if (hiddenCount > 0) ...[
-                const TextSpan(text: ' '),
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: _OverflowRosterChip(
-                    label: '+$hiddenCount',
-                    foregroundColor: overflowChipForeground,
-                    backgroundColor: overflowChipColor,
-                    textStyle: overflowChipTextStyle,
-                  ),
-                ),
-              ],
-            ],
-          ),
-          style: titleStyle,
-          softWrap: true,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          semanticsLabel: semanticsLabel,
-        );
-      },
+    return Text.rich(
+      TextSpan(
+        style: titleStyle,
+        children: [
+          TextSpan(text: _formatRosterNames(names)),
+          if (hiddenNameCount > 0) ...[
+            const TextSpan(text: ' '),
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: _OverflowRosterChip(
+                label: '+$hiddenNameCount',
+                foregroundColor: overflowChipForeground,
+                backgroundColor: overflowChipColor,
+                textStyle: overflowChipTextStyle,
+              ),
+            ),
+          ],
+        ],
+      ),
+      style: titleStyle,
+      softWrap: true,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      semanticsLabel: semanticsLabel,
     );
   }
 }
@@ -1448,122 +1819,17 @@ class _OverflowRosterChip extends StatelessWidget {
   }
 }
 
-int _visibleNameCountForWidth({
-  required List<String> names,
-  required double maxWidth,
-  required TextStyle titleStyle,
-  required TextStyle overflowChipTextStyle,
-  required TextDirection textDirection,
-  required TextScaler textScaler,
-  required Locale? locale,
-}) {
-  if (names.isEmpty) return 0;
-  if (!maxWidth.isFinite || maxWidth <= 0) return names.length;
-
-  var low = 1;
-  var high = names.length;
-  var best = 1;
-
-  while (low <= high) {
-    final mid = (low + high) >> 1;
-    if (_rosterFits(
-      names: names,
-      visibleCount: mid,
-      maxWidth: maxWidth,
-      titleStyle: titleStyle,
-      overflowChipTextStyle: overflowChipTextStyle,
-      textDirection: textDirection,
-      textScaler: textScaler,
-      locale: locale,
-    )) {
-      best = mid;
-      low = mid + 1;
-    } else {
-      high = mid - 1;
-    }
-  }
-
-  return best;
-}
-
-double _overflowChipWidth({
-  required String label,
-  required TextStyle style,
-  required TextScaler textScaler,
-}) {
-  final painter = TextPainter(
-    text: TextSpan(text: label, style: style),
-    textDirection: TextDirection.ltr,
-    textScaler: textScaler,
-    maxLines: 1,
-  )..layout();
-
-  return painter.width + 12;
-}
-
-bool _rosterFits({
-  required List<String> names,
-  required int visibleCount,
-  required double maxWidth,
-  required TextStyle titleStyle,
-  required TextStyle overflowChipTextStyle,
-  required TextDirection textDirection,
-  required TextScaler textScaler,
-  required Locale? locale,
-}) {
-  final hiddenCount = names.length - visibleCount;
-  final candidate = _formatRosterNames(names.take(visibleCount).toList());
-  final reservedWidth = hiddenCount > 0
-      ? _overflowChipWidth(
-              label: '+$hiddenCount',
-              style: overflowChipTextStyle,
-              textScaler: textScaler,
-            ) +
-            _textWidth(
-              ' ',
-              style: titleStyle,
-              textDirection: textDirection,
-              textScaler: textScaler,
-              locale: locale,
-            )
-      : 0.0;
-  final availableWidth = maxWidth - reservedWidth;
-  if (availableWidth <= 0) return false;
-
-  final painter = TextPainter(
-    text: TextSpan(text: candidate, style: titleStyle),
-    textDirection: textDirection,
-    textScaler: textScaler,
-    locale: locale,
-    maxLines: 2,
-  )..layout(maxWidth: availableWidth);
-
-  return !painter.didExceedMaxLines;
-}
-
-double _textWidth(
-  String text, {
-  required TextStyle style,
-  required TextDirection textDirection,
-  required TextScaler textScaler,
-  required Locale? locale,
-}) {
-  final painter = TextPainter(
-    text: TextSpan(text: text, style: style),
-    textDirection: textDirection,
-    textScaler: textScaler,
-    locale: locale,
-    maxLines: 1,
-  )..layout();
-
-  return painter.width;
-}
-
 String _formatRosterNames(List<String> names) {
   if (names.isEmpty) return 'Unknown';
   if (names.length == 1) return names.first;
   if (names.length == 2) return '${names[0]} & ${names[1]}';
   return '${names.take(names.length - 1).join(', ')} & ${names.last}';
+}
+
+String _cappedRosterLabel(List<String> visibleNames, int hiddenNameCount) {
+  final visibleLabel = _formatRosterNames(visibleNames);
+  if (hiddenNameCount <= 0) return visibleLabel;
+  return '$visibleLabel, +$hiddenNameCount more';
 }
 
 class _TileContextAction {
@@ -1595,6 +1861,30 @@ class _BriefVisitorChip extends StatelessWidget {
       ),
       child: Text(
         '+$name briefly',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSecondaryContainer,
+        ),
+      ),
+    );
+  }
+}
+
+class _BriefVisitorOverflowChip extends StatelessWidget {
+  const _BriefVisitorOverflowChip({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '+$count more',
         style: theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.onSecondaryContainer,
         ),

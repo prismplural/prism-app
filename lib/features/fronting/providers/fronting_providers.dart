@@ -429,12 +429,21 @@ class SessionLimitNotifier extends Notifier<int> {
   @override
   int build() => sessionPageSize;
 
-  void loadMore() => state = state + sessionPageSize;
+  void loadMore({int pages = 1}) {
+    final safePages = pages < 1 ? 1 : pages;
+    state = state + sessionPageSize * safePages;
+  }
 }
 
-final sessionLimitProvider = NotifierProvider<SessionLimitNotifier, int>(
-  SessionLimitNotifier.new,
-);
+/// Screen-scoped history page limit.
+///
+/// This intentionally resets after the fronting history leaves the widget
+/// tree, so one deep scroll through a large fixture does not make later visits
+/// or app launches start with an inflated query size.
+final sessionLimitProvider =
+    NotifierProvider.autoDispose<SessionLimitNotifier, int>(
+      SessionLimitNotifier.new,
+    );
 
 /// Unified session history (fronting + sleep), paginated by [sessionLimitProvider].
 ///
@@ -452,15 +461,24 @@ final unifiedHistoryProvider =
       return repo.watchRecentAllSessions(limit: limit);
     });
 
-/// Baseline lookback for the derived-period sweep when computing periods
+/// Maximum lookback for the derived-period sweep when computing periods
 /// for the unified history list.
 ///
-/// The provider starts with this conservative window, then expands it back
-/// to the oldest bounded display window for closed fronting rows already
-/// loaded by the raw pager. That keeps initial renders bounded, while letting
-/// infinite-scroll actually reveal older derived periods instead of showing a
-/// spinner for rows the fixed 90-day window would never include.
+/// The initial window follows the small raw history page instead of eagerly
+/// sweeping this whole range. Long-running rows clamp to a smaller page
+/// lookback first, then expand toward this per-row cap as infinite-scroll
+/// increases [sessionLimitProvider].
 const derivedPeriodsLookbackDays = 90;
+
+/// Initial display clamp for long-running rows in the derived-period list.
+///
+/// Large systems can have hundreds or thousands of rows within 90 days. Page
+/// one should derive enough context for the first visible history page, not
+/// the entire capped window. Each additional raw-history page extends this by
+/// another 14 days until [derivedPeriodsLookbackDays]. This caps the display
+/// span of one long-running row; short older rows can still appear once the
+/// raw history pager reaches them.
+const derivedPeriodsInitialLookbackDays = 14;
 
 /// Far-future safety margin for the SQL overlap query's upper bound.
 ///
@@ -489,13 +507,13 @@ const derivedPeriodsLookaheadDays = 30;
 
 /// Inputs to the derived-period sweep.
 ///
-/// `rangeStart` is the visible window's lower bound. It starts at
-/// `now - derivedPeriodsLookbackDays` and may move farther back when
-/// the raw history pager has already loaded older closed rows. Long
-/// closed rows expand from their end-time tail instead of their true
-/// start, so ending a multi-year imported current front cannot generate
-/// thousands of midnight-split display rows. Within a single provider
-/// emission it stays fixed, so derivation has one stable lower clamp.
+/// `rangeStart` is the visible window's lower bound. It follows the oldest
+/// normal row already loaded by the raw history pager, rather than starting
+/// at the maximum lookback on page one. Long open/closed rows expand from
+/// their display tail instead of their true start, so ending a multi-year
+/// imported current front cannot generate thousands of midnight-split
+/// display rows. Within a single provider emission it stays fixed, so
+/// derivation has one stable lower clamp.
 ///
 /// There is intentionally NO `rangeEnd` here. The derivation captures
 /// a fresh `DateTime.now()` per run and uses it as the visible upper
@@ -526,13 +544,12 @@ class DerivedPeriodsInputBundle {
 /// `start_time < sql_upper_bound AND (end_time IS NULL OR end_time > range_start)`,
 /// which a row-paged "newest N rows" query would silently drop.
 ///
-/// The lower bound starts at the 90-day baseline and expands to the oldest
-/// bounded closed-row display window already loaded by [unifiedHistoryProvider].
-/// Open rows are intentionally ignored for expansion: a 400-day currently-open
-/// host must be included by overlap, but must not push the visible window
-/// 400 days back and generate hundreds of day slices. Closed rows use the
-/// same bound against their end time, so recently ending a 400-day host does
-/// not turn the app into a multi-year history renderer on next launch.
+/// The lower bound starts from the oldest normal row already loaded by
+/// [unifiedHistoryProvider]. Open rows and very long closed rows are clamped
+/// to a progressive page lookback: page one gets a small tail, then each
+/// scroll page expands the tail until the 90-day cap. A 400-day host must be
+/// included by overlap, but must not push the visible window 400 days back
+/// and generate hundreds of day slices.
 ///
 /// The SQL upper bound (`sqlUpperBound`, `now + 30d`) is internal:
 /// it's threaded into `watchSessionsOverlappingRange` so newly-inserted
@@ -543,11 +560,16 @@ class DerivedPeriodsInputBundle {
 final unifiedHistoryOverlapProvider =
     StreamProvider.autoDispose<DerivedPeriodsInputBundle>((ref) {
       final repo = ref.watch(frontingSessionRepositoryProvider);
-      final now = DateTime.now();
+      final limit = ref.watch(sessionLimitProvider);
       final loadedRows = ref.watch(unifiedHistoryProvider).value;
+      if (loadedRows == null) {
+        return const Stream<DerivedPeriodsInputBundle>.empty();
+      }
+      final now = DateTime.now();
       final rangeStart = _derivedHistoryRangeStart(
         now,
-        loadedRows ?? const <FrontingSession>[],
+        loadedRows,
+        loadedLimit: limit,
       );
       // SQL-only lookahead (internal, NOT exposed to the bundle). Catches
       // newly-inserted rows whose start_time may be slightly after the
@@ -567,24 +589,34 @@ final unifiedHistoryOverlapProvider =
 
 DateTime _derivedHistoryRangeStart(
   DateTime now,
-  List<FrontingSession> loadedRows,
-) {
-  var rangeStart = now.subtract(
-    const Duration(days: derivedPeriodsLookbackDays),
-  );
+  List<FrontingSession> loadedRows, {
+  int loadedLimit = sessionPageSize,
+}) {
+  final lookbackDays = _derivedHistoryLookbackDaysForLimit(loadedLimit);
+  DateTime? rangeStart;
+
   for (final session in loadedRows) {
     if (session.isDeleted || session.isSleep) continue;
-    final endTime = session.endTime;
-    if (endTime == null) continue;
-    final boundedStart = endTime.subtract(
-      const Duration(days: derivedPeriodsLookbackDays),
-    );
-    final candidateStart = session.startTime.isAfter(boundedStart)
+    if (session.startTime.isAfter(now)) continue;
+
+    final rawAnchor = session.endTime ?? now;
+    final displayAnchor = rawAnchor.isAfter(now) ? now : rawAnchor;
+    final pageFloor = displayAnchor.subtract(Duration(days: lookbackDays));
+    final candidateStart = session.startTime.isAfter(pageFloor)
         ? session.startTime
-        : boundedStart;
-    if (candidateStart.isBefore(rangeStart)) {
+        : pageFloor;
+    if (rangeStart == null || candidateStart.isBefore(rangeStart)) {
       rangeStart = candidateStart;
     }
   }
-  return rangeStart;
+
+  return rangeStart ??
+      now.subtract(const Duration(days: derivedPeriodsInitialLookbackDays));
+}
+
+int _derivedHistoryLookbackDaysForLimit(int limit) {
+  final safeLimit = limit <= 0 ? sessionPageSize : limit;
+  final pages = (safeLimit + sessionPageSize - 1) ~/ sessionPageSize;
+  final days = pages * derivedPeriodsInitialLookbackDays;
+  return days > derivedPeriodsLookbackDays ? derivedPeriodsLookbackDays : days;
 }
