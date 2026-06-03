@@ -42,6 +42,16 @@ class PrismButton extends StatefulWidget {
 
 class _PrismButtonState extends State<PrismButton> {
   bool _pressed = false;
+  bool _hovered = false;
+
+  @override
+  void didUpdateWidget(PrismButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled || widget.isLoading) {
+      _pressed = false;
+      _hovered = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,10 +74,14 @@ class _PrismButtonState extends State<PrismButton> {
     final filledAlpha = isDark
         ? (_pressed
               ? PrismTokens.buttonFilledPressedAlphaDark
-              : PrismTokens.buttonFilledAlphaDark)
+              : _hovered
+                  ? 0.98
+                  : PrismTokens.buttonFilledAlphaDark)
         : (_pressed
               ? PrismTokens.buttonFilledPressedAlphaLight
-              : PrismTokens.buttonFilledAlphaLight);
+              : _hovered
+                  ? 0.83
+                  : PrismTokens.buttonFilledAlphaLight);
     final filledColor = tone == PrismButtonTone.filled
         ? contrastAdjustedTranslucentAccent(
             color,
@@ -83,38 +97,58 @@ class _PrismButtonState extends State<PrismButton> {
             : color.withValues(alpha: 0.3),
       PrismButtonTone.destructive =>
         canPress
-            ? color.withValues(alpha: _pressed ? (isDark ? 0.16 : 0.14) : 0.10)
+            ? color.withValues(
+                alpha: _pressed
+                    ? (isDark ? 0.16 : 0.14)
+                    : _hovered
+                        ? (isDark ? 0.13 : 0.12)
+                        : 0.10,
+              )
             : color.withValues(alpha: 0.05),
       PrismButtonTone.subtle =>
         canPress
-            ? color.withValues(alpha: _pressed ? (isDark ? 0.2 : 0.14) : 0.10)
+            ? color.withValues(
+                alpha: _pressed
+                    ? (isDark ? 0.2 : 0.14)
+                    : _hovered
+                        ? (isDark ? 0.15 : 0.12)
+                        : 0.10,
+              )
             : color.withValues(alpha: 0.04),
       PrismButtonTone.outlined =>
         canPress
-            ? color.withValues(alpha: _pressed ? 0.06 : 0.0)
+            ? color.withValues(alpha: _pressed ? 0.06 : _hovered ? 0.03 : 0.0)
             : Colors.transparent,
     };
 
     final borderColor = switch (tone) {
       PrismButtonTone.filled =>
         canPress
-            ? filledColor.withValues(alpha: _pressed ? 0.30 : 0.14)
+            ? filledColor.withValues(alpha: _pressed ? 0.30 : _hovered ? 0.22 : 0.14)
             : color.withValues(alpha: 0.08),
       PrismButtonTone.destructive =>
         canPress
-            ? color.withValues(alpha: _pressed ? 0.22 : (isDark ? 0.16 : 0.18))
+            ? color.withValues(
+                alpha: _pressed
+                    ? 0.22
+                    : _hovered
+                        ? (isDark ? 0.19 : 0.20)
+                        : (isDark ? 0.16 : 0.18),
+              )
             : color.withValues(alpha: 0.08),
       PrismButtonTone.subtle =>
         canPress
             ? color.withValues(
                 alpha: _pressed
                     ? (isDark ? 0.30 : 0.22)
-                    : (isDark ? 0.16 : 0.16),
+                    : _hovered
+                        ? (isDark ? 0.23 : 0.19)
+                        : (isDark ? 0.16 : 0.16),
               )
             : color.withValues(alpha: 0.05),
       PrismButtonTone.outlined =>
         canPress
-            ? color.withValues(alpha: _pressed ? 0.26 : 0.18)
+            ? color.withValues(alpha: _pressed ? 0.26 : _hovered ? 0.22 : 0.18)
             : color.withValues(alpha: 0.08),
     };
     final foregroundColor = switch (tone) {
@@ -132,12 +166,20 @@ class _PrismButtonState extends State<PrismButton> {
       button: true,
       enabled: canPress,
       label: widget.semanticLabel ?? widget.label,
-      child: AnimatedScale(
-        scale: _pressed ? 0.95 : 1.0,
-        duration: MediaQuery.of(context).disableAnimations
-            ? Duration.zero
-            : const Duration(milliseconds: 100),
-        child: Material(
+      child: MouseRegion(
+        onEnter: canPress ? (_) => setState(() => _hovered = true) : null,
+        onExit: canPress
+            ? (_) => setState(() {
+                _hovered = false;
+                _pressed = false;
+              })
+            : null,
+        child: AnimatedScale(
+          scale: _pressed ? 0.95 : 1.0,
+          duration: MediaQuery.of(context).disableAnimations
+              ? Duration.zero
+              : const Duration(milliseconds: 100),
+          child: Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: canPress ? widget.onPressed : null,
@@ -146,6 +188,9 @@ class _PrismButtonState extends State<PrismButton> {
                 setState(() => _pressed = value);
               }
             },
+            hoverColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            splashFactory: NoSplash.splashFactory,
             borderRadius: buttonRadius,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
@@ -172,7 +217,8 @@ class _PrismButtonState extends State<PrismButton> {
           ),
         ),
       ),
-    );
+    ),
+  );
 
     if (widget.expanded) {
       final expandedButton = button;
@@ -310,6 +356,16 @@ class PrismIconButton extends StatefulWidget {
 
 class _PrismIconButtonState extends State<PrismIconButton> {
   bool _pressed = false;
+  bool _hovered = false;
+
+  @override
+  void didUpdateWidget(PrismIconButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled) {
+      _pressed = false;
+      _hovered = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -320,16 +376,28 @@ class _PrismIconButtonState extends State<PrismIconButton> {
     final iconColor = canPress
         ? color.withValues(alpha: 0.82)
         : color.withValues(alpha: 0.35);
-    final fillAlpha = _pressed ? (isDark ? 0.2 : 0.18) : 0.12;
+    final fillAlpha = _pressed
+        ? (isDark ? 0.2 : 0.18)
+        : _hovered
+            ? (isDark ? 0.16 : 0.15)
+            : 0.12;
 
     Widget button = Semantics(
       button: true,
       enabled: canPress,
       label: widget.semanticLabel ?? widget.tooltip,
-      child: AnimatedScale(
-        scale: _pressed ? 0.94 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: Material(
+      child: MouseRegion(
+        onEnter: canPress ? (_) => setState(() => _hovered = true) : null,
+        onExit: canPress
+            ? (_) => setState(() {
+                _hovered = false;
+                _pressed = false;
+              })
+            : null,
+        child: AnimatedScale(
+          scale: _pressed ? 0.94 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: Material(
           color: Colors.transparent,
           shape: PrismShapes.of(context).circleOrSquareBorder(),
           child: InkResponse(
@@ -340,6 +408,9 @@ class _PrismIconButtonState extends State<PrismIconButton> {
                 setState(() => _pressed = value);
               }
             },
+            hoverColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            splashFactory: NoSplash.splashFactory,
             radius: widget.size / 2,
             customBorder: PrismShapes.of(context).circleOrSquareBorder(),
             child: AnimatedContainer(
@@ -361,6 +432,7 @@ class _PrismIconButtonState extends State<PrismIconButton> {
             ),
           ),
         ),
+      ),
       ),
     );
 

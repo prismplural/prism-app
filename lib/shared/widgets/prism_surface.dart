@@ -163,6 +163,7 @@ class _PrismSurfaceState extends State<PrismSurface> {
                       },
                       hoverColor: Colors.transparent,
                       highlightColor: Colors.transparent,
+                      splashFactory: NoSplash.splashFactory,
                       borderRadius: borderRadius,
                       child: content,
                     ),
