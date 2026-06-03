@@ -1,4 +1,5 @@
 import 'package:drift/native.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,11 +8,14 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/database/app_database.dart' as db;
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/views/custom_field_detail_screen.dart';
 import 'package:prism_plurality/features/settings/views/custom_fields_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 void _useTallViewport(WidgetTester tester) {
   tester.view.physicalSize = const Size(800, 1600);
@@ -24,6 +28,7 @@ Widget _testApp(
   db.AppDatabase database,
   Widget child, {
   Locale locale = const Locale('en'),
+  bool withToastHost = false,
 }) {
   return ProviderScope(
     overrides: [
@@ -39,9 +44,46 @@ Widget _testApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: locale,
-      home: child,
+      home: withToastHost ? PrismToastHost(child: child) : child,
     ),
   );
+}
+
+Widget _testAppWithCustomFieldNotifier(
+  db.AppDatabase database,
+  Widget child,
+  CustomFieldNotifier notifier,
+) {
+  return ProviderScope(
+    overrides: [
+      databaseProvider.overrideWithValue(database),
+      terminologySettingProvider.overrideWithValue((
+        term: SystemTerminology.headmates,
+        customSingular: null,
+        customPlural: null,
+        useEnglish: false,
+      )),
+      customFieldNotifierProvider.overrideWith(() => notifier),
+    ],
+    child: MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: PrismToastHost(child: child),
+    ),
+  );
+}
+
+class _FailingReorderCustomFieldNotifier extends CustomFieldNotifier {
+  int reorderCalls = 0;
+
+  @override
+  Future<void> build() async {}
+
+  @override
+  Future<void> reorderFields(List<CustomField> fields) async {
+    reorderCalls++;
+    throw Exception('forced reorder failure');
+  }
 }
 
 Widget _testRouterApp(db.AppDatabase database) {
@@ -146,6 +188,68 @@ void main() {
     expect(find.textContaining('A very long value'), findsOneWidget);
     expect(find.text('Short value'), findsOneWidget);
     expect(find.textContaining('HiddenTailShouldNotRender'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('filled-in members list builds rows lazily', (tester) async {
+    tester.view.physicalSize = const Size(390, 720);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final database = db.AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    await database.customFieldsDao.createField(
+      db.CustomFieldsCompanion.insert(
+        id: 'role',
+        name: 'Role',
+        fieldType: 0,
+        createdAt: DateTime(2026, 1, 3),
+      ),
+    );
+    for (var i = 0; i < 120; i++) {
+      await database.membersDao.insertMember(
+        db.MembersCompanion.insert(
+          id: 'm-$i',
+          name: 'Member $i',
+          createdAt: DateTime(2026, 1, 1),
+          displayOrder: Value(i),
+        ),
+      );
+      await database.customFieldsDao.upsertValue(
+        db.CustomFieldValuesCompanion.insert(
+          id: 'v-$i',
+          customFieldId: 'role',
+          memberId: 'm-$i',
+          value: 'Value $i',
+        ),
+      );
+    }
+
+    await tester.pumpWidget(
+      _testApp(database, const CustomFieldDetailScreen(fieldId: 'role')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Filled in for 120 headmates'), findsOneWidget);
+    expect(find.text('Member 0'), findsOneWidget);
+    expect(
+      find.text('Member 119'),
+      findsNothing,
+      reason:
+          'large filled-in lists should not build every offscreen row on first paint',
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Member 119'),
+      720,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Member 119'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
@@ -527,6 +631,139 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Role'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Filled In'), findsOneWidget);
+    expect(find.text('Nothing filled in yet'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('group child reorder failure reverts optimistic order', (
+    tester,
+  ) async {
+    _useTallViewport(tester);
+    final database = db.AppDatabase(NativeDatabase.memory());
+    final notifier = _FailingReorderCustomFieldNotifier();
+    addTearDown(database.close);
+    addTearDown(PrismToast.resetForTest);
+
+    await database.customFieldsDao.createField(
+      db.CustomFieldsCompanion.insert(
+        id: 'profile-section',
+        name: 'Profile section',
+        fieldType: 5,
+        fieldTypeId: const Value('group'),
+        createdAt: DateTime(2026, 1, 1),
+      ),
+    );
+    await database.customFieldsDao.createField(
+      db.CustomFieldsCompanion.insert(
+        id: 'birthday',
+        name: 'Birthday',
+        fieldType: 4,
+        parentFieldId: const Value('profile-section'),
+        displayOrder: const Value(0),
+        createdAt: DateTime(2026, 1, 2),
+      ),
+    );
+    await database.customFieldsDao.createField(
+      db.CustomFieldsCompanion.insert(
+        id: 'favorite-color',
+        name: 'Favorite color',
+        fieldType: 0,
+        parentFieldId: const Value('profile-section'),
+        displayOrder: const Value(1),
+        createdAt: DateTime(2026, 1, 3),
+      ),
+    );
+
+    await tester.pumpWidget(
+      _testAppWithCustomFieldNotifier(
+        database,
+        const CustomFieldDetailScreen(fieldId: 'profile-section'),
+        notifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getTopLeft(find.text('Birthday')).dy,
+      lessThan(tester.getTopLeft(find.text('Favorite color')).dy),
+    );
+
+    final handles = find.byType(ReorderableDragStartListener);
+    expect(handles, findsNWidgets(2));
+    final gesture = await tester.startGesture(tester.getCenter(handles.at(1)));
+    await tester.pump(const Duration(milliseconds: 100));
+    await gesture.moveBy(const Offset(0, -180));
+    await tester.pump(const Duration(milliseconds: 100));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(notifier.reorderCalls, 1);
+    expect(
+      tester.getTopLeft(find.text('Birthday')).dy,
+      lessThan(tester.getTopLeft(find.text('Favorite color')).dy),
+      reason: 'failed reorder should clear the optimistic child order',
+    );
+    expect(find.textContaining('forced reorder failure'), findsOneWidget);
+
+    PrismToast.resetForTest();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('settings list renders grouped fields from indexed data', (
+    tester,
+  ) async {
+    _useTallViewport(tester);
+    final database = db.AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    await database.customFieldsDao.createField(
+      db.CustomFieldsCompanion.insert(
+        id: 'profile-section',
+        name: 'Profile section',
+        fieldType: 5,
+        fieldTypeId: const Value('group'),
+        createdAt: DateTime(2026, 1, 1),
+      ),
+    );
+    await database.customFieldsDao.createField(
+      db.CustomFieldsCompanion.insert(
+        id: 'favorite-color',
+        name: 'Favorite color',
+        fieldType: 0,
+        parentFieldId: const Value('profile-section'),
+        displayOrder: const Value(1),
+        createdAt: DateTime(2026, 1, 2),
+      ),
+    );
+    await database.customFieldsDao.createField(
+      db.CustomFieldsCompanion.insert(
+        id: 'birthday',
+        name: 'Birthday',
+        fieldType: 4,
+        parentFieldId: const Value('profile-section'),
+        displayOrder: const Value(0),
+        createdAt: DateTime(2026, 1, 3),
+      ),
+    );
+
+    await tester.pumpWidget(_testRouterApp(database));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Profile section'), findsOneWidget);
+    expect(find.text('Birthday'), findsOneWidget);
+    expect(find.text('Favorite color'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Birthday')).dy,
+      lessThan(tester.getTopLeft(find.text('Favorite color')).dy),
+    );
+
+    await tester.tap(find.text('Birthday'));
     await tester.pumpAndSettle();
 
     expect(find.text('Filled In'), findsOneWidget);

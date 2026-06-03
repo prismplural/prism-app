@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/custom_fields/custom_field_type_registry.dart';
 import 'package:prism_plurality/domain/custom_fields/definitions/choice_field_definition.dart';
@@ -13,7 +16,7 @@ import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
-import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/widgets/scale_field_widgets.dart';
 import 'package:prism_plurality/features/members/widgets/slider_field_widgets.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -23,6 +26,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/custom_field_type_labels.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/utils/optimistic_list_controller.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -199,94 +203,107 @@ class _CustomFieldDetailBodyState
         ],
       ),
       bodyPadding: EdgeInsets.zero,
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(24, 16, 24, NavBarInset.of(context)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+            sliver: SliverList.list(
               children: [
-                Icon(
-                  _iconForField(field),
-                  color: theme.colorScheme.primary,
-                  size: 28,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _displayName(context, field),
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontStyle: _isPlaceholderName(field)
-                              ? FontStyle.italic
-                              : FontStyle.normal,
-                          color: _isPlaceholderName(field)
-                              ? theme.colorScheme.onSurfaceVariant
-                              : null,
-                        ),
-                      ),
-                      // "Inside: {group}" badge when nested.
-                      if (parentGroup != null) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              AppIcons.folderOutlined,
-                              size: 14,
-                              color: theme.colorScheme.onSurfaceVariant,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      _iconForField(field),
+                      color: theme.colorScheme.primary,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _displayName(context, field),
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontStyle: _isPlaceholderName(field)
+                                  ? FontStyle.italic
+                                  : FontStyle.normal,
+                              color: _isPlaceholderName(field)
+                                  ? theme.colorScheme.onSurfaceVariant
+                                  : null,
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              context.l10n.customFieldDetailInsideGroup(
-                                parentGroup.name,
-                              ),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                          ),
+                          // "Inside: {group}" badge when nested.
+                          if (parentGroup != null) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  AppIcons.folderOutlined,
+                                  size: 14,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  context.l10n.customFieldDetailInsideGroup(
+                                    parentGroup.name,
+                                  ),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                PrismSectionCard(
+                  child: Column(
+                    children: [
+                      _MetadataRow(
+                        label: context.l10n.settingsCreateEditFieldTypeHeading,
+                        value: _labelForField(context, field),
+                      ),
+                      if (field.fieldType == CustomFieldType.date &&
+                          field.datePrecision != null) ...[
+                        const Divider(height: 1),
+                        _MetadataRow(
+                          label: context
+                              .l10n
+                              .settingsCreateEditFieldDatePrecisionHeading,
+                          value: field.datePrecision!.localizedLabel(
+                            context.l10n,
+                          ),
                         ),
                       ],
                     ],
                   ),
                 ),
+                const SizedBox(height: 28),
               ],
             ),
-            const SizedBox(height: 20),
-            PrismSectionCard(
-              child: Column(
-                children: [
-                  _MetadataRow(
-                    label: context.l10n.settingsCreateEditFieldTypeHeading,
-                    value: _labelForField(context, field),
-                  ),
-                  if (field.fieldType == CustomFieldType.date &&
-                      field.datePrecision != null) ...[
-                    const Divider(height: 1),
-                    _MetadataRow(
-                      label: context
-                          .l10n
-                          .settingsCreateEditFieldDatePrecisionHeading,
-                      value: field.datePrecision!.localizedLabel(context.l10n),
-                    ),
-                  ],
-                ],
+          ),
+          // Groups have no per-member value, so "Filled in by N" is empty
+          // by definition — list the children instead.
+          if (isGroup)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              sliver: SliverToBoxAdapter(
+                child: _GroupContentsSection(group: field),
               ),
-            ),
-            const SizedBox(height: 28),
-            // Groups have no per-member value, so "Filled in by N" is empty
-            // by definition — list the children instead.
-            if (isGroup)
-              _GroupContentsSection(group: field)
-            else
-              _FilledInSection(field: field),
-          ],
-        ),
+            )
+          else
+            _FilledInSection(field: field),
+          SliverPadding(
+            padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+          ),
+        ],
       ),
     );
   }
@@ -553,21 +570,39 @@ class _FilledInSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final valuesAsync = ref.watch(customFieldValuesForFieldProvider(field.id));
-    final membersAsync = ref.watch(userVisibleAllMembersProvider);
 
     return valuesAsync.when(
-      loading: () => const PrismLoadingState(),
-      error: (e, _) => Center(
-        child: Text(context.l10n.settingsCustomFieldsError(e.toString())),
-      ),
-      data: (values) => membersAsync.when(
-        loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(
+      loading: () => const SliverToBoxAdapter(child: PrismLoadingState()),
+      error: (e, _) => SliverToBoxAdapter(
+        child: Center(
           child: Text(context.l10n.settingsCustomFieldsError(e.toString())),
         ),
-        data: (members) =>
-            _FilledInContent(field: field, values: values, members: members),
       ),
+      data: (values) {
+        final memberIds = {
+          for (final value in values)
+            if (value.value.trim().isNotEmpty &&
+                value.memberId != unknownSentinelMemberId)
+              value.memberId,
+        };
+        final membersAsync = ref.watch(
+          membersByIdsListProvider(memberIdsKey(memberIds)),
+        );
+
+        return membersAsync.when(
+          loading: () => const SliverToBoxAdapter(child: PrismLoadingState()),
+          error: (e, _) => SliverToBoxAdapter(
+            child: Center(
+              child: Text(context.l10n.settingsCustomFieldsError(e.toString())),
+            ),
+          ),
+          data: (membersById) => _FilledInContent(
+            field: field,
+            values: values,
+            membersById: membersById,
+          ),
+        );
+      },
     );
   }
 }
@@ -576,12 +611,12 @@ class _FilledInContent extends ConsumerWidget {
   const _FilledInContent({
     required this.field,
     required this.values,
-    required this.members,
+    required this.membersById,
   });
 
   final CustomField field;
   final List<CustomFieldValue> values;
-  final List<Member> members;
+  final Map<String, Member> membersById;
 
   static const _longShortTextValueLength = 80;
   static const _longShortTextValueCount = 2;
@@ -591,70 +626,79 @@ class _FilledInContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
-    final memberById = {for (final member in members) member.id: member};
     final entries = [
       for (final value in values)
-        if (value.value.trim().isNotEmpty && memberById[value.memberId] != null)
-          _FilledValueEntry(member: memberById[value.memberId]!, value: value),
+        if (value.value.trim().isNotEmpty &&
+            membersById[value.memberId] != null)
+          _FilledValueEntry(member: membersById[value.memberId]!, value: value),
     ];
     final showLengthHint = _shouldShowLongTextHint(entries);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              AppIcons.checkCircleOutline,
-              size: 18,
-              color: theme.colorScheme.primary,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              context.l10n.settingsCustomFieldFilledInHeading,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          context.l10n.settingsCustomFieldFilledInCount(
-            entries.length,
-            terms.singularLower,
-            terms.pluralLower,
-          ),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (showLengthHint) ...[
-          const _ShortTextLengthHint(),
-          const SizedBox(height: 12),
-        ],
-        if (entries.isEmpty)
-          EmptyState(
-            icon: Icon(AppIcons.tuneOutlined),
-            title: context.l10n.settingsCustomFieldNoValuesTitle,
-            subtitle: context.l10n.settingsCustomFieldNoValuesSubtitle(
-              terms.pluralLower,
-            ),
-          )
-        else
-          PrismSectionCard(
-            child: Column(
-              children: [
-                for (var i = 0; i < entries.length; i++) ...[
-                  if (i > 0) const Divider(height: 1),
-                  _FilledValueRow(field: field, entry: entries[i]),
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      sliver: SliverMainAxisGroup(
+        slivers: [
+          SliverList.list(
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    AppIcons.checkCircleOutline,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    context.l10n.settingsCustomFieldFilledInHeading,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                context.l10n.settingsCustomFieldFilledInCount(
+                  entries.length,
+                  terms.singularLower,
+                  terms.pluralLower,
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (showLengthHint) ...[
+                const _ShortTextLengthHint(),
+                const SizedBox(height: 12),
               ],
-            ),
+              if (entries.isEmpty)
+                EmptyState(
+                  icon: Icon(AppIcons.tuneOutlined),
+                  title: context.l10n.settingsCustomFieldNoValuesTitle,
+                  subtitle: context.l10n.settingsCustomFieldNoValuesSubtitle(
+                    terms.pluralLower,
+                  ),
+                ),
+            ],
           ),
-      ],
+          if (entries.isNotEmpty)
+            SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index == entries.length - 1 ? 0 : 8,
+                  ),
+                  child: PrismSectionCard(
+                    padding: EdgeInsets.zero,
+                    child: _FilledValueRow(field: field, entry: entries[index]),
+                  ),
+                );
+              }, childCount: entries.length),
+            ),
+        ],
+      ),
     );
   }
 
@@ -741,6 +785,8 @@ class _FilledValueRow extends StatelessWidget {
       child: PrismListRow(
         leading: MemberAvatar(
           avatarImageData: member.avatarImageData,
+          memberId: member.id,
+          deferAvatarLookup: true,
           memberName: memberName,
           emoji: member.emoji,
           customColorEnabled: member.customColorHex != null,
@@ -934,27 +980,63 @@ int _compareFieldOrder(CustomField a, CustomField b) {
 
 /// Within-group reorder via drag handles; cross-group moves still use the
 /// long-press menu on the main list.
-class _GroupContentsSection extends ConsumerWidget {
+class _GroupContentsSection extends ConsumerStatefulWidget {
   const _GroupContentsSection({required this.group});
 
   final CustomField group;
 
-  void _onReorder(
-    WidgetRef ref,
-    List<CustomField> children,
-    int oldIndex,
-    int newIndex,
-  ) {
-    if (newIndex > oldIndex) newIndex--;
-    final reordered = List<CustomField>.from(children);
-    final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex, item);
-    ref.read(customFieldNotifierProvider.notifier).reorderFields(reordered);
+  @override
+  ConsumerState<_GroupContentsSection> createState() =>
+      _GroupContentsSectionState();
+}
+
+class _GroupContentsSectionState extends ConsumerState<_GroupContentsSection> {
+  final OptimisticListController<CustomField, String> _optimisticChildren =
+      OptimisticListController<CustomField, String>(keyOf: (field) => field.id);
+
+  @override
+  void didUpdateWidget(covariant _GroupContentsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.group.id != widget.group.id) {
+      _optimisticChildren.clear();
+    }
+  }
+
+  void _clearOptimisticChildrenAfterBuild(List<CustomField> current) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_optimisticChildren.isCurrent(current)) return;
+      setState(_optimisticChildren.clear);
+    });
+  }
+
+  void _persistReorder(List<CustomField> reordered) {
+    unawaited(
+      ref
+          .read(customFieldNotifierProvider.notifier)
+          .reorderFields(reordered)
+          .catchError((Object error, StackTrace _) {
+            if (!mounted || !_optimisticChildren.hasCurrentOrder(reordered)) {
+              return;
+            }
+            setState(_optimisticChildren.clear);
+            PrismToast.error(
+              context,
+              message: context.l10n.settingsCustomFieldsError(error.toString()),
+            );
+          }),
+    );
+  }
+
+  void _onReorder(List<CustomField> children, int oldIndex, int newIndex) {
+    final reordered = reorderedItems(children, oldIndex, newIndex);
+    if (reordered == null) return;
+    setState(() => _optimisticChildren.set(reordered));
+    _persistReorder(reordered);
     Haptics.selection();
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final fieldsAsync = ref.watch(customFieldsProvider);
 
@@ -964,9 +1046,15 @@ class _GroupContentsSection extends ConsumerWidget {
         child: Text(context.l10n.settingsCustomFieldsError(e.toString())),
       ),
       data: (allFields) {
-        final children =
-            allFields.where((f) => f.parentFieldId == group.id).toList()
+        final providerChildren =
+            allFields.where((f) => f.parentFieldId == widget.group.id).toList()
               ..sort(_compareFieldOrder);
+        final optimisticChildren = _optimisticChildren.items;
+        final children = _optimisticChildren.displayItems(providerChildren);
+        if (_optimisticChildren.shouldClearFor(providerChildren) &&
+            optimisticChildren != null) {
+          _clearOptimisticChildrenAfterBuild(optimisticChildren);
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1019,7 +1107,7 @@ class _GroupContentsSection extends ConsumerWidget {
                   buildDefaultDragHandles: false,
                   itemCount: children.length,
                   onReorder: (oldIndex, newIndex) =>
-                      _onReorder(ref, children, oldIndex, newIndex),
+                      _onReorder(children, oldIndex, newIndex),
                   proxyDecorator: (child, _, _) => Material(
                     elevation: 2,
                     color: theme.colorScheme.surface,
@@ -1045,7 +1133,7 @@ class _GroupContentsSection extends ConsumerWidget {
       context: context,
       builder: (ctx, scrollController) => CreateEditFieldSheet(
         scrollController: scrollController,
-        parentFieldId: group.id,
+        parentFieldId: widget.group.id,
       ),
     );
   }

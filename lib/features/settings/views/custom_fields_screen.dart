@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +14,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/custom_field_type_labels.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/utils/optimistic_list_controller.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
@@ -81,28 +84,68 @@ class CustomFieldsScreen extends ConsumerWidget {
   }
 }
 
-class _FieldsList extends ConsumerWidget {
+class _FieldsList extends ConsumerStatefulWidget {
   const _FieldsList({required this.fields});
 
   final List<CustomField> fields;
 
-  /// Returns only top-level fields (no parentFieldId). Orphaned children
-  /// (parentFieldId set but parent missing) remain hidden here; the repo
-  /// already promotes them via orphan logic but that is data-layer behaviour.
-  List<CustomField> get _topLevelFields =>
-      fields.where((f) => f.parentFieldId == null).toList();
+  @override
+  ConsumerState<_FieldsList> createState() => _FieldsListState();
+}
 
-  /// Children of [groupId], sorted by displayOrder.
-  List<CustomField> _childrenOf(String groupId) =>
-      fields.where((f) => f.parentFieldId == groupId).toList()
-        ..sort(_compareFieldOrder);
+class _FieldsListState extends ConsumerState<_FieldsList> {
+  final OptimisticListController<CustomField, String> _optimisticTopLevel =
+      OptimisticListController<CustomField, String>(keyOf: (field) => field.id);
+  final Map<String, OptimisticListController<CustomField, String>>
+  _optimisticChildren = {};
 
-  int _compareFieldOrder(CustomField a, CustomField b) {
-    final byOrder = a.displayOrder.compareTo(b.displayOrder);
-    if (byOrder != 0) return byOrder;
-    final byCreatedAt = a.createdAt.compareTo(b.createdAt);
-    if (byCreatedAt != 0) return byCreatedAt;
-    return a.id.compareTo(b.id);
+  @override
+  void didUpdateWidget(covariant _FieldsList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _pruneStaleChildControllers(widget.fields);
+  }
+
+  void _pruneStaleChildControllers(List<CustomField> fields) {
+    final liveGroupIds = {
+      for (final field in fields)
+        if (field.fieldTypeId == 'group' && field.parentFieldId == null)
+          field.id,
+    };
+    for (final staleGroupId
+        in _optimisticChildren.keys
+            .where((id) => !liveGroupIds.contains(id))
+            .toList()) {
+      _optimisticChildren.remove(staleGroupId);
+    }
+  }
+
+  void _clearOptimisticAfterBuild(
+    OptimisticListController<CustomField, String> controller,
+    List<CustomField> current,
+  ) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !controller.isCurrent(current)) return;
+      setState(controller.clear);
+    });
+  }
+
+  void _persistReorder(
+    OptimisticListController<CustomField, String> controller,
+    List<CustomField> reordered,
+  ) {
+    unawaited(
+      ref
+          .read(customFieldNotifierProvider.notifier)
+          .reorderFields(reordered)
+          .catchError((Object error, StackTrace _) {
+            if (!mounted || !controller.hasCurrentOrder(reordered)) return;
+            setState(controller.clear);
+            PrismToast.error(
+              context,
+              message: context.l10n.settingsCustomFieldsError(error.toString()),
+            );
+          }),
+    );
   }
 
   IconData _iconForField(CustomField field) {
@@ -120,43 +163,52 @@ class _FieldsList extends ConsumerWidget {
     return typeLabel;
   }
 
-  void _onReorder(WidgetRef ref, int oldIndex, int newIndex) {
-    if (newIndex > oldIndex) newIndex--;
-    final topLevel = _topLevelFields;
-    final reordered = List<CustomField>.from(topLevel);
-    final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex, item);
+  void _onReorder(
+    OptimisticListController<CustomField, String> controller,
+    List<CustomField> topLevel,
+    int oldIndex,
+    int newIndex,
+  ) {
+    final reordered = reorderedItems(topLevel, oldIndex, newIndex);
+    if (reordered == null) return;
+    setState(() => controller.set(reordered));
     // display_order is scoped per parent, so the outer and the nested lists
     // can each reassign 0..n-1 without colliding.
-    ref.read(customFieldNotifierProvider.notifier).reorderFields(reordered);
+    _persistReorder(controller, reordered);
     Haptics.selection();
   }
 
   void _onReorderChildren(
-    WidgetRef ref,
-    String groupId,
+    OptimisticListController<CustomField, String> controller,
+    List<CustomField> children,
     int oldIndex,
     int newIndex,
   ) {
-    if (newIndex > oldIndex) newIndex--;
-    final children = _childrenOf(groupId);
-    final reordered = List<CustomField>.from(children);
-    final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex, item);
-    ref.read(customFieldNotifierProvider.notifier).reorderFields(reordered);
+    final reordered = reorderedItems(children, oldIndex, newIndex);
+    if (reordered == null) return;
+    setState(() => controller.set(reordered));
+    _persistReorder(controller, reordered);
     Haptics.selection();
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final topLevel = _topLevelFields;
+    final fieldIndex = _FieldListIndex.from(widget.fields);
+    final providerTopLevel = fieldIndex.topLevelFields;
+    final optimisticTopLevel = _optimisticTopLevel.items;
+    final topLevel = _optimisticTopLevel.displayItems(providerTopLevel);
+    if (_optimisticTopLevel.shouldClearFor(providerTopLevel) &&
+        optimisticTopLevel != null) {
+      _clearOptimisticAfterBuild(_optimisticTopLevel, optimisticTopLevel);
+    }
 
     return ReorderableListView.builder(
       padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
       itemCount: topLevel.length,
       buildDefaultDragHandles: false,
-      onReorder: (oldIndex, newIndex) => _onReorder(ref, oldIndex, newIndex),
+      onReorder: (oldIndex, newIndex) =>
+          _onReorder(_optimisticTopLevel, topLevel, oldIndex, newIndex),
       proxyDecorator: (child, index, animation) {
         return AnimatedBuilder(
           animation: animation,
@@ -173,23 +225,92 @@ class _FieldsList extends ConsumerWidget {
       itemBuilder: (context, index) {
         final field = topLevel[index];
         final isGroup = field.fieldTypeId == 'group';
-        final children = isGroup ? _childrenOf(field.id) : <CustomField>[];
+        var children = const <CustomField>[];
+        void Function(int oldIndex, int newIndex) onReorderChildren = (_, _) {};
+        if (isGroup) {
+          final providerChildren = fieldIndex.childrenOf(field.id);
+          final childController = _optimisticChildren.putIfAbsent(
+            field.id,
+            () => OptimisticListController<CustomField, String>(
+              keyOf: (field) => field.id,
+            ),
+          );
+          final optimisticChildren = childController.items;
+          children = childController.displayItems(providerChildren);
+          if (childController.shouldClearFor(providerChildren) &&
+              optimisticChildren != null) {
+            _clearOptimisticAfterBuild(childController, optimisticChildren);
+          }
+          onReorderChildren = (oldIndex, newIndex) =>
+              _onReorderChildren(childController, children, oldIndex, newIndex);
+        }
 
         return _TopLevelFieldItem(
           key: ValueKey(field.id),
           field: field,
           children: children,
-          allFields: fields,
+          allGroups: fieldIndex.topLevelGroups,
           index: index,
           iconForField: _iconForField,
           subtitleForField: _subtitleForField,
           theme: theme,
-          onReorderChildren: (oldIndex, newIndex) =>
-              _onReorderChildren(ref, field.id, oldIndex, newIndex),
+          onReorderChildren: onReorderChildren,
         );
       },
     );
   }
+}
+
+class _FieldListIndex {
+  const _FieldListIndex({
+    required this.topLevelFields,
+    required this.topLevelGroups,
+    required Map<String, List<CustomField>> childrenByParent,
+  }) : _childrenByParent = childrenByParent;
+
+  final List<CustomField> topLevelFields;
+  final List<CustomField> topLevelGroups;
+  final Map<String, List<CustomField>> _childrenByParent;
+
+  static _FieldListIndex from(List<CustomField> fields) {
+    final topLevelFields = <CustomField>[];
+    final topLevelGroups = <CustomField>[];
+    final childrenByParent = <String, List<CustomField>>{};
+
+    for (final field in fields) {
+      final parentId = field.parentFieldId;
+      if (parentId == null) {
+        topLevelFields.add(field);
+        if (field.fieldTypeId == 'group') {
+          topLevelGroups.add(field);
+        }
+        continue;
+      }
+
+      (childrenByParent[parentId] ??= <CustomField>[]).add(field);
+    }
+
+    for (final children in childrenByParent.values) {
+      children.sort(_compareFieldOrder);
+    }
+
+    return _FieldListIndex(
+      topLevelFields: topLevelFields,
+      topLevelGroups: topLevelGroups,
+      childrenByParent: childrenByParent,
+    );
+  }
+
+  List<CustomField> childrenOf(String groupId) =>
+      _childrenByParent[groupId] ?? const <CustomField>[];
+}
+
+int _compareFieldOrder(CustomField a, CustomField b) {
+  final byOrder = a.displayOrder.compareTo(b.displayOrder);
+  if (byOrder != 0) return byOrder;
+  final byCreatedAt = a.createdAt.compareTo(b.createdAt);
+  if (byCreatedAt != 0) return byCreatedAt;
+  return a.id.compareTo(b.id);
 }
 
 class _TopLevelFieldItem extends StatelessWidget {
@@ -197,7 +318,7 @@ class _TopLevelFieldItem extends StatelessWidget {
     super.key,
     required this.field,
     required this.children,
-    required this.allFields,
+    required this.allGroups,
     required this.index,
     required this.iconForField,
     required this.subtitleForField,
@@ -207,7 +328,7 @@ class _TopLevelFieldItem extends StatelessWidget {
 
   final CustomField field;
   final List<CustomField> children;
-  final List<CustomField> allFields;
+  final List<CustomField> allGroups;
   final int index;
   final IconData Function(CustomField) iconForField;
   final String Function(BuildContext, CustomField) subtitleForField;
@@ -222,7 +343,7 @@ class _TopLevelFieldItem extends StatelessWidget {
       children: [
         _FieldRow(
           field: field,
-          allFields: allFields,
+          allGroups: allGroups,
           index: index,
           iconForField: iconForField,
           subtitleForField: subtitleForField,
@@ -251,7 +372,7 @@ class _TopLevelFieldItem extends StatelessWidget {
                 return _FieldRow(
                   key: ValueKey(child.id),
                   field: child,
-                  allFields: allFields,
+                  allGroups: allGroups,
                   index: childIndex,
                   iconForField: iconForField,
                   subtitleForField: subtitleForField,
@@ -270,7 +391,7 @@ class _FieldRow extends ConsumerStatefulWidget {
   const _FieldRow({
     super.key,
     required this.field,
-    required this.allFields,
+    required this.allGroups,
     required this.index,
     required this.iconForField,
     required this.subtitleForField,
@@ -279,7 +400,7 @@ class _FieldRow extends ConsumerStatefulWidget {
   });
 
   final CustomField field;
-  final List<CustomField> allFields;
+  final List<CustomField> allGroups;
   final int index;
   final IconData Function(CustomField) iconForField;
   final String Function(BuildContext, CustomField) subtitleForField;
@@ -300,15 +421,10 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     _popupKey.currentState?.show();
   }
 
-  /// All top-level group fields (fieldTypeId == 'group').
-  List<CustomField> get _allGroups => widget.allFields
-      .where((f) => f.fieldTypeId == 'group' && f.parentFieldId == null)
-      .toList();
-
   /// Groups eligible as a move-into target for [widget.field].
   /// Excludes the field itself (if it is a group) and the field's current parent.
   List<CustomField> _eligibleGroups({bool excludeCurrent = true}) {
-    return _allGroups.where((g) {
+    return widget.allGroups.where((g) {
       if (g.id == widget.field.id) return false; // can't move into self
       if (excludeCurrent && g.id == widget.field.parentFieldId) {
         return false; // already inside this group
@@ -595,7 +711,7 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     // Edit + Delete are always present (2).
     int count = 2;
     if (!isGroup && hasEligible) count++; // Move into group
-    if (!isGroup && !hasEligible && _allGroups.isEmpty) {
+    if (!isGroup && !hasEligible && widget.allGroups.isEmpty) {
       // No groups at all — skip the move-into item entirely
     } else if (!isGroup && !hasEligible) {
       count++; // Show disabled "No groups" hint
@@ -652,7 +768,7 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
             },
           ),
         );
-      } else if (_allGroups.isNotEmpty) {
+      } else if (widget.allGroups.isNotEmpty) {
         // There are groups but field is already in all of them (edge case) or
         // only the current parent remains — show disabled hint.
         items.add(
