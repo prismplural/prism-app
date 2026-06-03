@@ -99,6 +99,27 @@ void main() {
       expect(preserveBlankLines('> warning\n\nnormal'), '> warning\n\nnormal');
     });
 
+    test('blank line after unordered list remains a real terminator', () {
+      expect(preserveBlankLines('- warning\n\nnormal'), '- warning\n\nnormal');
+    });
+
+    test('blank line after ordered list remains a real terminator', () {
+      expect(
+        preserveBlankLines('1. warning\n\nnormal'),
+        '1. warning\n\nnormal',
+      );
+    });
+
+    test(
+      'extra blank lines after list keep only the first real terminator',
+      () {
+        expect(
+          preserveBlankLines('- warning\n\n\nnormal'),
+          '- warning\n\n$nbsp\nnormal',
+        );
+      },
+    );
+
     test('CRLF blank lines are treated as blank', () {
       expect(preserveBlankLines('A\r\n\r\n\r\nB'), 'A\r\n$nbsp\n$nbsp\nB');
     });

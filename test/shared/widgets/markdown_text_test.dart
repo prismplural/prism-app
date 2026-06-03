@@ -179,6 +179,308 @@ void main() {
     expect(text, isNot(contains('> **ASCII quote**')));
   });
 
+  testWidgets('paragraph after a list does not inherit list indentation', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(
+          body: MarkdownText(
+            data:
+                '## list testing\n\n'
+                '- item one\n'
+                '- item two\n'
+                '- item three\n\n'
+                'not a list item',
+          ),
+        ),
+      ),
+    );
+
+    final headingLeft = tester.getTopLeft(find.text('list testing')).dx;
+    final itemLeft = tester.getTopLeft(find.text('item one')).dx;
+    final paragraphLeft = tester.getTopLeft(find.text('not a list item')).dx;
+
+    expect(paragraphLeft, closeTo(headingLeft, 1));
+    expect(paragraphLeft, lessThan(itemLeft));
+  });
+
+  group('plain line escapes', () {
+    test(
+      'escape non-punctuation line starts while preserving CommonMark escapes',
+      () {
+        expect(
+          applyPlainLineEscapes(r'\testing **not bold**'),
+          r'testing \*\*not bold\*\*',
+        );
+        expect(
+          applyPlainLineEscapes(r'\ hello **not bold**'),
+          r'hello \*\*not bold\*\*',
+        );
+        expect(applyPlainLineEscapes(r'\ ||spoiler||'), r'\|\|spoiler\|\|');
+        expect(
+          applyPlainLineEscapes(r'\\ hello **not bold**'),
+          r'\\ hello \*\*not bold\*\*',
+        );
+        expect(applyPlainLineEscapes(r'\- item **bold**'), r'\- item **bold**');
+        expect(applyPlainLineEscapes(r'\# heading'), r'\# heading');
+      },
+    );
+
+    testWidgets('leading slash before text renders the line literally', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            body: MarkdownText(data: r'\testing **not bold** [x](url)'),
+          ),
+        ),
+      );
+
+      final text = _plainTextWidgets(tester).join('\n');
+      expect(text, contains('testing **not bold** [x](url)'));
+      expect(text, isNot(contains(r'\testing')));
+    });
+
+    testWidgets('slash-space escapes a punctuation-leading line', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(body: MarkdownText(data: r'\ ||not hidden||')),
+        ),
+      );
+
+      expect(_plainTextWidgets(tester).join('\n'), contains('||not hidden||'));
+    });
+
+    testWidgets('doubled leading slash renders a literal leading slash', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            body: MarkdownText(data: r'\\ hello **not bold**'),
+          ),
+        ),
+      );
+
+      expect(
+        _plainTextWidgets(tester).join('\n'),
+        contains(r'\ hello **not bold**'),
+      );
+    });
+
+    testWidgets('standard punctuation escapes still use CommonMark behavior', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(body: MarkdownText(data: r'\- item **bold**')),
+        ),
+      );
+
+      final text = _plainTextWidgets(tester).join('\n');
+      expect(text, contains('- item bold'));
+      expect(text, isNot(contains(r'\-')));
+      expect(text, isNot(contains('**bold**')));
+    });
+
+    testWidgets('escaped lines do not absorb adjacent lists', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            body: MarkdownText(
+              data:
+                  '- before\n\n'
+                  r'\literal **middle**'
+                  '\n\n- after',
+            ),
+          ),
+        ),
+      );
+
+      final beforeLeft = tester.getTopLeft(find.text('before')).dx;
+      final middleLeft = tester.getTopLeft(find.text('literal **middle**')).dx;
+      final afterLeft = tester.getTopLeft(find.text('after')).dx;
+
+      expect(middleLeft, lessThan(beforeLeft));
+      expect(afterLeft, closeTo(beforeLeft, 1));
+    });
+
+    testWidgets('escaped lines can sit before and after tables', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            body: MarkdownText(
+              data:
+                  r'\before **plain**'
+                  '\n\n| A | B |\n'
+                  '| --- | --- |\n'
+                  '| one | two |\n\n'
+                  r'\after **plain**',
+            ),
+          ),
+        ),
+      );
+
+      final text = _plainTextWidgets(tester).join('\n');
+      expect(text, contains('before **plain**'));
+      expect(text, contains('A'));
+      expect(text, contains('B'));
+      expect(text, contains('one'));
+      expect(text, contains('two'));
+      expect(text, contains('after **plain**'));
+      expect(text, isNot(contains('|')));
+    });
+
+    testWidgets('plain line escape is line-level, not table-cell-level', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            body: MarkdownText(
+              data:
+                  '| A | B |\n'
+                  '| --- | --- |\n'
+                  r'| \testing | **bold** |',
+            ),
+          ),
+        ),
+      );
+
+      final text = _plainTextWidgets(tester).join('\n');
+      expect(text, contains(r'\testing'));
+      expect(text, contains('bold'));
+      expect(text, isNot(contains('|')));
+    });
+
+    testWidgets('slash-space can escape a would-be table row', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(body: MarkdownText(data: r'\ | A | **B** |')),
+        ),
+      );
+
+      expect(_plainTextWidgets(tester).join('\n'), contains('| A | **B** |'));
+    });
+
+    testWidgets('escaped lines do not absorb adjacent blockquotes', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            body: MarkdownText(
+              data:
+                  '> before\n\n'
+                  r'\literal **middle**'
+                  '\n\n> after',
+            ),
+          ),
+        ),
+      );
+
+      final beforeLeft = tester.getTopLeft(find.text('before')).dx;
+      final middleLeft = tester.getTopLeft(find.text('literal **middle**')).dx;
+      final afterLeft = tester.getTopLeft(find.text('after')).dx;
+
+      expect(middleLeft, lessThan(beforeLeft));
+      expect(afterLeft, closeTo(beforeLeft, 1));
+    });
+
+    testWidgets('slash-space can escape heading syntax', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(body: MarkdownText(data: r'\ # plain heading')),
+        ),
+      );
+
+      expect(_plainTextWidgets(tester).join('\n'), contains('# plain heading'));
+      expect(find.text('plain heading'), findsNothing);
+    });
+
+    testWidgets('escaped list continuation renders literally inside item', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            body: MarkdownText(
+              data:
+                  '- item\n'
+                  r'  \literal **continuation**',
+            ),
+          ),
+        ),
+      );
+
+      final text = _plainTextWidgets(tester).join('\n');
+      expect(text, contains('item\nliteral **continuation**'));
+    });
+
+    testWidgets('plain escape works before custom spoiler and subtext syntax', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            body: MarkdownText(
+              data:
+                  r'\ ||not hidden||'
+                  '\n'
+                  r'\ -# not small',
+            ),
+          ),
+        ),
+      );
+
+      final text = _plainTextWidgets(tester).join('\n');
+      expect(text, contains('||not hidden||'));
+      expect(text, contains('-# not small'));
+    });
+
+    testWidgets('plain escapes are not applied inside fenced code blocks', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            body: MarkdownText(
+              data:
+                  '```\n'
+                  r'\testing **still code**'
+                  '\n```',
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        _plainTextWidgets(tester).join('\n'),
+        contains(r'\testing **still code**'),
+      );
+    });
+  });
+
   testWidgets('links flow inside surrounding paragraph text', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

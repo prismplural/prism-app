@@ -70,7 +70,9 @@ class MarkdownText extends StatelessWidget {
     return _SpoilerRevealHost(
       revealKey: data,
       child: MarkdownBody(
-        data: preserveBlankLines(_normalizeDiscordLikeIndentation(data)),
+        data: preserveBlankLines(
+          applyPlainLineEscapes(_normalizeDiscordLikeIndentation(data)),
+        ),
         selectable: selectable,
         styleSheet: sheet,
         softLineBreak: true,
@@ -374,6 +376,7 @@ String preserveBlankLines(String input) {
   final out = <String>[];
   String? fenceMarker;
   var paragraphHasBlockquote = false;
+  var paragraphHasList = false;
 
   var i = 0;
   while (i < lines.length) {
@@ -411,7 +414,7 @@ String preserveBlankLines(String input) {
       }
 
       var spacerStart = 0;
-      if (paragraphHasBlockquote) {
+      if (paragraphHasBlockquote || paragraphHasList) {
         out.add(line);
         spacerStart = 1;
       }
@@ -419,6 +422,7 @@ String preserveBlankLines(String input) {
         out.add(_nbsp);
       }
       paragraphHasBlockquote = false;
+      paragraphHasList = false;
       i = j;
       continue;
     }
@@ -426,10 +430,100 @@ String preserveBlankLines(String input) {
     out.add(line);
     paragraphHasBlockquote =
         paragraphHasBlockquote || _blockquoteMarker.hasMatch(line);
+    paragraphHasList = paragraphHasList || _listMarker.hasMatch(line);
     i++;
   }
 
   return out.join('\n');
+}
+
+/// Applies Prism's line-level plain-text escape before Markdown parsing.
+///
+/// `\word` and `\ | row |` render literally. CommonMark punctuation escapes
+/// stay unchanged, and `\\ word` renders a literal leading backslash.
+@visibleForTesting
+String applyPlainLineEscapes(String input) {
+  if (input.isEmpty) return input;
+
+  final out = <String>[];
+  String? fenceMarker;
+
+  for (final line in input.split('\n')) {
+    if (fenceMarker != null) {
+      out.add(line);
+      final match = _fenceOpenPattern.firstMatch(line);
+      if (match != null) {
+        final marker = match[1]!;
+        if (marker[0] == fenceMarker[0] &&
+            marker.length >= fenceMarker.length &&
+            line.substring(match.end).trim().isEmpty) {
+          fenceMarker = null;
+        }
+      }
+      continue;
+    }
+
+    final escapedLine = _applyPlainLineEscapeToLine(line);
+    out.add(escapedLine);
+    if (escapedLine == line) {
+      final match = _fenceOpenPattern.firstMatch(line);
+      if (match != null) fenceMarker = match[1]!;
+    }
+  }
+
+  return out.join('\n');
+}
+
+String _applyPlainLineEscapeToLine(String line) {
+  final escapeIndex = _plainLineEscapeIndex(line);
+  if (escapeIndex == null) return line;
+
+  final prefix = line.substring(0, escapeIndex);
+  var literalStart = escapeIndex + 1;
+  if (literalStart < line.length) {
+    final next = line.codeUnitAt(literalStart);
+    if (next == _space || next == _tab) literalStart++;
+  }
+  final literal = line.substring(literalStart);
+  return prefix + _escapeMarkdownLiteralText(literal);
+}
+
+int? _plainLineEscapeIndex(String line) {
+  var index = 0;
+  while (index < line.length) {
+    final unit = line.codeUnitAt(index);
+    if (unit != _space && unit != _tab) break;
+    index++;
+  }
+
+  if (index >= line.length || line.codeUnitAt(index) != _backslash) {
+    return null;
+  }
+
+  final nextIndex = index + 1;
+  if (nextIndex >= line.length) return index;
+
+  final next = line.codeUnitAt(nextIndex);
+  if (next == _backslash) return index;
+  if (_isAsciiPunctuation(next)) return null;
+  return index;
+}
+
+String _escapeMarkdownLiteralText(String input) {
+  final buffer = StringBuffer();
+  for (var i = 0; i < input.length; i++) {
+    final unit = input.codeUnitAt(i);
+    if (_isAsciiPunctuation(unit)) buffer.write(r'\');
+    buffer.writeCharCode(unit);
+  }
+  return buffer.toString();
+}
+
+bool _isAsciiPunctuation(int codeUnit) {
+  return (codeUnit >= 0x21 && codeUnit <= 0x2f) ||
+      (codeUnit >= 0x3a && codeUnit <= 0x40) ||
+      (codeUnit >= 0x5b && codeUnit <= 0x60) ||
+      (codeUnit >= 0x7b && codeUnit <= 0x7e);
 }
 
 class _MarkdownFence {
@@ -441,6 +535,7 @@ class _MarkdownFence {
 
 const _space = 0x20;
 const _tab = 0x09;
+const _backslash = 0x5c;
 const _backtick = 0x60;
 const _tilde = 0x7e;
 const _nbsp = '\u00A0';
