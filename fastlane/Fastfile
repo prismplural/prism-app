@@ -152,12 +152,51 @@ def developer_id_signing_certificate
   certificate.empty? ? "Developer ID Application" : certificate
 end
 
+def mac_developer_id_runtime_entitlements
+  {
+    "com.apple.security.app-sandbox" => true,
+    "com.apple.security.network.client" => true,
+    "com.apple.security.files.user-selected.read-write" => true,
+    "com.apple.security.device.camera" => true,
+    "com.apple.security.device.audio-input" => true,
+  }
+end
+
+def mac_developer_id_entitlements_plist
+  <<~PLIST
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+      <key>com.apple.security.app-sandbox</key>
+      <true/>
+      <key>com.apple.security.network.client</key>
+      <true/>
+      <key>com.apple.security.files.user-selected.read-write</key>
+      <true/>
+      <key>com.apple.security.device.camera</key>
+      <true/>
+      <key>com.apple.security.device.audio-input</key>
+      <true/>
+    </dict>
+    </plist>
+  PLIST
+end
+
+def mac_developer_id_export_options
+  {
+    "method" => "developer-id",
+    "signingCertificate" => developer_id_signing_certificate,
+    "signingStyle" => "automatic",
+    "teamID" => apple_team_id,
+  }
+end
+
 def mac_developer_id_xcargs
   Shellwords.join([
     "-allowProvisioningUpdates",
     "DEVELOPMENT_TEAM=#{apple_team_id}",
     "CODE_SIGN_STYLE=Automatic",
-    "CODE_SIGN_IDENTITY=#{developer_id_signing_certificate}",
     "ENABLE_HARDENED_RUNTIME=YES",
   ])
 end
@@ -199,7 +238,57 @@ def exported_mac_app_path(output_directory)
   app_path
 end
 
+def developer_id_sign_macos_app(app_path)
+  identity = developer_id_signing_certificate
+  profile_path = File.join(app_path, "Contents", "embedded.provisionprofile")
+  frameworks_dir = File.join(app_path, "Contents", "Frameworks")
+
+  unless Dir.exist?(frameworks_dir)
+    UI.user_error!("No Frameworks directory found in exported app: #{frameworks_dir}")
+  end
+
+  FileUtils.rm_f(profile_path)
+
+  sign_args = [
+    "codesign",
+    "--force",
+    "--options", "runtime",
+    "--timestamp",
+    "--sign", identity,
+  ]
+
+  Dir[File.join(frameworks_dir, "*.{framework,dylib,so}")].sort.each do |target|
+    sh(Shellwords.join(sign_args + [target]))
+  end
+
+  Dir.mktmpdir("prism-macos-developer-id-entitlements") do |dir|
+    entitlements_path = File.join(dir, "entitlements.plist")
+    File.write(entitlements_path, mac_developer_id_entitlements_plist)
+    sh(Shellwords.join(sign_args + ["--entitlements", entitlements_path, app_path]))
+  end
+end
+
+def developer_id_sign_macos_dmg(dmg_path)
+  sh(
+    Shellwords.join([
+      "codesign",
+      "--force",
+      "--timestamp",
+      "--sign", developer_id_signing_certificate,
+      dmg_path,
+    ])
+  )
+end
+
 def verify_macos_release_entitlements(app_path)
+  profile_path = File.join(app_path, "Contents", "embedded.provisionprofile")
+  if File.exist?(profile_path)
+    UI.user_error!(
+      "Developer ID app still contains embedded.provisionprofile; " \
+      "this can make AMFI kill the app at launch."
+    )
+  end
+
   stdout, stderr, status = Open3.capture3(
     "codesign -d --entitlements :- #{Shellwords.escape(app_path)}"
   )
@@ -224,15 +313,7 @@ def verify_macos_release_entitlements(app_path)
     end
 
     entitlements = JSON.parse(json)
-    expected = {
-      "com.apple.application-identifier" => "#{apple_team_id}.#{mac_bundle_identifier}",
-      "com.apple.developer.team-identifier" => apple_team_id,
-      "com.apple.security.app-sandbox" => true,
-      "com.apple.security.network.client" => true,
-      "com.apple.security.files.user-selected.read-write" => true,
-      "com.apple.security.device.camera" => true,
-      "com.apple.security.device.audio-input" => true,
-    }
+    expected = mac_developer_id_runtime_entitlements
     mismatches = expected.filter_map do |key, expected_value|
       actual_value = entitlements[key]
       next if actual_value == expected_value
@@ -240,10 +321,17 @@ def verify_macos_release_entitlements(app_path)
       "#{key}=#{actual_value.inspect} (expected #{expected_value.inspect})"
     end
 
-    keychain_groups = entitlements["keychain-access-groups"]
-    unless keychain_groups.is_a?(Array)
-      mismatches << "keychain-access-groups=#{keychain_groups.inspect} (expected Array)"
+    provisioning_entitlements = [
+      "com.apple.application-identifier",
+      "com.apple.developer.team-identifier",
+      "keychain-access-groups",
+    ]
+    provisioning_entitlements.each do |key|
+      next unless entitlements.key?(key)
+
+      mismatches << "#{key}=#{entitlements[key].inspect} (must be absent in Developer ID DMG)"
     end
+
     if entitlements["com.apple.security.get-task-allow"] == true
       mismatches << "com.apple.security.get-task-allow=true (must not be true in Developer ID exports)"
     end
@@ -400,19 +488,20 @@ platform :mac do
       scheme: "Runner",
       configuration: "Release",
       export_method: "developer-id",
-      export_options: File.expand_path("macos_developer_id_export_options.plist", __dir__),
+      export_options: mac_developer_id_export_options,
       export_team_id: apple_team_id,
       output_directory: export_dir,
       skip_package_pkg: true,
-      codesigning_identity: developer_id_signing_certificate,
       xcargs: mac_developer_id_xcargs,
     )
 
     app_path = exported_mac_app_path(export_dir)
+    developer_id_sign_macos_app(app_path)
     sh("codesign --verify --deep --strict --verbose=2 #{Shellwords.escape(app_path)}")
     verify_macos_release_entitlements(app_path)
 
     create_macos_dmg(app_path, dmg_path, "Prism #{version.split("+").first}")
+    developer_id_sign_macos_dmg(dmg_path)
     notarize_and_staple(dmg_path)
     sh("spctl --assess --type open --context context:primary-signature --verbose=4 #{Shellwords.escape(dmg_path)}")
 
