@@ -149,6 +149,51 @@ void main() {
       );
     });
   });
+
+  group('ProfileHeaderImageNormalizer.centerCropToThreeToOne', () {
+    test('rejects a zero-height image instead of dividing by zero', () {
+      // A 0-height decode made `width / height` non-finite, feeding NaN into
+      // the crop math.
+      expect(
+        () => ProfileHeaderImageNormalizer.centerCropToThreeToOne(
+          img.Image(width: 600, height: 0),
+        ),
+        throwsA(
+          isA<ArgumentError>().having(
+            (e) => e.message.toString(),
+            'message',
+            contains('invalid dimensions'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects a 0x0 image', () {
+      expect(
+        () => ProfileHeaderImageNormalizer.centerCropToThreeToOne(
+          img.Image(width: 0, height: 0),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('passes an image already at 3:1 through unchanged', () {
+      final cropped = ProfileHeaderImageNormalizer.centerCropToThreeToOne(
+        img.Image(width: 300, height: 100),
+      );
+      expect(cropped.width, 300);
+      expect(cropped.height, 100);
+    });
+
+    test('floors crop height at 1 for a 1px-wide tall image', () {
+      // width=1 made cropHeight=(1/3).round()=0 — an empty crop rectangle.
+      final cropped = ProfileHeaderImageNormalizer.centerCropToThreeToOne(
+        img.Image(width: 1, height: 9000),
+      );
+      expect(cropped.width, 1);
+      expect(cropped.height, greaterThanOrEqualTo(1));
+    });
+  });
 }
 
 class _FakeWebpEncoder implements ProfileHeaderWebpEncoder {

@@ -2,6 +2,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:blurhash_dart/blurhash_dart.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:image/image.dart' as img;
 import 'package:prism_sync/generated/api.dart' as ffi;
 
@@ -45,18 +46,8 @@ class ImageCompressionService {
       throw ArgumentError('Unable to decode image');
     }
 
-    final sourceWidth = decoded.width;
-    final sourceHeight = decoded.height;
-
-    int targetWidth;
-    int targetHeight;
-    if (sourceWidth > sourceHeight) {
-      targetWidth = sourceWidth > _maxDimension ? _maxDimension : sourceWidth;
-      targetHeight = (sourceHeight * targetWidth / sourceWidth).round();
-    } else {
-      targetHeight = sourceHeight > _maxDimension ? _maxDimension : sourceHeight;
-      targetWidth = (sourceWidth * targetHeight / sourceHeight).round();
-    }
+    final (targetWidth, targetHeight) =
+        fitWithin(decoded.width, decoded.height, _maxDimension);
 
     // Encode via Rust FFI — auto-selects format:
     //   has alpha → lossless WebP (art/banners/dividers)
@@ -68,7 +59,7 @@ class ImageCompressionService {
       quality: _quality,
     );
 
-    final blurhash = await _computeBlurhashFromImage(decoded);
+    final blurhash = await computeBlurhashFromImage(decoded);
 
     return CompressedImage(
       bytes: compressed,
@@ -77,6 +68,38 @@ class ImageCompressionService {
       blurhash: blurhash,
       mimeType: mimeType,
     );
+  }
+
+  /// Aspect-preserving target dimensions within [maxDimension]. Rejects
+  /// non-positive sources (which would divide to NaN) and floors each axis at
+  /// 1 (an extreme ratio can round the minor axis to 0).
+  @visibleForTesting
+  static (int, int) fitWithin(
+    int sourceWidth,
+    int sourceHeight,
+    int maxDimension,
+  ) {
+    _ensureValidDimensions(sourceWidth, sourceHeight);
+
+    final int targetWidth;
+    final int targetHeight;
+    if (sourceWidth > sourceHeight) {
+      targetWidth = sourceWidth > maxDimension ? maxDimension : sourceWidth;
+      targetHeight = (sourceHeight * targetWidth / sourceWidth).round();
+    } else {
+      targetHeight = sourceHeight > maxDimension ? maxDimension : sourceHeight;
+      targetWidth = (sourceWidth * targetHeight / sourceHeight).round();
+    }
+    return (
+      targetWidth < 1 ? 1 : targetWidth,
+      targetHeight < 1 ? 1 : targetHeight,
+    );
+  }
+
+  static void _ensureValidDimensions(int width, int height) {
+    if (width <= 0 || height <= 0) {
+      throw ArgumentError('Image has invalid dimensions (${width}x$height)');
+    }
   }
 
   /// Pass animated images through without re-encoding. Computes blurhash
@@ -98,8 +121,9 @@ class ImageCompressionService {
     if (decoded == null) {
       throw ArgumentError('Unable to decode animated image');
     }
+    _ensureValidDimensions(decoded.width, decoded.height);
 
-    final blurhash = await _computeBlurhashFromImage(decoded);
+    final blurhash = await computeBlurhashFromImage(decoded);
 
     return CompressedImage(
       bytes: source,
@@ -208,22 +232,8 @@ class ImageCompressionService {
       throw ArgumentError('Unable to decode image');
     }
 
-    final sourceWidth = decoded.width;
-    final sourceHeight = decoded.height;
-
-    int targetWidth;
-    int targetHeight;
-    if (sourceWidth > sourceHeight) {
-      targetWidth = sourceWidth > _thumbnailMaxDimension
-          ? _thumbnailMaxDimension
-          : sourceWidth;
-      targetHeight = (sourceHeight * targetWidth / sourceWidth).round();
-    } else {
-      targetHeight = sourceHeight > _thumbnailMaxDimension
-          ? _thumbnailMaxDimension
-          : sourceHeight;
-      targetWidth = (sourceWidth * targetHeight / sourceHeight).round();
-    }
+    final (targetWidth, targetHeight) =
+        fitWithin(decoded.width, decoded.height, _thumbnailMaxDimension);
 
     final (bytes, _) = await ffi.encodeImage(
       imageBytes: source,
@@ -234,12 +244,15 @@ class ImageCompressionService {
     return bytes;
   }
 
-  static Future<String> _computeBlurhashFromImage(img.Image decoded) {
-    // Resize to the tiny (width:32) blurhash input on the CALLING isolate so
-    // we only ship a ~32px image across the isolate boundary, not the full
-    // decoded bitmap (~16 MB for a 2048² source). The encode is unchanged —
-    // BlurHash.encode still sees the same width:32 resize it did before.
-    final small = img.copyResize(decoded, width: 32);
+  @visibleForTesting
+  static Future<String> computeBlurhashFromImage(img.Image decoded) {
+    // Resize on the CALLING isolate so we ship a ~32px image across the
+    // isolate boundary, not the full bitmap. fitWithin (not a bare
+    // copyResize(width: 32)) keeps both axes bounded and ≥1 — a fixed width
+    // derives round(32*h/w), which is 0 for very wide images and millions of
+    // rows for very tall ones.
+    final (blurWidth, blurHeight) = fitWithin(decoded.width, decoded.height, 32);
+    final small = img.copyResize(decoded, width: blurWidth, height: blurHeight);
     return Isolate.run(() {
       return BlurHash.encode(
         small,

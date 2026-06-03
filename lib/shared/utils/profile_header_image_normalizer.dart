@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:image/image.dart' as img;
 import 'package:prism_sync/generated/api.dart' as ffi;
 
@@ -48,7 +49,7 @@ class ProfileHeaderImageNormalizer {
       throw ArgumentError('Unable to decode profile header image');
     }
 
-    final prepared = _resizeDown(_centerCropToThreeToOne(decoded));
+    final prepared = _resizeDown(centerCropToThreeToOne(decoded));
 
     Uint8List? smallest;
     for (final quality in _webpQualities) {
@@ -72,7 +73,16 @@ class ProfileHeaderImageNormalizer {
     return smallest;
   }
 
-  static img.Image _centerCropToThreeToOne(img.Image source) {
+  /// Center-crop to a 3:1 aspect ratio. Rejects non-positive dimensions, which
+  /// would make `width / height` non-finite and feed NaN into the crop math.
+  @visibleForTesting
+  static img.Image centerCropToThreeToOne(img.Image source) {
+    if (source.width <= 0 || source.height <= 0) {
+      throw ArgumentError(
+        'Profile header image has invalid dimensions '
+        '(${source.width}x${source.height})',
+      );
+    }
     final currentRatio = source.width / source.height;
     const targetRatio = 3.0;
 
@@ -81,7 +91,9 @@ class ProfileHeaderImageNormalizer {
     }
 
     if (currentRatio > targetRatio) {
-      final cropWidth = (source.height * targetRatio).round();
+      // Floor at 1: an extreme ratio can round the crop axis to 0.
+      final cropWidth =
+          (source.height * targetRatio).round().clamp(1, source.width);
       final x = ((source.width - cropWidth) / 2).round();
       return img.copyCrop(
         source,
@@ -92,7 +104,8 @@ class ProfileHeaderImageNormalizer {
       );
     }
 
-    final cropHeight = (source.width / targetRatio).round();
+    final cropHeight =
+        (source.width / targetRatio).round().clamp(1, source.height);
     final y = ((source.height - cropHeight) / 2).round();
     return img.copyCrop(
       source,
