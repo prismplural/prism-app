@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
-import 'package:prism_plurality/features/members/services/bio_image_processor.dart';
 import 'package:prism_plurality/features/members/services/remote_markdown_image_refs.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -38,25 +37,47 @@ Future<bool> promptAndStageRemoteMarkdownImages({
   if (choices == null) return false;
   if (choices.isEmpty) return true;
 
+  final latestLibrary = await readImageLibrarySnapshot(
+    ref,
+    useCachedValueOnError: true,
+  );
+  if (!context.mounted) return false;
+  final validation = validateRemoteMarkdownImageTagChoices(
+    choices,
+    unavailableTags: [
+      ...latestLibrary.map((a) => a.tag),
+      ...processor.staged.map((s) => s.tag),
+    ],
+  );
+  if (!validation.isValid) {
+    final message = validation.errorMessage ?? 'Could not save image tags';
+    PrismToast.error(context, message: message);
+    return false;
+  }
+
   final notifier = ref.read(bioImageProcessingStateProvider.notifier);
-  notifier.setProcessing(choices.length);
+  notifier.setProcessing(validation.normalizedTags.length);
 
   final successes = <String, String>{};
-  for (final entry in choices.entries) {
-    final tag = BioImageProcessor.normalizeTag(entry.value);
-    if (tag.isEmpty) continue;
-
+  final failures = <String>[];
+  for (final entry in validation.normalizedTags.entries) {
     try {
-      final stagedTag = await processor.stageUrlImage(entry.key, tag);
+      final stagedTag = await processor.stageUrlImage(entry.key, entry.value);
       successes[entry.key] = stagedTag;
+    } catch (e) {
+      failures.add(_stageFailureMessage(e));
+    } finally {
       notifier.incrementCompleted();
-    } catch (_) {}
+    }
   }
 
   if (successes.isEmpty) {
-    notifier.setError('Could not fetch image');
+    final message = failures.isNotEmpty
+        ? failures.first
+        : 'Could not fetch image';
+    notifier.setError(message);
     if (context.mounted) {
-      PrismToast.error(context, message: 'Could not fetch image');
+      PrismToast.error(context, message: message);
     }
     return false;
   }
@@ -71,6 +92,11 @@ Future<bool> promptAndStageRemoteMarkdownImages({
     PrismToast.error(context, message: 'Some images could not be fetched');
   }
   return true;
+}
+
+String _stageFailureMessage(Object error) {
+  if (error is StateError) return error.message;
+  return 'Could not fetch image';
 }
 
 Future<Map<String, String>?> _showRemoteImageImportPrompt(

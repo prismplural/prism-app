@@ -232,8 +232,9 @@ class BioImageProcessor {
     return null;
   }
 
-  /// Normalize a tag: lowercase, strip whitespace, replace spaces with hyphens,
-  /// remove non-alphanumeric chars except hyphens and underscores.
+  /// Normalize a tag: strip whitespace, replace spaces with hyphens, and remove
+  /// non-alphanumeric chars except hyphens and underscores. Case is preserved so
+  /// `Flag` and `flag` can intentionally refer to different library images.
   ///
   /// Critical for correctness, not just tidiness: a tag containing `)` or `#`
   /// breaks `![](tag)` parsing so every reference silently stops resolving.
@@ -241,8 +242,7 @@ class BioImageProcessor {
   static String normalizeTag(String tag) {
     return tag
         .trim()
-        .toLowerCase()
         .replaceAll(RegExp(r'\s+'), '-')
-        .replaceAll(RegExp(r'[^a-z0-9_-]'), '');
+        .replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
   }
 }

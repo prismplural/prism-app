@@ -20,7 +20,7 @@ void main() {
         suggestedRemoteImageTag(
           'https://cdn.example.com/path/My%20Cool_Image.PNG?token=abc',
         ),
-        'my-cool_image',
+        'My-Cool_Image',
       );
       expect(suggestedRemoteImageTag('https://example.com/'), 'image');
     });
@@ -58,5 +58,52 @@ void main() {
         );
       },
     );
+
+    test('validates choices and preserves normalized tag case', () {
+      final validation = validateRemoteMarkdownImageTagChoices({
+        'https://example.com/cat.png': ' Cat Flag ',
+      });
+
+      expect(validation.isValid, isTrue);
+      expect(validation.normalizedTags, {
+        'https://example.com/cat.png': 'Cat-Flag',
+      });
+    });
+
+    test('rejects choices with no usable tag characters', () {
+      final validation = validateRemoteMarkdownImageTagChoices({
+        'https://example.com/cat.png': ' )#?! ',
+      });
+
+      expect(validation.isValid, isFalse);
+      expect(validation.errorMessage, 'Tag has no usable characters');
+    });
+
+    test('rejects exact-case duplicate choices', () {
+      final validation = validateRemoteMarkdownImageTagChoices({
+        'https://example.com/cat.png': 'Flag',
+        'https://example.com/dog.png': 'Flag',
+      });
+
+      expect(validation.isValid, isFalse);
+      expect(validation.errorMessage, 'Tag "Flag" is already in use');
+    });
+
+    test('checks unavailable tags case-sensitively', () {
+      expect(
+        validateRemoteMarkdownImageTagChoices(
+          {'https://example.com/cat.png': 'Flag'},
+          unavailableTags: const ['flag'],
+        ).isValid,
+        isTrue,
+      );
+      expect(
+        validateRemoteMarkdownImageTagChoices(
+          {'https://example.com/cat.png': 'Flag'},
+          unavailableTags: const ['Flag'],
+        ).errorMessage,
+        'Tag "Flag" is already in use',
+      );
+    });
   });
 }

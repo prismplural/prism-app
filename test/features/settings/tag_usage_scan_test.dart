@@ -133,6 +133,29 @@ void main() {
       );
       expect(usage['nbflag'], isEmpty);
     });
+
+    test('matches tags case-sensitively', () {
+      final usage = scanTagUsage(
+        tags: {'Flag', 'flag'},
+        sources: const [
+          TagUsageSource(
+            text: '![](Flag) and ![](flag)',
+            kind: TagUsageKind.bio,
+            label: "Alex's bio",
+            route: '/members/m1',
+          ),
+          TagUsageSource(
+            text: '![](FLAG)',
+            kind: TagUsageKind.note,
+            label: 'a note',
+            route: '/notes/n1',
+          ),
+        ],
+      );
+
+      expect(usage['Flag']!.map((r) => r.route), ['/members/m1']);
+      expect(usage['flag']!.map((r) => r.route), ['/members/m1']);
+    });
   });
 
   group('rewriteImageTag', () {
@@ -199,6 +222,13 @@ void main() {
       // The metachar tag must not match a different literal string.
       expect(rewriteImageTag('![](axbxc)', 'a.b+c', 'newtag'), '![](axbxc)');
     });
+
+    test('rewrites tags case-sensitively', () {
+      expect(
+        rewriteImageTag('![](Flag) ![](flag) ![](FLAG)', 'Flag', 'Banner'),
+        '![](Banner) ![](flag) ![](FLAG)',
+      );
+    });
   });
 
   group('textReferencesTag', () {
@@ -211,6 +241,12 @@ void main() {
       expect(textReferencesTag('![](flagpole)', 'flag'), isFalse);
       expect(textReferencesTag('no images', 'flag'), isFalse);
       expect(textReferencesTag('![](othertag)', 'flag'), isFalse);
+    });
+
+    test('matches tag references case-sensitively', () {
+      expect(textReferencesTag('![](Flag)', 'Flag'), isTrue);
+      expect(textReferencesTag('![](flag)', 'Flag'), isFalse);
+      expect(textReferencesTag('![](FLAG)', 'Flag'), isFalse);
     });
   });
 }

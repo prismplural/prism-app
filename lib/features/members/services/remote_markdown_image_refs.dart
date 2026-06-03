@@ -24,6 +24,18 @@ class RemoteMarkdownImageImport {
   final String suggestedTag;
 }
 
+class RemoteMarkdownImageTagChoiceValidation {
+  const RemoteMarkdownImageTagChoiceValidation({
+    required this.normalizedTags,
+    this.errorMessage,
+  });
+
+  final Map<String, String> normalizedTags;
+  final String? errorMessage;
+
+  bool get isValid => errorMessage == null;
+}
+
 final _remoteImagePattern = RegExp(r'!\[([^\]]*)\]\((https://[^)\s]+)\)');
 
 List<RemoteMarkdownImageRef> findRemoteMarkdownImageRefs(String markdown) {
@@ -110,4 +122,32 @@ String _uniqueTag(String base, Set<String> usedTags) {
     final candidate = '$base-$i';
     if (!usedTags.contains(candidate)) return candidate;
   }
+}
+
+RemoteMarkdownImageTagChoiceValidation validateRemoteMarkdownImageTagChoices(
+  Map<String, String> choices, {
+  Iterable<String> unavailableTags = const [],
+}) {
+  final unavailable = unavailableTags.where((tag) => tag.isNotEmpty).toSet();
+  final seen = <String>{};
+  final normalized = <String, String>{};
+
+  for (final entry in choices.entries) {
+    final tag = BioImageProcessor.normalizeTag(entry.value);
+    if (tag.isEmpty) {
+      return const RemoteMarkdownImageTagChoiceValidation(
+        normalizedTags: {},
+        errorMessage: 'Tag has no usable characters',
+      );
+    }
+    if (unavailable.contains(tag) || !seen.add(tag)) {
+      return RemoteMarkdownImageTagChoiceValidation(
+        normalizedTags: const {},
+        errorMessage: 'Tag "$tag" is already in use',
+      );
+    }
+    normalized[entry.key] = tag;
+  }
+
+  return RemoteMarkdownImageTagChoiceValidation(normalizedTags: normalized);
 }
