@@ -6,8 +6,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
+import 'package:prism_plurality/features/members/services/bio_image_insert_spec.dart';
 import 'package:prism_plurality/features/members/services/bio_image_processor.dart';
 import 'package:prism_plurality/features/members/widgets/image_library_picker.dart';
+import 'package:prism_plurality/features/members/widgets/image_size_field.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/markdown_cursor_insert.dart';
@@ -181,10 +183,61 @@ class _MarkdownImageButtonState extends ConsumerState<MarkdownImageButton> {
 
   Future<void> _insertFromLibrary() async {
     final tag = await showImageLibraryPicker(context, ref);
-    if (tag != null && mounted) {
-      insertMarkdownAtCursor(widget.controller, '![]($tag)');
+    if (tag == null || !mounted) return;
+    // A library image already has a tag/alt; just collect its size before
+    // inserting. The size dialog defaults to "Default", so the common
+    // "just insert" case is one confirming tap.
+    final size = await _showSizeDialog();
+    if (size == null || !mounted) return; // cancelled
+    insertMarkdownAtCursor(widget.controller, buildImageRef(tag: tag, size: size));
+  }
+
+  /// Asks for an image size on its own (used by the library path, which has no
+  /// tag/alt step). Returns null if the user cancels.
+  Future<ImageSizeSpec?> _showSizeDialog() async {
+    final nav = Navigator.of(context, rootNavigator: true);
+    final l10n = context.l10n;
+    var size = ImageSizeSpec.unset;
+    final canInsert = ValueNotifier<bool>(_sizeReady(size));
+    try {
+      final confirmed = await PrismDialog.show<bool>(
+        context: context,
+        title: l10n.mediaInsertSizeTitle,
+        builder: (_) => ImageSizeField(
+          onChanged: (s) {
+            size = s;
+            canInsert.value = _sizeReady(s);
+          },
+        ),
+        actions: [
+          PrismButton(
+            label: l10n.cancel,
+            tone: PrismButtonTone.outlined,
+            onPressed: () => nav.pop(false),
+          ),
+          ValueListenableBuilder<bool>(
+            valueListenable: canInsert,
+            builder: (_, ready, _) => PrismButton(
+              label: l10n.mediaInsertButton,
+              tone: PrismButtonTone.filled,
+              enabled: ready,
+              onPressed: () => nav.pop(true),
+            ),
+          ),
+        ],
+      );
+      return confirmed == true ? size : null;
+    } finally {
+      canInsert.dispose();
     }
   }
+
+  /// A chosen size is ready to insert when it's the default (no fragment) or it
+  /// produced a real sizing fragment (a valid, positive value). A sizing mode
+  /// left with an empty/invalid value yields no fragment → not ready, so the
+  /// confirm button disables instead of silently inserting an unsized image.
+  static bool _sizeReady(ImageSizeSpec s) =>
+      s.mode == ImageSizeMode.defaultSize || s.fragment.isNotEmpty;
 
   Future<void> _stageAndInsert(Uint8List bytes) async {
     final result = await _showTagDialog(bytes);
@@ -202,10 +255,9 @@ class _MarkdownImageButtonState extends ConsumerState<MarkdownImageButton> {
         altText: result.altText,
       );
       if (!mounted) return;
-      final alt = result.altText ?? '';
       insertMarkdownAtCursor(
         widget.controller,
-        alt.isEmpty ? '![]($tag)' : '![$alt]($tag)',
+        buildImageRef(tag: tag, alt: result.altText ?? '', size: result.size),
       );
       notifier.incrementCompleted();
     } catch (e) {
@@ -215,14 +267,17 @@ class _MarkdownImageButtonState extends ConsumerState<MarkdownImageButton> {
     }
   }
 
-  Future<({String tag, String? altText})?> _showTagDialog(
+  Future<({String tag, String? altText, ImageSizeSpec size})?> _showTagDialog(
     Uint8List imageBytes,
   ) async {
     final nav = Navigator.of(context, rootNavigator: true);
     final l10n = context.l10n;
     _tagController.clear();
     _altController.clear();
-    final result = await PrismDialog.show<({String tag, String? altText})>(
+    var sizeSpec = ImageSizeSpec.unset;
+    final canAdd = ValueNotifier<bool>(_sizeReady(sizeSpec));
+    final result =
+        await PrismDialog.show<({String tag, String? altText, ImageSizeSpec size})>(
       context: context,
       title: l10n.mediaAddImageToLibraryTitle,
       builder: (_) => Column(
@@ -248,6 +303,13 @@ class _MarkdownImageButtonState extends ConsumerState<MarkdownImageButton> {
             hintText: l10n.mediaAltTextFieldHint,
             textCapitalization: TextCapitalization.sentences,
           ),
+          const SizedBox(height: 16),
+          ImageSizeField(
+            onChanged: (s) {
+              sizeSpec = s;
+              canAdd.value = _sizeReady(s);
+            },
+          ),
         ],
       ),
       actions: [
@@ -256,18 +318,24 @@ class _MarkdownImageButtonState extends ConsumerState<MarkdownImageButton> {
           tone: PrismButtonTone.outlined,
           onPressed: () => nav.pop(null),
         ),
-        PrismButton(
-          label: l10n.add,
-          tone: PrismButtonTone.filled,
-          onPressed: () => nav.pop((
-            tag: _tagController.text.trim(),
-            altText: _altController.text.trim().isEmpty
-                ? null
-                : _altController.text.trim(),
-          )),
+        ValueListenableBuilder<bool>(
+          valueListenable: canAdd,
+          builder: (_, ready, _) => PrismButton(
+            label: l10n.add,
+            tone: PrismButtonTone.filled,
+            enabled: ready,
+            onPressed: () => nav.pop((
+              tag: _tagController.text.trim(),
+              altText: _altController.text.trim().isEmpty
+                  ? null
+                  : _altController.text.trim(),
+              size: sizeSpec,
+            )),
+          ),
         ),
       ],
     );
+    canAdd.dispose();
     return result;
   }
 }

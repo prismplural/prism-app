@@ -24,6 +24,23 @@ void main() {
       expect(isBlockImageSize(BioImageSize.parse('120x40')), isTrue); // w≥48
       expect(isBlockImageSize(BioImageSize.parse('30x80')), isTrue); // h≥48
     });
+
+    test('small em is inline, large em is block (nominal 16px basis)', () {
+      expect(isBlockImageSize(BioImageSize.parse('2em')), isFalse); // 32 < 48
+      expect(isBlockImageSize(BioImageSize.parse('3em')), isTrue); // 48 ≥ 48
+      expect(isBlockImageSize(BioImageSize.parse('10em')), isTrue);
+    });
+
+    test('em classification honors a supplied basis (text scaling)', () {
+      // Same image, larger basis (e.g. 1.5x accessibility text → ~24px/em):
+      // 2em is inline at 16px (32px) but block at 24px (48px), matching what
+      // the widget renders so it doesn't leave a gappy inline line.
+      expect(isBlockImageSize(BioImageSize.parse('2em')), isFalse);
+      expect(
+        isBlockImageSize(BioImageSize.parse('2em'), emBasisPx: 24),
+        isTrue,
+      );
+    });
   });
 
   group('blockifyImageMarkdown', () {
@@ -62,6 +79,13 @@ void main() {
       expect(
         blockifyImageMarkdown('a ![](flag#16) b ![](flag#96) c'),
         'a ![](flag#16) b\n\n![](flag#96)\n\nc',
+      );
+    });
+
+    test('promotes a large em image, keeps a small em image inline', () {
+      expect(
+        blockifyImageMarkdown('a ![](flag#2em) b ![](flag#10em) c'),
+        'a ![](flag#2em) b\n\n![](flag#10em)\n\nc',
       );
     });
 

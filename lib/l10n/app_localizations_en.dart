@@ -11458,6 +11458,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mediaSourcePrismLibrary => 'Prism library';
 
   @override
+  String get mediaSizeLabel => 'Image width';
+
+  @override
+  String get mediaSizeModeDefault => 'Default';
+
+  @override
+  String get mediaSizeModePixels => 'px';
+
+  @override
+  String get mediaSizeModePercent => '%';
+
+  @override
+  String get mediaSizeModeEm => 'em';
+
+  @override
+  String get mediaSizeValueHint => 'Width';
+
+  @override
+  String get mediaInsertSizeTitle => 'Image size';
+
+  @override
+  String get mediaInsertButton => 'Insert';
+
+  @override
   String get mediaAddToLibraryTitle => 'Add to library';
 
   @override

@@ -100,6 +100,15 @@ class PrismMarkdownText extends ConsumerWidget {
         );
         final widthBucket = hasWidth ? width.round() : -1;
 
+        // Size em images for the block/inline heuristic against the same basis
+        // they render at (font size × text scaler), else a scaled-up `#2em` is
+        // misclassified as inline. Bucketed into the key so a text-size change
+        // re-runs the rewrite.
+        final emBasisPx = MediaQuery.textScalerOf(
+          context,
+        ).scale(baseStyle?.fontSize ?? 16.0);
+        final emBucket = emBasisPx.round();
+
         // Split into `:::plain` / `:::#hex` fenced segments so individual
         // tables can opt into a border treatment. No fences → one default
         // segment (identical to before). Each segment is its own MarkdownText
@@ -113,7 +122,7 @@ class PrismMarkdownText extends ConsumerWidget {
 
         String keyFor(int seg, int block) =>
             'bio-md-$memberId-$libraryVersion-'
-            '${bioMedia.length}-$stagedCount-$widthBucket-seg$seg-blk$block';
+            '${bioMedia.length}-$stagedCount-$widthBucket-em$emBucket-seg$seg-blk$block';
 
         // A text block reuses the existing MarkdownText path (inline images,
         // bold, links, blockify). A table block is rendered by PrismMarkdownTable
@@ -138,7 +147,9 @@ class PrismMarkdownText extends ConsumerWidget {
             key: ValueKey(keyFor(segIdx, blockIdx)),
             // Promote large/percent images to their own line (block); keep
             // small ones inline. Only when rendering markdown.
-            data: enabled ? blockifyImageMarkdown(block.text!) : block.text!,
+            data: enabled
+                ? blockifyImageMarkdown(block.text!, emBasisPx: emBasisPx)
+                : block.text!,
             enabled: enabled,
             baseStyle: baseStyle,
             selectable: selectable,

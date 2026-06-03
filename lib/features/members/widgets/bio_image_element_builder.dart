@@ -61,10 +61,14 @@ class BioImageElementBuilder extends MarkdownElementBuilder {
   ) {
     final src = element.attributes['src'] ?? '';
     final alt = element.attributes['alt'];
-    return _resolve(src, alt?.isNotEmpty == true ? alt : null);
+    // The font size of the text run this image sits in — the basis for em
+    // (`#10em`) sizing. flutter_markdown hands us the resolved style here; the
+    // image's own WidgetSpan context can't read it.
+    final emBasis = parentStyle?.fontSize ?? preferredStyle?.fontSize;
+    return _resolve(src, alt?.isNotEmpty == true ? alt : null, emBasis);
   }
 
-  Widget _resolve(String src, String? alt) {
+  Widget _resolve(String src, String? alt, double? emBasis) {
     if (src.isEmpty) return const SizedBox.shrink();
 
     final hashIdx = src.indexOf('#');
@@ -97,9 +101,9 @@ class BioImageElementBuilder extends MarkdownElementBuilder {
     // Bare tag reference: `![](nbflag)`.
     if (scheme.isEmpty && ref.isNotEmpty) {
       final stagedBytes = processor?.getStagedByTag(ref);
-      if (stagedBytes != null) return _staged(stagedBytes, alt, size);
+      if (stagedBytes != null) return _staged(stagedBytes, alt, size, emBasis);
       final attachment = _firstWhere(library, (a) => a.tag == ref);
-      if (attachment != null) return _widget(attachment, alt, size);
+      if (attachment != null) return _widget(attachment, alt, size, emBasis);
       return const SizedBox.shrink();
     }
 
@@ -111,16 +115,21 @@ class BioImageElementBuilder extends MarkdownElementBuilder {
       if (mediaId.isEmpty) return const SizedBox.shrink();
 
       final stagedBytes = processor?.getStagedBytes(mediaId);
-      if (stagedBytes != null) return _staged(stagedBytes, alt, size);
+      if (stagedBytes != null) return _staged(stagedBytes, alt, size, emBasis);
       final attachment = _firstWhere(bioMedia, (a) => a.mediaId == mediaId);
-      if (attachment != null) return _widget(attachment, alt, size);
+      if (attachment != null) return _widget(attachment, alt, size, emBasis);
       return const SizedBox.shrink();
     }
 
     return const SizedBox.shrink();
   }
 
-  Widget _widget(MediaAttachment a, String? alt, BioImageSize size) {
+  Widget _widget(
+    MediaAttachment a,
+    String? alt,
+    BioImageSize size,
+    double? emBasis,
+  ) {
     return _withGutter(
       BioImageWidget(
         mediaId: a.mediaId,
@@ -134,11 +143,17 @@ class BioImageElementBuilder extends MarkdownElementBuilder {
         memberName: memberName,
         size: size,
         maxContentWidth: _innerContentWidth,
+        emBasis: emBasis,
       ),
     );
   }
 
-  Widget _staged(Uint8List bytes, String? alt, BioImageSize size) {
+  Widget _staged(
+    Uint8List bytes,
+    String? alt,
+    BioImageSize size,
+    double? emBasis,
+  ) {
     return _withGutter(
       BioImageWidget(
         mediaId: '',
@@ -153,6 +168,7 @@ class BioImageElementBuilder extends MarkdownElementBuilder {
         size: size,
         overrideBytes: bytes,
         maxContentWidth: _innerContentWidth,
+        emBasis: emBasis,
       ),
     );
   }

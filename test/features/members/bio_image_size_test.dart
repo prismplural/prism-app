@@ -37,6 +37,19 @@ void main() {
       expect(BioImageSize.parse('33%').widthFraction, closeTo(0.33, 0.001));
     });
 
+    test('em (width as a multiple of font size, width-only)', () {
+      expect(BioImageSize.parse('10em').widthEm, 10);
+      expect(BioImageSize.parse('1.5em').widthEm, 1.5);
+      final s = BioImageSize.parse('10em');
+      expect(s.width, isNull);
+      expect(s.height, isNull);
+      expect(s.widthFraction, isNull);
+    });
+
+    test('clamps oversized em values', () {
+      expect(BioImageSize.parse('9999em').widthEm, 256.0);
+    });
+
     test('clamps oversized pixel values', () {
       final s = BioImageSize.parse('99999x99999');
       expect(s.width, 4096);
@@ -47,6 +60,10 @@ void main() {
       expect(BioImageSize.parse('abc').isUnset, true);
       expect(BioImageSize.parse('xyz').isUnset, true);
       expect(BioImageSize.parse('-5%').isUnset, true);
+      expect(BioImageSize.parse('0em').isUnset, true);
+      expect(BioImageSize.parse('-3em').isUnset, true);
+      // Multi-dimension / mixed-unit em is not supported in v1 → unset.
+      expect(BioImageSize.parse('12emx5em').isUnset, true);
     });
   });
 }

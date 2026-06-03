@@ -4295,6 +4295,38 @@
   "@mediaSourcePrismLibrary": {
     "description": "Add-image source menu item: insert an image already stored in the shared Prism image library"
   },
+  "mediaSizeLabel": "Ancho de la imagen",
+  "@mediaSizeLabel": {
+    "description": "Label above the image width selector in the insert-image dialogs."
+  },
+  "mediaSizeModeDefault": "Predeterminado",
+  "@mediaSizeModeDefault": {
+    "description": "Image width mode: the image's default/intrinsic size (no explicit width)."
+  },
+  "mediaSizeModePixels": "px",
+  "@mediaSizeModePixels": {
+    "description": "Image width mode: a fixed width in logical pixels. Abbreviation for 'pixels'; keep short."
+  },
+  "mediaSizeModePercent": "%",
+  "@mediaSizeModePercent": {
+    "description": "Image width mode: a percentage of the available content width. The percent sign."
+  },
+  "mediaSizeModeEm": "em",
+  "@mediaSizeModeEm": {
+    "description": "Image width mode: a multiple of the surrounding text size. The CSS 'em' unit; leave untranslated."
+  },
+  "mediaSizeValueHint": "Ancho",
+  "@mediaSizeValueHint": {
+    "description": "Hint for the numeric width value field in the image size selector (units come from the selected mode)."
+  },
+  "mediaInsertSizeTitle": "Tamaño de la imagen",
+  "@mediaInsertSizeTitle": {
+    "description": "Title of the dialog that asks for a size when inserting an image from the Prism library."
+  },
+  "mediaInsertButton": "Insertar",
+  "@mediaInsertButton": {
+    "description": "Confirm button: insert the chosen library image at the selected size."
+  },
   "mediaAddToLibraryTitle": "Add to library",
   "@mediaAddToLibraryTitle": {
     "description": "Title of the dialog for adding a picked image to the shared image library"

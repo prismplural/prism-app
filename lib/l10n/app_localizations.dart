@@ -18452,6 +18452,54 @@ abstract class AppLocalizations {
   /// **'Prism library'**
   String get mediaSourcePrismLibrary;
 
+  /// Label above the image width selector in the insert-image dialogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Image width'**
+  String get mediaSizeLabel;
+
+  /// Image width mode: the image's default/intrinsic size (no explicit width).
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get mediaSizeModeDefault;
+
+  /// Image width mode: a fixed width in logical pixels. Abbreviation for 'pixels'; keep short.
+  ///
+  /// In en, this message translates to:
+  /// **'px'**
+  String get mediaSizeModePixels;
+
+  /// Image width mode: a percentage of the available content width. The percent sign.
+  ///
+  /// In en, this message translates to:
+  /// **'%'**
+  String get mediaSizeModePercent;
+
+  /// Image width mode: a multiple of the surrounding text size. The CSS 'em' unit; leave untranslated.
+  ///
+  /// In en, this message translates to:
+  /// **'em'**
+  String get mediaSizeModeEm;
+
+  /// Hint for the numeric width value field in the image size selector (units come from the selected mode).
+  ///
+  /// In en, this message translates to:
+  /// **'Width'**
+  String get mediaSizeValueHint;
+
+  /// Title of the dialog that asks for a size when inserting an image from the Prism library.
+  ///
+  /// In en, this message translates to:
+  /// **'Image size'**
+  String get mediaInsertSizeTitle;
+
+  /// Confirm button: insert the chosen library image at the selected size.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert'**
+  String get mediaInsertButton;
+
   /// Title of the dialog for adding a picked image to the shared image library
   ///
   /// In en, this message translates to:

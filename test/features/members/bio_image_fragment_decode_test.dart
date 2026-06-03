@@ -69,4 +69,26 @@ void main() {
       expect(_sizeFromSrc(cap.srcs[3]).height, 40);
     },
   );
+
+  testWidgets('em fragments pass through markdown URL encoding untouched', (
+    tester,
+  ) async {
+    final cap = _Capture();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MarkdownText(
+            data: 'a ![](flag#10em) b',
+            imgElementBuilder: cap,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(cap.srcs, hasLength(1));
+    // No `%` in the fragment → the markdown layer leaves it untouched.
+    expect(cap.srcs[0], 'flag#10em');
+    expect(_sizeFromSrc(cap.srcs[0]).widthEm, 10);
+  });
 }

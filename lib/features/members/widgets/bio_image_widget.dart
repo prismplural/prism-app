@@ -34,6 +34,7 @@ class BioImageWidget extends ConsumerWidget {
     this.size = BioImageSize.unset,
     this.overrideBytes,
     this.maxContentWidth,
+    this.emBasis,
   });
 
   final String mediaId;
@@ -59,6 +60,17 @@ class BioImageWidget extends ConsumerWidget {
   /// which receive unbounded width — so the widget's own LayoutBuilder can't
   /// read the container width. Falls back to that LayoutBuilder when null.
   final double? maxContentWidth;
+
+  /// The font size in logical px (i.e. the value of `1em`) that em sizing
+  /// (`#10em`) resolves against, supplied by the host. Inline images render as
+  /// `WidgetSpan` children whose build context does not carry the surrounding
+  /// text run's style, so the element builder reads it from the markdown layer
+  /// and passes it down. Null → a default body size.
+  final double? emBasis;
+
+  /// Fallback `1em` value when the host doesn't supply [emBasis]. Matches the
+  /// effective markdown body size (`MarkdownText` renders body at ~16).
+  static const double _defaultEmBasis = 16.0;
 
   static const double _maxHeight = 280.0;
 
@@ -91,6 +103,17 @@ class BioImageWidget extends ConsumerWidget {
           return _sized(ref, w, w / _aspectRatio, BoxFit.contain);
         },
       );
+    }
+
+    // Host supplies the run's font size as [emBasis] (a WidgetSpan child's
+    // context can't read it); the textScaler makes an em image track the
+    // accessibility text-size setting like surrounding text does — unlike px.
+    if (size.widthEm != null) {
+      final basis = MediaQuery.textScalerOf(
+        context,
+      ).scale(emBasis ?? _defaultEmBasis);
+      final w = size.widthEm! * basis;
+      return _sized(ref, w, w / _aspectRatio, BoxFit.contain);
     }
 
     final dpr = MediaQuery.devicePixelRatioOf(context);

@@ -7,6 +7,7 @@
 /// - `#200` or `#200x` → width 200px, height auto (preserve aspect ratio)
 /// - `#x150` → height 150px, width auto (preserve aspect ratio)
 /// - `#100%` / `#50%` → width as a fraction of available width, height auto
+/// - `#10em` → width as a multiple of the surrounding text size, height auto
 ///
 /// An empty/absent fragment yields [BioImageSize.unset], which renders at the
 /// default size (DPR-scaled intrinsic, capped to a max height).
@@ -20,12 +21,25 @@ class BioImageSize {
   /// Width as a fraction (0–1) of the available width, or null.
   final double? widthFraction;
 
-  const BioImageSize({this.width, this.height, this.widthFraction});
+  /// Width as a multiple of the surrounding text's font size (`1em` = the
+  /// effective body font size, accessibility scaling included), or null.
+  /// Like [widthFraction] this is width-only; height follows the aspect ratio.
+  final double? widthEm;
+
+  const BioImageSize({
+    this.width,
+    this.height,
+    this.widthFraction,
+    this.widthEm,
+  });
 
   static const unset = BioImageSize();
 
   bool get isUnset =>
-      width == null && height == null && widthFraction == null;
+      width == null &&
+      height == null &&
+      widthFraction == null &&
+      widthEm == null;
 
   /// Parse a URL fragment (the part after `#`) into a [BioImageSize].
   factory BioImageSize.parse(String? fragment) {
@@ -38,6 +52,15 @@ class BioImageSize {
       final pct = double.tryParse(f.substring(0, f.length - 1));
       if (pct == null || pct <= 0) return unset;
       return BioImageSize(widthFraction: (pct / 100).clamp(0.0, 1.0));
+    }
+
+    // Em: "10em", "1.5em" → width as a multiple of the font size, height auto.
+    // Clamped so a `#9999em` can't blow up layout (256em ≈ the 4096px px cap at
+    // a typical font size).
+    if (f.endsWith('em')) {
+      final em = double.tryParse(f.substring(0, f.length - 2));
+      if (em == null || em <= 0) return unset;
+      return BioImageSize(widthEm: em.clamp(0.1, 256.0));
     }
 
     // WxH forms.

@@ -17,6 +17,15 @@ const double blockImageMinPx = 48.0;
 
 const _brailleBlank = '\u2800';
 
+/// Fallback `1em` in logical px for the block/inline decision when the caller
+/// supplies no basis. Callers with layout context (e.g. [PrismMarkdownText])
+/// pass the real font size \u00d7 text scaler via `emBasisPx`, so the inline/block
+/// split matches what [BioImageWidget] actually renders \u2014 important under
+/// accessibility text scaling, where a `#2em` image can cross the block
+/// threshold. This default (a typical body size) is used by tests and any
+/// context-free caller. `3em` \u2248 the [blockImageMinPx] threshold.
+const double _nominalEmPx = 16.0;
+
 // Matches an image token plus any surrounding layout spaces (group 1 = the
 // token, group 2 = its src) so a promoted image doesn't leave stray spaces
 // hugging the inserted blank lines.
@@ -37,8 +46,11 @@ bool _hasMeaningfulText(String text) => !_isBlankLine(text);
 ///
 /// Percent-sized and unsized images are blocks (typically banners / dividers /
 /// decoration that want the full width). Explicitly small images stay inline.
-bool isBlockImageSize(BioImageSize size) {
+bool isBlockImageSize(BioImageSize size, {double emBasisPx = _nominalEmPx}) {
   if (size.widthFraction != null) return true; // percent → block
+  if (size.widthEm != null) {
+    return size.widthEm! * emBasisPx >= blockImageMinPx; // small em → inline
+  }
   if (size.width == null && size.height == null) return true; // unsized → block
   final w = size.width ?? 0;
   final h = size.height ?? 0;
@@ -52,7 +64,7 @@ bool isBlockImageSize(BioImageSize size) {
 ///
 /// Operates on the author's raw markdown (the size fragment here is the literal
 /// `#50%`, not the URL-encoded form the parser later produces).
-String blockifyImageMarkdown(String markdown) {
+String blockifyImageMarkdown(String markdown, {double emBasisPx = _nominalEmPx}) {
   if (!markdown.contains('![')) return markdown;
 
   final lines = markdown.split('\n');
@@ -111,7 +123,7 @@ String blockifyImageMarkdown(String markdown) {
       final keepInlineLayout =
           hasBrailleSpacer && _hasMeaningfulText(sameLineText);
 
-      if (isBlockImageSize(size) && !keepInlineLayout) {
+      if (isBlockImageSize(size, emBasisPx: emBasisPx) && !keepInlineLayout) {
         sawBlockImage = true;
         textBuffer.write(line.substring(cursor, match.start));
         addTextSegment(textBuffer.toString());

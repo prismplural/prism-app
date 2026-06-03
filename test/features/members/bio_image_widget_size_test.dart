@@ -21,6 +21,7 @@ final Uint8List _kOnePxPng = base64Decode(
 BioImageWidget _bioImage({
   required BioImageSize size,
   double? maxContentWidth,
+  double? emBasis,
 }) =>
     BioImageWidget(
       mediaId: '',
@@ -34,6 +35,7 @@ BioImageWidget _bioImage({
       size: size,
       overrideBytes: _kOnePxPng,
       maxContentWidth: maxContentWidth,
+      emBasis: emBasis,
     );
 
 Widget _wrap(Widget child) => ProviderScope(
@@ -149,6 +151,58 @@ void main() {
       expect(box, findsOneWidget);
       expect(tester.getSize(box).width, 150);
       expect(_renderedImage(tester).fit, BoxFit.contain);
+    });
+
+    testWidgets('em width is widthEm × emBasis (height from aspect ratio)', (
+      tester,
+    ) async {
+      // 10em at emBasis 16 → width 160, height 160/2.0 = 80. Self-contained:
+      // the em branch computes a fixed box, no container constraints involved.
+      await tester.pumpWidget(
+        _wrap(_bioImage(size: BioImageSize.parse('10em'), emBasis: 16)),
+      );
+      await tester.pump();
+
+      final box = _sizedBoxWith(width: 160, height: 80);
+      expect(box, findsOneWidget);
+      expect(tester.getSize(box), const Size(160, 80));
+      expect(_renderedImage(tester).fit, BoxFit.contain);
+    });
+
+    testWidgets('em width falls back to the default basis when none supplied', (
+      tester,
+    ) async {
+      // No emBasis → default 16 → 10em = 160 wide.
+      await tester.pumpWidget(
+        _wrap(_bioImage(size: BioImageSize.parse('10em'))),
+      );
+      await tester.pump();
+
+      expect(_sizedBoxWith(width: 160, height: 80), findsOneWidget);
+    });
+
+    testWidgets('em width scales with the accessibility text scaler', (
+      tester,
+    ) async {
+      // The defining em behavior: at textScaler 1.5, 10em at basis 16 grows to
+      // 10 × (16 × 1.5) = 240 (vs. a fixed #WxH in px, which would not scale).
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(1.5)),
+              child: _bioImage(size: BioImageSize.parse('10em'), emBasis: 16),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final box = _sizedBoxWith(width: 240, height: 120);
+      expect(box, findsOneWidget);
+      expect(tester.getSize(box), const Size(240, 120));
     });
 
     testWidgets('unset uses ConstrainedBox + AspectRatio, capped to maxHeight', (
