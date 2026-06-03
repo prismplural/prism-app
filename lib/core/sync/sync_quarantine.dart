@@ -36,5 +36,11 @@ class SyncQuarantineService {
 
   Future<int> count() => _dao.count();
 
-  Future<void> clearAll() => _dao.clearAll();
+  Future<int> repairLegacyMemberAgeStringMismatches() =>
+      _dao.repairLegacyMemberAgeStringMismatches();
+
+  Future<void> clearAll() async {
+    await repairLegacyMemberAgeStringMismatches();
+    await _dao.clearAll();
+  }
 }

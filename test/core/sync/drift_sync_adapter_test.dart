@@ -92,6 +92,116 @@ void main() {
     },
   );
 
+  group('legacy member age quarantine repair', () {
+    test('restores a missing String age from an old Int mismatch', () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      await db
+          .into(db.members)
+          .insert(
+            database.MembersCompanion.insert(
+              id: 'member-1',
+              name: 'Ada',
+              createdAt: DateTime.utc(2026, 6, 2),
+            ),
+          );
+
+      final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+      await quarantine.quarantineField(
+        entityType: 'members',
+        entityId: 'member-1',
+        fieldName: 'age',
+        expectedType: 'int?',
+        receivedType: 'String',
+        receivedValue: 'twenty-ish',
+        errorMessage: 'Type mismatch: expected int?, got String',
+      );
+
+      final repaired = await quarantine.repairLegacyMemberAgeStringMismatches();
+      final member = await (db.select(
+        db.members,
+      )..where((t) => t.id.equals('member-1'))).getSingle();
+
+      expect(repaired, 1);
+      expect(member.age, 'twenty-ish');
+      expect(await db.syncQuarantineDao.getAll(), isEmpty);
+    });
+
+    test('does not overwrite an age already repaired locally', () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      await db
+          .into(db.members)
+          .insert(
+            database.MembersCompanion.insert(
+              id: 'member-1',
+              name: 'Ada',
+              age: const Value('local value'),
+              createdAt: DateTime.utc(2026, 6, 2),
+            ),
+          );
+
+      final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+      await quarantine.quarantineField(
+        entityType: 'members',
+        entityId: 'member-1',
+        fieldName: 'age',
+        expectedType: 'int?',
+        receivedType: 'String',
+        receivedValue: 'remote value',
+        errorMessage: 'Type mismatch: expected int?, got String',
+      );
+
+      final repaired = await quarantine.repairLegacyMemberAgeStringMismatches();
+      final member = await (db.select(
+        db.members,
+      )..where((t) => t.id.equals('member-1'))).getSingle();
+
+      expect(repaired, 0);
+      expect(member.age, 'local value');
+      expect(await db.syncQuarantineDao.getAll(), hasLength(1));
+    });
+
+    test(
+      'clearAll preserves a recoverable missing age before deleting rows',
+      () async {
+        final db = database.AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        await db
+            .into(db.members)
+            .insert(
+              database.MembersCompanion.insert(
+                id: 'member-1',
+                name: 'Ada',
+                createdAt: DateTime.utc(2026, 6, 2),
+              ),
+            );
+
+        final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+        await quarantine.quarantineField(
+          entityType: 'members',
+          entityId: 'member-1',
+          fieldName: 'age',
+          expectedType: 'int?',
+          receivedType: 'String',
+          receivedValue: 'twenty-ish',
+          errorMessage: 'Type mismatch: expected int?, got String',
+        );
+
+        await quarantine.clearAll();
+        final member = await (db.select(
+          db.members,
+        )..where((t) => t.id.equals('member-1'))).getSingle();
+
+        expect(member.age, 'twenty-ish');
+        expect(await db.syncQuarantineDao.getAll(), isEmpty);
+      },
+    );
+  });
+
   test(
     'fronting_sessions sync entity carries sleep fields and sleep_sessions is removed',
     () async {

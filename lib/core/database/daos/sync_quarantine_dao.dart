@@ -49,6 +49,77 @@ class SyncQuarantineDao extends DatabaseAccessor<AppDatabase>
         .get();
   }
 
+  Future<int> repairLegacyMemberAgeStringMismatches() async {
+    return transaction(() async {
+      final rows = await customSelect(
+        '''
+        SELECT id, entity_id, received_value
+        FROM sync_quarantine
+        WHERE entity_type = 'members'
+          AND field_name = 'age'
+          AND received_type = 'String'
+          AND received_value IS NOT NULL
+          AND (
+            lower(expected_type) IN ('int', 'int?')
+            OR error_message LIKE 'Type mismatch: expected int%got String'
+          )
+        ORDER BY created_at DESC
+        ''',
+        readsFrom: {syncQuarantineTable},
+      ).get();
+
+      var repaired = 0;
+      final repairedEntityIds = <String>{};
+      for (final row in rows) {
+        final entityId = row.read<String>('entity_id');
+        if (repairedEntityIds.contains(entityId)) continue;
+
+        final receivedValue = row.read<String?>('received_value');
+        if (receivedValue == null) continue;
+
+        final updated = await customUpdate(
+          '''
+          UPDATE members
+          SET age = ?
+          WHERE id = ?
+            AND (age IS NULL OR age = '')
+          ''',
+          variables: [
+            Variable<String>(receivedValue),
+            Variable<String>(entityId),
+          ],
+          updates: {db.members},
+        );
+
+        if (updated > 0) {
+          repaired++;
+          repairedEntityIds.add(entityId);
+        }
+      }
+
+      for (final entityId in repairedEntityIds) {
+        await customUpdate(
+          '''
+          DELETE FROM sync_quarantine
+          WHERE entity_type = 'members'
+            AND field_name = 'age'
+            AND received_type = 'String'
+            AND received_value IS NOT NULL
+            AND (
+              lower(expected_type) IN ('int', 'int?')
+              OR error_message LIKE 'Type mismatch: expected int%got String'
+            )
+            AND entity_id = ?
+          ''',
+          variables: [Variable<String>(entityId)],
+          updates: {syncQuarantineTable},
+        );
+      }
+
+      return repaired;
+    });
+  }
+
   Future<int> count() async {
     final result = await customSelect(
       'SELECT COUNT(*) AS c FROM sync_quarantine',

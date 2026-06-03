@@ -4630,9 +4630,9 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
   /// Check whether any fields have been quarantined due to type mismatches.
   Future<bool> _queryQuarantine() async {
     try {
-      return await ref
-          .read(syncQuarantineServiceProvider)
-          .hasQuarantinedItems();
+      final quarantine = ref.read(syncQuarantineServiceProvider);
+      await quarantine.repairLegacyMemberAgeStringMismatches();
+      return await quarantine.hasQuarantinedItems();
     } catch (_) {
       return false;
     }

@@ -13,6 +13,8 @@ class _FakeQuarantineService implements SyncQuarantineService {
   @override
   Future<int> count() async => 0;
   @override
+  Future<int> repairLegacyMemberAgeStringMismatches() async => 0;
+  @override
   Future<void> clearAll() async {}
   @override
   Future<void> quarantineField({
@@ -133,8 +135,8 @@ void main() {
     // CONFIRMED revoke, so default the confirmation to positive. The
     // unconfirmed/false-alarm path is covered by its own test below, which
     // overrides this.
-    debugRevokeConfirmationOverride =
-        () async => RevokeConfirmation.confirmedRevoked;
+    debugRevokeConfirmationOverride = () async =>
+        RevokeConfirmation.confirmedRevoked;
   });
 
   tearDown(() {
@@ -533,8 +535,8 @@ void main() {
 
       // Registry says THIS device is still active → the ambiguous revoke is a
       // false alarm; the destructive `_credentialsRevoked` gate is NOT set.
-      debugRevokeConfirmationOverride =
-          () async => RevokeConfirmation.stillActive;
+      debugRevokeConfirmationOverride = () async =>
+          RevokeConfirmation.stillActive;
 
       ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
       await Future<void>.delayed(settleAfterDebounce);
