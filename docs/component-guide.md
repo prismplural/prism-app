@@ -27,7 +27,7 @@ Quick reference for the shared widget library in `lib/shared/widgets/`.
 | `PrismListRow` | `prism_list_row.dart` | Row primitive for navigation items, metadata, and grouped list content |
 | `PrismSettingsRow` | `prism_settings_row.dart` | Settings-oriented row with tinted icon badge, subtitle, and optional chevron |
 | `PrismPill` | `prism_pill.dart` | Compact metadata pill for counts, tags, and status indicators |
-| `PrismSheet` | `prism_sheet.dart` | Styled bottom sheet with drag handle, title/subtitle, and action row |
+| `PrismSheet` | `prism_sheet.dart` | Adaptive modal sheet: bottom sheet on narrow screens, trailing side sheet on wide screens |
 | `PrismDialog` | `prism_dialog.dart` | Styled dialog with `show()` for custom content and `confirm()` for confirmations |
 
 ## When to Use Prism Components vs Raw Material

@@ -10,6 +10,7 @@ class SliverPinnedTopBar extends StatelessWidget {
     super.key,
     required this.child,
     this.gradientHeight = 24.0,
+    this.maxWidth = double.infinity,
   });
 
   /// The top bar widget to pin.
@@ -17,6 +18,10 @@ class SliverPinnedTopBar extends StatelessWidget {
 
   /// Height of the gradient fade below the bar.
   final double gradientHeight;
+
+  /// Max width of the bar surface, centered. Use [PrismTokens.contentMaxWidth]
+  /// on content-primary screens so the bar lines up with the clamped body.
+  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +34,7 @@ class SliverPinnedTopBar extends StatelessWidget {
         child: child,
         barHeight: barHeight,
         gradientHeight: gradientHeight,
+        maxWidth: maxWidth,
       ),
     );
   }
@@ -39,11 +45,13 @@ class _PinnedTopBarDelegate extends SliverPersistentHeaderDelegate {
     required this.child,
     required this.barHeight,
     required this.gradientHeight,
+    required this.maxWidth,
   });
 
   final PreferredSizeWidget child;
   final double barHeight;
   final double gradientHeight;
+  final double maxWidth;
 
   @override
   double get maxExtent => barHeight;
@@ -55,7 +63,8 @@ class _PinnedTopBarDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _PinnedTopBarDelegate oldDelegate) =>
       child != oldDelegate.child ||
       barHeight != oldDelegate.barHeight ||
-      gradientHeight != oldDelegate.gradientHeight;
+      gradientHeight != oldDelegate.gradientHeight ||
+      maxWidth != oldDelegate.maxWidth;
 
   @override
   Widget build(
@@ -65,40 +74,43 @@ class _PinnedTopBarDelegate extends SliverPersistentHeaderDelegate {
   ) {
     final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
 
-    return SizedBox(
-      height: barHeight,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // Gradient overlapping the bottom portion of the bar itself
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      scaffoldBg,
-                      scaffoldBg,
-                      scaffoldBg.withValues(alpha: 0),
-                    ],
-                    stops: const [0.0, 0.6, 1.0],
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: SizedBox(
+          height: barHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Gradient overlapping the bottom portion of the bar itself
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          scaffoldBg,
+                          scaffoldBg,
+                          scaffoldBg.withValues(alpha: 0),
+                        ],
+                        stops: const [0.0, 0.6, 1.0],
+                      ),
+                    ),
+                    child: const SizedBox.expand(),
                   ),
                 ),
-                child: const SizedBox.expand(),
               ),
-            ),
+              // Bar content
+              Positioned.fill(child: child),
+            ],
           ),
-          // Bar content
-          Positioned.fill(
-            child: child,
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -17,6 +17,42 @@ class PrismTokens {
   static const double desktopBreakpoint = 768;
   static const double desktopBreakpointOff = 720; // hysteresis
 
+  /// Content-area width at which a list screen splits into a two-pane
+  /// list-detail layout (list on the left, selected item's detail on the
+  /// right). Matches Material 3's "expanded" window size class lower bound.
+  /// Measured against the *available content width*, not the whole window —
+  /// the desktop sidebar is already subtracted by the time a screen body
+  /// measures itself with LayoutBuilder.
+  static const double listDetailBreakpoint = 840;
+
+  /// Content-area width at which the two-pane layout steps up to its
+  /// "extra wide" tier, giving the list pane more room once the detail pane is
+  /// comfortably wide. Tuned a little below Material 3's "large" lower bound
+  /// (1200) so the wider list pane appears as soon as there's room for it.
+  static const double listDetailBreakpointXWide = 1080;
+
+  /// Width of the list pane in the "wide" tier (just past
+  /// [listDetailBreakpoint]). Kept narrow so the detail pane clearly
+  /// dominates rather than the two columns looking evenly split.
+  static const double listPaneWidth = 360;
+
+  /// Width of the list pane in the "extra wide" tier (past
+  /// [listDetailBreakpointXWide]).
+  static const double listPaneWidthXWide = 440;
+
+  /// Max width for content-primary screens (dashboards/feeds like home, polls,
+  /// boards, stats) so the body doesn't stretch edge-to-edge on wide windows.
+  /// These screens clamp their content and open per-item detail in a modal
+  /// side sheet rather than squishing into a permanent list pane.
+  static const double contentMaxWidth = 720;
+
+  /// Window width at or above which content-primary screens open per-item
+  /// detail in a modal side sheet; below this they push a full-screen route.
+  static const double detailSideSheetMinWidth = 900;
+
+  /// Width of the modal detail side sheet on wide windows.
+  static const double detailSideSheetWidth = 520;
+
   static const double topBarHeight = 66;
   static const double topBarActionSize = 44;
   static const double pageHorizontalPadding = 16;

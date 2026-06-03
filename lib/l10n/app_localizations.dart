@@ -5074,6 +5074,18 @@ abstract class AppLocalizations {
   /// **'Create groups to organize your system {termPlural}'**
   String memberGroupEmptySubtitle(String termPlural);
 
+  /// Empty state title in the desktop member detail pane when members exist but none is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Select a {termSingularLower}'**
+  String memberSelectDetailPaneEmptyTitle(String termSingularLower);
+
+  /// Empty state subtitle in the desktop member detail pane when members exist but none is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a {termSingularLower} from the list to see their details here.'**
+  String memberSelectDetailPaneEmptySubtitle(String termSingularLower);
+
   /// Empty state title inside a group detail screen
   ///
   /// In en, this message translates to:
@@ -5476,6 +5488,18 @@ abstract class AppLocalizations {
   /// **'Create notes to keep track of thoughts and observations'**
   String get memberNoteEmptySubtitle;
 
+  /// Empty state title in the desktop notes detail pane when notes exist but none is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Select a note'**
+  String get memberNoteSelectEmptyTitle;
+
+  /// Empty state subtitle in the desktop notes detail pane when notes exist but none is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a note from the list to view it here.'**
+  String get memberNoteSelectEmptySubtitle;
+
   /// Hint text for the note title field
   ///
   /// In en, this message translates to:
@@ -5511,6 +5535,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Discard'**
   String get memberNoteDiscardConfirm;
+
+  /// Tooltip for the button that switches the note editor into rendered markdown preview mode
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get memberNotePreviewTooltip;
 
   /// Sheet title for headmate selection in note sheet
   ///
@@ -6520,6 +6550,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Start a group conversation'**
   String get chatNoGroupChatsSubtitle;
+
+  /// Empty state title in the desktop chat detail pane when conversations exist but none is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Select a conversation'**
+  String get chatSelectConversationEmptyTitle;
+
+  /// Empty state subtitle in the desktop chat detail pane when conversations exist but none is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a conversation from the list to read it here.'**
+  String get chatSelectConversationEmptySubtitle;
 
   /// Error message when conversations fail to load
   ///
@@ -12691,6 +12733,24 @@ abstract class AppLocalizations {
   /// **'Add Reminder'**
   String get remindersEmptyAction;
 
+  /// Confirmation dialog title when disabling a reminder
+  ///
+  /// In en, this message translates to:
+  /// **'Disable reminder?'**
+  String get remindersDisableTitle;
+
+  /// Confirmation dialog message when disabling a reminder
+  ///
+  /// In en, this message translates to:
+  /// **'\"{name}\" will stop sending notifications until you turn it back on.'**
+  String remindersDisableMessage(String name);
+
+  /// Confirm button label when disabling a reminder
+  ///
+  /// In en, this message translates to:
+  /// **'Disable'**
+  String get remindersDisableConfirm;
+
   /// Snackbar text after deleting a reminder
   ///
   /// In en, this message translates to:
@@ -14144,6 +14204,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get navSettings;
+
+  /// Empty state subtitle in the desktop settings detail pane when no setting is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a setting from the list to view it here.'**
+  String get settingsSelectEmptySubtitle;
 
   /// Bottom navigation tab label for the Members tab (default; overridden by user terminology)
   ///

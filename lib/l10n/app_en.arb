@@ -3958,6 +3958,24 @@
       }
     }
   },
+  "memberSelectDetailPaneEmptyTitle": "Select a {termSingularLower}",
+  "@memberSelectDetailPaneEmptyTitle": {
+    "description": "Empty state title in the desktop member detail pane when members exist but none is selected",
+    "placeholders": {
+      "termSingularLower": {
+        "type": "String"
+      }
+    }
+  },
+  "memberSelectDetailPaneEmptySubtitle": "Choose a {termSingularLower} from the list to see their details here.",
+  "@memberSelectDetailPaneEmptySubtitle": {
+    "description": "Empty state subtitle in the desktop member detail pane when members exist but none is selected",
+    "placeholders": {
+      "termSingularLower": {
+        "type": "String"
+      }
+    }
+  },
   "memberGroupNoMembers": "No {termPlural}",
   "@memberGroupNoMembers": {
     "description": "Empty state title inside a group detail screen",
@@ -4280,6 +4298,14 @@
   "@memberNoteNoNotesYet": {
     "description": "Empty state text in the notes section on member detail screen"
   },
+  "memberNoteSelectEmptyTitle": "Select a note",
+  "@memberNoteSelectEmptyTitle": {
+    "description": "Empty state title in the desktop notes detail pane when notes exist but none is selected"
+  },
+  "memberNoteSelectEmptySubtitle": "Choose a note from the list to view it here.",
+  "@memberNoteSelectEmptySubtitle": {
+    "description": "Empty state subtitle in the desktop notes detail pane when notes exist but none is selected"
+  },
   "memberNoteTitleHint": "Title",
   "@memberNoteTitleHint": {
     "description": "Hint text for the note title field"
@@ -4308,6 +4334,10 @@
   "memberNoteDiscardConfirm": "Discard",
   "@memberNoteDiscardConfirm": {
     "description": "Confirm button label for discarding note changes"
+  },
+  "memberNotePreviewTooltip": "Preview",
+  "@memberNotePreviewTooltip": {
+    "description": "Tooltip for the button that switches the note editor into rendered markdown preview mode"
   },
   "memberNoteChooseHeadmate": "Choose {termSingular}",
   "@memberNoteChooseHeadmate": {
@@ -5168,6 +5198,14 @@
   "chatNoGroupChatsSubtitle": "Start a group conversation",
   "@chatNoGroupChatsSubtitle": {
     "description": "Empty state subtitle when the group chats tab is empty"
+  },
+  "chatSelectConversationEmptyTitle": "Select a conversation",
+  "@chatSelectConversationEmptyTitle": {
+    "description": "Empty state title in the desktop chat detail pane when conversations exist but none is selected"
+  },
+  "chatSelectConversationEmptySubtitle": "Choose a conversation from the list to read it here.",
+  "@chatSelectConversationEmptySubtitle": {
+    "description": "Empty state subtitle in the desktop chat detail pane when conversations exist but none is selected"
   },
   "chatErrorLoadingConversations": "Error loading conversations",
   "@chatErrorLoadingConversations": {
@@ -9025,6 +9063,15 @@
   "@remindersEmptySubtitle": { "description": "Empty state subtitle on reminders screen" },
   "remindersEmptyAction": "Add Reminder",
   "@remindersEmptyAction": { "description": "Empty state action button label on reminders screen" },
+  "remindersDisableTitle": "Disable reminder?",
+  "@remindersDisableTitle": { "description": "Confirmation dialog title when disabling a reminder" },
+  "remindersDisableMessage": "\"{name}\" will stop sending notifications until you turn it back on.",
+  "@remindersDisableMessage": {
+    "description": "Confirmation dialog message when disabling a reminder",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "remindersDisableConfirm": "Disable",
+  "@remindersDisableConfirm": { "description": "Confirm button label when disabling a reminder" },
   "remindersDeletedSnackbar": "Deleted \"{name}\"",
   "@remindersDeletedSnackbar": {
     "description": "Snackbar text after deleting a reminder",
@@ -9607,6 +9654,10 @@
   "@navPolls": { "description": "Bottom navigation tab label for the Polls tab" },
   "navSettings": "Settings",
   "@navSettings": { "description": "Bottom navigation tab label for the Settings tab" },
+  "settingsSelectEmptySubtitle": "Choose a setting from the list to view it here.",
+  "@settingsSelectEmptySubtitle": {
+    "description": "Empty state subtitle in the desktop settings detail pane when no setting is selected"
+  },
   "navMembers": "Members",
   "@navMembers": { "description": "Bottom navigation tab label for the Members tab (default; overridden by user terminology)" },
   "navReminders": "Reminders",

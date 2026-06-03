@@ -20,6 +20,7 @@ class PrismPageScaffold extends StatelessWidget {
     this.floatingActionButton,
     this.resizeToAvoidBottomInset,
     this.safeAreaBottom = true,
+    this.topBarMaxWidth = double.infinity,
   });
 
   final Widget body;
@@ -32,6 +33,11 @@ class PrismPageScaffold extends StatelessWidget {
   final bool? resizeToAvoidBottomInset;
   final bool safeAreaBottom;
 
+  /// Max width of the pinned top bar surface, centered. Set to
+  /// [PrismTokens.contentMaxWidth] on content-primary screens whose body is
+  /// clamped, so the bar lines up with the content column.
+  final double topBarMaxWidth;
+
   @override
   Widget build(BuildContext context) {
     final paddedBody = Padding(
@@ -41,7 +47,9 @@ class PrismPageScaffold extends StatelessWidget {
 
     final scaffoldBody = topBar != null
         ? NestedScrollView(
-            headerSliverBuilder: (_, _) => [SliverPinnedTopBar(child: topBar!)],
+            headerSliverBuilder: (_, _) => [
+              SliverPinnedTopBar(maxWidth: topBarMaxWidth, child: topBar!),
+            ],
             body: paddedBody,
           )
         : paddedBody;

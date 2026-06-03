@@ -4,13 +4,11 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
-/// A styled bottom sheet wrapper with consistent Prism design language.
-///
-/// Use [PrismSheet.show] to present a bottom sheet with a drag handle, optional
-/// title/subtitle, body content, and an action row.
+/// Adaptive Prism sheet wrapper.
 class PrismSheet extends StatelessWidget {
   const PrismSheet({
     super.key,
@@ -32,18 +30,7 @@ class PrismSheet extends StatelessWidget {
   /// Optional action row at the bottom (typically [PrismButton] widgets).
   final List<Widget>? actions;
 
-  /// Show a Prism-styled bottom sheet.
-  ///
-  /// Wraps [showModalBottomSheet] with consistent styling: rounded top corners,
-  /// drag handle, safe area insets, and keyboard-aware padding.
-  ///
-  /// If [title], [subtitle], or [actions] are provided they are composed into a
-  /// [PrismSheet] container around the [builder] output. Otherwise the [builder]
-  /// result is used directly.
-  ///
-  /// Use [minHeightFactor] and [maxHeightFactor] (fractions of screen height,
-  /// 0.0–1.0) to bound sheet height for scrollable list-style sheets. When
-  /// omitted the sheet sizes to its natural content height.
+  /// Show an adaptive Prism sheet.
   static Future<T?> show<T>({
     required BuildContext context,
     required WidgetBuilder builder,
@@ -55,22 +42,30 @@ class PrismSheet extends StatelessWidget {
     double? minHeightFactor,
     double? maxHeightFactor,
   }) {
+    if (shouldUseDetailSideSheet(context)) {
+      return _showSideSheet<T>(
+        context: context,
+        builder: builder,
+        title: title,
+        subtitle: subtitle,
+        actions: actions,
+        useRootNavigator: useRootNavigator,
+        isDismissible: isDismissible,
+        minHeightFactor: minHeightFactor,
+        maxHeightFactor: maxHeightFactor,
+      );
+    }
+
     return showModalBottomSheet<T>(
       context: context,
       useRootNavigator: useRootNavigator,
       isScrollControlled: true,
       useSafeArea: true,
       isDismissible: isDismissible,
-      // Flutter's built-in modal drag moves the sheet before asking the route
-      // whether it can pop. That leaves dirty PopScope-guarded sheets collapsed
-      // behind an active barrier, so _SheetChrome owns drag-to-dismiss instead.
+      // _SheetChrome owns drag-to-dismiss so PopScope can veto cleanly.
       enableDrag: false,
-      // Intentionally omit backgroundColor so Flutter's _ModalBottomSheet
-      // resolves it from Theme.of(context).bottomSheetTheme at every rebuild.
-      // Passing an explicit color snapshots it at open time and leaves the
-      // sheet stuck on the old theme when the system flips light↔dark while
-      // a long-lived sheet (e.g. export) is open.
-      // Suppress the stock M3 drag handle — _SheetChrome renders its own.
+      // Omit backgroundColor so long-lived sheets follow theme changes.
+      // _SheetChrome renders the drag handle.
       showDragHandle: false,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
@@ -117,14 +112,7 @@ class PrismSheet extends StatelessWidget {
     );
   }
 
-  /// Show a full-screen Prism-styled bottom sheet.
-  ///
-  /// Opens at full height with no drag handle, but still swipeable to dismiss.
-  /// The [builder] receives a [ScrollController] — attach it to the primary
-  /// scrollable so dragging the list can also dismiss the sheet.
-  ///
-  /// Use [PrismSheetTopBar] inside the builder for a consistent top bar with
-  /// close button, centered title, and optional trailing action.
+  /// Show a full-height adaptive Prism sheet.
   static Future<T?> showFullScreen<T>({
     required BuildContext context,
     required Widget Function(
@@ -135,6 +123,15 @@ class PrismSheet extends StatelessWidget {
     bool useRootNavigator = true,
     bool isDismissible = true,
   }) {
+    if (shouldUseDetailSideSheet(context)) {
+      return _showFullScreenSideSheet<T>(
+        context: context,
+        builder: builder,
+        useRootNavigator: useRootNavigator,
+        isDismissible: isDismissible,
+      );
+    }
+
     return showModalBottomSheet<T>(
       context: context,
       useRootNavigator: useRootNavigator,
@@ -163,6 +160,81 @@ class PrismSheet extends StatelessWidget {
             isDismissible: isDismissible,
             dismissController: dismissController,
             builder: builder,
+          ),
+        );
+      },
+    );
+  }
+
+  static Future<T?> _showSideSheet<T>({
+    required BuildContext context,
+    required WidgetBuilder builder,
+    String? title,
+    String? subtitle,
+    List<Widget>? actions,
+    required bool useRootNavigator,
+    required bool isDismissible,
+    double? minHeightFactor,
+    double? maxHeightFactor,
+  }) {
+    final dismissController = UnsavedChangesDismissController();
+
+    return showDetailSideSheet<T>(
+      context,
+      useRootNavigator: useRootNavigator,
+      dismissible: isDismissible,
+      builder: (sheetContext) {
+        Widget content = builder(sheetContext);
+
+        if (title != null || subtitle != null || actions != null) {
+          content = PrismSheet(
+            title: title,
+            subtitle: subtitle,
+            actions: actions,
+            child: content,
+          );
+        }
+
+        if (minHeightFactor != null || maxHeightFactor != null) {
+          final screenHeight = MediaQuery.sizeOf(sheetContext).height;
+          content = ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: screenHeight * (minHeightFactor ?? 0.0),
+              maxHeight: screenHeight * (maxHeightFactor ?? 1.0),
+            ),
+            child: content,
+          );
+        }
+
+        return UnsavedChangesDismissScope(
+          controller: dismissController,
+          child: _SideSheetKeyboardInset(child: content),
+        );
+      },
+    );
+  }
+
+  static Future<T?> _showFullScreenSideSheet<T>({
+    required BuildContext context,
+    required Widget Function(
+      BuildContext context,
+      ScrollController scrollController,
+    )
+    builder,
+    required bool useRootNavigator,
+    required bool isDismissible,
+  }) {
+    final dismissController = UnsavedChangesDismissController();
+
+    return showDetailSideSheet<T>(
+      context,
+      useRootNavigator: useRootNavigator,
+      dismissible: isDismissible,
+      builder: (sheetContext) {
+        return UnsavedChangesDismissScope(
+          controller: dismissController,
+          child: _SideSheetKeyboardInset(
+            child: _FullScreenSideSheetBody(builder: builder),
           ),
         );
       },
@@ -221,6 +293,51 @@ class PrismSheet extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _SideSheetKeyboardInset extends StatelessWidget {
+  const _SideSheetKeyboardInset({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 100),
+      curve: Curves.decelerate,
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: MediaQuery.removeViewInsets(
+        context: context,
+        removeBottom: true,
+        child: child,
+      ),
+    );
+  }
+}
+
+class _FullScreenSideSheetBody extends StatefulWidget {
+  const _FullScreenSideSheetBody({required this.builder});
+
+  final Widget Function(BuildContext, ScrollController) builder;
+
+  @override
+  State<_FullScreenSideSheetBody> createState() =>
+      _FullScreenSideSheetBodyState();
+}
+
+class _FullScreenSideSheetBodyState extends State<_FullScreenSideSheetBody> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.expand(child: widget.builder(context, _scrollController));
   }
 }
 

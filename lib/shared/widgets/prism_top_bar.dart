@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/embedded_pane_marker.dart';
+import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
+import 'package:prism_plurality/shared/widgets/modal_side_sheet_marker.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 
 /// Shared top-bar layout for standard Prism pages.
@@ -18,7 +21,7 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.trailing,
     this.actions,
     this.titleStyle,
-    this.height = kToolbarHeight,
+    this.height = PrismTokens.topBarHeight,
     this.horizontalPadding = PrismTokens.topBarPadding,
     this.centerTitle = true,
     this.showBackButton = false,
@@ -44,8 +47,9 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
   final EdgeInsets horizontalPadding;
   final bool centerTitle;
 
-  /// When true and [leading] is null, auto-inserts a back button that pops
-  /// the current route.
+  /// When true and [leading] is null, auto-inserts a route-pop action. It
+  /// renders as a back button on pushed pages and a close button inside modal
+  /// side sheets.
   final bool showBackButton;
 
   @override
@@ -53,12 +57,27 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Embedded panes close the selection instead of popping a route.
+    final isEmbeddedPane = EmbeddedPaneMarker.of(context);
+    final paneControls = ListDetailPaneControls.maybeOf(context);
+    final clearPaneSelection = paneControls?.clearSelection;
+    final showPaneClose = isEmbeddedPane && clearPaneSelection != null;
+    final showAutoBack = showBackButton && !isEmbeddedPane;
+    final inModalSideSheet = ModalSideSheetMarker.of(context);
     final effectiveLeading =
         leading ??
-        (showBackButton
+        (showPaneClose
             ? PrismTopBarAction(
-                icon: AppIcons.arrowBack,
-                tooltip: context.l10n.back,
+                icon: AppIcons.close,
+                tooltip: context.l10n.close,
+                onPressed: clearPaneSelection,
+              )
+            : showAutoBack
+            ? PrismTopBarAction(
+                icon: inModalSideSheet ? AppIcons.close : AppIcons.arrowBack,
+                tooltip: inModalSideSheet
+                    ? context.l10n.close
+                    : context.l10n.back,
                 onPressed: () => Navigator.of(context).maybePop(),
               )
             : null);
@@ -72,13 +91,6 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
       titleStyle: titleStyle,
     );
 
-    // Center the content in the full visual bar (toolbar + status-bar inset).
-    // SafeArea consumes the top inset, so the SizedBox starts below it. To
-    // visually center the content across the entire bar we shift it upward by
-    // half the status-bar height.  Clamped to [-1, 0] so it never overflows.
-    final topInset = MediaQuery.of(context).viewPadding.top;
-    final contentAlignY = (topInset / height - 1.0).clamp(-1.0, 0.0);
-
     return SafeArea(
       bottom: false,
       child: SizedBox(
@@ -86,48 +98,48 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
         child: Padding(
           padding: horizontalPadding,
           child: Align(
-            alignment: Alignment(0, contentAlignY),
+            alignment: Alignment.center,
             child: centerTitle
-              ? Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Title centered on the full bar width.
-                    titleBlock,
-                    // Leading and trailing positioned at edges.
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        if (effectiveLeading != null)
-                          effectiveLeading
-                        else
-                          _slot(null),
-                        const Spacer(),
-                        if (effectiveTrailing != null)
-                          effectiveTrailing
-                        else
-                          _slot(null),
-                      ],
-                    ),
-                  ],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _slot(effectiveLeading),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: titleBlock,
+                ? Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Title centered on the full bar width.
+                      titleBlock,
+                      // Leading and trailing positioned at edges.
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          if (effectiveLeading != null)
+                            effectiveLeading
+                          else
+                            _slot(null),
+                          const Spacer(),
+                          if (effectiveTrailing != null)
+                            effectiveTrailing
+                          else
+                            _slot(null),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    if (effectiveTrailing != null)
-                      effectiveTrailing
-                    else
-                      _slot(null),
-                  ],
-                ),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _slot(effectiveLeading),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: titleBlock,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      if (effectiveTrailing != null)
+                        effectiveTrailing
+                      else
+                        _slot(null),
+                    ],
+                  ),
           ),
         ),
       ),

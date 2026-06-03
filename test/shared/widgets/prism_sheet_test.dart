@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -228,6 +229,212 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Natural size content'), findsOneWidget);
+  });
+
+  testWidgets('PrismSheet.show presents as a side sheet on wide windows', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 700);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () {
+              PrismSheet.show(
+                context: context,
+                title: 'Wide sheet',
+                builder: (_) => const Text('Wide content'),
+              );
+            },
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final contentTopLeft = tester.getTopLeft(find.text('Wide content'));
+    final panelFinder = find.byKey(const Key('detailSideSheetPanel'));
+    final panelTopLeft = tester.getTopLeft(panelFinder);
+    final panelBottomRight = tester.getBottomRight(panelFinder);
+    final panelMaterial = tester.widget<Material>(panelFinder);
+
+    expect(find.text('Wide sheet'), findsOneWidget);
+    expect(panelFinder, findsOneWidget);
+    expect(panelTopLeft.dx, closeTo(468, 1));
+    expect(panelTopLeft.dy, closeTo(12, 1));
+    expect(panelBottomRight.dx, closeTo(988, 1));
+    expect(panelBottomRight.dy, closeTo(688, 1));
+    expect(panelMaterial.shape, isA<RoundedRectangleBorder>());
+    expect(panelMaterial.clipBehavior, Clip.antiAlias);
+    final barriers = tester
+        .widgetList<Widget>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is ModalBarrier || widget is AnimatedModalBarrier,
+          ),
+        )
+        .toList();
+    expect(barriers, isNotEmpty);
+    final barrierColors = barriers
+        .map(
+          (barrier) => switch (barrier) {
+            ModalBarrier(:final color) => color,
+            AnimatedModalBarrier(:final color) => color.value,
+            _ => null,
+          },
+        )
+        .toList();
+    expect(barrierColors, everyElement(anyOf(isNull, Colors.transparent)));
+    expect(contentTopLeft.dx, greaterThan(480));
+    expect(contentTopLeft.dy, lessThan(120));
+  });
+
+  testWidgets(
+    'PrismSheet.showFullScreen presents as a side sheet on wide windows',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1000, 700);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      ScrollController? suppliedController;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  PrismSheet.showFullScreen(
+                    context: context,
+                    builder: (_, scrollController) {
+                      suppliedController = scrollController;
+                      return Column(
+                        children: [
+                          const PrismSheetTopBar(title: 'Wide full sheet'),
+                          Expanded(
+                            child: ListView(
+                              controller: scrollController,
+                              children: const [Text('Scrollable row')],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(suppliedController, isNotNull);
+      expect(find.byType(DraggableScrollableSheet), findsNothing);
+      expect(
+        tester.getTopLeft(find.text('Wide full sheet')).dx,
+        greaterThan(480),
+      );
+    },
+  );
+
+  testWidgets('wide non-dismissible PrismSheet ignores scrim and Escape', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 700);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () {
+              PrismSheet.show(
+                context: context,
+                isDismissible: false,
+                builder: (_) => const Text('Locked content'),
+              );
+            },
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.tapAt(const Offset(100, 100));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Locked content'), findsOneWidget);
+  });
+
+  testWidgets('wide dirty PrismSheet prompts before scrim dismissal', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 700);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  PrismSheet.show<void>(
+                    context: context,
+                    builder: (_) => const UnsavedChangesGuard<void>(
+                      hasUnsavedChanges: true,
+                      child: Text('Dirty side sheet'),
+                    ),
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.tapAt(const Offset(100, 100));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dirty side sheet'), findsOneWidget);
+    expect(find.text('Discard changes?'), findsOneWidget);
   });
 
   testWidgets('PrismSheet includes bottom navigation inset in padding', (
@@ -592,76 +799,75 @@ void main() {
     },
   );
 
-  testWidgets(
-    'PrismSheet.showFullScreen background tracks theme changes',
-    (tester) async {
-      const lightSheetBg = Color(0xFFAABBCC);
-      const darkSheetBg = Color(0xFF112233);
+  testWidgets('PrismSheet.showFullScreen background tracks theme changes', (
+    tester,
+  ) async {
+    const lightSheetBg = Color(0xFFAABBCC);
+    const darkSheetBg = Color(0xFF112233);
 
-      final brightnessNotifier = ValueNotifier<Brightness>(Brightness.light);
-      addTearDown(brightnessNotifier.dispose);
+    final brightnessNotifier = ValueNotifier<Brightness>(Brightness.light);
+    addTearDown(brightnessNotifier.dispose);
 
-      await tester.pumpWidget(
-        ValueListenableBuilder<Brightness>(
-          valueListenable: brightnessNotifier,
-          builder: (context, brightness, _) {
-            return MaterialApp(
-              theme: ThemeData(
-                brightness: Brightness.light,
-                bottomSheetTheme: const BottomSheetThemeData(
-                  backgroundColor: lightSheetBg,
-                ),
+    await tester.pumpWidget(
+      ValueListenableBuilder<Brightness>(
+        valueListenable: brightnessNotifier,
+        builder: (context, brightness, _) {
+          return MaterialApp(
+            theme: ThemeData(
+              brightness: Brightness.light,
+              bottomSheetTheme: const BottomSheetThemeData(
+                backgroundColor: lightSheetBg,
               ),
-              darkTheme: ThemeData(
-                brightness: Brightness.dark,
-                bottomSheetTheme: const BottomSheetThemeData(
-                  backgroundColor: darkSheetBg,
-                ),
+            ),
+            darkTheme: ThemeData(
+              brightness: Brightness.dark,
+              bottomSheetTheme: const BottomSheetThemeData(
+                backgroundColor: darkSheetBg,
               ),
-              themeMode: brightness == Brightness.dark
-                  ? ThemeMode.dark
-                  : ThemeMode.light,
-              home: Builder(
-                builder: (context) => ElevatedButton(
-                  onPressed: () {
-                    PrismSheet.showFullScreen(
-                      context: context,
-                      builder: (_, _) => const SizedBox(
-                        key: Key('full-sheet-body'),
-                        height: 100,
-                        child: Text('Body'),
-                      ),
-                    );
-                  },
-                  child: const Text('Open'),
-                ),
+            ),
+            themeMode: brightness == Brightness.dark
+                ? ThemeMode.dark
+                : ThemeMode.light,
+            home: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  PrismSheet.showFullScreen(
+                    context: context,
+                    builder: (_, _) => const SizedBox(
+                      key: Key('full-sheet-body'),
+                      height: 100,
+                      child: Text('Body'),
+                    ),
+                  );
+                },
+                child: const Text('Open'),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    Material findSheetMaterial() {
+      return tester.widget<Material>(
+        find
+            .ancestor(
+              of: find.byKey(const Key('full-sheet-body')),
+              matching: find.byType(Material),
+            )
+            .first,
       );
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
+    }
 
-      Material findSheetMaterial() {
-        return tester.widget<Material>(
-          find
-              .ancestor(
-                of: find.byKey(const Key('full-sheet-body')),
-                matching: find.byType(Material),
-              )
-              .first,
-        );
-      }
+    expect(findSheetMaterial().color, lightSheetBg);
 
-      expect(findSheetMaterial().color, lightSheetBg);
+    brightnessNotifier.value = Brightness.dark;
+    await tester.pumpAndSettle();
 
-      brightnessNotifier.value = Brightness.dark;
-      await tester.pumpAndSettle();
-
-      expect(findSheetMaterial().color, darkSheetBg);
-    },
-  );
+    expect(findSheetMaterial().color, darkSheetBg);
+  });
 
   testWidgets(
     'PrismSheet.showFullScreen shrinks its viewport above the keyboard',

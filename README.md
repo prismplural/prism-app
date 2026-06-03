@@ -121,8 +121,9 @@ them at the design stage than during review.
 A few things worth knowing before sending a patch:
 
 - Hand-written Riverpod providers only. No `@riverpod` codegen.
-- All modal sheets go through `PrismSheet.show()`. All app bar buttons go
-  through `PrismIconButton`.
+- All modal sheets go through `PrismSheet.show()` so they adapt from bottom
+  sheets on narrow screens to trailing side sheets on wide screens. All app bar
+  buttons go through `PrismIconButton`.
 - Always use the `secureStorage` constant from
   `core/services/secure_storage.dart` — never bare `FlutterSecureStorage()`.
 - Accent colors come from `Theme.of(context).colorScheme.primary`, not from

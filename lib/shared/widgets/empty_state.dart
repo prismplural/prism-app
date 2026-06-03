@@ -25,21 +25,13 @@ String removeEmoji(String text) {
 
 /// A suggestion item for the empty state view.
 class EmptyStateSuggestion {
-  const EmptyStateSuggestion({
-    required this.text,
-    this.onTap,
-  });
+  const EmptyStateSuggestion({required this.text, this.onTap});
 
   final String text;
   final VoidCallback? onTap;
 }
 
-/// Generic reusable empty state widget.
-///
-/// Displays a centered column with a large muted icon in a colored circle,
-/// title text, subtitle text, optional suggestions box, and an optional
-/// action button. Used across the app to provide consistent empty-state
-/// messaging.
+/// Generic reusable empty state.
 class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,
@@ -65,68 +57,69 @@ class EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = iconColor ?? theme.colorScheme.primary;
+    final color = iconColor ?? theme.colorScheme.onSurfaceVariant;
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Icon in colored circle
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(
-                  PrismShapes.of(context).radius(50),
+        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ExcludeSemantics(
+                child: SizedBox.square(
+                  dimension: 34,
+                  child: Opacity(
+                    opacity: iconColor == null ? 0.72 : 1,
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      child: IconTheme(
+                        data: IconThemeData(size: 34, color: color),
+                        child: icon,
+                      ),
+                    ),
+                  ),
                 ),
-                color: color.withValues(alpha: 0.15),
               ),
-              alignment: Alignment.center,
-              child: IconTheme(
-                data: IconThemeData(size: 48, color: color),
-                child: icon,
-              ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 14),
 
-            // Title
-            Text(
-              title,
-              style: theme.textTheme.headlineLarge?.copyWith(
-                fontWeight: FontWeight.bold,
+              Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.78),
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 6),
 
-            // Message
-            Text(
-              subtitle,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              Text(
+                subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.82,
+                  ),
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
 
-            // Suggestions
-            if (suggestions != null && suggestions!.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              _SuggestionsBox(suggestions: suggestions!),
+              if (suggestions != null && suggestions!.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                _SuggestionsBox(suggestions: suggestions!),
+              ],
+
+              if (actionLabel != null && onAction != null) ...[
+                const SizedBox(height: 22),
+                PrismButton(
+                  label: actionLabel!,
+                  icon: actionIcon,
+                  onPressed: onAction!,
+                  tone: PrismButtonTone.filled,
+                ),
+              ],
             ],
-
-            // Action button
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 24),
-              PrismButton(
-                label: actionLabel!,
-                icon: actionIcon,
-                onPressed: onAction!,
-                tone: PrismButtonTone.filled,
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );

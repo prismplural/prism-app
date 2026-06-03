@@ -32,6 +32,7 @@ class MemberCard extends StatelessWidget {
     this.reorderIndex,
     this.dragHandleHint,
     this.deferAvatarLookup = false,
+    this.selected = false,
   });
 
   final Member member;
@@ -39,6 +40,9 @@ class MemberCard extends StatelessWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
   final bool deferAvatarLookup;
+
+  /// Highlights the card as the active selection in wide list-detail layouts.
+  final bool selected;
 
   /// When non-null, the card renders a drag handle wired to a parent
   /// [ReorderableListView] at this index.
@@ -65,8 +69,17 @@ class MemberCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Material(
-        color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-        borderRadius: radius,
+        color: selected
+            ? theme.colorScheme.primary.withValues(alpha: 0.14)
+            : theme.colorScheme.onSurface.withValues(alpha: 0.06),
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: selected
+              ? BorderSide(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.55),
+                )
+              : BorderSide.none,
+        ),
         clipBehavior: Clip.antiAlias,
         child: Semantics(
           button: true,

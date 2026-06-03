@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
 /// A centered app bar layout intended to pair with Prism glass controls.
@@ -9,7 +10,7 @@ class PrismGlassAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.subtitle,
     this.leading,
     this.trailing,
-    this.height = kToolbarHeight,
+    this.height = PrismTokens.topBarHeight,
     this.horizontalPadding = 12,
   });
 

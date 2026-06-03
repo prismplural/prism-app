@@ -3007,6 +3007,16 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String memberSelectDetailPaneEmptyTitle(String termSingularLower) {
+    return 'Selecciona une $termSingularLower';
+  }
+
+  @override
+  String memberSelectDetailPaneEmptySubtitle(String termSingularLower) {
+    return 'Elige une $termSingularLower de la lista para ver sus detalles aquí.';
+  }
+
+  @override
   String memberGroupNoMembers(String termPlural) {
     return 'Sin $termPlural';
   }
@@ -3240,6 +3250,13 @@ class AppLocalizationsEs extends AppLocalizations {
       'Crea notas para registrar pensamientos y observaciones';
 
   @override
+  String get memberNoteSelectEmptyTitle => 'Selecciona una nota';
+
+  @override
+  String get memberNoteSelectEmptySubtitle =>
+      'Elige una nota de la lista para verla aquí.';
+
+  @override
   String get memberNoteTitleHint => 'Título';
 
   @override
@@ -3259,6 +3276,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get memberNoteDiscardConfirm => 'Descartar';
+
+  @override
+  String get memberNotePreviewTooltip => 'Vista previa';
 
   @override
   String memberNoteChooseHeadmate(String termSingular) {
@@ -3894,6 +3914,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get chatNoGroupChatsSubtitle => 'Inicia una conversación grupal';
+
+  @override
+  String get chatSelectConversationEmptyTitle => 'Selecciona una conversación';
+
+  @override
+  String get chatSelectConversationEmptySubtitle =>
+      'Elige una conversación de la lista para leerla aquí.';
 
   @override
   String get chatErrorLoadingConversations => 'Error al cargar conversaciones';
@@ -7939,6 +7966,17 @@ class AppLocalizationsEs extends AppLocalizations {
   String get remindersEmptyAction => 'Agregar recordatorio';
 
   @override
+  String get remindersDisableTitle => '¿Desactivar recordatorio?';
+
+  @override
+  String remindersDisableMessage(String name) {
+    return '\"$name\" dejará de enviar notificaciones hasta que lo vuelvas a activar.';
+  }
+
+  @override
+  String get remindersDisableConfirm => 'Desactivar';
+
+  @override
   String remindersDeletedSnackbar(String name) {
     return 'Eliminado \"$name\"';
   }
@@ -8810,6 +8848,10 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get navSettings => 'Ajustes';
+
+  @override
+  String get settingsSelectEmptySubtitle =>
+      'Elige un ajuste de la lista para verlo aquí.';
 
   @override
   String get navMembers => 'Integrantes';
