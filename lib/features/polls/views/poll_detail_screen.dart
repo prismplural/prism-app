@@ -725,10 +725,8 @@ class _SelectChip extends ConsumerWidget {
   final String termPlural;
   final ValueChanged<String> onSelectMember;
 
-  Future<void> _openSearch(
-    BuildContext context,
-    List<MemberSearchGroup> groups,
-  ) async {
+  Future<void> _openSearch(BuildContext context, WidgetRef ref) async {
+    final groups = readMemberSearchGroups(ref, members);
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,
@@ -742,11 +740,11 @@ class _SelectChip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final searchGroups = watchMemberSearchGroups(ref, members);
+    watchMemberSearchGroupSources(ref);
     return PrismChip(
       label: context.l10n.search,
       selected: false,
-      onTap: () => _openSearch(context, searchGroups),
+      onTap: () => _openSearch(context, ref),
       avatar: Icon(
         AppIcons.search,
         size: 18,

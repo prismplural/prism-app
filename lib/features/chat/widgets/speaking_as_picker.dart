@@ -49,6 +49,7 @@ class SpeakingAsPicker extends ConsumerWidget {
     return membersAsync.when(
       data: (members) {
         final authorOptions = withUnknownChatAuthorOption(context, members);
+        watchMemberSearchGroupSources(ref);
 
         // Auto-select first member when allowed and nothing is selected.
         if (speakingAs == null && authorOptions.isNotEmpty && autoSelectFirst) {
@@ -63,8 +64,6 @@ class SpeakingAsPicker extends ConsumerWidget {
           });
         }
 
-        final searchGroups = watchMemberSearchGroups(ref, authorOptions);
-
         if (members.length >= _kSpeakingAsPickerSearchThreshold) {
           return _buildSearchTrigger(
             context,
@@ -73,7 +72,6 @@ class SpeakingAsPicker extends ConsumerWidget {
             authorOptions,
             speakingAs,
             terms.plural,
-            searchGroups,
           );
         }
 
@@ -93,7 +91,6 @@ class SpeakingAsPicker extends ConsumerWidget {
                   theme,
                   authorOptions,
                   terms.plural,
-                  searchGroups,
                 );
               }
               final member = authorOptions[index - 1];
@@ -146,7 +143,6 @@ class SpeakingAsPicker extends ConsumerWidget {
     ThemeData theme,
     List<Member> members,
     String termPlural,
-    List<MemberSearchGroup> groups,
   ) {
     return Center(
       child: Tooltip(
@@ -154,8 +150,7 @@ class SpeakingAsPicker extends ConsumerWidget {
         child: InkWell(
           key: const Key('speakingAsSearchChip'),
           borderRadius: BorderRadius.circular(20),
-          onTap: () =>
-              _openSearchSheet(context, ref, members, termPlural, groups),
+          onTap: () => _openSearchSheet(context, ref, members, termPlural),
           child: Container(
             width: 40,
             height: 40,
@@ -183,7 +178,6 @@ class SpeakingAsPicker extends ConsumerWidget {
     List<Member> members,
     String? speakingAs,
     String termPlural,
-    List<MemberSearchGroup> groups,
   ) {
     // When autoSelectFirst is false and nothing is chosen, show a placeholder.
     final Member? displayMember = speakingAs != null
@@ -200,8 +194,7 @@ class SpeakingAsPicker extends ConsumerWidget {
         child: InkWell(
           key: const Key('speakingAsSearchTrigger'),
           borderRadius: BorderRadius.circular(24),
-          onTap: () =>
-              _openSearchSheet(context, ref, members, termPlural, groups),
+          onTap: () => _openSearchSheet(context, ref, members, termPlural),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
@@ -250,8 +243,8 @@ class SpeakingAsPicker extends ConsumerWidget {
     WidgetRef ref,
     List<Member> members,
     String termPlural,
-    List<MemberSearchGroup> groups,
   ) async {
+    final groups = readMemberSearchGroups(ref, members);
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,

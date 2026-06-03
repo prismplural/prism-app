@@ -318,10 +318,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                       error: (e, _) => Text('Error: $e'),
                       data: (members) {
                         final selectedMember = _assignedMember(members);
-                        final searchGroups = watchMemberSearchGroups(
-                          ref,
-                          members,
-                        );
+                        watchMemberSearchGroupSources(ref);
                         return PrismListRow(
                           title: Text(
                             context.l10n.habitsAssignedMember(terms.singular),
@@ -347,8 +344,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                                   size: 36,
                                 ),
                           trailing: Icon(AppIcons.chevronRight),
-                          onTap: () =>
-                              _openAssignedMemberPicker(members, searchGroups),
+                          onTap: () => _openAssignedMemberPicker(members),
                         );
                       },
                     ),
@@ -409,10 +405,8 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
     return null;
   }
 
-  Future<void> _openAssignedMemberPicker(
-    List<Member> members,
-    List<MemberSearchGroup> groups,
-  ) async {
+  Future<void> _openAssignedMemberPicker(List<Member> members) async {
+    final groups = readMemberSearchGroups(ref, members);
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,

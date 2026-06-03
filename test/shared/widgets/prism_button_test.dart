@@ -121,6 +121,31 @@ void main() {
         expect(row.mainAxisSize, MainAxisSize.min);
       });
 
+      testWidgets('renders in intrinsic sliver layouts', (tester) async {
+        await tester.pumpWidget(
+          testApp(
+            CustomScrollView(
+              slivers: [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: PrismButton(
+                      label: 'Start a group conversation',
+                      onPressed: () {},
+                      tone: PrismButtonTone.filled,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+
+        final exception = tester.takeException();
+        expect(exception, isNull);
+        expect(find.text('Start a group conversation'), findsOneWidget);
+      });
+
       testWidgets('uses MainAxisSize.max when expanded', (tester) async {
         await tester.pumpWidget(
           testApp(PrismButton(label: 'Wide', onPressed: () {}, expanded: true)),

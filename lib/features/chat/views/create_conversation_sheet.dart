@@ -208,10 +208,10 @@ class _CreateConversationSheetState
     BuildContext context,
     ThemeData theme,
     List<Member> members,
-    List<MemberSearchGroup> groups,
   ) async {
     final speakingAs = ref.read(speakingAsProvider);
     final termPlural = readTerminology(context, ref).plural;
+    final groups = readMemberSearchGroups(ref, members);
 
     final frontingLabel = context.l10n.chatCreateFronting;
     final primaryColor = theme.colorScheme.primary;
@@ -332,7 +332,7 @@ class _CreateConversationSheetState
     final displayMembers = _isGroupChat
         ? members
         : members.where((m) => m.id != speakingAs).toList();
-    final searchGroups = watchMemberSearchGroups(ref, displayMembers);
+    watchMemberSearchGroupSources(ref);
 
     final topBar = PrismSheetTopBar(
       title: context.l10n.chatCreateTitle,
@@ -522,7 +522,6 @@ class _CreateConversationSheetState
               context,
               membersAsync,
               displayMembers,
-              searchGroups,
               terms.pluralLower,
             ),
           ),
@@ -613,7 +612,6 @@ class _CreateConversationSheetState
     BuildContext context,
     AsyncValue<dynamic> membersAsync,
     List<Member> displayMembers,
-    List<MemberSearchGroup> searchGroups,
     String termPluralLower,
   ) {
     return membersAsync.when(
@@ -636,12 +634,8 @@ class _CreateConversationSheetState
             key: const Key('createConversationSelectedMemberPicker'),
             members: displayMembers,
             selectedMemberIds: _selectedMemberIds,
-            onPressed: () => _openSearchSheet(
-              context,
-              Theme.of(context),
-              displayMembers,
-              searchGroups,
-            ),
+            onPressed: () =>
+                _openSearchSheet(context, Theme.of(context), displayMembers),
           );
         }
 
@@ -652,12 +646,8 @@ class _CreateConversationSheetState
               ? null
               : _selectedMemberIds.first,
           includeUnknown: false,
-          onPressed: () => _openSearchSheet(
-            context,
-            Theme.of(context),
-            displayMembers,
-            searchGroups,
-          ),
+          onPressed: () =>
+              _openSearchSheet(context, Theme.of(context), displayMembers),
         );
       },
       loading: () => const SizedBox.shrink(),

@@ -123,10 +123,8 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
     super.dispose();
   }
 
-  Future<void> _openTargetPicker(
-    List<Member> members,
-    List<MemberSearchGroup> groups,
-  ) async {
+  Future<void> _openTargetPicker(List<Member> members) async {
+    final groups = readMemberSearchGroups(ref, members);
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,
@@ -390,10 +388,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                           final selectedMember = members.firstWhereOrNull(
                             (member) => member.id == _targetMemberId,
                           );
-                          final searchGroups = watchMemberSearchGroups(
-                            ref,
-                            members,
-                          );
+                          watchMemberSearchGroupSources(ref);
                           return PrismListRow(
                             leading: selectedMember != null
                                 ? MemberAvatar(
@@ -416,8 +411,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                                 ? Text(context.l10n.remindersTargetLabel)
                                 : null,
                             trailing: Icon(AppIcons.expandMore),
-                            onTap: () =>
-                                _openTargetPicker(members, searchGroups),
+                            onTap: () => _openTargetPicker(members),
                           );
                         },
                       ),

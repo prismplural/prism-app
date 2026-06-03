@@ -790,7 +790,7 @@ class _ChatMemberSelectorButton extends ConsumerWidget {
           authorOptions,
           speakingAs,
         );
-        final groups = watchMemberSearchGroups(ref, authorOptions);
+        watchMemberSearchGroupSources(ref);
         final semanticLabel = selected != null
             ? context.l10n.chatSpeakingAs(selected.name)
             : context.l10n.chatChooseSpeakingMember(terms.singularLower);
@@ -809,7 +809,7 @@ class _ChatMemberSelectorButton extends ConsumerWidget {
               termPlural: terms.plural,
               searchTitle: context.l10n.selectMember(terms.singular),
               selectedMemberId: speakingAs,
-              groups: groups,
+              groupsBuilder: () => readMemberSearchGroups(ref, authorOptions),
               onMemberSelected: (memberId) =>
                   ref.read(speakingAsProvider.notifier).setMember(memberId),
               child: _ChatMemberSelectorTrigger(

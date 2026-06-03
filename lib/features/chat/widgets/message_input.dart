@@ -775,16 +775,13 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       conversation,
       speakingAsMemberId: speakingAs,
     );
+    watchMemberSearchGroupSources(ref);
     final showMentionOverlay =
         _mentionMenuVisible &&
         !_isRecording &&
         (mentionCandidates.isNotEmpty ||
             MentionOverlay.hasBroadcastAliasMatches(_mentionFilter));
     _syncMentionOverlayPortal(showMentionOverlay);
-    final memberSearchGroups = watchMemberSearchGroups(
-      ref,
-      speakingAsCandidates,
-    );
     final memberMap = {for (final m in members) m.id: m};
     _controller.updateMentionMembers(memberMap);
     final currentMember = findChatAuthorOption(context, members, speakingAs);
@@ -799,8 +796,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
         const <String>{};
     // Watched, not read, so a cold-load settle rebuilds and fires the
     // ask-each-time prompt even when the resolved member is unchanged.
-    final composerDefaultMode =
-        ref.watch(composerDefaultMemberProvider).value;
+    final composerDefaultMode = ref.watch(composerDefaultMemberProvider).value;
     _maybePromptAskEachTime(
       composerDefaultMode,
       speakingAsCandidates,
@@ -899,7 +895,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                     members: speakingAsCandidates,
                     termPlural: terms.plural,
                     selectedMemberId: speakingAs,
-                    groups: memberSearchGroups,
+                    groupsBuilder: () =>
+                        readMemberSearchGroups(ref, speakingAsCandidates),
                     fronterIds: fronterIds,
                     fronterSectionLabel:
                         context.l10n.memberPickerFrontingSectionLabel,

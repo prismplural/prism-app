@@ -257,20 +257,24 @@ class _PrismButtonContent extends StatelessWidget {
       );
     }
 
-    // Non-expanded buttons may sit inside bounded or unbounded horizontal
-    // contexts. LayoutBuilder picks the right branch once; the cost is paid
-    // only on these less common call sites.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ?iconWidget,
-            if (constraints.hasBoundedWidth) Flexible(child: text) else text,
-          ],
-        );
-      },
+    final maxTextWidth = math.max(
+      48.0,
+      math.min(
+        MediaQuery.sizeOf(context).width - 96.0,
+        PrismTokens.buttonMaxWidth,
+      ),
+    );
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        ?iconWidget,
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxTextWidth),
+          child: text,
+        ),
+      ],
     );
   }
 }

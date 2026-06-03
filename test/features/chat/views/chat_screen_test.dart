@@ -294,6 +294,66 @@ void main() {
   });
 
   testWidgets(
+    'shows group empty state when selected member has no visible chats',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final now = DateTime(2026, 5, 8, 12);
+      final alice = _member('alice', 'Alice');
+      final bob = _member('bob', 'Bob');
+      final members = FakeMemberRepository()..seed([alice, bob]);
+      final conversations = FakeConversationRepository()
+        ..conversations.add(
+          _conversation(
+            id: 'bob-private-group',
+            at: now,
+            participantIds: const ['bob'],
+            title: 'Bob Private Group',
+          ),
+        );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            memberRepositoryProvider.overrideWithValue(members),
+            conversationRepositoryProvider.overrideWithValue(conversations),
+            chatMessageRepositoryProvider.overrideWithValue(
+              _EmptyChatMessageRepository(),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+            currentChatViewerProvider.overrideWithValue(alice),
+            speakingAsProvider.overrideWith(
+              () => _TestSpeakingAsNotifier('alice'),
+            ),
+            conversationCategoriesProvider.overrideWith(
+              (ref) => Stream.value([]),
+            ),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
+            ),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: [Locale('en')],
+            home: ChatScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final exception = tester.takeException();
+      expect(exception, isNull);
+      expect(find.text('Chat'), findsOneWidget);
+      expect(find.text('No group chats'), findsOneWidget);
+      expect(find.text('Bob Private Group'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'puts search in the overflow menu to make room for member picker',
     (tester) async {
       await tester.pumpWidget(_buildSubject());
