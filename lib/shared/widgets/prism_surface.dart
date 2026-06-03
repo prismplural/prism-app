@@ -40,6 +40,16 @@ class PrismSurface extends StatefulWidget {
 
 class _PrismSurfaceState extends State<PrismSurface> {
   bool _pressed = false;
+  bool _hovered = false;
+
+  @override
+  void didUpdateWidget(PrismSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.onTap == null) {
+      _pressed = false;
+      _hovered = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,20 +67,26 @@ class _PrismSurfaceState extends State<PrismSurface> {
                 PrismSurfaceTone.subtle => baseColor.withValues(
                   alpha: _pressed
                       ? (isDark ? 0.14 : 0.12)
-                      : (isDark ? 0.10 : 0.08),
+                      : _hovered
+                          ? (isDark ? 0.12 : 0.10)
+                          : (isDark ? 0.10 : 0.08),
                 ),
                 PrismSurfaceTone.strong => baseColor.withValues(
                   alpha: _pressed
                       ? (isDark ? 0.18 : 0.16)
-                      : (isDark ? 0.14 : 0.10),
+                      : _hovered
+                          ? (isDark ? 0.16 : 0.13)
+                          : (isDark ? 0.14 : 0.10),
                 ),
                 PrismSurfaceTone.accent => baseColor.withValues(
                   alpha: _pressed
                       ? (isDark ? 0.22 : 0.18)
-                      : (isDark ? 0.16 : 0.12),
+                      : _hovered
+                          ? (isDark ? 0.19 : 0.15)
+                          : (isDark ? 0.16 : 0.12),
                 ),
               }
-            : _surfaceFillColor(theme, widget.tone, _pressed));
+            : _surfaceFillColor(theme, widget.tone, _pressed, _hovered));
     final borderColor =
         widget.borderColor ??
         (useAccentFill
@@ -78,20 +94,26 @@ class _PrismSurfaceState extends State<PrismSurface> {
                 PrismSurfaceTone.subtle => baseColor.withValues(
                   alpha: _pressed
                       ? (isDark ? 0.16 : 0.18)
-                      : (isDark ? 0.12 : 0.14),
+                      : _hovered
+                          ? (isDark ? 0.14 : 0.16)
+                          : (isDark ? 0.12 : 0.14),
                 ),
                 PrismSurfaceTone.strong => baseColor.withValues(
                   alpha: _pressed
                       ? (isDark ? 0.20 : 0.20)
-                      : (isDark ? 0.15 : 0.16),
+                      : _hovered
+                          ? (isDark ? 0.18 : 0.18)
+                          : (isDark ? 0.15 : 0.16),
                 ),
                 PrismSurfaceTone.accent => baseColor.withValues(
                   alpha: _pressed
                       ? (isDark ? 0.24 : 0.24)
-                      : (isDark ? 0.17 : 0.18),
+                      : _hovered
+                          ? 0.21
+                          : (isDark ? 0.17 : 0.18),
                 ),
               }
-            : _surfaceBorderColor(theme, widget.tone, _pressed));
+            : _surfaceBorderColor(theme, widget.tone, _pressed, _hovered));
 
     final borderRadius = BorderRadius.circular(
       PrismShapes.of(context).radius(widget.borderRadius),
@@ -113,50 +135,71 @@ class _PrismSurfaceState extends State<PrismSurface> {
 
     return Padding(
       padding: widget.margin,
-      child: Semantics(
-        button: canPress ? true : null,
-        enabled: canPress ? true : null,
-        label: widget.semanticLabel,
-        child: AnimatedScale(
-          scale: _pressed ? 0.985 : 1,
-          duration: Anim.xs,
-          child: canPress
-              ? Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: widget.onTap,
-                    onLongPress: widget.onLongPress,
-                    onHighlightChanged: (value) {
-                      if (_pressed != value) {
-                        setState(() => _pressed = value);
-                      }
-                    },
-                    borderRadius: borderRadius,
-                    child: content,
-                  ),
-                )
-              : content,
+      child: MouseRegion(
+        onEnter: canPress ? (_) => setState(() => _hovered = true) : null,
+        onExit: canPress
+            ? (_) => setState(() {
+                _hovered = false;
+                _pressed = false;
+              })
+            : null,
+        child: Semantics(
+          button: canPress ? true : null,
+          enabled: canPress ? true : null,
+          label: widget.semanticLabel,
+          child: AnimatedScale(
+            scale: _pressed ? 0.985 : 1,
+            duration: Anim.xs,
+            child: canPress
+                ? Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: widget.onTap,
+                      onLongPress: widget.onLongPress,
+                      onHighlightChanged: (value) {
+                        if (_pressed != value) {
+                          setState(() => _pressed = value);
+                        }
+                      },
+                      hoverColor: Colors.transparent,
+                      highlightColor: Colors.transparent,
+                      borderRadius: borderRadius,
+                      child: content,
+                    ),
+                  )
+                : content,
+          ),
         ),
       ),
     );
   }
 }
 
-Color _surfaceFillColor(ThemeData theme, PrismSurfaceTone tone, bool pressed) {
+Color _surfaceFillColor(
+  ThemeData theme,
+  PrismSurfaceTone tone,
+  bool pressed,
+  bool hovered,
+) {
+  final isDark = theme.brightness == Brightness.dark;
   final baseColor = switch (tone) {
     PrismSurfaceTone.subtle => theme.cardColor,
     PrismSurfaceTone.strong => theme.colorScheme.surfaceContainerHigh,
     PrismSurfaceTone.accent => theme.colorScheme.primary.withValues(
-      alpha: theme.brightness == Brightness.dark ? 0.16 : 0.12,
+      alpha: isDark ? 0.16 : 0.12,
     ),
   };
 
-  if (!pressed) return baseColor;
+  final overlayAlpha = pressed
+      ? (isDark ? 0.06 : 0.04)
+      : hovered
+          ? (isDark ? 0.03 : 0.02)
+          : 0.0;
+
+  if (overlayAlpha == 0.0) return baseColor;
 
   return Color.alphaBlend(
-    theme.colorScheme.onSurface.withValues(
-      alpha: theme.brightness == Brightness.dark ? 0.06 : 0.04,
-    ),
+    theme.colorScheme.onSurface.withValues(alpha: overlayAlpha),
     baseColor,
   );
 }
@@ -165,6 +208,7 @@ Color _surfaceBorderColor(
   ThemeData theme,
   PrismSurfaceTone tone,
   bool pressed,
+  bool hovered,
 ) {
   final isDark = theme.brightness == Brightness.dark;
   final baseColor = switch (tone) {
@@ -174,11 +218,17 @@ Color _surfaceBorderColor(
   };
 
   final alpha = switch (tone) {
-    PrismSurfaceTone.subtle =>
-      pressed ? (isDark ? 0.60 : 0.62) : (isDark ? 0.50 : 0.52),
-    PrismSurfaceTone.strong =>
-      pressed ? (isDark ? 0.62 : 0.70) : (isDark ? 0.52 : 0.60),
-    PrismSurfaceTone.accent => pressed ? 0.24 : 0.18,
+    PrismSurfaceTone.subtle => pressed
+        ? (isDark ? 0.60 : 0.62)
+        : hovered
+            ? (isDark ? 0.55 : 0.57)
+            : (isDark ? 0.50 : 0.52),
+    PrismSurfaceTone.strong => pressed
+        ? (isDark ? 0.62 : 0.70)
+        : hovered
+            ? (isDark ? 0.57 : 0.65)
+            : (isDark ? 0.52 : 0.60),
+    PrismSurfaceTone.accent => pressed ? 0.24 : hovered ? 0.21 : 0.18,
   };
 
   return baseColor.withValues(alpha: alpha);
