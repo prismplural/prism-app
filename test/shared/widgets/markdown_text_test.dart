@@ -26,6 +26,46 @@ void main() {
     expect(_plainTextWidgets(tester), contains('▹ first line\n▹ second line'));
   });
 
+  testWidgets('tables inside blockquotes render as tables', (tester) async {
+    const markdown =
+        '> | left | right |\n'
+        '> | - | - |\n'
+        '> | moon | water |';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(body: MarkdownText(data: markdown)),
+      ),
+    );
+
+    expect(find.byType(Table), findsOneWidget);
+    expect(_plainTextWidgets(tester).join('\n'), contains('moon'));
+    expect(_hasDecoratedBlockquote(tester), isTrue);
+  });
+
+  testWidgets('tables after quoted blank lines stay inside blockquotes', (
+    tester,
+  ) async {
+    const markdown =
+        '> likes\n'
+        '>\n'
+        '> | left | right |\n'
+        '> | - | - |\n'
+        '> | moon | water |';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(body: MarkdownText(data: markdown)),
+      ),
+    );
+
+    expect(find.byType(Table), findsOneWidget);
+    expect(_plainTextWidgets(tester).join('\n'), contains('likes'));
+    expect(_hasDecoratedBlockquote(tester), isTrue);
+  });
+
   testWidgets('numeric HTML entities preserve text presentation selectors', (
     tester,
   ) async {
@@ -601,6 +641,17 @@ List<String> _plainTextWidgets(WidgetTester tester) {
       .map((text) => text.data ?? text.textSpan?.toPlainText() ?? '')
       .where((text) => text.isNotEmpty)
       .toList();
+}
+
+bool _hasDecoratedBlockquote(WidgetTester tester) {
+  return tester.widgetList<DecoratedBox>(find.byType(DecoratedBox)).any((
+    decoratedBox,
+  ) {
+    final decoration = decoratedBox.decoration;
+    return decoration is BoxDecoration &&
+        decoration.border is Border &&
+        (decoration.border as Border).left.width == 3;
+  });
 }
 
 List<String>? _fontFamilyFallbackForText(WidgetTester tester, String text) {

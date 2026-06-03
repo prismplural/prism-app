@@ -107,6 +107,66 @@ List<MarkdownBlock> splitMarkdownBlocks(String markdown) {
   return blocks;
 }
 
+/// Repairs a common imported/hand-authored shape where only the header row of a
+/// blockquoted table keeps its `>` marker. Without this, the table pre-pass sees
+/// the header's quote marker as table-cell content.
+String normalizePartialBlockquoteTables(String markdown) {
+  if (markdown.isEmpty) return markdown;
+
+  final lines = markdown.split('\n');
+  final out = <String>[];
+  _FenceOpen? fence;
+
+  var i = 0;
+  while (i < lines.length) {
+    final header = lines[i];
+
+    if (fence != null) {
+      out.add(header);
+      if (_fenceCloses(header, fence)) fence = null;
+      i += 1;
+      continue;
+    }
+
+    fence = _fenceOpen(header);
+    if (fence != null) {
+      out.add(header);
+      i += 1;
+      continue;
+    }
+
+    final headerQuote = _parseBlockquoteMarker(header);
+    final separator = i + 1 < lines.length ? lines[i + 1] : null;
+
+    if (headerQuote != null &&
+        _looksLikeTableRow(headerQuote.content) &&
+        separator != null &&
+        _isSeparatorRow(
+          _parseBlockquoteMarker(separator)?.content ?? separator,
+        )) {
+      final headerMarker = headerQuote.marker;
+      out.add(header);
+      i += 1;
+
+      while (i < lines.length) {
+        final line = lines[i];
+        final quote = _parseBlockquoteMarker(line);
+        final tableLine = quote?.content ?? line;
+        if (!_looksLikeTableRow(tableLine)) break;
+
+        out.add(quote == null ? '$headerMarker$line' : line);
+        i += 1;
+      }
+      continue;
+    }
+
+    out.add(header);
+    i += 1;
+  }
+
+  return out.join('\n');
+}
+
 /// Describes an opening code fence: its fence character (`` ` `` or `~`) and the
 /// number of consecutive fence characters that opened it.
 class _FenceOpen {
@@ -167,6 +227,23 @@ bool _isSeparatorRow(String line) {
     if (!RegExp(r'^:?-+:?$').hasMatch(c)) return false;
   }
   return true;
+}
+
+_BlockquoteLine? _parseBlockquoteMarker(String line) {
+  final match = RegExp(r'^[ \t]{0,3}>{1,3}[ \t]?').firstMatch(line);
+  return match == null
+      ? null
+      : _BlockquoteLine(
+          line.substring(0, match.end),
+          line.substring(match.end),
+        );
+}
+
+class _BlockquoteLine {
+  const _BlockquoteLine(this.marker, this.content);
+
+  final String marker;
+  final String content;
 }
 
 /// Per-column [TextAlign] from a separator row (`:--`=left, `:-:`=center,

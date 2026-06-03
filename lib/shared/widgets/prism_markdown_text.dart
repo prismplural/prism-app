@@ -104,8 +104,12 @@ class PrismMarkdownText extends ConsumerWidget {
         // tables can opt into a border treatment. No fences → one default
         // segment (identical to before). Each segment is its own MarkdownText
         // because flutter_markdown applies one style sheet per document.
-        final segments =
-            enabled ? parseStyledSegments(data) : [MarkdownSegment(content: data)];
+        final normalizedData = enabled
+            ? normalizePartialBlockquoteTables(data)
+            : data;
+        final segments = enabled
+            ? parseStyledSegments(normalizedData)
+            : [MarkdownSegment(content: data)];
 
         String keyFor(int seg, int block) =>
             'bio-md-$memberId-$libraryVersion-'
@@ -114,8 +118,12 @@ class PrismMarkdownText extends ConsumerWidget {
         // A text block reuses the existing MarkdownText path (inline images,
         // bold, links, blockify). A table block is rendered by PrismMarkdownTable
         // so each column can size to its content.
-        Widget buildBlock(MarkdownSegment seg, int segIdx, MarkdownBlock block,
-            int blockIdx) {
+        Widget buildBlock(
+          MarkdownSegment seg,
+          int segIdx,
+          MarkdownBlock block,
+          int blockIdx,
+        ) {
           if (block.isTable) {
             return PrismMarkdownTable(
               key: ValueKey(keyFor(segIdx, blockIdx)),
@@ -135,6 +143,8 @@ class PrismMarkdownText extends ConsumerWidget {
             baseStyle: baseStyle,
             selectable: selectable,
             imgElementBuilder: imgBuilder,
+            tableBorderless: seg.borderless,
+            tableBorderColor: seg.borderColor,
           );
         }
 

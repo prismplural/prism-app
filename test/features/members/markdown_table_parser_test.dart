@@ -25,6 +25,69 @@ void main() {
       ]);
     });
 
+    test('partial blockquote table is normalized before table splitting', () {
+      const source =
+          '> | left | right |\n'
+          '| - | - |\n'
+          '| moon | water |';
+
+      expect(
+        normalizePartialBlockquoteTables(source),
+        '> | left | right |\n'
+        '> | - | - |\n'
+        '> | moon | water |',
+      );
+
+      final blocks = splitMarkdownBlocks(
+        normalizePartialBlockquoteTables(source),
+      );
+      expect(blocks, hasLength(1));
+      expect(blocks.single.isTable, isFalse);
+      expect(blocks.single.text, contains('> | moon | water |'));
+    });
+
+    test('partial nested blockquote table preserves quote depth', () {
+      const source =
+          '>> | trains otomes monochrome |\n'
+          '| --- |';
+
+      expect(
+        normalizePartialBlockquoteTables(source),
+        '>> | trains otomes monochrome |\n'
+        '>> | --- |',
+      );
+    });
+
+    test('partial blockquote table inside code fence stays literal', () {
+      const source =
+          '```\n'
+          '> | left | right |\n'
+          '| - | - |\n'
+          '| moon | water |\n'
+          '```';
+
+      expect(normalizePartialBlockquoteTables(source), source);
+    });
+
+    test('blockquote marker inside a table cell stays table content', () {
+      const source =
+          '| left | right |\n'
+          '| - | - |\n'
+          '| > moon | water |';
+
+      expect(normalizePartialBlockquoteTables(source), source);
+
+      final blocks = splitMarkdownBlocks(
+        normalizePartialBlockquoteTables(source),
+      );
+      expect(blocks, hasLength(1));
+      final t = blocks.single.table!;
+      expect(t.rows, [
+        ['left', 'right'],
+        ['> moon', 'water'],
+      ]);
+    });
+
     test('alignment row parsing', () {
       final blocks = splitMarkdownBlocks(
         '| a | b | c | d |\n| :-- | :-: | --: | - |',
