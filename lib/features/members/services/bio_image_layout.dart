@@ -15,10 +15,23 @@ import 'package:prism_plurality/features/members/services/bio_image_size.dart';
 /// sized image is promoted to a block; below it, it stays inline.
 const double blockImageMinPx = 48.0;
 
-// Matches an image token plus any surrounding spaces/tabs (group 1 = the
+const _brailleBlank = '\u2800';
+
+// Matches an image token plus any surrounding layout spaces (group 1 = the
 // token, group 2 = its src) so a promoted image doesn't leave stray spaces
 // hugging the inserted blank lines.
-final _imageToken = RegExp(r'[ \t]*(!\[[^\]]*\]\(([^)]*)\))[ \t]*');
+final _imageToken = RegExp(
+  '[$_horizontalLayoutSpace]*'
+  r'(!\[[^\]]*\]\(([^)]*)\))'
+  '[$_horizontalLayoutSpace]*',
+);
+
+const _horizontalLayoutSpace = ' \t$_brailleBlank';
+
+bool _isBlankLine(String line) =>
+    line.replaceAll(RegExp('[$_horizontalLayoutSpace]'), '').trim().isEmpty;
+
+bool _hasMeaningfulText(String text) => !_isBlankLine(text);
 
 /// Whether an image with [size] should render as a block (its own line).
 ///
@@ -47,18 +60,18 @@ String blockifyImageMarkdown(String markdown) {
   var pendingBlankAfterImage = false;
 
   void addLine(String line) {
-    final isBlank = line.trim().isEmpty;
+    final isBlank = _isBlankLine(line);
     if (!isBlank && pendingBlankAfterImage) {
-      if (out.isNotEmpty && out.last.trim().isNotEmpty) out.add('');
+      if (out.isNotEmpty && !_isBlankLine(out.last)) out.add('');
       pendingBlankAfterImage = false;
     } else if (isBlank) {
       pendingBlankAfterImage = false;
     }
-    out.add(line);
+    out.add(isBlank ? '' : line);
   }
 
   void addBlockImage(String imageToken) {
-    if (out.isNotEmpty && out.last.trim().isNotEmpty) out.add('');
+    if (out.isNotEmpty && !_isBlankLine(out.last)) out.add('');
     out.add(imageToken);
     pendingBlankAfterImage = true;
   }
@@ -91,8 +104,14 @@ String blockifyImageMarkdown(String markdown) {
       final fragment = hashIdx >= 0 ? src.substring(hashIdx + 1) : null;
       final size = BioImageSize.parse(fragment);
       final imageToken = match.group(1)!;
+      final matchText = match.group(0)!;
+      final hasBrailleSpacer = matchText.contains(_brailleBlank);
+      final sameLineText =
+          line.substring(0, match.start) + line.substring(match.end);
+      final keepInlineLayout =
+          hasBrailleSpacer && _hasMeaningfulText(sameLineText);
 
-      if (isBlockImageSize(size)) {
+      if (isBlockImageSize(size) && !keepInlineLayout) {
         sawBlockImage = true;
         textBuffer.write(line.substring(cursor, match.start));
         addTextSegment(textBuffer.toString());
@@ -101,7 +120,7 @@ String blockifyImageMarkdown(String markdown) {
       } else {
         textBuffer
           ..write(line.substring(cursor, match.start))
-          ..write(match.group(0)!);
+          ..write(matchText);
       }
       cursor = match.end;
     }

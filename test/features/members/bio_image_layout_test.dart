@@ -65,6 +65,20 @@ void main() {
       );
     });
 
+    test('keeps braille-spaced side-by-side image lines inline', () {
+      const blank = '\u2800';
+      const input = '![](flag)$blank$blank$blank**name**$blank${blank}name';
+      expect(blockifyImageMarkdown(input), input);
+    });
+
+    test('treats braille blank padding around block images as whitespace', () {
+      const blank = '\u2800';
+      expect(
+        blockifyImageMarkdown('$blank![](flag#96)$blank'),
+        '![](flag#96)',
+      );
+    });
+
     test('does not pile up blank lines around an already-isolated image', () {
       expect(
         blockifyImageMarkdown('text\n\n![](flag#100%)\n\nmore'),
