@@ -58,6 +58,20 @@ bool isLastActiveDeviceError(Object error) {
   return hasNeedle && has403;
 }
 
+@visibleForTesting
+bool isAtomicRevokeRequiredError(Object error) {
+  final msg = error.toString().toLowerCase();
+  final hasConflict =
+      msg.contains('http 409') ||
+      msg.contains('409:') ||
+      msg.contains('status: 409') ||
+      msg.contains('conflict');
+  return hasConflict &&
+      (msg.contains('use_atomic_revoke') ||
+          msg.contains('requires atomic revoke') ||
+          msg.contains('use post /v1/sync'));
+}
+
 /// Try `deregisterDevice`; if the relay rejects with the sole-device 403,
 /// fall back to `deleteSyncGroup`. Mirrors the policy in
 /// `_resetSyncSystem` (`reset_data_provider.dart:461-503`).
@@ -75,10 +89,9 @@ bool isLastActiveDeviceError(Object error) {
 ///   sole-device 403. A transient network blip during setup must NOT
 ///   nuke the entire sync group.
 /// - `true` (used by full reset): attempt `deleteSyncGroup` after ANY
-///   deregister failure (network 5xx, auth, last-active, anything). The
-///   user is wiping the device and wants the relay-side group gone too;
-///   leaving it behind on a transient deregister failure is the worse
-///   outcome there.
+///   deregister failure except the relay's multi-device atomic-revoke conflict.
+///   That conflict means peers still exist, so the group-delete fallback is not
+///   appropriate.
 Future<RelayCleanupOutcome> cleanupRelayRegistration({
   required ffi.PrismSyncHandle handle,
   required String syncId,
@@ -112,6 +125,11 @@ Future<RelayCleanupOutcome> cleanupRelayRegistration({
   } catch (e) {
     if (isLastActiveDeviceError(e)) {
       log?.call('Last device; attempting sync group deletion: $e');
+    } else if (isAtomicRevokeRequiredError(e)) {
+      log?.call(
+        'Relay deregister requires atomic revoke; leaving relay state intact: $e',
+      );
+      return RelayCleanupOutcome.failed;
     } else if (fallbackOnAnyDeregisterFailure) {
       log?.call(
         'Relay deregister failed; reset path forcing sync group '

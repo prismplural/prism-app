@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/services/secure_storage_diagnostic.dart';
@@ -29,7 +28,8 @@ enum DiagnosticReportShareResult { shared, copied, failed }
 typedef DiagnosticReportShareHandler =
     Future<DiagnosticReportShareResult> Function(String jsonPayload);
 
-/// Hook for tests to substitute the "Re-pair from another device" hint check.
+/// Legacy test hook retained for older callers. The keychain-unreadable
+/// recovery screen now always exposes the re-pair path.
 typedef SyncHistoryHintReader = Future<bool> Function();
 
 /// Hook for tests to substitute the platform exit. Production calls
@@ -58,7 +58,7 @@ class ResetRecoveryApp extends StatelessWidget {
   /// Test hook for the "Save diagnostic report" share action.
   final DiagnosticReportShareHandler? shareDiagnostic;
 
-  /// Test hook for the "Re-pair from another device" gating check.
+  /// Deprecated no-op retained for older tests/callers.
   final SyncHistoryHintReader? syncHistoryHintReader;
 
   /// Test hook for the platform "exit" action ("Restart and unlock and try
@@ -123,11 +123,6 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
   bool _busy = false;
   bool? _canContinueWithExistingData;
 
-  /// Resolved asynchronously for [ResetRecoveryScreenMode.keychainUnreadable].
-  /// Null while loading; true if any `prism_sync.*` SharedPref hint exists OR
-  /// the `kPrismHadSyncSetup` marker was ever set.
-  bool? _hasSyncHistoryHint;
-
   String? _error;
   String? _notice;
 
@@ -138,9 +133,6 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
     super.initState();
     if (_mode == ResetRecoveryScreenMode.freshInstallAnomaly) {
       _loadContinueAvailability();
-    }
-    if (_mode == ResetRecoveryScreenMode.keychainUnreadable) {
-      _loadSyncHistoryHint();
     }
   }
 
@@ -264,7 +256,6 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
   }
 
   List<Widget> _buildKeychainUnreadableActions(ColorScheme colorScheme) {
-    final showRepair = _hasSyncHistoryHint == true;
     return [
       PrismButton(
         label: 'Restart and unlock once and try again',
@@ -272,15 +263,13 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
         enabled: !_busy,
         tone: PrismButtonTone.filled,
       ),
-      if (showRepair) ...[
-        const SizedBox(height: 8),
-        PrismButton(
-          label: 'Re-pair from another device',
-          onPressed: _repairFromAnotherDevice,
-          enabled: !_busy,
-          tone: PrismButtonTone.outlined,
-        ),
-      ],
+      const SizedBox(height: 8),
+      PrismButton(
+        label: 'Re-pair from another device',
+        onPressed: _repairFromAnotherDevice,
+        enabled: !_busy,
+        tone: PrismButtonTone.outlined,
+      ),
       const SizedBox(height: 8),
       PrismButton(
         label: 'Reset local data',
@@ -328,19 +317,6 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
         .canContinueWithExistingDataAfterAnomaly();
     if (mounted) {
       setState(() => _canContinueWithExistingData = canContinue);
-    }
-  }
-
-  Future<void> _loadSyncHistoryHint() async {
-    final reader = widget.syncHistoryHintReader ?? _defaultSyncHistoryHint;
-    bool hint;
-    try {
-      hint = await reader();
-    } catch (_) {
-      hint = false;
-    }
-    if (mounted) {
-      setState(() => _hasSyncHistoryHint = hint);
     }
   }
 
@@ -529,26 +505,6 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
         setState(() => _busy = false);
       }
     }
-  }
-}
-
-/// Default sync-history hint check.
-///
-/// Returns `true` when any `prism_sync.*` SharedPref key exists OR the
-/// `kPrismHadSyncSetup` marker is set. The keychain isn't readable in this
-/// mode (that's why we're here), so SharedPref is the only signal.
-Future<bool> _defaultSyncHistoryHint() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(kPrismHadSyncSetup) == true) return true;
-    for (final key in prefs.getKeys()) {
-      if (key.startsWith('prism_sync.') || key.startsWith('prism.sync.')) {
-        return true;
-      }
-    }
-    return false;
-  } catch (_) {
-    return false;
   }
 }
 

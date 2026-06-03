@@ -1821,6 +1821,51 @@ void main() {
       );
     });
 
+    test(
+      'full reset does not delete group when relay requires atomic revoke',
+      () async {
+        final fakeHandle = _FakeSyncHandle();
+        final recordingFfi = _RecordingResetSyncFfi()
+          ..throwOnDeregister = Exception(
+            'HTTP 409: use_atomic_revoke; self-deregister with active peers '
+            'requires atomic revoke',
+          );
+
+        final harness = await _ResetHarness.create(
+          handleOverride: fakeHandle,
+          ffiOverride: recordingFfi,
+          isAndroidOverride: true,
+        );
+        addTearDown(harness.dispose);
+        harness.nativeResetKeys.clearApplicationUserDataResult = false;
+
+        harness.secureStore
+          ..seedSyncValue(
+            'prism_sync.sync_id',
+            base64Encode(utf8.encode('sync-abc')),
+          )
+          ..seedSyncValue(
+            'prism_sync.device_id',
+            base64Encode(utf8.encode('device-abc')),
+          )
+          ..seedSyncValue(
+            'prism_sync.session_token',
+            base64Encode(utf8.encode('session-abc')),
+          );
+
+        await harness.reset(ResetCategory.all);
+
+        expect(recordingFfi.calls, contains('deregisterDevice'));
+        expect(
+          recordingFfi.calls,
+          isNot(contains('deleteSyncGroup')),
+          reason:
+              'atomic-revoke conflict means other devices still exist, so even '
+              'full reset must not attempt destructive group deletion',
+        );
+      },
+    );
+
     test('full reset removes any sync disconnect marker', () async {
       final harness = await _ResetHarness.create();
       addTearDown(harness.dispose);

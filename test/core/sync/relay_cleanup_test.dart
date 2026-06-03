@@ -254,6 +254,48 @@ void main() {
         expect(deleteGroupCalls, 0);
       },
     );
+
+    test(
+      'fallbackOnAnyDeregisterFailure: true skips deleteSyncGroup when relay '
+      'requires atomic revoke',
+      () async {
+        const handle = _FakePrismSyncHandle();
+        var deleteGroupCalls = 0;
+        final logs = <String>[];
+
+        final result = await cleanupRelayRegistration(
+          handle: handle,
+          syncId: 'sync',
+          deviceId: 'dev',
+          sessionToken: 'token',
+          deregister: ({
+            required ffi.PrismSyncHandle handle,
+            required String syncId,
+            required String deviceId,
+            required String sessionToken,
+          }) async {
+            throw Exception(
+              'HTTP 409: use_atomic_revoke; self-deregister with active peers '
+              'requires atomic revoke',
+            );
+          },
+          deleteSyncGroup: ({
+            required ffi.PrismSyncHandle handle,
+            required String syncId,
+            required String deviceId,
+            required String sessionToken,
+          }) async {
+            deleteGroupCalls++;
+          },
+          log: logs.add,
+          fallbackOnAnyDeregisterFailure: true,
+        );
+
+        expect(result, RelayCleanupOutcome.failed);
+        expect(deleteGroupCalls, 0);
+        expect(logs.any((l) => l.contains('requires atomic revoke')), isTrue);
+      },
+    );
   });
 
   group('isLastActiveDeviceError (tightened detector)', () {
@@ -299,6 +341,29 @@ void main() {
       expect(isLastActiveDeviceError(Exception('Network unreachable')), isFalse);
       expect(isLastActiveDeviceError(Exception('Timeout after 30s')), isFalse);
       expect(isLastActiveDeviceError(Exception('HTTP 500: bad gateway')), isFalse);
+    });
+  });
+
+  group('isAtomicRevokeRequiredError', () {
+    test('true for relay atomic-revoke conflicts', () {
+      expect(
+        isAtomicRevokeRequiredError(Exception('HTTP 409: use_atomic_revoke')),
+        isTrue,
+      );
+      expect(
+        isAtomicRevokeRequiredError(
+          Exception(
+            'Conflict: Self-deregister with active peers requires atomic revoke',
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('false for unrelated conflicts or messages', () {
+      expect(isAtomicRevokeRequiredError(Exception('HTTP 409: snapshot stale')), isFalse);
+      expect(isAtomicRevokeRequiredError(Exception('requires atomic revoke')), isFalse);
+      expect(isAtomicRevokeRequiredError(Exception('HTTP 403: use_atomic_revoke')), isFalse);
     });
   });
 

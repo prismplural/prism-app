@@ -57,7 +57,7 @@ void main() {
       );
     });
 
-    testWidgets('renders primary, reset, and diagnostic actions', (
+    testWidgets('renders primary, re-pair, reset, and diagnostic actions', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -78,13 +78,17 @@ void main() {
         findsOneWidget,
       );
       expect(
+        find.widgetWithText(PrismButton, 'Re-pair from another device'),
+        findsOneWidget,
+      );
+      expect(
         find.widgetWithText(PrismButton, 'Reset local data'),
         findsOneWidget,
       );
       expect(find.text('Save diagnostic report'), findsOneWidget);
     });
 
-    testWidgets('re-pair action is hidden when no sync hint exists', (
+    testWidgets('re-pair action is shown even when no sync hint exists', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -99,7 +103,7 @@ void main() {
 
       expect(
         find.widgetWithText(PrismButton, 'Re-pair from another device'),
-        findsNothing,
+        findsOneWidget,
       );
     });
 
