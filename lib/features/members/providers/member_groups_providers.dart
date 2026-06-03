@@ -7,6 +7,7 @@ import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -102,20 +103,47 @@ final groupMemberCountsProvider = Provider<Map<String, int>>((ref) {
   final allGroups = ref.watch(allGroupsProvider).value ?? [];
   final allEntries = ref.watch(allGroupEntriesProvider).value ?? [];
 
-  // Pre-bucket entries in one O(E) pass to avoid O(N×E) per-group scans.
+  // Pre-bucket entries in one O(E) pass, then fold child sets upward once.
+  // Calling `getDescendantGroupIds` for every group repeats subtree walks and
+  // gets expensive in large, deeply nested systems.
   final membersByGroup = <String, Set<String>>{};
   for (final entry in allEntries) {
     membersByGroup.putIfAbsent(entry.groupId, () => {}).add(entry.memberId);
   }
 
-  return {
-    for (final group in allGroups)
-      group.id: {
-        ...?membersByGroup[group.id],
-        for (final did in GroupTreeUtils.getDescendantGroupIds(group.id, tree))
-          ...?membersByGroup[did],
-      }.length,
-  };
+  final counts = <String, int>{};
+  final transitiveMembersByGroup = <String, Set<String>>{};
+  final visited = <String>{};
+  final stack = <(MemberGroup group, bool expanded)>[];
+  final roots = tree[null] ?? const <MemberGroup>[];
+  for (var i = roots.length - 1; i >= 0; i--) {
+    stack.add((roots[i], false));
+  }
+
+  while (stack.isNotEmpty) {
+    final (group, expanded) = stack.removeLast();
+    if (!expanded) {
+      if (!visited.add(group.id)) continue;
+      stack.add((group, true));
+      final children = tree[group.id] ?? const <MemberGroup>[];
+      for (var i = children.length - 1; i >= 0; i--) {
+        stack.add((children[i], false));
+      }
+      continue;
+    }
+
+    final members = <String>{...?membersByGroup[group.id]};
+    for (final child in tree[group.id] ?? const <MemberGroup>[]) {
+      members.addAll(transitiveMembersByGroup[child.id] ?? const <String>{});
+    }
+    transitiveMembersByGroup[group.id] = members;
+    counts[group.id] = members.length;
+  }
+
+  for (final group in allGroups) {
+    counts.putIfAbsent(group.id, () => membersByGroup[group.id]?.length ?? 0);
+  }
+  return counts;
 });
 
 // ── Collapsed state ───────────────────────────────────────────────────────────
@@ -176,17 +204,74 @@ final showInactiveMembersProvider =
 ///   1. Live entry not in manualOrder → appended at end.
 ///   2. Id in manualOrder without a live entry → filtered.
 ///   3. Duplicate id in manualOrder → first occurrence wins.
+final sortedGroupMembersAsyncProvider =
+    Provider.family<AsyncValue<List<(MemberGroupEntry, Member)>>, String>((
+      ref,
+      groupId,
+    ) {
+      final groupAsync = ref.watch(groupByIdProvider(groupId));
+      final group = groupAsync.value;
+      if (group == null) {
+        return groupAsync.when(
+          data: (_) => const AsyncValue.data(<(MemberGroupEntry, Member)>[]),
+          loading: () => const AsyncValue.loading(),
+          error: AsyncValue.error,
+        );
+      }
+
+      final entriesAsync = ref.watch(groupEntriesProvider(groupId));
+      final entries = entriesAsync.value;
+      if (entries == null) {
+        if (entriesAsync.hasError) {
+          return AsyncValue.error(
+            entriesAsync.error!,
+            entriesAsync.stackTrace!,
+          );
+        }
+        return const AsyncValue.loading();
+      }
+      if (entries.isEmpty) {
+        return const AsyncValue.data(<(MemberGroupEntry, Member)>[]);
+      }
+
+      final memberIds = {for (final entry in entries) entry.memberId};
+      final membersAsync = ref.watch(
+        membersByIdsListProvider(memberIdsKey(memberIds)),
+      );
+      final membersById = membersAsync.value;
+      if (membersById == null) {
+        if (membersAsync.hasError) {
+          return AsyncValue.error(
+            membersAsync.error!,
+            membersAsync.stackTrace!,
+          );
+        }
+        return const AsyncValue.loading();
+      }
+      final showInactive = ref.watch(showInactiveMembersProvider);
+
+      return AsyncValue.data(
+        _sortGroupMemberPairs(
+          group: group,
+          entries: entries,
+          membersById: membersById,
+          showInactive: showInactive,
+        ),
+      );
+    });
+
 final sortedGroupMembersProvider =
     Provider.family<List<(MemberGroupEntry, Member)>, String>((ref, groupId) {
-  final group = ref.watch(groupByIdProvider(groupId)).value;
-  if (group == null) return const [];
+      return ref.watch(sortedGroupMembersAsyncProvider(groupId)).value ??
+          const <(MemberGroupEntry, Member)>[];
+    });
 
-  final entries = ref.watch(groupEntriesProvider(groupId)).value ?? const [];
-  final members = ref.watch(allMembersProvider).value ?? const [];
-  final showInactive = ref.watch(showInactiveMembersProvider);
-
-  final membersById = {for (final m in members) m.id: m};
-
+List<(MemberGroupEntry, Member)> _sortGroupMemberPairs({
+  required MemberGroup group,
+  required List<MemberGroupEntry> entries,
+  required Map<String, Member> membersById,
+  required bool showInactive,
+}) {
   final pairs = <(MemberGroupEntry, Member)>[];
   for (final entry in entries) {
     final member = membersById[entry.memberId];
@@ -239,7 +324,7 @@ final sortedGroupMembersProvider =
       });
       return pairs;
   }
-});
+}
 
 // ── Grouped member list ───────────────────────────────────────────────────────
 
@@ -272,7 +357,9 @@ class MemberRowItem extends GroupedMemberListItem {
 }
 
 class UngroupedSectionItem extends GroupedMemberListItem {
-  const UngroupedSectionItem();
+  const UngroupedSectionItem({required this.memberCount});
+
+  final int memberCount;
 }
 
 int _compareMembersByDisplayOrder(Member a, Member b) {
@@ -289,7 +376,7 @@ final _groupedMemberListStructureProvider = Provider<List<GroupedMemberListItem>
   final tree = ref.watch(groupTreeProvider);
   final allEntries = ref.watch(allGroupEntriesProvider).value ?? [];
   // Member-management surface: hide the Unknown sentinel from the grouped list.
-  final allMembers = ref.watch(userVisibleAllMembersProvider).value ?? [];
+  final allMembers = ref.watch(userVisibleAllMemberListProvider).value ?? [];
   final showInactive = ref.watch(showInactiveMembersProvider);
 
   final memberById = {for (final m in allMembers) m.id: m};
@@ -338,7 +425,7 @@ final _groupedMemberListStructureProvider = Provider<List<GroupedMemberListItem>
           .toList()
         ..sort(_compareMembersByDisplayOrder);
   if (ungrouped.isNotEmpty) {
-    result.add(const UngroupedSectionItem());
+    result.add(UngroupedSectionItem(memberCount: ungrouped.length));
     for (final m in ungrouped) {
       result.add(MemberRowItem(member: m, depth: 0));
     }
@@ -425,11 +512,7 @@ class GroupNotifier extends AsyncNotifier<void> {
   Future<void> reorderGroups(List<MemberGroup> groups) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(memberGroupsRepositoryProvider);
-      for (int i = 0; i < groups.length; i++) {
-        if (groups[i].displayOrder != i) {
-          await repo.updateGroup(groups[i].copyWith(displayOrder: i));
-        }
-      }
+      await repo.reorderGroups(groups);
     });
   }
 
@@ -492,7 +575,7 @@ final activeGroupFilterProvider =
 final ungroupedMembersExistProvider = Provider.autoDispose<bool>((ref) {
   // Member-management surface: ignore the Unknown sentinel — it should never
   // count as an "ungrouped member" needing UI affordance.
-  final members = ref.watch(userVisibleAllMembersProvider).value ?? [];
+  final members = ref.watch(userVisibleAllMemberListProvider).value ?? [];
   final entries = ref.watch(allGroupEntriesProvider).value ?? [];
   final groupedMemberIds = entries.map((e) => e.memberId).toSet();
   return members.any((m) => m.isActive && !groupedMemberIds.contains(m.id));

@@ -37,6 +37,7 @@ class MemberSelectorPopup extends StatelessWidget {
     required this.selectedMemberId,
     required this.onMemberSelected,
     this.groups = const [],
+    this.groupsBuilder,
     this.specialRows = const [],
     this.fronterIds = const {},
     this.fronterSectionLabel,
@@ -59,6 +60,7 @@ class MemberSelectorPopup extends StatelessWidget {
   final String? selectedMemberId;
   final ValueChanged<String> onMemberSelected;
   final List<MemberSearchGroup> groups;
+  final List<MemberSearchGroup> Function()? groupsBuilder;
   final List<MemberSelectorPopupSpecialRow> specialRows;
 
   /// Member ids currently fronting. When non-empty, floats those members to the
@@ -95,19 +97,13 @@ class MemberSelectorPopup extends StatelessWidget {
     final sections = fronterIds.isEmpty
         ? null
         : partitionMembersForPicker(members, fronterIds);
-    final visibleRows = <_MemberSelectorPopupRow>[
-      _SearchPopupRow(),
-      for (final row in specialRows) _SpecialPopupRow(row),
-      if (sections != null && sections.hasFronterSection) ...[
-        for (final member in sections.fronters) _MemberPopupRow(member),
-        _DividerPopupRow(),
-        for (final member in sections.others) _MemberPopupRow(member),
-      ] else
-        for (final member in members) _MemberPopupRow(member),
-    ];
-    final logicalRows = preferredDirection == BlurPopupDirection.up
-        ? visibleRows.reversed.toList(growable: false)
-        : visibleRows;
+    final hasFronterSection = sections?.hasFronterSection ?? false;
+    final itemCount =
+        1 +
+        specialRows.length +
+        (hasFronterSection
+            ? sections!.fronters.length + 1 + sections.others.length
+            : members.length);
 
     return BlurPopupAnchor(
       key: manualAnchorKey,
@@ -117,33 +113,58 @@ class MemberSelectorPopup extends StatelessWidget {
       maxHeight: maxHeight,
       semanticLabel: semanticLabel,
       onBeforeShow: onBeforeShow,
-      itemCount: logicalRows.length,
-      itemBuilder: (popupContext, index, close) =>
-          _buildRow(context, popupContext, logicalRows[index], close),
+      itemCount: itemCount,
+      itemBuilder: (popupContext, index, close) {
+        final rowIndex = preferredDirection == BlurPopupDirection.up
+            ? itemCount - index - 1
+            : index;
+        return _buildRowAt(
+          context,
+          popupContext,
+          rowIndex,
+          close,
+          sections: sections,
+          hasFronterSection: hasFronterSection,
+        );
+      },
       child: isManual ? (anchorChild ?? child) : child,
     );
   }
 
-  Widget _buildRow(
+  Widget _buildRowAt(
     BuildContext parentContext,
     BuildContext popupContext,
-    _MemberSelectorPopupRow row,
-    VoidCallback close,
-  ) {
-    return switch (row) {
-      _SearchPopupRow() => _buildSearchRow(parentContext, popupContext, close),
-      _SpecialPopupRow(row: final specialRow) => _buildSpecialRow(
+    int index,
+    VoidCallback close, {
+    required PickerMemberSections? sections,
+    required bool hasFronterSection,
+  }) {
+    if (index == 0) {
+      return _buildSearchRow(parentContext, popupContext, close);
+    }
+
+    final specialIndex = index - 1;
+    if (specialIndex < specialRows.length) {
+      return _buildSpecialRow(popupContext, specialRows[specialIndex], close);
+    }
+
+    final memberIndex = specialIndex - specialRows.length;
+    if (hasFronterSection) {
+      final fronters = sections!.fronters;
+      if (memberIndex < fronters.length) {
+        return _buildMemberRow(popupContext, fronters[memberIndex], close);
+      }
+      if (memberIndex == fronters.length) {
+        return _buildDividerRow(popupContext);
+      }
+      return _buildMemberRow(
         popupContext,
-        specialRow,
+        sections.others[memberIndex - fronters.length - 1],
         close,
-      ),
-      _MemberPopupRow(member: final member) => _buildMemberRow(
-        popupContext,
-        member,
-        close,
-      ),
-      _DividerPopupRow() => _buildDividerRow(popupContext),
-    };
+      );
+    }
+
+    return _buildMemberRow(popupContext, members[memberIndex], close);
   }
 
   Widget _buildDividerRow(BuildContext context) {
@@ -175,7 +196,7 @@ class MemberSelectorPopup extends StatelessWidget {
           members: members,
           termPlural: termPlural,
           title: searchTitle,
-          groups: groups,
+          groups: groupsBuilder?.call() ?? groups,
           fronterIds: fronterIds,
           fronterSectionLabel: fronterSectionLabel,
         );
@@ -264,23 +285,3 @@ class MemberSelectorPopup extends StatelessWidget {
     return theme.colorScheme.primary;
   }
 }
-
-sealed class _MemberSelectorPopupRow {
-  const _MemberSelectorPopupRow();
-}
-
-final class _SearchPopupRow extends _MemberSelectorPopupRow {}
-
-final class _SpecialPopupRow extends _MemberSelectorPopupRow {
-  const _SpecialPopupRow(this.row);
-
-  final MemberSelectorPopupSpecialRow row;
-}
-
-final class _MemberPopupRow extends _MemberSelectorPopupRow {
-  const _MemberPopupRow(this.member);
-
-  final Member member;
-}
-
-final class _DividerPopupRow extends _MemberSelectorPopupRow {}

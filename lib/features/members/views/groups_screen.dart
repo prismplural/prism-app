@@ -24,6 +24,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/utils/optimistic_list_controller.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -48,7 +49,16 @@ class GroupsScreen extends ConsumerStatefulWidget {
 
 class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   final GlobalKey<BlurPopupAnchorState> _optionsPopupKey = GlobalKey();
-  List<MemberGroup>? _optimisticGroups;
+  late final OptimisticListController<MemberGroup, String> _optimisticGroups;
+
+  @override
+  void initState() {
+    super.initState();
+    _optimisticGroups = OptimisticListController<MemberGroup, String>(
+      keyOf: (group) => group.id,
+      providerItemsMatch: _sameGroupDisplayOrders,
+    );
+  }
 
   String _groupPathFor(String id) => widget.branch.groupPath(id);
 
@@ -98,23 +108,19 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final counts = ref.watch(groupMemberCountsProvider);
-    final hideMemberCount = ref
+    final hideMemberCount =
+        ref
             .watch(hideTotalMemberCountProvider)
             .whenOrNull(data: (value) => value) ??
         true;
     final providerFlatItems = ref.watch(flatGroupListProvider);
     final providerGroups = [for (final item in providerFlatItems) item.group];
-    final optimisticGroups = _optimisticGroups;
+    final optimisticGroups = _optimisticGroups.items;
     final flatItems = optimisticGroups == null
         ? providerFlatItems
         : _flattenGroups(optimisticGroups);
-    if (optimisticGroups != null &&
-        _sameGroupDisplayOrders(providerGroups, optimisticGroups)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && identical(_optimisticGroups, optimisticGroups)) {
-          setState(() => _optimisticGroups = null);
-        }
-      });
+    if (_optimisticGroups.shouldClearFor(providerGroups)) {
+      _clearOptimisticGroupsAfterBuild(optimisticGroups!);
     }
     final groups = [for (final item in flatItems) item.group];
 
@@ -188,12 +194,21 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
     final allGroups = [for (final item in flatItems) item.group];
     setState(() {
-      _optimisticGroups = _groupsWithSiblingDisplayOrder(allGroups, reordered);
+      _optimisticGroups.set(
+        _groupsWithSiblingDisplayOrder(allGroups, reordered),
+      );
     });
     unawaited(
       ref.read(groupNotifierProvider.notifier).reorderGroups(reordered),
     );
     Haptics.selection();
+  }
+
+  void _clearOptimisticGroupsAfterBuild(List<MemberGroup> current) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_optimisticGroups.isCurrent(current)) return;
+      setState(_optimisticGroups.clear);
+    });
   }
 
   List<MemberGroup>? _reorderedSiblingsForDrop(

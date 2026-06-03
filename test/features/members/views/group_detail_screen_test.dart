@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -16,6 +18,7 @@ import 'package:prism_plurality/domain/repositories/member_groups_repository.dar
 import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
@@ -57,11 +60,17 @@ class _FakeGroupNotifier extends GroupNotifier {
 class _FakeMemberGroupsRepository implements MemberGroupsRepository {
   _FakeMemberGroupsRepository({
     this.snapshotResult = const SnapshotApplyResult.applied(),
+    this.snapshotFuture,
+    this.allGroups = const [],
+    this.allEntries = const [],
   });
 
   /// What [setGroupManualOrderSnapshot] returns. Override per test for the
   /// "recovered" path.
   SnapshotApplyResult snapshotResult;
+  Future<SnapshotApplyResult>? snapshotFuture;
+  List<MemberGroup> allGroups;
+  List<MemberGroupEntry> allEntries;
 
   String? lastSnapshotGroupId;
   List<String>? lastSnapshotOrder;
@@ -79,6 +88,10 @@ class _FakeMemberGroupsRepository implements MemberGroupsRepository {
     snapshotCallCount += 1;
     lastSnapshotGroupId = groupId;
     lastSnapshotOrder = List.of(orderedEntryIds);
+    final pending = snapshotFuture;
+    if (pending != null) {
+      return await pending;
+    }
     return snapshotResult;
   }
 
@@ -111,7 +124,7 @@ class _FakeMemberGroupsRepository implements MemberGroupsRepository {
   Future<void> emitGroupSyncState(String groupId) async {}
 
   @override
-  Future<List<MemberGroupEntry>> getAllGroupEntries() async => const [];
+  Future<List<MemberGroupEntry>> getAllGroupEntries() async => allEntries;
 
   @override
   Future<void> promoteChildrenToRoot(String groupId) async {}
@@ -120,16 +133,20 @@ class _FakeMemberGroupsRepository implements MemberGroupsRepository {
   Future<void> removeMemberFromGroup(String groupId, String memberId) async {}
 
   @override
+  Future<void> reorderGroups(List<MemberGroup> groups) async {}
+
+  @override
   Future<void> updateGroup(MemberGroup group) async {}
 
   @override
-  Stream<List<MemberGroupEntry>> watchAllGroupEntries() => const Stream.empty();
+  Stream<List<MemberGroupEntry>> watchAllGroupEntries() =>
+      Stream.value(allEntries);
 
   @override
-  Stream<List<MemberGroup>> watchAllGroups() => const Stream.empty();
+  Stream<List<MemberGroup>> watchAllGroups() => Stream.value(allGroups);
 
   @override
-  Future<List<MemberGroup>> getAllGroups() async => const [];
+  Future<List<MemberGroup>> getAllGroups() async => allGroups;
 
   @override
   Stream<MemberGroup?> watchGroupById(String id) => const Stream.empty();
@@ -181,7 +198,9 @@ Widget _buildSubject({
   _FakeMemberGroupsRepository? repository,
 }) {
   final resolvedAll = allMembers ?? activeMembers;
-  final repo = repository ?? _FakeMemberGroupsRepository();
+  final repo =
+      repository ??
+      _FakeMemberGroupsRepository(allGroups: allGroups, allEntries: allEntries);
   return ProviderScope(
     overrides: [
       systemSettingsProvider.overrideWith(
@@ -189,6 +208,19 @@ Widget _buildSubject({
       ),
       activeMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
       allMembersProvider.overrideWith((ref) => Stream.value(resolvedAll)),
+      activeMemberListProvider.overrideWith(
+        (ref) => Stream.value(activeMembers),
+      ),
+      allMemberListProvider.overrideWith((ref) => Stream.value(resolvedAll)),
+      membersByIdsListProvider.overrideWith((ref, idsKey) {
+        final ids = idsKey.isEmpty
+            ? const <String>{}
+            : idsKey.split(',').toSet();
+        return Stream.value({
+          for (final member in resolvedAll)
+            if (ids.contains(member.id)) member.id: member,
+        });
+      }),
       memberByIdProvider.overrideWith((ref, memberId) {
         final matching = resolvedAll.where((member) => member.id == memberId);
         return Stream.value(matching.isEmpty ? null : matching.first);
@@ -208,10 +240,11 @@ Widget _buildSubject({
       ),
       groupNotifierProvider.overrideWith(() => notifier),
       memberGroupsRepositoryProvider.overrideWithValue(repo),
-      // Stats provider needs an explicit fake — its underlying
+      // Stats providers need explicit fakes — their underlying
       // FrontingSessionRepository isn't wired in widget tests. Default to
       // an empty stats record so the "apply fronting order" action
       // resolves immediately.
+      allMemberFrontingStatsProvider.overrideWith((ref) async => const {}),
       memberFrontingStatsProvider.overrideWith(
         (ref, memberId) async => const MemberFrontingStats(
           totalSessions: 0,
@@ -247,6 +280,19 @@ Widget _buildRoutedSubject({
       ),
       activeMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
       allMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
+      activeMemberListProvider.overrideWith(
+        (ref) => Stream.value(activeMembers),
+      ),
+      allMemberListProvider.overrideWith((ref) => Stream.value(activeMembers)),
+      membersByIdsListProvider.overrideWith((ref, idsKey) {
+        final ids = idsKey.isEmpty
+            ? const <String>{}
+            : idsKey.split(',').toSet();
+        return Stream.value({
+          for (final member in activeMembers)
+            if (ids.contains(member.id)) member.id: member,
+        });
+      }),
       memberByIdProvider.overrideWith((ref, memberId) {
         final matching = activeMembers.where((member) => member.id == memberId);
         return Stream.value(matching.isEmpty ? null : matching.first);
@@ -266,8 +312,12 @@ Widget _buildRoutedSubject({
       ),
       groupNotifierProvider.overrideWith(() => notifier),
       memberGroupsRepositoryProvider.overrideWithValue(
-        _FakeMemberGroupsRepository(),
+        _FakeMemberGroupsRepository(
+          allGroups: allGroups,
+          allEntries: allEntries,
+        ),
       ),
+      allMemberFrontingStatsProvider.overrideWith((ref) async => const {}),
       memberFrontingStatsProvider.overrideWith(
         (ref, memberId) async => const MemberFrontingStats(
           totalSessions: 0,
@@ -362,6 +412,12 @@ void main() {
             (ref) => Stream.value(const <Member>[]),
           ),
           allMembersProvider.overrideWith(
+            (ref) => Stream.value(const <Member>[]),
+          ),
+          activeMemberListProvider.overrideWith(
+            (ref) => Stream.value(const <Member>[]),
+          ),
+          allMemberListProvider.overrideWith(
             (ref) => Stream.value(const <Member>[]),
           ),
           allGroupsProvider.overrideWith((ref) => const Stream.empty()),
@@ -531,6 +587,79 @@ void main() {
 
     expect(find.text('Front as Group'), findsOneWidget);
     expect(find.text('Start chat'), findsOneWidget);
+  });
+
+  testWidgets('renders direct members without waiting for full member list', (
+    tester,
+  ) async {
+    final group = _group(id: 'group-target', name: 'Target Group');
+    final alice = _member(id: 'alice', name: 'Alice');
+    final notifier = _FakeGroupNotifier();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+          activeMembersProvider.overrideWith(
+            (ref) => const Stream<List<Member>>.empty(),
+          ),
+          allMembersProvider.overrideWith(
+            (ref) => const Stream<List<Member>>.empty(),
+          ),
+          activeMemberListProvider.overrideWith(
+            (ref) => const Stream<List<Member>>.empty(),
+          ),
+          allMemberListProvider.overrideWith(
+            (ref) => const Stream<List<Member>>.empty(),
+          ),
+          membersByIdsListProvider.overrideWith(
+            (ref, idsKey) =>
+                Stream.value(idsKey == 'alice' ? {'alice': alice} : const {}),
+          ),
+          allGroupsProvider.overrideWith((ref) => Stream.value([group])),
+          allGroupEntriesProvider.overrideWith(
+            (ref) => const Stream<List<MemberGroupEntry>>.empty(),
+          ),
+          groupByIdProvider.overrideWith(
+            (ref, groupId) => Stream.value(groupId == group.id ? group : null),
+          ),
+          groupEntriesProvider.overrideWith(
+            (ref, groupId) => Stream.value([
+              if (groupId == group.id)
+                const MemberGroupEntry(
+                  id: 'entry-alice',
+                  groupId: 'group-target',
+                  memberId: 'alice',
+                ),
+            ]),
+          ),
+          groupTreeProvider.overrideWith(
+            (ref) => GroupTreeUtils.buildGroupTree([group]),
+          ),
+          groupNotifierProvider.overrideWith(() => notifier),
+          memberGroupsRepositoryProvider.overrideWithValue(
+            _FakeMemberGroupsRepository(),
+          ),
+          allMemberFrontingStatsProvider.overrideWith((ref) async => const {}),
+          memberFrontingStatsProvider.overrideWith(
+            (ref, memberId) async => const MemberFrontingStats(
+              totalSessions: 0,
+              totalDuration: Duration.zero,
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: GroupDetailScreen(groupId: group.id),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alice'), findsOneWidget);
   });
 
   testWidgets('member tap uses the route-provided branch', (tester) async {
@@ -747,6 +876,37 @@ void main() {
     },
   );
 
+  testWidgets('large group detail lazily builds visible member rows', (
+    tester,
+  ) async {
+    final group = _group(id: 'group-target', name: 'Target Group');
+    final members = [
+      for (var i = 0; i < 80; i++) _member(id: 'member-$i', name: 'Member $i'),
+    ];
+    final entries = [
+      for (var i = 0; i < members.length; i++)
+        MemberGroupEntry(
+          id: 'entry-$i',
+          groupId: group.id,
+          memberId: members[i].id,
+        ),
+    ];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        group: group,
+        allGroups: [group],
+        allEntries: entries,
+        activeMembers: members,
+        notifier: _FakeGroupNotifier(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SliverReorderableList), findsOneWidget);
+    expect(find.byType(MemberCard).evaluate().length, lessThan(members.length));
+  });
+
   testWidgets(
     'add member uses shared multi-select sheet and keeps group chips',
     (tester) async {
@@ -781,6 +941,7 @@ void main() {
       // Default terminology is `headmates`; the icon button tooltip reads
       // "Add {termSingularLower}" → "Add headmate".
       await tester.tap(find.byTooltip('Add headmate'));
+      await tester.pump(const Duration(milliseconds: 100));
       await tester.pumpAndSettle();
 
       expect(find.byType(MemberSearchSheet), findsOneWidget);
@@ -1282,6 +1443,79 @@ void main() {
     );
 
     testWidgets(
+      'custom semantic action "Move up" keeps optimistic order while snapshot '
+      'persistence is pending',
+      (tester) async {
+        final persistence = Completer<SnapshotApplyResult>();
+        final group = groupWith(
+          id: 'g',
+          name: 'G',
+          sortState: const GroupSortState(
+            mode: GroupSortMode.manual,
+            manualOrder: ['e1', 'e2', 'e3'],
+          ),
+        );
+        final repo = _FakeMemberGroupsRepository(
+          snapshotFuture: persistence.future,
+        );
+        await tester.pumpWidget(
+          _buildSubject(
+            group: group,
+            allGroups: [group],
+            allEntries: [
+              entry('e1', 'g', 'm1'),
+              entry('e2', 'g', 'm2'),
+              entry('e3', 'g', 'm3'),
+            ],
+            activeMembers: [
+              _member(id: 'm1', name: 'Alice'),
+              _member(id: 'm2', name: 'Bob'),
+              _member(id: 'm3', name: 'Carol'),
+            ],
+            notifier: _FakeGroupNotifier(),
+            repository: repo,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final bobCard = find.ancestor(
+          of: find.text('Bob'),
+          matching: find.byType(MemberCard),
+        );
+        final node = tester.getSemantics(bobCard);
+        final actionIds =
+            node.getSemanticsData().customSemanticsActionIds ?? const <int>[];
+        final moveUpId = actionIds.firstWhere(
+          (id) => CustomSemanticsAction.getAction(id)?.label == 'Move up',
+          orElse: () => -1,
+        );
+        expect(moveUpId, isNot(-1));
+
+        WidgetsBinding
+            .instance
+            // ignore: deprecated_member_use
+            .pipelineOwner
+            .semanticsOwner
+            ?.performAction(node.id, SemanticsAction.customAction, moveUpId);
+        await tester.pump();
+
+        expect(repo.snapshotCallCount, 1);
+        expect(repo.lastSnapshotOrder, ['e2', 'e1', 'e3']);
+        expect(
+          tester.getTopLeft(find.text('Bob')).dy,
+          lessThan(tester.getTopLeft(find.text('Alice')).dy),
+          reason:
+              'the dropped order should remain visible while the provider '
+              'is still showing the previous order',
+        );
+
+        persistence.complete(const SnapshotApplyResult.applied());
+        await tester.pumpAndSettle();
+      },
+      semanticsEnabled: true,
+    );
+
+    testWidgets(
       'custom semantic action "Move to top" on last row puts that row first',
       (tester) async {
         final group = groupWith(
@@ -1591,7 +1825,10 @@ void main() {
         final parent = _group(id: 'parent', name: 'Parent');
         final child1 = _group(id: 'c1', name: 'Alpha', parentGroupId: 'parent');
         final child2 = _group(id: 'c2', name: 'Beta', parentGroupId: 'parent');
-        final notifier = _ReorderingFakeGroupNotifier();
+        final persistence = Completer<void>();
+        final notifier = _ReorderingFakeGroupNotifier(
+          reorderCompleter: persistence,
+        );
         await tester.pumpWidget(
           _buildSubject(
             group: parent,
@@ -1625,16 +1862,28 @@ void main() {
           'c2',
           'c1',
         ]);
+        expect(
+          tester.getTopLeft(find.text('Beta')).dy <
+              tester.getTopLeft(find.text('Alpha')).dy,
+          isTrue,
+        );
+
+        persistence.complete();
+        await tester.pumpAndSettle();
       },
     );
   });
 }
 
 class _ReorderingFakeGroupNotifier extends _FakeGroupNotifier {
+  _ReorderingFakeGroupNotifier({this.reorderCompleter});
+
+  final Completer<void>? reorderCompleter;
   final reorderedSequences = <List<MemberGroup>>[];
 
   @override
   Future<void> reorderGroups(List<MemberGroup> groups) async {
     reorderedSequences.add(List.of(groups));
+    await (reorderCompleter?.future ?? Future<void>.value());
   }
 }

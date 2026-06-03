@@ -5,6 +5,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -17,6 +18,7 @@ import 'package:prism_plurality/features/members/navigation/member_navigation_br
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart';
@@ -46,12 +48,17 @@ import 'package:prism_plurality/features/members/providers/group_display_prefs_p
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/utils/optimistic_list_controller.dart';
 
 String _memberPathFor(
   MemberNavigationBranch branch,
   String currentGroupId,
   String memberId,
 ) => branch.memberPath(memberId, groupId: currentGroupId);
+
+const _groupDetailRowsLoadingHeight = 160.0;
+
+typedef _GroupMemberPair = (MemberGroupEntry, Member);
 
 /// Detail screen for a single member group.
 class GroupDetailScreen extends ConsumerWidget {
@@ -109,6 +116,8 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
   /// non-input rebuilt widgets is not contractual.
   final Map<String, FocusNode> _entryFocusNodes = {};
   String? _pendingFocusEntryId;
+  late final OptimisticListController<_GroupMemberPair, String>
+  _optimisticMemberPairs;
 
   MemberGroup get group => widget.group;
   MemberNavigationBranch get branch => widget.branch;
@@ -119,6 +128,22 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
       () =>
           FocusNode(debugLabel: 'group_member_$entryId', skipTraversal: false),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _optimisticMemberPairs = OptimisticListController<_GroupMemberPair, String>(
+      keyOf: (pair) => pair.$1.id,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _GroupDetailBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.group.id != widget.group.id) {
+      _optimisticMemberPairs.clear();
+    }
   }
 
   @override
@@ -136,9 +161,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     final l10n = context.l10n;
     final terms = watchTerminology(context, ref);
     final entriesAsync = ref.watch(groupEntriesProvider(group.id));
-    ref.watch(activeMembersProvider);
     final allGroupsAsync = ref.watch(allGroupsProvider);
-    ref.watch(allGroupEntriesProvider);
     final canAddSubGroup = allGroupsAsync.hasValue;
     final allGroups =
         allGroupsAsync.whenOrNull(data: (g) => g) ?? const <MemberGroup>[];
@@ -147,7 +170,27 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     final entries = entriesAsync.whenOrNull(data: (entries) => entries);
     final hasMembers = entries?.isNotEmpty ?? false;
 
-    final visiblePairs = ref.watch(sortedGroupMembersProvider(group.id));
+    final providerVisiblePairsAsync = ref.watch(
+      sortedGroupMembersAsyncProvider(group.id),
+    );
+    final providerVisiblePairs =
+        providerVisiblePairsAsync.value ?? const <(MemberGroupEntry, Member)>[];
+    final providerVisiblePairsInitialLoading =
+        providerVisiblePairsAsync.isLoading &&
+        !providerVisiblePairsAsync.hasValue;
+    final providerVisiblePairsInitialError =
+        providerVisiblePairsAsync.hasError &&
+            !providerVisiblePairsAsync.hasValue
+        ? providerVisiblePairsAsync.error
+        : null;
+    final optimisticVisiblePairs = _optimisticMemberPairs.items;
+    final visiblePairs = _optimisticMemberPairs.displayItems(
+      providerVisiblePairs,
+    );
+    if (_optimisticMemberPairs.shouldClearFor(providerVisiblePairs) &&
+        optimisticVisiblePairs != null) {
+      _clearOptimisticMemberPairsAfterBuild(optimisticVisiblePairs);
+    }
     // Prune stale FocusNodes only on membership change, not every build —
     // avoids O(n) set-construction on every scroll/drag tick/keystroke.
     ref.listen<List<(MemberGroupEntry, Member)>>(
@@ -186,28 +229,30 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
         ],
       ),
       bodyPadding: EdgeInsets.zero,
-      body: SingleChildScrollView(
-        padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
+      body: CustomScrollView(
+        slivers: [
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-            Padding(
+          SliverToBoxAdapter(
+            child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _GroupInfoHeader(group: group, ancestors: ancestors),
             ),
+          ),
 
-            const SizedBox(height: 24),
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
-            _SubGroupsSection(
+          SliverToBoxAdapter(
+            child: _SubGroupsSection(
               groupId: group.id,
               branch: branch,
               canAddSubGroup: canAddSubGroup,
               onAddSubGroup: () => _addSubGroup(context),
             ),
+          ),
 
-            Padding(
+          SliverToBoxAdapter(
+            child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
               child: Row(
                 children: [
@@ -242,16 +287,23 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
                 ],
               ),
             ),
+          ),
 
-            entriesAsync.when(
-              loading: () => const PrismLoadingState(),
-              error: (e, _) => Padding(
+          entriesAsync.when(
+            skipLoadingOnReload: true,
+            loading: () => const SliverToBoxAdapter(
+              child: SizedBox(height: _groupDetailRowsLoadingHeight),
+            ),
+            error: (e, _) => SliverToBoxAdapter(
+              child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text('Error: $e'),
+                child: Text(l10n.memberGroupErrorLoadingDetail(e)),
               ),
-              data: (entries) {
-                if (entries.isEmpty) {
-                  return Padding(
+            ),
+            data: (entries) {
+              if (entries.isEmpty) {
+                return SliverToBoxAdapter(
+                  child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 16,
@@ -263,12 +315,30 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
                         terms.pluralLower,
                       ),
                     ),
-                  );
-                }
-                if (visiblePairs.isEmpty) {
-                  // All entries are filtered out — every member in this group
-                  // is inactive and the toggle hides them.
-                  return Padding(
+                  ),
+                );
+              }
+              if (providerVisiblePairsInitialLoading) {
+                return const SliverToBoxAdapter(
+                  child: SizedBox(height: _groupDetailRowsLoadingHeight),
+                );
+              }
+              final visiblePairsError = providerVisiblePairsInitialError;
+              if (visiblePairsError != null) {
+                return SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      l10n.memberGroupErrorLoadingDetail(visiblePairsError),
+                    ),
+                  ),
+                );
+              }
+              if (visiblePairs.isEmpty) {
+                // All entries are filtered out — every member in this group
+                // is inactive and the toggle hides them.
+                return SliverToBoxAdapter(
+                  child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 16,
@@ -280,77 +350,90 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
                         terms.pluralLower,
                       ),
                     ),
-                  );
-                }
-
-                // Drag-reorder list. Handles always live in the trailing slot
-                // of each MemberCard (see MemberCard.reorderIndex). Dragging
-                // in a sorted mode does *implicit unlock* (plan §Task 5.1 B).
-                return ReorderableListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  buildDefaultDragHandles: false,
-                  itemCount: visiblePairs.length,
-                  onReorder: (oldIndex, newIndex) {
-                    _onReorder(visiblePairs, oldIndex, newIndex);
-                  },
-                  proxyDecorator: (child, index, animation) {
-                    return AnimatedBuilder(
-                      animation: animation,
-                      builder: (context, child) => Material(
-                        elevation: 4,
-                        color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(
-                          PrismShapes.of(context).radius(12),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: child,
-                      ),
-                      child: child,
-                    );
-                  },
-                  itemBuilder: (context, index) {
-                    final (entry, member) = visiblePairs[index];
-                    return _GroupMemberTile(
-                      key: ValueKey('member_${entry.id}'),
-                      entry: entry,
-                      member: member,
-                      groupId: group.id,
-                      branch: branch,
-                      reorderIndex: index,
-                      totalCount: visiblePairs.length,
-                      sortMode: group.sortState.mode,
-                      focusNode: _focusNodeFor(entry.id),
-                      onMoveTo: (newIndex) =>
-                          _moveTo(visiblePairs, index, newIndex),
-                    );
-                  },
+                  ),
                 );
-              },
-            ),
+              }
 
-            const SizedBox(height: 32),
-          ],
-        ),
+              // Drag-reorder list. Handles always live in the trailing slot
+              // of each MemberCard (see MemberCard.reorderIndex). Dragging
+              // in a sorted mode does *implicit unlock* (plan §Task 5.1 B).
+              return SliverReorderableList(
+                itemCount: visiblePairs.length,
+                findChildIndexCallback: (key) =>
+                    _groupMemberIndexForKey(key, visiblePairs),
+                onReorder: (oldIndex, newIndex) {
+                  _onReorder(visiblePairs, oldIndex, newIndex);
+                },
+                proxyDecorator: (child, index, animation) {
+                  return AnimatedBuilder(
+                    animation: animation,
+                    builder: (context, child) => Material(
+                      elevation: 4,
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(
+                        PrismShapes.of(context).radius(12),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: child,
+                    ),
+                    child: child,
+                  );
+                },
+                itemBuilder: (context, index) {
+                  final (entry, member) = visiblePairs[index];
+                  return _GroupMemberTile(
+                    key: ValueKey('member_${entry.id}'),
+                    entry: entry,
+                    member: member,
+                    groupId: group.id,
+                    branch: branch,
+                    reorderIndex: index,
+                    totalCount: visiblePairs.length,
+                    sortMode: group.sortState.mode,
+                    focusNode: _focusNodeFor(entry.id),
+                    onMoveTo: (newIndex) =>
+                        _moveTo(visiblePairs, index, newIndex),
+                  );
+                },
+              );
+            },
+          ),
+
+          SliverPadding(
+            padding: EdgeInsets.only(bottom: NavBarInset.of(context) + 32),
+          ),
+        ],
       ),
     );
   }
 
   // ── Reorder + sort-mode plumbing ───────────────────────────────────────────
 
-  Future<void> _onReorder(
+  void _clearOptimisticMemberPairsAfterBuild(
+    List<_GroupMemberPair> optimisticPairs,
+  ) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_optimisticMemberPairs.isCurrent(optimisticPairs)) {
+        return;
+      }
+      setState(_optimisticMemberPairs.clear);
+    });
+  }
+
+  void _onReorder(
     List<(MemberGroupEntry, Member)> pairs,
     int oldIndex,
     int newIndex,
-  ) async {
-    if (newIndex > oldIndex) newIndex -= 1;
-    if (oldIndex == newIndex) return;
-    final reordered = [...pairs];
-    final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex, item);
+  ) {
+    final reordered = reorderedItems(pairs, oldIndex, newIndex);
+    if (reordered == null) return;
+
+    setState(() {
+      _optimisticMemberPairs.set(reordered);
+    });
+
     final newOrder = [for (final p in reordered) p.$1.id];
-    await _applyManualOrder(newOrder, wasManual: group.sortState.isManual);
+    unawaited(_applyManualOrder(newOrder, wasManual: group.sortState.isManual));
   }
 
   Future<void> _moveTo(
@@ -358,11 +441,19 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     int oldIndex,
     int newIndex,
   ) async {
-    if (oldIndex == newIndex) return;
-    final reordered = [...pairs];
-    final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex, item);
-    final movedEntryId = item.$1.id;
+    final reordered = reorderedItems(
+      pairs,
+      oldIndex,
+      newIndex,
+      adjustNewIndexForRemoval: false,
+    );
+    if (reordered == null) return;
+    final movedEntryId = pairs[oldIndex].$1.id;
+
+    setState(() {
+      _optimisticMemberPairs.set(reordered);
+    });
+
     final newOrder = [for (final p in reordered) p.$1.id];
     await _applyManualOrder(newOrder, wasManual: group.sortState.isManual);
     if (!mounted) return;
@@ -442,19 +533,11 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     List<(MemberGroupEntry, Member)> pairs, {
     required bool descending,
   }) async {
-    final members = [for (final p in pairs) p.$2];
-    final statsFutures = members.map(
-      (m) => ref.read(memberFrontingStatsProvider(m.id).future),
-    );
-    final allStats = await Future.wait(statsFutures);
-    final statsMap = <String, Duration>{
-      for (var i = 0; i < members.length; i++)
-        members[i].id: allStats[i].totalDuration,
-    };
+    final statsMap = await ref.read(allMemberFrontingStatsProvider.future);
     final sorted = [...pairs]
       ..sort((a, b) {
-        final ad = statsMap[a.$2.id] ?? Duration.zero;
-        final bd = statsMap[b.$2.id] ?? Duration.zero;
+        final ad = statsMap[a.$2.id]?.totalDuration ?? Duration.zero;
+        final bd = statsMap[b.$2.id]?.totalDuration ?? Duration.zero;
         return descending ? bd.compareTo(ad) : ad.compareTo(bd);
       });
     final newOrder = [for (final p in sorted) p.$1.id];
@@ -857,11 +940,13 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
 
   Future<void> _openSearch(List<Member> members) async {
     final terms = readTerminology(context, ref);
+    final groups = await _readMemberSearchGroupsForCandidates(members);
+    if (!mounted) return;
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,
       termPlural: terms.plural,
-      groups: readMemberSearchGroups(ref, members),
+      groups: groups,
     );
     if (!mounted) return;
     switch (result) {
@@ -944,16 +1029,21 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     final existingMemberIds = entries.map((e) => e.memberId).toSet();
     // Non-fronting picker: hide the Unknown sentinel — you don't add the
     // placeholder member to a group.
-    final availableMembers =
-        (ref.read(userVisibleMembersProvider).value ?? const <Member>[])
-            .where((member) => !existingMemberIds.contains(member.id))
-            .toList();
+    final visibleMembers = await _readVisibleActiveMembers(ref);
+    if (!context.mounted) return;
+    final availableMembers = visibleMembers
+        .where((member) => !existingMemberIds.contains(member.id))
+        .toList();
+    final searchGroups = await _readMemberSearchGroupsForCandidates(
+      availableMembers,
+    );
+    if (!context.mounted) return;
 
     final selectedIds = await MemberSearchSheet.showMulti(
       context,
       members: availableMembers,
       termPlural: readTerminology(context, ref).plural,
-      groups: readMemberSearchGroups(ref, availableMembers),
+      groups: searchGroups,
     );
     if (!context.mounted || selectedIds == null || selectedIds.isEmpty) return;
 
@@ -967,6 +1057,28 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     PrismToast.show(
       context,
       message: context.l10n.memberAdded(readTerminology(context, ref).singular),
+    );
+  }
+
+  Future<List<MemberSearchGroup>> _readMemberSearchGroupsForCandidates(
+    Iterable<Member> members,
+  ) async {
+    final cachedGroups = ref.read(allGroupsProvider).value;
+    final cachedEntries = ref.read(allGroupEntriesProvider).value;
+    if (cachedGroups != null && cachedEntries != null) {
+      return readMemberSearchGroups(ref, members);
+    }
+
+    final repo = ref.read(memberGroupsRepositoryProvider);
+    final groups = cachedGroups ?? await repo.getAllGroups();
+    final entries = cachedEntries ?? await repo.getAllGroupEntries();
+    return buildMemberSearchGroups(
+      members: members,
+      allGroups: groups,
+      allEntries: entries,
+      groupTree: GroupTreeUtils.buildGroupTree(
+        GroupTreeUtils.resolveSyncCycles(groups),
+      ),
     );
   }
 
@@ -1038,7 +1150,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
 
     // Check if all group members are inactive
     final allMembers =
-        ref.read(allMembersProvider).whenOrNull(data: (m) => m) ?? [];
+        ref.read(allMemberListProvider).whenOrNull(data: (m) => m) ?? [];
     final groupMembers = allMembers
         .where((m) => memberIds.contains(m.id))
         .toList();
@@ -1279,7 +1391,7 @@ class _GroupInfoHeader extends ConsumerWidget {
   }
 }
 
-class _SubGroupsSection extends ConsumerWidget {
+class _SubGroupsSection extends ConsumerStatefulWidget {
   const _SubGroupsSection({
     required this.groupId,
     required this.branch,
@@ -1293,10 +1405,32 @@ class _SubGroupsSection extends ConsumerWidget {
   final VoidCallback onAddSubGroup;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SubGroupsSection> createState() => _SubGroupsSectionState();
+}
+
+class _SubGroupsSectionState extends ConsumerState<_SubGroupsSection> {
+  final OptimisticListController<MemberGroup, String> _optimisticChildren =
+      OptimisticListController<MemberGroup, String>(keyOf: (group) => group.id);
+
+  @override
+  void didUpdateWidget(covariant _SubGroupsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.groupId != widget.groupId) {
+      _optimisticChildren.clear();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final children = ref.watch(childGroupsProvider(groupId));
+    final providerChildren = ref.watch(childGroupsProvider(widget.groupId));
+    final optimisticChildren = _optimisticChildren.items;
+    final children = _optimisticChildren.displayItems(providerChildren);
+
+    if (_optimisticChildren.shouldClearFor(providerChildren)) {
+      _clearOptimisticChildrenAfterBuild(optimisticChildren!);
+    }
 
     if (children.isEmpty) return const SizedBox.shrink();
 
@@ -1322,14 +1456,14 @@ class _SubGroupsSection extends ConsumerWidget {
                   ),
                 ),
               ),
-              if (canAddSubGroup)
+              if (widget.canAddSubGroup)
                 PrismInlineIconButton(
                   icon: AppIcons.add,
                   tooltip: l10n.memberGroupAddSubGroup,
                   size: 32,
                   iconSize: 20,
                   color: theme.colorScheme.primary,
-                  onPressed: onAddSubGroup,
+                  onPressed: widget.onAddSubGroup,
                 ),
             ],
           ),
@@ -1338,6 +1472,13 @@ class _SubGroupsSection extends ConsumerWidget {
         const SizedBox(height: 20),
       ],
     );
+  }
+
+  void _clearOptimisticChildrenAfterBuild(List<MemberGroup> current) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_optimisticChildren.isCurrent(current)) return;
+      setState(_optimisticChildren.clear);
+    });
   }
 
   // Inline drag-reorder for sub-groups (plan §Task 5.2). When the list has
@@ -1366,11 +1507,9 @@ class _SubGroupsSection extends ConsumerWidget {
       buildDefaultDragHandles: false,
       itemCount: children.length,
       onReorder: (oldIndex, newIndex) {
-        if (newIndex > oldIndex) newIndex -= 1;
-        if (oldIndex == newIndex) return;
-        final reordered = [...children];
-        final item = reordered.removeAt(oldIndex);
-        reordered.insert(newIndex, item);
+        final reordered = reorderedItems(children, oldIndex, newIndex);
+        if (reordered == null) return;
+        setState(() => _optimisticChildren.set(reordered));
         Haptics.selection();
         unawaited(
           ref.read(groupNotifierProvider.notifier).reorderGroups(reordered),
@@ -1414,7 +1553,7 @@ class _SubGroupsSection extends ConsumerWidget {
       memberCount: count,
       showMemberCount: !hideMemberCount,
       reorderIndex: reorderIndex,
-      onTap: () => context.push(branch.groupPath(group.id)),
+      onTap: () => context.push(widget.branch.groupPath(group.id)),
     );
   }
 }
@@ -1489,6 +1628,7 @@ class _GroupMemberTile extends ConsumerWidget {
           confirmDismiss: (_) => _confirmRemove(context, ref, member),
           child: MemberCard(
             member: member,
+            deferAvatarLookup: true,
             reorderIndex: reorderIndex,
             dragHandleHint: isManual
                 ? l10n.groupMemberDragHandleHintManual
@@ -1534,6 +1674,50 @@ class _GroupMemberTile extends ConsumerWidget {
     }
     return false; // Don't auto-dismiss; provider stream will update
   }
+}
+
+Future<List<Member>> _readVisibleActiveMembers(WidgetRef ref) async {
+  final cached = ref.read(userVisibleMemberListProvider).value;
+  if (cached != null) return cached;
+
+  final completer = Completer<List<Member>>();
+  final subscription = ref.listenManual<AsyncValue<List<Member>>>(
+    activeMemberListProvider,
+    (_, next) {
+      if (completer.isCompleted) return;
+      if (next.hasValue) {
+        final members = next.requireValue
+            .where((member) => member.id != unknownSentinelMemberId)
+            .toList();
+        completer.complete(members);
+      } else if (next.hasError) {
+        completer.completeError(
+          next.error ?? StateError('Failed to load members'),
+          next.stackTrace ?? StackTrace.current,
+        );
+      }
+    },
+    fireImmediately: true,
+  );
+
+  try {
+    return await completer.future;
+  } finally {
+    subscription.close();
+  }
+}
+
+int? _groupMemberIndexForKey(
+  Key key,
+  List<(MemberGroupEntry, Member)> visiblePairs,
+) {
+  if (key is! ValueKey<String>) return null;
+  const prefix = 'member_';
+  final value = key.value;
+  if (!value.startsWith(prefix)) return null;
+  final entryId = value.substring(prefix.length);
+  final index = visiblePairs.indexWhere((pair) => pair.$1.id == entryId);
+  return index < 0 ? null : index;
 }
 
 enum _GroupMenuAction { frontGroup, startChat, addSubGroup, delete }

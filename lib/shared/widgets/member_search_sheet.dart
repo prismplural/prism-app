@@ -237,8 +237,10 @@ class MemberSearchSheet extends StatefulWidget {
 class _MemberSearchSheetState extends State<MemberSearchSheet> {
   late final TextEditingController _searchController;
   late final FocusNode _searchFocus;
-  late MemberSearchIndex _allMembersIndex;
-  late List<MemberSearchIndex> _groupMemberIndexes;
+  MemberSearchIndex? _allMembersIndex;
+  Map<String, List<String>>? _groupNamesByMemberId;
+  final Map<int, List<Member>> _groupMembersByIndex = {};
+  final Map<int, MemberSearchIndex> _groupMemberIndexesByIndex = {};
 
   // 0 = "All", 1+ = widget.groups[index - 1]
   int _selectedChip = 0;
@@ -251,7 +253,6 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
     _searchController = TextEditingController();
     _searchFocus = FocusNode();
     _selectedIds = Set.from(widget.initialSelected);
-    _rebuildSearchIndexes();
   }
 
   @override
@@ -259,7 +260,7 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
     super.didUpdateWidget(oldWidget);
     if (!identical(widget.members, oldWidget.members) ||
         !identical(widget.groups, oldWidget.groups)) {
-      _rebuildSearchIndexes();
+      _clearSearchCaches();
       if (_selectedChip > widget.groups.length) {
         _selectedChip = 0;
       }
@@ -273,41 +274,58 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
     super.dispose();
   }
 
-  void _rebuildSearchIndexes() {
-    final groupNamesByMemberId = _buildGroupNamesByMemberId(widget.groups);
-    _allMembersIndex = MemberSearchIndex(
-      widget.members,
-      additionalSearchTermsByMemberId: groupNamesByMemberId,
-    );
-    _groupMemberIndexes = [
-      for (final group in widget.groups)
-        MemberSearchIndex(
-          widget.members
-              .where((member) => group.memberIds.contains(member.id))
-              .toList(growable: false),
-          additionalSearchTermsByMemberId: groupNamesByMemberId,
-        ),
-    ];
+  void _clearSearchCaches() {
+    _allMembersIndex = null;
+    _groupNamesByMemberId = null;
+    _groupMembersByIndex.clear();
+    _groupMemberIndexesByIndex.clear();
   }
 
-  Map<String, List<String>> _buildGroupNamesByMemberId(
-    List<MemberSearchGroup> groups,
-  ) {
+  Map<String, List<String>> get _searchTermsByMemberId {
+    final cached = _groupNamesByMemberId;
+    if (cached != null) return cached;
+
     final termsByMemberId = <String, List<String>>{};
-    for (final group in groups) {
+    for (final group in widget.groups) {
       final groupName = group.name.trim();
       if (groupName.isEmpty) continue;
       for (final memberId in group.memberIds) {
         termsByMemberId.putIfAbsent(memberId, () => []).add(groupName);
       }
     }
+    _groupNamesByMemberId = termsByMemberId;
     return termsByMemberId;
   }
 
+  List<Member> _membersForGroup(int groupIndex) {
+    return _groupMembersByIndex.putIfAbsent(groupIndex, () {
+      final memberIds = widget.groups[groupIndex].memberIds;
+      return widget.members
+          .where((member) => memberIds.contains(member.id))
+          .toList(growable: false);
+    });
+  }
+
   List<Member> get _filteredMembers {
-    final index = _selectedChip == 0
-        ? _allMembersIndex
-        : _groupMemberIndexes[_selectedChip - 1];
+    if (_selectedChip == 0) {
+      if (_query.isEmpty) return widget.members;
+      final index = _allMembersIndex ??= MemberSearchIndex(
+        widget.members,
+        additionalSearchTermsByMemberId: _searchTermsByMemberId,
+      );
+      return index.filter(_query);
+    }
+
+    final groupIndex = _selectedChip - 1;
+    final groupMembers = _membersForGroup(groupIndex);
+    if (_query.isEmpty) return groupMembers;
+    final index = _groupMemberIndexesByIndex.putIfAbsent(
+      groupIndex,
+      () => MemberSearchIndex(
+        groupMembers,
+        additionalSearchTermsByMemberId: _searchTermsByMemberId,
+      ),
+    );
     return index.filter(_query);
   }
 
@@ -361,25 +379,24 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
           SliverToBoxAdapter(
             child: SizedBox(
               height: _kChipBarHeight,
-              child: ListView(
+              child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 6,
                 ),
-                children: [
-                  _buildChip(0, 'All ${widget.termPlural}'),
-                  ...widget.groups.asMap().entries.map(
-                    (e) => Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: _buildChip(
-                        e.key + 1,
-                        e.value.name,
-                        group: e.value,
-                      ),
-                    ),
-                  ),
-                ],
+                itemCount: widget.groups.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return _buildChip(0, 'All ${widget.termPlural}');
+                  }
+
+                  final group = widget.groups[index - 1];
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: _buildChip(index, group.name, group: group),
+                  );
+                },
               ),
             ),
           ),

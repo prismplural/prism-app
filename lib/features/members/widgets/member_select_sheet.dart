@@ -111,8 +111,6 @@ class MemberSelectSheet extends ConsumerWidget {
               );
             }
 
-            final searchGroups = watchMemberSearchGroups(ref, members);
-
             return Column(
               children: [
                 // Search action in top-right corner — opens the shared search sheet.
@@ -122,6 +120,7 @@ class MemberSelectSheet extends ConsumerWidget {
                     icon: Icon(AppIcons.search),
                     tooltip: l10n.search,
                     onPressed: () async {
+                      final searchGroups = readMemberSearchGroups(ref, members);
                       final result = await MemberSearchSheet.showSingle(
                         context,
                         members: members,

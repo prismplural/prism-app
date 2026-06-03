@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
@@ -40,12 +41,29 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/utils/optimistic_list_controller.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 const _kMembersViewSettingsBannerSeenKey =
     'prism.members.view_settings_banner_seen';
+
+String _memberOptimisticKey(Member member) => member.id;
+
+class _MemberTilePrefs {
+  const _MemberTilePrefs({
+    required this.showPronouns,
+    required this.showFrontButtons,
+    required this.frontButtonBehavior,
+    required this.frontingActionBusy,
+  });
+
+  final bool showPronouns;
+  final bool showFrontButtons;
+  final FrontStartBehavior frontButtonBehavior;
+  final bool frontingActionBusy;
+}
 
 /// Main member list screen.
 class MembersScreen extends ConsumerStatefulWidget {
@@ -71,6 +89,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   final GlobalKey _ungroupedKey = GlobalKey();
   final GlobalKey<BlurPopupAnchorState> _optionsPopupKey = GlobalKey();
   final ScrollController _scrollController = ScrollController();
+  final OptimisticListController<Member, String> _optimisticMembers =
+      OptimisticListController<Member, String>(keyOf: _memberOptimisticKey);
 
   @override
   void initState() {
@@ -362,11 +382,52 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     return confirmed;
   }
 
+  List<Member> _displayMembers(List<Member> providerMembers) {
+    final optimisticMembers = _optimisticMembers.items;
+    if (optimisticMembers == null) return providerMembers;
+
+    if (!sameItemSet(
+      providerMembers,
+      optimisticMembers,
+      keyOf: _memberOptimisticKey,
+    )) {
+      _optimisticMembers.clear();
+      return providerMembers;
+    }
+
+    if (sameItemOrder(
+      providerMembers,
+      optimisticMembers,
+      keyOf: _memberOptimisticKey,
+    )) {
+      _clearOptimisticMembersAfterBuild(optimisticMembers);
+    }
+
+    return optimisticMembers;
+  }
+
+  void _setOptimisticMembers(List<Member> members) {
+    setState(() {
+      _optimisticMembers.set(members);
+    });
+  }
+
+  void _clearOptimisticMembersAfterBuild(List<Member> optimisticMembers) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_optimisticMembers.isCurrent(optimisticMembers)) {
+        return;
+      }
+      setState(_optimisticMembers.clear);
+    });
+  }
+
   void _toggleMemberActive(Member member) {
     final newActive = !member.isActive;
-    ref
-        .read(membersNotifierProvider.notifier)
-        .updateMember(member.copyWith(isActive: newActive));
+    unawaited(
+      ref.read(memberRepositoryProvider).updateMemberFields(member.id, {
+        'is_active': newActive,
+      }),
+    );
     Haptics.selection();
     PrismToast.show(
       context,
@@ -381,6 +442,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     int Function(Member a, Member b) compare,
   ) async {
     final sorted = [...members]..sort(compare);
+    _setOptimisticMembers(sorted);
     unawaited(
       ref.read(membersNotifierProvider.notifier).reorderMembers(sorted),
     );
@@ -395,22 +457,17 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     List<Member> members, {
     required bool descending,
   }) async {
-    final statsFutures = members.map(
-      (m) => ref.read(memberFrontingStatsProvider(m.id).future),
-    );
-    final allStats = await Future.wait(statsFutures);
-    final statsMap = <String, Duration>{
-      for (var i = 0; i < members.length; i++)
-        members[i].id: allStats[i].totalDuration,
-    };
+    final statsMap = await ref.read(allMemberFrontingStatsProvider.future);
     final sorted = [...members]
       ..sort((a, b) {
-        final aDuration = statsMap[a.id] ?? Duration.zero;
-        final bDuration = statsMap[b.id] ?? Duration.zero;
+        final aDuration = statsMap[a.id]?.totalDuration ?? Duration.zero;
+        final bDuration = statsMap[b.id]?.totalDuration ?? Duration.zero;
         return descending
             ? bDuration.compareTo(aDuration)
             : aDuration.compareTo(bDuration);
       });
+    if (!mounted) return;
+    _setOptimisticMembers(sorted);
     unawaited(
       ref.read(membersNotifierProvider.notifier).reorderMembers(sorted),
     );
@@ -434,11 +491,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 
   void _onReorder(List<Member> members, int oldIndex, int newIndex) {
-    if (newIndex > oldIndex) newIndex--;
-    final reordered = List<Member>.from(members);
-    final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex, item);
-    ref.read(membersNotifierProvider.notifier).reorderMembers(reordered);
+    final reordered = reorderedItems(members, oldIndex, newIndex);
+    if (reordered == null) return;
+    _setOptimisticMembers(reordered);
+    unawaited(
+      ref.read(membersNotifierProvider.notifier).reorderMembers(reordered),
+    );
   }
 
   void _scrollToGroup(String? groupId) {
@@ -499,8 +557,11 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     // the active and "show inactive" views. Sentinel still resolves for any
     // session that points at it via the unfiltered providers used elsewhere.
     final membersAsync = _showInactive
-        ? ref.watch(userVisibleAllMembersProvider)
-        : ref.watch(userVisibleMembersProvider);
+        ? ref.watch(userVisibleAllMemberListProvider)
+        : ref.watch(userVisibleMemberListProvider);
+    final menuMembers = membersAsync.value == null
+        ? null
+        : _displayMembers(membersAsync.value!);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final terms = watchTerminology(context, ref);
 
@@ -520,6 +581,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     final showPronouns = ref.watch(membersShowPronounsProvider);
     final showFrontButtons = ref.watch(membersShowFrontButtonsProvider);
     final frontButtonBehavior = ref.watch(membersFrontButtonBehaviorProvider);
+    final frontingActionBusy = ref.watch(frontingNotifierProvider).isLoading;
+    final memberTilePrefs = _MemberTilePrefs(
+      showPronouns: showPronouns,
+      showFrontButtons: showFrontButtons,
+      frontButtonBehavior: frontButtonBehavior,
+      frontingActionBusy: frontingActionBusy,
+    );
     final showGroups = ref.watch(membersShowGroupsProvider);
     final showGroupedSections = viewMode == MembersListViewMode.groupedSections;
     final showViewSettingsBanner = _shouldShowViewSettingsBanner(
@@ -541,7 +609,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             tooltip: context.l10n.terminologyAddButton(terms.singular),
             onPressed: _openAddSheet,
           ),
-          _buildOptionsMenuAction(membersAsync.value, terms),
+          _buildOptionsMenuAction(menuMembers, terms),
         ],
       ),
       bodyPadding: EdgeInsets.zero,
@@ -575,7 +643,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                     ),
                   ),
                   data: (rawMembers) {
-                    if (rawMembers.isEmpty) {
+                    final members = _displayMembers(rawMembers);
+                    if (members.isEmpty) {
                       return EmptyState(
                         icon: Icon(AppIcons.peopleOutline),
                         title: _showInactive
@@ -596,16 +665,29 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                     }
 
                     if (!hasGroups || !showGroups) {
-                      return _buildFlatList(rawMembers, frontingIds);
+                      return _buildFlatList(
+                        members,
+                        frontingIds,
+                        memberTilePrefs,
+                      );
                     }
 
                     if (viewMode == MembersListViewMode.folders) {
-                      return _buildFolderList(rawMembers, frontingIds);
+                      return _buildFolderList(
+                        members,
+                        frontingIds,
+                        memberTilePrefs,
+                      );
                     }
 
                     final groupedItems = ref.watch(groupedMemberListProvider);
                     final counts = ref.watch(groupMemberCountsProvider);
-                    return _buildGroupedList(groupedItems, counts, frontingIds);
+                    return _buildGroupedList(
+                      groupedItems,
+                      counts,
+                      frontingIds,
+                      memberTilePrefs,
+                    );
                   },
                 ),
               ),
@@ -616,11 +698,16 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     );
   }
 
-  Widget _buildFolderList(List<Member> members, Set<String> frontingIds) {
+  Widget _buildFolderList(
+    List<Member> members,
+    Set<String> frontingIds,
+    _MemberTilePrefs memberTilePrefs,
+  ) {
     final terms = watchTerminology(context, ref);
     final rootGroups = ref.watch(childGroupsProvider(null));
     final counts = ref.watch(groupMemberCountsProvider);
-    final hideMemberCount = ref
+    final hideMemberCount =
+        ref
             .watch(hideTotalMemberCountProvider)
             .whenOrNull(data: (value) => value) ??
         true;
@@ -633,40 +720,59 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               .where((member) => !groupedMemberIds.contains(member.id))
               .toList()
         : members;
+    final memberSectionExtraCount = visibleMembers.isEmpty ? 0 : 2;
+    final childCount =
+        rootGroups.length + memberSectionExtraCount + visibleMembers.length;
 
     return CustomScrollView(
       slivers: [
         SliverPadding(
           padding: EdgeInsets.only(top: 4, bottom: NavBarInset.of(context)),
           sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              for (final group in rootGroups)
-                MemberGroupRow(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              if (index < rootGroups.length) {
+                final group = rootGroups[index];
+                return MemberGroupRow(
                   key: ValueKey('folder_${group.id}'),
                   group: group,
                   memberCount: counts[group.id] ?? 0,
                   showMemberCount: !hideMemberCount,
                   onTap: () => context.push(_groupPath(group.id)),
-                ),
-              if (visibleMembers.isNotEmpty) ...[
-                const Divider(height: 24, indent: 16, endIndent: 16),
-                _MemberListSectionHeader(
+                );
+              }
+
+              final memberSectionIndex = index - rootGroups.length;
+              if (visibleMembers.isNotEmpty && memberSectionIndex == 0) {
+                return const Divider(height: 24, indent: 16, endIndent: 16);
+              }
+              if (visibleMembers.isNotEmpty && memberSectionIndex == 1) {
+                return _MemberListSectionHeader(
                   label:
                       visibility == MembersFolderMemberVisibility.ungroupedOnly
                       ? context.l10n.memberGroupFilterUngrouped
                       : terms.plural,
-                ),
-                for (final member in visibleMembers)
-                  _buildMemberTile(member, frontingIds.contains(member.id)),
-              ],
-            ]),
+                );
+              }
+
+              final memberIndex = memberSectionIndex - memberSectionExtraCount;
+              final member = visibleMembers[memberIndex];
+              return _buildMemberTile(
+                member,
+                frontingIds.contains(member.id),
+                memberTilePrefs,
+              );
+            }, childCount: childCount),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildFlatList(List<Member> members, Set<String> frontingIds) {
+  Widget _buildFlatList(
+    List<Member> members,
+    Set<String> frontingIds,
+    _MemberTilePrefs memberTilePrefs,
+  ) {
     return ReorderableListView.builder(
       buildDefaultDragHandles: false,
       padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
@@ -691,7 +797,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       itemBuilder: (context, index) {
         final member = members[index];
         final isFronting = frontingIds.contains(member.id);
-        return _buildMemberTile(member, isFronting, reorderIndex: index);
+        return _buildMemberTile(
+          member,
+          isFronting,
+          memberTilePrefs,
+          reorderIndex: index,
+        );
       },
     );
   }
@@ -700,9 +811,11 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     List<GroupedMemberListItem> items,
     Map<String, int> counts,
     Set<String> frontingIds,
+    _MemberTilePrefs memberTilePrefs,
   ) {
     final tree = ref.watch(groupTreeProvider);
-    final hideMemberCount = ref
+    final hideMemberCount =
+        ref
             .watch(hideTotalMemberCountProvider)
             .whenOrNull(data: (value) => value) ??
         true;
@@ -748,15 +861,11 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 return header;
               }
               if (item is UngroupedSectionItem) {
-                final ungroupedCount = items
-                    .skip(index + 1)
-                    .whereType<MemberRowItem>()
-                    .length;
                 return GroupSectionHeader(
                   key: _ungroupedKey,
                   group: null,
                   depth: 0,
-                  memberCount: ungroupedCount,
+                  memberCount: item.memberCount,
                   showMemberCount: !hideMemberCount,
                   isCollapsed: false,
                   canCollapse: false,
@@ -769,7 +878,11 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                     item.depth.clamp(0, kSectionsVisualDepthCap) * 8.0;
                 return Padding(
                   padding: EdgeInsets.only(left: indent),
-                  child: _buildMemberTile(item.member, isFronting),
+                  child: _buildMemberTile(
+                    item.member,
+                    isFronting,
+                    memberTilePrefs,
+                  ),
                 );
               }
               return const SizedBox.shrink();
@@ -780,14 +893,15 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     );
   }
 
-  Widget _buildMemberTile(Member member, bool isFronting, {int? reorderIndex}) {
+  Widget _buildMemberTile(
+    Member member,
+    bool isFronting,
+    _MemberTilePrefs memberTilePrefs, {
+    int? reorderIndex,
+  }) {
     final theme = Theme.of(context);
     final actions = _memberContextActions(member, isFronting);
-    final showPronouns = ref.watch(membersShowPronounsProvider);
-    final showFrontButtons = ref.watch(membersShowFrontButtonsProvider);
-    final frontButtonBehavior = ref.watch(membersFrontButtonBehaviorProvider);
-    final frontingActionBusy = ref.watch(frontingNotifierProvider).isLoading;
-    final frontButtonLabel = switch (frontButtonBehavior) {
+    final frontButtonLabel = switch (memberTilePrefs.frontButtonBehavior) {
       FrontStartBehavior.additive => context.l10n.memberFrontButtonAddSemantic(
         member.name,
       ),
@@ -818,7 +932,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       },
       child: MemberCard(
         member: member,
-        showPronouns: showPronouns,
+        deferAvatarLookup: true,
+        showPronouns: memberTilePrefs.showPronouns,
         onTap: () => context.push(_memberPath(member.id)),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -832,11 +947,11 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               ),
               const SizedBox(width: 4),
             ],
-            if (showFrontButtons && !isFronting) ...[
+            if (memberTilePrefs.showFrontButtons && !isFronting) ...[
               IconButton(
                 tooltip: frontButtonLabel,
                 icon: Icon(AppIcons.add),
-                onPressed: frontingActionBusy
+                onPressed: memberTilePrefs.frontingActionBusy
                     ? null
                     : () {
                         Haptics.selection();

@@ -34,6 +34,7 @@ import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
@@ -139,10 +140,12 @@ class _FakeMemberRepository implements MemberRepository {
   ) async => throw UnimplementedError();
   // Stub: not exercised by this test file.
   @override
-  Future<int> excludePluralKitSync(String id) async => throw UnimplementedError();
+  Future<int> excludePluralKitSync(String id) async =>
+      throw UnimplementedError();
   // Stub: not exercised by this test file.
   @override
-  Future<int> resumePluralKitSync(String id) async => throw UnimplementedError();
+  Future<int> resumePluralKitSync(String id) async =>
+      throw UnimplementedError();
   @override
   Stream<List<member_domain.Member>> watchActiveMembers() =>
       throw UnimplementedError();
@@ -286,6 +289,8 @@ class _FakeRepo implements MemberGroupsRepository {
   @override
   Future<void> removeMemberFromGroup(String groupId, String memberId) async {}
   @override
+  Future<void> reorderGroups(List<MemberGroup> groups) async {}
+  @override
   Future<void> updateGroup(MemberGroup group) async {}
   @override
   Stream<List<MemberGroupEntry>> watchAllGroupEntries() => const Stream.empty();
@@ -318,6 +323,17 @@ Widget _wrapDetailScreen({
       ),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       allMembersProvider.overrideWith((ref) => Stream.value(members)),
+      activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
+      allMemberListProvider.overrideWith((ref) => Stream.value(members)),
+      membersByIdsListProvider.overrideWith((ref, idsKey) {
+        final ids = idsKey.isEmpty
+            ? const <String>{}
+            : idsKey.split(',').toSet();
+        return Stream.value({
+          for (final member in members)
+            if (ids.contains(member.id)) member.id: member,
+        });
+      }),
       memberByIdProvider.overrideWith((ref, memberId) {
         final matching = members.where((m) => m.id == memberId);
         return Stream.value(matching.isEmpty ? null : matching.first);
@@ -335,6 +351,7 @@ Widget _wrapDetailScreen({
         (ref) => GroupTreeUtils.buildGroupTree([group]),
       ),
       memberGroupsRepositoryProvider.overrideWithValue(repo),
+      allMemberFrontingStatsProvider.overrideWith((ref) async => const {}),
       memberFrontingStatsProvider.overrideWith(
         (ref, memberId) async => const MemberFrontingStats(
           totalSessions: 0,
@@ -583,6 +600,27 @@ void main() {
             _member(id: 'm3', name: 'Carol'),
           ]),
         ),
+        allMemberListProvider.overrideWith(
+          (ref) => Stream.value([
+            _member(id: 'm1', name: 'Alice'),
+            _member(id: 'm2', name: 'Bob'),
+            _member(id: 'm3', name: 'Carol'),
+          ]),
+        ),
+        membersByIdsListProvider.overrideWith((ref, idsKey) {
+          final ids = idsKey.isEmpty
+              ? const <String>{}
+              : idsKey.split(',').toSet();
+          final members = [
+            _member(id: 'm1', name: 'Alice'),
+            _member(id: 'm2', name: 'Bob'),
+            _member(id: 'm3', name: 'Carol'),
+          ];
+          return Stream.value({
+            for (final member in members)
+              if (ids.contains(member.id)) member.id: member,
+          });
+        }),
         groupByIdProvider.overrideWith(
           (ref, _) =>
               Stream.value(_groupModel(id: 'g', name: 'g', sortState: state)),
@@ -598,10 +636,15 @@ void main() {
     );
     addTearDown(container.dispose);
     // Subscribe and wait for the streams to deliver their seeded value.
-    container.listen(allMembersProvider, (_, _) {}, fireImmediately: true);
+    container.listen(allMemberListProvider, (_, _) {}, fireImmediately: true);
     container.listen(groupByIdProvider('g'), (_, _) {}, fireImmediately: true);
     container.listen(
       groupEntriesProvider('g'),
+      (_, _) {},
+      fireImmediately: true,
+    );
+    container.listen(
+      membersByIdsListProvider(memberIdsKey(['m1', 'm2', 'm3'])),
       (_, _) {},
       fireImmediately: true,
     );
@@ -628,6 +671,25 @@ void main() {
             _member(id: 'm2', name: 'Bob'),
           ]),
         ),
+        allMemberListProvider.overrideWith(
+          (ref) => Stream.value([
+            _member(id: 'm1', name: 'Alice'),
+            _member(id: 'm2', name: 'Bob'),
+          ]),
+        ),
+        membersByIdsListProvider.overrideWith((ref, idsKey) {
+          final ids = idsKey.isEmpty
+              ? const <String>{}
+              : idsKey.split(',').toSet();
+          final members = [
+            _member(id: 'm1', name: 'Alice'),
+            _member(id: 'm2', name: 'Bob'),
+          ];
+          return Stream.value({
+            for (final member in members)
+              if (ids.contains(member.id)) member.id: member,
+          });
+        }),
         groupByIdProvider.overrideWith(
           (ref, _) =>
               Stream.value(_groupModel(id: 'g', name: 'g', sortState: state)),
@@ -642,10 +704,15 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    container.listen(allMembersProvider, (_, _) {}, fireImmediately: true);
+    container.listen(allMemberListProvider, (_, _) {}, fireImmediately: true);
     container.listen(groupByIdProvider('g'), (_, _) {}, fireImmediately: true);
     container.listen(
       groupEntriesProvider('g'),
+      (_, _) {},
+      fireImmediately: true,
+    );
+    container.listen(
+      membersByIdsListProvider(memberIdsKey(['m1', 'm2'])),
       (_, _) {},
       fireImmediately: true,
     );

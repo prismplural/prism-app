@@ -31,12 +31,14 @@ class MemberCard extends StatelessWidget {
     this.onTap,
     this.reorderIndex,
     this.dragHandleHint,
+    this.deferAvatarLookup = false,
   });
 
   final Member member;
   final bool showPronouns;
   final Widget? trailing;
   final VoidCallback? onTap;
+  final bool deferAvatarLookup;
 
   /// When non-null, the card renders a drag handle wired to a parent
   /// [ReorderableListView] at this index.
@@ -90,6 +92,8 @@ class MemberCard extends StatelessWidget {
                       children: [
                         MemberAvatar(
                           avatarImageData: member.avatarImageData,
+                          memberId: member.id,
+                          deferAvatarLookup: deferAvatarLookup,
                           memberName: member.name,
                           emoji: member.emoji,
                           customColorEnabled: member.customColorEnabled,
@@ -169,11 +173,13 @@ class MemberCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Semantics(
                             label: context.l10n.groupMemberDragHandleLabel,
-                            hint: dragHandleHint ??
+                            hint:
+                                dragHandleHint ??
                                 context.l10n.groupMemberDragHandleHintManual,
                             button: true,
                             child: Tooltip(
-                              message: context.l10n.groupMemberDragHandleTooltip,
+                              message:
+                                  context.l10n.groupMemberDragHandleTooltip,
                               child: ReorderableDragStartListener(
                                 index: reorderIndex!,
                                 child: SizedBox(

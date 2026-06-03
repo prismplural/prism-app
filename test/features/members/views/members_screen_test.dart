@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -47,6 +49,7 @@ Widget _buildSubject({
   SystemSettings settings = const SystemSettings(),
   List<FrontingSession> activeSessions = const [],
   _FakeFrontingNotifier? frontingNotifier,
+  _FakeMembersNotifier? membersNotifier,
   bool withRouter = false,
 }) {
   final child = withRouter
@@ -92,11 +95,15 @@ Widget _buildSubject({
       systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       allMembersProvider.overrideWith((ref) => Stream.value(members)),
+      activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
+      allMemberListProvider.overrideWith((ref) => Stream.value(members)),
       activeSessionsProvider.overrideWith(
         (ref) => Stream.value(activeSessions),
       ),
       if (frontingNotifier != null)
         frontingNotifierProvider.overrideWith(() => frontingNotifier),
+      if (membersNotifier != null)
+        membersNotifierProvider.overrideWith(() => membersNotifier),
       allGroupsProvider.overrideWith((ref) => Stream.value(groups)),
       allGroupEntriesProvider.overrideWith((ref) => Stream.value(entries)),
       memberGroupsProvider.overrideWith((ref, memberId) {
@@ -137,6 +144,22 @@ class _FakeFrontingNotifier extends FrontingNotifier {
     String? notes,
   }) async {
     replaceFrontingCalls.add(memberIds);
+  }
+}
+
+class _FakeMembersNotifier extends MembersNotifier {
+  _FakeMembersNotifier({this.reorderCompleter});
+
+  final Completer<void>? reorderCompleter;
+  final reorderedSequences = <List<Member>>[];
+
+  @override
+  Future<void> build() async {}
+
+  @override
+  Future<void> reorderMembers(List<Member> members) async {
+    reorderedSequences.add(List.of(members));
+    await (reorderCompleter?.future ?? Future<void>.value());
   }
 }
 
@@ -196,6 +219,45 @@ void main() {
     expect(find.text('Member later-0'), findsOneWidget);
     expect(tester.getTopLeft(allChip).dy, initialChipTop);
     expect(tester.getTopLeft(allChip).dy, greaterThanOrEqualTo(0));
+  });
+
+  testWidgets('flat reorder keeps optimistic order while notifier is pending', (
+    tester,
+  ) async {
+    final persistence = Completer<void>();
+    final membersNotifier = _FakeMembersNotifier(reorderCompleter: persistence);
+    final alice = _member('alice');
+    final bob = _member('bob', displayOrder: 1);
+    final carol = _member('carol', displayOrder: 2);
+
+    await tester.pumpWidget(
+      _buildSubject(
+        members: [alice, bob, carol],
+        groups: const [],
+        entries: const [],
+        membersNotifier: membersNotifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final listView = tester.widget<ReorderableListView>(
+      find.byType(ReorderableListView),
+    );
+    listView.onReorder(1, 0);
+    await tester.pump();
+
+    expect(membersNotifier.reorderedSequences, hasLength(1));
+    expect(
+      membersNotifier.reorderedSequences.single.map((member) => member.id),
+      ['bob', 'alice', 'carol'],
+    );
+    expect(
+      tester.getTopLeft(find.text('Member bob')).dy,
+      lessThan(tester.getTopLeft(find.text('Member alice')).dy),
+    );
+
+    persistence.complete();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('options search opens shared sheet and navigates on selection', (

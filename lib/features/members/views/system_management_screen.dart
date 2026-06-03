@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/utils/optimistic_list_controller.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -16,6 +19,8 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+
+String _memberOptimisticKey(Member member) => member.id;
 
 /// Screen for bulk member operations: activate/deactivate, delete, and reorder.
 class SystemManagementScreen extends ConsumerStatefulWidget {
@@ -31,6 +36,8 @@ class _SystemManagementScreenState
   bool _showInactive = false;
   bool _selectionMode = false;
   final Set<String> _selectedIds = {};
+  final OptimisticListController<Member, String> _optimisticMembers =
+      OptimisticListController<Member, String>(keyOf: _memberOptimisticKey);
 
   void _toggleSelection(String id) {
     setState(() {
@@ -57,6 +64,39 @@ class _SystemManagementScreenState
     });
   }
 
+  List<Member> _displayMembers(List<Member> providerMembers) {
+    final optimisticMembers = _optimisticMembers.items;
+    if (optimisticMembers == null) return providerMembers;
+
+    if (!sameItemSet(
+      providerMembers,
+      optimisticMembers,
+      keyOf: _memberOptimisticKey,
+    )) {
+      _optimisticMembers.clear();
+      return providerMembers;
+    }
+
+    if (sameItemOrder(
+      providerMembers,
+      optimisticMembers,
+      keyOf: _memberOptimisticKey,
+    )) {
+      _clearOptimisticMembersAfterBuild(optimisticMembers);
+    }
+
+    return optimisticMembers;
+  }
+
+  void _clearOptimisticMembersAfterBuild(List<Member> optimisticMembers) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_optimisticMembers.isCurrent(optimisticMembers)) {
+        return;
+      }
+      setState(_optimisticMembers.clear);
+    });
+  }
+
   Future<void> _bulkToggleActive(List<Member> members) async {
     final notifier = ref.read(membersNotifierProvider.notifier);
     final targetActive = _showInactive; // if viewing inactive, activate them
@@ -71,7 +111,9 @@ class _SystemManagementScreenState
   Future<void> _bulkDelete(List<Member> members) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: context.l10n.terminologyDeleteSelected(readTerminology(context, ref).plural),
+      title: context.l10n.terminologyDeleteSelected(
+        readTerminology(context, ref).plural,
+      ),
       message:
           'Are you sure you want to delete ${_selectedIds.length} '
           '${readTerminology(context, ref).singularLower}(s)? This action cannot be undone.',
@@ -88,11 +130,14 @@ class _SystemManagementScreenState
   }
 
   void _onReorder(List<Member> members, int oldIndex, int newIndex) {
-    if (newIndex > oldIndex) newIndex--;
-    final reordered = List<Member>.from(members);
-    final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex, item);
-    ref.read(membersNotifierProvider.notifier).reorderMembers(reordered);
+    final reordered = reorderedItems(members, oldIndex, newIndex);
+    if (reordered == null) return;
+    setState(() {
+      _optimisticMembers.set(reordered);
+    });
+    unawaited(
+      ref.read(membersNotifierProvider.notifier).reorderMembers(reordered),
+    );
   }
 
   @override
@@ -104,7 +149,9 @@ class _SystemManagementScreenState
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: context.l10n.terminologyManage(watchTerminology(context, ref).plural),
+        title: context.l10n.terminologyManage(
+          watchTerminology(context, ref).plural,
+        ),
         showBackButton: true,
         trailing: _selectionMode
             ? PrismTopBarAction(
@@ -121,13 +168,14 @@ class _SystemManagementScreenState
         data: (allMembers) {
           final activeMembers = allMembers.where((m) => m.isActive).toList();
           final inactiveMembers = allMembers.where((m) => !m.isActive).toList();
-          final displayedMembers = _showInactive
+          final providerDisplayedMembers = _showInactive
               ? inactiveMembers
               : activeMembers;
 
-          displayedMembers.sort(
+          providerDisplayedMembers.sort(
             (a, b) => a.displayOrder.compareTo(b.displayOrder),
           );
+          final displayedMembers = _displayMembers(providerDisplayedMembers);
 
           return Column(
             children: [
@@ -178,7 +226,9 @@ class _SystemManagementScreenState
                       ),
                       const Spacer(),
                       PrismButton(
-                        label: _showInactive ? l10n.memberBulkActivate : l10n.memberBulkDeactivate,
+                        label: _showInactive
+                            ? l10n.memberBulkActivate
+                            : l10n.memberBulkDeactivate,
                         icon: _showInactive
                             ? AppIcons.visibility
                             : AppIcons.visibilityOff,
@@ -201,8 +251,12 @@ class _SystemManagementScreenState
                     ? Center(
                         child: Text(
                           _showInactive
-                              ? l10n.memberNoInactive(readTerminology(context, ref).pluralLower)
-                              : l10n.memberNoActive(readTerminology(context, ref).pluralLower),
+                              ? l10n.memberNoInactive(
+                                  readTerminology(context, ref).pluralLower,
+                                )
+                              : l10n.memberNoActive(
+                                  readTerminology(context, ref).pluralLower,
+                                ),
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),

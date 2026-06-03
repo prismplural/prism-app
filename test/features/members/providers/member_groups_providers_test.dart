@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,6 +10,7 @@ import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
@@ -54,6 +57,17 @@ ProviderContainer makeContainer({
     allGroupsProvider.overrideWithValue(AsyncValue.data(groups)),
     allGroupEntriesProvider.overrideWithValue(AsyncValue.data(entries)),
     allMembersProvider.overrideWithValue(AsyncValue.data(members)),
+    allMemberListProvider.overrideWithValue(AsyncValue.data(members)),
+    membersByIdsListProvider.overrideWith((ref, idsKey) {
+      final ids = idsKey.isEmpty ? const <String>{} : idsKey.split(',').toSet();
+      return Stream.value({
+        for (final member in members)
+          if (ids.contains(member.id)) member.id: member,
+      });
+    }),
+    activeMemberListProvider.overrideWithValue(
+      AsyncValue.data(members.where((member) => member.isActive).toList()),
+    ),
     membersGroupedDefaultStateProvider.overrideWithValue(groupedDefaultState),
   ],
 );
@@ -605,6 +619,18 @@ void main() {
           allMembersProvider.overrideWith(
             (ref) => Stream<List<Member>>.value(members),
           ),
+          allMemberListProvider.overrideWith(
+            (ref) => Stream<List<Member>>.value(members),
+          ),
+          membersByIdsListProvider.overrideWith((ref, idsKey) {
+            final ids = idsKey.isEmpty
+                ? const <String>{}
+                : idsKey.split(',').toSet();
+            return Stream.value({
+              for (final member in members)
+                if (ids.contains(member.id)) member.id: member,
+            });
+          }),
         ],
       );
       if (showInactive) {
@@ -625,7 +651,6 @@ void main() {
       final subs = [
         c.listen(groupByIdProvider(groupId), (_, _) {}),
         c.listen(groupEntriesProvider(groupId), (_, _) {}),
-        c.listen(allMembersProvider, (_, _) {}),
       ];
       addTearDown(() {
         for (final s in subs) {
@@ -633,9 +658,102 @@ void main() {
         }
       });
       await c.read(groupByIdProvider(groupId).future);
-      await c.read(groupEntriesProvider(groupId).future);
-      await c.read(allMembersProvider.future);
+      final entries = await c.read(groupEntriesProvider(groupId).future);
+      final membersKey = memberIdsKey(entries.map((entry) => entry.memberId));
+      final memberSub = c.listen(
+        membersByIdsListProvider(membersKey),
+        (_, _) {},
+      );
+      addTearDown(memberSub.close);
+      await c.read(membersByIdsListProvider(membersKey).future);
     }
+
+    test(
+      'async provider stays loading while member batch hydration is pending',
+      () async {
+        final group = groupWith(id: 'g');
+        final entries = [entryWith(id: 'e1', groupId: 'g', memberId: 'm1')];
+        final memberBatchController =
+            StreamController<Map<String, Member>>.broadcast();
+        final c = ProviderContainer(
+          overrides: [
+            groupByIdProvider(
+              group.id,
+            ).overrideWith((ref) => Stream<MemberGroup?>.value(group)),
+            groupEntriesProvider(group.id).overrideWith(
+              (ref) => Stream<List<MemberGroupEntry>>.value(entries),
+            ),
+            membersByIdsListProvider.overrideWith(
+              (ref, idsKey) => memberBatchController.stream,
+            ),
+          ],
+        );
+        addTearDown(() async {
+          c.dispose();
+          await memberBatchController.close();
+        });
+        final sub = c.listen(
+          sortedGroupMembersAsyncProvider(group.id),
+          (_, _) {},
+        );
+        addTearDown(sub.close);
+
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+
+        final loading = c.read(sortedGroupMembersAsyncProvider(group.id));
+        expect(loading.isLoading, isTrue);
+        expect(c.read(sortedGroupMembersProvider(group.id)), isEmpty);
+
+        memberBatchController.add({'m1': memberWith(id: 'm1')});
+        await Future<void>.delayed(Duration.zero);
+
+        final hydrated = c.read(sortedGroupMembersAsyncProvider(group.id));
+        expect(hydrated.hasValue, isTrue);
+        expect(hydrated.requireValue.single.$2.id, 'm1');
+      },
+    );
+
+    test(
+      'async provider resolves empty groups without member hydration',
+      () async {
+        final group = groupWith(id: 'g');
+        var memberBatchWatched = false;
+        final memberBatchController =
+            StreamController<Map<String, Member>>.broadcast();
+        final c = ProviderContainer(
+          overrides: [
+            groupByIdProvider(
+              group.id,
+            ).overrideWith((ref) => Stream<MemberGroup?>.value(group)),
+            groupEntriesProvider(group.id).overrideWith(
+              (ref) => Stream<List<MemberGroupEntry>>.value(const []),
+            ),
+            membersByIdsListProvider.overrideWith((ref, idsKey) {
+              memberBatchWatched = true;
+              return memberBatchController.stream;
+            }),
+          ],
+        );
+        addTearDown(() async {
+          c.dispose();
+          await memberBatchController.close();
+        });
+        final sub = c.listen(
+          sortedGroupMembersAsyncProvider(group.id),
+          (_, _) {},
+        );
+        addTearDown(sub.close);
+
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+
+        final result = c.read(sortedGroupMembersAsyncProvider(group.id));
+        expect(result.hasValue, isTrue);
+        expect(result.requireValue, isEmpty);
+        expect(memberBatchWatched, isFalse);
+      },
+    );
 
     test(
       'each of the 4 sort modes produces the expected order on a clean 3-member group',

@@ -63,7 +63,7 @@ class HeadmatePicker extends ConsumerWidget {
             .toList();
         final effectiveLabel = label ?? watchTerminology(context, ref).singular;
         final terminology = readTerminology(context, ref);
-        final searchGroups = watchMemberSearchGroups(ref, filtered);
+        watchMemberSearchGroupSources(ref);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -77,10 +77,10 @@ class HeadmatePicker extends ConsumerWidget {
               members: filtered,
               onPressed: () => _openSearch(
                 context,
+                ref,
                 filtered,
                 terminology.plural,
                 context.l10n.selectMember(terminology.singular),
-                searchGroups,
               ),
             ),
           ],
@@ -91,11 +91,12 @@ class HeadmatePicker extends ConsumerWidget {
 
   Future<void> _openSearch(
     BuildContext context,
+    WidgetRef ref,
     List<Member> members,
     String termPlural,
     String title,
-    List<MemberSearchGroup> groups,
   ) async {
+    final groups = readMemberSearchGroups(ref, members);
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,
