@@ -367,7 +367,9 @@ class _SpoilerRevealHostState extends State<_SpoilerRevealHost> {
 }
 
 /// Replaces blank lines with NBSP lines so Markdown keeps plain-text spacing.
-/// Fenced code blocks are left untouched.
+/// Fenced code blocks are left untouched, and a real blank line is kept next to
+/// thematic breaks / setext underlines (`---`/`***`/`===`) and after
+/// blockquotes/lists so block structure still parses.
 @visibleForTesting
 String preserveBlankLines(String input) {
   if (input.isEmpty) return input;
@@ -413,13 +415,31 @@ String preserveBlankLines(String input) {
         j++;
       }
 
-      var spacerStart = 0;
-      if (paragraphHasBlockquote || paragraphHasList) {
+      // An NBSP spacer directly above a thematic break / setext underline reads
+      // as a paragraph continuation: `---`/`===` become a heading and `***`
+      // swallows the spacer. Keep a real blank line next to the break; extra
+      // blanks spill to spacers on the far side.
+      final nextLineIsBreak =
+          j < lines.length && _breakOrSetextLine.hasMatch(lines[j]);
+      final prevLineIsBreak =
+          i > 0 && _breakOrSetextLine.hasMatch(lines[i - 1]);
+
+      if (nextLineIsBreak) {
+        for (var k = 0; k < count - 1; k++) {
+          out.add(_nbsp);
+        }
         out.add(line);
-        spacerStart = 1;
-      }
-      for (var k = spacerStart; k < count; k++) {
-        out.add(_nbsp);
+      } else if (paragraphHasBlockquote ||
+          paragraphHasList ||
+          prevLineIsBreak) {
+        out.add(line);
+        for (var k = 1; k < count; k++) {
+          out.add(_nbsp);
+        }
+      } else {
+        for (var k = 0; k < count; k++) {
+          out.add(_nbsp);
+        }
       }
       paragraphHasBlockquote = false;
       paragraphHasList = false;
@@ -548,3 +568,9 @@ final _headingMarker = RegExp(r'^#{1,6}(?:[ \t]|$)');
 final _listMarker = RegExp(r'^(?:[*+-]|\d{1,9}[.)])(?:[ \t]|$)');
 final _subtextMarker = RegExp(r'^-#[ \t]');
 final _thematicBreakMarker = RegExp(r'^(?:[-*_][ \t]*){3,}$');
+
+// Setext underline (`=`/`-` runs) or thematic break (`---`/`***`/`___`/`- - -`),
+// matching the parser grammar: up to 3 leading spaces, internal spaces, trailing CR.
+final _breakOrSetextLine = RegExp(
+  r'^ {0,3}(?:=+|-+|(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})[ \t]*\r?$',
+);

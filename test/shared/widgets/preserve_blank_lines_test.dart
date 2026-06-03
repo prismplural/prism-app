@@ -130,6 +130,60 @@ void main() {
       const input = '```\ncode\n\n\nmore\n```';
       expect(preserveBlankLines(input), input);
     });
+
+    // An NBSP spacer above `---` makes it a setext heading instead of a divider,
+    // so a real blank line must stay adjacent to the break.
+    test('blank line before --- stays real (no setext heading)', () {
+      expect(
+        preserveBlankLines('**Day:**\n\n---\n\n**Next:**'),
+        '**Day:**\n\n---\n\n**Next:**',
+      );
+    });
+
+    test('*** and ___ thematic breaks keep a real blank terminator', () {
+      expect(preserveBlankLines('A\n\n***\n\nB'), 'A\n\n***\n\nB');
+      expect(preserveBlankLines('A\n\n___\n\nB'), 'A\n\n___\n\nB');
+    });
+
+    test('a spacer never sits directly above a thematic break', () {
+      final lines = preserveBlankLines('A\n\n\n\n---\n\n\n\nB').split('\n');
+      final hrIndex = lines.indexOf('---');
+      expect(hrIndex, greaterThan(0));
+      expect(lines[hrIndex - 1], '', reason: 'real blank line above the break');
+    });
+
+    test('extra blanks before a break become spacers above the terminator', () {
+      // 3 blanks -> 2 NBSP spacers, then 1 real blank adjacent to ---.
+      expect(preserveBlankLines('A\n\n\n\n---'), 'A\n$nbsp\n$nbsp\n\n---');
+    });
+
+    test('extra blanks after a break become spacers below the terminator', () {
+      expect(preserveBlankLines('---\n\n\n\nB'), '---\n\n$nbsp\n$nbsp\nB');
+    });
+
+    test('divider exception does not change ordinary paragraph spacing', () {
+      expect(preserveBlankLines('A\n\n\nB'), 'A\n$nbsp\n$nbsp\nB');
+    });
+
+    // Break detection must match the parser grammar (CRLF, indentation), not
+    // just a column-0 `---`, or these silently regress to the heading bug.
+    test('CRLF thematic break keeps a real blank terminator', () {
+      expect(preserveBlankLines('A\r\n\r\n---\r\nB'), 'A\r\n\r\n---\r\nB');
+    });
+
+    test('up-to-3-space indented break is detected', () {
+      expect(preserveBlankLines('A\n\n   ---\nB'), 'A\n\n   ---\nB');
+    });
+
+    test('spaced thematic breaks (- - -, * * *) are detected', () {
+      expect(preserveBlankLines('A\n\n- - -\nB'), 'A\n\n- - -\nB');
+      expect(preserveBlankLines('A\n\n* * *\nB'), 'A\n\n* * *\nB');
+    });
+
+    test('setext underline (=== / lone -) gets no NBSP directly above it', () {
+      expect(preserveBlankLines('A\n\n===\nB'), 'A\n\n===\nB');
+      expect(preserveBlankLines('A\n\n-\nB'), 'A\n\n-\nB');
+    });
   });
 
   group('MarkdownText blank line rendering', () {
@@ -298,6 +352,41 @@ void main() {
       final text = _allRenderedText(tester).join('\n');
       expect(text, contains('item one'));
       expect(text, contains('item two'));
+    });
+
+    testWidgets('--- renders a divider, not a setext heading title', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            body: MarkdownText(data: '**Day:**\n\n---\n\n**Self-Harm:**'),
+          ),
+        ),
+      );
+
+      // The horizontal rule renders as a Container with a border decoration.
+      // No other block in this input is decorated, so its presence proves the
+      // `---` parsed as a divider — not a setext heading underline, which would
+      // emit no <hr> and promote "Day:" to an <h2>.
+      final hrContainers = tester
+          .widgetList<Container>(
+            find.descendant(
+              of: find.byType(MarkdownText),
+              matching: find.byType(Container),
+            ),
+          )
+          .where((c) => c.decoration != null);
+      expect(
+        hrContainers,
+        isNotEmpty,
+        reason: '--- should render a horizontal divider',
+      );
+
+      final text = _allRenderedText(tester).join('\n');
+      expect(text, contains('Day:'));
+      expect(text, contains('Self-Harm:'));
     });
   });
 }
