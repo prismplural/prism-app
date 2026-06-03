@@ -44,6 +44,10 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
+/// Navigation branch for the Media library screen, which is mounted in more
+/// than one route tree (pushed under Settings, or the optional Media tab).
+enum MediaNavigationBranch { settings, media }
+
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final _allChatMediaProvider = StreamProvider.autoDispose<List<MediaAttachment>>(
@@ -222,7 +226,12 @@ enum _AddSource { camera, photoLibrary, file, url }
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class MediaSettingsScreen extends ConsumerWidget {
-  const MediaSettingsScreen({super.key});
+  const MediaSettingsScreen({
+    super.key,
+    this.branch = MediaNavigationBranch.settings,
+  });
+
+  final MediaNavigationBranch branch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -234,7 +243,7 @@ class MediaSettingsScreen extends ConsumerWidget {
     return PrismPageScaffold(
       topBar: PrismTopBar(
         title: l10n.mediaScreenTitle,
-        showBackButton: true,
+        showBackButton: branch == MediaNavigationBranch.settings,
         actions: [
           PrismPopupMenu<_AddSource>(
             icon: AppIcons.add,
@@ -363,6 +372,7 @@ class MediaSettingsScreen extends ConsumerWidget {
                         for (final img in libraryImages)
                           _LibraryImageCard(
                             attachment: img,
+                            branch: branch,
                             usedBy: tagUsage[img.tag] ?? [],
                             onEditTag: () => _editTag(
                               context,
@@ -894,6 +904,7 @@ class MediaSettingsScreen extends ConsumerWidget {
 class _LibraryImageCard extends ConsumerStatefulWidget {
   const _LibraryImageCard({
     required this.attachment,
+    required this.branch,
     required this.usedBy,
     required this.onEditTag,
     required this.onReplace,
@@ -901,6 +912,7 @@ class _LibraryImageCard extends ConsumerStatefulWidget {
   });
 
   final MediaAttachment attachment;
+  final MediaNavigationBranch branch;
   final List<TagUsageRef> usedBy;
   final VoidCallback onEditTag;
   final VoidCallback onReplace;
@@ -1131,10 +1143,9 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
   }
 
   void _showUsage() {
-    // On wide desktop windows, open the usage list as a modal side sheet over
-    // the settings pane. On narrow windows, push the usage list as a
-    // Settings-branch page (not a modal sheet) so the detail jumps it opens
-    // stack on top of it — system back retraces Media ← usage list ← detail.
+    // Wide windows open the usage list as a modal side sheet; narrow windows
+    // push it onto the active branch's navigator (back retraces usage list →
+    // Media) using the branch-native route.
     if (shouldUseDetailSideSheet(context)) {
       showDetailSideSheet(
         context,
@@ -1142,7 +1153,12 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
       );
     } else {
       unawaited(
-        context.push(AppRoutePaths.settingsMediaUsage, extra: widget.usedBy),
+        context.push(
+          widget.branch == MediaNavigationBranch.media
+              ? AppRoutePaths.mediaUsage
+              : AppRoutePaths.settingsMediaUsage,
+          extra: widget.usedBy,
+        ),
       );
     }
   }

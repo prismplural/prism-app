@@ -14259,6 +14259,12 @@ abstract class AppLocalizations {
   /// **'Groups'**
   String get navGroups;
 
+  /// Bottom navigation tab label for the optional Media library tab
+  ///
+  /// In en, this message translates to:
+  /// **'Media'**
+  String get navMedia;
+
   /// Title shown in the top bar of the Sleep screen
   ///
   /// In en, this message translates to:

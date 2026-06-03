@@ -9674,6 +9674,8 @@
   "@navBoards": { "description": "Bottom navigation tab label for the Boards (message boards) tab" },
   "navGroups": "Groups",
   "@navGroups": { "description": "Bottom navigation tab label for the Groups tab (optional; lists member groups)" },
+  "navMedia": "Media",
+  "@navMedia": { "description": "Bottom navigation tab label for the optional Media library tab" },
   "sleepScreenTitle": "Sleep",
   "@sleepScreenTitle": { "description": "Title shown in the top bar of the Sleep screen" },
   "sleepScreenAddTooltip": "Log sleep",

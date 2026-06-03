@@ -16,6 +16,8 @@ abstract final class AppRoutePaths {
   static const sleep = '/sleep';
   static const boards = '/boards';
   static const groups = '/groups';
+  static const media = '/media';
+  static const mediaUsage = '/media/usage';
 
   // Settings sub-routes
   static const settingsMembers = '/settings/members';
@@ -145,6 +147,7 @@ enum AppShellTabId {
   sleep,
   boards,
   groups,
+  media,
 }
 
 class AppShellTab {
@@ -202,6 +205,7 @@ class AppShellTab {
       AppShellTabId.sleep => l10n.navSleep,
       AppShellTabId.boards => l10n.navBoards,
       AppShellTabId.groups => l10n.navGroups,
+      AppShellTabId.media => l10n.navMedia,
     };
   }
 
@@ -231,6 +235,7 @@ class AppShellTab {
       AppShellTabId.sleep => flags.sleep,
       AppShellTabId.boards => flags.boards,
       AppShellTabId.groups => true,
+      AppShellTabId.media => true,
     };
   }
 }
@@ -340,6 +345,14 @@ final appShellTabs = [
     activeIcon: AppIcons.navGroupsActive,
     branchIndex: 12,
     rootLocation: AppRoutePaths.groups,
+  ),
+  AppShellTab(
+    id: AppShellTabId.media,
+    label: 'Media',
+    icon: AppIcons.navMedia,
+    activeIcon: AppIcons.navMediaActive,
+    branchIndex: 13,
+    rootLocation: AppRoutePaths.media,
   ),
 ];
 

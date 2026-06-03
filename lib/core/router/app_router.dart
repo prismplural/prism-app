@@ -99,6 +99,7 @@ final _timelineNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'timeline');
 final _sleepNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'sleep');
 final _boardsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'boards');
 final _groupsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'groups');
+final _mediaNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'media');
 
 /// Notifier that triggers GoRouter redirect re-evaluation when onboarding
 /// status changes.
@@ -661,7 +662,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'media',
-                    builder: (context, state) => const MediaSettingsScreen(),
+                    builder: (context, state) => const MediaSettingsScreen(
+                      branch: MediaNavigationBranch.settings,
+                    ),
                     routes: [
                       GoRoute(
                         path: 'usage',
@@ -888,6 +891,28 @@ final routerProvider = Provider<GoRouter>((ref) {
                         ],
                       ),
                     ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          // Branch 13: Media (optional top-level tab)
+          StatefulShellBranch(
+            navigatorKey: _mediaNavigatorKey,
+            routes: [
+              GoRoute(
+                path: AppRoutePaths.media,
+                builder: (context, state) => const MediaSettingsScreen(
+                  branch: MediaNavigationBranch.media,
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'usage',
+                    builder: (context, state) => TagUsageScreen(
+                      usages: state.extra is List<TagUsageRef>
+                          ? state.extra! as List<TagUsageRef>
+                          : const <TagUsageRef>[],
+                    ),
                   ),
                 ],
               ),

@@ -8733,6 +8733,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navGroups => 'Groups';
 
   @override
+  String get navMedia => 'Media';
+
+  @override
   String get sleepScreenTitle => 'Sleep';
 
   @override

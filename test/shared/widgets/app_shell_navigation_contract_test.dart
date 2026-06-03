@@ -752,6 +752,15 @@ List<StatefulShellBranch> _contractBranches() {
         ),
       ],
     ),
+    StatefulShellBranch(
+      routes: [
+        GoRoute(
+          path: AppRoutePaths.media,
+          builder: (context, state) =>
+              const _ProbePage(title: _mediaRootTitle),
+        ),
+      ],
+    ),
   ];
 }
 
@@ -788,6 +797,7 @@ String _rootTitle(String location) {
     AppRoutePaths.sleep => _sleepRootTitle,
     AppRoutePaths.boards => _boardsRootTitle,
     AppRoutePaths.groups => _groupsRootTitle,
+    AppRoutePaths.media => _mediaRootTitle,
     _ => throw ArgumentError.value(location, 'location'),
   };
 }
@@ -930,6 +940,7 @@ const _timelineRootTitle = 'Route contract: timeline root';
 const _sleepRootTitle = 'Route contract: sleep root';
 const _boardsRootTitle = 'Route contract: boards root';
 const _groupsRootTitle = 'Route contract: groups root';
+const _mediaRootTitle = 'Route contract: media root';
 
 const _homePeriodTitle = 'Route contract: home period detail';
 const _homeSessionTitle = 'Route contract: home session detail';
