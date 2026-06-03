@@ -4213,6 +4213,16 @@ SyncStatus syncStatusAfterCompleted({
   );
 }
 
+/// Whether a `SyncCompleted` event is a mid-drain continuation: the push phase
+/// stopped at its per-cycle cap with batches still queued and the auto-sync
+/// driver will re-arm another cycle. The status notifier skips its completion
+/// work for these (keeps `isSyncing` true; no pending/quarantine re-query, no
+/// keychain drain) so a large bulk drain doesn't strobe the spinner or thrash
+/// the DB. Always false on error/revoke paths — the engine sets
+/// `push_incomplete` only on a clean capped push.
+bool isMidDrainContinuation(Map<String, dynamic>? resultMap) =>
+    (resultMap?['push_incomplete'] as bool?) ?? false;
+
 final syncStatusProvider = NotifierProvider<SyncStatusNotifier, SyncStatus>(
   SyncStatusNotifier.new,
 );
@@ -4406,6 +4416,13 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     ref.listen(syncEventStreamProvider, (prev, next) {
       next.whenData((event) {
         if (event.isSyncCompleted) {
+          // Defer completion work until the drain's final cycle; the next
+          // SyncStarted keeps pendingOps fresh meanwhile.
+          if (isMidDrainContinuation(
+            event.data['result'] as Map<String, dynamic>?,
+          )) {
+            return;
+          }
           final generation = ++_statusEventGeneration;
           final rawResultError =
               (event.data['result'] as Map<String, dynamic>?)?['error']

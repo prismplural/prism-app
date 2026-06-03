@@ -18,6 +18,21 @@ Future<bool> _dartSyncDatabaseOpenProbe(String dbPath, String hexKey) async {
 }
 
 void main() {
+  group('isMidDrainContinuation', () {
+    test('true when push_incomplete is true (capped push, more queued)', () {
+      expect(isMidDrainContinuation({'push_incomplete': true}), isTrue);
+    });
+    test('false when push_incomplete is false (drain finished)', () {
+      expect(isMidDrainContinuation({'push_incomplete': false}), isFalse);
+    });
+    test('false when push_incomplete is absent (older engine)', () {
+      expect(isMidDrainContinuation({'pushed': 5}), isFalse);
+    });
+    test('false when result map is null', () {
+      expect(isMidDrainContinuation(null), isFalse);
+    });
+  });
+
   test('syncStatusAfterCompleted keeps last successful sync on sync error', () {
     final previousSyncAt = DateTime.utc(2026, 3, 18, 12, 0, 0);
     final completedAt = DateTime.utc(2026, 3, 18, 12, 5, 0);
