@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/modal_side_sheet_marker.dart';
 import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -507,6 +508,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
 
   Widget _buildLargeGrid(BuildContext context) {
     final theme = Theme.of(context);
+    final inSideSheet = ModalSideSheetMarker.of(context);
     // Always include the Unknown tile.
     final totalCount = widget.members.length + 1;
 
@@ -516,12 +518,19 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 4,
-            childAspectRatio: 0.94,
-          ),
+          gridDelegate: inSideSheet
+              ? const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 128,
+                  mainAxisExtent: 126,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 8,
+                )
+              : const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 4,
+                  crossAxisSpacing: 4,
+                  childAspectRatio: 0.94,
+                ),
           itemCount: totalCount,
           itemBuilder: (context, index) {
             if (index == totalCount - 1) {
@@ -538,6 +547,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
     final isSelected = widget.selectedIds.contains(member.id);
     final isFronting = widget.frontingMemberIds.contains(member.id);
     return GestureDetector(
+      key: Key('addFrontMemberTile-${member.id}'),
       onTap: () => widget.onToggle(member.id),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -622,6 +632,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
   Widget _gridUnknownTile(ThemeData theme) {
     final isSelected = widget.selectedIds.contains(widget.unknownId);
     return GestureDetector(
+      key: const Key('addFrontUnknownTile'),
       onTap: () => widget.onToggle(widget.unknownId),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),

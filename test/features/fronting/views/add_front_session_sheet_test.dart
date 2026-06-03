@@ -222,6 +222,35 @@ void main() {
       },
     );
 
+    testWidgets('side-sheet grid uses tighter columns on desktop widths', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1000, 800);
+      addTearDown(tester.view.reset);
+
+      final members = List.generate(5, (i) => _member(id: 'id$i', name: 'M$i'));
+
+      await tester.pumpWidget(_buildSheetTrigger(members: members));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      final firstRowY = tester
+          .getTopLeft(find.byKey(const Key('addFrontMemberTile-id0')))
+          .dy;
+      final fourthTileY = tester
+          .getTopLeft(find.byKey(const Key('addFrontMemberTile-id3')))
+          .dy;
+
+      expect(
+        fourthTileY,
+        closeTo(firstRowY, 1),
+        reason:
+            'Desktop side sheets should fit four compact member tiles per row '
+            'instead of spreading a 3-column grid across the sheet.',
+      );
+    });
+
     testWidgets('tapping Select opens MemberSearchSheet', (tester) async {
       await tester.pumpWidget(_buildSheetTrigger(members: _bigMemberList()));
       await tester.tap(find.text('Open'));

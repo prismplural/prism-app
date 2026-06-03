@@ -7,16 +7,18 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/features/reminders/providers/reminders_providers.dart';
 import 'package:prism_plurality/features/reminders/widgets/create_reminder_sheet.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/clamped_body.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
-import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 class RemindersScreen extends ConsumerWidget {
   const RemindersScreen({super.key, this.showBackButton = true});
@@ -39,6 +41,7 @@ class RemindersScreen extends ConsumerWidget {
           ),
         ],
       ),
+      topBarMaxWidth: PrismTokens.contentMaxWidth,
       bodyPadding: EdgeInsets.zero,
       body: remindersAsync.when(
         loading: () => const PrismLoadingState(),
@@ -46,22 +49,32 @@ class RemindersScreen extends ConsumerWidget {
             Center(child: Text(context.l10n.remindersLoadError(e.toString()))),
         data: (reminders) {
           if (reminders.isEmpty) {
-            return EmptyState(
-              icon: Icon(AppIcons.notificationsNoneRounded),
-              title: context.l10n.remindersEmptyTitle,
-              subtitle: context.l10n.remindersEmptySubtitle,
-              actionLabel: context.l10n.remindersEmptyAction,
-              onAction: () => _showCreateSheet(context),
+            return ClampedBody(
+              child: EmptyState(
+                icon: Icon(AppIcons.notificationsNoneRounded),
+                title: context.l10n.remindersEmptyTitle,
+                subtitle: context.l10n.remindersEmptySubtitle,
+                actionLabel: context.l10n.remindersEmptyAction,
+                onAction: () => _showCreateSheet(context),
+              ),
             );
           }
 
-          return ListView.builder(
-            padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
-            itemCount: reminders.length,
-            itemBuilder: (context, index) {
-              final reminder = reminders[index];
-              return _ReminderTile(reminder: reminder);
-            },
+          return ClampedBody(
+            child: ListView.separated(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                24 + NavBarInset.of(context),
+              ),
+              itemCount: reminders.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final reminder = reminders[index];
+                return _ReminderTile(reminder: reminder);
+              },
+            ),
           );
         },
       ),
@@ -86,6 +99,7 @@ class _ReminderTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final notifier = ref.read(remindersNotifierProvider.notifier);
+    final isActive = reminder.isActive;
 
     String? targetName;
     final targetId = reminder.targetMemberId;
@@ -117,48 +131,135 @@ class _ReminderTile extends ConsumerWidget {
           message: context.l10n.remindersDeletedSnackbar(reminder.name),
         );
       },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: PrismGroupedSectionCard(
-          child: PrismListRow(
-            padding: EdgeInsets.zero,
-            leading: Icon(
-              reminder.trigger == ReminderTrigger.scheduled
-                  ? AppIcons.schedule
-                  : AppIcons.swapHorizRounded,
-              color: reminder.isActive
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-            title: Text(
-              reminder.name,
-              style: TextStyle(
-                color: reminder.isActive
-                    ? null
-                    : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-            ),
-            subtitle: Text(
-              _formatReminderSubtitle(context, reminder, targetName),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(
-                  alpha: 0.7,
-                ),
-              ),
-            ),
-            trailing: Switch.adaptive(
-              value: reminder.isActive,
-              onChanged: (_) => notifier.toggleActive(reminder),
-            ),
-            onTap: () => PrismSheet.showFullScreen(
-              context: context,
-              builder: (context, scrollController) => CreateReminderSheet(
-                editing: reminder,
-                scrollController: scrollController,
-              ),
-            ),
+      child: PrismSurface(
+        key: Key('reminderCard-${reminder.id}'),
+        padding: const EdgeInsets.all(16),
+        tone: PrismSurfaceTone.strong,
+        onTap: () => PrismSheet.showFullScreen(
+          context: context,
+          builder: (context, scrollController) => CreateReminderSheet(
+            editing: reminder,
+            scrollController: scrollController,
           ),
         ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _ReminderSummary(
+                reminder: reminder,
+                targetName: targetName,
+                isActive: isActive,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Switch.adaptive(
+              value: isActive,
+              onChanged: (value) =>
+                  _setActive(context, notifier, reminder, value),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _setActive(
+    BuildContext context,
+    RemindersNotifier notifier,
+    Reminder reminder,
+    bool enabled,
+  ) async {
+    if (!enabled) {
+      final confirmed = await PrismDialog.confirm(
+        context: context,
+        title: context.l10n.remindersDisableTitle,
+        message: context.l10n.remindersDisableMessage(reminder.name),
+        confirmLabel: context.l10n.remindersDisableConfirm,
+        cancelLabel: context.l10n.cancel,
+      );
+      if (!confirmed) return;
+    }
+
+    await notifier.toggleActive(reminder);
+  }
+}
+
+class _ReminderSummary extends StatelessWidget {
+  const _ReminderSummary({
+    required this.reminder,
+    required this.targetName,
+    required this.isActive,
+  });
+
+  final Reminder reminder;
+  final String? targetName;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final disabledAlpha = isActive ? 1.0 : 0.52;
+    final message = reminder.message.trim();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          reminder.name,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.onSurface.withValues(alpha: disabledAlpha),
+            height: 1.15,
+          ),
+        ),
+        if (message.isNotEmpty) ...[
+          const SizedBox(height: 5),
+          Text(
+            message,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant.withValues(
+                alpha: isActive ? 0.88 : 0.52,
+              ),
+              height: 1.25,
+            ),
+          ),
+        ],
+        const SizedBox(height: 10),
+        _ReminderMetadata(
+          text: _formatReminderSubtitle(context, reminder, targetName),
+          isActive: isActive,
+        ),
+      ],
+    );
+  }
+}
+
+class _ReminderMetadata extends StatelessWidget {
+  const _ReminderMetadata({required this.text, required this.isActive});
+
+  final String text;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.onSurfaceVariant.withValues(
+      alpha: isActive ? 0.76 : 0.48,
+    );
+
+    return Text(
+      text,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: color,
+        fontWeight: FontWeight.w600,
+        height: 1.2,
       ),
     );
   }
@@ -185,8 +286,8 @@ String _formatReminderSubtitle(
     return l10n.remindersSubtitleOnFrontChangeDelay(delay);
   }
 
-  final time = r.timeOfDay;
-  final prefix = time == null || time.isEmpty ? '' : '$time · ';
+  final time = _formatReminderTime(context, r.timeOfDay);
+  final prefix = time.isEmpty ? '' : '$time · ';
 
   switch (r.frequency) {
     case ReminderFrequency.daily:
@@ -222,6 +323,27 @@ String _formatReminderSubtitle(
       if (interval == 1) return '$prefix${l10n.remindersSubtitleDaily}';
       return '$prefix${l10n.remindersSubtitleEveryNDays(interval)}';
   }
+}
+
+String _formatReminderTime(BuildContext context, String? timeOfDay) {
+  final raw = timeOfDay?.trim() ?? '';
+  if (raw.isEmpty) return '';
+
+  final parts = raw.split(':');
+  if (parts.length != 2) return raw;
+
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null ||
+      minute == null ||
+      hour < 0 ||
+      hour > 23 ||
+      minute < 0 ||
+      minute > 59) {
+    return raw;
+  }
+
+  return context.formatTime(DateTime(2000, 1, 1, hour, minute));
 }
 
 bool _reminderDaysEqual(List<int> a, List<int> b) {
