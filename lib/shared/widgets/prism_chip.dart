@@ -46,8 +46,6 @@ class PrismChip extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = tintColor ?? selectedColor ?? theme.colorScheme.primary;
     final hasTintedFill = tintColor != null || selected;
-    final hasCustomTint =
-        tintColor != null || (selected && selectedColor != null);
     final tintColors = hasTintedFill
         ? resolveTintedControlColors(theme, accent: accent)
         : null;
@@ -65,10 +63,8 @@ class PrismChip extends StatelessWidget {
     }
 
     final Color labelColor;
-    if (hasCustomTint) {
+    if (hasTintedFill) {
       labelColor = tintColors!.foreground;
-    } else if (selected) {
-      labelColor = accent;
     } else {
       labelColor = theme.colorScheme.onSurfaceVariant;
     }

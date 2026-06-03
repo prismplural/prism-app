@@ -532,7 +532,6 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
     final colors = resolveTintedControlColors(
       theme,
       accent: accent,
-      fillAlpha: 0.16,
       foregroundAccentWeight: 0.42,
     );
     final emoji = group.emoji;

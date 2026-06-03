@@ -161,15 +161,20 @@ PrismTintedControlColors resolveTintedControlColors(
   required Color accent,
   Color? fillBase,
   Color? foregroundBase,
-  double fillAlpha = 0.15,
+  double? fillAlpha,
   double foregroundAccentWeight = 0.32,
   double borderAlpha = 0.72,
   double borderMinRatio = prismMinimumAccentContrast,
   double foregroundMinRatio = prismMinimumTextContrast,
 }) {
+  final effectiveFillAlpha =
+      fillAlpha ?? (theme.brightness == Brightness.light ? 0.22 : 0.18);
   final base = (fillBase ?? theme.colorScheme.surfaceContainerHighest)
       .withValues(alpha: 1);
-  final fill = Color.alphaBlend(accent.withValues(alpha: fillAlpha), base);
+  final fill = Color.alphaBlend(
+    accent.withValues(alpha: effectiveFillAlpha),
+    base,
+  );
   final visibleAccent = _contrastAdjustedColorOn(
     accent,
     fill,
