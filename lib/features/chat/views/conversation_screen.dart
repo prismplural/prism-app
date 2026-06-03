@@ -32,10 +32,15 @@ class ConversationScreen extends ConsumerStatefulWidget {
     super.key,
     required this.conversationId,
     this.initialMessageId,
+    this.showBackButton = true,
   });
 
   final String conversationId;
   final String? initialMessageId;
+
+  /// Hidden when the screen is embedded as the detail pane of a two-pane
+  /// list-detail layout, where there is no route to pop back to.
+  final bool showBackButton;
 
   @override
   ConsumerState<ConversationScreen> createState() => _ConversationScreenState();
@@ -162,7 +167,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           return PrismPageScaffold(
             topBar: PrismTopBar(
               title: context.l10n.chatTitle,
-              showBackButton: true,
+              showBackButton: widget.showBackButton,
             ),
             body: Center(child: Text(context.l10n.chatConversationNotFound)),
           );
@@ -180,12 +185,14 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         return Scaffold(
           appBar: PrismGlassAppBar(
             title: _conversationTitle(context, ref, conversation),
-            leading: PrismGlassIconButton(
-              icon: AppIcons.arrowBackIosNewRounded,
-              iconSize: 18,
-              tooltip: context.l10n.back,
-              onPressed: () => context.pop(),
-            ),
+            leading: widget.showBackButton
+                ? PrismGlassIconButton(
+                    icon: AppIcons.arrowBackIosNewRounded,
+                    iconSize: 18,
+                    tooltip: context.l10n.back,
+                    onPressed: () => context.pop(),
+                  )
+                : null,
             trailing: PrismGlassIconButton(
               icon: AppIcons.infoOutlineRounded,
               iconSize: 20,
@@ -364,14 +371,14 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       loading: () => PrismPageScaffold(
         topBar: PrismTopBar(
           title: context.l10n.chatTitle,
-          showBackButton: true,
+          showBackButton: widget.showBackButton,
         ),
         body: const PrismLoadingState(),
       ),
       error: (error, _) => PrismPageScaffold(
         topBar: PrismTopBar(
           title: context.l10n.chatTitle,
-          showBackButton: true,
+          showBackButton: widget.showBackButton,
         ),
         body: Center(child: Text(context.l10n.chatSearchError(error))),
       ),

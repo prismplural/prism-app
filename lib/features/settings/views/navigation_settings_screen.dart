@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/features/settings/views/features_settings_screen.dart';
 import 'package:prism_plurality/features/settings/widgets/navigation_layout_editor.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
@@ -80,16 +82,25 @@ class NavigationSettingsScreen extends ConsumerWidget {
             overflowTabs: overflowTabs,
             flags: flags,
             terminologyPlural: terms.plural,
-            onDisabledFeatureTap: () =>
-                context.push(AppRoutePaths.settingsFeatures),
+            onDisabledFeatureTap: () {
+              if (shouldUseDetailSideSheet(context)) {
+                showDetailSideSheet(
+                  context,
+                  builder: (_) => const FeaturesSettingsScreen(),
+                );
+              } else {
+                context.push(AppRoutePaths.settingsFeatures);
+              }
+            },
             onLayoutChanged: (primary, overflow) {
-              final notifier = ref.read(settingsNotifierProvider.notifier);
-              notifier.updateNavBarItems(
-                primary.map((tab) => tab.id.name).toList(),
-              );
-              notifier.updateNavBarOverflowItems(
-                overflow.map((tab) => tab.id.name).toList(),
-              );
+              ref
+                  .read(settingsNotifierProvider.notifier)
+                  .updateNavigationLayout(
+                    navBarItems: primary.map((tab) => tab.id.name).toList(),
+                    navBarOverflowItems: overflow
+                        .map((tab) => tab.id.name)
+                        .toList(),
+                  );
             },
           ),
         ],

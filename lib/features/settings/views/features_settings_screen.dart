@@ -3,7 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/views/chat_feature_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/fronting_feature_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/habits_feature_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/sleep_feature_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/polls_feature_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/notes_feature_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/reminders_feature_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/boards_feature_settings_screen.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
@@ -23,7 +32,10 @@ class FeaturesSettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: context.l10n.featuresTitle, showBackButton: true),
+      topBar: PrismTopBar(
+        title: context.l10n.featuresTitle,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -39,14 +51,22 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                     iconColor: Colors.blue,
                     title: context.l10n.featureChatTitle,
                     enabled: flags.chat,
-                    onTap: () => context.go('/settings/features/chat'),
+                    onTap: () => _openFeature(
+                      context,
+                      path: '/settings/features/chat',
+                      builder: (_) => const ChatFeatureSettingsScreen(),
+                    ),
                   ),
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   PrismSettingsRow(
                     icon: AppIcons.frontHandOutlined,
                     iconColor: Colors.purple,
                     title: context.l10n.featureFrontingTitle,
-                    onTap: () => context.go('/settings/features/fronting'),
+                    onTap: () => _openFeature(
+                      context,
+                      path: '/settings/features/fronting',
+                      builder: (_) => const FrontingFeatureSettingsScreen(),
+                    ),
                   ),
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   _featureRow(
@@ -55,7 +75,11 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                     iconColor: Colors.green,
                     title: context.l10n.featureHabitsTitle,
                     enabled: flags.habits,
-                    onTap: () => context.go('/settings/features/habits'),
+                    onTap: () => _openFeature(
+                      context,
+                      path: '/settings/features/habits',
+                      builder: (_) => const HabitsFeatureSettingsScreen(),
+                    ),
                   ),
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   _featureRow(
@@ -64,7 +88,12 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                     iconColor: Colors.indigo,
                     title: context.l10n.featureSleepTitle,
                     enabled: flags.sleep,
-                    onTap: () => context.go('/settings/features/sleep'),
+                    onTap: () => _openFeature(
+                      context,
+                      path: '/settings/features/sleep',
+                      builder: (_) =>
+                          const SleepFeatureSettingsScreen(args: null),
+                    ),
                   ),
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   _featureRow(
@@ -73,7 +102,11 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                     iconColor: Colors.purple,
                     title: context.l10n.featurePollsTitle,
                     enabled: flags.polls,
-                    onTap: () => context.go('/settings/features/polls'),
+                    onTap: () => _openFeature(
+                      context,
+                      path: '/settings/features/polls',
+                      builder: (_) => const PollsFeatureSettingsScreen(),
+                    ),
                   ),
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   _featureRow(
@@ -82,7 +115,11 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                     iconColor: Colors.teal,
                     title: context.l10n.featureNotesTitle,
                     enabled: flags.notes,
-                    onTap: () => context.go('/settings/features/notes'),
+                    onTap: () => _openFeature(
+                      context,
+                      path: '/settings/features/notes',
+                      builder: (_) => const NotesFeatureSettingsScreen(),
+                    ),
                   ),
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   _featureRow(
@@ -91,7 +128,11 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                     iconColor: Colors.amber,
                     title: context.l10n.featureRemindersTitle,
                     enabled: flags.reminders,
-                    onTap: () => context.go('/settings/features/reminders'),
+                    onTap: () => _openFeature(
+                      context,
+                      path: '/settings/features/reminders',
+                      builder: (_) => const RemindersFeatureSettingsScreen(),
+                    ),
                   ),
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   _featureRow(
@@ -100,7 +141,11 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                     iconColor: Colors.pink,
                     title: context.l10n.featureBoardsTitle,
                     enabled: flags.boards,
-                    onTap: () => context.go('/settings/features/boards'),
+                    onTap: () => _openFeature(
+                      context,
+                      path: '/settings/features/boards',
+                      builder: (_) => const BoardsFeatureSettingsScreen(),
+                    ),
                   ),
                 ],
               ),
@@ -120,6 +165,21 @@ class FeaturesSettingsScreen extends ConsumerWidget {
     );
   }
 
+  /// Navigates to a per-feature settings sub-screen. On wide desktop windows
+  /// the target opens in a modal side sheet over the settings pane; on narrow
+  /// windows it falls back to the existing full-screen route navigation.
+  void _openFeature(
+    BuildContext context, {
+    required String path,
+    required WidgetBuilder builder,
+  }) {
+    if (shouldUseDetailSideSheet(context)) {
+      showDetailSideSheet(context, builder: builder);
+    } else {
+      context.go(path);
+    }
+  }
+
   Widget _featureRow(
     BuildContext context, {
     required IconData icon,
@@ -129,8 +189,9 @@ class FeaturesSettingsScreen extends ConsumerWidget {
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
-    final chevronColor =
-        theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
+    final chevronColor = theme.colorScheme.onSurfaceVariant.withValues(
+      alpha: 0.7,
+    );
 
     return PrismSettingsRow(
       icon: icon,
@@ -138,7 +199,9 @@ class FeaturesSettingsScreen extends ConsumerWidget {
       title: title,
       showChevron: false,
       trailing: Semantics(
-        label: enabled ? context.l10n.featuresEnabled : context.l10n.featuresDisabled,
+        label: enabled
+            ? context.l10n.featuresEnabled
+            : context.l10n.featuresDisabled,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -153,10 +216,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
             ],
-            Icon(
-              AppIcons.chevronRightRounded,
-              color: chevronColor,
-            ),
+            Icon(AppIcons.chevronRightRounded, color: chevronColor),
           ],
         ),
       ),

@@ -9,6 +9,7 @@ import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/features/settings/views/custom_field_detail_screen.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -17,6 +18,7 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/utils/optimistic_list_controller.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -664,7 +666,16 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
           ),
         ],
       ),
-      onTap: () => context.push(AppRoutePaths.settingsCustomField(field.id)),
+      onTap: () {
+        if (shouldUseDetailSideSheet(context)) {
+          showDetailSideSheet(
+            context,
+            builder: (_) => CustomFieldDetailScreen(fieldId: field.id),
+          );
+        } else {
+          context.push(AppRoutePaths.settingsCustomField(field.id));
+        }
+      },
     );
 
     // Wrap in a BlurPopupAnchor (manual trigger) so we can call show() on

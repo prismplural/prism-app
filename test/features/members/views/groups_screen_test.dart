@@ -5,11 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
 import 'package:prism_plurality/features/members/views/groups_screen.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -58,6 +61,17 @@ Widget _buildSubject({
       allGroupEntriesProvider.overrideWith(
         (ref) => Stream.value(const <MemberGroupEntry>[]),
       ),
+      groupByIdProvider.overrideWith((ref, groupId) {
+        final matching = groups.where((group) => group.id == groupId);
+        return Stream.value(matching.isEmpty ? null : matching.first);
+      }),
+      groupEntriesProvider.overrideWith(
+        (ref, groupId) => Stream.value(const <MemberGroupEntry>[]),
+      ),
+      activeMembersProvider.overrideWith(
+        (ref) => Stream.value(const <Member>[]),
+      ),
+      allMembersProvider.overrideWith((ref) => Stream.value(const <Member>[])),
       groupNotifierProvider.overrideWith(() => notifier),
     ],
     child: MaterialApp(
@@ -84,6 +98,32 @@ void main() {
       MemberNavigationBranch.groups.groupPath('crew'),
       AppRoutePaths.group('crew'),
     );
+  });
+
+  testWidgets('wide layouts drill into groups in the centered primary view', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1200, 800);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final group = _group(id: 'crew', name: 'Crew');
+    final notifier = _RecordingGroupNotifier();
+
+    await tester.pumpWidget(_buildSubject(groups: [group], notifier: notifier));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(GroupDetailScreen), findsNothing);
+    expect(find.byTooltip('Back'), findsNothing);
+
+    await tester.tap(find.text('Crew'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(GroupDetailScreen), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
   });
 
   testWidgets('offers one-shot sorting for root groups and sub-groups', (

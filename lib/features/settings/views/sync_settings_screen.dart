@@ -10,7 +10,11 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
+import 'package:prism_plurality/features/settings/views/device_management_screen.dart';
+import 'package:prism_plurality/features/settings/views/sync_troubleshooting_screen.dart';
+import 'package:prism_plurality/features/settings/views/verify_backup_screen.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -743,7 +747,16 @@ class _ConfiguredView extends ConsumerWidget {
                     icon: AppIcons.devicesOther,
                     title: context.l10n.syncManageDevices,
                     subtitle: context.l10n.syncManageDevicesSubtitle,
-                    onTap: () => context.push(AppRoutePaths.settingsDevices),
+                    onTap: () {
+                      if (shouldUseDetailSideSheet(context)) {
+                        showDetailSideSheet(
+                          context,
+                          builder: (_) => const DeviceManagementScreen(),
+                        );
+                      } else {
+                        context.push(AppRoutePaths.settingsDevices);
+                      }
+                    },
                   ),
                 ],
                 if (syncHealth == SyncHealthState.healthy) ...[
@@ -770,8 +783,16 @@ class _ConfiguredView extends ConsumerWidget {
                 icon: AppIcons.shieldOutlined,
                 title: context.l10n.verifyBackupRowTitle,
                 subtitle: context.l10n.verifyBackupRowSubtitle,
-                onTap: () =>
-                    context.push(AppRoutePaths.settingsSyncVerifyBackup),
+                onTap: () {
+                  if (shouldUseDetailSideSheet(context)) {
+                    showDetailSideSheet(
+                      context,
+                      builder: (_) => const VerifyBackupScreen(),
+                    );
+                  } else {
+                    context.push(AppRoutePaths.settingsSyncVerifyBackup);
+                  }
+                },
               ),
             ),
           ),
@@ -877,8 +898,16 @@ class _ConfiguredView extends ConsumerWidget {
                 PrismSettingsRow(
                   icon: AppIcons.buildCircleOutlined,
                   title: context.l10n.syncTroubleshootingLink,
-                  onTap: () =>
-                      context.push(AppRoutePaths.settingsSyncTroubleshooting),
+                  onTap: () {
+                    if (shouldUseDetailSideSheet(context)) {
+                      showDetailSideSheet(
+                        context,
+                        builder: (_) => const SyncTroubleshootingScreen(),
+                      );
+                    } else {
+                      context.push(AppRoutePaths.settingsSyncTroubleshooting);
+                    }
+                  },
                 ),
               ],
             ),

@@ -541,6 +541,22 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateNavigationLayout({
+    required List<String> navBarItems,
+    required List<String> navBarOverflowItems,
+  }) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      final settings = await repo.getSettings();
+      await repo.updateSettings(
+        settings.copyWith(
+          navBarItems: navBarItems,
+          navBarOverflowItems: navBarOverflowItems,
+        ),
+      );
+    });
+  }
+
   Future<void> updateSyncNavigationEnabled(bool value) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);

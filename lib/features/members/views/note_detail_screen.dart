@@ -23,8 +23,10 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Provider to watch a single note by ID.
-final noteByIdProvider =
-    StreamProvider.autoDispose.family<Note?, String>((ref, id) {
+final noteByIdProvider = StreamProvider.autoDispose.family<Note?, String>((
+  ref,
+  id,
+) {
   final link = ref.keepAlive();
   Timer? timer;
   ref.onDispose(() => timer?.cancel());
@@ -38,9 +40,19 @@ final noteByIdProvider =
 
 /// Full-screen detail view for a single note.
 class NoteDetailScreen extends ConsumerWidget {
-  const NoteDetailScreen({super.key, required this.noteId});
+  const NoteDetailScreen({
+    super.key,
+    required this.noteId,
+    this.showBackButton = true,
+    this.onEditNote,
+  });
 
   final String noteId;
+  final ValueChanged<Note>? onEditNote;
+
+  /// Hidden when embedded in the trailing pane of a [ListDetailLayout], where
+  /// there is no route to pop back to. Defaults to true for full-screen routes.
+  final bool showBackButton;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,30 +61,49 @@ class NoteDetailScreen extends ConsumerWidget {
 
     return noteAsync.when(
       loading: () => PrismPageScaffold(
-        topBar: PrismTopBar(title: l10n.memberNoteTitle, showBackButton: true),
+        topBar: PrismTopBar(
+          title: l10n.memberNoteTitle,
+          showBackButton: showBackButton,
+        ),
         body: const PrismLoadingState(),
       ),
       error: (_, _) => PrismPageScaffold(
-        topBar: PrismTopBar(title: l10n.memberNoteTitle, showBackButton: true),
+        topBar: PrismTopBar(
+          title: l10n.memberNoteTitle,
+          showBackButton: showBackButton,
+        ),
         body: Center(child: Text(l10n.error)),
       ),
       data: (note) {
         if (note == null) {
           return PrismPageScaffold(
-            topBar: PrismTopBar(title: l10n.memberNoteTitle, showBackButton: true),
+            topBar: PrismTopBar(
+              title: l10n.memberNoteTitle,
+              showBackButton: showBackButton,
+            ),
             body: Center(child: Text(l10n.memberNoteNotFound)),
           );
         }
-        return _NoteDetailBody(note: note);
+        return _NoteDetailBody(
+          note: note,
+          showBackButton: showBackButton,
+          onEditNote: onEditNote,
+        );
       },
     );
   }
 }
 
 class _NoteDetailBody extends ConsumerWidget {
-  const _NoteDetailBody({required this.note});
+  const _NoteDetailBody({
+    required this.note,
+    required this.showBackButton,
+    required this.onEditNote,
+  });
 
   final Note note;
+  final bool showBackButton;
+  final ValueChanged<Note>? onEditNote;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -83,12 +114,19 @@ class _NoteDetailBody extends ConsumerWidget {
     return PrismPageScaffold(
       topBar: PrismTopBar(
         title: '',
-        showBackButton: true,
+        showBackButton: showBackButton,
         actions: [
           PrismTopBarAction(
             icon: AppIcons.editOutlined,
             tooltip: l10n.edit,
-            onPressed: () => _openEditSheet(context),
+            onPressed: () {
+              final onEditNote = this.onEditNote;
+              if (onEditNote != null) {
+                onEditNote(note);
+              } else {
+                _openEditSheet(context);
+              }
+            },
           ),
           PrismTopBarAction(
             icon: AppIcons.deleteOutline,
@@ -110,26 +148,34 @@ class _NoteDetailBody extends ConsumerWidget {
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
                   color: _parseColor(note.colorHex!),
-                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(2)),
+                  borderRadius: BorderRadius.circular(
+                    PrismShapes.of(context).radius(2),
+                  ),
                 ),
               ),
-            Builder(builder: (context) {
-              final displayTitle = redactSpoilers(
-                note.title.isNotEmpty
-                    ? note.title
-                    : stripImageMarkdown(note.body.split('\n').first.trim()),
-              );
-              final isFallbackTitle = note.title.isEmpty;
-              return Text(
-                displayTitle.isNotEmpty ? displayTitle : l10n.memberNoteUntitled,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight:
-                      isFallbackTitle ? FontWeight.normal : FontWeight.bold,
-                  fontStyle:
-                      isFallbackTitle ? FontStyle.italic : FontStyle.normal,
-                ),
-              );
-            }),
+            Builder(
+              builder: (context) {
+                final displayTitle = redactSpoilers(
+                  note.title.isNotEmpty
+                      ? note.title
+                      : stripImageMarkdown(note.body.split('\n').first.trim()),
+                );
+                final isFallbackTitle = note.title.isEmpty;
+                return Text(
+                  displayTitle.isNotEmpty
+                      ? displayTitle
+                      : l10n.memberNoteUntitled,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: isFallbackTitle
+                        ? FontWeight.normal
+                        : FontWeight.bold,
+                    fontStyle: isFallbackTitle
+                        ? FontStyle.italic
+                        : FontStyle.normal,
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 8),
             Text(
               dateFormat.format(note.date),
@@ -152,10 +198,8 @@ class _NoteDetailBody extends ConsumerWidget {
   void _openEditSheet(BuildContext context) {
     PrismSheet.showFullScreen(
       context: context,
-      builder: (context, scrollController) => NoteSheet(
-        note: note,
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          NoteSheet(note: note, scrollController: scrollController),
     );
   }
 
@@ -170,7 +214,12 @@ class _NoteDetailBody extends ConsumerWidget {
     );
     if (confirmed) {
       unawaited(ref.read(noteNotifierProvider.notifier).deleteNote(note.id));
-      if (context.mounted) Navigator.of(context).pop();
+      // When embedded in the detail pane there is no detail route to pop; the
+      // list-detail layout swaps back to its placeholder as the note stream
+      // emits null. Only pop when we own a back button (a full-screen route).
+      if (showBackButton && context.mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     }
   }
 

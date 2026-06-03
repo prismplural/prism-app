@@ -29,6 +29,7 @@ import 'package:prism_plurality/shared/markdown/markdown_preview.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/remote_image_fetcher.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
@@ -1130,12 +1131,20 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
   }
 
   void _showUsage() {
-    // Push the usage list as a Settings-branch page (not a modal sheet) so the
-    // detail jumps it opens stack on top of it — system back retraces
-    // Media ← usage list ← detail.
-    unawaited(
-      context.push(AppRoutePaths.settingsMediaUsage, extra: widget.usedBy),
-    );
+    // On wide desktop windows, open the usage list as a modal side sheet over
+    // the settings pane. On narrow windows, push the usage list as a
+    // Settings-branch page (not a modal sheet) so the detail jumps it opens
+    // stack on top of it — system back retraces Media ← usage list ← detail.
+    if (shouldUseDetailSideSheet(context)) {
+      showDetailSideSheet(
+        context,
+        builder: (_) => TagUsageScreen(usages: widget.usedBy),
+      );
+    } else {
+      unawaited(
+        context.push(AppRoutePaths.settingsMediaUsage, extra: widget.usedBy),
+      );
+    }
   }
 }
 

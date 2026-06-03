@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
 import 'package:prism_plurality/features/members/widgets/manage_groups_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/group_avatar.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
@@ -32,12 +34,19 @@ class MemberGroupsSection extends ConsumerWidget {
 
   String _groupPath(String id) => branch.groupPath(id);
 
+  void _openGroup(BuildContext context, String id) {
+    if (shouldUseDetailSideSheet(context)) {
+      showDetailSideSheet<void>(
+        context,
+        builder: (_) => GroupDetailScreen(groupId: id, branch: branch),
+      );
+    } else {
+      context.push(_groupPath(id));
+    }
+  }
+
   void _openManageGroupsSheet(BuildContext context) {
-    ManageGroupsSheet.show(
-      context,
-      memberId: memberId,
-      memberName: memberName,
-    );
+    ManageGroupsSheet.show(context, memberId: memberId, memberName: memberName);
   }
 
   @override
@@ -130,7 +139,7 @@ class MemberGroupsSection extends ConsumerWidget {
                                     group.colorHex!.isNotEmpty
                                 ? AppColors.fromHex(group.colorHex!)
                                 : null,
-                            onTap: () => context.push(_groupPath(group.id)),
+                            onTap: () => _openGroup(context, group.id),
                           ),
                       ],
                     ),

@@ -21,9 +21,12 @@ import 'package:prism_plurality/features/members/widgets/manage_groups_sheet.dar
 import 'package:prism_plurality/features/members/widgets/member_group_row.dart';
 import 'package:prism_plurality/features/members/widgets/member_list_view_settings_sheet.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
+import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
+import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -80,9 +83,11 @@ class MembersScreen extends ConsumerStatefulWidget {
   ConsumerState<MembersScreen> createState() => _MembersScreenState();
 }
 
-class _MembersScreenState extends ConsumerState<MembersScreen> {
+class _MembersScreenState extends ConsumerState<MembersScreen>
+    with ListDetailSelectionState<MembersScreen> {
   bool _showInactive = false;
   bool? _viewSettingsBannerSeen;
+  final List<String> _paneGroupStack = [];
 
   // Section keys for scroll-to-section navigation in the grouped list.
   final Map<String, GlobalKey> _sectionKeys = {};
@@ -599,102 +604,209 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       frontButtonBehavior: frontButtonBehavior,
     );
 
-    return PrismPageScaffold(
-      topBar: PrismTopBar(
-        title: terms.plural,
-        showBackButton: widget.showBackButton,
-        actions: [
-          PrismTopBarAction(
-            icon: AppIcons.add,
-            tooltip: context.l10n.terminologyAddButton(terms.singular),
-            onPressed: _openAddSheet,
-          ),
-          _buildOptionsMenuAction(menuMembers, terms),
-        ],
-      ),
-      bodyPadding: EdgeInsets.zero,
-      body: Column(
-        children: [
-          if (showViewSettingsBanner)
-            _MemberViewSettingsBanner(
-              terms: terms,
-              onOpenSettings: () => unawaited(_openViewSettingsSheet()),
-              onDismiss: () => unawaited(_markViewSettingsBannerSeen()),
+    return ListDetailLayout(
+      onClearSelection: clearDetailSelection,
+      detail: (context) => _buildDetailPane(terms, membersAsync),
+      list: (context, isWide) {
+        setListDetailWide(isWide);
+        if (isWide && _paneGroupStack.isNotEmpty) {
+          return _listPane(
+            levelKey: 'group_${_paneGroupStack.last}',
+            child: GroupDetailScreen(
+              key: ValueKey('pane_group_${_paneGroupStack.last}'),
+              groupId: _paneGroupStack.last,
+              branch: widget.branch,
             ),
-          if (showGroupedSections && showGroups)
-            MemberGroupFilterBar(onChipTap: hasGroups ? _scrollToGroup : null),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: Anim.md,
-              child: KeyedSubtree(
-                key: ValueKey((_showInactive, viewMode, showGroups)),
-                child: membersAsync.when(
-                  loading: () => const PrismLoadingState(),
-                  error: (e, _) => Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        context.l10n.terminologyLoadError(
-                          terms.pluralLower,
-                          e.toString(),
+          );
+        }
+        return _listPane(
+          levelKey: '__root__',
+          child: PrismPageScaffold(
+            topBar: PrismTopBar(
+              title: terms.plural,
+              showBackButton: widget.showBackButton,
+              actions: [
+                PrismTopBarAction(
+                  icon: AppIcons.add,
+                  tooltip: context.l10n.terminologyAddButton(terms.singular),
+                  onPressed: _openAddSheet,
+                ),
+                _buildOptionsMenuAction(menuMembers, terms),
+              ],
+            ),
+            bodyPadding: EdgeInsets.zero,
+            body: Column(
+              children: [
+                if (showViewSettingsBanner)
+                  _MemberViewSettingsBanner(
+                    terms: terms,
+                    onOpenSettings: () => unawaited(_openViewSettingsSheet()),
+                    onDismiss: () => unawaited(_markViewSettingsBannerSeen()),
+                  ),
+                if (showGroupedSections && showGroups)
+                  MemberGroupFilterBar(
+                    onChipTap: hasGroups ? _scrollToGroup : null,
+                  ),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: Anim.md,
+                    child: KeyedSubtree(
+                      key: ValueKey((_showInactive, viewMode, showGroups)),
+                      child: membersAsync.when(
+                        loading: () => const PrismLoadingState(),
+                        error: (e, _) => Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              context.l10n.terminologyLoadError(
+                                terms.pluralLower,
+                                e.toString(),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                         ),
-                        textAlign: TextAlign.center,
+                        data: (rawMembers) {
+                          final members = _displayMembers(rawMembers);
+                          if (members.isEmpty) {
+                            return EmptyState(
+                              icon: Icon(AppIcons.peopleOutline),
+                              title: _showInactive
+                                  ? context.l10n.terminologyEmptyTitle(
+                                      terms.pluralLower,
+                                    )
+                                  : context.l10n.terminologyEmptyActiveTitle(
+                                      terms.pluralLower,
+                                    ),
+                              subtitle: context.l10n
+                                  .terminologyAddFirstSubtitle(
+                                    terms.singularLower,
+                                  ),
+                              actionLabel: context.l10n.terminologyAddButton(
+                                terms.singular,
+                              ),
+                              onAction: _openAddSheet,
+                            );
+                          }
+
+                          if (!hasGroups || !showGroups) {
+                            return _buildFlatList(
+                              members,
+                              frontingIds,
+                              memberTilePrefs,
+                            );
+                          }
+
+                          if (viewMode == MembersListViewMode.folders) {
+                            return _buildFolderList(
+                              members,
+                              frontingIds,
+                              memberTilePrefs,
+                            );
+                          }
+
+                          final groupedItems = ref.watch(
+                            groupedMemberListProvider,
+                          );
+                          final counts = ref.watch(groupMemberCountsProvider);
+                          return _buildGroupedList(
+                            groupedItems,
+                            counts,
+                            frontingIds,
+                            memberTilePrefs,
+                          );
+                        },
                       ),
                     ),
                   ),
-                  data: (rawMembers) {
-                    final members = _displayMembers(rawMembers);
-                    if (members.isEmpty) {
-                      return EmptyState(
-                        icon: Icon(AppIcons.peopleOutline),
-                        title: _showInactive
-                            ? context.l10n.terminologyEmptyTitle(
-                                terms.pluralLower,
-                              )
-                            : context.l10n.terminologyEmptyActiveTitle(
-                                terms.pluralLower,
-                              ),
-                        subtitle: context.l10n.terminologyAddFirstSubtitle(
-                          terms.singularLower,
-                        ),
-                        actionLabel: context.l10n.terminologyAddButton(
-                          terms.singular,
-                        ),
-                        onAction: _openAddSheet,
-                      );
-                    }
-
-                    if (!hasGroups || !showGroups) {
-                      return _buildFlatList(
-                        members,
-                        frontingIds,
-                        memberTilePrefs,
-                      );
-                    }
-
-                    if (viewMode == MembersListViewMode.folders) {
-                      return _buildFolderList(
-                        members,
-                        frontingIds,
-                        memberTilePrefs,
-                      );
-                    }
-
-                    final groupedItems = ref.watch(groupedMemberListProvider);
-                    final counts = ref.watch(groupMemberCountsProvider);
-                    return _buildGroupedList(
-                      groupedItems,
-                      counts,
-                      frontingIds,
-                      memberTilePrefs,
-                    );
-                  },
                 ),
-              ),
+              ],
             ),
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  /// Builds a list-pane level: a directional drill-down animation around the
+  /// content, all under the pane scope. [levelKey] must change per drill level
+  /// so the animation can tell levels apart.
+  Widget _listPane({required String levelKey, required Widget child}) {
+    return _wrapListPane(
+      PaneNavigationSwitcher(
+        depth: _paneGroupStack.length,
+        child: KeyedSubtree(key: ValueKey(levelKey), child: child),
       ),
+    );
+  }
+
+  Widget _wrapListPane(Widget child) {
+    if (!isDetailPaneVisible) return child;
+    return ListDetailPaneScope(
+      selectDetail: (id) => onSelectDetail(id, navigate: () {}),
+      openInPane: _openGroupInPane,
+      popPane: _popGroupPane,
+      canPopPane: _paneGroupStack.isNotEmpty,
+      selectedDetailId: selectedDetailId,
+      child: child,
+    );
+  }
+
+  void _openGroupInPane(String id) => setState(() => _paneGroupStack.add(id));
+
+  void _popGroupPane() {
+    if (_paneGroupStack.isEmpty) return;
+    _paneGroupStack.removeLast();
+    setState(() {});
+  }
+
+  void _openGroup(String id) {
+    if (isDetailPaneVisible) {
+      _openGroupInPane(id);
+    } else {
+      unawaited(context.push(_groupPath(id)));
+    }
+  }
+
+  /// Wide-layout member detail pane.
+  Widget _buildDetailPane(
+    Terminology terms,
+    AsyncValue<List<Member>> membersAsync,
+  ) {
+    final id = selectedDetailId;
+    if (id == null) {
+      return membersAsync.when(
+        loading: () => const PrismLoadingState(),
+        error: (_, _) => Center(child: Text(context.l10n.error)),
+        data: (members) => members.isEmpty
+            ? EmptyState(
+                icon: Icon(AppIcons.peopleOutline),
+                title: _showInactive
+                    ? context.l10n.terminologyEmptyTitle(terms.pluralLower)
+                    : context.l10n.terminologyEmptyActiveTitle(
+                        terms.pluralLower,
+                      ),
+                subtitle: context.l10n.terminologyAddFirstSubtitle(
+                  terms.singularLower,
+                ),
+              )
+            : EmptyState(
+                icon: Icon(AppIcons.peopleOutline),
+                title: context.l10n.memberSelectDetailPaneEmptyTitle(
+                  terms.singularLower,
+                ),
+                subtitle: context.l10n.memberSelectDetailPaneEmptySubtitle(
+                  terms.singularLower,
+                ),
+              ),
+      );
+    }
+    // ListDetailLayout isolates this pane's NestedScrollView for us.
+    return MemberDetailScreen(
+      key: ValueKey(id),
+      memberId: id,
+      branch: widget.branch,
+      showBackButton: false,
     );
   }
 
@@ -737,7 +849,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   group: group,
                   memberCount: counts[group.id] ?? 0,
                   showMemberCount: !hideMemberCount,
-                  onTap: () => context.push(_groupPath(group.id)),
+                  onTap: () => _openGroup(group.id),
                 );
               }
 
@@ -846,7 +958,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   hasDeeperDescendants:
                       item.depth >= kSectionsVisualDepthCap &&
                       (tree[item.group.id]?.isNotEmpty ?? false),
-                  onOpenDetail: () => context.push(_groupPath(item.group.id)),
+                  onOpenDetail: () => _openGroup(item.group.id),
                 );
                 if (item.depth == 0 && index > 0) {
                   return Column(
@@ -934,7 +1046,11 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         member: member,
         deferAvatarLookup: true,
         showPronouns: memberTilePrefs.showPronouns,
-        onTap: () => context.push(_memberPath(member.id)),
+        selected: isDetailSelected(member.id),
+        onTap: () => onSelectDetail(
+          member.id,
+          navigate: () => unawaited(context.push(_memberPath(member.id))),
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

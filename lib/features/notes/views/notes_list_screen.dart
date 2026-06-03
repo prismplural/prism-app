@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/markdown/markdown_preview.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -9,10 +11,13 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/note.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/widgets/note_editor.dart';
 import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/features/members/views/note_detail_screen.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -25,7 +30,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 
 enum NotesListBranch { settings, notes }
 
-class NotesListScreen extends ConsumerWidget {
+class NotesListScreen extends ConsumerStatefulWidget {
   const NotesListScreen({
     super.key,
     this.showBackButton = true,
@@ -36,79 +41,231 @@ class NotesListScreen extends ConsumerWidget {
   final NotesListBranch branch;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final notesAsync = ref.watch(allNotesProvider);
-    final l10n = context.l10n;
-
-    return PrismPageScaffold(
-      topBar: PrismTopBar(
-        title: l10n.memberSectionNotes,
-        showBackButton: showBackButton,
-        actions: [
-          PrismTopBarAction(
-            icon: AppIcons.add,
-            tooltip: l10n.memberAddNoteTooltip,
-            onPressed: () => _showCreateSheet(context),
-          ),
-        ],
-      ),
-      bodyPadding: EdgeInsets.zero,
-      body: notesAsync.when(
-        loading: () => const PrismLoadingState(),
-        error: (_, _) => Center(child: Text(context.l10n.error)),
-        data: (notes) {
-          if (notes.isEmpty) {
-            return EmptyState(
-              icon: Icon(AppIcons.noteOutlined),
-              title: l10n.memberNoteNoNotesYet,
-              subtitle: l10n.memberNoteEmptySubtitle,
-              actionLabel: l10n.memberNoteTitle,
-              onAction: () => _showCreateSheet(context),
-            );
-          }
-
-          return ListView.builder(
-            padding: EdgeInsets.only(
-              top: 8,
-              left: 16,
-              right: 16,
-              // +16 so the last card clears the nav bar's gradient fade,
-              // which extends 10px above NavBarInset.bottomInset.
-              bottom: NavBarInset.of(context) + 16,
-            ),
-            itemCount: notes.length,
-            itemBuilder: (context, index) {
-              final note = notes[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _NoteCard(note: note, branch: branch),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  void _showCreateSheet(BuildContext context) {
-    PrismSheet.showFullScreen(
-      context: context,
-      builder: (context, scrollController) =>
-          NoteSheet(scrollController: scrollController),
-    );
-  }
+  ConsumerState<NotesListScreen> createState() => _NotesListScreenState();
 }
 
-class _NoteCard extends ConsumerWidget {
-  const _NoteCard({required this.note, required this.branch});
+class _NotesListScreenState extends ConsumerState<NotesListScreen>
+    with ListDetailSelectionState<NotesListScreen> {
+  _NoteEditorPane? _editorPane;
+  final _noteEditorController = NoteEditorController();
+  int _editorRevision = 0;
 
-  final Note note;
-  final NotesListBranch branch;
-
-  String _notePath(String id) => switch (branch) {
+  String _notePath(String id) => switch (widget.branch) {
     NotesListBranch.settings => AppRoutePaths.settingsNote(id),
     NotesListBranch.notes => AppRoutePaths.note(id),
   };
+
+  @override
+  Widget build(BuildContext context) {
+    final notesAsync = ref.watch(allNotesProvider);
+    final l10n = context.l10n;
+
+    // Each pane owns its top bar so they sit side by side in two-pane mode:
+    // the notes bar is scoped to the list pane, and the note detail fills its
+    // whole pane (its own bar included).
+    return ListDetailLayout(
+      onClearSelection: () => unawaited(_clearDetailPane()),
+      detail: (context) => _buildDetailPane(),
+      list: (context, isWide) {
+        setListDetailWide(isWide);
+        return PrismPageScaffold(
+          topBar: PrismTopBar(
+            title: l10n.memberSectionNotes,
+            showBackButton: widget.showBackButton,
+            actions: [
+              PrismTopBarAction(
+                icon: AppIcons.add,
+                tooltip: l10n.memberAddNoteTooltip,
+                onPressed: () => unawaited(_openCreateNote(context)),
+              ),
+            ],
+          ),
+          bodyPadding: EdgeInsets.zero,
+          body: notesAsync.when(
+            loading: () => const PrismLoadingState(),
+            error: (_, _) => Center(child: Text(context.l10n.error)),
+            data: (notes) {
+              if (notes.isEmpty) {
+                return EmptyState(
+                  icon: Icon(AppIcons.noteOutlined),
+                  title: l10n.memberNoteNoNotesYet,
+                  subtitle: l10n.memberNoteEmptySubtitle,
+                  actionLabel: l10n.memberNoteTitle,
+                  onAction: () => unawaited(_openCreateNote(context)),
+                );
+              }
+
+              return ListView.builder(
+                padding: EdgeInsets.only(
+                  top: 8,
+                  left: 16,
+                  right: 16,
+                  // +16 so the last card clears the nav bar's gradient fade,
+                  // which extends 10px above NavBarInset.bottomInset.
+                  bottom: NavBarInset.of(context) + 16,
+                ),
+                itemCount: notes.length,
+                itemBuilder: (context, index) {
+                  final note = notes[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _NoteCard(
+                      note: note,
+                      selected: isDetailSelected(note.id),
+                      onTap: () => unawaited(_openNote(context, note.id)),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  /// Wide-layout note detail/editor pane.
+  Widget _buildDetailPane() {
+    final editorPane = _editorPane;
+    if (editorPane != null) {
+      return NoteEditor(
+        key: ValueKey('note-editor-${editorPane.revision}'),
+        note: editorPane.note,
+        memberId: editorPane.memberId,
+        controller: _noteEditorController,
+        onSaved: _finishInlineEditor,
+        onCancel: _closeInlineEditor,
+      );
+    }
+
+    final id = selectedDetailId;
+    if (id == null) {
+      final notesAsync = ref.watch(allNotesProvider);
+      return notesAsync.when(
+        loading: () => const PrismLoadingState(),
+        error: (_, _) => Center(child: Text(context.l10n.error)),
+        data: (notes) => notes.isEmpty
+            ? EmptyState(
+                icon: Icon(AppIcons.noteOutlined),
+                title: context.l10n.memberNoteNoNotesYet,
+                subtitle: context.l10n.memberNoteEmptySubtitle,
+              )
+            : EmptyState(
+                icon: Icon(AppIcons.noteOutlined),
+                title: context.l10n.memberNoteSelectEmptyTitle,
+                subtitle: context.l10n.memberNoteSelectEmptySubtitle,
+              ),
+      );
+    }
+    // ListDetailLayout isolates this pane's NestedScrollView for us.
+    return NoteDetailScreen(
+      key: ValueKey(id),
+      noteId: id,
+      showBackButton: false,
+      onEditNote: _openInlineEditorForNote,
+    );
+  }
+
+  Future<void> _openCreateNote(BuildContext context) async {
+    if (isDetailPaneVisible) {
+      final canCloseEditor = await _confirmCloseInlineEditorIfNeeded();
+      if (!canCloseEditor || !mounted) return;
+
+      setState(() {
+        selectedDetailId = null;
+        _editorPane = _NoteEditorPane.create(revision: ++_editorRevision);
+      });
+      return;
+    }
+
+    unawaited(
+      PrismSheet.showFullScreen(
+        context: context,
+        builder: (context, scrollController) =>
+            NoteSheet(scrollController: scrollController),
+      ),
+    );
+  }
+
+  Future<void> _openNote(BuildContext context, String id) async {
+    if (isDetailPaneVisible) {
+      final canCloseEditor = await _confirmCloseInlineEditorIfNeeded();
+      if (!canCloseEditor || !mounted) return;
+
+      setState(() {
+        selectedDetailId = selectedDetailId == id && _editorPane == null
+            ? null
+            : id;
+        _editorPane = null;
+      });
+      return;
+    }
+
+    unawaited(context.push(_notePath(id)));
+  }
+
+  void _openInlineEditorForNote(Note note) {
+    setState(() {
+      selectedDetailId = note.id;
+      _editorPane = _NoteEditorPane.edit(
+        note: note,
+        revision: ++_editorRevision,
+      );
+    });
+  }
+
+  void _finishInlineEditor(Note note) {
+    setState(() {
+      selectedDetailId = note.id;
+      _editorPane = null;
+    });
+  }
+
+  void _closeInlineEditor() {
+    setState(() => _editorPane = null);
+  }
+
+  Future<void> _clearDetailPane() async {
+    if (_editorPane != null) {
+      final canCloseEditor = await _confirmCloseInlineEditorIfNeeded();
+      if (!canCloseEditor || !mounted) return;
+      setState(() => _editorPane = null);
+      return;
+    }
+    if (selectedDetailId == null) return;
+    setState(() => selectedDetailId = null);
+  }
+
+  Future<bool> _confirmCloseInlineEditorIfNeeded() {
+    if (_editorPane == null) return Future.value(true);
+    return _noteEditorController.confirmDiscardIfNeeded();
+  }
+}
+
+class _NoteEditorPane {
+  const _NoteEditorPane._({required this.revision, this.note, this.memberId});
+
+  factory _NoteEditorPane.create({required int revision, String? memberId}) =>
+      _NoteEditorPane._(revision: revision, memberId: memberId);
+
+  factory _NoteEditorPane.edit({required Note note, required int revision}) =>
+      _NoteEditorPane._(revision: revision, note: note);
+
+  final int revision;
+  final Note? note;
+  final String? memberId;
+}
+
+class _NoteCard extends ConsumerWidget {
+  const _NoteCard({
+    required this.note,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Note note;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -147,7 +304,10 @@ class _NoteCard extends ConsumerWidget {
 
     return PrismSectionCard(
       semanticLabel: semanticLabel,
-      onTap: () => context.push(_notePath(note.id)),
+      // In two-pane mode the selected row is highlighted via the card's accent
+      // surface; the leading color strip below is unaffected.
+      accentColor: selected ? theme.colorScheme.primary : null,
+      onTap: onTap,
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,

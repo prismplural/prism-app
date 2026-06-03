@@ -170,6 +170,22 @@ void main() {
     });
   });
 
+  testWidgets('wide layout starts with no member selected', (tester) async {
+    _setWideWindow(tester);
+
+    await tester.pumpWidget(
+      _buildSubject(
+        members: [_member('alice')],
+        groups: const [],
+        entries: const [],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select a headmate'), findsOneWidget);
+    expect(find.text('Member alice'), findsOneWidget);
+  });
+
   testWidgets('group chips stay reachable after jumping to a section', (
     tester,
   ) async {
@@ -823,4 +839,11 @@ void main() {
       findsOneWidget,
     );
   });
+}
+
+void _setWideWindow(WidgetTester tester) {
+  tester.view.devicePixelRatio = 1.0;
+  tester.view.physicalSize = const Size(1200, 800);
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
 }

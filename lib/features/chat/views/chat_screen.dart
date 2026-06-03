@@ -10,9 +10,11 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
 import 'package:prism_plurality/features/chat/utils/chat_author_options.dart';
+import 'package:prism_plurality/features/chat/views/conversation_screen.dart';
 import 'package:prism_plurality/features/chat/views/create_conversation_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/category_management_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/conversation_tile.dart';
+import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -54,7 +56,8 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen>
+    with ListDetailSelectionState<ChatScreen> {
   bool _seeded = false;
   bool _seedAttemptInFlight = false;
   bool? _groupChatVisibilityNudgeDismissed;
@@ -202,7 +205,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   .read(chatNotifierProvider.notifier)
                   .markConversationAsRead(conversation.id, speakingAs);
             }
-            context.go(AppRoutePaths.chatConversation(conversation.id));
+            onSelectDetail(
+              conversation.id,
+              navigate: () =>
+                  context.go(AppRoutePaths.chatConversation(conversation.id)),
+            );
           },
         );
       },
@@ -270,9 +277,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       itemBuilder: (ctx, index, close) => actions[index](ctx, close),
       child: ConversationTile(
         conversation: conversation,
-        onTap: () {
-          context.go(AppRoutePaths.chatConversation(conversation.id));
-        },
+        selected: isDetailSelected(conversation.id),
+        onTap: () => onSelectDetail(
+          conversation.id,
+          navigate: () =>
+              context.go(AppRoutePaths.chatConversation(conversation.id)),
+        ),
       ),
     );
   }
@@ -363,7 +373,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final conversationsAsync = ref.watch(filteredConversationsProvider);
     final showArchived = ref.watch(showArchivedProvider);
     final hasArchived = ref.watch(hasArchivedConversationsProvider);
@@ -372,6 +381,87 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final categoriesAsync = ref.watch(conversationCategoriesProvider);
     ref.watch(activeMembersProvider);
 
+    // Each pane owns its chrome: the conversation list (with its pinned top
+    // bar) on the left, the open conversation filling the detail pane on the
+    // right. Narrow windows fall back to the list only, with taps navigating
+    // to the conversation route.
+    return ListDetailLayout(
+      onClearSelection: clearDetailSelection,
+      detail: (context) => _buildDetailPane(
+        conversationsAsync: conversationsAsync,
+        speakingAs: speakingAs,
+        speakingAsMember: speakingAsMember,
+      ),
+      list: (context, isWide) {
+        setListDetailWide(isWide);
+        return _buildConversationList(
+          conversationsAsync: conversationsAsync,
+          categoriesAsync: categoriesAsync,
+          showArchived: showArchived,
+          hasArchived: hasArchived,
+          speakingAs: speakingAs,
+          speakingAsMember: speakingAsMember,
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailPane({
+    required AsyncValue<List<Conversation>> conversationsAsync,
+    required String? speakingAs,
+    required Member? speakingAsMember,
+  }) {
+    final id = selectedDetailId;
+    if (id == null) {
+      return conversationsAsync.when(
+        loading: () => const PrismLoadingState(),
+        error: (_, _) => Center(child: Text(context.l10n.error)),
+        data: (conversations) {
+          final hasVisibleConversations =
+              speakingAs == null ||
+              conversations.any(
+                (conversation) => _matchesActiveTab(
+                  conversation,
+                  speakingAs,
+                  speakingAsMember,
+                ),
+              );
+          if (!hasVisibleConversations) {
+            return EmptyState(
+              icon: Icon(AppIcons.chatBubbleOutline),
+              title: _activeTab == _ChatSubTab.directMessages
+                  ? context.l10n.chatNoDirectMessages
+                  : context.l10n.chatNoGroupChats,
+              subtitle: _activeTab == _ChatSubTab.directMessages
+                  ? context.l10n.chatNoDirectMessagesSubtitle
+                  : context.l10n.chatNoGroupChatsSubtitle,
+            );
+          }
+          return EmptyState(
+            icon: Icon(AppIcons.chatBubbleOutline),
+            title: context.l10n.chatSelectConversationEmptyTitle,
+            subtitle: context.l10n.chatSelectConversationEmptySubtitle,
+          );
+        },
+      );
+    }
+    // ListDetailLayout isolates this pane's NestedScrollView for us.
+    return ConversationScreen(
+      key: ValueKey(id),
+      conversationId: id,
+      showBackButton: false,
+    );
+  }
+
+  Widget _buildConversationList({
+    required AsyncValue<List<Conversation>> conversationsAsync,
+    required AsyncValue<List<ConversationCategory>> categoriesAsync,
+    required bool showArchived,
+    required bool hasArchived,
+    required String? speakingAs,
+    required Member? speakingAsMember,
+  }) {
+    final theme = Theme.of(context);
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async {
@@ -715,7 +805,8 @@ class _ChatTopBar extends ConsumerWidget implements PreferredSizeWidget {
   final VoidCallback onCreateTap;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 60);
+  Size get preferredSize =>
+      const Size.fromHeight(PrismTokens.topBarHeight + 60);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

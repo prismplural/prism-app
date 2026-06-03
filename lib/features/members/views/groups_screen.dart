@@ -13,9 +13,15 @@ import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet
 import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/group_section_header.dart';
 import 'package:prism_plurality/features/members/widgets/member_group_row.dart';
+import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
+import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/widgets/clamped_body.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -59,6 +65,9 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       providerItemsMatch: _sameGroupDisplayOrders,
     );
   }
+
+  // Wide-layout group drill stack.
+  final List<String> _paneGroupStack = [];
 
   String _groupPathFor(String id) => widget.branch.groupPath(id);
 
@@ -123,65 +132,136 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       _clearOptimisticGroupsAfterBuild(optimisticGroups!);
     }
     final groups = [for (final item in flatItems) item.group];
+    final usePrimaryGroupStack = shouldUseDetailSideSheet(context);
+    final showingGroup = usePrimaryGroupStack && _paneGroupStack.isNotEmpty;
 
-    return PrismPageScaffold(
-      topBar: PrismTopBar(
-        title: l10n.memberGroupsTitle,
-        showBackButton: widget.showBackButton,
-        actions: [
-          PrismTopBarAction(
-            icon: AppIcons.add,
-            tooltip: l10n.memberNewGroupTooltip,
-            onPressed: _openCreateSheet,
-          ),
-          if (groups.isNotEmpty) _buildOptionsMenuAction(groups),
-        ],
-      ),
-      bodyPadding: EdgeInsets.zero,
-      body: flatItems.isEmpty
-          ? EmptyState(
-              icon: Icon(AppIcons.folderOutlined),
-              title: l10n.memberGroupEmptyList,
-              subtitle: l10n.memberGroupEmptySubtitle(
-                watchTerminology(context, ref).pluralLower,
-              ),
-              actionLabel: l10n.memberNewGroupTooltip,
-              onAction: _openCreateSheet,
+    return _primaryPane(
+      enablePaneScope: usePrimaryGroupStack,
+      levelKey: showingGroup ? 'group_${_paneGroupStack.last}' : '__root__',
+      child: showingGroup
+          ? GroupDetailScreen(
+              key: ValueKey('primary_group_${_paneGroupStack.last}'),
+              groupId: _paneGroupStack.last,
+              branch: widget.branch,
             )
-          : ReorderableListView.builder(
-              padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
-              itemCount: flatItems.length,
-              buildDefaultDragHandles: false,
-              onReorder: (oldIndex, newIndex) =>
-                  _onReorder(flatItems, oldIndex, newIndex),
-              proxyDecorator: (child, index, animation) {
-                return AnimatedBuilder(
-                  animation: animation,
-                  builder: (context, child) => Material(
-                    elevation: 4,
-                    borderRadius: BorderRadius.circular(
-                      PrismShapes.of(context).radius(12),
-                    ),
-                    child: child,
+          : PrismPageScaffold(
+              topBar: PrismTopBar(
+                title: l10n.memberGroupsTitle,
+                showBackButton: widget.showBackButton,
+                actions: [
+                  PrismTopBarAction(
+                    icon: AppIcons.add,
+                    tooltip: l10n.memberNewGroupTooltip,
+                    onPressed: _openCreateSheet,
                   ),
-                  child: child,
-                );
-              },
-              itemBuilder: (context, index) {
-                final entry = flatItems[index];
-                return MemberGroupRow(
-                  key: ValueKey(entry.group.id),
-                  group: entry.group,
-                  depth: entry.depth.clamp(0, kSectionsVisualDepthCap),
-                  reorderIndex: index,
-                  memberCount: counts[entry.group.id] ?? 0,
-                  showMemberCount: !hideMemberCount,
-                  onTap: () => context.push(_groupPathFor(entry.group.id)),
-                  onDelete: () => _confirmDelete(entry.group),
-                );
-              },
+                  if (groups.isNotEmpty) _buildOptionsMenuAction(groups),
+                ],
+              ),
+              topBarMaxWidth: PrismTokens.contentMaxWidth,
+              bodyPadding: EdgeInsets.zero,
+              body: ClampedBody(
+                child: flatItems.isEmpty
+                    ? EmptyState(
+                        icon: Icon(AppIcons.folderOutlined),
+                        title: l10n.memberGroupEmptyList,
+                        subtitle: l10n.memberGroupEmptySubtitle(
+                          watchTerminology(context, ref).pluralLower,
+                        ),
+                        actionLabel: l10n.memberNewGroupTooltip,
+                        onAction: _openCreateSheet,
+                      )
+                    : ReorderableListView.builder(
+                        padding: EdgeInsets.only(
+                          top: 8,
+                          bottom: NavBarInset.of(context),
+                        ),
+                        itemCount: flatItems.length,
+                        buildDefaultDragHandles: false,
+                        onReorder: (oldIndex, newIndex) =>
+                            _onReorder(flatItems, oldIndex, newIndex),
+                        proxyDecorator: (child, index, animation) {
+                          return AnimatedBuilder(
+                            animation: animation,
+                            builder: (context, child) => Material(
+                              elevation: 4,
+                              borderRadius: BorderRadius.circular(
+                                PrismShapes.of(context).radius(12),
+                              ),
+                              child: child,
+                            ),
+                            child: child,
+                          );
+                        },
+                        itemBuilder: (context, index) {
+                          final entry = flatItems[index];
+                          return MemberGroupRow(
+                            key: ValueKey(entry.group.id),
+                            group: entry.group,
+                            depth: entry.depth.clamp(
+                              0,
+                              kSectionsVisualDepthCap,
+                            ),
+                            reorderIndex: index,
+                            memberCount: counts[entry.group.id] ?? 0,
+                            showMemberCount: !hideMemberCount,
+                            onTap: () => _openGroup(entry.group.id),
+                            onDelete: () => _confirmDelete(entry.group),
+                          );
+                        },
+                      ),
+              ),
             ),
     );
+  }
+
+  /// Builds an animated primary-pane level.
+  Widget _primaryPane({
+    required bool enablePaneScope,
+    required String levelKey,
+    required Widget child,
+  }) {
+    final content = PaneNavigationSwitcher(
+      depth: _paneGroupStack.length,
+      child: KeyedSubtree(key: ValueKey(levelKey), child: child),
+    );
+    if (!enablePaneScope) return content;
+    return ListDetailPaneScope(
+      selectDetail: _openMemberDetailSheet,
+      openInPane: _openGroupInPane,
+      popPane: _popGroupPane,
+      canPopPane: _paneGroupStack.isNotEmpty,
+      selectedDetailId: null,
+      child: content,
+    );
+  }
+
+  void _openMemberDetailSheet(String id) {
+    unawaited(
+      showDetailSideSheet<void>(
+        context,
+        builder: (context) =>
+            MemberDetailScreen(memberId: id, branch: widget.branch),
+      ),
+    );
+  }
+
+  void _openGroupInPane(String id) {
+    if (_paneGroupStack.isNotEmpty && _paneGroupStack.last == id) return;
+    setState(() => _paneGroupStack.add(id));
+  }
+
+  void _popGroupPane() {
+    if (_paneGroupStack.isEmpty) return;
+    _paneGroupStack.removeLast();
+    setState(() {});
+  }
+
+  void _openGroup(String id) {
+    if (shouldUseDetailSideSheet(context)) {
+      _openGroupInPane(id);
+    } else {
+      unawaited(context.push(_groupPathFor(id)));
+    }
   }
 
   void _onReorder(

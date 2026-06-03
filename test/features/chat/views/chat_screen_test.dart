@@ -222,6 +222,19 @@ Widget _buildSubject({
 }
 
 void main() {
+  testWidgets('wide layout starts with no conversation selected', (
+    tester,
+  ) async {
+    _setWideWindow(tester);
+
+    await tester.pumpWidget(_buildSubject());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select a conversation'), findsOneWidget);
+    expect(find.text('Planning'), findsOneWidget);
+    expect(find.text('No messages'), findsNothing);
+  });
+
   testWidgets('filters the chat list by direct messages and group chats', (
     tester,
   ) async {
@@ -776,4 +789,11 @@ void main() {
       expect(find.text('Admin · Not a member'), findsNothing);
     });
   });
+}
+
+void _setWideWindow(WidgetTester tester) {
+  tester.view.devicePixelRatio = 1.0;
+  tester.view.physicalSize = const Size(1200, 800);
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
 }

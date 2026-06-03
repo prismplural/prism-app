@@ -25,8 +25,10 @@ import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart
 import 'package:prism_plurality/features/members/widgets/member_group_row.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/widgets/clamped_body.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_card.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
@@ -40,6 +42,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/group_avatar.dart';
+import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -75,21 +78,41 @@ class GroupDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final groupAsync = ref.watch(groupByIdProvider(groupId));
+    final paneScope = ListDetailPaneScope.maybeOf(context);
+
+    PreferredSizeWidget transientBar() => PrismTopBar(
+      title: '',
+      showBackButton: paneScope == null,
+      leading: paneScope != null
+          ? PrismTopBarAction(
+              icon: AppIcons.arrowBack,
+              tooltip: context.l10n.back,
+              onPressed: paneScope.popPane,
+            )
+          : null,
+    );
 
     return groupAsync.when(
-      loading: () => const PrismPageScaffold(
-        topBar: PrismTopBar(title: '', showBackButton: true),
-        body: PrismLoadingState(),
+      loading: () => PrismPageScaffold(
+        topBar: transientBar(),
+        topBarMaxWidth: PrismTokens.contentMaxWidth,
+        body: const ClampedBody(child: PrismLoadingState()),
       ),
       error: (e, _) => PrismPageScaffold(
-        topBar: const PrismTopBar(title: '', showBackButton: true),
-        body: Center(child: Text(l10n.memberGroupErrorLoadingDetail(e))),
+        topBar: transientBar(),
+        topBarMaxWidth: PrismTokens.contentMaxWidth,
+        body: ClampedBody(
+          child: Center(child: Text(l10n.memberGroupErrorLoadingDetail(e))),
+        ),
       ),
       data: (group) {
         if (group == null) {
           return PrismPageScaffold(
-            topBar: const PrismTopBar(title: '', showBackButton: true),
-            body: Center(child: Text(l10n.memberGroupNotFound)),
+            topBar: transientBar(),
+            topBarMaxWidth: PrismTokens.contentMaxWidth,
+            body: ClampedBody(
+              child: Center(child: Text(l10n.memberGroupNotFound)),
+            ),
           );
         }
         return _GroupDetailBody(group: group, branch: branch);
@@ -228,31 +251,24 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
           ),
         ],
       ),
+      topBarMaxWidth: PrismTokens.contentMaxWidth,
       bodyPadding: EdgeInsets.zero,
-      body: CustomScrollView(
-        slivers: [
-          const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-          SliverToBoxAdapter(
-            child: Padding(
+      body: ClampedBody(
+        child: ListView(
+          padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
+          children: [
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _GroupInfoHeader(group: group, ancestors: ancestors),
             ),
-          ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-
-          SliverToBoxAdapter(
-            child: _SubGroupsSection(
+            const SizedBox(height: 24),
+            _SubGroupsSection(
               groupId: group.id,
               branch: branch,
               canAddSubGroup: canAddSubGroup,
               onAddSubGroup: () => _addSubGroup(context),
             ),
-          ),
-
-          SliverToBoxAdapter(
-            child: Padding(
+            Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
               child: Row(
                 children: [
@@ -271,7 +287,6 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
                       ),
                     ),
                   ),
-                  // Lock chip — right-aligned, inline. Hidden in manual mode.
                   _GroupSortBadge(
                     sortMode: group.sortState.mode,
                     onTap: () => _optionsPopupKey.currentState?.show(),
@@ -287,23 +302,17 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
                 ],
               ),
             ),
-          ),
-
-          entriesAsync.when(
-            skipLoadingOnReload: true,
-            loading: () => const SliverToBoxAdapter(
-              child: SizedBox(height: _groupDetailRowsLoadingHeight),
-            ),
-            error: (e, _) => SliverToBoxAdapter(
-              child: Padding(
+            entriesAsync.when(
+              skipLoadingOnReload: true,
+              loading: () =>
+                  const SizedBox(height: _groupDetailRowsLoadingHeight),
+              error: (e, _) => Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(l10n.memberGroupErrorLoadingDetail(e)),
               ),
-            ),
-            data: (entries) {
-              if (entries.isEmpty) {
-                return SliverToBoxAdapter(
-                  child: Padding(
+              data: (entries) {
+                if (entries.isEmpty) {
+                  return Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 16,
@@ -315,30 +324,22 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
                         terms.pluralLower,
                       ),
                     ),
-                  ),
-                );
-              }
-              if (providerVisiblePairsInitialLoading) {
-                return const SliverToBoxAdapter(
-                  child: SizedBox(height: _groupDetailRowsLoadingHeight),
-                );
-              }
-              final visiblePairsError = providerVisiblePairsInitialError;
-              if (visiblePairsError != null) {
-                return SliverToBoxAdapter(
-                  child: Padding(
+                  );
+                }
+                if (providerVisiblePairsInitialLoading) {
+                  return const SizedBox(height: _groupDetailRowsLoadingHeight);
+                }
+                final visiblePairsError = providerVisiblePairsInitialError;
+                if (visiblePairsError != null) {
+                  return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       l10n.memberGroupErrorLoadingDetail(visiblePairsError),
                     ),
-                  ),
-                );
-              }
-              if (visiblePairs.isEmpty) {
-                // All entries are filtered out — every member in this group
-                // is inactive and the toggle hides them.
-                return SliverToBoxAdapter(
-                  child: Padding(
+                  );
+                }
+                if (visiblePairs.isEmpty) {
+                  return Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 16,
@@ -350,59 +351,54 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
                         terms.pluralLower,
                       ),
                     ),
-                  ),
-                );
-              }
+                  );
+                }
 
-              // Drag-reorder list. Handles always live in the trailing slot
-              // of each MemberCard (see MemberCard.reorderIndex). Dragging
-              // in a sorted mode does *implicit unlock* (plan §Task 5.1 B).
-              return SliverReorderableList(
-                itemCount: visiblePairs.length,
-                findChildIndexCallback: (key) =>
-                    _groupMemberIndexForKey(key, visiblePairs),
-                onReorder: (oldIndex, newIndex) {
-                  _onReorder(visiblePairs, oldIndex, newIndex);
-                },
-                proxyDecorator: (child, index, animation) {
-                  return AnimatedBuilder(
-                    animation: animation,
-                    builder: (context, child) => Material(
-                      elevation: 4,
-                      color: Theme.of(context).cardColor,
-                      borderRadius: BorderRadius.circular(
-                        PrismShapes.of(context).radius(12),
+                return ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  buildDefaultDragHandles: false,
+                  itemCount: visiblePairs.length,
+                  onReorder: (oldIndex, newIndex) {
+                    _onReorder(visiblePairs, oldIndex, newIndex);
+                  },
+                  proxyDecorator: (child, index, animation) {
+                    return AnimatedBuilder(
+                      animation: animation,
+                      builder: (context, child) => Material(
+                        elevation: 4,
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(
+                          PrismShapes.of(context).radius(12),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: child,
                       ),
-                      clipBehavior: Clip.antiAlias,
                       child: child,
-                    ),
-                    child: child,
-                  );
-                },
-                itemBuilder: (context, index) {
-                  final (entry, member) = visiblePairs[index];
-                  return _GroupMemberTile(
-                    key: ValueKey('member_${entry.id}'),
-                    entry: entry,
-                    member: member,
-                    groupId: group.id,
-                    branch: branch,
-                    reorderIndex: index,
-                    totalCount: visiblePairs.length,
-                    sortMode: group.sortState.mode,
-                    focusNode: _focusNodeFor(entry.id),
-                    onMoveTo: (newIndex) =>
-                        _moveTo(visiblePairs, index, newIndex),
-                  );
-                },
-              );
-            },
-          ),
-
-          SliverPadding(
-            padding: EdgeInsets.only(bottom: NavBarInset.of(context) + 32),
-          ),
-        ],
+                    );
+                  },
+                  itemBuilder: (context, index) {
+                    final (entry, member) = visiblePairs[index];
+                    return _GroupMemberTile(
+                      key: ValueKey('member_${entry.id}'),
+                      entry: entry,
+                      member: member,
+                      groupId: group.id,
+                      branch: branch,
+                      reorderIndex: index,
+                      totalCount: visiblePairs.length,
+                      sortMode: group.sortState.mode,
+                      focusNode: _focusNodeFor(entry.id),
+                      onMoveTo: (newIndex) =>
+                          _moveTo(visiblePairs, index, newIndex),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -951,7 +947,12 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     if (!mounted) return;
     switch (result) {
       case MemberSearchResultSelected(:final memberId):
-        unawaited(context.push(_memberPathFor(branch, group.id, memberId)));
+        final paneScope = ListDetailPaneScope.maybeOf(context);
+        if (paneScope != null) {
+          paneScope.selectDetail(memberId);
+        } else {
+          unawaited(context.push(_memberPathFor(branch, group.id, memberId)));
+        }
       case MemberSearchResultDismissed():
       case MemberSearchResultCleared():
       case MemberSearchResultUnknown():
@@ -1547,13 +1548,20 @@ class _SubGroupsSectionState extends ConsumerState<_SubGroupsSection> {
             .watch(hideTotalMemberCountProvider)
             .whenOrNull(data: (value) => value) ??
         true;
+    final paneScope = ListDetailPaneScope.maybeOf(context);
     return MemberGroupRow(
       key: ValueKey('subgroup_${group.id}'),
       group: group,
       memberCount: count,
       showMemberCount: !hideMemberCount,
       reorderIndex: reorderIndex,
-      onTap: () => context.push(widget.branch.groupPath(group.id)),
+      onTap: () {
+        if (paneScope != null) {
+          paneScope.openInPane(group.id);
+        } else {
+          context.push(widget.branch.groupPath(group.id));
+        }
+      },
     );
   }
 }
@@ -1633,8 +1641,17 @@ class _GroupMemberTile extends ConsumerWidget {
             dragHandleHint: isManual
                 ? l10n.groupMemberDragHandleHintManual
                 : l10n.groupMemberDragHandleHintSorted,
-            onTap: () =>
-                context.push(_memberPathFor(branch, groupId, member.id)),
+            selected:
+                ListDetailPaneScope.maybeOf(context)?.selectedDetailId ==
+                member.id,
+            onTap: () {
+              final paneScope = ListDetailPaneScope.maybeOf(context);
+              if (paneScope != null) {
+                paneScope.selectDetail(member.id);
+              } else {
+                context.push(_memberPathFor(branch, groupId, member.id));
+              }
+            },
           ),
         ),
       ),
@@ -1705,19 +1722,6 @@ Future<List<Member>> _readVisibleActiveMembers(WidgetRef ref) async {
   } finally {
     subscription.close();
   }
-}
-
-int? _groupMemberIndexForKey(
-  Key key,
-  List<(MemberGroupEntry, Member)> visiblePairs,
-) {
-  if (key is! ValueKey<String>) return null;
-  const prefix = 'member_';
-  final value = key.value;
-  if (!value.startsWith(prefix)) return null;
-  final entryId = value.substring(prefix.length);
-  final index = visiblePairs.indexWhere((pair) => pair.$1.id == entryId);
-  return index < 0 ? null : index;
 }
 
 enum _GroupMenuAction { frontGroup, startChat, addSubGroup, delete }

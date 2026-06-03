@@ -5,6 +5,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -20,10 +21,16 @@ class ConversationTile extends ConsumerWidget {
     super.key,
     required this.conversation,
     required this.onTap,
+    this.selected = false,
   });
 
   final Conversation conversation;
   final VoidCallback onTap;
+
+  /// Highlights the tile as the active selection in the two-pane list-detail
+  /// layout on wide windows, where tapping opens the conversation in the
+  /// detail pane rather than navigating away.
+  final bool selected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,12 +53,30 @@ class ConversationTile extends ConsumerWidget {
       subtitle: _buildMessagePreview(context, tileData),
       trailing: _buildTrailing(context, tileData),
       onTap: onTap,
+      selected: selected,
     );
 
     // Dim archived conversations. Opacity is acceptable here — each tile is a
     // shallow subtree and the engine folds constant opacity into the paint.
     if (tileData.isArchived) {
       tile = Opacity(opacity: 0.6, alwaysIncludeSemantics: true, child: tile);
+    }
+
+    if (selected) {
+      final theme = Theme.of(context);
+      // Conversation rows live inside a shared rounded group card with
+      // indented separators, so the selection is an in-place tint that keeps
+      // the row's exact footprint (no margin/border) — otherwise it floats
+      // inset and collides with the dividers above/below it.
+      tile = DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primary.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(PrismTokens.radiusMedium),
+          ),
+        ),
+        child: tile,
+      );
     }
 
     return tile;

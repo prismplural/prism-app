@@ -5,18 +5,18 @@ import 'package:prism_plurality/domain/models/note.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 
 /// Watches notes for a specific member.
-final memberNotesProvider =
-    StreamProvider.autoDispose.family<List<Note>, String>((ref, memberId) {
-  final repo = ref.watch(notesRepositoryProvider);
-  return repo.watchNotesForMember(memberId);
-});
+final memberNotesProvider = StreamProvider.autoDispose
+    .family<List<Note>, String>((ref, memberId) {
+      final repo = ref.watch(notesRepositoryProvider);
+      return repo.watchNotesForMember(memberId);
+    });
 
 /// Watches recent notes for a member (limited, for preview sections).
-final recentMemberNotesProvider =
-    StreamProvider.autoDispose.family<List<Note>, String>((ref, memberId) {
-  final repo = ref.watch(notesRepositoryProvider);
-  return repo.watchRecentNotesForMember(memberId);
-});
+final recentMemberNotesProvider = StreamProvider.autoDispose
+    .family<List<Note>, String>((ref, memberId) {
+      final repo = ref.watch(notesRepositoryProvider);
+      return repo.watchRecentNotesForMember(memberId);
+    });
 
 /// Watches all notes across all members.
 final allNotesProvider = StreamProvider<List<Note>>((ref) {
@@ -31,14 +31,14 @@ class NoteNotifier extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
-  Future<void> createNote({
+  Future<Note?> createNote({
     required String title,
     required String body,
     String? colorHex,
     String? memberId,
     DateTime? date,
   }) async {
-    state = await AsyncValue.guard(() async {
+    final result = await AsyncValue.guard(() async {
       final repo = ref.read(notesRepositoryProvider);
       final now = DateTime.now();
       final note = Note(
@@ -52,14 +52,37 @@ class NoteNotifier extends AsyncNotifier<void> {
         modifiedAt: now,
       );
       await repo.createNote(note);
+      return note;
     });
+    state = result.when(
+      data: (_) => const AsyncData(null),
+      error: AsyncError.new,
+      loading: () => const AsyncLoading(),
+    );
+    return result.when(
+      data: (note) => note,
+      error: (_, _) => null,
+      loading: () => null,
+    );
   }
 
-  Future<void> updateNote(Note note) async {
-    state = await AsyncValue.guard(() async {
+  Future<Note?> updateNote(Note note) async {
+    final updatedNote = note.copyWith(modifiedAt: DateTime.now());
+    final result = await AsyncValue.guard(() async {
       final repo = ref.read(notesRepositoryProvider);
-      await repo.updateNote(note.copyWith(modifiedAt: DateTime.now()));
+      await repo.updateNote(updatedNote);
+      return updatedNote;
     });
+    state = result.when(
+      data: (_) => const AsyncData(null),
+      error: AsyncError.new,
+      loading: () => const AsyncLoading(),
+    );
+    return result.when(
+      data: (note) => note,
+      error: (_, _) => null,
+      loading: () => null,
+    );
   }
 
   Future<void> deleteNote(String id) async {
@@ -70,5 +93,6 @@ class NoteNotifier extends AsyncNotifier<void> {
   }
 }
 
-final noteNotifierProvider =
-    AsyncNotifierProvider<NoteNotifier, void>(NoteNotifier.new);
+final noteNotifierProvider = AsyncNotifierProvider<NoteNotifier, void>(
+  NoteNotifier.new,
+);

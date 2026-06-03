@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,10 +9,14 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/navigation_settings_screen.dart';
+import 'package:prism_plurality/features/settings/widgets/navigation_layout_editor.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -266,6 +272,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('navigation_preview')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
       expect(find.byKey(const Key('navigation_preview')), findsOneWidget);
       expect(
         find.byKey(const ValueKey('navigation_preview_overflow_row_0')),
@@ -325,6 +338,90 @@ void main() {
         expect(findRowSemantics('Polls', 'Move to nav bar'), findsNothing);
       },
     );
+
+    testWidgets('drag reorder does not destabilize the navigation list', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(700, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en')],
+          home: MediaQuery(
+            data: MediaQueryData(size: Size(700, 900)),
+            child: Scaffold(body: _NavigationLayoutEditorHarness()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final chatHandle = find.descendant(
+        of: findRow('Chat'),
+        matching: find.byIcon(AppIcons.dragHandle),
+      );
+      expect(chatHandle, findsOneWidget);
+
+      final gesture = await tester.startGesture(tester.getCenter(chatHandle));
+      await tester.pump(const Duration(milliseconds: 600));
+      await gesture.moveBy(const Offset(0, 160));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Chat'), findsOneWidget);
+    });
+
+    testWidgets('moving overflow item to nav bar does not render duplicates', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(700, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final repo = _ReactiveSystemSettingsRepository(
+        const SystemSettings(
+          navBarItems: ['home', 'chat', 'habits', 'settings'],
+          navBarOverflowItems: [
+            'reminders',
+            'sleep',
+            'statistics',
+            'timeline',
+            'polls',
+            'notes',
+            'boards',
+            'groups',
+          ],
+          boardsEnabled: true,
+        ),
+      );
+      addTearDown(repo.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [systemSettingsRepositoryProvider.overrideWithValue(repo)],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: [Locale('en')],
+            home: MediaQuery(
+              data: MediaQueryData(size: Size(700, 900)),
+              child: NavigationSettingsScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(findRowSemantics('Reminders', 'Move to nav bar'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Reminders'), findsOneWidget);
+      expect(repo.duplicateLayoutEmissions, isEmpty);
+      expect(repo.settings.navBarItems, contains('reminders'));
+      expect(repo.settings.navBarOverflowItems, isNot(contains('reminders')));
+    });
 
     testWidgets(
       'adaptive persistence helper keeps a fitting overflow tab in primary',
@@ -390,6 +487,99 @@ void main() {
       },
     );
   });
+}
+
+class _ReactiveSystemSettingsRepository extends FakeSystemSettingsRepository {
+  _ReactiveSystemSettingsRepository(SystemSettings initialSettings) {
+    settings = initialSettings;
+  }
+
+  final _controller = StreamController<SystemSettings>.broadcast();
+  final duplicateLayoutEmissions = <SystemSettings>[];
+
+  @override
+  Stream<SystemSettings> watchSettings() async* {
+    yield settings;
+    yield* _controller.stream;
+  }
+
+  @override
+  Future<void> updateSettings(SystemSettings settings) async {
+    await super.updateSettings(settings);
+    final duplicateIds = settings.navBarItems.toSet().intersection(
+      settings.navBarOverflowItems.toSet(),
+    );
+    if (duplicateIds.isNotEmpty) {
+      duplicateLayoutEmissions.add(settings);
+    }
+    _controller.add(settings);
+  }
+
+  @override
+  Future<void> updateNavBarOverflowItems(List<String> items) async {
+    await Future<void>.delayed(const Duration(milliseconds: 1));
+    await super.updateNavBarOverflowItems(items);
+  }
+
+  void dispose() => _controller.close();
+}
+
+class _NavigationLayoutEditorHarness extends StatefulWidget {
+  const _NavigationLayoutEditorHarness();
+
+  @override
+  State<_NavigationLayoutEditorHarness> createState() =>
+      _NavigationLayoutEditorHarnessState();
+}
+
+class _NavigationLayoutEditorHarnessState
+    extends State<_NavigationLayoutEditorHarness> {
+  late List<AppShellTab> primaryTabs = [
+    appShellTabs[0], // Home
+    appShellTabs[1], // Chat
+    appShellTabs[2], // Habits
+    appShellTabs[4], // Settings
+  ];
+  late List<AppShellTab> overflowTabs = [
+    appShellTabs[6], // Reminders
+    appShellTabs[11], // Sleep
+    appShellTabs[8], // Statistics
+    appShellTabs[9], // Timeline
+    appShellTabs[3], // Polls
+    appShellTabs[7], // Notes
+    appShellTabs[10], // Boards
+    appShellTabs[12], // Groups
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: NavigationLayoutEditor(
+        primaryTabs: primaryTabs,
+        overflowTabs: overflowTabs,
+        flags: (
+          chat: true,
+          polls: true,
+          habits: true,
+          sleep: true,
+          notes: true,
+          reminders: true,
+          boards: true,
+        ),
+        terminologyPlural: 'Headmates',
+        showDisabledFeatures: false,
+        showLayoutTitle: false,
+        adaptPreviewToDeviceWidth: false,
+        adaptSavedLayoutToDeviceWidth: false,
+        onLayoutChanged: (primary, overflow) {
+          setState(() {
+            primaryTabs = primary;
+            overflowTabs = overflow;
+          });
+        },
+      ),
+    );
+  }
 }
 
 Widget _buildAdaptiveLayoutForWideDevice(BuildContext context) {

@@ -11,7 +11,24 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+// Leaf settings screens shown inline in the detail pane on wide windows.
+import 'package:prism_plurality/features/settings/views/appearance_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/navigation_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/features_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/notification_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/sync_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/media_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/reset_data_screen.dart';
+import 'package:prism_plurality/features/settings/views/about_screen.dart';
+import 'package:prism_plurality/features/settings/views/pin_lock_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/analytics_screen.dart';
+import 'package:prism_plurality/features/settings/views/debug_screen.dart';
+import 'package:prism_plurality/features/settings/views/system_info_screen.dart';
+import 'package:prism_plurality/features/settings/views/custom_fields_screen.dart';
+import 'package:prism_plurality/features/data_management/views/import_export_screen.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -28,11 +45,107 @@ import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 
 /// Main settings screen. Clean navigation list matching SwiftUI's layout:
 /// sections with icon-labeled links to sub-screens.
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen>
+    with ListDetailSelectionState<SettingsScreen> {
+  // Builder for the leaf settings screen currently shown in the detail pane.
+  WidgetBuilder? _detailBuilder;
+
+  /// Open a leaf settings destination: inline in the detail pane on wide
+  /// windows, or push the full-screen route on narrow ones.
+  void _select(String key, String route, WidgetBuilder builder) {
+    if (isDetailPaneVisible) {
+      setState(() {
+        final shouldClear = selectedDetailId == key;
+        selectedDetailId = shouldClear ? null : key;
+        _detailBuilder = shouldClear ? null : builder;
+      });
+    } else {
+      context.push(route);
+    }
+  }
+
+  /// A leaf settings row: opens inline in the detail pane on wide windows
+  /// (no chevron — it opens here), or pushes the full-screen route on narrow.
+  Widget _leafLink({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String selectionKey,
+    required String route,
+    required WidgetBuilder builder,
+    ({IconData icon, Color color})? statusIcon,
+  }) {
+    return _SettingsLink(
+      icon: icon,
+      iconColor: iconColor,
+      title: title,
+      statusIcon: statusIcon,
+      selected: isDetailSelected(selectionKey),
+      showChevron: !isDetailPaneVisible,
+      onTap: () => _select(selectionKey, route, builder),
+    );
+  }
+
+  /// A full-section row (e.g. Members, Groups): always navigates full-screen.
+  /// Keeps its chevron to signal that it leaves the settings pane.
+  Widget _navLink({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String route,
+  }) {
+    return _SettingsLink(
+      icon: icon,
+      iconColor: iconColor,
+      title: title,
+      onTap: () => context.push(route),
+    );
+  }
+
+  Widget _buildDetailPane() {
+    final builder = _detailBuilder;
+    if (selectedDetailId == null || builder == null) {
+      return EmptyState(
+        icon: Icon(AppIcons.tuneOutlined),
+        title: context.l10n.navSettings,
+        subtitle: context.l10n.settingsSelectEmptySubtitle,
+      );
+    }
+    // Keyed so switching destinations cross-fades and resets sub-screen state.
+    return KeyedSubtree(
+      key: ValueKey(selectedDetailId),
+      child: builder(context),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListDetailLayout(
+      onClearSelection: _clearDetailPane,
+      detail: (context) => _buildDetailPane(),
+      list: (context, isWide) {
+        setListDetailWide(isWide);
+        return _buildListPane(context);
+      },
+    );
+  }
+
+  void _clearDetailPane() {
+    if (selectedDetailId == null && _detailBuilder == null) return;
+    setState(() {
+      selectedDetailId = null;
+      _detailBuilder = null;
+    });
+  }
+
+  Widget _buildListPane(BuildContext context) {
     final settingsAsync = ref.watch(systemSettingsProvider);
     final terms = watchTerminology(context, ref);
     // System card displays member count + avatar stack — exclude the Unknown
@@ -73,92 +186,109 @@ class SettingsScreen extends ConsumerWidget {
                 _buildSection(
                   title: context.l10n.settingsSectionSystem,
                   rows: [
-                    _SettingsLink(
+                    _leafLink(
                       icon: AppIcons.infoOutline,
                       iconColor: Colors.purple,
                       title: context.l10n.settingsSystemInformation,
-                      onTap: () =>
-                          context.push(AppRoutePaths.settingsSystemInfo),
+                      selectionKey: 'system-info',
+                      route: AppRoutePaths.settingsSystemInfo,
+                      builder: (_) => const SystemInfoScreen(),
                     ),
-                    _SettingsLink(
+                    // Members & Groups are their own two-pane sections — they
+                    // navigate full-screen rather than nesting in this pane.
+                    _navLink(
                       icon: AppIcons.peopleOutline,
                       iconColor: Colors.blue,
                       title: terms.plural,
-                      onTap: () => context.push(AppRoutePaths.settingsMembers),
+                      route: AppRoutePaths.settingsMembers,
                     ),
-                    _SettingsLink(
+                    _navLink(
                       icon: AppIcons.workspacesOutlined,
                       iconColor: Colors.cyan,
                       title: context.l10n.settingsGroups,
-                      onTap: () => context.push(AppRoutePaths.settingsGroups),
+                      route: AppRoutePaths.settingsGroups,
                     ),
-                    _SettingsLink(
+                    _leafLink(
                       icon: AppIcons.tuneOutlined,
                       iconColor: Colors.deepPurple,
                       title: context.l10n.settingsCustomFields,
-                      onTap: () =>
-                          context.push(AppRoutePaths.settingsCustomFields),
+                      selectionKey: 'custom-fields',
+                      route: AppRoutePaths.settingsCustomFields,
+                      builder: (_) => const CustomFieldsScreen(),
                     ),
-                    _SettingsLink(
+                    _leafLink(
                       icon: AppIcons.photoLibrary,
                       iconColor: Colors.amber,
                       title: 'Media',
-                      onTap: () => context.push(AppRoutePaths.settingsMedia),
+                      selectionKey: 'media',
+                      route: AppRoutePaths.settingsMedia,
+                      builder: (_) => const MediaSettingsScreen(),
                     ),
-                    _SettingsLink(
+                    _leafLink(
                       icon: AppIcons.barChartOutlined,
                       iconColor: Colors.green,
                       title: context.l10n.settingsStatistics,
-                      onTap: () =>
-                          context.push(AppRoutePaths.settingsAnalytics),
+                      selectionKey: 'analytics',
+                      route: AppRoutePaths.settingsAnalytics,
+                      builder: (_) => const AnalyticsScreen(),
                     ),
                   ],
                 ),
                 _buildSection(
                   title: context.l10n.settingsSectionApp,
                   rows: [
-                    _SettingsLink(
+                    _leafLink(
                       icon: AppIcons.paletteOutlined,
                       iconColor: Colors.pink,
                       title: context.l10n.settingsAppearance,
-                      onTap: () =>
-                          context.push(AppRoutePaths.settingsAppearance),
+                      selectionKey: 'appearance',
+                      route: AppRoutePaths.settingsAppearance,
+                      builder: (_) => const AppearanceSettingsScreen(),
                     ),
-                    _SettingsLink(
+                    _leafLink(
                       icon: AppIcons.tabOutlined,
                       iconColor: Colors.teal,
                       title: context.l10n.settingsNavigation,
-                      onTap: () =>
-                          context.push(AppRoutePaths.settingsNavigation),
+                      selectionKey: 'navigation',
+                      route: AppRoutePaths.settingsNavigation,
+                      builder: (_) => const NavigationSettingsScreen(),
                     ),
-                    _SettingsLink(
+                    _leafLink(
                       icon: AppIcons.toggleOnOutlined,
                       iconColor: Colors.deepOrange,
                       title: context.l10n.settingsFeatures,
-                      onTap: () => context.push(AppRoutePaths.settingsFeatures),
+                      selectionKey: 'features',
+                      route: AppRoutePaths.settingsFeatures,
+                      builder: (_) => const FeaturesSettingsScreen(),
                     ),
-                    _SettingsLink(
+                    _leafLink(
                       icon: AppIcons.lockOutline,
                       iconColor: Colors.indigo,
                       title: context.l10n.settingsPrivacySecurity,
-                      onTap: () => context.push(AppRoutePaths.settingsPinLock),
+                      selectionKey: 'pinlock',
+                      route: AppRoutePaths.settingsPinLock,
+                      builder: (_) => const PinLockSettingsScreen(),
                     ),
-                    _SettingsLink(
+                    _leafLink(
                       icon: AppIcons.notificationsOutlined,
                       iconColor: Colors.orange,
                       title: context.l10n.settingsNotifications,
-                      onTap: () =>
-                          context.push(AppRoutePaths.settingsNotifications),
+                      selectionKey: 'notifications',
+                      route: AppRoutePaths.settingsNotifications,
+                      builder: (_) => const NotificationSettingsScreen(),
                     ),
                   ],
                 ),
                 _buildSection(
                   title: context.l10n.settingsSectionData,
                   rows: [
-                    _SettingsLink(
+                    _leafLink(
                       icon: AppIcons.sync,
                       iconColor: Colors.teal,
                       title: context.l10n.settingsSync,
+                      selectionKey: 'sync',
+                      route: AppRoutePaths.settingsSync,
+                      builder: (_) => const SyncSettingsScreen(),
                       statusIcon: syncStatus.lastError != null
                           ? (icon: AppIcons.errorOutline, color: Colors.red)
                           : syncStatus.hasSyncIssues
@@ -169,29 +299,30 @@ class SettingsScreen extends ConsumerWidget {
                           : syncStatus.lastSyncAt != null
                           ? (icon: AppIcons.cloudDone, color: Colors.green)
                           : null,
-                      onTap: () => context.push(AppRoutePaths.settingsSync),
                     ),
                     // Sharing is gated until friend state is persisted to the database.
                     if (kDebugMode)
-                      _SettingsLink(
+                      _navLink(
                         icon: AppIcons.shareOutlined,
                         iconColor: Colors.cyan,
                         title: context.l10n.settingsSharing,
-                        onTap: () =>
-                            context.push(AppRoutePaths.settingsSharing),
+                        route: AppRoutePaths.settingsSharing,
                       ),
-                    _SettingsLink(
+                    _leafLink(
                       icon: AppIcons.importExport,
                       iconColor: Colors.amber,
                       title: context.l10n.settingsImportExport,
-                      onTap: () =>
-                          context.push(AppRoutePaths.settingsImportExport),
+                      selectionKey: 'import-export',
+                      route: AppRoutePaths.settingsImportExport,
+                      builder: (_) => const ImportExportScreen(),
                     ),
-                    _SettingsLink(
+                    _leafLink(
                       icon: AppIcons.restartAlt,
                       iconColor: Colors.red,
                       title: context.l10n.settingsResetData,
-                      onTap: () => context.push(AppRoutePaths.settingsReset),
+                      selectionKey: 'reset',
+                      route: AppRoutePaths.settingsReset,
+                      builder: (_) => const ResetDataScreen(),
                     ),
                   ],
                 ),
@@ -200,11 +331,13 @@ class SettingsScreen extends ConsumerWidget {
                   _buildSection(
                     title: '',
                     rows: [
-                      _SettingsLink(
+                      _leafLink(
                         icon: AppIcons.bugReportOutlined,
                         iconColor: Colors.orange,
                         title: context.l10n.settingsDebug,
-                        onTap: () => context.push(AppRoutePaths.settingsDebug),
+                        selectionKey: 'debug',
+                        route: AppRoutePaths.settingsDebug,
+                        builder: (_) => const DebugScreen(),
                       ),
                     ],
                   ),
@@ -235,15 +368,20 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  static Widget _buildAboutRow(BuildContext context, ThemeData theme) {
+  Widget _buildAboutRow(BuildContext context, ThemeData theme) {
     final cornerStyle = PrismShapes.of(context).cornerStyle;
     return Padding(
       padding: PrismTokens.sectionPadding,
       child: PrismGroupedSectionCard(
         child: PrismListRow(
           title: Text(context.l10n.settingsAbout),
-          onTap: () => context.push(AppRoutePaths.settingsAbout),
-          showChevron: true,
+          selected: isDetailSelected('about'),
+          onTap: () => _select(
+            'about',
+            AppRoutePaths.settingsAbout,
+            (_) => const AboutScreen(),
+          ),
+          showChevron: !isDetailPaneVisible,
           leading: Container(
             width: 40,
             height: 40,
@@ -285,7 +423,7 @@ class SettingsScreen extends ConsumerWidget {
 
   /// Read-only system identity card with the original full layout.
   /// Tapping anywhere navigates to the System Information editing screen.
-  static Widget _buildSystemCard(
+  Widget _buildSystemCard(
     BuildContext context,
     dynamic settings,
     AsyncValue<List<dynamic>> membersAsync,
@@ -303,7 +441,11 @@ class SettingsScreen extends ConsumerWidget {
         button: true,
         label: 'System info',
         child: GestureDetector(
-          onTap: () => context.push(AppRoutePaths.settingsSystemInfo),
+          onTap: () => _select(
+            'system-info',
+            AppRoutePaths.settingsSystemInfo,
+            (_) => const SystemInfoScreen(),
+          ),
           behavior: HitTestBehavior.opaque,
           child: PrismSectionCard(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
@@ -404,6 +546,8 @@ class _SettingsLink extends StatelessWidget {
     required this.title,
     this.statusIcon,
     required this.onTap,
+    this.selected = false,
+    this.showChevron = true,
   });
 
   final IconData icon;
@@ -414,14 +558,22 @@ class _SettingsLink extends StatelessWidget {
   final ({IconData icon, Color color})? statusIcon;
   final VoidCallback onTap;
 
+  /// Highlights the row as the active selection in the two-pane layout.
+  final bool selected;
+
+  /// Whether to show the trailing chevron. In-pane rows hide it (they open
+  /// here, not navigate); full-section rows keep it to signal they leave.
+  final bool showChevron;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return PrismSettingsRow(
+    final row = PrismSettingsRow(
       icon: icon,
       title: title,
       iconColor: iconColor,
       onTap: onTap,
+      showChevron: showChevron,
       trailing: statusIcon != null
           ? Row(
               mainAxisSize: MainAxisSize.min,
@@ -437,6 +589,16 @@ class _SettingsLink extends StatelessWidget {
               ],
             )
           : null,
+    );
+    if (!selected) return row;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(
+          PrismShapes.of(context).radius(PrismTokens.radiusMedium),
+        ),
+      ),
+      child: row,
     );
   }
 }

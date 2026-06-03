@@ -5,12 +5,14 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/statistics_providers.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/clamped_body.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -44,140 +46,143 @@ class StatisticsScreen extends ConsumerWidget {
         title: context.l10n.statisticsTitle,
         showBackButton: true,
       ),
+      topBarMaxWidth: PrismTokens.contentMaxWidth,
       bodyPadding: EdgeInsets.zero,
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, NavBarInset.of(context)),
-        children: [
-          // ── Key Numbers ─────────────────────────────
-          PrismSectionCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.statisticsOverview,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (!hideTotalMemberCount) ...[
-                  _StatRow(
-                    label: context.l10n.statisticsTotalMembers(
-                      watchTerminology(context, ref).pluralLower,
+      body: ClampedBody(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, NavBarInset.of(context)),
+          children: [
+            // ── Key Numbers ─────────────────────────────
+            PrismSectionCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.statisticsOverview,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                    valueAsync: memberCountAsync!.whenData((c) => '$c'),
                   ),
-                  membersAsync!.when(
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, _) => const SizedBox.shrink(),
-                    data: (members) {
-                      final active = members.where((m) => m.isActive).length;
-                      final inactive = members.length - active;
-                      return Padding(
-                        padding: const EdgeInsets.only(left: 16),
-                        child: Text(
-                          context.l10n.statisticsActiveMembersBreakdown(
-                            active,
-                            inactive,
+                  const SizedBox(height: 16),
+                  if (!hideTotalMemberCount) ...[
+                    _StatRow(
+                      label: context.l10n.statisticsTotalMembers(
+                        watchTerminology(context, ref).pluralLower,
+                      ),
+                      valueAsync: memberCountAsync!.whenData((c) => '$c'),
+                    ),
+                    membersAsync!.when(
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, _) => const SizedBox.shrink(),
+                      data: (members) {
+                        final active = members.where((m) => m.isActive).length;
+                        final inactive = members.length - active;
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 16),
+                          child: Text(
+                            context.l10n.statisticsActiveMembersBreakdown(
+                              active,
+                              inactive,
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
-                          style: theme.textTheme.bodySmall?.copyWith(
+                        );
+                      },
+                    ),
+                    const Divider(height: 16),
+                  ],
+                  _StatRow(
+                    label: context.l10n.statisticsTotalSessions,
+                    valueAsync: sessionCountAsync.whenData((c) => '$c'),
+                  ),
+                  const Divider(height: 16),
+                  _StatRow(
+                    label: context.l10n.statisticsConversations,
+                    valueAsync: conversationsAsync.whenData((c) => '$c'),
+                  ),
+                  const Divider(height: 16),
+                  _StatRow(
+                    label: context.l10n.statisticsPolls,
+                    valueAsync: pollsAsync.whenData((p) => '$p'),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Most Frequent Fronters ──────────────────
+            PrismSectionCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.statisticsMostFrequentFronters,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildTopFronters(context, topFrontersAsync),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Average Session Duration ────────────────
+            PrismSectionCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.statisticsAverageSessionDuration,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  sessionsAsync.when(
+                    loading: () => const PrismLoadingState(),
+                    error: (e, _) => Text('Error: $e'),
+                    data: (sessions) {
+                      final completed = sessions
+                          .where((s) => s.endTime != null)
+                          .toList();
+                      if (completed.isEmpty) {
+                        return Text(
+                          context.l10n.statisticsNoCompletedSessions,
+                          style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
+                        );
+                      }
+                      final totalMinutes = completed.fold<int>(
+                        0,
+                        (sum, s) => sum + s.duration.inMinutes,
+                      );
+                      final avgMinutes = totalMinutes ~/ completed.length;
+                      final hours = avgMinutes ~/ 60;
+                      final mins = avgMinutes % 60;
+                      return Text(
+                        hours > 0 ? '${hours}h ${mins}m' : '${mins}m',
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
                         ),
                       );
                     },
                   ),
-                  const Divider(height: 16),
                 ],
-                _StatRow(
-                  label: context.l10n.statisticsTotalSessions,
-                  valueAsync: sessionCountAsync.whenData((c) => '$c'),
-                ),
-                const Divider(height: 16),
-                _StatRow(
-                  label: context.l10n.statisticsConversations,
-                  valueAsync: conversationsAsync.whenData((c) => '$c'),
-                ),
-                const Divider(height: 16),
-                _StatRow(
-                  label: context.l10n.statisticsPolls,
-                  valueAsync: pollsAsync.whenData((p) => '$p'),
-                ),
-              ],
+              ),
             ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ── Most Frequent Fronters ──────────────────
-          PrismSectionCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.statisticsMostFrequentFronters,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildTopFronters(context, topFrontersAsync),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ── Average Session Duration ────────────────
-          PrismSectionCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.statisticsAverageSessionDuration,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                sessionsAsync.when(
-                  loading: () => const PrismLoadingState(),
-                  error: (e, _) => Text('Error: $e'),
-                  data: (sessions) {
-                    final completed = sessions
-                        .where((s) => s.endTime != null)
-                        .toList();
-                    if (completed.isEmpty) {
-                      return Text(
-                        context.l10n.statisticsNoCompletedSessions,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      );
-                    }
-                    final totalMinutes = completed.fold<int>(
-                      0,
-                      (sum, s) => sum + s.duration.inMinutes,
-                    );
-                    final avgMinutes = totalMinutes ~/ completed.length;
-                    final hours = avgMinutes ~/ 60;
-                    final mins = avgMinutes % 60;
-                    return Text(
-                      hours > 0 ? '${hours}h ${mins}m' : '${mins}m',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary,
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

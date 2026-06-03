@@ -13,6 +13,7 @@ import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/views/session_detail_screen.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
@@ -34,6 +35,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/member_groups_section.dart';
 import 'package:prism_plurality/features/members/widgets/proxy_tags_section.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
@@ -53,23 +55,28 @@ class MemberDetailScreen extends ConsumerWidget {
     required this.memberId,
     this.branch = MemberNavigationBranch.settings,
     this.groupId,
+    this.showBackButton = true,
   });
 
   final String memberId;
   final MemberNavigationBranch branch;
   final String? groupId;
 
+  /// Hidden when the screen is embedded as the detail pane of a two-pane
+  /// list-detail layout, where there is no route to pop back to.
+  final bool showBackButton;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final memberAsync = ref.watch(activeMemberByIdProvider(memberId));
 
     return memberAsync.when(
-      loading: () => const PrismPageScaffold(
-        topBar: PrismTopBar(title: '', showBackButton: true),
-        body: PrismLoadingState(),
+      loading: () => PrismPageScaffold(
+        topBar: PrismTopBar(title: '', showBackButton: showBackButton),
+        body: const PrismLoadingState(),
       ),
       error: (e, _) => PrismPageScaffold(
-        topBar: const PrismTopBar(title: '', showBackButton: true),
+        topBar: PrismTopBar(title: '', showBackButton: showBackButton),
         body: Center(
           child: Text(
             'Error loading ${readTerminology(context, ref).singularLower}: $e',
@@ -79,7 +86,7 @@ class MemberDetailScreen extends ConsumerWidget {
       data: (member) {
         if (member == null) {
           return PrismPageScaffold(
-            topBar: const PrismTopBar(title: '', showBackButton: true),
+            topBar: PrismTopBar(title: '', showBackButton: showBackButton),
             body: Center(
               child: Text(
                 '${readTerminology(context, ref).singular} not found',
@@ -91,6 +98,7 @@ class MemberDetailScreen extends ConsumerWidget {
           member: member,
           branch: branch,
           groupId: groupId,
+          showBackButton: showBackButton,
         );
       },
     );
@@ -102,11 +110,13 @@ class _MemberDetailBody extends ConsumerWidget {
     required this.member,
     required this.branch,
     required this.groupId,
+    required this.showBackButton,
   });
 
   final Member member;
   final MemberNavigationBranch branch;
   final String? groupId;
+  final bool showBackButton;
 
   bool _isFronting(List<dynamic> sessions) {
     return sessions.any((s) => s.memberId == member.id);
@@ -146,7 +156,7 @@ class _MemberDetailBody extends ConsumerWidget {
     final screen = PrismPageScaffold(
       topBar: PrismTopBar(
         title: '',
-        showBackButton: true,
+        showBackButton: showBackButton,
         actions: [
           PrismTopBarAction(
             icon: AppIcons.editOutlined,
@@ -495,7 +505,7 @@ class _SessionTile extends StatelessWidget {
     final duration = session.duration.toRoundedString();
 
     return InkWell(
-      onTap: () => context.push(AppRoutePaths.session(session.id)),
+      onTap: () => _openSession(context),
       borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -544,6 +554,17 @@ class _SessionTile extends StatelessWidget {
     if (diff.inDays == 1) return l10n.memberStatsYesterday;
 
     return DateFormat.yMd(context.dateLocale).format(dt);
+  }
+
+  void _openSession(BuildContext context) {
+    if (shouldUseDetailSideSheet(context)) {
+      showDetailSideSheet<void>(
+        context,
+        builder: (_) => SessionDetailScreen(sessionId: session.id),
+      );
+    } else {
+      context.push(AppRoutePaths.session(session.id));
+    }
   }
 }
 
