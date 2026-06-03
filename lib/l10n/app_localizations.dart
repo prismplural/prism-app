@@ -5716,6 +5716,12 @@ abstract class AppLocalizations {
   /// **'Open description in full screen'**
   String get memberGroupDescriptionFullscreenTooltip;
 
+  /// Tooltip for the button that opens the full-screen system description editor
+  ///
+  /// In en, this message translates to:
+  /// **'Open description in full screen'**
+  String get systemInfoDescriptionFullscreenTooltip;
+
   /// Hint text for the inline group description text field
   ///
   /// In en, this message translates to:

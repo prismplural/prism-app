@@ -24,6 +24,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 
 /// Main settings screen. Clean navigation list matching SwiftUI's layout:
 /// sections with icon-labeled links to sub-screens.
@@ -373,10 +374,16 @@ class SettingsScreen extends ConsumerWidget {
                 // System description
                 if (description != null && description.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Text(
-                    description,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface,
+                  // Card is the tap target; keep the preview non-interactive so
+                  // a link/spoiler span can't swallow the tap.
+                  IgnorePointer(
+                    child: PrismMarkdownText(
+                      data: description,
+                      enabled: true,
+                      selectable: false,
+                      baseStyle: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
                   ),
                 ],

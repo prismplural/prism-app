@@ -4506,6 +4506,10 @@
   "@memberGroupDescriptionFullscreenTooltip": {
     "description": "Tooltip for the button that opens the full-screen group description editor"
   },
+  "systemInfoDescriptionFullscreenTooltip": "Open description in full screen",
+  "@systemInfoDescriptionFullscreenTooltip": {
+    "description": "Tooltip for the button that opens the full-screen system description editor"
+  },
   "memberGroupDescriptionHint": "What's this group about?",
   "@memberGroupDescriptionHint": {
     "description": "Hint text for the inline group description text field"

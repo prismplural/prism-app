@@ -3322,6 +3322,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Open description in full screen';
 
   @override
+  String get systemInfoDescriptionFullscreenTooltip =>
+      'Open description in full screen';
+
+  @override
   String get memberGroupDescriptionHint => 'What\'s this group about?';
 
   @override

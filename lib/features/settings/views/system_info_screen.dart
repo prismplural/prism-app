@@ -26,7 +26,9 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/features/members/widgets/full_screen_markdown_editor_sheet.dart';
 import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
+import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 
 class SystemInfoScreen extends ConsumerStatefulWidget {
   const SystemInfoScreen({super.key});
@@ -39,7 +41,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
   bool _controllersInitialized = false;
   late TextEditingController _systemNameController;
   late TextEditingController _systemTagController;
-  late TextEditingController _descriptionController;
+  late final MarkdownEditingController _descriptionController;
   Timer? _nameSaveDebounce;
   Timer? _tagSaveDebounce;
   Timer? _descriptionSaveDebounce;
@@ -49,7 +51,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
     super.initState();
     _systemNameController = TextEditingController();
     _systemTagController = TextEditingController();
-    _descriptionController = TextEditingController();
+    _descriptionController = MarkdownEditingController();
   }
 
   @override
@@ -124,6 +126,22 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
     ref
         .read(settingsNotifierProvider.notifier)
         .updateSystemDescription(desc.isEmpty ? null : desc);
+  }
+
+  Future<void> _openDescriptionEditor() async {
+    final l10n = context.l10n;
+    // initialText already captures the current text; cancel so a pending
+    // debounce can't fire a stale save behind the open sheet.
+    _descriptionSaveDebounce?.cancel();
+    final result = await showFullScreenMarkdownEditor(
+      context: context,
+      title: l10n.systemInfoDescriptionLabel,
+      initialText: _descriptionController.text,
+      hintText: l10n.systemInfoDescriptionHint,
+    );
+    if (result == null || !mounted) return;
+    _descriptionController.text = result;
+    _saveDescriptionNow();
   }
 
   Future<void> _pickAvatar() async {
@@ -227,6 +245,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
               : null;
           final theme = Theme.of(context);
           final l10n = context.l10n;
+          _descriptionController.updateTheme(context);
 
           return ListView(
             padding: EdgeInsets.only(
@@ -330,12 +349,29 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
               const SizedBox(height: 12),
 
               // Description
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.systemInfoDescriptionLabel,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  PrismIconButton(
+                    icon: AppIcons.edit,
+                    tooltip: l10n.systemInfoDescriptionFullscreenTooltip,
+                    onPressed: _openDescriptionEditor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
               PrismTextField(
                 controller: _descriptionController,
-                labelText: l10n.systemInfoDescriptionLabel,
                 hintText: l10n.systemInfoDescriptionHint,
-                maxLines: 4,
-                minLines: 2,
+                maxLines: 6,
+                minLines: 3,
                 textCapitalization: TextCapitalization.sentences,
                 onChanged: (_) => _scheduleDescriptionSave(),
                 onSubmitted: (_) => _saveDescriptionNow(),

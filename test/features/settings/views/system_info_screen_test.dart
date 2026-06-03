@@ -110,6 +110,57 @@ void main() {
       },
     );
 
+    testWidgets(
+      'editing description inline triggers updateSystemDescription after debounce',
+      (tester) async {
+        final fakeRepo = FakeSystemSettingsRepository()..settings = seedSettings;
+        final appPrefs = FakeAppPreferenceRepository();
+        addTearDown(appPrefs.close);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
+              systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
+              activeMembersProvider.overrideWith(
+                (ref) => Stream<List<Member>>.value(const []),
+              ),
+            ],
+            child: const MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: [Locale('en')],
+              home: SystemInfoScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final descField =
+            find.widgetWithText(TextFormField, 'A test description');
+        expect(descField, findsOneWidget);
+        await tester.enterText(descField, 'Updated **bold** description');
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(
+          fakeRepo.settings.systemDescription,
+          'Updated **bold** description',
+        );
+      },
+    );
+
+    testWidgets('shows the full-screen description editor button',
+        (tester) async {
+      await tester.pumpWidget(buildSubject());
+      await tester.pumpAndSettle();
+      expect(
+        find.byTooltip('Open description in full screen'),
+        findsOneWidget,
+      );
+    });
+
+    // The full editor round-trip needs media-infra provider overrides
+    // unavailable in this harness; covered by manual QA.
+
     testWidgets('shows total member count by default', (tester) async {
       await tester.pumpWidget(buildSubject(members: seedMembers));
       await tester.pumpAndSettle();

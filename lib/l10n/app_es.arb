@@ -465,6 +465,7 @@
   "systemInfoCancelEditing": "Cancelar edición",
   "systemInfoDescriptionLabel": "Descripción",
   "systemInfoDescriptionHint": "Descripción del sistema",
+  "systemInfoDescriptionFullscreenTooltip": "Abrir la descripción en pantalla completa",
   "systemInfoAddDescription": "Agregar una descripción...",
   "systemInfoSaveDescription": "Guardar descripción",
   "systemInfoTagLabel": "Etiqueta del sistema",

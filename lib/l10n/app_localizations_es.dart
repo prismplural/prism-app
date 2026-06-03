@@ -3389,6 +3389,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Abrir descripción en pantalla completa';
 
   @override
+  String get systemInfoDescriptionFullscreenTooltip =>
+      'Abrir la descripción en pantalla completa';
+
+  @override
   String get memberGroupDescriptionHint => '¿De qué trata este grupo?';
 
   @override
