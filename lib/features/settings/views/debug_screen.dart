@@ -505,7 +505,9 @@ extension on _DebugScreenState {
     StressPreset.medium,
     StressPreset.large,
     StressPreset.extreme,
+    StressPreset.reportedLarge,
     StressPreset.huge,
+    StressPreset.heavyFiveThousand,
     StressPreset.massive,
   ];
 

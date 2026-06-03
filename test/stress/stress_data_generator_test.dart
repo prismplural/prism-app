@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
@@ -19,6 +22,34 @@ const _testPreset = StressPreset(
   years: 1,
   estimatedSizeMb: 1,
   estimatedSeconds: 1,
+);
+
+const _heavyProfileTestPreset = StressPreset(
+  label: 'Heavy Profile Test',
+  members: 12,
+  sessions: 80,
+  conversations: 3,
+  messages: 20,
+  habits: 4,
+  completions: 10,
+  notes: 5,
+  polls: 2,
+  groups: 6,
+  customFields: 8,
+  years: 1,
+  estimatedSizeMb: 1,
+  estimatedSeconds: 1,
+  realisticProfiles: true,
+  groupMembershipsPerMember: 3,
+  customFieldValueCoverage: 1,
+  imageLibraryItems: 4,
+  memberAvatarEvery: 2,
+  memberHeaderEvery: 3,
+  groupAvatarEvery: 2,
+  groupNestingDepth: 4,
+  frontingDenseHistory: true,
+  frontingMaxMembersPerSession: 10,
+  activeFrontingMembers: 10,
 );
 
 void main() {
@@ -54,10 +85,23 @@ void main() {
     // Check session count
     final sessions = await db
         .customSelect(
-          "SELECT COUNT(*) as c FROM fronting_sessions WHERE id LIKE 'stress-%'",
+          'SELECT COUNT(*) as c FROM fronting_sessions '
+          "WHERE id LIKE 'stress-session-%' AND session_type = 0",
         )
         .getSingle();
     expect(sessions.read<int>('c'), _testPreset.sessions);
+
+    final sleepSessions = await db
+        .customSelect(
+          'SELECT COUNT(*) as c FROM fronting_sessions '
+          "WHERE id LIKE 'stress-sleep-%' AND session_type = 1",
+        )
+        .getSingle();
+    expect(
+      sleepSessions.read<int>('c'),
+      greaterThan(0),
+      reason: 'stress fixtures should exercise the current Sleep UI table',
+    );
 
     // Check conversation count
     final conversations = await db
@@ -67,6 +111,18 @@ void main() {
         .getSingle();
     expect(conversations.read<int>('c'), _testPreset.conversations);
 
+    final allMemberChannels = await db
+        .customSelect(
+          'SELECT COUNT(*) as c FROM conversations '
+          "WHERE id LIKE 'stress-%' AND includes_all_members = 1",
+        )
+        .getSingle();
+    expect(
+      allMemberChannels.read<int>('c'),
+      greaterThan(0),
+      reason: 'stress fixtures should exercise visible all-member chat lists',
+    );
+
     // Check message count
     final messages = await db
         .customSelect(
@@ -74,6 +130,17 @@ void main() {
         )
         .getSingle();
     expect(messages.read<int>('c'), _testPreset.messages);
+
+    final boardPosts = await db
+        .customSelect(
+          "SELECT COUNT(*) as c FROM member_board_posts WHERE id LIKE 'stress-%'",
+        )
+        .getSingle();
+    expect(
+      boardPosts.read<int>('c'),
+      greaterThan(0),
+      reason: 'stress fixtures should exercise board message views',
+    );
 
     // Check habit count
     final habits = await db
@@ -125,6 +192,7 @@ void main() {
       'fronting_sessions',
       'conversations',
       'chat_messages',
+      'member_board_posts',
       'habits',
       'notes',
       'polls',
@@ -197,6 +265,149 @@ void main() {
         .toList();
     expect(stressMembers.length, _testPreset.members);
     expect(stressMembers.first.name, startsWith('Stress Member'));
+  });
+
+  test('heavy profile presets generate dense realistic profile data', () async {
+    await for (final _ in generator.generate(_heavyProfileTestPreset)) {}
+
+    Future<int> count(String sql) async {
+      final row = await db.customSelect(sql).getSingle();
+      return row.read<int>('c');
+    }
+
+    expect(
+      await count(
+        'SELECT COUNT(*) as c FROM members '
+        "WHERE id LIKE 'stress-%' AND bio LIKE '%Profile reference%'",
+      ),
+      _heavyProfileTestPreset.members,
+    );
+    expect(
+      await count(
+        'SELECT COUNT(*) as c FROM members '
+        "WHERE id LIKE 'stress-%' AND avatar_image_data IS NOT NULL",
+      ),
+      6,
+    );
+    expect(
+      await count(
+        'SELECT COUNT(*) as c FROM members '
+        "WHERE id LIKE 'stress-%' AND profile_header_image_data IS NOT NULL",
+      ),
+      4,
+    );
+    expect(
+      await count(
+        'SELECT COUNT(*) as c FROM media_attachments '
+        "WHERE id LIKE 'stress-%' AND tag != ''",
+      ),
+      _heavyProfileTestPreset.imageLibraryItems,
+    );
+    expect(
+      await count(
+        'SELECT COUNT(*) as c FROM member_groups '
+        "WHERE id LIKE 'stress-%' AND length(description) > 200 "
+        'AND avatar_image_data IS NOT NULL',
+      ),
+      3,
+    );
+    expect(
+      await count(
+        'SELECT COUNT(*) as c FROM member_group_entries '
+        "WHERE id LIKE 'stress-%'",
+      ),
+      _heavyProfileTestPreset.members *
+          _heavyProfileTestPreset.groupMembershipsPerMember!,
+    );
+    expect(
+      await count(
+        'SELECT COUNT(*) as c FROM custom_fields '
+        "WHERE id LIKE 'stress-%' AND field_type_id IS NOT NULL "
+        'AND type_config_json IS NOT NULL',
+      ),
+      _heavyProfileTestPreset.customFields,
+    );
+
+    // The 8-field cycle includes one structural group field, which correctly
+    // has no per-member values. Every value-capable field is populated for
+    // every member in this test preset.
+    expect(
+      await count(
+        'SELECT COUNT(*) as c FROM custom_field_values '
+        "WHERE id LIKE 'stress-%'",
+      ),
+      (_heavyProfileTestPreset.customFields - 1) *
+          _heavyProfileTestPreset.members,
+    );
+
+    final sortStateRow = await db
+        .customSelect(
+          'SELECT sort_state FROM member_groups '
+          "WHERE id = 'stress-group-0'",
+        )
+        .getSingle();
+    final sortState =
+        jsonDecode(sortStateRow.read<String>('sort_state'))
+            as Map<String, dynamic>;
+    expect(sortState['mode'], 0);
+    expect(sortState['order'], isNotEmpty);
+
+    expect(
+      await count(
+        'WITH RECURSIVE group_tree(id, depth) AS ('
+        '  SELECT id, 1 FROM member_groups '
+        "  WHERE id LIKE 'stress-%' AND parent_group_id IS NULL "
+        '  UNION ALL '
+        '  SELECT child.id, group_tree.depth + 1 '
+        '  FROM member_groups child '
+        '  JOIN group_tree ON child.parent_group_id = group_tree.id '
+        ') '
+        'SELECT COALESCE(MAX(depth), 0) as c FROM group_tree',
+      ),
+      _heavyProfileTestPreset.groupNestingDepth,
+    );
+
+    expect(
+      await count(
+        'SELECT MAX(row_count) as c FROM ('
+        '  SELECT COUNT(*) as row_count FROM fronting_sessions '
+        "  WHERE id LIKE 'stress-session-%' AND session_type = 0 "
+        '  GROUP BY substr(id, 1, length(id) - 2)'
+        ')',
+      ),
+      _heavyProfileTestPreset.frontingMaxMembersPerSession,
+    );
+
+    final frontRows = await (db.select(
+      db.frontingSessions,
+    )..where((row) => row.id.like('stress-session-%'))).get();
+    expect(
+      _maxSimultaneousFronts(frontRows),
+      lessThanOrEqualTo(_heavyProfileTestPreset.frontingMaxMembersPerSession),
+      reason:
+          'dense history should not create accidental multi-episode pileups',
+    );
+    final openRows = frontRows.where((row) => row.endTime == null).toList();
+    expect(openRows.length, _heavyProfileTestPreset.activeFrontingMembers);
+    for (final row in openRows) {
+      expect(
+        DateTime.now().difference(row.startTime),
+        lessThan(const Duration(days: 1)),
+        reason: 'open-ended generated fronts should only be current/tail rows',
+      );
+    }
+    final closedRows = frontRows.where((row) => row.endTime != null).toList();
+    final earliestClosed = closedRows
+        .map((row) => row.startTime)
+        .reduce((a, b) => a.isBefore(b) ? a : b);
+    final latestClosed = closedRows
+        .map((row) => row.startTime)
+        .reduce((a, b) => a.isAfter(b) ? a : b);
+    expect(
+      latestClosed.difference(earliestClosed),
+      greaterThan(const Duration(days: 300)),
+      reason: 'dense history should span almost the whole preset history',
+    );
   });
 
   test(
@@ -340,4 +551,26 @@ void main() {
     expect(phases, contains('Messages'));
     expect(phases, contains('Done'));
   });
+}
+
+int _maxSimultaneousFronts(Iterable<FrontingSession> sessions) {
+  final events = <({DateTime at, int delta})>[];
+  final now = DateTime.now();
+  for (final session in sessions) {
+    events.add((at: session.startTime, delta: 1));
+    events.add((at: session.endTime ?? now, delta: -1));
+  }
+  events.sort((a, b) {
+    final time = a.at.compareTo(b.at);
+    if (time != 0) return time;
+    return a.delta.compareTo(b.delta);
+  });
+
+  var current = 0;
+  var maxCurrent = 0;
+  for (final event in events) {
+    current += event.delta;
+    if (current > maxCurrent) maxCurrent = current;
+  }
+  return maxCurrent;
 }

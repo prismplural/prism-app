@@ -31,10 +31,15 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/services/stress_data_generator.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 // import 'package:prism_plurality/features/pluralkit/services/pluralkit_background_service.dart';
 import 'app.dart';
+
+const _debugSeedStressPresetName = String.fromEnvironment(
+  'PRISM_SEED_STRESS_PRESET',
+);
 
 // TODO(banner-widget): an in-app "Sync paused — re-pair to resume" banner
 // should be inserted at the top-level scaffold (the home shell — see
@@ -188,6 +193,7 @@ void main() async {
   }
 
   await migrateRelayUrl();
+  await _maybeSeedDebugStressFixture(appProbe.keyInMemory);
 
   try {
     tz.initializeTimeZones();
@@ -333,6 +339,57 @@ void main() async {
   //     Workmanager().initialize(callbackDispatcher);
   //   });
   // }
+}
+
+Future<void> _maybeSeedDebugStressFixture(String? verifiedStartupKey) async {
+  if (!kDebugMode || _debugSeedStressPresetName.isEmpty) return;
+
+  if (verifiedStartupKey == null) {
+    debugPrint('[BOOT] Stress fixture seed skipped: no verified DB key');
+    return;
+  }
+
+  final preset = switch (_debugSeedStressPresetName) {
+    'reportedLarge' => StressPreset.reportedLarge,
+    'heavy5k' => StressPreset.heavyFiveThousand,
+    'huge' => StressPreset.huge,
+    'massive' => StressPreset.massive,
+    final unknown => throw ArgumentError(
+      'Unknown PRISM_SEED_STRESS_PRESET: $unknown',
+    ),
+  };
+
+  debugPrint('[BOOT] Seeding stress fixture: ${preset.label}');
+  final container = ProviderContainer(
+    overrides: [
+      verifiedStartupKeyProvider.overrideWithValue(verifiedStartupKey),
+    ],
+  );
+
+  try {
+    final db = container.read(databaseProvider);
+    final generator = StressDataGenerator(db);
+    await generator.clearStressData();
+
+    final started = DateTime.now();
+    await for (final progress in generator.generate(preset)) {
+      final percent = (progress.fraction * 100).toStringAsFixed(1);
+      debugPrint('[BOOT] Stress fixture seed ${progress.phase}: $percent%');
+    }
+
+    await db.systemSettingsDao.updateSystemName(
+      'Prism ${preset.label} Fixture',
+    );
+    await db.systemSettingsDao.updateHasCompletedOnboarding(true);
+
+    final elapsed = DateTime.now().difference(started);
+    debugPrint(
+      '[BOOT] Seeded ${preset.label}: ${preset.members} members, '
+      '${preset.groups} groups in ${elapsed.inSeconds}s',
+    );
+  } finally {
+    container.dispose();
+  }
 }
 
 Future<void> _initRustLib() async {
