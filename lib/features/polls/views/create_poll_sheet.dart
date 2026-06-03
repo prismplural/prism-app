@@ -15,7 +15,6 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_color_picker_dialog.dart';
 import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
@@ -539,7 +538,7 @@ class _PollColorSwatch extends StatelessWidget {
   Color _onColor(Color fill) =>
       ThemeData.estimateBrightnessForColor(fill) == Brightness.light
       ? const Color(0xFF1A1A1A)
-      : AppColors.warmWhite;
+      : Colors.white;
 
   @override
   Widget build(BuildContext context) {
