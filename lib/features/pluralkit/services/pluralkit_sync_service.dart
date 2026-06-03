@@ -4021,14 +4021,20 @@ class PluralKitSyncService {
       final hasActiveSleep = rawActive.any(
         (session) => session.isSleep && !session.isDeleted,
       );
+      final membersById = {for (final member in members) member.id: member};
       final localActive = rawActive.where((session) {
         if (session.isSleep || session.isDeleted) return false;
         final memberId = session.memberId;
         if (memberId == null) return false;
         return _hasText(localIdToPkId[memberId]);
-      }).toList()..sort((a, b) => a.startTime.compareTo(b.startTime));
+      }).toList();
 
-      final localPkSet = _sortedUniquePkIds(localActive, localIdToPkId);
+      final localPkIdsForPush = _orderedUniquePkIdsForPush(
+        localActive,
+        localIdToPkId,
+        membersById,
+      );
+      final localPkSet = _sortedUniqueStrings(localPkIdsForPush);
       final activeSleepOnly = localActive.isEmpty && hasActiveSleep;
       if (activeSleepOnly) {
         final syncState = await _syncDao.getSyncState();
@@ -4044,6 +4050,44 @@ class PluralKitSyncService {
       final pkPkSet = _sortedUniqueStrings(pkCurrent?.members ?? const []);
 
       if (_sameStringSet(localPkSet, pkPkSet)) {
+        if (!_sameStringList(
+          localPkIdsForPush,
+          pkCurrent?.members ?? const [],
+        )) {
+          final switchUuid = pkCurrent?.id.trim();
+          if (switchUuid != null && switchUuid.isNotEmpty) {
+            try {
+              await client.updateSwitchMembers(switchUuid, localPkIdsForPush);
+              final repair = await _repairUnstampedEntrants(
+                localActive: localActive,
+                localIdToPkId: localIdToPkId,
+                pkCurrent: pkCurrent,
+                pkPkSet: pkPkSet.toSet(),
+              );
+              return PkPushSwitchesResult(pushed: 1, repaired: repair.repaired);
+            } on PluralKitApiError catch (e) {
+              if (e.statusCode == 404) {
+                debugPrint(
+                  '[PK_PUSH] Current switch vanished before order patch '
+                  '(switchUuid=$switchUuid); treating as stale.',
+                );
+                onStaleLink?.call(
+                  'A PluralKit switch target was removed on the server — '
+                  'skipped reordering the current front. (switchId=$switchUuid)',
+                );
+                return const PkPushSwitchesResult();
+              }
+              if (e.statusCode == 400 && e.message.contains('40004')) {
+                debugPrint(
+                  '[PK_PUSH] PK rejected order-only switch patch as '
+                  'identical (40004); treating as in sync.',
+                );
+              } else {
+                rethrow;
+              }
+            }
+          }
+        }
         return _repairUnstampedEntrants(
           localActive: localActive,
           localIdToPkId: localIdToPkId,
@@ -4057,7 +4101,7 @@ class PluralKitSyncService {
       var pushedPkSet = localPkSet;
       try {
         newSwitch = await pushService.pushSwitch(
-          localPkSet,
+          localPkIdsForPush,
           client,
           timestamp: pushTs,
         );
@@ -4077,7 +4121,7 @@ class PluralKitSyncService {
         final retry = await _retrySwitchPushAfterStaleLink(
           client: client,
           pushService: pushService,
-          localPkSet: localPkSet,
+          localPkIdsForPush: localPkIdsForPush,
           timestamp: pushTs,
           onStaleLink: onStaleLink,
           staleError: e,
@@ -4104,7 +4148,7 @@ class PluralKitSyncService {
   Future<(PKSwitch, List<String>)?> _retrySwitchPushAfterStaleLink({
     required PluralKitClient client,
     required PkPushService pushService,
-    required List<String> localPkSet,
+    required List<String> localPkIdsForPush,
     required DateTime timestamp,
     required PkStaleLinkException staleError,
     void Function(String message)? onStaleLink,
@@ -4131,16 +4175,17 @@ class PluralKitSyncService {
         .map((m) => m.id.trim())
         .where((id) => id.isNotEmpty)
         .toSet();
-    final filteredPkSet = localPkSet.where(livePkIds.contains).toSet().toList()
-      ..sort();
+    final filteredPkIdsForPush = localPkIdsForPush
+        .where(livePkIds.contains)
+        .toList();
 
     try {
       final created = await pushService.pushSwitch(
-        filteredPkSet,
+        filteredPkIdsForPush,
         client,
         timestamp: timestamp,
       );
-      return (created, filteredPkSet);
+      return (created, filteredPkIdsForPush);
     } on PkStaleLinkException catch (retryError) {
       debugPrint(
         '[PK] Snapshot switch push failed after stale-link retry '
@@ -4220,18 +4265,35 @@ class PluralKitSyncService {
     }
   }
 
-  List<String> _sortedUniquePkIds(
+  List<String> _orderedUniquePkIdsForPush(
     List<domain.FrontingSession> sessions,
     Map<String, String> localIdToPkId,
+    Map<String, domain.Member> membersById,
   ) {
-    final ids = <String>{};
-    for (final session in sessions) {
+    final sortedSessions = sessions.toList()
+      ..sort((a, b) {
+        final startCmp = b.startTime.compareTo(a.startTime);
+        if (startCmp != 0) return startCmp;
+        final aMember = a.memberId == null ? null : membersById[a.memberId!];
+        final bMember = b.memberId == null ? null : membersById[b.memberId!];
+        final orderCmp = (aMember?.displayOrder ?? 0).compareTo(
+          bMember?.displayOrder ?? 0,
+        );
+        if (orderCmp != 0) return orderCmp;
+        return (a.memberId ?? '').compareTo(b.memberId ?? '');
+      });
+
+    final seenPkIds = <String>{};
+    final ordered = <String>[];
+    for (final session in sortedSessions) {
       final memberId = session.memberId;
       if (memberId == null) continue;
       final pkId = localIdToPkId[memberId];
-      if (pkId != null && pkId.isNotEmpty) ids.add(pkId);
+      if (pkId != null && pkId.isNotEmpty && seenPkIds.add(pkId)) {
+        ordered.add(pkId);
+      }
     }
-    return ids.toList()..sort();
+    return ordered;
   }
 
   List<String> _sortedUniqueStrings(Iterable<String> values) {
@@ -4245,6 +4307,15 @@ class PluralKitSyncService {
       if (left[i] != right[i]) return false;
     }
     return true;
+  }
+
+  bool _sameStringList(List<String> left, Iterable<String> rightValues) {
+    final right = rightValues.map((value) => value.trim()).where(_hasText);
+    final iterator = right.iterator;
+    for (final value in left) {
+      if (!iterator.moveNext() || iterator.current != value) return false;
+    }
+    return !iterator.moveNext();
   }
 
   /// Push a single linked member's fields to PluralKit after a local edit.

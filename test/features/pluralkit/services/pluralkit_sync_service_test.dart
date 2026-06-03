@@ -2167,14 +2167,16 @@ void main() {
   });
 
   group('pushPendingSwitches snapshot push', () {
-    domain.Member member(String id, String? pkId) => domain.Member(
-      id: id,
-      name: id,
-      emoji: '❔',
-      isActive: true,
-      createdAt: DateTime.utc(2026, 1, 1),
-      pluralkitId: pkId,
-    );
+    domain.Member member(String id, String? pkId, {int displayOrder = 0}) =>
+        domain.Member(
+          id: id,
+          name: id,
+          emoji: '❔',
+          isActive: true,
+          createdAt: DateTime.utc(2026, 1, 1),
+          displayOrder: displayOrder,
+          pluralkitId: pkId,
+        );
 
     domain.FrontingSession session(
       String id,
@@ -2271,7 +2273,7 @@ void main() {
           session('s-a', 'a', pluralkitUuid: 'sw-current'),
           session('s-b', 'b', pluralkitUuid: 'sw-current'),
         ],
-        current: pkSwitch('sw-current', const ['pkB', 'pkA']),
+        current: pkSwitch('sw-current', const ['pkA', 'pkB']),
       );
 
       final result = await harness.service.pushPendingSwitches();
@@ -2279,14 +2281,20 @@ void main() {
       expect(result.pushed, 0);
       expect(result.repaired, 0);
       expect(harness.client.createSwitchCallCount, 0);
+      expect(harness.client.updateSwitchMembersCalls, isEmpty);
     });
 
-    test('pushes new switch when adding co-fronter', () async {
+    test('pushes active fronters to PK newest-started first', () async {
       final harness = await setupSnapshot(
         members: [member('a', 'pkA'), member('b', 'pkB')],
         sessions: [
-          session('s-a', 'a', pluralkitUuid: 'sw-old'),
-          session('s-b', 'b'),
+          session(
+            's-a',
+            'a',
+            startTime: DateTime.utc(2026, 2, 1, 12),
+            pluralkitUuid: 'sw-old',
+          ),
+          session('s-b', 'b', startTime: DateTime.utc(2026, 2, 1, 12, 5)),
         ],
         current: pkSwitch('sw-old', const ['pkA']),
       );
@@ -2294,7 +2302,7 @@ void main() {
       final result = await harness.service.pushPendingSwitches();
 
       expect(result.pushed, 1);
-      expect(harness.client.createSwitchMemberIds.single, ['pkA', 'pkB']);
+      expect(harness.client.createSwitchMemberIds.single, ['pkB', 'pkA']);
       expect(
         harness.sessionRepo.sessions
             .firstWhere((s) => s.id == 's-a')
@@ -2308,6 +2316,96 @@ void main() {
         'sw-1',
       );
     });
+
+    test('patches current PK switch when only fronter order differs', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA'), member('b', 'pkB')],
+        sessions: [
+          session(
+            's-a',
+            'a',
+            startTime: DateTime.utc(2026, 2, 1, 12),
+            pluralkitUuid: 'sw-current',
+          ),
+          session(
+            's-b',
+            'b',
+            startTime: DateTime.utc(2026, 2, 1, 12, 5),
+            pluralkitUuid: 'sw-current',
+          ),
+        ],
+        current: pkSwitch('sw-current', const ['pkA', 'pkB']),
+      );
+
+      final result = await harness.service.pushPendingSwitches();
+
+      expect(result.pushed, 1);
+      expect(harness.client.createSwitchCallCount, 0);
+      expect(
+        harness.client.updateSwitchMembersCalls.single.switchId,
+        'sw-current',
+      );
+      expect(harness.client.updateSwitchMembersCalls.single.memberIds, [
+        'pkB',
+        'pkA',
+      ]);
+    });
+
+    test('skips stale current switch when order-only patch 404s', () async {
+      final messages = <String>[];
+      final client =
+          _RecordingPushClient(
+              current: pkSwitch('sw-current', const ['pkA', 'pkB']),
+            )
+            ..throwUpdateSwitchMembersError = const PluralKitApiError(
+              404,
+              'switch gone',
+            );
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA'), member('b', 'pkB')],
+        sessions: [
+          session(
+            's-a',
+            'a',
+            startTime: DateTime.utc(2026, 2, 1, 12),
+            pluralkitUuid: 'sw-current',
+          ),
+          session(
+            's-b',
+            'b',
+            startTime: DateTime.utc(2026, 2, 1, 12, 5),
+            pluralkitUuid: 'sw-current',
+          ),
+        ],
+        client: client,
+      );
+
+      final result = await harness.service.pushPendingSwitches(
+        onStaleLink: messages.add,
+      );
+
+      expect(result.pushed, 0);
+      expect(harness.client.createSwitchCallCount, 0);
+      expect(harness.client.updateSwitchMembersCalls, hasLength(1));
+      expect(messages, isNotEmpty);
+    });
+
+    test(
+      'uses display order as tie-breaker for simultaneous fronters',
+      () async {
+        final harness = await setupSnapshot(
+          members: [
+            member('a', 'pkA', displayOrder: 2),
+            member('b', 'pkB', displayOrder: 1),
+          ],
+          sessions: [session('s-a', 'a'), session('s-b', 'b')],
+        );
+
+        await harness.service.pushPendingSwitches();
+
+        expect(harness.client.createSwitchMemberIds.single, ['pkB', 'pkA']);
+      },
+    );
 
     test('pushes new switch when removing co-fronter', () async {
       final harness = await setupSnapshot(
@@ -2574,9 +2672,9 @@ void main() {
       final harness = await setupSnapshot(
         members: [member('a', 'pkA'), member('b', 'pkB'), member('c', 'pkC')],
         sessions: [
-          session('s-a', 'a'),
-          session('s-b', 'b'),
-          session('s-c', 'c'),
+          session('s-a', 'a', startTime: DateTime.utc(2026, 2, 1, 12)),
+          session('s-b', 'b', startTime: DateTime.utc(2026, 2, 1, 12, 10)),
+          session('s-c', 'c', startTime: DateTime.utc(2026, 2, 1, 12, 5)),
         ],
         client: client,
       );
@@ -2584,8 +2682,8 @@ void main() {
       await harness.service.pushPendingSwitches();
 
       expect(harness.client.createSwitchCallCount, 2);
-      expect(harness.client.createSwitchMemberIds[0], ['pkA', 'pkB', 'pkC']);
-      expect(harness.client.createSwitchMemberIds[1], ['pkA', 'pkB']);
+      expect(harness.client.createSwitchMemberIds[0], ['pkB', 'pkC', 'pkA']);
+      expect(harness.client.createSwitchMemberIds[1], ['pkB', 'pkA']);
     });
 
     test('stale-link retry fails permanently after one retry', () async {
@@ -2691,8 +2789,11 @@ class _RecordingPushClient extends FakePluralKitClient {
   PKSwitch? current;
   int createSwitchCallCount = 0;
   final List<List<String>> createSwitchMemberIds = [];
+  final List<({String switchId, List<String> memberIds})>
+  updateSwitchMembersCalls = [];
   bool holdCreateSwitch = false;
   Object? throwCreateError;
+  Object? throwUpdateSwitchMembersError;
   int staleFailuresRemaining = 0;
   Completer<void>? _createSwitchCompleter;
 
@@ -2733,6 +2834,24 @@ class _RecordingPushClient extends FakePluralKitClient {
     return PKSwitch(
       id: 'sw-$createSwitchCallCount',
       timestamp: timestamp ?? DateTime.now(),
+      members: memberIds,
+    );
+  }
+
+  @override
+  Future<PKSwitch> updateSwitchMembers(
+    String switchId,
+    List<String> memberIds,
+  ) async {
+    updateSwitchMembersCalls.add((
+      switchId: switchId,
+      memberIds: List.unmodifiable(memberIds),
+    ));
+    final error = throwUpdateSwitchMembersError;
+    if (error != null) throw error;
+    return PKSwitch(
+      id: switchId,
+      timestamp: current?.timestamp ?? DateTime.now(),
       members: memberIds,
     );
   }
