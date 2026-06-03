@@ -62,7 +62,8 @@ void main() {
         expect(req.url.toString(), 'https://api.pluralkit.me/v2/systems/@me');
         expect(req.method, 'GET');
         expect(req.headers['Authorization'], 'test-token');
-        expect(req.headers['User-Agent'], contains('PrismPlurality'));
+        expect(req.headers['User-Agent'], startsWith('PrismPlural/'));
+        expect(req.headers['User-Agent'], contains('prismplural.com/about'));
         return jsonResponse({'id': 'sysabc'});
       });
 

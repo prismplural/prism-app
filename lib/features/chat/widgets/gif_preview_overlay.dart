@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -52,6 +53,7 @@ class GifPreviewOverlay extends StatelessWidget {
                 height: displayHeight,
                 child: Image.network(
                   gif.previewUrl,
+                  headers: {'User-Agent': BuildInfo.userAgent},
                   fit: BoxFit.cover,
                   semanticLabel: gif.contentDescription,
                   errorBuilder: (context, error, stack) => Container(

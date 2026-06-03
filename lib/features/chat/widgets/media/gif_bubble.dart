@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -399,6 +400,7 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
     final dpr = MediaQuery.devicePixelRatioOf(context);
     return Image.network(
       widget.previewUrl,
+      headers: {'User-Agent': BuildInfo.userAgent},
       width: w,
       height: h,
       fit: BoxFit.cover,

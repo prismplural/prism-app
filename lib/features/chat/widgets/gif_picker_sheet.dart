@@ -5,6 +5,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
+import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_preview_overlay.dart';
@@ -221,6 +222,7 @@ class _GifCell extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 44),
               child: Image.network(
                 gif.previewUrl,
+                headers: {'User-Agent': BuildInfo.userAgent},
                 fit: BoxFit.cover,
                 semanticLabel: gif.contentDescription,
                 frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {

@@ -16,6 +16,15 @@ class BuildInfo {
     defaultValue: 'unknown',
   );
 
+  /// `User-Agent` for every outbound HTTP request the app makes directly, so
+  /// image hosts that allowlist known tools (as PluralKit and Simply Plural do)
+  /// will serve Prism. The `PrismPlural` token stays constant across releases so
+  /// a host can allowlist it; the contact URL identifies the client in their
+  /// logs. `dev` when [appVersion] is unset (builds not wrapped by `build.sh`).
+  static const String userAgent =
+      'PrismPlural/${appVersion == 'unknown' ? 'dev' : appVersion} '
+      '(+https://prismplural.com/about)';
+
   /// Short git commit hash, or `dev` when the build was not wrapped by
   /// `build.sh`.
   static const String gitRev = String.fromEnvironment(

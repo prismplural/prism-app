@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 
 // ---------------------------------------------------------------------------
@@ -50,7 +51,7 @@ class SpApiClient {
     _headers = {
       'Authorization': _token,
       'Content-Type': 'application/json',
-      'User-Agent': 'PrismPlurality/1.0',
+      'User-Agent': BuildInfo.userAgent,
     };
   }
 

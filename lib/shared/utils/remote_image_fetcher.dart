@@ -13,6 +13,8 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
+import 'package:prism_plurality/core/services/build_info.dart';
+
 const _allowedMimeTypes = {
   'image/jpeg',
   'image/png',
@@ -282,7 +284,9 @@ Future<({Uint8List? bytes, bool retryable})> _fetchRemoteImageBytesOnce(
   var currentUri = uri;
 
   for (var hop = 0; hop <= maxRedirects; hop++) {
-    final request = http.Request('GET', currentUri)..followRedirects = false;
+    final request = http.Request('GET', currentUri)
+      ..followRedirects = false
+      ..headers['User-Agent'] = BuildInfo.userAgent;
     final response = await client.send(request).timeout(timeout);
 
     final status = response.statusCode;

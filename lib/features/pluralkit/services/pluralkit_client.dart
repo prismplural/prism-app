@@ -4,6 +4,7 @@ import 'dart:io' show SocketException, HandshakeException;
 
 import 'package:http/http.dart' as http;
 
+import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
@@ -111,7 +112,7 @@ class PluralKitClient {
   Map<String, String> get _headers => {
     'Authorization': _token,
     'Content-Type': 'application/json',
-    'User-Agent': 'PrismPlurality/1.0',
+    'User-Agent': BuildInfo.userAgent,
   };
 
   /// Extract a retry delay from 429 response headers, if any. Prefers
@@ -396,7 +397,9 @@ class PluralKitClient {
   /// concurrent bursts during import. Avatar CDNs don't share the API's
   /// 3/s budget, but single-path pacing is a safe default.
   Future<List<int>> downloadBytes(String url) => _queue.enqueue(() async {
-    final response = await _http.get(Uri.parse(url)).timeout(_httpTimeout);
+    final response = await _http
+        .get(Uri.parse(url), headers: {'User-Agent': BuildInfo.userAgent})
+        .timeout(_httpTimeout);
     if (response.statusCode != 200) {
       throw PluralKitApiError(response.statusCode, 'Failed to download $url');
     }

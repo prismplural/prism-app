@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:prism_plurality/core/services/build_info.dart';
+
 // ---------------------------------------------------------------------------
 // Model
 // ---------------------------------------------------------------------------
@@ -211,7 +213,7 @@ class KlipyService {
     try {
       response = await _http.get(uri, headers: {
         'Accept': 'application/json',
-        'User-Agent': 'PrismPlurality/1.0',
+        'User-Agent': BuildInfo.userAgent,
       }).timeout(_httpTimeout);
     } on Exception {
       // Network errors (DNS, timeout, etc.) — let them propagate.

@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 class FirstDeviceAdmissionService {
@@ -24,7 +25,7 @@ class FirstDeviceAdmissionService {
     final syncId = _generateSyncId();
 
     final nonceUri = Uri.parse('$relayUrl/v1/sync/$syncId/register-nonce');
-    final nonceHeaders = <String, String>{};
+    final nonceHeaders = <String, String>{'User-Agent': BuildInfo.userAgent};
     if (registrationToken != null && registrationToken.isNotEmpty) {
       nonceHeaders['X-Registration-Token'] = registrationToken;
     }
