@@ -78,6 +78,32 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     );
   }
 
+  Stream<List<domain.Member>> watchAllMembersForList() {
+    return _dao.watchAllMembersForList().map(
+      (rows) => rows.map(MemberMapper.toDomain).toList(),
+    );
+  }
+
+  Stream<List<domain.Member>> watchActiveMembersForList() {
+    return _dao.watchActiveMembersForList().map(
+      (rows) => rows.map(MemberMapper.toDomain).toList(),
+    );
+  }
+
+  Stream<List<domain.Member>> watchQuickFrontMembersForList({
+    int recentLimit = 50,
+    int suggestionLimit = 12,
+    required String excludedSuggestionMemberId,
+  }) {
+    return _dao
+        .watchQuickFrontMembersForList(
+          recentLimit: recentLimit,
+          suggestionLimit: suggestionLimit,
+          excludedSuggestionMemberId: excludedSuggestionMemberId,
+        )
+        .map((rows) => rows.map(MemberMapper.toDomain).toList());
+  }
+
   @override
   Future<domain.Member?> getMemberById(String id) async {
     final row = await _dao.getMemberById(id);
@@ -580,6 +606,12 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   Stream<List<domain.Member>> watchMembersByIds(List<String> ids) {
     return _dao
         .watchMembersByIds(ids)
+        .map((rows) => rows.map(MemberMapper.toDomain).toList());
+  }
+
+  Stream<List<domain.Member>> watchMembersByIdsForList(List<String> ids) {
+    return _dao
+        .watchMembersByIdsForList(ids)
         .map((rows) => rows.map(MemberMapper.toDomain).toList());
   }
 

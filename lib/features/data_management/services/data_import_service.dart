@@ -348,7 +348,7 @@ class DataImportService {
   /// but its optional named parameter doesn't fit the [M Function(M)] shape,
   /// so this wrapper packs the args into a sendable record.
   static ({String json, List<({String mediaId, Uint8List blob})> mediaBlobs})
-  resolveForCompute(({Uint8List bytes, String password}) args) =>
+  resolveForCompute(({Uint8List bytes, String? password}) args) =>
       resolveBytes(args.bytes, password: args.password);
 
   static ({String json, List<({String mediaId, Uint8List blob})> mediaBlobs})
@@ -412,7 +412,7 @@ class DataImportService {
   /// Parse a JSON string and return a preview without importing.
   ///
   /// Throws [FormatException] if the format version is unrecognized.
-  ImportPreview parsePreview(String json) {
+  static ImportPreview parsePreviewForCompute(String json) {
     final map = jsonDecode(json) as Map<String, dynamic>;
     final export = V1Export.fromJson(map);
 
@@ -449,6 +449,8 @@ class DataImportService {
       exportDate: export.exportDate,
     );
   }
+
+  ImportPreview parsePreview(String json) => parsePreviewForCompute(json);
 
   /// Import data from a JSON string.
   ///

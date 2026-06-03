@@ -1,6 +1,7 @@
 import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 import 'package:prism_plurality/domain/models/member_group.dart' as domain;
-import 'package:prism_plurality/domain/models/member_group_entry.dart' as domain;
+import 'package:prism_plurality/domain/models/member_group_entry.dart'
+    as domain;
 import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 
 abstract class MemberGroupsRepository {
@@ -18,6 +19,13 @@ abstract class MemberGroupsRepository {
   Stream<Map<String, int>> watchMemberCountsByGroup();
   Future<void> createGroup(domain.MemberGroup group);
   Future<void> updateGroup(domain.MemberGroup group);
+
+  /// Reorders groups by writing `displayOrder` for changed rows.
+  ///
+  /// Implementations should preserve ordinary update sync semantics while
+  /// avoiding per-row local database writes where possible.
+  Future<void> reorderGroups(List<domain.MemberGroup> groups);
+
   Future<void> deleteGroup(String groupId);
 
   /// Promotes all direct children to root level, then deletes [groupId].
@@ -27,7 +35,10 @@ abstract class MemberGroupsRepository {
   Future<void> deleteGroupWithDescendants(String groupId);
 
   Future<void> addMemberToGroup(
-      String groupId, String memberId, String entryId);
+    String groupId,
+    String memberId,
+    String entryId,
+  );
   Future<void> removeMemberFromGroup(String groupId, String memberId);
 
   /// Re-emits sync ops for the current state of [groupId] and all of its

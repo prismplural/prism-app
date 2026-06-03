@@ -124,9 +124,10 @@ class ImporterNotifier extends Notifier<MigrationState> {
         source: ImportSource.file,
       );
 
-      final exportData = _importer.parseString(
-        utf8.decode(await handle.readAsBytes()),
-      );
+      final path = handle.path;
+      final exportData = path != null
+          ? await _importer.parseFile(path)
+          : await _importer.parseBytes(await handle.readAsBytes());
 
       if (exportData.isEmpty) {
         state = state.copyWith(

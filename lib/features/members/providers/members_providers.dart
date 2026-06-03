@@ -29,6 +29,41 @@ final activeMembersProvider = StreamProvider<List<Member>>((ref) {
   return repo.watchActiveMembers();
 });
 
+/// Watches all members using the lightweight list row shape.
+///
+/// List surfaces need names, display order, active state, and style metadata,
+/// but not long bios or image blobs. Visible avatars hydrate lazily by id. The full
+/// [allMembersProvider] remains the source for sync listeners and detail
+/// surfaces where every column matters.
+final allMemberListProvider = StreamProvider<List<Member>>((ref) {
+  try {
+    final repo = ref.watch(memberRepositoryProvider);
+    if (repo is DriftMemberRepository) return repo.watchAllMembersForList();
+    return repo.watchAllMembers();
+  } catch (_) {
+    return _streamFromMemberAsync(ref.watch(allMembersProvider));
+  }
+});
+
+/// Watches active members using the lightweight list row shape.
+final activeMemberListProvider = StreamProvider<List<Member>>((ref) {
+  try {
+    final repo = ref.watch(memberRepositoryProvider);
+    if (repo is DriftMemberRepository) return repo.watchActiveMembersForList();
+    return repo.watchActiveMembers();
+  } catch (_) {
+    return _streamFromMemberAsync(ref.watch(activeMembersProvider));
+  }
+});
+
+Stream<List<Member>> _streamFromMemberAsync(AsyncValue<List<Member>> async) {
+  return async.when(
+    data: Stream.value,
+    loading: () => const Stream<List<Member>>.empty(),
+    error: Stream.error,
+  );
+}
+
 /// Active members with the Unknown sentinel filtered out.
 ///
 /// Use this on member-management surfaces (members list, system management,
@@ -51,6 +86,22 @@ final userVisibleMembersProvider = Provider<AsyncValue<List<Member>>>((ref) {
 /// list). Same rule: never display the sentinel as a manageable headmate.
 final userVisibleAllMembersProvider = Provider<AsyncValue<List<Member>>>((ref) {
   final async = ref.watch(allMembersProvider);
+  return async.whenData(
+    (members) => members.where((m) => m.id != unknownSentinelMemberId).toList(),
+  );
+});
+
+final userVisibleMemberListProvider = Provider<AsyncValue<List<Member>>>((ref) {
+  final async = ref.watch(activeMemberListProvider);
+  return async.whenData(
+    (members) => members.where((m) => m.id != unknownSentinelMemberId).toList(),
+  );
+});
+
+final userVisibleAllMemberListProvider = Provider<AsyncValue<List<Member>>>((
+  ref,
+) {
+  final async = ref.watch(allMemberListProvider);
   return async.whenData(
     (members) => members.where((m) => m.id != unknownSentinelMemberId).toList(),
   );

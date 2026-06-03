@@ -1217,6 +1217,11 @@ class _PrismExportImportFlowState
           .pickFile(allowedExtensions: const ['json', 'prism']);
       if (handle == null) return;
 
+      setState(() {
+        _step = _PrismExportStep.decrypting;
+        _errorMessage = null;
+      });
+
       final bytes = await handle.readAsBytes();
       if (!mounted) return;
 
@@ -1230,9 +1235,14 @@ class _PrismExportImportFlowState
         return;
       }
 
-      final service = ref.read(dataImportServiceProvider);
-      final resolved = DataImportService.resolveBytes(bytes);
-      final preview = service.parsePreview(resolved.json);
+      final resolved = await compute(DataImportService.resolveForCompute, (
+        bytes: bytes,
+        password: null,
+      ));
+      final preview = await compute(
+        DataImportService.parsePreviewForCompute,
+        resolved.json,
+      );
 
       setState(() {
         _step = _PrismExportStep.preview;
@@ -1243,9 +1253,12 @@ class _PrismExportImportFlowState
       });
     } on FormatException catch (e) {
       if (!mounted) return;
+      final msg = e.message;
       setState(() {
         _step = _PrismExportStep.error;
-        _errorMessage = e.message.toString();
+        _errorMessage = msg == 'unencrypted-prism-backup'
+            ? context.l10n.onboardingImportUnencryptedBackup
+            : msg.toString();
       });
     } catch (e) {
       if (!mounted) return;
@@ -1275,8 +1288,10 @@ class _PrismExportImportFlowState
         bytes: bytes,
         password: pass,
       ));
-      final service = ref.read(dataImportServiceProvider);
-      final preview = service.parsePreview(resolved.json);
+      final preview = await compute(
+        DataImportService.parsePreviewForCompute,
+        resolved.json,
+      );
       if (!mounted) return;
       setState(() {
         _step = _PrismExportStep.preview;

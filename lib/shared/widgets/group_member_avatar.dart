@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/providers/member_avatar_image_provider.dart';
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -13,16 +14,20 @@ import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// Data for a single member in a group avatar.
 class GroupAvatarMember {
+  final String? memberId;
   final Uint8List? avatarImageData;
   final String emoji;
   final bool customColorEnabled;
   final String? customColorHex;
+  final bool deferAvatarLookup;
 
   const GroupAvatarMember({
+    this.memberId,
     this.avatarImageData,
     this.emoji = '❔',
     this.customColorEnabled = false,
     this.customColorHex,
+    this.deferAvatarLookup = false,
   });
 }
 
@@ -54,10 +59,14 @@ class GroupMemberAvatar extends ConsumerWidget {
     }
     final terms = watchTerminology(context, ref);
 
-    if (members.length == 1) {
-      final m = members.first;
+    final resolved = _resolveVisibleMembers(ref);
+
+    if (resolved.length == 1) {
+      final m = resolved.first;
       return MemberAvatar(
         avatarImageData: m.avatarImageData,
+        memberId: m.memberId,
+        deferAvatarLookup: m.deferAvatarLookup,
         emoji: m.emoji,
         customColorEnabled: m.customColorEnabled,
         customColorHex: m.customColorHex,
@@ -66,7 +75,7 @@ class GroupMemberAvatar extends ConsumerWidget {
       );
     }
 
-    final visible = members.take(4).toList();
+    final visible = resolved.take(4).toList();
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final avatarColors = _groupAvatarColors(context, visible);
@@ -100,6 +109,27 @@ class GroupMemberAvatar extends ConsumerWidget {
       borderWidth: 1,
       child: clipper,
     );
+  }
+
+  List<GroupAvatarMember> _resolveVisibleMembers(WidgetRef ref) {
+    return [
+      for (final member in members)
+        if (member.avatarImageData == null &&
+            member.deferAvatarLookup &&
+            member.memberId != null)
+          GroupAvatarMember(
+            memberId: member.memberId,
+            avatarImageData: ref
+                .watch(memberAvatarImageDataProvider(member.memberId!))
+                .whenOrNull(data: (bytes) => bytes),
+            emoji: member.emoji,
+            customColorEnabled: member.customColorEnabled,
+            customColorHex: member.customColorHex,
+            deferAvatarLookup: true,
+          )
+        else
+          member,
+    ];
   }
 
   ({Color tint, Color border}) _groupAvatarColors(

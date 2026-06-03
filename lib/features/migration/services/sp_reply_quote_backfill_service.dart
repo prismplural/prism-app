@@ -6,9 +6,15 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 
 class SpReplyQuoteBackfillResult {
-  const SpReplyQuoteBackfillResult({required this.messagesRepaired});
+  const SpReplyQuoteBackfillResult({
+    required this.messagesRepaired,
+    this.batchesProcessed = 0,
+    this.hasRemainingCandidates = false,
+  });
 
   final int messagesRepaired;
+  final int batchesProcessed;
+  final bool hasRemainingCandidates;
 }
 
 class SpReplyQuoteBackfillService with SyncRecordMixin {
@@ -19,6 +25,8 @@ class SpReplyQuoteBackfillService with SyncRecordMixin {
        _syncHandle = syncHandle;
 
   static const _syncTable = 'chat_messages';
+  static const defaultBatchSize = 250;
+  static const defaultInterBatchDelay = Duration(milliseconds: 75);
 
   final AppDatabase _db;
   final ffi.PrismSyncHandle? _syncHandle;
@@ -52,65 +60,125 @@ class SpReplyQuoteBackfillService with SyncRecordMixin {
     return rows.isNotEmpty;
   }
 
-  Future<SpReplyQuoteBackfillResult> run() async {
-    final candidates = await _loadCandidates();
-    if (candidates.isEmpty) {
-      debugPrint('[SP_REPLY_BACKFILL] No candidate replies found.');
-      return const SpReplyQuoteBackfillResult(messagesRepaired: 0);
+  Future<SpReplyQuoteBackfillResult> run({
+    int batchSize = defaultBatchSize,
+    Duration interBatchDelay = defaultInterBatchDelay,
+    int? maxBatches,
+  }) async {
+    if (batchSize < 1) {
+      throw ArgumentError.value(batchSize, 'batchSize', 'must be positive');
+    }
+    if (maxBatches != null && maxBatches < 1) {
+      throw ArgumentError.value(maxBatches, 'maxBatches', 'must be positive');
     }
 
-    final syncUpdates = <_ReplyQuoteSyncUpdate>[];
-    var repaired = 0;
+    var totalRepaired = 0;
+    var batchesProcessed = 0;
 
-    await _db.transaction(() async {
-      for (final candidate in candidates) {
-        final changes = <String, dynamic>{};
-        final shouldSetContent = candidate.currentReplyToContent == null;
-        final shouldSetAuthor =
-            candidate.currentReplyToAuthorId == null &&
-            candidate.parentAuthorId != null;
-
-        if (shouldSetContent) {
-          changes['reply_to_content'] = candidate.parentContent;
+    while (maxBatches == null || batchesProcessed < maxBatches) {
+      final candidates = await _loadCandidates(limit: batchSize);
+      if (candidates.isEmpty) {
+        if (totalRepaired == 0) {
+          debugPrint('[SP_REPLY_BACKFILL] No candidate replies found.');
         }
-        if (shouldSetAuthor) {
-          changes['reply_to_author_id'] = candidate.parentAuthorId;
-        }
-        if (changes.isEmpty) continue;
-
-        await _db.chatMessagesDao.updateMessage(
-          ChatMessagesCompanion(
-            id: Value(candidate.messageId),
-            replyToAuthorId: shouldSetAuthor
-                ? Value(candidate.parentAuthorId)
-                : const Value.absent(),
-            replyToContent: shouldSetContent
-                ? Value(candidate.parentContent)
-                : const Value.absent(),
-          ),
+        return SpReplyQuoteBackfillResult(
+          messagesRepaired: totalRepaired,
+          batchesProcessed: batchesProcessed,
         );
-
-        syncUpdates.add(
-          _ReplyQuoteSyncUpdate(
-            messageId: candidate.messageId,
-            fields: changes,
-          ),
-        );
-        repaired++;
       }
-    });
 
-    for (final update in syncUpdates) {
-      await syncRecordUpdate(_syncTable, update.messageId, update.fields);
+      final syncUpdates = await _repairBatch(candidates);
+      batchesProcessed++;
+      totalRepaired += syncUpdates.length;
+
+      for (final update in syncUpdates) {
+        await syncRecordUpdate(_syncTable, update.messageId, update.fields);
+      }
+
+      debugPrint(
+        '[SP_REPLY_BACKFILL] Batch $batchesProcessed repaired '
+        '${syncUpdates.length} message reply quote(s).',
+      );
+
+      if (candidates.length < batchSize) {
+        return SpReplyQuoteBackfillResult(
+          messagesRepaired: totalRepaired,
+          batchesProcessed: batchesProcessed,
+        );
+      }
+
+      if (interBatchDelay == Duration.zero) {
+        await Future<void>.delayed(Duration.zero);
+      } else {
+        await Future<void>.delayed(interBatchDelay);
+      }
     }
+
+    final hasRemainingCandidates = await hasCandidates(_db);
 
     debugPrint(
-      '[SP_REPLY_BACKFILL] Repaired $repaired message reply quote(s).',
+      '[SP_REPLY_BACKFILL] Repaired $totalRepaired message reply quote(s) '
+      'in $batchesProcessed batch(es); '
+      'hasRemainingCandidates=$hasRemainingCandidates.',
     );
-    return SpReplyQuoteBackfillResult(messagesRepaired: repaired);
+    return SpReplyQuoteBackfillResult(
+      messagesRepaired: totalRepaired,
+      batchesProcessed: batchesProcessed,
+      hasRemainingCandidates: hasRemainingCandidates,
+    );
   }
 
-  Future<List<_ReplyQuoteCandidate>> _loadCandidates() async {
+  Future<List<_ReplyQuoteSyncUpdate>> _repairBatch(
+    List<_ReplyQuoteCandidate> candidates,
+  ) async {
+    final syncUpdates = <_ReplyQuoteSyncUpdate>[];
+
+    await _db.transaction(() async {
+      await _db.batch((batch) {
+        for (final candidate in candidates) {
+          final changes = <String, dynamic>{};
+          final shouldSetContent = candidate.currentReplyToContent == null;
+          final shouldSetAuthor =
+              candidate.currentReplyToAuthorId == null &&
+              candidate.parentAuthorId != null;
+
+          if (shouldSetContent) {
+            changes['reply_to_content'] = candidate.parentContent;
+          }
+          if (shouldSetAuthor) {
+            changes['reply_to_author_id'] = candidate.parentAuthorId;
+          }
+          if (changes.isEmpty) continue;
+
+          batch.update(
+            _db.chatMessages,
+            ChatMessagesCompanion(
+              replyToAuthorId: shouldSetAuthor
+                  ? Value(candidate.parentAuthorId)
+                  : const Value.absent(),
+              replyToContent: shouldSetContent
+                  ? Value(candidate.parentContent)
+                  : const Value.absent(),
+            ),
+            where: (table) => table.id.equals(candidate.messageId),
+          );
+
+          syncUpdates.add(
+            _ReplyQuoteSyncUpdate(
+              messageId: candidate.messageId,
+              fields: changes,
+            ),
+          );
+        }
+      });
+    });
+
+    return syncUpdates;
+  }
+
+  Future<List<_ReplyQuoteCandidate>> _loadCandidates({
+    required int limit,
+  }) async {
     final rows = await _db
         .customSelect(
           '''
@@ -133,7 +201,10 @@ class SpReplyQuoteBackfillService with SyncRecordMixin {
             AND parent.author_id IS NOT NULL
           )
         )
+      ORDER BY child.timestamp DESC, child.id ASC
+      LIMIT ?
       ''',
+          variables: [Variable.withInt(limit)],
           readsFrom: {_db.chatMessages},
         )
         .get();

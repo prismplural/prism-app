@@ -5368,6 +5368,8 @@ final spBoardsBackfillProvider = FutureProvider<SpBoardsBackfillResult?>((
 // SP reply quote startup repair
 // ---------------------------------------------------------------------------
 
+const _spReplyQuoteBackfillStartupDelay = Duration(seconds: 10);
+
 /// Repairs legacy SP-imported replies that have `reply_to_id` but are missing
 /// the quoted author/content snapshot needed by the chat UI.
 ///
@@ -5375,26 +5377,33 @@ final spBoardsBackfillProvider = FutureProvider<SpBoardsBackfillResult?>((
 /// repaired, later launches return before waiting on sync setup. When sync is
 /// available, the repaired fields are emitted as normal chat-message updates so
 /// paired devices can converge without reimporting.
-final spReplyQuoteBackfillProvider =
-    FutureProvider<SpReplyQuoteBackfillResult?>((ref) async {
-      final db = ref.read(databaseProvider);
-      final hasCandidates = await SpReplyQuoteBackfillService.hasCandidates(db);
-      if (!hasCandidates) return null;
+final spReplyQuoteBackfillProvider = FutureProvider<SpReplyQuoteBackfillResult?>(
+  (ref) async {
+    final db = ref.read(databaseProvider);
 
-      final syncHandle = await ref.watch(prismSyncHandleProvider.future);
-      final service = SpReplyQuoteBackfillService(
-        db: db,
-        syncHandle: syncHandle,
+    // Keep the candidate scan and repair writes out of the critical startup
+    // path. If a user opens chat before this runs, legacy imported replies may
+    // briefly show without quote snapshots; the repair catches up shortly.
+    await Future<void>.delayed(_spReplyQuoteBackfillStartupDelay);
+
+    final hasCandidates = await SpReplyQuoteBackfillService.hasCandidates(db);
+    if (!hasCandidates) return null;
+
+    // Start sync setup if it has not already been requested, but don't block
+    // local repair batches on the handle. SyncRecordMixin will use the current
+    // configured handle when available or defer ops during startup configure.
+    unawaited(ref.read(prismSyncHandleProvider.future));
+    final service = SpReplyQuoteBackfillService(db: db, syncHandle: null);
+
+    try {
+      return await service.run();
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'SP reply quote backfill failed (non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
       );
-
-      try {
-        return await service.run();
-      } catch (e, st) {
-        ErrorReportingService.instance.report(
-          'SP reply quote backfill failed (non-fatal): $e',
-          severity: ErrorSeverity.warning,
-          stackTrace: st,
-        );
-        return null;
-      }
-    });
+      return null;
+    }
+  },
+);

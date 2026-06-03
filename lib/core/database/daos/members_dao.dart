@@ -8,6 +8,49 @@ part 'members_dao.g.dart';
 class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   MembersDao(super.db);
 
+  static const _memberListColumns = '''
+    id,
+    name,
+    pronouns,
+    emoji,
+    NULL AS age,
+    NULL AS bio,
+    NULL AS avatar_image_data,
+    pk_avatar_cached_url,
+    is_active,
+    created_at,
+    display_order,
+    is_admin,
+    custom_color_enabled,
+    custom_color_hex,
+    parent_system_id,
+    pluralkit_uuid,
+    pluralkit_id,
+    pluralkit_display_name,
+    display_name,
+    birthday,
+    proxy_tags_json,
+    pk_banner_url,
+    profile_header_source,
+    profile_header_layout,
+    profile_header_visible,
+    name_style_font,
+    name_style_bold,
+    name_style_italic,
+    name_style_color_mode,
+    name_style_color_hex,
+    NULL AS profile_header_image_data,
+    NULL AS pk_banner_image_data,
+    pk_banner_cached_url,
+    pluralkit_sync_ignored,
+    markdown_enabled,
+    is_deleted,
+    delete_intent_epoch,
+    delete_push_started_at,
+    is_always_fronting,
+    board_last_read_at
+  ''';
+
   Future<List<Member>> getAllMembers() =>
       (select(members)
             ..where((m) => m.isDeleted.equals(false))
@@ -34,6 +77,112 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
             ..orderBy([(m) => OrderingTerm.asc(m.displayOrder)]))
           .watch();
 
+  Stream<List<Member>> watchAllMembersForList() =>
+      _watchMemberListRows('is_deleted = 0');
+
+  Stream<List<Member>> watchActiveMembersForList() =>
+      _watchMemberListRows('is_active = 1 AND is_deleted = 0');
+
+  Stream<List<Member>> watchQuickFrontMembersForList({
+    int recentLimit = 50,
+    int suggestionLimit = 12,
+    required String excludedSuggestionMemberId,
+  }) {
+    return customSelect(
+      '''
+      WITH current_fronts AS (
+        SELECT member_id, MAX(start_time) AS current_started_at
+        FROM fronting_sessions
+        WHERE session_type = 0
+          AND end_time IS NULL
+          AND is_deleted = 0
+          AND member_id IS NOT NULL
+        GROUP BY member_id
+      ),
+      recent_sessions AS (
+        SELECT member_id
+        FROM fronting_sessions
+        WHERE session_type = 0
+          AND is_deleted = 0
+          AND member_id IS NOT NULL
+        ORDER BY start_time DESC
+        LIMIT ?
+      ),
+      recent_counts AS (
+        SELECT member_id, COUNT(*) AS front_count
+        FROM recent_sessions
+        GROUP BY member_id
+      ),
+      frequent_ids AS (
+        SELECT
+          members.id,
+          COALESCE(recent_counts.front_count, 0) AS front_count
+        FROM members
+        LEFT JOIN current_fronts
+          ON current_fronts.member_id = members.id
+        LEFT JOIN recent_counts
+          ON recent_counts.member_id = members.id
+        WHERE members.is_active = 1
+          AND members.is_deleted = 0
+          AND current_fronts.member_id IS NULL
+          AND members.id != ?
+        ORDER BY front_count DESC, members.display_order ASC, members.id ASC
+        LIMIT ?
+      ),
+      ranked AS (
+        SELECT
+          $_memberListColumns,
+          0 AS group_order,
+          current_fronts.current_started_at AS current_started_at,
+          0 AS front_count
+        FROM members
+        JOIN current_fronts ON current_fronts.member_id = members.id
+        WHERE members.is_deleted = 0
+
+        UNION ALL
+
+        SELECT
+          $_memberListColumns,
+          1 AS group_order,
+          NULL AS current_started_at,
+          (
+            SELECT frequent_ids.front_count
+            FROM frequent_ids
+            WHERE frequent_ids.id = members.id
+          ) AS front_count
+        FROM members
+        WHERE members.id IN (SELECT id FROM frequent_ids)
+      )
+      SELECT $_memberListColumns
+      FROM ranked
+      ORDER BY
+        group_order ASC,
+        CASE WHEN group_order = 0 THEN current_started_at END DESC,
+        CASE WHEN group_order = 1 THEN front_count END DESC,
+        display_order ASC,
+        id ASC
+      ''',
+      variables: [
+        Variable.withInt(recentLimit),
+        Variable.withString(excludedSuggestionMemberId),
+        Variable.withInt(suggestionLimit),
+      ],
+      readsFrom: {members, attachedDatabase.frontingSessions},
+    ).watch().map((rows) => rows.map((row) => members.map(row.data)).toList());
+  }
+
+  Stream<List<Member>> _watchMemberListRows(String whereClause) {
+    return customSelect(
+      '''
+      SELECT $_memberListColumns
+      FROM members
+      WHERE $whereClause
+      ORDER BY display_order ASC
+      ''',
+      readsFrom: {members},
+    ).watch().map((rows) => rows.map((row) => members.map(row.data)).toList());
+  }
+
   Future<Member?> getMemberById(String id) =>
       (select(members)..where((m) => m.id.equals(id))).getSingleOrNull();
 
@@ -46,6 +195,21 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
 
   Stream<Member?> watchMemberById(String id) =>
       (select(members)..where((m) => m.id.equals(id))).watchSingleOrNull();
+
+  Stream<Uint8List?> watchAvatarImageData(String id) {
+    return customSelect(
+      '''
+      SELECT avatar_image_data
+      FROM members
+      WHERE id = ? AND is_deleted = 0
+      LIMIT 1
+      ''',
+      variables: [Variable.withString(id)],
+      readsFrom: {members},
+    ).watchSingleOrNull().map(
+      (row) => row?.read<Uint8List?>('avatar_image_data'),
+    );
+  }
 
   Future<int> insertMember(MembersCompanion member) =>
       into(members).insert(member);
@@ -275,6 +439,21 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
 
   Stream<List<Member>> watchMembersByIds(List<String> ids) =>
       (select(members)..where((m) => m.id.isIn(ids))).watch();
+
+  Stream<List<Member>> watchMembersByIdsForList(List<String> ids) {
+    if (ids.isEmpty) return Stream.value(const <Member>[]);
+
+    final placeholders = List.filled(ids.length, '?').join(', ');
+    return customSelect(
+      '''
+      SELECT $_memberListColumns
+      FROM members
+      WHERE id IN ($placeholders)
+      ''',
+      variables: ids.map(Variable.withString).toList(),
+      readsFrom: {members},
+    ).watch().map((rows) => rows.map((row) => members.map(row.data)).toList());
+  }
 
   Future<List<Member>> getSubsystemMembers(String parentId) =>
       (select(members)..where(

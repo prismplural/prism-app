@@ -892,6 +892,7 @@ class AppDatabase extends _$AppDatabase {
       // (from == to), so verify the expected columns exist and add any that
       // are missing. No-op for correctly-migrated and fresh databases.
       await _reconcileExpectedColumns();
+      await _createFirstRenderIndexes();
     },
   );
 
@@ -1300,6 +1301,7 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_sessions_type '
       'ON fronting_sessions (session_type, is_deleted, start_time DESC)',
     );
+    await _createFirstRenderIndexes();
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_habit_completions_habit_deleted_at '
       'ON habit_completions (habit_id, is_deleted, completed_at DESC)',
@@ -1416,6 +1418,15 @@ class AppDatabase extends _$AppDatabase {
         'ON custom_fields(parent_field_id) WHERE parent_field_id IS NOT NULL',
       );
     }
+  }
+
+  Future<void> _createFirstRenderIndexes() async {
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_sessions_active_fronting '
+      'ON fronting_sessions '
+      '(session_type, is_deleted, end_time, start_time DESC, member_id) '
+      'WHERE session_type = 0 AND is_deleted = 0 AND end_time IS NULL',
+    );
   }
 
   Future<bool> _columnExists(String table, String column) async {

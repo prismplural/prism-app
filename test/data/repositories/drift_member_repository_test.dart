@@ -69,6 +69,100 @@ void main() {
     await db.close();
   });
 
+  group('watchQuickFrontMembersForList', () {
+    test(
+      'returns current fronters first, then frequent non-fronters',
+      () async {
+        final now = DateTime(2026, 1, 1, 12);
+        Future<void> createMember(String id, String name, int order) {
+          return dao.insertMember(
+            MembersCompanion.insert(
+              id: id,
+              name: name,
+              createdAt: now,
+              displayOrder: Value(order),
+              avatarImageData: Value(Uint8List.fromList(const [1, 2, 3])),
+              profileHeaderImageData: Value(
+                Uint8List.fromList(const [4, 5, 6]),
+              ),
+            ),
+          );
+        }
+
+        await createMember('a', 'Alex', 0);
+        await createMember('b', 'Bea', 1);
+        await createMember('c', 'Cy', 2);
+        await createMember('d', 'Dev', 3);
+        await createMember('e', 'Eli', 4);
+        await createMember(unknownSentinelMemberId, 'Unknown', 99);
+
+        Future<void> insertFront(String id, String memberId, DateTime start) {
+          return db
+              .into(db.frontingSessions)
+              .insert(
+                FrontingSessionsCompanion.insert(
+                  id: id,
+                  startTime: start,
+                  memberId: Value(memberId),
+                  endTime: Value(start.add(const Duration(minutes: 15))),
+                ),
+              );
+        }
+
+        await db
+            .into(db.frontingSessions)
+            .insert(
+              FrontingSessionsCompanion.insert(
+                id: 'active-b',
+                startTime: now.subtract(const Duration(minutes: 30)),
+                memberId: const Value('b'),
+              ),
+            );
+        await db
+            .into(db.frontingSessions)
+            .insert(
+              FrontingSessionsCompanion.insert(
+                id: 'active-c',
+                startTime: now.subtract(const Duration(minutes: 10)),
+                memberId: const Value('c'),
+              ),
+            );
+        for (var i = 0; i < 3; i++) {
+          await insertFront('d-$i', 'd', now.subtract(Duration(hours: i + 1)));
+        }
+        for (var i = 0; i < 2; i++) {
+          await insertFront('e-$i', 'e', now.subtract(Duration(hours: i + 5)));
+        }
+        await insertFront('a-0', 'a', now.subtract(const Duration(hours: 9)));
+        for (var i = 0; i < 4; i++) {
+          await insertFront(
+            'unknown-$i',
+            unknownSentinelMemberId,
+            now.subtract(Duration(hours: i + 10)),
+          );
+        }
+
+        final members = await repo
+            .watchQuickFrontMembersForList(
+              recentLimit: 20,
+              suggestionLimit: 2,
+              excludedSuggestionMemberId: unknownSentinelMemberId,
+            )
+            .first;
+
+        expect([for (final member in members) member.id], ['c', 'b', 'd', 'e']);
+        expect(
+          members.any((member) => member.avatarImageData != null),
+          isFalse,
+        );
+        expect(
+          members.any((member) => member.profileHeaderImageData != null),
+          isFalse,
+        );
+      },
+    );
+  });
+
   group('ensureUnknownSentinelMember', () {
     test(
       'first call creates the sentinel and reports wasCreated=true',
@@ -552,22 +646,22 @@ void main() {
       expect(captured.single.fields.containsKey('is_deleted'), isFalse);
     });
 
-    test('emits nothing when the domain object matches the stored row',
-        () async {
-      await repo.createMember(makeMember());
-      final captured = <CapturedSyncOp>[];
-      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
-      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+    test(
+      'emits nothing when the domain object matches the stored row',
+      () async {
+        await repo.createMember(makeMember());
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
 
-      await repo.updateMember(makeMember());
+        await repo.updateMember(makeMember());
 
-      expect(captured, isEmpty);
-    });
+        expect(captured, isEmpty);
+      },
+    );
 
     test('preserves untouched columns in the database', () async {
-      await repo.createMember(
-        makeMember(pronouns: 'they/them', bio: 'A bio'),
-      );
+      await repo.createMember(makeMember(pronouns: 'they/them', bio: 'A bio'));
 
       await repo.updateMember(
         makeMember(name: 'Renamed', pronouns: 'they/them', bio: 'A bio'),
@@ -581,23 +675,25 @@ void main() {
       expect(row.isActive, isTrue);
     });
 
-    test('null-clearing emits the null and writes it to the database',
-        () async {
-      await repo.createMember(makeMember(bio: 'A bio'));
-      final captured = <CapturedSyncOp>[];
-      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
-      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+    test(
+      'null-clearing emits the null and writes it to the database',
+      () async {
+        await repo.createMember(makeMember(bio: 'A bio'));
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
 
-      await repo.updateMember(makeMember(bio: null));
+        await repo.updateMember(makeMember(bio: null));
 
-      expect(captured, hasLength(1));
-      final patch = captured.single.fields;
-      expect(patch.containsKey('bio'), isTrue);
-      expect(patch['bio'], isNull);
+        expect(captured, hasLength(1));
+        final patch = captured.single.fields;
+        expect(patch.containsKey('bio'), isTrue);
+        expect(patch['bio'], isNull);
 
-      final row = await dao.getMemberByIdRow('m1');
-      expect(row!.bio, isNull);
-    });
+        final row = await dao.getMemberByIdRow('m1');
+        expect(row!.bio, isNull);
+      },
+    );
 
     test('silently no-ops on a tombstoned row '
         '(does not emit, does not resurrect)', () async {
@@ -719,54 +815,56 @@ void main() {
       expect(goneRow.avatarImageData, isNull);
     });
 
-    test('does not emit stale non-avatar fields from the supplied Member',
-        () async {
-      // Set the stored row to a known state with several non-avatar
-      // columns at non-default values — exactly the kind of state a peer
-      // could have produced while this device was holding a stale copy.
-      await repo.createMember(
-        domain.Member(
-          id: 'stale',
-          name: 'Server Name',
-          pronouns: 'they/them',
-          bio: 'updated bio from peer',
-          displayOrder: 7,
-          createdAt: baseTime,
-        ),
-      );
+    test(
+      'does not emit stale non-avatar fields from the supplied Member',
+      () async {
+        // Set the stored row to a known state with several non-avatar
+        // columns at non-default values — exactly the kind of state a peer
+        // could have produced while this device was holding a stale copy.
+        await repo.createMember(
+          domain.Member(
+            id: 'stale',
+            name: 'Server Name',
+            pronouns: 'they/them',
+            bio: 'updated bio from peer',
+            displayOrder: 7,
+            createdAt: baseTime,
+          ),
+        );
 
-      final captured = <CapturedSyncOp>[];
-      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
-      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
 
-      // Caller passes a Member object whose non-avatar fields are STALE
-      // (different from what's in the DB). The DAO writes only the avatar
-      // bytes — sync emission must do the same. Routing through a full-
-      // row diff would surface the stale pronouns/bio/displayOrder as
-      // phantom edits and clobber peers.
-      await repo.batchUpdateAvatars([
-        domain.Member(
-          id: 'stale',
-          name: 'Old Stale Name',
-          pronouns: 'she/her',
-          bio: 'stale local bio',
-          displayOrder: 2,
-          createdAt: baseTime,
-          avatarImageData: makeAvatar(99),
-        ),
-      ]);
+        // Caller passes a Member object whose non-avatar fields are STALE
+        // (different from what's in the DB). The DAO writes only the avatar
+        // bytes — sync emission must do the same. Routing through a full-
+        // row diff would surface the stale pronouns/bio/displayOrder as
+        // phantom edits and clobber peers.
+        await repo.batchUpdateAvatars([
+          domain.Member(
+            id: 'stale',
+            name: 'Old Stale Name',
+            pronouns: 'she/her',
+            bio: 'stale local bio',
+            displayOrder: 2,
+            createdAt: baseTime,
+            avatarImageData: makeAvatar(99),
+          ),
+        ]);
 
-      expect(captured, hasLength(1));
-      expect(captured.single.fields.keys.toSet(), {'avatar_image_data'});
+        expect(captured, hasLength(1));
+        expect(captured.single.fields.keys.toSet(), {'avatar_image_data'});
 
-      // Local DB stays at the server values for the non-avatar columns —
-      // the DAO never touched them.
-      final row = await dao.getMemberByIdRow('stale');
-      expect(row!.name, 'Server Name');
-      expect(row.pronouns, 'they/them');
-      expect(row.bio, 'updated bio from peer');
-      expect(row.displayOrder, 7);
-    });
+        // Local DB stays at the server values for the non-avatar columns —
+        // the DAO never touched them.
+        final row = await dao.getMemberByIdRow('stale');
+        expect(row!.name, 'Server Name');
+        expect(row.pronouns, 'they/them');
+        expect(row.bio, 'updated bio from peer');
+        expect(row.displayOrder, 7);
+      },
+    );
   });
 
   group('updateMemberFields (keyed patch entry point)', () {
@@ -819,8 +917,9 @@ void main() {
 
       expect(affected, 0);
       // No emission for a tombstoned row.
-      final updateOps =
-          captured.where((op) => op.opType == SyncRecordOpType.update);
+      final updateOps = captured.where(
+        (op) => op.opType == SyncRecordOpType.update,
+      );
       expect(updateOps, isEmpty);
       // And the name must not have flipped.
       final row = await dao.getMemberByIdRow('k2');
@@ -841,8 +940,7 @@ void main() {
       expect(captured, isEmpty);
     });
 
-    test('returns 1 with empty patch (no-op success for active row)',
-        () async {
+    test('returns 1 with empty patch (no-op success for active row)', () async {
       await repo.createMember(
         domain.Member(id: 'k3', name: 'Same', createdAt: baseTime),
       );
@@ -946,9 +1044,7 @@ void main() {
       );
 
       // User's local edit: only the name changed.
-      final affected = await repo.updateMemberFields('k6', {
-        'name': 'Renamed',
-      });
+      final affected = await repo.updateMemberFields('k6', {'name': 'Renamed'});
       expect(affected, 1);
 
       // bio='synced-in' must be preserved (NOT clobbered back to 'Original
@@ -1011,9 +1107,9 @@ void main() {
         domain.Member(id: id, name: 'Linked', createdAt: baseTime),
       );
       await repo.applyPluralKitLink(id, {
-        if (pkUuid != null) 'pluralkit_uuid': pkUuid,
-        if (pkId != null) 'pluralkit_id': pkId,
-        if (pkDisplayName != null) 'pluralkit_display_name': pkDisplayName,
+        'pluralkit_uuid': ?pkUuid,
+        'pluralkit_id': ?pkId,
+        'pluralkit_display_name': ?pkDisplayName,
       });
       await repo.excludePluralKitSync(id);
     }
@@ -1033,11 +1129,16 @@ void main() {
       // the method returns 1 (no-op success).
       expect(affected, 1);
       final row = await dao.getMemberByIdRow('excl-1');
-      expect(row!.pluralkitUuid, 'pk-uuid-orig',
-          reason: 'PK uuid must not be re-stamped on an excluded row');
+      expect(
+        row!.pluralkitUuid,
+        'pk-uuid-orig',
+        reason: 'PK uuid must not be re-stamped on an excluded row',
+      );
       // No emission — stripped patch is empty.
-      expect(captured.where((op) => op.opType == SyncRecordOpType.update),
-          isEmpty);
+      expect(
+        captured.where((op) => op.opType == SyncRecordOpType.update),
+        isEmpty,
+      );
     });
 
     test('Rule B: updateMemberFields on excluded with sync_ignored=false '
@@ -1053,10 +1154,15 @@ void main() {
 
       expect(affected, 1);
       final row = await dao.getMemberByIdRow('excl-1');
-      expect(row!.pluralkitSyncIgnored, isTrue,
-          reason: 'Rule B blocks resume via generic updateMember');
-      expect(captured.where((op) => op.opType == SyncRecordOpType.update),
-          isEmpty);
+      expect(
+        row!.pluralkitSyncIgnored,
+        isTrue,
+        reason: 'Rule B blocks resume via generic updateMember',
+      );
+      expect(
+        captured.where((op) => op.opType == SyncRecordOpType.update),
+        isEmpty,
+      );
     });
 
     test('Rules A + B: updateMemberFields on excluded with sync_ignored=false '
@@ -1077,8 +1183,10 @@ void main() {
       expect(row!.pluralkitUuid, 'pk-uuid-orig');
       expect(row.pluralkitId, 'aaaaa');
       expect(row.pluralkitSyncIgnored, isTrue);
-      expect(captured.where((op) => op.opType == SyncRecordOpType.update),
-          isEmpty);
+      expect(
+        captured.where((op) => op.opType == SyncRecordOpType.update),
+        isEmpty,
+      );
     });
 
     test('Stale-full-domain race: updateMember(stale.copyWith) where stale '
@@ -1122,73 +1230,80 @@ void main() {
       expect(row.bio, 'pulled from PK');
     });
 
-    test('Null-clearing PK fields on excluded member is stripped by Rule A',
-        () async {
-      // Rule A strips PK keys regardless of value on excluded rows.
-      // A stale full-domain updateMember(stale.copyWith(...)) where
-      // `stale` predates the link would otherwise diff into a patch
-      // with null PK fields and wipe the link the exclude preserves.
-      // The PkStaleLinkException null-clear at
-      // pk_bidirectional_service.dart:115 is guarded upstream by the
-      // per-local sync_ignored skip so this stripping doesn't
-      // double-bounce that path.
-      await seedExcludedLinked();
-      final captured = <CapturedSyncOp>[];
-      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
-      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+    test(
+      'Null-clearing PK fields on excluded member is stripped by Rule A',
+      () async {
+        // Rule A strips PK keys regardless of value on excluded rows.
+        // A stale full-domain updateMember(stale.copyWith(...)) where
+        // `stale` predates the link would otherwise diff into a patch
+        // with null PK fields and wipe the link the exclude preserves.
+        // The PkStaleLinkException null-clear at
+        // pk_bidirectional_service.dart:115 is guarded upstream by the
+        // per-local sync_ignored skip so this stripping doesn't
+        // double-bounce that path.
+        await seedExcludedLinked();
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
 
-      final affected = await repo.updateMemberFields('excl-1', {
-        'pluralkit_uuid': null,
-        'pluralkit_id': null,
-      });
+        final affected = await repo.updateMemberFields('excl-1', {
+          'pluralkit_uuid': null,
+          'pluralkit_id': null,
+        });
 
-      // Patch becomes empty after stripping → helper returns 1 (no-op
-      // success) and no emission fires.
-      expect(affected, 1);
-      final row = await dao.getMemberByIdRow('excl-1');
-      // PK identity preserved.
-      expect(row!.pluralkitUuid, 'pk-uuid-orig');
-      expect(row.pluralkitId, 'aaaaa');
-      expect(row.pluralkitSyncIgnored, isTrue);
-      expect(captured, isEmpty);
-    });
+        // Patch becomes empty after stripping → helper returns 1 (no-op
+        // success) and no emission fires.
+        expect(affected, 1);
+        final row = await dao.getMemberByIdRow('excl-1');
+        // PK identity preserved.
+        expect(row!.pluralkitUuid, 'pk-uuid-orig');
+        expect(row.pluralkitId, 'aaaaa');
+        expect(row.pluralkitSyncIgnored, isTrue);
+        expect(captured, isEmpty);
+      },
+    );
   });
 
   group('PR 2: applyPluralKitLink', () {
     final baseTime = DateTime.utc(2026, 5, 11, 12);
 
-    test('on excluded member writes PK fields AND clears sync_ignored',
-        () async {
-      // Seed an excluded member with no PK link.
-      await repo.createMember(
-        domain.Member(id: 'm1', name: 'Excluded', createdAt: baseTime),
-      );
-      await repo.excludePluralKitSync('m1');
-      final captured = <CapturedSyncOp>[];
-      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
-      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+    test(
+      'on excluded member writes PK fields AND clears sync_ignored',
+      () async {
+        // Seed an excluded member with no PK link.
+        await repo.createMember(
+          domain.Member(id: 'm1', name: 'Excluded', createdAt: baseTime),
+        );
+        await repo.excludePluralKitSync('m1');
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
 
-      final affected = await repo.applyPluralKitLink('m1', {
-        'pluralkit_uuid': 'uuid-A',
-        'pluralkit_id': 'idA1',
-        'pluralkit_display_name': 'PK Display',
-      });
+        final affected = await repo.applyPluralKitLink('m1', {
+          'pluralkit_uuid': 'uuid-A',
+          'pluralkit_id': 'idA1',
+          'pluralkit_display_name': 'PK Display',
+        });
 
-      expect(affected, 1);
-      final row = await dao.getMemberByIdRow('m1');
-      expect(row!.pluralkitUuid, 'uuid-A');
-      expect(row.pluralkitId, 'idA1');
-      expect(row.pluralkitDisplayName, 'PK Display');
-      expect(row.pluralkitSyncIgnored, isFalse,
-          reason: 'applyPluralKitLink force-injects sync_ignored=false');
+        expect(affected, 1);
+        final row = await dao.getMemberByIdRow('m1');
+        expect(row!.pluralkitUuid, 'uuid-A');
+        expect(row.pluralkitId, 'idA1');
+        expect(row.pluralkitDisplayName, 'PK Display');
+        expect(
+          row.pluralkitSyncIgnored,
+          isFalse,
+          reason: 'applyPluralKitLink force-injects sync_ignored=false',
+        );
 
-      // Emission carries the link fields plus the sync_ignored flip.
-      expect(captured, hasLength(1));
-      final patch = captured.single.fields;
-      expect(patch['pluralkit_uuid'], 'uuid-A');
-      expect(patch['pluralkit_id'], 'idA1');
-      expect(patch['pluralkit_sync_ignored'], false);
-    });
+        // Emission carries the link fields plus the sync_ignored flip.
+        expect(captured, hasLength(1));
+        final patch = captured.single.fields;
+        expect(patch['pluralkit_uuid'], 'uuid-A');
+        expect(patch['pluralkit_id'], 'idA1');
+        expect(patch['pluralkit_sync_ignored'], false);
+      },
+    );
 
     test('validates patch: rejects missing uuid AND id', () async {
       await repo.createMember(
@@ -1231,47 +1346,51 @@ void main() {
       },
     );
 
-    test('validates patch: rejects unknown keys per _memberPatchKeys',
-        () async {
-      await repo.createMember(
-        domain.Member(id: 'm1', name: 'Sub', createdAt: baseTime),
-      );
-      expect(
-        () => repo.applyPluralKitLink('m1', {
-          'pluralkit_uuid': 'u',
-          'totally_invalid_key': 42,
-        }),
-        throwsA(isA<ArgumentError>()),
-      );
-    });
+    test(
+      'validates patch: rejects unknown keys per _memberPatchKeys',
+      () async {
+        await repo.createMember(
+          domain.Member(id: 'm1', name: 'Sub', createdAt: baseTime),
+        );
+        expect(
+          () => repo.applyPluralKitLink('m1', {
+            'pluralkit_uuid': 'u',
+            'totally_invalid_key': 42,
+          }),
+          throwsA(isA<ArgumentError>()),
+        );
+      },
+    );
   });
 
   group('PR 2: recordPluralKitIdentity', () {
     final baseTime = DateTime.utc(2026, 5, 11, 12);
 
-    test('on excluded member writes PK fields, leaves sync_ignored=true',
-        () async {
-      // Excluded member with no link yet — simulates the _linkBackLocally
-      // race: user excludes between push send and writeback.
-      await repo.createMember(
-        domain.Member(id: 'm1', name: 'Pushed', createdAt: baseTime),
-      );
-      await repo.excludePluralKitSync('m1');
+    test(
+      'on excluded member writes PK fields, leaves sync_ignored=true',
+      () async {
+        // Excluded member with no link yet — simulates the _linkBackLocally
+        // race: user excludes between push send and writeback.
+        await repo.createMember(
+          domain.Member(id: 'm1', name: 'Pushed', createdAt: baseTime),
+        );
+        await repo.excludePluralKitSync('m1');
 
-      final affected = await repo.recordPluralKitIdentity('m1', {
-        'pluralkit_uuid': 'returned-uuid',
-        'pluralkit_id': 'rId01',
-      });
+        final affected = await repo.recordPluralKitIdentity('m1', {
+          'pluralkit_uuid': 'returned-uuid',
+          'pluralkit_id': 'rId01',
+        });
 
-      expect(affected, 1);
-      final row = await dao.getMemberByIdRow('m1');
-      // PK identity recorded (Rule A bypassed).
-      expect(row!.pluralkitUuid, 'returned-uuid');
-      expect(row.pluralkitId, 'rId01');
-      // Sync exclude stays — Rule B is NOT bypassed by
-      // recordPluralKitIdentity.
-      expect(row.pluralkitSyncIgnored, isTrue);
-    });
+        expect(affected, 1);
+        final row = await dao.getMemberByIdRow('m1');
+        // PK identity recorded (Rule A bypassed).
+        expect(row!.pluralkitUuid, 'returned-uuid');
+        expect(row.pluralkitId, 'rId01');
+        // Sync exclude stays — Rule B is NOT bypassed by
+        // recordPluralKitIdentity.
+        expect(row.pluralkitSyncIgnored, isTrue);
+      },
+    );
 
     test('validates patch: rejects missing uuid AND id', () async {
       await repo.createMember(
@@ -1285,35 +1404,32 @@ void main() {
       );
     });
 
-    test(
-      'validates patch: rejects sync_ignored regardless of value '
-      '(both true AND false)',
-      () async {
-        await repo.createMember(
-          domain.Member(id: 'm1', name: 'Sub', createdAt: baseTime),
-        );
+    test('validates patch: rejects sync_ignored regardless of value '
+        '(both true AND false)', () async {
+      await repo.createMember(
+        domain.Member(id: 'm1', name: 'Sub', createdAt: baseTime),
+      );
 
-        // Rejects false — unlike applyPluralKitLink, recordPluralKitIdentity
-        // refuses ANY sync_ignored payload because its semantic is
-        // "do not touch sync state."
-        expect(
-          () => repo.recordPluralKitIdentity('m1', {
-            'pluralkit_uuid': 'u',
-            'pluralkit_sync_ignored': false,
-          }),
-          throwsA(isA<ArgumentError>()),
-        );
+      // Rejects false — unlike applyPluralKitLink, recordPluralKitIdentity
+      // refuses ANY sync_ignored payload because its semantic is
+      // "do not touch sync state."
+      expect(
+        () => repo.recordPluralKitIdentity('m1', {
+          'pluralkit_uuid': 'u',
+          'pluralkit_sync_ignored': false,
+        }),
+        throwsA(isA<ArgumentError>()),
+      );
 
-        // Rejects true too.
-        expect(
-          () => repo.recordPluralKitIdentity('m1', {
-            'pluralkit_uuid': 'u',
-            'pluralkit_sync_ignored': true,
-          }),
-          throwsA(isA<ArgumentError>()),
-        );
-      },
-    );
+      // Rejects true too.
+      expect(
+        () => repo.recordPluralKitIdentity('m1', {
+          'pluralkit_uuid': 'u',
+          'pluralkit_sync_ignored': true,
+        }),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
 
     test('validates patch: rejects unknown keys', () async {
       await repo.createMember(
@@ -1394,21 +1510,23 @@ void main() {
       await repo.excludePluralKitSync(id);
     }
 
-    test('updateMember writing non-PK fields on excluded member passes through',
-        () async {
-      await seedExcludedLinked('m1');
-      final current = await repo.getMemberById('m1');
+    test(
+      'updateMember writing non-PK fields on excluded member passes through',
+      () async {
+        await seedExcludedLinked('m1');
+        final current = await repo.getMemberById('m1');
 
-      await repo.updateMember(
-        current!.copyWith(name: 'Renamed', bio: 'A new bio'),
-      );
+        await repo.updateMember(
+          current!.copyWith(name: 'Renamed', bio: 'A new bio'),
+        );
 
-      final row = await dao.getMemberByIdRow('m1');
-      expect(row!.name, 'Renamed');
-      expect(row.bio, 'A new bio');
-      // Excluded state preserved.
-      expect(row.pluralkitSyncIgnored, isTrue);
-    });
+        final row = await dao.getMemberByIdRow('m1');
+        expect(row!.name, 'Renamed');
+        expect(row.bio, 'A new bio');
+        // Excluded state preserved.
+        expect(row.pluralkitSyncIgnored, isTrue);
+      },
+    );
 
     test('updateMember writing pluralkit_display_name on excluded member '
         'passes through (not in strip list)', () async {
@@ -1420,8 +1538,11 @@ void main() {
       );
 
       final row = await dao.getMemberByIdRow('m1');
-      expect(row!.pluralkitDisplayName, 'User Edit',
-          reason: 'pluralkit_display_name is user-editable on excluded rows');
+      expect(
+        row!.pluralkitDisplayName,
+        'User Edit',
+        reason: 'pluralkit_display_name is user-editable on excluded rows',
+      );
       // Exclude marker preserved.
       expect(row.pluralkitSyncIgnored, isTrue);
     });
@@ -1442,8 +1563,7 @@ void main() {
 
       // Patch sets source to prism — user-driven, allowed.
       final affected1 = await repo.updateMemberFields('m1', {
-        'profile_header_source':
-            domain.MemberProfileHeaderSource.prism.index,
+        'profile_header_source': domain.MemberProfileHeaderSource.prism.index,
       });
       expect(affected1, 1);
       final row1 = await dao.getMemberByIdRow('m1');
@@ -1502,8 +1622,10 @@ void main() {
         domain.MemberProfileHeaderSource.prism.index,
         reason: 'pluralKit source flip on excluded row is stripped',
       );
-      expect(captured.where((op) => op.opType == SyncRecordOpType.update),
-          isEmpty);
+      expect(
+        captured.where((op) => op.opType == SyncRecordOpType.update),
+        isEmpty,
+      );
     });
   });
 }

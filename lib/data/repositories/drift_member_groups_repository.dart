@@ -138,6 +138,31 @@ class DriftMemberGroupsRepository
   }
 
   @override
+  Future<void> reorderGroups(List<domain.MemberGroup> groups) async {
+    final changedGroups = <domain.MemberGroup>[];
+    final displayOrders = <String, int>{};
+
+    for (var i = 0; i < groups.length; i++) {
+      final group = groups[i];
+      if (group.displayOrder == i) continue;
+      final updated = group.copyWith(displayOrder: i);
+      changedGroups.add(updated);
+      displayOrders[updated.id] = i;
+    }
+
+    if (changedGroups.isEmpty) return;
+
+    await _dao.bulkUpdateDisplayOrders(displayOrders);
+    for (final group in changedGroups) {
+      final stored = await _dao.getGroupById(group.id);
+      if (stored == null) continue;
+      await _syncGroupUpdateIfAllowed(stored, {
+        'display_order': group.displayOrder,
+      });
+    }
+  }
+
+  @override
   Future<void> deleteGroup(String groupId) async {
     // Fetch entries before the delete so we can emit ops for them.
     final entries = await _dao.entriesForGroup(groupId);
@@ -196,10 +221,9 @@ class DriftMemberGroupsRepository
 
     for (final promoted in promotedModels) {
       final stored = await _requireGroupRow(promoted.id);
-      await _syncGroupUpdateIfAllowed(
-        stored,
-        const <String, dynamic>{'parent_group_id': null},
-      );
+      await _syncGroupUpdateIfAllowed(stored, const <String, dynamic>{
+        'parent_group_id': null,
+      });
     }
     if (isDeletedGroupSuppressed) return;
     if (!await _shouldEmitPkBackedGroupSync(group)) return;
@@ -467,15 +491,12 @@ class DriftMemberGroupsRepository
 
     final row = await _dao.getGroupById(groupId);
     if (row != null) {
-      await _syncGroupUpdateIfAllowed(
-        row,
-        <String, dynamic>{
-          'sort_state': sanitizeSortStateForEmission(
-            row.sortState,
-            contextId: row.id,
-          ),
-        },
-      );
+      await _syncGroupUpdateIfAllowed(row, <String, dynamic>{
+        'sort_state': sanitizeSortStateForEmission(
+          row.sortState,
+          contextId: row.id,
+        ),
+      });
     }
 
     // Duplicates surfaced via `droppedIds` (shared recovery indicator).
@@ -503,15 +524,12 @@ class DriftMemberGroupsRepository
 
     final refreshed = await _dao.getGroupById(groupId);
     if (refreshed != null) {
-      await _syncGroupUpdateIfAllowed(
-        refreshed,
-        <String, dynamic>{
-          'sort_state': sanitizeSortStateForEmission(
-            refreshed.sortState,
-            contextId: refreshed.id,
-          ),
-        },
-      );
+      await _syncGroupUpdateIfAllowed(refreshed, <String, dynamic>{
+        'sort_state': sanitizeSortStateForEmission(
+          refreshed.sortState,
+          contextId: refreshed.id,
+        ),
+      });
     }
   }
 
@@ -559,15 +577,12 @@ class DriftMemberGroupsRepository
   Future<void> _emitGroupSortStateUpdateIfAllowed(String groupId) async {
     final refreshed = await _dao.getGroupById(groupId);
     if (refreshed == null) return;
-    await _syncGroupUpdateIfAllowed(
-      refreshed,
-      <String, dynamic>{
-        'sort_state': sanitizeSortStateForEmission(
-          refreshed.sortState,
-          contextId: refreshed.id,
-        ),
-      },
-    );
+    await _syncGroupUpdateIfAllowed(refreshed, <String, dynamic>{
+      'sort_state': sanitizeSortStateForEmission(
+        refreshed.sortState,
+        contextId: refreshed.id,
+      ),
+    });
   }
 
   Future<void> _syncGroupCreateIfAllowed(MemberGroupRow group) async {
@@ -595,11 +610,7 @@ class DriftMemberGroupsRepository
     if (changedFields.isEmpty) return;
     if (await _dao.isGroupSyncSuppressed(group.id)) return;
     if (!await _shouldEmitPkBackedGroupSync(group)) return;
-    await syncRecordUpdate(
-      _groupTable,
-      _groupEntityId(group),
-      changedFields,
-    );
+    await syncRecordUpdate(_groupTable, _groupEntityId(group), changedFields);
     await _syncLegacyPkGroupAliasDeletes(group);
   }
 

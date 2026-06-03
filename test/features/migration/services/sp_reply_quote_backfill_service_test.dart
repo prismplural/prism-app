@@ -16,13 +16,14 @@ Future<void> _insertMessage(
   String? replyToId,
   String? replyToAuthorId,
   String? replyToContent,
+  DateTime? timestamp,
   bool isDeleted = false,
 }) async {
   await db.chatMessagesDao.insertMessage(
     ChatMessagesCompanion.insert(
       id: id,
       content: content,
-      timestamp: DateTime.utc(2025, 1, 1, 12),
+      timestamp: timestamp ?? DateTime.utc(2025, 1, 1, 12),
       conversationId: conversationId,
       authorId: Value(authorId),
       replyToId: Value(replyToId),
@@ -90,6 +91,62 @@ void main() {
 
     expect((await service.run()).messagesRepaired, 1);
     expect((await service.run()).messagesRepaired, 0);
+  });
+
+  test('repairs newest replies first when batch-limited', () async {
+    await _insertMessage(
+      db,
+      id: 'old-original',
+      content: 'Old original',
+      authorId: 'member-a',
+      timestamp: DateTime.utc(2025, 1, 1, 10),
+    );
+    await _insertMessage(
+      db,
+      id: 'old-reply',
+      content: 'Old reply',
+      authorId: 'member-b',
+      replyToId: 'old-original',
+      timestamp: DateTime.utc(2025, 1, 1, 11),
+    );
+    await _insertMessage(
+      db,
+      id: 'new-original',
+      content: 'New original',
+      authorId: 'member-c',
+      timestamp: DateTime.utc(2025, 1, 2, 10),
+    );
+    await _insertMessage(
+      db,
+      id: 'new-reply',
+      content: 'New reply',
+      authorId: 'member-d',
+      replyToId: 'new-original',
+      timestamp: DateTime.utc(2025, 1, 2, 11),
+    );
+
+    final firstBatch = await service.run(
+      batchSize: 1,
+      maxBatches: 1,
+      interBatchDelay: Duration.zero,
+    );
+    expect(firstBatch.messagesRepaired, 1);
+    expect(firstBatch.batchesProcessed, 1);
+    expect(firstBatch.hasRemainingCandidates, isTrue);
+
+    final newReply = await db.chatMessagesDao.getMessageById('new-reply');
+    final oldReply = await db.chatMessagesDao.getMessageById('old-reply');
+    expect(newReply!.replyToContent, 'New original');
+    expect(newReply.replyToAuthorId, 'member-c');
+    expect(oldReply!.replyToContent, isNull);
+
+    final secondBatch = await service.run(
+      batchSize: 1,
+      interBatchDelay: Duration.zero,
+    );
+    expect(secondBatch.messagesRepaired, 1);
+    expect(secondBatch.hasRemainingCandidates, isFalse);
+    expect(await SpReplyQuoteBackfillService.hasCandidates(db), isFalse);
   });
 
   test('does not repair replies whose parent is missing or deleted', () async {

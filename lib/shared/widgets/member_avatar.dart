@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/providers/member_avatar_image_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -37,9 +38,12 @@ class MemberAvatar extends ConsumerWidget {
     this.opacity = 1.0,
     this.shape,
     this.flushImage = false,
+    this.memberId,
+    this.deferAvatarLookup = false,
   });
 
   final Uint8List? avatarImageData;
+  final String? memberId;
 
   /// Optional member name used as the semantic label for the avatar image.
   final String? memberName;
@@ -66,6 +70,10 @@ class MemberAvatar extends ConsumerWidget {
   /// renders. Used for profile-header avatars where the image is the
   /// primary content.
   final bool flushImage;
+
+  /// When true, a null [avatarImageData] is treated as a lightweight list-row
+  /// placeholder and the avatar bytes are loaded lazily by [memberId].
+  final bool deferAvatarLookup;
 
   Color _circleColor(BuildContext context) {
     final theme = Theme.of(context);
@@ -100,8 +108,16 @@ class MemberAvatar extends ConsumerWidget {
           : PrismTokens.avatarAccentBorderAlphaLight,
     );
 
+    final resolvedAvatarImageData =
+        avatarImageData ??
+        (deferAvatarLookup && memberId != null
+            ? ref
+                  .watch(memberAvatarImageDataProvider(memberId!))
+                  .whenOrNull(data: (bytes) => bytes)
+            : null);
+
     Widget child;
-    if (avatarImageData != null && avatarImageData!.isNotEmpty) {
+    if (resolvedAvatarImageData != null && resolvedAvatarImageData.isNotEmpty) {
       final terms = watchTerminology(context, ref);
       // Larger avatars (profile headers) look strong with a near-flush image;
       // small avatars (lists, chat rows) need more inset so the tinted ring
@@ -112,7 +128,7 @@ class MemberAvatar extends ConsumerWidget {
       final pixelSize = (imageSize * MediaQuery.devicePixelRatioOf(context))
           .ceil();
       final image = Image.memory(
-        avatarImageData!,
+        resolvedAvatarImageData,
         width: imageSize,
         height: imageSize,
         cacheWidth: pixelSize,

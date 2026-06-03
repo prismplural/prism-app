@@ -84,7 +84,7 @@ class WhosFrontingStep extends ConsumerWidget {
           );
         }
 
-        final searchGroups = watchMemberSearchGroups(ref, members);
+        watchMemberSearchGroupSources(ref);
 
         if (members.length >= _kOnboardingFrontingSearchThreshold) {
           return Padding(
@@ -107,10 +107,10 @@ class WhosFrontingStep extends ConsumerWidget {
                         termPlural: terms.plural,
                         onTap: () => _openSearchSheet(
                           context,
+                          ref,
                           notifier,
                           members,
                           terms.plural,
-                          searchGroups,
                         ),
                       ),
                     ),
@@ -141,10 +141,10 @@ class WhosFrontingStep extends ConsumerWidget {
                   density: PrismControlDensity.compact,
                   onPressed: () => _openSearchSheet(
                     context,
+                    ref,
                     notifier,
                     members,
                     terms.plural,
-                    searchGroups,
                   ),
                 ),
               ),
@@ -247,11 +247,12 @@ class WhosFrontingStep extends ConsumerWidget {
 
   Future<void> _openSearchSheet(
     BuildContext context,
+    WidgetRef ref,
     OnboardingNotifier notifier,
     List<Member> members,
     String termPlural,
-    List<MemberSearchGroup> groups,
   ) async {
+    final groups = readMemberSearchGroups(ref, members);
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,

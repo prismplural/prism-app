@@ -117,6 +117,39 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateGroup(String id, MemberGroupsCompanion companion) =>
       (update(memberGroups)..where((g) => g.id.equals(id))).write(companion);
 
+  /// Bulk-update display orders in one SQL statement.
+  ///
+  /// Large nested systems can reorder hundreds or thousands of groups. Keeping
+  /// this as one local write avoids a long chain of Drift update calls while
+  /// repository code still emits per-row sync updates afterward.
+  Future<void> bulkUpdateDisplayOrders(Map<String, int> displayOrders) async {
+    if (displayOrders.isEmpty) return;
+
+    final ids = displayOrders.keys.toList(growable: false);
+    final whenClauses = ids.map((_) => 'WHEN ? THEN ?').join(' ');
+    final wherePlaceholders = List.filled(ids.length, '?').join(', ');
+    final variables = <Variable>[];
+
+    for (final entry in displayOrders.entries) {
+      variables.add(Variable.withString(entry.key));
+      variables.add(Variable.withInt(entry.value));
+    }
+    variables.addAll(ids.map(Variable.withString));
+
+    await customUpdate(
+      '''
+      UPDATE member_groups
+      SET display_order = CASE id
+        $whenClauses
+        ELSE display_order
+      END
+      WHERE id IN ($wherePlaceholders)
+      ''',
+      variables: variables,
+      updates: {memberGroups},
+    );
+  }
+
   /// Writes the pre-encoded JSON verbatim — the repository owns serialization.
   Future<int> updateGroupSortState(String groupId, String sortStateJson) =>
       (update(memberGroups)..where((g) => g.id.equals(groupId))).write(

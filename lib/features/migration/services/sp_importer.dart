@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -267,6 +268,15 @@ class SpImporter {
   /// Parse an export JSON string directly.
   SpExportData parseString(String jsonString) {
     return SpParser.parse(jsonString);
+  }
+
+  /// Parse export bytes directly.
+  ///
+  /// Used by file pickers that provide in-memory bytes instead of a durable
+  /// local path. Decoding and JSON parsing both run on a background isolate so
+  /// large onboarding imports do not stall the UI thread.
+  Future<SpExportData> parseBytes(Uint8List bytes) {
+    return compute(_parseBytes, bytes);
   }
 
   /// Execute the import after user confirmation.
@@ -1846,6 +1856,10 @@ class SpImporter {
 /// and call [SpParser.parse] directly with a [FixedClock].
 SpExportData _parseJson(String jsonString) {
   return SpParser.parse(jsonString);
+}
+
+SpExportData _parseBytes(Uint8List bytes) {
+  return SpParser.parse(utf8.decode(bytes));
 }
 
 /// Argument carrier for [_mapOnIsolate]. All fields must be sendable across
