@@ -49,10 +49,10 @@ class MarkdownImageButton extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<MarkdownImageButton> createState() =>
-      _MarkdownImageButtonState();
+      MarkdownImageButtonState();
 }
 
-class _MarkdownImageButtonState extends ConsumerState<MarkdownImageButton> {
+class MarkdownImageButtonState extends ConsumerState<MarkdownImageButton> {
   static const _uuid = Uuid();
 
   // Owned by the State (not created per-dialog) and disposed only when this
@@ -76,6 +76,13 @@ class _MarkdownImageButtonState extends ConsumerState<MarkdownImageButton> {
     _urlController.dispose();
     super.dispose();
   }
+
+  /// Opens the add-image dialog pre-filled with [bytes] (e.g. an image pasted
+  /// into the host editor) and, on confirm, stages it into this editor's
+  /// session and inserts the `![](tag)` reference at the cursor — the same flow
+  /// as the camera/file menu sources. Exposed so host editors can trigger it
+  /// from a clipboard paste via a [GlobalKey].
+  Future<void> insertImageFromBytes(Uint8List bytes) => _stageAndInsert(bytes);
 
   @override
   Widget build(BuildContext context) {

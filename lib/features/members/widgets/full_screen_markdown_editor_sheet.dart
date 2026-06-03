@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/services/bio_image_processor.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
@@ -11,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/image_first_paste.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -69,6 +71,9 @@ class _FullScreenMarkdownEditorSheetState
   // open editor and live exactly as long as this sheet (see
   // [bioImageProcessorProvider]).
   final String _editSessionId = const Uuid().v4();
+  // Drives the add-image dialog when an image is pasted into the field, reusing
+  // the same staging flow as the floating image button.
+  final GlobalKey<MarkdownImageButtonState> _imageButtonKey = GlobalKey();
   bool _showPreview = false;
 
   @override
@@ -91,6 +96,17 @@ class _FullScreenMarkdownEditorSheetState
   // surface — no memberId required. Keyed by this editor's session id.
   BioImageProcessor _getProcessor() =>
       ref.read(bioImageProcessorProvider(_editSessionId));
+
+  /// Routes a pasted clipboard image into the add-image dialog; false lets the
+  /// default text paste run.
+  Future<bool> _handlePasteImage() async {
+    final image = await ref.read(appClipboardReaderProvider).readImage();
+    if (image == null || !mounted) return false;
+    final button = _imageButtonKey.currentState;
+    if (button == null) return false;
+    await button.insertImageFromBytes(image.bytes);
+    return true;
+  }
 
   Future<void> _save() async {
     final shouldContinue = await promptAndStageRemoteMarkdownImages(
@@ -232,21 +248,29 @@ class _FullScreenMarkdownEditorSheetState
                               vertical: 16,
                             ),
                             children: [
-                              PrismTextField(
-                                controller: _controller,
-                                focusNode: _focusNode,
-                                hintText: widget.hintText,
-                                fieldStyle: PrismTextFieldStyle.borderless,
-                                style: theme.textTheme.bodyLarge,
-                                hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant
-                                      .withValues(alpha: 0.4),
-                                ),
-                                minLines: 12,
-                                maxLines: null,
-                                textCapitalization:
-                                    TextCapitalization.sentences,
-                                autofocus: true,
+                              ImagePasteRegion(
+                                onPasteImage: _handlePasteImage,
+                                builder: (context, contextMenuBuilder) =>
+                                    PrismTextField(
+                                      controller: _controller,
+                                      focusNode: _focusNode,
+                                      hintText: widget.hintText,
+                                      fieldStyle:
+                                          PrismTextFieldStyle.borderless,
+                                      style: theme.textTheme.bodyLarge,
+                                      hintStyle: theme.textTheme.bodyLarge
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme.onSurfaceVariant
+                                                .withValues(alpha: 0.4),
+                                          ),
+                                      minLines: 12,
+                                      maxLines: null,
+                                      textCapitalization:
+                                          TextCapitalization.sentences,
+                                      autofocus: true,
+                                      contextMenuBuilder: contextMenuBuilder,
+                                    ),
                               ),
                             ],
                           ),
@@ -265,6 +289,7 @@ class _FullScreenMarkdownEditorSheetState
                   MarkdownTableButton(controller: _controller),
                   const SizedBox(width: 4),
                   MarkdownImageButton(
+                    key: _imageButtonKey,
                     controller: _controller,
                     sessionId: _editSessionId,
                   ),

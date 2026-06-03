@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/note.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -22,6 +23,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
+import 'package:prism_plurality/shared/widgets/image_first_paste.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
@@ -97,8 +99,22 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
   // Unique per note editor so staged images live exactly as long as this editor
   // and stay isolated from any other open editor (see bioImageProcessorProvider).
   final String _editSessionId = const Uuid().v4();
+  // Drives the add-image dialog when an image is pasted into the body, reusing
+  // the floating image button's staging flow.
+  final GlobalKey<MarkdownImageButtonState> _imageButtonKey = GlobalKey();
 
   bool get _isEditing => widget.note != null;
+
+  /// Routes a pasted clipboard image into the add-image dialog; false lets the
+  /// default text paste run.
+  Future<bool> _handlePasteImage() async {
+    final image = await ref.read(appClipboardReaderProvider).readImage();
+    if (image == null || !mounted) return false;
+    final button = _imageButtonKey.currentState;
+    if (button == null) return false;
+    await button.insertImageFromBytes(image.bytes);
+    return true;
+  }
 
   @override
   void initState() {
@@ -342,6 +358,7 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
                               MarkdownTableButton(controller: _bodyController),
                               const SizedBox(width: 4),
                               MarkdownImageButton(
+                                key: _imageButtonKey,
                                 controller: _bodyController,
                                 sessionId: _editSessionId,
                               ),
@@ -412,18 +429,22 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
         autofocus: !_isEditing,
       ),
       const SizedBox(height: 8),
-      PrismTextField(
-        controller: _bodyController,
-        focusNode: _bodyFocusNode,
-        hintText: l10n.memberNoteBodyHint,
-        fieldStyle: PrismTextFieldStyle.borderless,
-        style: theme.textTheme.bodyLarge,
-        hintStyle: theme.textTheme.bodyLarge?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+      ImagePasteRegion(
+        onPasteImage: _handlePasteImage,
+        builder: (context, contextMenuBuilder) => PrismTextField(
+          controller: _bodyController,
+          focusNode: _bodyFocusNode,
+          hintText: l10n.memberNoteBodyHint,
+          fieldStyle: PrismTextFieldStyle.borderless,
+          style: theme.textTheme.bodyLarge,
+          hintStyle: theme.textTheme.bodyLarge?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+          ),
+          minLines: 12,
+          maxLines: null,
+          textCapitalization: TextCapitalization.sentences,
+          contextMenuBuilder: contextMenuBuilder,
         ),
-        minLines: 12,
-        maxLines: null,
-        textCapitalization: TextCapitalization.sentences,
       ),
     ];
   }

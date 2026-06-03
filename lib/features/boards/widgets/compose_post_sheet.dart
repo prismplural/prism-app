@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
@@ -23,6 +24,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_table_button.dart';
+import 'package:prism_plurality/shared/widgets/image_first_paste.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
@@ -105,6 +107,9 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
   late final MarkdownEditingController _bodyController;
   late final FocusNode _bodyFocusNode;
   final String _editSessionId = const Uuid().v4();
+  // Drives the add-image dialog when an image is pasted into the body, reusing
+  // the floating image button's staging flow.
+  final GlobalKey<MarkdownImageButtonState> _imageButtonKey = GlobalKey();
 
   String _audience = 'public';
   String? _targetMemberId;
@@ -117,6 +122,17 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
   String _initialBody = '';
   String? _initialTargetMemberId;
   String _initialAudience = 'public';
+
+  /// Routes a pasted clipboard image into the add-image dialog; false lets the
+  /// default text paste run.
+  Future<bool> _handlePasteImage() async {
+    final image = await ref.read(appClipboardReaderProvider).readImage();
+    if (image == null || !mounted) return false;
+    final button = _imageButtonKey.currentState;
+    if (button == null) return false;
+    await button.insertImageFromBytes(image.bytes);
+    return true;
+  }
 
   @override
   void initState() {
@@ -574,20 +590,26 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
                           textInputAction: TextInputAction.next,
                         ),
                         const SizedBox(height: 8),
-                        PrismTextField(
-                          controller: _bodyController,
-                          focusNode: _bodyFocusNode,
-                          hintText: l10n.boardsComposeBodyPlaceholder,
-                          fieldStyle: PrismTextFieldStyle.borderless,
-                          style: theme.textTheme.bodyLarge,
-                          hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.4),
-                          ),
-                          minLines: 8,
-                          maxLines: null,
-                          textCapitalization: TextCapitalization.sentences,
-                          autofocus: !isEditing,
+                        ImagePasteRegion(
+                          onPasteImage: _handlePasteImage,
+                          builder: (context, contextMenuBuilder) =>
+                              PrismTextField(
+                                controller: _bodyController,
+                                focusNode: _bodyFocusNode,
+                                hintText: l10n.boardsComposeBodyPlaceholder,
+                                fieldStyle: PrismTextFieldStyle.borderless,
+                                style: theme.textTheme.bodyLarge,
+                                hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.4),
+                                ),
+                                minLines: 8,
+                                maxLines: null,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                autofocus: !isEditing,
+                                contextMenuBuilder: contextMenuBuilder,
+                              ),
                         ),
                       ],
                     ),
@@ -598,6 +620,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
                     child: _EditorMarkdownActions(
                       bodyController: _bodyController,
                       editSessionId: _editSessionId,
+                      imageButtonKey: _imageButtonKey,
                     ),
                   ),
                 ],
@@ -728,10 +751,12 @@ class _EditorMarkdownActions extends StatelessWidget {
   const _EditorMarkdownActions({
     required this.bodyController,
     required this.editSessionId,
+    required this.imageButtonKey,
   });
 
   final TextEditingController bodyController;
   final String editSessionId;
+  final GlobalKey<MarkdownImageButtonState> imageButtonKey;
 
   @override
   Widget build(BuildContext context) {
@@ -741,6 +766,7 @@ class _EditorMarkdownActions extends StatelessWidget {
         MarkdownTableButton(controller: bodyController),
         const SizedBox(width: 4),
         MarkdownImageButton(
+          key: imageButtonKey,
           controller: bodyController,
           sessionId: editSessionId,
         ),

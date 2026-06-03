@@ -6,6 +6,17 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 enum PrismTextFieldStyle { standard, borderless }
 
+/// Mirrors Flutter's private default for `TextField.contextMenuBuilder` so an
+/// unset [PrismTextField.contextMenuBuilder] keeps the standard selection menu.
+Widget _defaultContextMenuBuilder(
+  BuildContext context,
+  EditableTextState editableTextState,
+) {
+  return AdaptiveTextSelectionToolbar.editableText(
+    editableTextState: editableTextState,
+  );
+}
+
 /// A shared text-field wrapper that preserves Material text entry behavior.
 class PrismTextField extends StatelessWidget {
   const PrismTextField({
@@ -42,6 +53,7 @@ class PrismTextField extends StatelessWidget {
     this.prefixText,
     this.isDense,
     this.autocorrect,
+    this.contextMenuBuilder,
   }) : assert(
          controller == null || initialValue == null,
          'Provide either a controller or an initialValue, not both.',
@@ -79,6 +91,11 @@ class PrismTextField extends StatelessWidget {
   final String? prefixText;
   final bool? isDense;
   final bool? autocorrect;
+
+  /// Optional override for the selection toolbar. Used by surfaces that
+  /// intercept the "Paste" action (e.g. image-first paste). Forwarded verbatim
+  /// to the underlying field's `contextMenuBuilder`.
+  final EditableTextContextMenuBuilder? contextMenuBuilder;
 
   bool get _isMultiLine =>
       (maxLines != null && maxLines! > 1) ||
@@ -226,6 +243,9 @@ class PrismTextField extends StatelessWidget {
       inputFormatters: inputFormatters,
       maxLength: maxLength,
       textAlign: textAlign,
+      // Preserve Flutter's default toolbar when no override is given; passing a
+      // bare null here would suppress the selection menu entirely.
+      contextMenuBuilder: contextMenuBuilder ?? _defaultContextMenuBuilder,
     );
 
     if (hasExternalLabel) {
