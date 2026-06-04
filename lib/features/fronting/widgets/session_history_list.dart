@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -688,36 +689,33 @@ class _CombinedPeriodsList extends ConsumerWidget {
           periods: periods,
           sleepSessions: sleepSessions,
         );
-        final entries = _combinedHistoryEntries(grouped);
+        final sections = <_HistoryDaySection>[];
+        for (var groupIndex = 0; groupIndex < grouped.length; groupIndex++) {
+          final group = grouped[groupIndex];
+          final rows = <_HistoryRow>[];
+          for (var i = 0; i < group.items.length; i++) {
+            final item = group.items[i];
+            final isLatest = groupIndex == 0 && i == 0;
+            rows.add(
+              _HistoryRow(
+                isSleep: item is DisplaySleepItem,
+                buildChild: () => _combinedHistoryTile(
+                  item: item,
+                  isLatest: isLatest,
+                  membersMap: membersMap,
+                ),
+              ),
+            );
+          }
+          sections.add(_HistoryDaySection(dayKey: group.dayKey, rows: rows));
+        }
         BootTimings.markOnce(
           'frontingHistory combined rows first ready',
-          'entries=${entries.length} groups=${grouped.length} '
+          'sections=${sections.length} groups=${grouped.length} '
               'sleep=${sleepSessions.length}',
         );
 
-        return SliverList.builder(
-          itemCount: entries.length,
-          itemBuilder: (context, index) {
-            final entry = entries[index];
-            if (entry is _HistoryDayHeaderEntry) {
-              return _HistoryDayHeader(
-                dayKey: entry.dayKey,
-                isFirstGroup: entry.isFirstGroup,
-              );
-            }
-            if (entry is _CombinedHistoryRowEntry) {
-              return _HistoryRowSurface(
-                isLastInGroup: entry.isLastInGroup,
-                child: _combinedHistoryTile(
-                  item: entry.item,
-                  isLatest: entry.isLatest,
-                  membersMap: membersMap,
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          },
-        );
+        return _GroupedHistorySliver(sections: sections);
       },
     );
   }
@@ -889,38 +887,37 @@ class _PerMemberRowsList extends ConsumerWidget {
         }
         final dayKeys = mergedByKey.keys.toList()
           ..sort((a, b) => b.compareTo(a));
-        final entries = _perMemberHistoryEntries(dayKeys, mergedByKey);
+        final sections = <_HistoryDaySection>[];
+        for (var groupIndex = 0; groupIndex < dayKeys.length; groupIndex++) {
+          final group = mergedByKey[dayKeys[groupIndex]];
+          if (group == null) continue;
+          final rows = <_HistoryRow>[];
+          for (var i = 0; i < group.entries.length; i++) {
+            final slice = group.entries[i];
+            final isSleep = slice.session.isSleep;
+            final isLatest = groupIndex == 0 && i == 0;
+            rows.add(
+              _HistoryRow(
+                isSleep: isSleep,
+                buildChild: () => isSleep
+                    ? _InlineSleepTile(displaySession: slice)
+                    : _PerMemberSessionTile(
+                        slice: slice,
+                        isLatest: isLatest,
+                        membersMap: membersMap,
+                      ),
+              ),
+            );
+          }
+          sections.add(_HistoryDaySection(dayKey: group.dayKey, rows: rows));
+        }
         BootTimings.markOnce(
           'frontingHistory perMember rows first ready',
-          'entries=${entries.length} groups=${dayKeys.length} '
+          'sections=${sections.length} groups=${dayKeys.length} '
               'fronting=${frontingSessions.length} sleep=${sleepSessions.length}',
         );
 
-        return SliverList.builder(
-          itemCount: entries.length,
-          itemBuilder: (context, index) {
-            final entry = entries[index];
-            if (entry is _HistoryDayHeaderEntry) {
-              return _HistoryDayHeader(
-                dayKey: entry.dayKey,
-                isFirstGroup: entry.isFirstGroup,
-              );
-            }
-            if (entry is _PerMemberHistoryRowEntry) {
-              return _HistoryRowSurface(
-                isLastInGroup: entry.isLastInGroup,
-                child: entry.slice.session.isSleep
-                    ? _InlineSleepTile(displaySession: entry.slice)
-                    : _PerMemberSessionTile(
-                        slice: entry.slice,
-                        isLatest: entry.isLatest,
-                        membersMap: membersMap,
-                      ),
-              );
-            }
-            return const SizedBox.shrink();
-          },
-        );
+        return _GroupedHistorySliver(sections: sections);
       },
     );
   }
@@ -949,92 +946,22 @@ class _PerMemberDayGroup {
   final List<DisplaySession> entries;
 }
 
-sealed class _HistoryListEntry {
-  const _HistoryListEntry();
-}
-
-class _HistoryDayHeaderEntry extends _HistoryListEntry {
-  const _HistoryDayHeaderEntry({
-    required this.dayKey,
-    required this.isFirstGroup,
-  });
+/// A single day's worth of history rows, rendered together as one grouped
+/// card by [_GroupedHistorySliver].
+class _HistoryDaySection {
+  const _HistoryDaySection({required this.dayKey, required this.rows});
 
   final String dayKey;
-  final bool isFirstGroup;
+  final List<_HistoryRow> rows;
 }
 
-class _CombinedHistoryRowEntry extends _HistoryListEntry {
-  const _CombinedHistoryRowEntry({
-    required this.item,
-    required this.isLatest,
-    required this.isLastInGroup,
-  });
+/// One row in a day section. [isSleep] selects the divider inset; [buildChild]
+/// builds the tile lazily, so off-screen rows never construct one.
+class _HistoryRow {
+  const _HistoryRow({required this.buildChild, required this.isSleep});
 
-  final HistoryDisplayItem item;
-  final bool isLatest;
-  final bool isLastInGroup;
-}
-
-class _PerMemberHistoryRowEntry extends _HistoryListEntry {
-  const _PerMemberHistoryRowEntry({
-    required this.slice,
-    required this.isLatest,
-    required this.isLastInGroup,
-  });
-
-  final DisplaySession slice;
-  final bool isLatest;
-  final bool isLastInGroup;
-}
-
-List<_HistoryListEntry> _combinedHistoryEntries(List<HistoryDayGroup> groups) {
-  final entries = <_HistoryListEntry>[];
-  for (var groupIndex = 0; groupIndex < groups.length; groupIndex++) {
-    final group = groups[groupIndex];
-    entries.add(
-      _HistoryDayHeaderEntry(
-        dayKey: group.dayKey,
-        isFirstGroup: groupIndex == 0,
-      ),
-    );
-    for (var itemIndex = 0; itemIndex < group.items.length; itemIndex++) {
-      entries.add(
-        _CombinedHistoryRowEntry(
-          item: group.items[itemIndex],
-          isLatest: groupIndex == 0 && itemIndex == 0,
-          isLastInGroup: itemIndex == group.items.length - 1,
-        ),
-      );
-    }
-  }
-  return entries;
-}
-
-List<_HistoryListEntry> _perMemberHistoryEntries(
-  List<String> dayKeys,
-  Map<String, _PerMemberDayGroup> groupsByKey,
-) {
-  final entries = <_HistoryListEntry>[];
-  for (var groupIndex = 0; groupIndex < dayKeys.length; groupIndex++) {
-    final group = groupsByKey[dayKeys[groupIndex]];
-    if (group == null) continue;
-    entries.add(
-      _HistoryDayHeaderEntry(
-        dayKey: group.dayKey,
-        isFirstGroup: groupIndex == 0,
-      ),
-    );
-    for (var itemIndex = 0; itemIndex < group.entries.length; itemIndex++) {
-      entries.add(
-        _PerMemberHistoryRowEntry(
-          slice: group.entries[itemIndex],
-          isLatest: groupIndex == 0 && itemIndex == 0,
-          isLastInGroup: itemIndex == group.entries.length - 1,
-        ),
-      );
-    }
-  }
-  return entries;
+  final Widget Function() buildChild;
+  final bool isSleep;
 }
 
 class _HistoryDayHeader extends StatelessWidget {
@@ -1052,34 +979,232 @@ class _HistoryDayHeader extends StatelessWidget {
   }
 }
 
-class _HistoryRowSurface extends StatelessWidget {
-  const _HistoryRowSurface({required this.child, required this.isLastInGroup});
+/// Day-grouped history as one card per day, over a single flat, lazy
+/// [SliverList.builder]: day sections are flattened to interleaved header/row
+/// items so only on-screen items build — no per-day sliver, no
+/// `SliverMainAxisGroup`, so cost is O(visible) not O(dayCount).
+///
+/// Each day's card is faked per row — a clipped fill plus
+/// [_GroupedCardBorderPainter] stroking only that row's outer edges, with inset
+/// dividers between — so the grouped look survives without an eager whole-day
+/// build.
+class _GroupedHistorySliver extends StatelessWidget {
+  const _GroupedHistorySliver({required this.sections});
 
-  final Widget child;
-  final bool isLastInGroup;
+  final List<_HistoryDaySection> sections;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final radius = PrismShapes.of(context).radius(PrismTokens.radiusMedium);
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(radius),
-      side: BorderSide(
-        color: theme.colorScheme.outlineVariant.withValues(
-          alpha: theme.brightness == Brightness.dark ? 0.50 : 0.52,
-        ),
-      ),
+    final cardColor = theme.cardColor;
+    final borderColor = theme.colorScheme.outlineVariant.withValues(
+      alpha: theme.brightness == Brightness.dark ? 0.50 : 0.52,
     );
-    return Padding(
-      padding: EdgeInsets.fromLTRB(12, 0, 12, isLastInGroup ? 0 : 6),
-      child: Material(
-        color: theme.cardColor,
-        shape: shape,
-        clipBehavior: Clip.antiAlias,
-        child: FrontingHistoryRowMarker(child: child),
-      ),
+    final dividerColor = theme.colorScheme.onSurface.withValues(alpha: 0.08);
+
+    final items = <_HistoryListItem>[];
+    for (var s = 0; s < sections.length; s++) {
+      final section = sections[s];
+      items.add(
+        _HistoryHeaderItem(dayKey: section.dayKey, isFirstGroup: s == 0),
+      );
+      final rows = section.rows;
+      for (var i = 0; i < rows.length; i++) {
+        final edge = rows.length == 1
+            ? _CardEdge.single
+            : i == 0
+            ? _CardEdge.top
+            : i == rows.length - 1
+            ? _CardEdge.bottom
+            : _CardEdge.middle;
+        final showDivider = i < rows.length - 1;
+        items.add(
+          _HistoryRowItem(
+            buildChild: rows[i].buildChild,
+            edge: edge,
+            showDivider: showDivider,
+            dividerInset:
+                showDivider && (rows[i].isSleep || rows[i + 1].isSleep)
+                ? 16
+                : 64,
+          ),
+        );
+      }
+    }
+
+    return SliverList.builder(
+      itemCount: items.length,
+      itemBuilder: (context, index) => switch (items[index]) {
+        _HistoryHeaderItem(:final dayKey, :final isFirstGroup) =>
+          _HistoryDayHeader(dayKey: dayKey, isFirstGroup: isFirstGroup),
+        _HistoryRowItem(
+          :final buildChild,
+          :final edge,
+          :final showDivider,
+          :final dividerInset,
+        ) =>
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Material(
+              color: cardColor,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: edge.borderRadius(radius),
+              ),
+              child: CustomPaint(
+                foregroundPainter: _GroupedCardBorderPainter(
+                  edge: edge,
+                  radius: radius,
+                  color: borderColor,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FrontingHistoryRowMarker(child: buildChild()),
+                    if (showDivider)
+                      Divider(
+                        height: 1,
+                        indent: dividerInset,
+                        endIndent: 12,
+                        color: dividerColor,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      },
     );
   }
+}
+
+/// Position of a row within its day card. Determines which corners are rounded
+/// and which border edges the row paints.
+enum _CardEdge {
+  single,
+  top,
+  middle,
+  bottom;
+
+  bool get roundTop => this == _CardEdge.single || this == _CardEdge.top;
+  bool get roundBottom => this == _CardEdge.single || this == _CardEdge.bottom;
+
+  BorderRadius borderRadius(double radius) => BorderRadius.vertical(
+    top: roundTop ? Radius.circular(radius) : Radius.zero,
+    bottom: roundBottom ? Radius.circular(radius) : Radius.zero,
+  );
+}
+
+sealed class _HistoryListItem {
+  const _HistoryListItem();
+}
+
+class _HistoryHeaderItem extends _HistoryListItem {
+  const _HistoryHeaderItem({required this.dayKey, required this.isFirstGroup});
+
+  final String dayKey;
+  final bool isFirstGroup;
+}
+
+class _HistoryRowItem extends _HistoryListItem {
+  const _HistoryRowItem({
+    required this.buildChild,
+    required this.edge,
+    required this.showDivider,
+    required this.dividerInset,
+  });
+
+  final Widget Function() buildChild;
+  final _CardEdge edge;
+  final bool showDivider;
+  final double dividerInset;
+}
+
+/// Strokes only the edges a row owns — sides always, top on a day's first row,
+/// bottom on its last — so stacked rows form one continuous border with no
+/// doubled seams. Drawn inside the row's rounded clip, so corners stay crisp.
+class _GroupedCardBorderPainter extends CustomPainter {
+  _GroupedCardBorderPainter({
+    required this.edge,
+    required this.radius,
+    required this.color,
+  });
+
+  static const double _stroke = 1.0;
+
+  final _CardEdge edge;
+  final double radius;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _stroke;
+
+    const half = _stroke / 2;
+    const l = half;
+    const t = half;
+    final rt = size.width - half;
+    final b = size.height - half;
+    // Clamp before insetting by the stroke so an oversized radius can't cross
+    // the side joins (mirrors Flutter's clip normalisation); 0 in angular mode.
+    final clampedRadius = math.min(
+      radius,
+      math.min(size.width, size.height) / 2,
+    );
+    final r = math.max(0.0, clampedRadius - half);
+
+    // Sides run edge-to-edge on unrounded corners (meeting the next row with no
+    // gap), stopping short by `r` where an arc takes over.
+    final topJoin = edge.roundTop ? t + r : 0.0;
+    final bottomJoin = edge.roundBottom ? b - r : size.height;
+
+    final path = Path()
+      ..moveTo(l, topJoin)
+      ..lineTo(l, bottomJoin)
+      ..moveTo(rt, topJoin)
+      ..lineTo(rt, bottomJoin);
+
+    if (edge.roundTop) {
+      path
+        ..addArc(
+          Rect.fromCircle(center: Offset(l + r, t + r), radius: r),
+          math.pi,
+          math.pi / 2,
+        )
+        ..moveTo(l + r, t)
+        ..lineTo(rt - r, t)
+        ..addArc(
+          Rect.fromCircle(center: Offset(rt - r, t + r), radius: r),
+          3 * math.pi / 2,
+          math.pi / 2,
+        );
+    }
+    if (edge.roundBottom) {
+      path
+        ..addArc(
+          Rect.fromCircle(center: Offset(rt - r, b - r), radius: r),
+          0,
+          math.pi / 2,
+        )
+        ..moveTo(rt - r, b)
+        ..lineTo(l + r, b)
+        ..addArc(
+          Rect.fromCircle(center: Offset(l + r, b - r), radius: r),
+          math.pi / 2,
+          math.pi / 2,
+        );
+    }
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GroupedCardBorderPainter old) =>
+      old.edge != edge || old.radius != radius || old.color != color;
 }
 
 Widget _combinedHistoryTile({
