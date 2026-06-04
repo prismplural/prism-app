@@ -73,10 +73,29 @@ class TestRelay {
   void stop() => _process.kill();
 }
 
-/// Spawn the test relay on an ephemeral localhost port and wait until it prints
-/// its URL (and is serving — confirmed via /health).
-Future<TestRelay> spawnRelay() async {
-  final proc = await Process.start(resolveRelayBinary(), const []);
+/// Bind an ephemeral localhost port, release it, and return the number — for
+/// pre-allocating a fixed port a restartable relay can re-bind.
+Future<int> findFreePort() async {
+  final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+  final port = socket.port;
+  await socket.close();
+  return port;
+}
+
+/// Spawn the test relay and wait until it's serving (confirmed via /health).
+///
+/// With [port] and [dbPath] the relay binds a FIXED port and a persistent file
+/// DB, so it can be killed and restarted on the same URL with the same state
+/// (used by the outage/recovery chaos test). Defaults: ephemeral port + in-memory.
+Future<TestRelay> spawnRelay({int? port, String? dbPath}) async {
+  final env = <String, String>{};
+  if (port != null) env['TEST_RELAY_PORT'] = '$port';
+  if (dbPath != null) env['TEST_RELAY_DB'] = dbPath;
+  final proc = await Process.start(
+    resolveRelayBinary(),
+    const [],
+    environment: env.isEmpty ? null : env,
+  );
   final urlCompleter = Completer<String>();
   proc.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
     if (line.startsWith('RELAY_URL=') && !urlCompleter.isCompleted) {
