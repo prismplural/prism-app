@@ -179,6 +179,10 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
+                  if (isKeychainUnreadable) ...[
+                    const SizedBox(height: 20),
+                    _buildKeychainChecklist(colorScheme),
+                  ],
                   if (_notice != null) ...[
                     const SizedBox(height: 16),
                     Text(
@@ -256,10 +260,13 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
   }
 
   List<Widget> _buildKeychainUnreadableActions(ColorScheme colorScheme) {
+    // Reset leads because it's the only action that clears this state; re-pair
+    // is the "keep your data" path for synced users. The restart action is a
+    // no-op here, so it's demoted to a text link rather than read as the fix.
     return [
       PrismButton(
-        label: 'Restart and unlock once and try again',
-        onPressed: _restartAndTryAgain,
+        label: 'Reset local data and start fresh',
+        onPressed: _confirmAndResetLocalData,
         enabled: !_busy,
         tone: PrismButtonTone.filled,
       ),
@@ -271,13 +278,22 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
         tone: PrismButtonTone.outlined,
       ),
       const SizedBox(height: 8),
-      PrismButton(
-        label: 'Reset local data',
-        onPressed: _confirmAndResetLocalData,
-        enabled: !_busy,
-        tone: PrismButtonTone.destructive,
+      Text(
+        'If you set up Sync on another device, re-pair instead to keep your '
+        'data.',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: 12),
+      TextButton(
+        onPressed: _busy ? null : _restartAndTryAgain,
+        child: Text(
+          'Try again after restarting',
+          style: TextStyle(color: colorScheme.onSurfaceVariant),
+        ),
+      ),
       TextButton(
         onPressed: _busy ? null : _saveDiagnosticReport,
         child: Text(
@@ -286,6 +302,152 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
         ),
       ),
     ];
+  }
+
+  /// Status rows in place of prose. The per-slot breakdown distinguishes
+  /// `missing` (key file gone) from `cipher` (present but undecryptable) for
+  /// support. The data row uses a neutral lock, not a green check — locked
+  /// data the key can't open isn't good news; the only ✅/❌ is the key.
+  Widget _buildKeychainChecklist(ColorScheme colorScheme) {
+    final diag = _resolveDiagnostic();
+    // No diagnostic to reason from (non-boot callers / tests) — don't claim
+    // "no data" when we don't know.
+    if (diag == null) {
+      return _statusRow(
+        colorScheme,
+        icon: Icons.help_outline,
+        color: colorScheme.onSurfaceVariant,
+        label: "Couldn't read storage details on this device",
+      );
+    }
+    final slotOutcomes = diag.slotOutcomes;
+
+    // Positive signals, not the absence of a marker: the "DB exists but
+    // unreadable" paths populate a recovery slot, the fresh-install path
+    // populates `app_db_fresh`, and a probe throw populates neither — leave
+    // that case "unknown" rather than asserting a DB file exists.
+    const recoverySlotKeys = {
+      DiagnosticSlotIds.appDbPrimary,
+      DiagnosticSlotIds.appDbSync,
+      DiagnosticSlotIds.appDbPrimaryStaging,
+      DiagnosticSlotIds.appDbSyncStaging,
+    };
+    final probedExistingDb = slotOutcomes.keys.any(recoverySlotKeys.contains);
+    final triedFreshKey = slotOutcomes.containsKey(DiagnosticSlotIds.appDbFresh);
+
+    final (IconData dataIcon, Color dataColor, String dataLabel) =
+        probedExistingDb
+        ? (
+            Icons.lock_outline,
+            Colors.amber.shade700,
+            'Encrypted data is on this device, locked',
+          )
+        : triedFreshKey
+        ? (
+            Icons.info_outline,
+            colorScheme.onSurfaceVariant,
+            'No saved data found on this device',
+          )
+        : (
+            Icons.help_outline,
+            colorScheme.onSurfaceVariant,
+            "Couldn't determine local data on this device",
+          );
+
+    // Key off the app-DB outcome, not the merged `recoveredVia`: a healthy
+    // sync DB can leave `recoveredVia: 'fresh'` after the merge even when the
+    // app DB key is gone, which would otherwise show a green check on the very
+    // screen that exists because the key is unreadable.
+    final keyReadable = diag.appDbState == DbStartupStateName.ready;
+
+    final okColor = Colors.green.shade600;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _statusRow(
+          colorScheme,
+          icon: dataIcon,
+          color: dataColor,
+          label: dataLabel,
+        ),
+        _statusRow(
+          colorScheme,
+          icon: keyReadable ? Icons.check_circle : Icons.cancel,
+          color: keyReadable ? okColor : colorScheme.error,
+          label: 'Encryption key can be read',
+        ),
+        if (slotOutcomes.isNotEmpty)
+          Theme(
+            data: Theme.of(
+              context,
+            ).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(left: 8, bottom: 8),
+              title: Text(
+                'Details',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              children: [
+                for (final entry in slotOutcomes.entries)
+                  _statusRow(
+                    colorScheme,
+                    icon: entry.value == 'ok'
+                        ? Icons.check_circle
+                        : Icons.cancel,
+                    color: entry.value == 'ok' ? okColor : colorScheme.error,
+                    label: '${entry.key}: ${entry.value}',
+                    dense: true,
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _statusRow(
+    ColorScheme colorScheme, {
+    required IconData icon,
+    required Color color,
+    required String label,
+    bool dense = false,
+  }) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: dense ? 2 : 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: dense ? 16 : 20, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: dense
+                  ? Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    )
+                  : Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Resolve the boot diagnostic from the constructor arg, falling back to the
+  /// Riverpod provider (mirrors [_buildDiagnosticJson]'s lookup).
+  SecureStorageDiagnostic? _resolveDiagnostic() {
+    if (widget.diagnostic != null) return widget.diagnostic;
+    try {
+      final container = ProviderScope.containerOf(context, listen: false);
+      return container.read(bootSecureStorageDiagnosticProvider);
+    } catch (_) {
+      return null;
+    }
   }
 
   String get _title => switch (_mode) {
@@ -307,9 +469,7 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
     ResetRecoveryScreenMode.sentinelRestored =>
       'Close and reopen Prism to continue with the existing local data.',
     ResetRecoveryScreenMode.keychainUnreadable =>
-      "Prism's encryption keys for this device are unreadable. This usually "
-          'happens after an OS update or interrupted app update. Your data is '
-          'still here, but Prism cannot decrypt it on this device.',
+      "Prism can't read the encryption key for this device's data.",
   };
 
   Future<void> _loadContinueAvailability() async {
@@ -431,20 +591,10 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
   }
 
   String _buildDiagnosticJson() {
-    // Prefer the diagnostic passed via the constructor (the boot path
-    // threads it in directly). Fall back to the Riverpod provider for
-    // in-app callers — settings screen etc. — that don't have a
-    // reference handy. Pretty-printed so users can read the file.
-    SecureStorageDiagnostic? diag = widget.diagnostic;
-    if (diag == null) {
-      try {
-        final container = ProviderScope.containerOf(context, listen: false);
-        diag = container.read(bootSecureStorageDiagnosticProvider);
-      } catch (_) {
-        // No ProviderScope ancestor (e.g. direct ResetRecoveryScreen use
-        // in tests). Tolerate; the diagnostic just stays null.
-      }
-    }
+    // Prefer the diagnostic passed via the constructor (the boot path threads
+    // it in directly), falling back to the Riverpod provider for in-app
+    // callers. Pretty-printed so users can read the file.
+    final diag = _resolveDiagnostic();
     const encoder = JsonEncoder.withIndent('  ');
     final payload = <String, Object?>{
       'prism_diagnostic_version': 1,

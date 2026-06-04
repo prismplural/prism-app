@@ -421,6 +421,9 @@ Future<DbStartupReport> _safeProbeAppDb() async {
       usedRecoverySlot: null,
       diagnostic: SecureStorageDiagnostic(
         recoveredVia: null,
+        // Stamp the terminal state so a healthy sync probe's `recoveredVia`
+        // can't mask app DB data loss in the merge (see mergeWith).
+        appDbState: DbStartupStateName.unrecoverable,
         slotOutcomes: <String, String>{'probe': 'threw: $e'},
       ),
     );
