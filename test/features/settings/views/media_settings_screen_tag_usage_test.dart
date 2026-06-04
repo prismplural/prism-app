@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart';
 import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
@@ -14,10 +17,74 @@ import 'package:prism_plurality/features/members/providers/custom_fields_provide
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
+import 'package:prism_plurality/features/settings/utils/tag_usage_scan.dart';
 import 'package:prism_plurality/features/settings/views/media_settings_screen.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/l10n/app_localizations_en.dart';
+import 'package:prism_plurality/shared/widgets/modal_side_sheet_marker.dart';
 
 void main() {
+  group('TagUsageScreen', () {
+    testWidgets(
+      'on narrow display tapping a bio usage pushes the settings member route',
+      (tester) async {
+        // 600 logical pixels — below the 900px side-sheet threshold, so
+        // TagUsageScreen is a plain pushed route with no ModalSideSheetMarker.
+        tester.view.physicalSize = const Size(600, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        const memberRoute = '/settings/members/member-1';
+        final usages = [
+          const TagUsageRef(
+            kind: TagUsageKind.bio,
+            label: "Alex's bio",
+            route: memberRoute,
+          ),
+        ];
+
+        final router = GoRouter(
+          initialLocation: AppRoutePaths.settingsMediaUsage,
+          routes: [
+            GoRoute(
+              path: AppRoutePaths.settingsMediaUsage,
+              builder: (_, state) => TagUsageScreen(usages: usages),
+            ),
+            GoRoute(
+              path: '/settings/members/:id',
+              builder: (_, _) => const Scaffold(body: Text('member-route')),
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp.router(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: const [Locale('en')],
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          ModalSideSheetMarker.of(
+            tester.element(find.byType(TagUsageScreen)),
+          ),
+          isFalse,
+        );
+        expect(find.text("Alex's bio"), findsOneWidget);
+
+        await tester.tap(find.text("Alex's bio"));
+        await tester.pumpAndSettle();
+
+        expect(find.text('member-route'), findsOneWidget);
+      },
+    );
+  });
+
   group('tagUsageProvider', () {
     test(
       'does not read Ref after auto-dispose during async usage scan',

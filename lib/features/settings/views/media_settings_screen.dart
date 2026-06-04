@@ -31,6 +31,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/remote_image_fetcher.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/modal_side_sheet_marker.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
@@ -1543,11 +1544,26 @@ class TagUsageScreen extends StatelessWidget {
                   semanticLabel:
                       '${usage.label}. ${_usageKindLabel(l10n, usage.kind)}.',
                   onTap: () {
-                    if (usage.kind == TagUsageKind.chat ||
-                        usage.kind == TagUsageKind.boardPost) {
-                      context.go(usage.route);
+                    if (ModalSideSheetMarker.of(context)) {
+                      // The usage list is a root-navigator modal; GoRouter
+                      // pushes land below it. Pop first, then navigate.
+                      final router = GoRouter.of(context);
+                      final route = usage.route;
+                      final kind = usage.kind;
+                      Navigator.of(context, rootNavigator: true).pop();
+                      if (kind == TagUsageKind.chat ||
+                          kind == TagUsageKind.boardPost) {
+                        router.go(route);
+                      } else {
+                        unawaited(router.push(route));
+                      }
                     } else {
-                      unawaited(context.push(usage.route));
+                      if (usage.kind == TagUsageKind.chat ||
+                          usage.kind == TagUsageKind.boardPost) {
+                        context.go(usage.route);
+                      } else {
+                        unawaited(context.push(usage.route));
+                      }
                     }
                   },
                   child: Row(
