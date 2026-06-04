@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +36,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/widgets/clamped_body.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
@@ -241,6 +243,7 @@ class MediaSettingsScreen extends ConsumerWidget {
     final membersAsync = ref.watch(allMembersProvider);
 
     return PrismPageScaffold(
+      topBarMaxWidth: PrismTokens.contentMaxWidth,
       topBar: PrismTopBar(
         title: l10n.mediaScreenTitle,
         showBackButton: branch == MediaNavigationBranch.settings,
@@ -325,9 +328,10 @@ class MediaSettingsScreen extends ConsumerWidget {
             final totalEncryptedCount =
                 libraryImages.length + chatAttachments.length;
 
-            return ListView(
-              padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
-              children: [
+            return ClampedBody(
+              child: ListView(
+                padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
+                children: [
                 // ── Storage overview ──────────────────────────────────────
                 PrismSection(
                   title: l10n.mediaSectionStorage,
@@ -445,6 +449,7 @@ class MediaSettingsScreen extends ConsumerWidget {
                     ),
                   ),
               ],
+              ),
             );
           },
         ),
@@ -938,11 +943,13 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
     final imageAsync = ref.watch(mediaFileProvider(params));
 
     // PrismSection already applies pageHorizontalPadding on both sides.
-    // Subtract that plus the 10px spacing between the two cards.
+    // Clamp to contentMaxWidth so the grid matches the clamped body width.
     final availableWidth =
-        MediaQuery.of(context).size.width -
-        PrismTokens.pageHorizontalPadding * 2;
-    final cardWidth = (availableWidth - 10) / 2;
+        math.min(
+          MediaQuery.of(context).size.width,
+          PrismTokens.contentMaxWidth,
+        ) - PrismTokens.pageHorizontalPadding * 2;
+    final cardWidth = (availableWidth - 10 * 2) / 3;
 
     return SizedBox(
       width: cardWidth,
