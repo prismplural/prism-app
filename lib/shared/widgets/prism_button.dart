@@ -316,9 +316,14 @@ class _PrismButtonContent extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         ?iconWidget,
-        ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxTextWidth),
-          child: text,
+        // Flexible lets the text shrink when the parent constrains the row
+        // (e.g. inside a dialog action wrap); the ConstrainedBox caps the
+        // text in unbounded contexts where Flexible has no effect.
+        Flexible(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxTextWidth),
+            child: text,
+          ),
         ),
       ],
     );

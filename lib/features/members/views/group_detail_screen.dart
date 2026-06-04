@@ -254,111 +254,124 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
       topBarMaxWidth: PrismTokens.contentMaxWidth,
       bodyPadding: EdgeInsets.zero,
       body: ClampedBody(
-        child: ListView(
-          padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _GroupInfoHeader(group: group, ancestors: ancestors),
+        child: CustomScrollView(
+          slivers: [
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _GroupInfoHeader(group: group, ancestors: ancestors),
+              ),
             ),
-            const SizedBox(height: 24),
-            _SubGroupsSection(
-              groupId: group.id,
-              branch: branch,
-              canAddSubGroup: canAddSubGroup,
-              onAddSubGroup: () => _addSubGroup(context),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(
+              child: _SubGroupsSection(
+                groupId: group.id,
+                branch: branch,
+                canAddSubGroup: canAddSubGroup,
+                onAddSubGroup: () => _addSubGroup(context),
+              ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
-              child: Row(
-                children: [
-                  Icon(
-                    AppIcons.peopleOutline,
-                    size: 18,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      l10n.memberGroupSectionMembers(terms.plural),
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600,
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+                child: Row(
+                  children: [
+                    Icon(
+                      AppIcons.peopleOutline,
+                      size: 18,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.memberGroupSectionMembers(terms.plural),
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
-                  _GroupSortBadge(
-                    sortMode: group.sortState.mode,
-                    onTap: () => _optionsPopupKey.currentState?.show(),
-                  ),
-                  PrismInlineIconButton(
-                    icon: AppIcons.personAddOutlined,
-                    tooltip: l10n.memberGroupAddMember(terms.singularLower),
-                    size: 32,
-                    iconSize: 20,
-                    color: theme.colorScheme.primary,
-                    onPressed: () => _addMember(context, ref),
-                  ),
-                ],
+                    _GroupSortBadge(
+                      sortMode: group.sortState.mode,
+                      onTap: () => _optionsPopupKey.currentState?.show(),
+                    ),
+                    PrismInlineIconButton(
+                      icon: AppIcons.personAddOutlined,
+                      tooltip: l10n.memberGroupAddMember(terms.singularLower),
+                      size: 32,
+                      iconSize: 20,
+                      color: theme.colorScheme.primary,
+                      onPressed: () => _addMember(context, ref),
+                    ),
+                  ],
+                ),
               ),
             ),
             entriesAsync.when(
               skipLoadingOnReload: true,
-              loading: () =>
-                  const SizedBox(height: _groupDetailRowsLoadingHeight),
-              error: (e, _) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(l10n.memberGroupErrorLoadingDetail(e)),
+              loading: () => const SliverToBoxAdapter(
+                child: SizedBox(height: _groupDetailRowsLoadingHeight),
+              ),
+              error: (e, _) => SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(l10n.memberGroupErrorLoadingDetail(e)),
+                ),
               ),
               data: (entries) {
                 if (entries.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
-                    child: EmptyState(
-                      icon: Icon(AppIcons.personAddOutlined),
-                      title: l10n.memberGroupNoMembers(terms.pluralLower),
-                      subtitle: l10n.memberGroupNoMembersSubtitle(
-                        terms.pluralLower,
+                  return SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      child: EmptyState(
+                        icon: Icon(AppIcons.personAddOutlined),
+                        title: l10n.memberGroupNoMembers(terms.pluralLower),
+                        subtitle: l10n.memberGroupNoMembersSubtitle(
+                          terms.pluralLower,
+                        ),
                       ),
                     ),
                   );
                 }
                 if (providerVisiblePairsInitialLoading) {
-                  return const SizedBox(height: _groupDetailRowsLoadingHeight);
+                  return const SliverToBoxAdapter(
+                    child: SizedBox(height: _groupDetailRowsLoadingHeight),
+                  );
                 }
                 final visiblePairsError = providerVisiblePairsInitialError;
                 if (visiblePairsError != null) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      l10n.memberGroupErrorLoadingDetail(visiblePairsError),
+                  return SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        l10n.memberGroupErrorLoadingDetail(visiblePairsError),
+                      ),
                     ),
                   );
                 }
                 if (visiblePairs.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
-                    child: EmptyState(
-                      icon: Icon(AppIcons.visibilityOffOutlined),
-                      title: l10n.memberGroupAllInactiveHiddenTitle,
-                      subtitle: l10n.memberGroupAllInactiveHiddenSubtitle(
-                        terms.pluralLower,
+                  return SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      child: EmptyState(
+                        icon: Icon(AppIcons.visibilityOffOutlined),
+                        title: l10n.memberGroupAllInactiveHiddenTitle,
+                        subtitle: l10n.memberGroupAllInactiveHiddenSubtitle(
+                          terms.pluralLower,
+                        ),
                       ),
                     ),
                   );
                 }
 
-                return ReorderableListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  buildDefaultDragHandles: false,
+                return SliverReorderableList(
                   itemCount: visiblePairs.length,
                   onReorder: (oldIndex, newIndex) {
                     _onReorder(visiblePairs, oldIndex, newIndex);
@@ -396,6 +409,9 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
                   },
                 );
               },
+            ),
+            SliverPadding(
+              padding: EdgeInsets.only(bottom: NavBarInset.of(context) + 32),
             ),
           ],
         ),

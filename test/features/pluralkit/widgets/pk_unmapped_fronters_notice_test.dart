@@ -294,6 +294,13 @@ void main() {
       expect(_FakePluralKitSyncNotifier.manualFlags, [false]);
       expect(syncService.importedRefs, isEmpty);
       expect(_events, ['sync:pullOnly']);
+
+      // In this bailout path, the import returns null instead of taking the
+      // success branch that pops the sheet via Navigator. Dismiss the sheet
+      // explicitly so its modal route's barrier animation doesn't leak a
+      // timer past test teardown.
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
     },
   );
 }

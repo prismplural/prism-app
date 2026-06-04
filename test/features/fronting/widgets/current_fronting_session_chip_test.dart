@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/fronting/providers/derived_periods_prov
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_history_list.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
@@ -58,6 +59,7 @@ void main() {
           membersByIdsProvider.overrideWith(
             (ref, _) => Stream.value({'member-1': member}),
           ),
+          allMemberListProvider.overrideWith((ref) => Stream.value([member])),
         ],
         child: MaterialApp.router(
           routerConfig: router,

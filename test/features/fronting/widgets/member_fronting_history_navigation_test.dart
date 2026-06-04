@@ -125,6 +125,7 @@ void main() {
           membersByIdsProvider.overrideWith(
             (ref, ids) => Stream.value({member.id: member}),
           ),
+          allMemberListProvider.overrideWith((ref) => Stream.value([member])),
           systemSettingsProvider.overrideWith(
             (ref) => Stream.value(const SystemSettings()),
           ),
@@ -263,6 +264,7 @@ void main() {
           membersByIdsProvider.overrideWith(
             (ref, ids) => Stream.value({member.id: member}),
           ),
+          allMemberListProvider.overrideWith((ref) => Stream.value([member])),
           sessionByIdProvider(
             session.id,
           ).overrideWith((ref) => Stream.value(session)),

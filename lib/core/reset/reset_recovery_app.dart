@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/services/secure_storage_diagnostic.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
 
 enum ResetRecoveryScreenMode {
   restartRequired,
@@ -378,32 +379,28 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
           label: 'Encryption key can be read',
         ),
         if (slotOutcomes.isNotEmpty)
-          Theme(
-            data: Theme.of(
-              context,
-            ).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: const EdgeInsets.only(left: 8, bottom: 8),
-              title: Text(
-                'Details',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+          PrismExpandableSection(
+            headerPadding: EdgeInsets.zero,
+            contentPadding: const EdgeInsets.only(left: 8, bottom: 8),
+            contentSpacing: 0,
+            title: Text(
+              'Details',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
               ),
-              children: [
-                for (final entry in slotOutcomes.entries)
-                  _statusRow(
-                    colorScheme,
-                    icon: entry.value == 'ok'
-                        ? Icons.check_circle
-                        : Icons.cancel,
-                    color: entry.value == 'ok' ? okColor : colorScheme.error,
-                    label: '${entry.key}: ${entry.value}',
-                    dense: true,
-                  ),
-              ],
             ),
+            children: [
+              for (final entry in slotOutcomes.entries)
+                _statusRow(
+                  colorScheme,
+                  icon: entry.value == 'ok'
+                      ? Icons.check_circle
+                      : Icons.cancel,
+                  color: entry.value == 'ok' ? okColor : colorScheme.error,
+                  label: '${entry.key}: ${entry.value}',
+                  dense: true,
+                ),
+            ],
           ),
       ],
     );

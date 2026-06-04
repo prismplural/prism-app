@@ -19,6 +19,7 @@ import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
 import 'package:prism_plurality/features/fronting/views/period_detail_args.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_history_list.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
@@ -52,6 +53,9 @@ Widget _buildSubject({
       unifiedHistoryProvider.overrideWith((ref) => Stream.value(sessions)),
       derivedPeriodsProvider.overrideWith((ref) => AsyncValue.data(periods)),
       membersByIdsProvider.overrideWith((ref, _) => Stream.value(members)),
+      allMemberListProvider.overrideWith(
+        (ref) => Stream.value(members.values.toList()),
+      ),
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
