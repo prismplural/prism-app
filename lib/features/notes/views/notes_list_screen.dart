@@ -11,6 +11,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/note.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/notes/providers/pending_note_selection_provider.dart';
 import 'package:prism_plurality/features/members/widgets/note_editor.dart';
 import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
@@ -59,6 +60,19 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
   Widget build(BuildContext context) {
     final notesAsync = ref.watch(allNotesProvider);
     final l10n = context.l10n;
+
+    // Honour a one-shot request to open a specific note in the pane (e.g. from
+    // the media-usage list), applied after this frame so it can setState
+    // safely. Only issued while the deep-linking sheet is up, i.e. on wide
+    // windows where the pane is shown.
+    final pendingNote = ref.watch(pendingNoteSelectionProvider);
+    if (pendingNote != null && pendingNote != selectedDetailId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(pendingNoteSelectionProvider.notifier).clear();
+        setState(() => selectedDetailId = pendingNote);
+      });
+    }
 
     // Each pane owns its top bar so they sit side by side in two-pane mode:
     // the notes bar is scoped to the list pane, and the note detail fills its

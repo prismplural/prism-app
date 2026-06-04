@@ -16,6 +16,7 @@ import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/media_state_providers.dart';
+import 'package:prism_plurality/features/chat/providers/pending_conversation_selection_provider.dart';
 import 'package:prism_plurality/features/chat/widgets/media/image_viewer.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/services/bio_image_processor.dart';
@@ -25,7 +26,8 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
-import 'package:prism_plurality/features/members/views/note_detail_screen.dart';
+import 'package:prism_plurality/features/notes/providers/pending_note_selection_provider.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/utils/tag_reference_rewriter.dart';
 import 'package:prism_plurality/features/settings/utils/tag_usage_scan.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -1166,15 +1168,32 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
         builder: (_) => TagUsageScreen(
           usages: widget.usedBy,
           onNavigate: (sheetContext, usage) {
-            final detail = usageDetailSheet(usage);
-            if (detail != null) {
-              // Settings-area target: stack it over the usage sheet so closing
-              // it returns to the list.
-              showDetailSideSheet(sheetContext, builder: (_) => detail);
-            } else {
-              // Chat / board posts live in other tabs: dismiss and jump there.
-              if (rootNavigator.canPop()) rootNavigator.pop();
-              router.go(usage.route);
+            final flags = ref.read(featureFlagsProvider);
+            final action = usageTapAction(
+              usage,
+              chatEnabled: flags.chat,
+              notesEnabled: flags.notes,
+            );
+            switch (action) {
+              case StackDetailSheet(:final screen):
+                // Self-contained target: stack it over the usage sheet so
+                // closing it returns to the list.
+                showDetailSideSheet(sheetContext, builder: (_) => screen);
+              case OpenChatPane(:final conversationId):
+                // Open the conversation in the chat tab's detail pane.
+                ref
+                    .read(pendingConversationSelectionProvider.notifier)
+                    .request(conversationId);
+                if (rootNavigator.canPop()) rootNavigator.pop();
+                router.go(AppRoutePaths.chat);
+              case OpenNotesPane(:final noteId):
+                // Open the note in the notes tab's detail pane.
+                ref.read(pendingNoteSelectionProvider.notifier).request(noteId);
+                if (rootNavigator.canPop()) rootNavigator.pop();
+                router.go(AppRoutePaths.notes);
+              case NavigateFullScreen(:final route):
+                if (rootNavigator.canPop()) rootNavigator.pop();
+                router.go(route);
             }
           },
         ),
@@ -1621,22 +1640,67 @@ class TagUsageScreen extends StatelessWidget {
   }
 }
 
-/// The Settings-area detail screen for a usage row, presented as a side sheet
-/// stacked over the usage list. Returns null for chat/board-post usages, which
-/// live in other tabs and are navigated to instead. The entity id is the last
-/// path segment of the usage route.
+/// What tapping a usage row should do, from the usage kind, its route, and
+/// whether the target section's tab is enabled. Pure, so it can be unit-tested.
 @visibleForTesting
-Widget? usageDetailSheet(TagUsageRef usage) {
+sealed class UsageTapAction {
+  const UsageTapAction();
+}
+
+/// Stack a self-contained Settings detail screen over the usage list.
+@visibleForTesting
+class StackDetailSheet extends UsageTapAction {
+  const StackDetailSheet(this.screen);
+  final Widget screen;
+}
+
+/// Open the chat tab's list + detail pane with [conversationId] selected.
+@visibleForTesting
+class OpenChatPane extends UsageTapAction {
+  const OpenChatPane(this.conversationId);
+  final String conversationId;
+}
+
+/// Open the notes tab's list + detail pane with [noteId] selected.
+@visibleForTesting
+class OpenNotesPane extends UsageTapAction {
+  const OpenNotesPane(this.noteId);
+  final String noteId;
+}
+
+/// Dismiss the usage sheet and `go` to [route] full-screen — board posts, or a
+/// chat/note whose section tab is disabled.
+@visibleForTesting
+class NavigateFullScreen extends UsageTapAction {
+  const NavigateFullScreen(this.route);
+  final String route;
+}
+
+/// The entity id is the last path segment of the usage route.
+@visibleForTesting
+UsageTapAction usageTapAction(
+  TagUsageRef usage, {
+  required bool chatEnabled,
+  required bool notesEnabled,
+}) {
   final segments = Uri.parse(usage.route).pathSegments;
   final id = segments.isEmpty ? '' : segments.last;
-  if (id.isEmpty) return null;
-  return switch (usage.kind) {
-    TagUsageKind.bio ||
-    TagUsageKind.customField => MemberDetailScreen(memberId: id),
-    TagUsageKind.note => NoteDetailScreen(noteId: id),
-    TagUsageKind.group => GroupDetailScreen(groupId: id),
-    TagUsageKind.chat || TagUsageKind.boardPost => null,
-  };
+  switch (usage.kind) {
+    case TagUsageKind.bio || TagUsageKind.customField:
+      return StackDetailSheet(MemberDetailScreen(memberId: id));
+    case TagUsageKind.group:
+      return StackDetailSheet(GroupDetailScreen(groupId: id));
+    case TagUsageKind.note:
+      return notesEnabled && id.isNotEmpty
+          ? OpenNotesPane(id)
+          : NavigateFullScreen(usage.route);
+    case TagUsageKind.chat:
+      return chatEnabled && id.isNotEmpty
+          ? OpenChatPane(id)
+          : NavigateFullScreen(usage.route);
+    case TagUsageKind.boardPost:
+      return NavigateFullScreen(usage.route);
+  }
 }
 
 IconData _usageIcon(TagUsageKind kind) => switch (kind) {

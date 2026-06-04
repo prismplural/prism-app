@@ -18,7 +18,6 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
-import 'package:prism_plurality/features/members/views/note_detail_screen.dart';
 import 'package:prism_plurality/features/settings/utils/tag_usage_scan.dart';
 import 'package:prism_plurality/features/settings/views/media_settings_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -158,12 +157,12 @@ void main() {
           const TagUsageRef(
             kind: TagUsageKind.chat,
             label: 'A chat message',
-            route: '/chat/conversation/c1?messageId=m1',
+            route: '/chat/c1?messageId=m1',
           ),
         ];
 
-        // Mirrors _showUsage: a cross-tab target (null detail) dismisses the
-        // usage sheet and `go`es to the other tab.
+        // Mirrors _showUsage's OpenChatPane branch: dismiss the usage sheet and
+        // `go` to the chat tab (which then loads the conversation in its pane).
         void openUsage(BuildContext context) {
           final router = GoRouter.of(context);
           final rootNavigator = Navigator.of(context, rootNavigator: true);
@@ -173,7 +172,7 @@ void main() {
               usages: usages,
               onNavigate: (sheetContext, usage) {
                 if (rootNavigator.canPop()) rootNavigator.pop();
-                router.go(usage.route);
+                router.go('/chat');
               },
             ),
           );
@@ -196,8 +195,8 @@ void main() {
               ),
             ),
             GoRoute(
-              path: '/chat/conversation/:id',
-              builder: (_, _) => const Scaffold(body: Text('chat-route')),
+              path: '/chat',
+              builder: (_, _) => const Scaffold(body: Text('chat-tab')),
             ),
           ],
         );
@@ -222,50 +221,103 @@ void main() {
 
         // Usage sheet dismissed, chat tab shown.
         expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
-        expect(find.text('chat-route'), findsOneWidget);
+        expect(find.text('chat-tab'), findsOneWidget);
       },
     );
   });
 
-  group('usageDetailSheet', () {
+  group('usageTapAction', () {
     TagUsageRef ref(TagUsageKind kind, String route) =>
         TagUsageRef(kind: kind, label: '', route: route);
 
-    test('maps bio and custom-field usages to a MemberDetailScreen', () {
-      expect(
-        usageDetailSheet(ref(TagUsageKind.bio, '/settings/members/m1')),
-        isA<MemberDetailScreen>().having((s) => s.memberId, 'memberId', 'm1'),
-      );
-      expect(
-        usageDetailSheet(ref(TagUsageKind.customField, '/settings/members/m2')),
-        isA<MemberDetailScreen>().having((s) => s.memberId, 'memberId', 'm2'),
-      );
-    });
+    UsageTapAction action(
+      TagUsageRef usage, {
+      bool chatEnabled = true,
+      bool notesEnabled = true,
+    }) => usageTapAction(
+      usage,
+      chatEnabled: chatEnabled,
+      notesEnabled: notesEnabled,
+    );
 
-    test('maps note usages to a NoteDetailScreen', () {
+    test('bio and custom-field stack a MemberDetailScreen', () {
       expect(
-        usageDetailSheet(ref(TagUsageKind.note, '/settings/notes/n1')),
-        isA<NoteDetailScreen>().having((s) => s.noteId, 'noteId', 'n1'),
-      );
-    });
-
-    test('maps group usages to a GroupDetailScreen', () {
-      expect(
-        usageDetailSheet(ref(TagUsageKind.group, '/settings/members/groups/g1')),
-        isA<GroupDetailScreen>().having((s) => s.groupId, 'groupId', 'g1'),
-      );
-    });
-
-    test('returns null for chat and board-post usages (other tabs)', () {
-      expect(
-        usageDetailSheet(
-          ref(TagUsageKind.chat, '/chat/conversation/c1?messageId=m1'),
+        action(ref(TagUsageKind.bio, '/settings/members/m1')),
+        isA<StackDetailSheet>().having(
+          (a) => a.screen,
+          'screen',
+          isA<MemberDetailScreen>().having((s) => s.memberId, 'memberId', 'm1'),
         ),
-        isNull,
       );
       expect(
-        usageDetailSheet(ref(TagUsageKind.boardPost, '/boards/posts/p1')),
-        isNull,
+        action(ref(TagUsageKind.customField, '/settings/members/m2')),
+        isA<StackDetailSheet>().having(
+          (a) => a.screen,
+          'screen',
+          isA<MemberDetailScreen>().having((s) => s.memberId, 'memberId', 'm2'),
+        ),
+      );
+    });
+
+    test('group stacks a GroupDetailScreen', () {
+      expect(
+        action(ref(TagUsageKind.group, '/settings/members/groups/g1')),
+        isA<StackDetailSheet>().having(
+          (a) => a.screen,
+          'screen',
+          isA<GroupDetailScreen>().having((s) => s.groupId, 'groupId', 'g1'),
+        ),
+      );
+    });
+
+    test('note opens the notes pane when the notes tab is enabled', () {
+      expect(
+        action(ref(TagUsageKind.note, '/settings/notes/n1')),
+        isA<OpenNotesPane>().having((a) => a.noteId, 'noteId', 'n1'),
+      );
+    });
+
+    test('note falls back to full-screen when the notes tab is disabled', () {
+      expect(
+        action(ref(TagUsageKind.note, '/settings/notes/n1'), notesEnabled: false),
+        isA<NavigateFullScreen>().having(
+          (a) => a.route,
+          'route',
+          '/settings/notes/n1',
+        ),
+      );
+    });
+
+    test('chat opens the chat pane when the chat tab is enabled', () {
+      expect(
+        action(ref(TagUsageKind.chat, '/chat/c1?messageId=m1')),
+        isA<OpenChatPane>().having(
+          (a) => a.conversationId,
+          'conversationId',
+          'c1',
+        ),
+      );
+    });
+
+    test('chat falls back to full-screen when the chat tab is disabled', () {
+      expect(
+        action(ref(TagUsageKind.chat, '/chat/c1?messageId=m1'), chatEnabled: false),
+        isA<NavigateFullScreen>().having(
+          (a) => a.route,
+          'route',
+          '/chat/c1?messageId=m1',
+        ),
+      );
+    });
+
+    test('board posts navigate full-screen', () {
+      expect(
+        action(ref(TagUsageKind.boardPost, '/boards/posts/p1')),
+        isA<NavigateFullScreen>().having(
+          (a) => a.route,
+          'route',
+          '/boards/posts/p1',
+        ),
       );
     });
   });

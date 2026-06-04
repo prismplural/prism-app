@@ -9,6 +9,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
+import 'package:prism_plurality/features/chat/providers/pending_conversation_selection_provider.dart';
 import 'package:prism_plurality/features/chat/utils/chat_author_options.dart';
 import 'package:prism_plurality/features/chat/views/conversation_screen.dart';
 import 'package:prism_plurality/features/chat/views/create_conversation_sheet.dart';
@@ -380,6 +381,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final speakingAsMember = ref.watch(currentChatViewerProvider);
     final categoriesAsync = ref.watch(conversationCategoriesProvider);
     ref.watch(activeMembersProvider);
+
+    // Honour a one-shot request to open a specific conversation in the pane
+    // (e.g. from the media-usage list), applied after this frame so it can
+    // setState safely. Only issued while the deep-linking sheet is up, i.e. on
+    // wide windows where the pane is shown.
+    final pendingConversation = ref.watch(pendingConversationSelectionProvider);
+    if (pendingConversation != null &&
+        pendingConversation != selectedDetailId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(pendingConversationSelectionProvider.notifier).clear();
+        setState(() => selectedDetailId = pendingConversation);
+      });
+    }
 
     // Each pane owns its chrome: the conversation list (with its pinned top
     // bar) on the left, the open conversation filling the detail pane on the
