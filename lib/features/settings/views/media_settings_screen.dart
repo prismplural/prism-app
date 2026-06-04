@@ -1155,9 +1155,26 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
     // push it onto the active branch's navigator (back retraces usage list →
     // Media) using the branch-native route.
     if (shouldUseDetailSideSheet(context)) {
+      // Capture the router + root navigator from THIS context (outside the
+      // sheet) so the tap handler can dismiss the sheet before navigating —
+      // the sheet is a transparent root-navigator route, so a bare push lands
+      // behind it.
+      final router = GoRouter.of(context);
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
       showDetailSideSheet(
         context,
-        builder: (_) => TagUsageScreen(usages: widget.usedBy),
+        builder: (_) => TagUsageScreen(
+          usages: widget.usedBy,
+          onNavigate: (usage) {
+            if (rootNavigator.canPop()) rootNavigator.pop();
+            if (usage.kind == TagUsageKind.chat ||
+                usage.kind == TagUsageKind.boardPost) {
+              router.go(usage.route);
+            } else {
+              unawaited(router.push(usage.route));
+            }
+          },
+        ),
       );
     } else {
       unawaited(
@@ -1513,9 +1530,15 @@ class _PromptDialogState extends State<_PromptDialog> {
 /// Bio/note/group/custom-field jumps `push` (staying in the Settings tab, back
 /// returns here); chat lives in its own tab so it `go`es there.
 class TagUsageScreen extends StatelessWidget {
-  const TagUsageScreen({super.key, required this.usages});
+  const TagUsageScreen({super.key, required this.usages, this.onNavigate});
 
   final List<TagUsageRef> usages;
+
+  /// Tap handler for a usage row. Non-null when presented as a modal side
+  /// sheet: the caller dismisses the sheet before navigating so the destination
+  /// isn't rendered behind it. Null for the full-screen route presentation,
+  /// where the row navigates directly.
+  final void Function(TagUsageRef usage)? onNavigate;
 
   @override
   Widget build(BuildContext context) {
@@ -1544,26 +1567,21 @@ class TagUsageScreen extends StatelessWidget {
                   semanticLabel:
                       '${usage.label}. ${_usageKindLabel(l10n, usage.kind)}.',
                   onTap: () {
-                    if (ModalSideSheetMarker.of(context)) {
-                      // The usage list is a root-navigator modal; GoRouter
-                      // pushes land below it. Pop first, then navigate.
-                      final router = GoRouter.of(context);
-                      final route = usage.route;
-                      final kind = usage.kind;
-                      Navigator.of(context, rootNavigator: true).pop();
-                      if (kind == TagUsageKind.chat ||
-                          kind == TagUsageKind.boardPost) {
-                        router.go(route);
-                      } else {
-                        unawaited(router.push(route));
-                      }
+                    final navigate = onNavigate;
+                    if (navigate != null) {
+                      // TEMP DIAGNOSTIC: confirm whether the old marker-based
+                      // detection would have fired in the live app.
+                      debugPrint(
+                        '[tagUsage] sheet tap; '
+                        'ModalSideSheetMarker.of(context)='
+                        '${ModalSideSheetMarker.of(context)}',
+                      );
+                      navigate(usage);
+                    } else if (usage.kind == TagUsageKind.chat ||
+                        usage.kind == TagUsageKind.boardPost) {
+                      context.go(usage.route);
                     } else {
-                      if (usage.kind == TagUsageKind.chat ||
-                          usage.kind == TagUsageKind.boardPost) {
-                        context.go(usage.route);
-                      } else {
-                        unawaited(context.push(usage.route));
-                      }
+                      unawaited(context.push(usage.route));
                     }
                   },
                   child: Row(
