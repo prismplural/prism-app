@@ -54,6 +54,8 @@ const _kMembersViewSettingsBannerSeenKey =
 
 String _memberOptimisticKey(Member member) => member.id;
 
+enum _MemberDetailPaneMode { detail, edit }
+
 class _MemberTilePrefs {
   const _MemberTilePrefs({
     required this.showPronouns,
@@ -87,6 +89,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     with ListDetailSelectionState<MembersScreen> {
   bool _showInactive = false;
   bool? _viewSettingsBannerSeen;
+  _MemberDetailPaneMode _detailPaneMode = _MemberDetailPaneMode.detail;
   final List<String> _paneGroupStack = [];
 
   // Section keys for scroll-to-section navigation in the grouped list.
@@ -605,7 +608,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     );
 
     return ListDetailLayout(
-      onClearSelection: clearDetailSelection,
+      onClearSelection: _detailPaneMode == _MemberDetailPaneMode.edit
+          ? null
+          : _clearDetailPane,
       detail: (context) => _buildDetailPane(terms, membersAsync),
       list: (context, isWide) {
         setListDetailWide(isWide);
@@ -743,7 +748,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
   Widget _wrapListPane(Widget child) {
     if (!isDetailPaneVisible) return child;
     return ListDetailPaneScope(
-      selectDetail: (id) => onSelectDetail(id, navigate: () {}),
+      selectDetail: (id) => _selectMember(id, navigate: () {}),
       openInPane: _openGroupInPane,
       popPane: _popGroupPane,
       canPopPane: _paneGroupStack.isNotEmpty,
@@ -758,6 +763,36 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     if (_paneGroupStack.isEmpty) return;
     _paneGroupStack.removeLast();
     setState(() {});
+  }
+
+  void _selectMember(String id, {required VoidCallback navigate}) {
+    if (_detailPaneMode == _MemberDetailPaneMode.edit) return;
+    if (isDetailPaneVisible) {
+      setState(() {
+        selectedDetailId = selectedDetailId == id ? null : id;
+        _detailPaneMode = _MemberDetailPaneMode.detail;
+      });
+    } else {
+      navigate();
+    }
+  }
+
+  void _clearDetailPane() {
+    _detailPaneMode = _MemberDetailPaneMode.detail;
+    clearDetailSelection();
+  }
+
+  void _openEditInPane(String memberId) {
+    if (!isDetailPaneVisible) return;
+    setState(() {
+      selectedDetailId = memberId;
+      _detailPaneMode = _MemberDetailPaneMode.edit;
+    });
+  }
+
+  void _closeEditPane() {
+    if (!isDetailPaneVisible) return;
+    setState(() => _detailPaneMode = _MemberDetailPaneMode.detail);
   }
 
   void _openGroup(String id) {
@@ -801,12 +836,49 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
               ),
       );
     }
+    if (_detailPaneMode == _MemberDetailPaneMode.edit) {
+      final memberAsync = ref.watch(activeMemberByIdProvider(id));
+      return memberAsync.when(
+        loading: () => const PrismLoadingState(),
+        error: (e, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              context.l10n.terminologyLoadError(
+                terms.singularLower,
+                e.toString(),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        data: (member) {
+          if (member == null) {
+            return EmptyState(
+              icon: Icon(AppIcons.peopleOutline),
+              title: context.l10n.terminologyEmptyTitle(terms.singularLower),
+              subtitle: '${terms.singular} not found',
+            );
+          }
+          return Material(
+            child: AddEditMemberSheet(
+              key: ValueKey('edit_${member.id}'),
+              member: member,
+              embedded: true,
+              onCancel: _closeEditPane,
+              onSaved: (_) => _closeEditPane(),
+            ),
+          );
+        },
+      );
+    }
     // ListDetailLayout isolates this pane's NestedScrollView for us.
     return MemberDetailScreen(
       key: ValueKey(id),
       memberId: id,
       branch: widget.branch,
       showBackButton: false,
+      onEdit: () => _openEditInPane(id),
     );
   }
 
@@ -1047,7 +1119,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
         deferAvatarLookup: true,
         showPronouns: memberTilePrefs.showPronouns,
         selected: isDetailSelected(member.id),
-        onTap: () => onSelectDetail(
+        onTap: () => _selectMember(
           member.id,
           navigate: () => unawaited(context.push(_memberPath(member.id))),
         ),

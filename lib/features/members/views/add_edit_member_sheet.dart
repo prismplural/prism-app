@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -5,10 +7,12 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/data/repositories/drift_media_attachment_repository.dart';
 import 'package:prism_plurality/features/members/services/bio_image_importer.dart';
+import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/birthday.dart';
@@ -45,17 +49,25 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_picker_text_field_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
+import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/members/services/bio_image_processor.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_editor.dart';
 import 'package:prism_plurality/features/members/widgets/full_screen_markdown_editor_sheet.dart';
+import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
+import 'package:prism_plurality/features/members/widgets/markdown_table_button.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header_editor.dart';
+import 'package:prism_plurality/features/members/widgets/remote_markdown_image_import_prompt.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/image_first_paste.dart';
+import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
+import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 import 'package:uuid/uuid.dart';
 
 enum _MemberEditTab { edit, style }
 
-enum _MemberEditView { main, proxyTags, customFields }
+enum _MemberEditView { main, bio, proxyTags, customFields, customFieldLongText }
 
 enum _AlwaysFrontingSessionAction { keepFronting, endFronting }
 
@@ -77,11 +89,17 @@ class AddEditMemberSheet extends ConsumerStatefulWidget {
   const AddEditMemberSheet({
     super.key,
     this.member,
-    required this.scrollController,
+    this.scrollController,
+    this.embedded = false,
+    this.onCancel,
+    this.onSaved,
   });
 
   final Member? member;
-  final ScrollController scrollController;
+  final ScrollController? scrollController;
+  final bool embedded;
+  final VoidCallback? onCancel;
+  final ValueChanged<bool>? onSaved;
 
   bool get isEditing => member != null;
 
@@ -96,7 +114,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
 
   late final TextEditingController _nameController;
   late final TextEditingController _pronounsController;
-  late final TextEditingController _bioController;
+  late final MarkdownEditingController _bioController;
   late final TextEditingController _emojiController;
   late final TextEditingController _ageController;
   late final TextEditingController _colorHexController;
@@ -104,7 +122,15 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
   late final TextEditingController _displayNameController;
   late final TextEditingController _pluralkitDisplayNameController;
   late final CustomFieldsEditorController _customFieldsEditorController;
+  late final ScrollController _mainScrollController;
   final List<_ProxyTagDraft> _proxyTagDrafts = [];
+  late final FocusNode _bioFocusNode;
+  late final ScrollController _bioScrollController;
+  final GlobalKey<MarkdownImageButtonState> _bioImageButtonKey = GlobalKey();
+  final String _bioEditSessionId = const Uuid().v4();
+  late final bool _ownsMainScrollController;
+  final GlobalKey<MarkdownImageButtonState> _customFieldLongTextImageButtonKey =
+      GlobalKey();
 
   bool _isAdmin = false;
   bool _markdownEnabled = true;
@@ -122,10 +148,14 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
   Uint8List? _profileHeaderImageData;
   bool _saving = false;
   bool _saved = false;
+  bool _showBioPreview = false;
+  bool _bioEditorOpened = false;
+  bool _showCustomFieldLongTextPreview = false;
   _MemberEditTab _tab = _MemberEditTab.edit;
   _MemberEditView _view = _MemberEditView.main;
   late final ScrollController _proxyTagsScrollController;
   late final ScrollController _customFieldsScrollController;
+  late final ScrollController _customFieldLongTextScrollController;
   late final AnimationController _viewAnimationController;
   late final Animation<double> _viewAnimation;
   // Animation source view; `_view` is the destination. Both drive the
@@ -133,6 +163,10 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
   _MemberEditView _viewFrom = _MemberEditView.main;
   // Edge swipe-back in progress; finger drives the controller directly.
   bool _swiping = false;
+  CustomField? _customFieldLongTextField;
+  TextEditingController? _customFieldLongTextController;
+  FocusNode? _customFieldLongTextFocusNode;
+  String _customFieldLongTextEditSessionId = const Uuid().v4();
   late final String _initialName;
   late final String _initialPronouns;
   late final String _initialBio;
@@ -251,7 +285,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     final m = widget.member;
     _nameController = TextEditingController(text: m?.name ?? '');
     _pronounsController = TextEditingController(text: m?.pronouns ?? '');
-    _bioController = TextEditingController(text: m?.bio ?? '');
+    _bioController = MarkdownEditingController(text: m?.bio ?? '');
     _emojiController = TextEditingController(text: m?.emoji ?? '❔');
     _ageController = TextEditingController(
       text: m?.age != null ? '${m!.age}' : '',
@@ -268,8 +302,13 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     );
     _customFieldsEditorController = CustomFieldsEditorController()
       ..addListener(_handleCustomFieldsDirtyChanged);
+    _ownsMainScrollController = widget.scrollController == null;
+    _mainScrollController = widget.scrollController ?? ScrollController();
+    _bioFocusNode = FocusNode();
+    _bioScrollController = ScrollController();
     _proxyTagsScrollController = ScrollController();
     _customFieldsScrollController = ScrollController();
+    _customFieldLongTextScrollController = ScrollController();
     _viewAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 350),
@@ -343,14 +382,20 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     _nameController.dispose();
     _pronounsController.dispose();
     _bioController.dispose();
+    _bioFocusNode.dispose();
+    _bioScrollController.dispose();
     _emojiController.dispose();
     _ageController.dispose();
     _colorHexController.dispose();
     _nameStyleColorHexController.dispose();
     _displayNameController.dispose();
     _pluralkitDisplayNameController.dispose();
+    if (_ownsMainScrollController) {
+      _mainScrollController.dispose();
+    }
     _proxyTagsScrollController.dispose();
     _customFieldsScrollController.dispose();
+    _customFieldLongTextScrollController.dispose();
     _viewAnimationController.dispose();
     _customFieldsEditorController
       ..removeListener(_handleCustomFieldsDirtyChanged)
@@ -404,7 +449,46 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
 
   void _openProxyTags() => _swapView(_MemberEditView.proxyTags);
   void _openCustomFields() => _swapView(_MemberEditView.customFields);
+  void _openCustomFieldLongTextEditor(
+    CustomField field,
+    TextEditingController controller,
+    FocusNode focusNode,
+  ) {
+    _customFieldLongTextField = field;
+    _customFieldLongTextController = controller;
+    _customFieldLongTextFocusNode = focusNode;
+    _showCustomFieldLongTextPreview = false;
+    _customFieldLongTextEditSessionId = const Uuid().v4();
+    _swapView(_MemberEditView.customFieldLongText);
+  }
+
+  Future<void> _openBioEditor() async {
+    if (widget.embedded) {
+      _bioEditorOpened = true;
+      _swapView(_MemberEditView.bio);
+      return;
+    }
+
+    final result = await showFullScreenMarkdownEditor(
+      context: context,
+      title: context.l10n.memberBioLabel,
+      initialText: _bioController.text,
+      hintText: context.l10n.memberBioHint,
+      memberId: _memberId,
+    );
+    if (result != null && mounted) {
+      setState(() => _bioController.text = result);
+    }
+  }
+
   void _popToMain() => _swapView(_MemberEditView.main);
+  void _popFromDetailView() {
+    if (_view == _MemberEditView.customFieldLongText) {
+      unawaited(_closeCustomFieldLongTextEditor());
+      return;
+    }
+    _popToMain();
+  }
 
   // At rest in a detail view, controller=1.0 (_view centered); rightward
   // drag decrements toward 0.0 (_viewFrom=main centered). On commit we
@@ -436,6 +520,10 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     final shouldComplete =
         _viewAnimationController.value < 0.5 || velocity > 700;
     if (shouldComplete) {
+      if (_view == _MemberEditView.customFieldLongText) {
+        unawaited(_closeCustomFieldLongTextEditor());
+        return;
+      }
       _viewAnimationController.animateTo(0.0).then((_) {
         if (!mounted) return;
         setState(() {
@@ -663,16 +751,116 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     );
   }
 
-  Future<void> _openBioEditor() async {
-    final result = await showFullScreenMarkdownEditor(
+  BioImageProcessor _getBioProcessor() =>
+      ref.read(bioImageProcessorProvider(_bioEditSessionId));
+
+  BioImageProcessor _getCustomFieldLongTextProcessor() =>
+      ref.read(bioImageProcessorProvider(_customFieldLongTextEditSessionId));
+
+  Future<bool> _handleBioPasteImage() async {
+    final ClipboardImageData? image;
+    try {
+      image = await ref.read(appClipboardReaderProvider).readImage();
+    } catch (_) {
+      return false;
+    }
+    if (image == null || !mounted) return false;
+    final button = _bioImageButtonKey.currentState;
+    if (button == null) return false;
+    await button.insertImageFromBytes(image.bytes);
+    return true;
+  }
+
+  Future<bool> _handleCustomFieldLongTextPasteImage() async {
+    final ClipboardImageData? image;
+    try {
+      image = await ref.read(appClipboardReaderProvider).readImage();
+    } catch (_) {
+      return false;
+    }
+    if (image == null || !mounted) return false;
+    final button = _customFieldLongTextImageButtonKey.currentState;
+    if (button == null) return false;
+    await button.insertImageFromBytes(image.bytes);
+    return true;
+  }
+
+  Future<bool> _stageAndCommitBioImages() async {
+    if (!widget.embedded ||
+        (!_bioEditorOpened && !_bioController.text.contains('http'))) {
+      return true;
+    }
+
+    final shouldContinue = await promptAndStageRemoteMarkdownImages(
       context: context,
-      title: context.l10n.memberBioLabel,
-      initialText: _bioController.text,
-      hintText: context.l10n.memberBioHint,
-      memberId: _memberId,
+      ref: ref,
+      controller: _bioController,
+      sessionId: _bioEditSessionId,
     );
-    if (result != null && mounted) {
-      setState(() => _bioController.text = result);
+    if (!shouldContinue || !mounted) return false;
+
+    var failedTags = const <String>[];
+    try {
+      failedTags = await _getBioProcessor().commitStaged();
+    } catch (_) {
+      // Keep save moving; unresolved tags render unavailable.
+    }
+    if (!mounted) return false;
+    if (failedTags.isNotEmpty) {
+      PrismToast.error(context, message: context.l10n.mediaSomeImagesNotSaved);
+    }
+    return true;
+  }
+
+  Future<bool> _stageAndCommitCustomFieldLongTextImages() async {
+    final controller = _customFieldLongTextController;
+    if (controller is! MarkdownEditingController) return true;
+    if (controller.text.contains('http')) {
+      final shouldContinue = await promptAndStageRemoteMarkdownImages(
+        context: context,
+        ref: ref,
+        controller: controller,
+        sessionId: _customFieldLongTextEditSessionId,
+      );
+      if (!shouldContinue || !mounted) return false;
+    }
+
+    var failedTags = const <String>[];
+    try {
+      failedTags = await _getCustomFieldLongTextProcessor().commitStaged();
+    } catch (_) {
+      // Keep save moving; unresolved tags render unavailable.
+    }
+    if (!mounted) return false;
+    if (failedTags.isNotEmpty) {
+      PrismToast.error(context, message: context.l10n.mediaSomeImagesNotSaved);
+    }
+    return true;
+  }
+
+  Future<void> _closeCustomFieldLongTextEditor() async {
+    final imagesReady = await _stageAndCommitCustomFieldLongTextImages();
+    if (!imagesReady || !mounted) return;
+    _swapView(_MemberEditView.customFields);
+  }
+
+  Future<void> _requestClose() async {
+    if (_isDirty) {
+      final shouldDiscard = await UnsavedChangesGuard.confirmDiscard(context);
+      if (!shouldDiscard || !mounted) return;
+      _customFieldsEditorController.discard();
+      try {
+        _getBioProcessor().discardStaged();
+      } catch (_) {}
+      try {
+        _getCustomFieldLongTextProcessor().discardStaged();
+      } catch (_) {}
+    }
+
+    if (widget.embedded) {
+      widget.onCancel?.call();
+    } else if (mounted) {
+      await Navigator.of(context).maybePop();
     }
   }
 
@@ -784,6 +972,12 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
 
     setState(() => _saving = true);
 
+    final bioImagesReady = await _stageAndCommitBioImages();
+    if (!bioImagesReady || !mounted) {
+      if (mounted) setState(() => _saving = false);
+      return;
+    }
+
     final name = _nameController.text.trim();
     final pronouns = _pronounsController.text.trim();
     final bio = _bioController.text.trim();
@@ -809,14 +1003,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         : formatBirthdayWire(_birthday!, hideYear: _birthdayHideYear);
     final proxyTagsJson = _proxyTagsJson();
 
-    // Process manually typed/pasted external image URLs BEFORE the first save:
-    // fetch + encrypt into the shared library and rewrite ![](https://...) →
-    // ![](tag), same pipeline as Simply Plural import. Doing this up front (vs.
-    // saving the raw URL then re-saving the rewrite) avoids briefly syncing raw
-    // external URLs to peers and the redundant second write. Staged images from
-    // the full-screen bio editor are already committed by the editor on confirm
-    // (see full_screen_markdown_editor_sheet), so the library entries they need
-    // for dedup exist by the time this runs.
+    // Import external bio images before saving so peers never see raw URLs.
+    // Staged editor images were already committed for dedup.
     var finalBio = bio;
     try {
       final mediaRepo = ref.read(mediaAttachmentRepositoryProvider);
@@ -917,12 +1105,6 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
 
       _saved = true;
 
-      // Staged images from the full-screen bio editor are committed by the
-      // editor itself on confirm (see full_screen_markdown_editor_sheet), so
-      // no commitStaged() here. External-URL rewriting happened before the
-      // save above (see `finalBio`), so the member was persisted exactly once
-      // with the rewritten bio — no second write, no transient raw-URL sync.
-
       // Schedule deferred orphan reconciliation for bio images.
       // Runs even when bio is empty — clearing all text should orphan-delete
       // all images. Uses the rewritten bio so freshly-tagged images count as
@@ -962,7 +1144,11 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
       if (mounted) {
         if (customFieldFailures.isEmpty) {
           Haptics.success();
-          Navigator.of(context).pop(true);
+          if (widget.embedded) {
+            widget.onSaved?.call(true);
+          } else {
+            Navigator.of(context).pop(true);
+          }
         } else {
           // Member row + (count - failures.length) custom fields persisted.
           // Show a non-fatal toast naming the failures and keep the sheet
@@ -1058,9 +1244,21 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
     final l10n = context.l10n;
+    _bioController.updateTheme(context);
 
     final canSave = _nameController.text.trim().isNotEmpty;
     final inDetailView = _view != _MemberEditView.main;
+
+    if (widget.embedded && _bioEditorOpened) {
+      try {
+        ref.watch(bioImageProcessorProvider(_bioEditSessionId));
+      } catch (_) {}
+    }
+    if (_view == _MemberEditView.customFieldLongText) {
+      try {
+        ref.watch(bioImageProcessorProvider(_customFieldLongTextEditSessionId));
+      } catch (_) {}
+    }
 
     return ListenableBuilder(
       listenable: Listenable.merge([
@@ -1086,7 +1284,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
             if (_view != _MemberEditView.main) {
-              _popToMain();
+              _popFromDetailView();
             }
           },
           child: UnsavedChangesGuard<bool>(
@@ -1130,27 +1328,35 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
                                 semanticLabel: l10n.memberEditDetailBackTooltip(
                                   terms.singularLower,
                                 ),
-                                onPressed: _popToMain,
+                                onPressed: _popFromDetailView,
+                              )
+                            : widget.embedded
+                            ? PrismGlassIconButton(
+                                icon: AppIcons.close,
+                                size: PrismTokens.topBarActionSize,
+                                tooltip: l10n.close,
+                                semanticLabel: l10n.close,
+                                onPressed: _requestClose,
                               )
                             : null,
                         // In a detail view the check pops back to main rather
                         // than saving the whole form. Saving lives on main where
                         // the user can see what they're about to commit.
-                        trailing: PrismGlassIconButton(
-                          icon: AppIcons.check,
-                          size: PrismTokens.topBarActionSize,
-                          tooltip: inDetailView
-                              ? l10n.done
-                              : l10n.memberSaveTooltip(terms.singularLower),
-                          isLoading: inDetailView ? false : _saving,
-                          tint: (inDetailView || canSave)
-                              ? theme.colorScheme.primary
-                              : null,
-                          accentIcon: inDetailView || canSave,
-                          onPressed: inDetailView
-                              ? _popToMain
-                              : (canSave ? _save : null),
-                        ),
+                        trailing: inDetailView
+                            ? _buildDetailTopBarTrailing()
+                            : PrismGlassIconButton(
+                                icon: AppIcons.check,
+                                size: PrismTokens.topBarActionSize,
+                                tooltip: l10n.memberSaveTooltip(
+                                  terms.singularLower,
+                                ),
+                                isLoading: _saving,
+                                tint: canSave
+                                    ? theme.colorScheme.primary
+                                    : null,
+                                accentIcon: canSave,
+                                onPressed: canSave ? _save : null,
+                              ),
                       ),
                       const SizedBox(height: 8),
                       Expanded(
@@ -1164,8 +1370,11 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
                                 activeView: _view,
                                 sourceView: _viewFrom,
                                 main: _buildMainView(),
+                                bio: _buildBioDetailView(),
                                 proxyTags: _buildProxyTagsDetailView(),
                                 customFields: _buildCustomFieldsDetailView(),
+                                customFieldLongText:
+                                    _buildCustomFieldLongTextDetailView(),
                               ),
                             ),
                             // Outside the AnimatedBuilder so the gesture
@@ -1213,16 +1422,67 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         return widget.isEditing
             ? l10n.terminologyEditItem(terms.singular)
             : l10n.terminologyNewItem(terms.singular);
+      case _MemberEditView.bio:
+        return l10n.memberBioLabel;
       case _MemberEditView.proxyTags:
         return l10n.memberSectionProxyTags;
       case _MemberEditView.customFields:
         return l10n.memberSectionCustomFields;
+      case _MemberEditView.customFieldLongText:
+        return _customFieldLongTextField?.name ??
+            l10n.memberSectionCustomFields;
     }
+  }
+
+  Widget _buildDetailTopBarTrailing() {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final doneButton = PrismGlassIconButton(
+      icon: AppIcons.check,
+      size: PrismTokens.topBarActionSize,
+      tooltip: l10n.done,
+      tint: theme.colorScheme.primary,
+      accentIcon: true,
+      onPressed: _view == _MemberEditView.customFieldLongText
+          ? () => unawaited(_closeCustomFieldLongTextEditor())
+          : _popToMain,
+    );
+
+    if (_view != _MemberEditView.bio &&
+        _view != _MemberEditView.customFieldLongText) {
+      return doneButton;
+    }
+
+    final showingPreview = _view == _MemberEditView.customFieldLongText
+        ? _showCustomFieldLongTextPreview
+        : _showBioPreview;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PrismGlassIconButton(
+          icon: showingPreview ? AppIcons.edit : AppIcons.preview,
+          onPressed: () => setState(() {
+            if (_view == _MemberEditView.customFieldLongText) {
+              _showCustomFieldLongTextPreview =
+                  !_showCustomFieldLongTextPreview;
+            } else {
+              _showBioPreview = !_showBioPreview;
+            }
+          }),
+          tooltip: showingPreview
+              ? l10n.memberBioEditorTooltip
+              : l10n.memberBioPreviewTooltip,
+          size: PrismTokens.topBarActionSize,
+        ),
+        const SizedBox(width: 4),
+        doneButton,
+      ],
+    );
   }
 
   Widget _buildMainView() {
     return ListView(
-      controller: widget.scrollController,
+      controller: _mainScrollController,
       key: const PageStorageKey<String>('member-edit-main'),
       padding: EdgeInsets.only(
         left: 16,
@@ -1614,10 +1874,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
           ],
         ),
         const SizedBox(height: 12),
-        _CreatedAtField(
-          date: _createdAt,
-          onPick: _pickCreatedAt,
-        ),
+        _CreatedAtField(date: _createdAt, onPick: _pickCreatedAt),
         const SizedBox(height: 16),
 
         Row(
@@ -1724,6 +1981,110 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     );
   }
 
+  Widget _buildBioDetailView() {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final processingState = ref.watch(bioImageProcessingStateProvider);
+    final isProcessing =
+        processingState.status == BioImageProcessingStatus.processing;
+
+    return Stack(
+      children: [
+        Column(
+          children: [
+            if (isProcessing) const LinearProgressIndicator(),
+            Expanded(
+              child: _showBioPreview
+                  ? ListView(
+                      controller: _bioScrollController,
+                      key: const PageStorageKey<String>(
+                        'member-edit-bio-preview',
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: PrismTokens.pageHorizontalPadding + 8,
+                        vertical: 16,
+                      ),
+                      children: [
+                        if (_bioController.text.trim().isEmpty)
+                          Text(
+                            l10n.memberBioHint,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.4),
+                            ),
+                          )
+                        else
+                          PrismMarkdownText(
+                            data: _bioController.text,
+                            enabled: true,
+                            baseStyle: theme.textTheme.bodyLarge,
+                            memberId: _memberId,
+                            memberName: _nameController.text.trim(),
+                            editSessionId: _bioEditSessionId,
+                          ),
+                      ],
+                    )
+                  : GestureDetector(
+                      onTap: () => _bioFocusNode.requestFocus(),
+                      behavior: HitTestBehavior.translucent,
+                      child: ListView(
+                        controller: _bioScrollController,
+                        key: const PageStorageKey<String>('member-edit-bio'),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: PrismTokens.pageHorizontalPadding + 8,
+                          vertical: 16,
+                        ),
+                        children: [
+                          ImagePasteRegion(
+                            onPasteImage: _handleBioPasteImage,
+                            builder: (context, contextMenuBuilder) =>
+                                PrismTextField(
+                                  controller: _bioController,
+                                  focusNode: _bioFocusNode,
+                                  hintText: l10n.memberBioHint,
+                                  fieldStyle: PrismTextFieldStyle.borderless,
+                                  style: theme.textTheme.bodyLarge,
+                                  hintStyle: theme.textTheme.bodyLarge
+                                      ?.copyWith(
+                                        color: theme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                            .withValues(alpha: 0.4),
+                                      ),
+                                  minLines: 12,
+                                  maxLines: null,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  autofocus: true,
+                                  contextMenuBuilder: contextMenuBuilder,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
+        Positioned(
+          right: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              MarkdownTableButton(controller: _bioController),
+              const SizedBox(width: 4),
+              MarkdownImageButton(
+                key: _bioImageButtonKey,
+                controller: _bioController,
+                sessionId: _bioEditSessionId,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildProxyTagsDetailView() {
     final theme = Theme.of(context);
     final l10n = context.l10n;
@@ -1787,6 +2148,123 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         top: 8,
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
+      openLongTextEditor: _openCustomFieldLongTextEditor,
+    );
+  }
+
+  Widget _buildCustomFieldLongTextDetailView() {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final field = _customFieldLongTextField;
+    final controller = _customFieldLongTextController;
+    final focusNode = _customFieldLongTextFocusNode;
+    if (field == null || controller == null || focusNode == null) {
+      return const SizedBox.shrink();
+    }
+    if (controller is MarkdownEditingController) {
+      controller.updateTheme(context);
+    }
+    final processingState = ref.watch(bioImageProcessingStateProvider);
+    final isProcessing =
+        processingState.status == BioImageProcessingStatus.processing;
+    final hint = l10n.memberCustomFieldEnterHint(field.name.toLowerCase());
+
+    return Stack(
+      children: [
+        Column(
+          children: [
+            if (isProcessing) const LinearProgressIndicator(),
+            Expanded(
+              child: _showCustomFieldLongTextPreview
+                  ? ListView(
+                      controller: _customFieldLongTextScrollController,
+                      key: const PageStorageKey<String>(
+                        'member-edit-custom-field-long-text-preview',
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: PrismTokens.pageHorizontalPadding + 8,
+                        vertical: 16,
+                      ),
+                      children: [
+                        if (controller.text.trim().isEmpty)
+                          Text(
+                            hint,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.4),
+                            ),
+                          )
+                        else
+                          PrismMarkdownText(
+                            data: controller.text,
+                            enabled: true,
+                            baseStyle: theme.textTheme.bodyLarge,
+                            memberId: _memberId,
+                            memberName: _nameController.text.trim(),
+                            editSessionId: _customFieldLongTextEditSessionId,
+                          ),
+                      ],
+                    )
+                  : GestureDetector(
+                      onTap: focusNode.requestFocus,
+                      behavior: HitTestBehavior.translucent,
+                      child: ListView(
+                        controller: _customFieldLongTextScrollController,
+                        key: const PageStorageKey<String>(
+                          'member-edit-custom-field-long-text',
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: PrismTokens.pageHorizontalPadding + 8,
+                          vertical: 16,
+                        ),
+                        children: [
+                          ImagePasteRegion(
+                            onPasteImage: _handleCustomFieldLongTextPasteImage,
+                            builder: (context, contextMenuBuilder) =>
+                                PrismTextField(
+                                  controller: controller,
+                                  focusNode: focusNode,
+                                  hintText: hint,
+                                  fieldStyle: PrismTextFieldStyle.borderless,
+                                  style: theme.textTheme.bodyLarge,
+                                  hintStyle: theme.textTheme.bodyLarge
+                                      ?.copyWith(
+                                        color: theme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                            .withValues(alpha: 0.4),
+                                      ),
+                                  minLines: 12,
+                                  maxLines: null,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  autofocus: true,
+                                  contextMenuBuilder: contextMenuBuilder,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
+        Positioned(
+          right: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              MarkdownTableButton(controller: controller),
+              const SizedBox(width: 4),
+              MarkdownImageButton(
+                key: _customFieldLongTextImageButtonKey,
+                controller: controller,
+                sessionId: _customFieldLongTextEditSessionId,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1797,16 +2275,20 @@ class _MemberEditAnimatedStage extends StatelessWidget {
     required this.activeView,
     required this.sourceView,
     required this.main,
+    required this.bio,
     required this.proxyTags,
     required this.customFields,
+    required this.customFieldLongText,
   });
 
   final Animation<double> animation;
   final _MemberEditView activeView;
   final _MemberEditView sourceView;
   final Widget main;
+  final Widget bio;
   final Widget proxyTags;
   final Widget customFields;
+  final Widget customFieldLongText;
 
   @override
   Widget build(BuildContext context) {
@@ -1818,8 +2300,13 @@ class _MemberEditAnimatedStage extends StatelessWidget {
             clipBehavior: Clip.hardEdge,
             children: [
               _positioned(_MemberEditView.main, main),
+              _positioned(_MemberEditView.bio, bio),
               _positioned(_MemberEditView.proxyTags, proxyTags),
               _positioned(_MemberEditView.customFields, customFields),
+              _positioned(
+                _MemberEditView.customFieldLongText,
+                customFieldLongText,
+              ),
             ],
           ),
         );
@@ -2333,10 +2820,7 @@ Future<PKMember?> _pickPkMemberInEditor({
 }
 
 class _CreatedAtField extends StatelessWidget {
-  const _CreatedAtField({
-    required this.date,
-    required this.onPick,
-  });
+  const _CreatedAtField({required this.date, required this.onPick});
 
   final DateTime date;
   final Future<void> Function(BuildContext anchorContext) onPick;
@@ -2367,7 +2851,10 @@ class _CreatedAtField extends StatelessWidget {
               onTap: () => onPick(anchorContext),
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest.withValues(
                     alpha: 0.5,

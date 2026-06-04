@@ -23,8 +23,12 @@ import 'package:prism_plurality/features/members/providers/member_stats_provider
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/app_theme.dart';
 
 final _now = DateTime(2026, 5, 1, 12);
@@ -245,6 +249,14 @@ Widget _buildApp({
       customFieldsProvider.overrideWith(
         (ref) => Stream.value(const <CustomField>[]),
       ),
+      pluralKitSyncProvider.overrideWith(
+        () => _FakePluralKitSyncNotifier(
+          const PluralKitSyncState(isConnected: false),
+        ),
+      ),
+      pkSyncDirectionProvider.overrideWith(
+        () => _StaticPkSyncDirectionNotifier(PkSyncDirection.pullOnly),
+      ),
       memberCustomFieldValuesProvider(
         member.id,
       ).overrideWith((ref) => Stream.value(const <CustomFieldValue>[])),
@@ -257,7 +269,69 @@ Widget _buildApp({
   );
 }
 
+class _FakePluralKitSyncNotifier extends PluralKitSyncNotifier {
+  _FakePluralKitSyncNotifier(this._state);
+
+  final PluralKitSyncState _state;
+
+  @override
+  PluralKitSyncState build() => _state;
+}
+
+class _StaticPkSyncDirectionNotifier extends PkSyncDirectionNotifier {
+  _StaticPkSyncDirectionNotifier(this._direction);
+
+  final PkSyncDirection _direction;
+
+  @override
+  PkSyncDirection build() => _direction;
+}
+
 void main() {
+  testWidgets('mobile member detail still edits in a sheet route', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final member = _member('alice', 'Alice');
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(_buildApp(router: router, member: member));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(AppIcons.editOutlined));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.text('Style'), findsOneWidget);
+    expect(find.text('Name *'), findsOneWidget);
+    expect(find.text('Bio'), findsOneWidget);
+
+    await tester.tap(find.text('Custom Fields'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
+    expect(find.text('Custom Fields'), findsNWidgets(2));
+
+    await tester.tap(find.byIcon(AppIcons.arrowBack).last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.text('Style'), findsOneWidget);
+    expect(find.text('Name *'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
   testWidgets(
     'member detail uses a seeded local profile theme in Palette mode',
     (tester) async {

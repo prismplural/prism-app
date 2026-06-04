@@ -8,7 +8,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/models/custom_field.dart';
+import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
@@ -16,12 +19,17 @@ import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
+import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/views/members_screen.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/providers/member_avatar_image_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 
 import '../../../helpers/fake_repositories.dart';
@@ -48,6 +56,8 @@ Widget _buildSubject({
   required List<MemberGroupEntry> entries,
   SystemSettings settings = const SystemSettings(),
   List<FrontingSession> activeSessions = const [],
+  List<CustomField> customFields = const [],
+  List<CustomFieldValue> customFieldValues = const [],
   _FakeFrontingNotifier? frontingNotifier,
   _FakeMembersNotifier? membersNotifier,
   bool withRouter = false,
@@ -91,12 +101,38 @@ Widget _buildSubject({
 
   return ProviderScope(
     overrides: [
+      verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
       appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       allMembersProvider.overrideWith((ref) => Stream.value(members)),
       activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
       allMemberListProvider.overrideWith((ref) => Stream.value(members)),
+      memberByIdProvider.overrideWith((ref, id) {
+        for (final member in members) {
+          if (member.id == id) return Stream.value(member);
+        }
+        return Stream.value(null);
+      }),
+      memberAvatarImageDataProvider.overrideWith(
+        (ref, memberId) => Stream.value(null),
+      ),
+      customFieldsProvider.overrideWithValue(AsyncValue.data(customFields)),
+      memberCustomFieldValuesProvider.overrideWith(
+        (ref, memberId) => Stream.value(
+          customFieldValues
+              .where((value) => value.memberId == memberId)
+              .toList(growable: false),
+        ),
+      ),
+      pluralKitSyncProvider.overrideWith(
+        () => _FakePluralKitSyncNotifier(
+          const PluralKitSyncState(isConnected: false),
+        ),
+      ),
+      pkSyncDirectionProvider.overrideWith(
+        () => _StaticPkSyncDirectionNotifier(PkSyncDirection.pullOnly),
+      ),
       activeSessionsProvider.overrideWith(
         (ref) => Stream.value(activeSessions),
       ),
@@ -163,6 +199,24 @@ class _FakeMembersNotifier extends MembersNotifier {
   }
 }
 
+class _FakePluralKitSyncNotifier extends PluralKitSyncNotifier {
+  _FakePluralKitSyncNotifier(this._state);
+
+  final PluralKitSyncState _state;
+
+  @override
+  PluralKitSyncState build() => _state;
+}
+
+class _StaticPkSyncDirectionNotifier extends PkSyncDirectionNotifier {
+  _StaticPkSyncDirectionNotifier(this._direction);
+
+  final PkSyncDirection _direction;
+
+  @override
+  PkSyncDirection build() => _direction;
+}
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{
@@ -185,6 +239,118 @@ void main() {
     expect(find.text('Select a headmate'), findsOneWidget);
     expect(find.text('Member alice'), findsOneWidget);
   });
+
+  testWidgets('wide layout edits selected member inside the detail pane', (
+    tester,
+  ) async {
+    _setWideWindow(tester);
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          notesEnabled: false,
+          boardsEnabled: false,
+        ),
+        members: [_member('alice')],
+        groups: const [],
+        entries: const [],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Member alice'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.byIcon(AppIcons.editOutlined));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
+    expect(find.text('Style'), findsOneWidget);
+    expect(find.text('Name *'), findsOneWidget);
+    expect(find.text('Bio'), findsOneWidget);
+
+    await tester.tap(find.text('Custom Fields'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
+    expect(find.text('Custom Fields'), findsNWidgets(2));
+  });
+
+  testWidgets(
+    'wide layout edits long-text custom fields inside the detail pane',
+    (tester) async {
+      _setWideWindow(tester);
+
+      final topLevelLongText = CustomField(
+        id: 'second-bio',
+        name: 'Second Bio',
+        fieldType: CustomFieldType.longText,
+        fieldTypeId: 'long_text',
+        displayOrder: 0,
+        createdAt: DateTime(2024),
+      );
+      final group = CustomField(
+        id: 'profile-details',
+        name: 'Profile Details',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'group',
+        displayOrder: 1,
+        createdAt: DateTime(2024),
+      );
+      final groupedLongText = CustomField(
+        id: 'grouped-note',
+        name: 'Grouped Note',
+        fieldType: CustomFieldType.longText,
+        fieldTypeId: 'long_text',
+        parentFieldId: group.id,
+        createdAt: DateTime(2024),
+      );
+
+      await tester.pumpWidget(
+        _buildSubject(
+          settings: const SystemSettings(
+            notesEnabled: false,
+            boardsEnabled: false,
+          ),
+          members: [_member('alice')],
+          groups: const [],
+          entries: const [],
+          customFields: [topLevelLongText, group, groupedLongText],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Member alice'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.byIcon(AppIcons.editOutlined));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.text('Custom Fields'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.tap(find.byIcon(AppIcons.edit).hitTestable().first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
+      expect(find.text('Second Bio'), findsNWidgets(2));
+
+      await tester.tap(find.byIcon(AppIcons.check).hitTestable().last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.tap(find.byIcon(AppIcons.edit).hitTestable().last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
+      expect(find.text('Grouped Note'), findsNWidgets(2));
+    },
+  );
 
   testWidgets('group chips stay reachable after jumping to a section', (
     tester,

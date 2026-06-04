@@ -1,5 +1,14 @@
 import 'package:flutter/widgets.dart';
 
+import 'package:prism_plurality/domain/models/custom_field.dart';
+
+typedef LongTextFieldEditorOpener =
+    void Function(
+      CustomField field,
+      TextEditingController controller,
+      FocusNode focusNode,
+    );
+
 /// Coordinates staged edits across the per-field editors inside a member
 /// edit sheet. Widgets keep their edits in local state and call [markDirty];
 /// the host listens to this notifier so its own dirty/guard logic sees
@@ -98,10 +107,12 @@ class CustomFieldEditorScope extends InheritedWidget {
   const CustomFieldEditorScope({
     super.key,
     required this.controller,
+    this.openLongTextEditor,
     required super.child,
   });
 
   final CustomFieldsEditorController controller;
+  final LongTextFieldEditorOpener? openLongTextEditor;
 
   static CustomFieldsEditorController? maybeOf(BuildContext context) {
     final scope = context
@@ -109,7 +120,16 @@ class CustomFieldEditorScope extends InheritedWidget {
     return scope?.controller;
   }
 
+  static LongTextFieldEditorOpener? maybeLongTextEditorOf(
+    BuildContext context,
+  ) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<CustomFieldEditorScope>();
+    return scope?.openLongTextEditor;
+  }
+
   @override
   bool updateShouldNotify(CustomFieldEditorScope old) =>
-      controller != old.controller;
+      controller != old.controller ||
+      openLongTextEditor != old.openLongTextEditor;
 }

@@ -228,6 +228,12 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
   }
 
   Future<void> _openLongTextEditor(BuildContext context) async {
+    final openInHost = CustomFieldEditorScope.maybeLongTextEditorOf(context);
+    if (openInHost != null) {
+      openInHost(widget.field, _textController, _focusNode);
+      return;
+    }
+
     final result = await showFullScreenMarkdownEditor(
       context: context,
       title: widget.field.name,

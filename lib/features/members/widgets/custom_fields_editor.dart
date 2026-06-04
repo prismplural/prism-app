@@ -9,7 +9,10 @@ import 'package:prism_plurality/features/members/widgets/custom_field_editor_sco
 import 'package:prism_plurality/features/members/widgets/custom_field_renderers.dart';
 
 export 'package:prism_plurality/features/members/widgets/custom_field_editor_scope.dart'
-    show CustomFieldsEditorController, CustomFieldEditorScope, PendingFieldEditState;
+    show
+        CustomFieldsEditorController,
+        CustomFieldEditorScope,
+        PendingFieldEditState;
 
 /// Inline editor for custom field values on the member edit sheet.
 class CustomFieldsEditor extends ConsumerWidget {
@@ -20,6 +23,7 @@ class CustomFieldsEditor extends ConsumerWidget {
     this.scrollController,
     this.scrollViewKey,
     this.padding,
+    this.openLongTextEditor,
   });
 
   final String memberId;
@@ -27,6 +31,7 @@ class CustomFieldsEditor extends ConsumerWidget {
   final ScrollController? scrollController;
   final Key? scrollViewKey;
   final EdgeInsetsGeometry? padding;
+  final LongTextFieldEditorOpener? openLongTextEditor;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -54,7 +59,11 @@ class CustomFieldsEditor extends ConsumerWidget {
 
     final c = controller;
     if (c == null) return body;
-    return CustomFieldEditorScope(controller: c, child: body);
+    return CustomFieldEditorScope(
+      controller: c,
+      openLongTextEditor: openLongTextEditor,
+      child: body,
+    );
   }
 
   Widget _buildEditor(

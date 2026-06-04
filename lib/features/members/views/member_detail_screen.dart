@@ -56,11 +56,13 @@ class MemberDetailScreen extends ConsumerWidget {
     this.branch = MemberNavigationBranch.settings,
     this.groupId,
     this.showBackButton = true,
+    this.onEdit,
   });
 
   final String memberId;
   final MemberNavigationBranch branch;
   final String? groupId;
+  final VoidCallback? onEdit;
 
   /// Hidden when the screen is embedded as the detail pane of a two-pane
   /// list-detail layout, where there is no route to pop back to.
@@ -99,6 +101,7 @@ class MemberDetailScreen extends ConsumerWidget {
           branch: branch,
           groupId: groupId,
           showBackButton: showBackButton,
+          onEdit: onEdit,
         );
       },
     );
@@ -111,12 +114,14 @@ class _MemberDetailBody extends ConsumerWidget {
     required this.branch,
     required this.groupId,
     required this.showBackButton,
+    required this.onEdit,
   });
 
   final Member member;
   final MemberNavigationBranch branch;
   final String? groupId;
   final bool showBackButton;
+  final VoidCallback? onEdit;
 
   bool _isFronting(List<dynamic> sessions) {
     return sessions.any((s) => s.memberId == member.id);
@@ -232,6 +237,12 @@ class _MemberDetailBody extends ConsumerWidget {
   }
 
   void _openEditSheet(BuildContext context) {
+    final openInPane = onEdit;
+    if (openInPane != null) {
+      openInPane();
+      return;
+    }
+
     PrismSheet.showFullScreen(
       context: context,
       builder: (context, scrollController) => AddEditMemberSheet(
