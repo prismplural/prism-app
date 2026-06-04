@@ -16,6 +16,9 @@ import 'package:prism_plurality/features/members/providers/custom_fields_provide
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
+import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
+import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
+import 'package:prism_plurality/features/members/views/note_detail_screen.dart';
 import 'package:prism_plurality/features/settings/utils/tag_usage_scan.dart';
 import 'package:prism_plurality/features/settings/views/media_settings_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -77,25 +80,90 @@ void main() {
     );
 
     testWidgets(
-      'in a modal side sheet tapping a usage dismisses the sheet then navigates',
+      'in a side sheet, tapping a settings usage stacks a detail sheet over it',
       (tester) async {
         tester.view.physicalSize = const Size(1400, 900);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
 
-        const memberRoute = '/settings/members/member-1';
         final usages = [
           const TagUsageRef(
             kind: TagUsageKind.bio,
             label: "Alex's bio",
-            route: memberRoute,
+            route: '/settings/members/member-1',
           ),
         ];
 
-        // Mirrors MediaSettingsScreen._showUsage's side-sheet branch: capture
-        // the router + root navigator outside the sheet, dismiss before
-        // navigating. Routes sit in a StatefulShellRoute, matching the app.
+        // Mirrors _showUsage: a settings-area target (non-null detail) stacks
+        // as a second sheet over the usage list rather than dismissing it.
+        void openUsage(BuildContext context) {
+          showDetailSideSheet(
+            context,
+            builder: (_) => TagUsageScreen(
+              usages: usages,
+              onNavigate: (sheetContext, usage) {
+                showDetailSideSheet(
+                  sheetContext,
+                  builder: (_) => const Scaffold(body: Text('detail-sheet')),
+                );
+              },
+            ),
+          );
+        }
+
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: const [Locale('en')],
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) => Center(
+                    child: ElevatedButton(
+                      onPressed: () => openUsage(context),
+                      child: const Text('open-usage'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('open-usage'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('detailSideSheetPanel')), findsOneWidget);
+
+        await tester.tap(find.text("Alex's bio"));
+        await tester.pumpAndSettle();
+
+        // The usage list stays open with the detail stacked on top.
+        expect(find.byKey(const Key('detailSideSheetPanel')), findsNWidgets(2));
+        expect(find.byType(TagUsageScreen), findsOneWidget);
+        expect(find.text('detail-sheet'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'in a side sheet, tapping a chat usage dismisses the sheet and switches tab',
+      (tester) async {
+        tester.view.physicalSize = const Size(1400, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final usages = [
+          const TagUsageRef(
+            kind: TagUsageKind.chat,
+            label: 'A chat message',
+            route: '/chat/conversation/c1?messageId=m1',
+          ),
+        ];
+
+        // Mirrors _showUsage: a cross-tab target (null detail) dismisses the
+        // usage sheet and `go`es to the other tab.
         void openUsage(BuildContext context) {
           final router = GoRouter.of(context);
           final rootNavigator = Navigator.of(context, rootNavigator: true);
@@ -103,47 +171,33 @@ void main() {
             context,
             builder: (_) => TagUsageScreen(
               usages: usages,
-              onNavigate: (usage) {
+              onNavigate: (sheetContext, usage) {
                 if (rootNavigator.canPop()) rootNavigator.pop();
-                unawaited(router.push(usage.route));
+                router.go(usage.route);
               },
             ),
           );
         }
 
         final router = GoRouter(
-          navigatorKey: GlobalKey<NavigatorState>(),
-          initialLocation: AppRoutePaths.settings,
+          initialLocation: '/home',
           routes: [
-            StatefulShellRoute.indexedStack(
-              builder: (_, _, shell) => shell,
-              branches: [
-                StatefulShellBranch(
-                  navigatorKey: GlobalKey<NavigatorState>(),
-                  routes: [
-                    GoRoute(
-                      path: AppRoutePaths.settings,
-                      builder: (_, _) => Scaffold(
-                        body: Builder(
-                          builder: (context) => Center(
-                            child: ElevatedButton(
-                              onPressed: () => openUsage(context),
-                              child: const Text('open-usage'),
-                            ),
-                          ),
-                        ),
-                      ),
-                      routes: [
-                        GoRoute(
-                          path: 'members/:id',
-                          builder: (_, _) =>
-                              const Scaffold(body: Text('member-route')),
-                        ),
-                      ],
+            GoRoute(
+              path: '/home',
+              builder: (_, _) => Scaffold(
+                body: Builder(
+                  builder: (context) => Center(
+                    child: ElevatedButton(
+                      onPressed: () => openUsage(context),
+                      child: const Text('open-usage'),
                     ),
-                  ],
+                  ),
                 ),
-              ],
+              ),
+            ),
+            GoRoute(
+              path: '/chat/conversation/:id',
+              builder: (_, _) => const Scaffold(body: Text('chat-route')),
             ),
           ],
         );
@@ -163,14 +217,57 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byKey(const Key('detailSideSheetPanel')), findsOneWidget);
 
-        await tester.tap(find.text("Alex's bio"));
+        await tester.tap(find.text('A chat message'));
         await tester.pumpAndSettle();
 
-        // Destination renders unobstructed: sheet dismissed, route shown.
+        // Usage sheet dismissed, chat tab shown.
         expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
-        expect(find.text('member-route'), findsOneWidget);
+        expect(find.text('chat-route'), findsOneWidget);
       },
     );
+  });
+
+  group('usageDetailSheet', () {
+    TagUsageRef ref(TagUsageKind kind, String route) =>
+        TagUsageRef(kind: kind, label: '', route: route);
+
+    test('maps bio and custom-field usages to a MemberDetailScreen', () {
+      expect(
+        usageDetailSheet(ref(TagUsageKind.bio, '/settings/members/m1')),
+        isA<MemberDetailScreen>().having((s) => s.memberId, 'memberId', 'm1'),
+      );
+      expect(
+        usageDetailSheet(ref(TagUsageKind.customField, '/settings/members/m2')),
+        isA<MemberDetailScreen>().having((s) => s.memberId, 'memberId', 'm2'),
+      );
+    });
+
+    test('maps note usages to a NoteDetailScreen', () {
+      expect(
+        usageDetailSheet(ref(TagUsageKind.note, '/settings/notes/n1')),
+        isA<NoteDetailScreen>().having((s) => s.noteId, 'noteId', 'n1'),
+      );
+    });
+
+    test('maps group usages to a GroupDetailScreen', () {
+      expect(
+        usageDetailSheet(ref(TagUsageKind.group, '/settings/members/groups/g1')),
+        isA<GroupDetailScreen>().having((s) => s.groupId, 'groupId', 'g1'),
+      );
+    });
+
+    test('returns null for chat and board-post usages (other tabs)', () {
+      expect(
+        usageDetailSheet(
+          ref(TagUsageKind.chat, '/chat/conversation/c1?messageId=m1'),
+        ),
+        isNull,
+      );
+      expect(
+        usageDetailSheet(ref(TagUsageKind.boardPost, '/boards/posts/p1')),
+        isNull,
+      );
+    });
   });
 
   group('tagUsageProvider', () {

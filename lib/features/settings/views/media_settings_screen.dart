@@ -23,6 +23,9 @@ import 'package:prism_plurality/features/members/providers/custom_fields_provide
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
+import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
+import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
+import 'package:prism_plurality/features/members/views/note_detail_screen.dart';
 import 'package:prism_plurality/features/settings/utils/tag_reference_rewriter.dart';
 import 'package:prism_plurality/features/settings/utils/tag_usage_scan.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -31,7 +34,6 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/remote_image_fetcher.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
-import 'package:prism_plurality/shared/widgets/modal_side_sheet_marker.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
@@ -1155,23 +1157,24 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
     // push it onto the active branch's navigator (back retraces usage list →
     // Media) using the branch-native route.
     if (shouldUseDetailSideSheet(context)) {
-      // Capture the router + root navigator from THIS context (outside the
-      // sheet) so the tap handler can dismiss the sheet before navigating —
-      // the sheet is a transparent root-navigator route, so a bare push lands
-      // behind it.
+      // Capture the router + root navigator outside the sheet so the tap handler
+      // can dismiss the usage sheet when jumping to another tab.
       final router = GoRouter.of(context);
       final rootNavigator = Navigator.of(context, rootNavigator: true);
       showDetailSideSheet(
         context,
         builder: (_) => TagUsageScreen(
           usages: widget.usedBy,
-          onNavigate: (usage) {
-            if (rootNavigator.canPop()) rootNavigator.pop();
-            if (usage.kind == TagUsageKind.chat ||
-                usage.kind == TagUsageKind.boardPost) {
-              router.go(usage.route);
+          onNavigate: (sheetContext, usage) {
+            final detail = usageDetailSheet(usage);
+            if (detail != null) {
+              // Settings-area target: stack it over the usage sheet so closing
+              // it returns to the list.
+              showDetailSideSheet(sheetContext, builder: (_) => detail);
             } else {
-              unawaited(router.push(usage.route));
+              // Chat / board posts live in other tabs: dismiss and jump there.
+              if (rootNavigator.canPop()) rootNavigator.pop();
+              router.go(usage.route);
             }
           },
         ),
@@ -1534,11 +1537,11 @@ class TagUsageScreen extends StatelessWidget {
 
   final List<TagUsageRef> usages;
 
-  /// Tap handler for a usage row. Non-null when presented as a modal side
-  /// sheet: the caller dismisses the sheet before navigating so the destination
-  /// isn't rendered behind it. Null for the full-screen route presentation,
-  /// where the row navigates directly.
-  final void Function(TagUsageRef usage)? onNavigate;
+  /// Tap handler for a usage row, receiving the row's [BuildContext]. Non-null
+  /// when presented as a modal side sheet: the caller stacks the target as
+  /// another sheet (or dismisses + jumps tabs). Null for the full-screen route
+  /// presentation, where the row navigates directly.
+  final void Function(BuildContext context, TagUsageRef usage)? onNavigate;
 
   @override
   Widget build(BuildContext context) {
@@ -1569,14 +1572,7 @@ class TagUsageScreen extends StatelessWidget {
                   onTap: () {
                     final navigate = onNavigate;
                     if (navigate != null) {
-                      // TEMP DIAGNOSTIC: confirm whether the old marker-based
-                      // detection would have fired in the live app.
-                      debugPrint(
-                        '[tagUsage] sheet tap; '
-                        'ModalSideSheetMarker.of(context)='
-                        '${ModalSideSheetMarker.of(context)}',
-                      );
-                      navigate(usage);
+                      navigate(context, usage);
                     } else if (usage.kind == TagUsageKind.chat ||
                         usage.kind == TagUsageKind.boardPost) {
                       context.go(usage.route);
@@ -1623,6 +1619,24 @@ class TagUsageScreen extends StatelessWidget {
             ),
     );
   }
+}
+
+/// The Settings-area detail screen for a usage row, presented as a side sheet
+/// stacked over the usage list. Returns null for chat/board-post usages, which
+/// live in other tabs and are navigated to instead. The entity id is the last
+/// path segment of the usage route.
+@visibleForTesting
+Widget? usageDetailSheet(TagUsageRef usage) {
+  final segments = Uri.parse(usage.route).pathSegments;
+  final id = segments.isEmpty ? '' : segments.last;
+  if (id.isEmpty) return null;
+  return switch (usage.kind) {
+    TagUsageKind.bio ||
+    TagUsageKind.customField => MemberDetailScreen(memberId: id),
+    TagUsageKind.note => NoteDetailScreen(noteId: id),
+    TagUsageKind.group => GroupDetailScreen(groupId: id),
+    TagUsageKind.chat || TagUsageKind.boardPost => null,
+  };
 }
 
 IconData _usageIcon(TagUsageKind kind) => switch (kind) {
