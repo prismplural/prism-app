@@ -41,9 +41,10 @@ class MarkdownSegment {
   bool get isDefault => !borderless && borderColor == null;
 }
 
-// A line that is *only* a `:::` directive (optionally indented). Group 1 is the
-// spec (`plain`, `#FF8800`, or empty for a closing fence).
-final _fenceLine = RegExp(r'^\s*:::[ \t]*(.*?)[ \t]*$');
+// A `:::` directive line (optionally indented). Group 1 is the spec (`plain`,
+// `#FF8800`, or empty for a closing fence). `\r?` before `$` is necessary
+// because Dart's `.` doesn't match `\r`, so a CRLF line would fail entirely.
+final _fenceLine = RegExp(r'^\s*:::[ \t]*(.*?)[ \t]*\r?$');
 
 /// Parse [markdown] into ordered [MarkdownSegment]s split on `:::` fences.
 /// Returns a single default segment when there are no fences.
@@ -73,7 +74,7 @@ List<MarkdownSegment> parseStyledSegments(String markdown) {
   for (final line in markdown.split('\n')) {
     final m = _fenceLine.firstMatch(line);
     if (m != null) {
-      final spec = m.group(1) ?? '';
+      final spec = (m.group(1) ?? '').trimRight();
       if (inFence) {
         if (spec.isEmpty) {
           // A bare `:::` closes the open fence (and is consumed).
