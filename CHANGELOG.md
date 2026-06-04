@@ -4,6 +4,73 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-06-04
+
+This release introduces an adaptive desktop shell with multi-pane navigation, content panes for detail views, polished sheet workflows, and a new opt-in Media tab; a performance pass for large systems that lands on every platform (including bulk-delete coalescing and sync push pacing); a cross-device end-to-end sync test harness; sync hardening and recovery improvements; image paste into markdown editors; and a long tail of markdown, media, member, and settings fixes. Sync pin moves from v0.11.0 to v0.12.0.
+
+### Added
+- Adaptive desktop shell: new layout primitives, pane-aware navigation, detail screens rendered in a side pane on wide layouts, and sheet workflows polished for the new shell.
+- Media as an opt-in top-level navigation tab. The encrypted media library is reachable from the primary nav (not just Settings), with a responsive 3-column grid that adapts to real content width on wide layouts.
+- Media-usage cross-link routes targets through their owning tab's list-and-pane layout. Clicking a media-usage row opens chat messages or notes in their tab as stacked side sheets, with chat jumping to the exact message in the conversation pane.
+- Image paste into markdown fields. Pasting an image into a bio, long-text custom field, note, or board post inserts it into the encrypted media library and references it from markdown.
+- Fronting timeline session detail opens directly in the side pane on desktop instead of pushing a new screen. Grouped day-card fronting history layout returns inside the new shell.
+- Full-screen markdown editor for the system description (Settings).
+- Desktop pairing scanner support, so the pairing flow no longer assumes a camera.
+- Em-unit image widths with an insert-time size picker in member bios.
+- Image library attachments in boards posts.
+- Custom color picker for poll options.
+
+### Changed
+- Performance pass for large systems: batched member and import queries, optimized group and search surfaces, lazy-loaded fronting history rows, optimistic custom-field reorders, and streamlined picker loading states.
+- Bulk-delete coalescing. Group and field clears coalesce into batched tombstones on both sides of the wire (via prism-sync v0.12.0 `coalesce bulk deletes`), so the previous per-row push storm no longer starves sync receive on the other device.
+- Sync push pacing. The sync engine caps push per cycle and re-arms to drain the backlog (via prism-sync v0.12.0 `cap push per cycle`); the app keeps sync status steady across mid-drain push continuations so the indicator doesn't flicker.
+- Sync pull pages to head within a single sync cycle (via prism-sync v0.12.0), making receive feel steadier after a bulk change or large import.
+- Button and surface treatments suppress InkWell overlays, splash, and hover conflicts; hover state drives through `AnimatedContainer` instead. Notes sidebar selection transitions snap immediately rather than crossfading.
+- Compose toolbars (boards) stay readable on busy backgrounds.
+
+### Fixed
+- Sync setup is allowed after a previous reset, instead of needing a workaround.
+- Sync preserves the relay group binding on disconnect, so reconnect resumes cleanly.
+- Sync preserves member writes made during engine startup.
+- Sync recovers quarantined member ages from the 0.11.0 free-text age migration.
+- Sync preserves PluralKit fronter order through apply on paired devices.
+- Sync no longer runs destructive cleanup on revoke conflicts.
+- Oversized inline avatars and banners are re-normalized so they actually propagate to paired devices instead of silently failing the sync size cap.
+- Keychain-unreadable recovery now leads with the action that actually works, rather than presenting a dead-end the user can't resolve.
+- Fronting content centering survives narrow widths instead of crashing the layout.
+- Markdown fences terminated with CRLF end markers now close properly, instead of leaving the fence open through end of input.
+- Markdown `---` on its own line renders as a divider, not an empty heading.
+- Markdown line parsing is hardened against several edge cases.
+- Spoilers render correctly inside markdown tables.
+- Partially-complete blockquote tables survive editing.
+- Braille-spaced bio images survive markdown parsing.
+- Remote markdown images are imported into the encrypted media library on paste.
+- Image tags preserve their original case (case-insensitive lookup, case-preserving display).
+- Image library snapshots stay alive across screen transitions.
+- Zero-dimension images are guarded in the resize pipeline.
+- Chat attachment deletes cascade to media.
+- The media screen excludes GIFs from the still-image library view.
+- Long group descriptions can expand the member header.
+- The parent-group picker uses the full-screen searchable sheet.
+- Member list sections honor the configured sort order.
+- The display font toggle is honored when accessible fonts is on.
+- Biometric probes wait for user opt-in rather than firing on launch.
+- Database startup is gated until migrations complete.
+- Outbound HTTP requests carry a descriptive User-Agent.
+- Polls route through the new color system, no longer using the legacy swatch token.
+- Shared chip backgrounds keep readable contrast across themes.
+- Custom-field choice "Other" chips stay legible against the surface.
+- Boards compose toolbar controls stay readable on busy backgrounds.
+- Windows installer covers the VC++ runtime prerequisite, fixing first-launch crashes on clean Windows machines.
+- macOS sideload signing is hardened so the Developer-ID DMG path stays valid.
+
+### Internal
+- New cross-device end-to-end sync test harness: Dart drives real Rust against a real local relay (consuming prism-sync v0.12.0's `read_field_value` FFI and spawnable test-relay). Coverage spans cross-device pairing convergence, level-1 false-revoke + resume recovery, LWW convergence, relay-outage recovery, pull-to-head pagination across multiple pages, device revocation, bidirectional sync, an incident regression, and an avatar-sync repro.
+- Added large-system performance stress fixtures; stress data generator now checks all tables.
+- Extended markdown fence and table parser edge-case coverage.
+- Cleared the test failures that had been blocking the in-flight 0.11.3 cut; that work rolled into 0.12.0.
+- prism-sync pin moves from v0.11.0 (`b99d64d`) to v0.12.0 (`00db70a`) for pull-to-head pagination, push-per-cycle capping, bulk-delete coalescing, the self-deregister prune-stranding fix, the quarantined-op churn drop, and the `read_field_value` FFI consumed by the new e2e harness.
+
 ## [0.11.2] - 2026-06-01
 
 This patch release follows 0.11.1 with fixes for text/emoji presentation, PluralKit member identity cleanup, and desktop profile banner image picks. It keeps the 0.11.0 sync pin.
