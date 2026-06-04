@@ -81,23 +81,33 @@ Widget frontingHistoryLoadMoreSliver({required bool hasMore}) {
   return SliverToBoxAdapter(child: SizedBox(height: hasMore ? 1 : 0));
 }
 
-// Centers a sliver without creating a second scroll region.
-Widget _clampSliver(
+// Centers a sliver without a nested scroll region. At or below [maxWidth] the
+// flex spacers would be zero-width (a SliverCrossAxisGroup assert), so skip the
+// group and let the content fill the width.
+@visibleForTesting
+Widget clampSliver(
   Widget sliver, {
   double maxWidth = PrismTokens.contentMaxWidth,
 }) {
-  return SliverCrossAxisGroup(
-    slivers: [
-      const SliverCrossAxisExpanded(
-        flex: 1,
-        sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
-      ),
-      SliverConstrainedCrossAxis(maxExtent: maxWidth, sliver: sliver),
-      const SliverCrossAxisExpanded(
-        flex: 1,
-        sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
-      ),
-    ],
+  return SliverLayoutBuilder(
+    builder: (context, constraints) {
+      if (constraints.crossAxisExtent <= maxWidth) {
+        return sliver;
+      }
+      return SliverCrossAxisGroup(
+        slivers: [
+          const SliverCrossAxisExpanded(
+            flex: 1,
+            sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
+          ),
+          SliverConstrainedCrossAxis(maxExtent: maxWidth, sliver: sliver),
+          const SliverCrossAxisExpanded(
+            flex: 1,
+            sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
+          ),
+        ],
+      );
+    },
   );
 }
 
@@ -341,23 +351,23 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
             ),
           ),
 
-        _clampSliver(
+        clampSliver(
           const SliverToBoxAdapter(child: FrontingActionBannerStack()),
         ),
 
-        _clampSliver(
+        clampSliver(
           SliverPersistentHeader(
             pinned: true,
             delegate: AlwaysPresentSliverDelegate(count: alwaysPresentCount),
           ),
         ),
 
-        _clampSliver(
+        clampSliver(
           SliverToBoxAdapter(child: FrontingSleepBannerStack(theme: theme)),
         ),
 
         if (isSleeping)
-          _clampSliver(
+          clampSliver(
             const SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -366,10 +376,10 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
             ),
           ),
 
-        _clampSliver(const SessionHistoryList()),
+        clampSliver(const SessionHistoryList()),
 
         // Quiet sentinel for infinite scroll.
-        _clampSliver(
+        clampSliver(
           Consumer(
             builder: (context, ref, _) {
               final limit = ref.watch(sessionLimitProvider);

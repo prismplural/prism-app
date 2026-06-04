@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/views/fronting_screen.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 void main() {
@@ -57,6 +58,56 @@ void main() {
       final secondSub = container.listen(sessionLimitProvider, (_, _) {});
       addTearDown(secondSub.close);
       expect(container.read(sessionLimitProvider), sessionPageSize);
+    });
+  });
+
+  group('clampSliver responsive centering', () {
+    // Pumps a single clampSliver-wrapped box at [width] and returns the box's
+    // laid-out rect, after asserting it rendered without a layout exception.
+    Future<Rect> pumpClamped(WidgetTester tester, double width) async {
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CustomScrollView(
+            slivers: [
+              clampSliver(
+                const SliverToBoxAdapter(
+                  child: SizedBox(
+                    key: Key('clamped'),
+                    height: 80,
+                    child: Center(child: Text('clamped-content')),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.text('clamped-content'), findsOneWidget);
+      return tester.getRect(find.byKey(const Key('clamped')));
+    }
+
+    testWidgets('fills the width below contentMaxWidth (no cross-axis '
+        'overflow)', (tester) async {
+      final rect = await pumpClamped(tester, 390);
+      expect(rect.width, closeTo(390, 0.5));
+    });
+
+    testWidgets('fills the width exactly at contentMaxWidth', (tester) async {
+      final rect = await pumpClamped(tester, PrismTokens.contentMaxWidth);
+      expect(rect.width, closeTo(PrismTokens.contentMaxWidth, 0.5));
+    });
+
+    testWidgets('clamps and centers above contentMaxWidth', (tester) async {
+      const width = 1200.0;
+      final rect = await pumpClamped(tester, width);
+      expect(rect.width, closeTo(PrismTokens.contentMaxWidth, 0.5));
+      expect(rect.left, closeTo((width - PrismTokens.contentMaxWidth) / 2, 0.5));
     });
   });
 }
