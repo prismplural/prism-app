@@ -82,6 +82,9 @@ jobs:
           (cd dist && sha256sum "Prism-${version}-linux-x64.tar.gz" > "Prism-${version}-linux-x64.tar.gz.sha256")
           ls -la dist/
 
+      - name: Package Debian artifact
+        run: scripts/package_linux_deb.sh
+
       - uses: actions/upload-artifact@v4
         with:
           name: linux-x64
@@ -95,6 +98,7 @@ jobs:
           tag_name: ${{ github.event.inputs.attach_to_release || github.ref_name }}
           files: |
             dist/*.tar.gz
+            dist/*.deb
             dist/*.sha256
           fail_on_unmatched_files: true
 
