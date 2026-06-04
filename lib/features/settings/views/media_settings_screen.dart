@@ -1179,11 +1179,12 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
                 // Self-contained target: stack it over the usage sheet so
                 // closing it returns to the list.
                 showDetailSideSheet(sheetContext, builder: (_) => screen);
-              case OpenChatPane(:final conversationId):
-                // Open the conversation in the chat tab's detail pane.
+              case OpenChatPane(:final conversationId, :final messageId):
+                // Open the conversation in the chat tab's detail pane, scrolled
+                // to the referenced message.
                 ref
                     .read(pendingConversationSelectionProvider.notifier)
-                    .request(conversationId);
+                    .request(conversationId, messageId: messageId);
                 if (rootNavigator.canPop()) rootNavigator.pop();
                 router.go(AppRoutePaths.chat);
               case OpenNotesPane(:final noteId):
@@ -1654,11 +1655,13 @@ class StackDetailSheet extends UsageTapAction {
   final Widget screen;
 }
 
-/// Open the chat tab's list + detail pane with [conversationId] selected.
+/// Open the chat tab's list + detail pane with [conversationId] selected,
+/// scrolled to [messageId] when present.
 @visibleForTesting
 class OpenChatPane extends UsageTapAction {
-  const OpenChatPane(this.conversationId);
+  const OpenChatPane(this.conversationId, {this.messageId});
   final String conversationId;
+  final String? messageId;
 }
 
 /// Open the notes tab's list + detail pane with [noteId] selected.
@@ -1696,7 +1699,10 @@ UsageTapAction usageTapAction(
           : NavigateFullScreen(usage.route);
     case TagUsageKind.chat:
       return chatEnabled && id.isNotEmpty
-          ? OpenChatPane(id)
+          ? OpenChatPane(
+              id,
+              messageId: Uri.parse(usage.route).queryParameters['messageId'],
+            )
           : NavigateFullScreen(usage.route);
     case TagUsageKind.boardPost:
       return NavigateFullScreen(usage.route);

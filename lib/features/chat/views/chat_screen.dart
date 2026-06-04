@@ -64,6 +64,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   bool? _groupChatVisibilityNudgeDismissed;
   _ChatSubTab _activeTab = _ChatSubTab.groupChats;
 
+  /// Deep-link target for the detail pane: a conversation plus the message to
+  /// scroll to. Applied only while that conversation is the selection; cleared
+  /// on a manual selection so re-opening it later doesn't re-jump.
+  PendingConversationSelection? _paneMessageTarget;
+
+  @override
+  void onSelectDetail(String id, {required VoidCallback navigate}) {
+    _paneMessageTarget = null;
+    super.onSelectDetail(id, navigate: navigate);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -387,12 +398,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // setState safely. Only issued while the deep-linking sheet is up, i.e. on
     // wide windows where the pane is shown.
     final pendingConversation = ref.watch(pendingConversationSelectionProvider);
-    if (pendingConversation != null &&
-        pendingConversation != selectedDetailId) {
+    if (pendingConversation != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         ref.read(pendingConversationSelectionProvider.notifier).clear();
-        setState(() => selectedDetailId = pendingConversation);
+        setState(() {
+          selectedDetailId = pendingConversation.conversationId;
+          _paneMessageTarget = pendingConversation.messageId == null
+              ? null
+              : pendingConversation;
+        });
       });
     }
 
@@ -460,10 +475,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         },
       );
     }
+    // Scroll to the deep-linked message only while its conversation is the
+    // selection. Fold it into the key so deep-linking a message in the
+    // already-open conversation still rebuilds and re-scrolls.
+    final target = _paneMessageTarget;
+    final initialMessageId = target != null && target.conversationId == id
+        ? target.messageId
+        : null;
     // ListDetailLayout isolates this pane's NestedScrollView for us.
     return ConversationScreen(
-      key: ValueKey(id),
+      key: ValueKey(initialMessageId == null ? id : '$id#$initialMessageId'),
       conversationId: id,
+      initialMessageId: initialMessageId,
       showBackButton: false,
     );
   }

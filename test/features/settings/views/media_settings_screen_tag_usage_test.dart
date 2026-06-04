@@ -288,14 +288,21 @@ void main() {
       );
     });
 
-    test('chat opens the chat pane when the chat tab is enabled', () {
+    test('chat opens the chat pane at the message when the chat tab is enabled', () {
       expect(
         action(ref(TagUsageKind.chat, '/chat/c1?messageId=m1')),
-        isA<OpenChatPane>().having(
-          (a) => a.conversationId,
-          'conversationId',
-          'c1',
-        ),
+        isA<OpenChatPane>()
+            .having((a) => a.conversationId, 'conversationId', 'c1')
+            .having((a) => a.messageId, 'messageId', 'm1'),
+      );
+    });
+
+    test('chat with no message id leaves messageId null', () {
+      expect(
+        action(ref(TagUsageKind.chat, '/chat/c1')),
+        isA<OpenChatPane>()
+            .having((a) => a.conversationId, 'conversationId', 'c1')
+            .having((a) => a.messageId, 'messageId', isNull),
       );
     });
 
