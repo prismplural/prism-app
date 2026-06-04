@@ -374,26 +374,51 @@ class MediaSettingsScreen extends ConsumerWidget {
                 if (hasLibrary)
                   PrismSection(
                     title: l10n.mediaSectionImageLibrary,
-                    child: Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        for (final img in libraryImages)
-                          _LibraryImageCard(
-                            attachment: img,
-                            branch: branch,
-                            usedBy: tagUsage[img.tag] ?? [],
-                            onEditTag: () => _editTag(
-                              context,
-                              ref,
-                              img,
-                              tagUsage[img.tag] ?? const [],
-                            ),
-                            onReplace: () => _replaceImage(context, ref, img),
-                            onDelete: () =>
-                                _deleteLibraryImage(context, ref, img.id),
-                          ),
-                      ],
+                    // Size cards from the section's real content width
+                    // (LayoutBuilder), not the MediaQuery window: in a narrow
+                    // pane the window overshoots and the old fixed window/3 width
+                    // wrapped the row down to 2. Aim for ~180px tiles, min 2.
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        const spacing = 10.0;
+                        const minTileWidth = 180.0;
+                        final width = constraints.maxWidth;
+                        final columns = math.max(
+                          2,
+                          (width + spacing) ~/ (minTileWidth + spacing),
+                        );
+                        // Floor so the row can't overflow by a sub-pixel and
+                        // wrap a column; clamp >0 so a ~0-width measure pass
+                        // can't give a SizedBox/cacheWidth a negative size.
+                        final cardWidth = math.max(
+                          1.0,
+                          ((width - spacing * (columns - 1)) / columns)
+                              .floorToDouble(),
+                        );
+                        return Wrap(
+                          spacing: spacing,
+                          runSpacing: spacing,
+                          children: [
+                            for (final img in libraryImages)
+                              _LibraryImageCard(
+                                attachment: img,
+                                width: cardWidth,
+                                branch: branch,
+                                usedBy: tagUsage[img.tag] ?? [],
+                                onEditTag: () => _editTag(
+                                  context,
+                                  ref,
+                                  img,
+                                  tagUsage[img.tag] ?? const [],
+                                ),
+                                onReplace: () =>
+                                    _replaceImage(context, ref, img),
+                                onDelete: () =>
+                                    _deleteLibraryImage(context, ref, img.id),
+                              ),
+                          ],
+                        );
+                      },
                     ),
                   ),
 
@@ -909,11 +934,12 @@ class MediaSettingsScreen extends ConsumerWidget {
   }
 }
 
-// ── Library image card (half-width) ──────────────────────────────────────────
+// ── Library image card (responsive width) ────────────────────────────────────
 
 class _LibraryImageCard extends ConsumerStatefulWidget {
   const _LibraryImageCard({
     required this.attachment,
+    required this.width,
     required this.branch,
     required this.usedBy,
     required this.onEditTag,
@@ -922,6 +948,9 @@ class _LibraryImageCard extends ConsumerStatefulWidget {
   });
 
   final MediaAttachment attachment;
+
+  /// Card width, computed once by the parent's responsive [LayoutBuilder].
+  final double width;
   final MediaNavigationBranch branch;
   final List<TagUsageRef> usedBy;
   final VoidCallback onEditTag;
@@ -947,14 +976,7 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
     );
     final imageAsync = ref.watch(mediaFileProvider(params));
 
-    // PrismSection already applies pageHorizontalPadding on both sides.
-    // Clamp to contentMaxWidth so the grid matches the clamped body width.
-    final availableWidth =
-        math.min(
-          MediaQuery.of(context).size.width,
-          PrismTokens.contentMaxWidth,
-        ) - PrismTokens.pageHorizontalPadding * 2;
-    final cardWidth = (availableWidth - 10 * 2) / 3;
+    final cardWidth = widget.width;
 
     return SizedBox(
       width: cardWidth,
