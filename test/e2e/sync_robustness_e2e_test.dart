@@ -117,4 +117,49 @@ void main() {
       relay.stop();
     }
   });
+
+  test('A revokes B; B\'s next sync reports device_revoked, A keeps working',
+      skip: e2eSkip(), () async {
+    final relay = await spawnRelay();
+    E2EDevice? a, b;
+    try {
+      a = await createDevice(relay);
+      b = await pairNewDevice(relay, a);
+
+      final aCreds = await credsOf(a);
+      final bCreds = await credsOf(b);
+
+      // A revokes B — rekeys the group and posts the revocation to the relay.
+      await ffi.revokeDevice(
+        handle: a.handle,
+        syncId: a.syncId,
+        deviceId: aCreds.deviceId,
+        sessionToken: aCreds.sessionToken,
+        targetDeviceId: bCreds.deviceId,
+      );
+
+      // B's next sync is rejected at the relay's auth layer — syncNow THROWS
+      // (it does NOT return an error JSON), surfacing device_revoked.
+      Object? caught;
+      try {
+        await b.sync();
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught, isNotNull, reason: 'a revoked device must fail syncNow');
+      expect(
+        caught.toString(),
+        contains('device_revoked'),
+        reason: 'B should see device_revoked (was: $caught)',
+      );
+
+      // A — the surviving device — still syncs cleanly on the new epoch.
+      final aAfter = await a.sync();
+      expect(aAfter['error'], isNull, reason: 'A still works post-revoke: $aAfter');
+    } finally {
+      a?.dispose();
+      b?.dispose();
+      relay.stop();
+    }
+  });
 }

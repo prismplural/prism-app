@@ -41,6 +41,17 @@ class E2EDevice {
   void dispose() => handle.dispose();
 }
 
+/// A device's own `device_id` + `session_token`, read from its in-memory secure
+/// store. The store holds raw UTF-8 (no base64 — that's only the app's keychain
+/// encoding). Needed to drive device-management calls like `revokeDevice`.
+Future<({String deviceId, String sessionToken})> credsOf(E2EDevice device) async {
+  final store = await ffi.drainSecureStore(handle: device.handle);
+  return (
+    deviceId: utf8.decode(store['device_id']!),
+    sessionToken: utf8.decode(store['session_token']!),
+  );
+}
+
 /// Create a brand-new device that owns a fresh sync group on [relay].
 Future<E2EDevice> createDevice(TestRelay relay, {String password = 'e2e-pin-0000'}) async {
   final handle = await ffi.createPrismSync(
