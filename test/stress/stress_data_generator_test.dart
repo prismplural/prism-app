@@ -247,14 +247,80 @@ void main() {
         .getSingle();
     expect(realMember.read<String>('name'), 'Real Member');
 
-    // Stress sessions should be gone
-    final sessions = await db
-        .customSelect(
-          "SELECT COUNT(*) as c FROM fronting_sessions WHERE id LIKE 'stress-%'",
-        )
-        .getSingle();
-    expect(sessions.read<int>('c'), 0);
+    Future<int> stressCount(String table) async {
+      final row = await db
+          .customSelect(
+            "SELECT COUNT(*) as c FROM $table WHERE id LIKE 'stress-%'",
+          )
+          .getSingle();
+      return row.read<int>('c');
+    }
+
+    // Every table the generator writes to must be empty after clearing.
+    for (final table in [
+      'fronting_sessions',
+      'conversations',
+      'conversation_categories',
+      'chat_messages',
+      'member_board_posts',
+      'front_session_comments',
+      'habits',
+      'habit_completions',
+      'reminders',
+      'notes',
+      'polls',
+      'poll_options',
+      'poll_votes',
+      'custom_fields',
+      'custom_field_values',
+      'member_group_entries',
+      'member_groups',
+    ]) {
+      expect(
+        await stressCount(table),
+        0,
+        reason: '$table still has stress- rows after clearStressData',
+      );
+    }
   });
+
+  test(
+    'clearStressData removes media attachments from heavy profile preset',
+    () async {
+      await for (final _ in generator.generate(_heavyProfileTestPreset)) {}
+
+      final beforeMedia = await db
+          .customSelect(
+            "SELECT COUNT(*) as c FROM media_attachments WHERE id LIKE 'stress-%'",
+          )
+          .getSingle();
+      expect(beforeMedia.read<int>('c'), _heavyProfileTestPreset.imageLibraryItems);
+
+      await generator.clearStressData();
+
+      final afterMedia = await db
+          .customSelect(
+            "SELECT COUNT(*) as c FROM media_attachments WHERE id LIKE 'stress-%'",
+          )
+          .getSingle();
+      expect(
+        afterMedia.read<int>('c'),
+        0,
+        reason: 'stress-img-* media_attachments must be removed by clearStressData',
+      );
+
+      final afterNotes = await db
+          .customSelect(
+            "SELECT COUNT(*) as c FROM notes WHERE id LIKE 'stress-%'",
+          )
+          .getSingle();
+      expect(
+        afterNotes.read<int>('c'),
+        0,
+        reason: 'stress notes must be removed by clearStressData',
+      );
+    },
+  );
 
   test('generated members can be read back via DAO', () async {
     await for (final _ in generator.generate(_testPreset)) {}
@@ -420,6 +486,23 @@ void main() {
 
       await generator.clearStressData();
       expect(await generator.hasStressData(), false);
+    },
+  );
+
+  test(
+    'hasStressData returns true when only non-member tables have stress rows',
+    () async {
+      await for (final _ in generator.generate(_testPreset)) {}
+
+      // Simulate a partial cleanup that left board posts and notes behind.
+      await db.customStatement("DELETE FROM members WHERE id LIKE 'stress-%'");
+
+      expect(
+        await generator.hasStressData(),
+        true,
+        reason:
+            'orphaned board posts and notes should still be detected as stress data',
+      );
     },
   );
 

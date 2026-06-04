@@ -1515,13 +1515,29 @@ class StressDataGenerator {
   }
 
   /// Check if any stress data exists in the database.
+  ///
+  /// Checks all major tables so orphaned rows (e.g. media or board posts left
+  /// behind by a partial cleanup) don't hide as "nothing to wipe".
   Future<bool> hasStressData() async {
-    final result = await _db
-        .customSelect(
-          "SELECT COUNT(*) as c FROM members WHERE id LIKE 'stress-%'",
-        )
-        .getSingle();
-    return result.read<int>('c') > 0;
+    const tables = [
+      'members',
+      'fronting_sessions',
+      'member_board_posts',
+      'media_attachments',
+      'notes',
+      'conversations',
+      'habits',
+      'member_groups',
+    ];
+    for (final table in tables) {
+      final row = await _db
+          .customSelect(
+            "SELECT 1 FROM $table WHERE id LIKE 'stress-%' LIMIT 1",
+          )
+          .getSingleOrNull();
+      if (row != null) return true;
+    }
+    return false;
   }
 
   /// Check if database has any non-stress data (for the "non-empty DB" warning).
