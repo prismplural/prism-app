@@ -42,6 +42,7 @@ import 'package:prism_plurality/core/sync/sync_schema.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 import 'package:prism_plurality/features/migration/services/sp_boards_backfill_service.dart';
 import 'package:prism_plurality/features/migration/services/group_chat_visibility_sync_reemit_service.dart';
+import 'package:prism_plurality/features/migration/services/oversized_inline_image_reemit_service.dart';
 import 'package:prism_plurality/features/migration/services/sp_reply_quote_backfill_service.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
@@ -2899,6 +2900,25 @@ reemitGroupChatVisibilityOnceAfterUpgrade(
   return service.runOnce();
 }
 
+Future<OversizedInlineImageReemitResult>
+reemitOversizedInlineImagesOnceAfterUpgrade(
+  ffi.PrismSyncHandle handle,
+  AppDatabase db,
+) {
+  final service = OversizedInlineImageReemitService(
+    db: db,
+    recordUpdate: ({required table, required entityId, required fields}) {
+      return ffi.recordUpdate(
+        handle: handle,
+        table: table,
+        entityId: entityId,
+        changedFieldsJson: jsonEncode(fields),
+      );
+    },
+  );
+  return service.runOnce();
+}
+
 Future<void> runPostHealthySyncCatchUp({
   required ffi.PrismSyncHandle handle,
   required AppDatabase db,
@@ -2912,6 +2932,14 @@ Future<void> runPostHealthySyncCatchUp({
   )?
   reemitGroupChatVisibility,
   @visibleForTesting
+  Future<OversizedInlineImageReemitResult> Function(
+    ffi.PrismSyncHandle handle,
+    AppDatabase db,
+  )?
+  reemitOversizedInlineImages,
+  @visibleForTesting
+  Future<void> Function(ffi.PrismSyncHandle handle)? repairQuarantinedPushBatches,
+  @visibleForTesting
   Future<PkGroupSyncV2CatchupResult> Function(
     ffi.PrismSyncHandle handle,
     AppDatabase db,
@@ -2923,6 +2951,18 @@ Future<void> runPostHealthySyncCatchUp({
     await (onResume ?? ((h) => ffi.onResume(handle: h)))(handle);
     await (reemitGroupChatVisibility ??
         reemitGroupChatVisibilityOnceAfterUpgrade)(handle, db);
+    // Re-normalize avatars/banners that were stored too large to fit one sync
+    // op (legacy GIF passthrough), then repair so the superseded oversized op
+    // is dropped instead of lingering as a "too large to sync" item.
+    final oversized =
+        await (reemitOversizedInlineImages ??
+            reemitOversizedInlineImagesOnceAfterUpgrade)(handle, db);
+    if (oversized.membersRepaired > 0) {
+      await (repairQuarantinedPushBatches ??
+          ((h) async {
+            await ffi.repairQuarantinedBatches(handle: h);
+          }))(handle);
+    }
     await (catchUpPk ?? catchUpPkBackedSyncOnceAfterCutover)(handle, db);
     // Persist any state the sync cycle mutated (session_token refresh, epoch
     // advance, emitted migration ops, etc.) before a subsequent crash loses it.

@@ -35,6 +35,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 // ---------------------------------------------------------------------------
 // Sync entity counts provider
@@ -683,6 +684,12 @@ class _ConfiguredView extends ConsumerWidget {
           wsConnected: wsConnected,
         ),
 
+        // Some local changes couldn't fit one sync envelope and were
+        // quarantined (e.g. an oversized avatar). Surface it up top — not just
+        // buried in Troubleshooting — and route there to repair.
+        if (syncStatus.quarantinedBatchCount > 0)
+          _QuarantineMainBanner(count: syncStatus.quarantinedBatchCount),
+
         // Primary actions
         PrismSection(
           title: 'Sync',
@@ -1065,6 +1072,54 @@ class _SyncNavigationToggle extends ConsumerWidget {
       onChanged: (v) => ref
           .read(settingsNotifierProvider.notifier)
           .updateSyncNavigationEnabled(v),
+    );
+  }
+}
+
+/// Top-of-screen banner shown when local push batches were quarantined for
+/// exceeding the relay body cap (e.g. an oversized avatar). Taps through to the
+/// Troubleshooting screen, where the count, explanation, and Repair action live.
+class _QuarantineMainBanner extends StatelessWidget {
+  const _QuarantineMainBanner({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => context.push(AppRoutePaths.settingsSyncTroubleshooting),
+        child: PrismSurface(
+          fillColor: theme.colorScheme.errorContainer,
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Icon(
+                AppIcons.warningAmberRounded,
+                color: theme.colorScheme.onErrorContainer,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  context.l10n.syncQuarantinedBatchBannerTitle(count),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onErrorContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Icon(
+                AppIcons.chevronRight,
+                size: 18,
+                color: theme.colorScheme.onErrorContainer,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
