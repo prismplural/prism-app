@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Grouped content container for related controls or rows.
@@ -13,6 +14,7 @@ class PrismSectionCard extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.semanticLabel,
+    this.transitionDuration = Anim.sm,
   });
 
   final Widget child;
@@ -23,6 +25,7 @@ class PrismSectionCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final String? semanticLabel;
+  final Duration transitionDuration;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +37,7 @@ class PrismSectionCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       semanticLabel: semanticLabel,
+      transitionDuration: transitionDuration,
       child: child,
     );
   }

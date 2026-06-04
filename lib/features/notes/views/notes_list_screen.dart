@@ -304,9 +304,8 @@ class _NoteCard extends ConsumerWidget {
 
     return PrismSectionCard(
       semanticLabel: semanticLabel,
-      // In two-pane mode the selected row is highlighted via the card's accent
-      // surface; the leading color strip below is unaffected.
       accentColor: selected ? theme.colorScheme.primary : null,
+      transitionDuration: Duration.zero,
       onTap: onTap,
       child: IntrinsicHeight(
         child: Row(

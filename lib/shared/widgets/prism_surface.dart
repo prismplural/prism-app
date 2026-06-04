@@ -20,6 +20,7 @@ class PrismSurface extends StatefulWidget {
     this.fillColor,
     this.borderColor,
     this.semanticLabel,
+    this.transitionDuration = Anim.sm,
   });
 
   final Widget child;
@@ -33,6 +34,7 @@ class PrismSurface extends StatefulWidget {
   final Color? fillColor;
   final Color? borderColor;
   final String? semanticLabel;
+  final Duration transitionDuration;
 
   @override
   State<PrismSurface> createState() => _PrismSurfaceState();
@@ -122,7 +124,7 @@ class _PrismSurfaceState extends State<PrismSurface> {
       borderRadius: borderRadius,
       clipBehavior: Clip.antiAlias,
       child: AnimatedContainer(
-        duration: Anim.sm,
+        duration: widget.transitionDuration,
         padding: widget.padding,
         decoration: BoxDecoration(
           color: backgroundColor,
