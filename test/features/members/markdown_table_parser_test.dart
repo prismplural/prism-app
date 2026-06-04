@@ -250,5 +250,48 @@ void main() {
       expect(blocks.single.isTable, isFalse);
       expect(blocks.single.text, source);
     });
+
+    test('two tables separated by a blank line → two distinct table blocks', () {
+      const source =
+          '| a | b |\n| - | - |\n| c | d |\n'
+          '\n'
+          '| x | y |\n| - | - |\n| 1 | 2 |';
+      final blocks = splitMarkdownBlocks(source);
+      final tables = blocks.where((b) => b.isTable).toList();
+      expect(tables, hasLength(2));
+      expect(tables[0].table!.rows, [
+        ['a', 'b'],
+        ['c', 'd'],
+      ]);
+      expect(tables[1].table!.rows, [
+        ['x', 'y'],
+        ['1', '2'],
+      ]);
+    });
+
+    test('two tables WITHOUT blank line are merged into one table block', () {
+      // Without a separator blank line, the second table's rows are absorbed as body.
+      const source =
+          '| a | b |\n'
+          '| - | - |\n'
+          '| c | d |\n'
+          '| x | y |\n'
+          '| - | - |\n'
+          '| 1 | 2 |';
+      final blocks = splitMarkdownBlocks(source);
+      expect(blocks, hasLength(1));
+      expect(blocks.single.isTable, isTrue);
+      expect(blocks.single.table!.rows, hasLength(5));
+    });
+
+    test('CRLF line endings in separator row do not break table detection', () {
+      // _splitCells trims cells so trailing \r doesn't block separator detection.
+      const source = '| a | b |\r\n| - | - |\r\n| c | d |';
+      final blocks = splitMarkdownBlocks(source);
+      expect(blocks, hasLength(1));
+      expect(blocks.single.isTable, isTrue);
+      expect(blocks.single.table!.rows[0], ['a', 'b']);
+      expect(blocks.single.table!.rows[1], ['c', 'd']);
+    });
   });
 }
