@@ -317,6 +317,38 @@ mixin SyncRecordMixin {
     }
   }
 
+  /// Bulk variant of [_runWithConfiguredRetry]: runs one coalesced [attempt]
+  /// when a handle is available, but defers EVERY op in [ops] (not just one) if
+  /// the handle is missing mid-auto-configure. Each deferred op replays as an
+  /// individual record on startup — correctness over coalescing on that rare
+  /// path. Passing a single representative op here would silently drop the rest.
+  Future<void> _runWithConfiguredRetryMulti(
+    List<CapturedSyncOp> ops,
+    Future<void> Function(ffi.PrismSyncHandle handle) attempt,
+  ) async {
+    final handle = syncCurrentHandle.value ?? syncHandle;
+    if (handle == null) {
+      if (syncAutoConfigureInProgress.value) {
+        for (final op in ops) {
+          _deferStartupOp(op);
+        }
+      }
+      return;
+    }
+    try {
+      await attempt(handle);
+    } catch (e) {
+      if (!_isNotConfigured(e)) {
+        rethrow;
+      }
+      if (syncAutoConfigureInProgress.value) {
+        for (final op in ops) {
+          _deferStartupOp(op);
+        }
+      }
+    }
+  }
+
   @visibleForTesting
   Future<void> debugRunWithConfiguredRetryForTesting(
     CapturedSyncOp op,
@@ -449,6 +481,56 @@ mixin SyncRecordMixin {
       // persisted to Drift. Failure here must not surface to the UI.
       ErrorReportingService.instance.report(
         'Sync recordDelete failed: $e',
+        severity: ErrorSeverity.error,
+        stackTrace: st,
+      );
+    }
+  }
+
+  /// Delete many entities of one [table] in a single coalesced FFI call, so the
+  /// engine packs their tombstones into a few batches instead of one push per
+  /// row. Use for bulk deletes (clearing a list, deleting a group's members).
+  ///
+  /// Suppress/capture paths still record one op per entity so replay stays
+  /// row-granular; only the live emission is coalesced.
+  Future<void> syncRecordDeleteMulti(String table, List<String> entityIds) async {
+    if (entityIds.isEmpty) {
+      return;
+    }
+    CapturedSyncOp opFor(String id) =>
+        CapturedSyncOp(table, id, SyncRecordOpType.delete, const <String, dynamic>{});
+
+    if (_suppressed) {
+      final captureSink = _suppressCapture;
+      if (captureSink != null) {
+        for (final id in entityIds) {
+          captureSink(opFor(id));
+        }
+      }
+      return;
+    }
+    final sink = _captureSink;
+    if (sink != null) {
+      for (final id in entityIds) {
+        sink(opFor(id));
+      }
+      return;
+    }
+    try {
+      await _runWithConfiguredRetryMulti([
+        for (final id in entityIds) opFor(id),
+      ], (handle) {
+        return ffi.recordDeleteMulti(
+          handle: handle,
+          table: table,
+          entityIds: entityIds,
+        );
+      });
+    } catch (e, st) {
+      // Sync-log emission is best-effort; user data has already been
+      // persisted to Drift. Failure here must not surface to the UI.
+      ErrorReportingService.instance.report(
+        'Sync recordDeleteMulti failed: $e',
         severity: ErrorSeverity.error,
         stackTrace: st,
       );

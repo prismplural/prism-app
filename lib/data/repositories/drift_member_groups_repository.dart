@@ -178,16 +178,18 @@ class DriftMemberGroupsRepository
     await _dao.deleteGroup(groupId);
     if (isSuppressed) return;
     if (!await _shouldEmitPkBackedGroupSync(group)) return;
-    for (final entry in entries) {
-      await syncRecordDelete(
-        _entryTable,
+    final entryEntityIds = [
+      for (final entry in entries)
         _entryEntityIdForDelete(
           group: group,
           entry: entry,
           member: membersById[entry.memberId],
         ),
-      );
-    }
+    ];
+    // Entry tombstones (coalesced) before the group tombstone, so peers see
+    // child deletes before the parent — the single group delete gets a later
+    // HLC than the bulk entry batch.
+    await syncRecordDeleteMulti(_entryTable, entryEntityIds);
     await syncRecordDelete(_groupTable, groupEntityId);
     await _syncLegacyPkGroupAliasDeletes(group);
   }
@@ -227,16 +229,18 @@ class DriftMemberGroupsRepository
     }
     if (isDeletedGroupSuppressed) return;
     if (!await _shouldEmitPkBackedGroupSync(group)) return;
-    for (final entry in entries) {
-      await syncRecordDelete(
-        _entryTable,
+    final entryEntityIds = [
+      for (final entry in entries)
         _entryEntityIdForDelete(
           group: group,
           entry: entry,
           member: membersById[entry.memberId],
         ),
-      );
-    }
+    ];
+    // Entry tombstones (coalesced) before the group tombstone, so peers see
+    // child deletes before the parent — the single group delete gets a later
+    // HLC than the bulk entry batch.
+    await syncRecordDeleteMulti(_entryTable, entryEntityIds);
     await syncRecordDelete(_groupTable, groupEntityId);
     await _syncLegacyPkGroupAliasDeletes(group);
   }
@@ -290,16 +294,15 @@ class DriftMemberGroupsRepository
     for (final id in toDelete) {
       if (suppressedByGroup[id] ?? false) continue;
       if (!await _shouldEmitPkBackedGroupSync(groupRowsById[id])) continue;
-      for (final entry in entriesByGroup[id] ?? []) {
-        await syncRecordDelete(
-          _entryTable,
+      final entryEntityIds = <String>[
+        for (final entry in entriesByGroup[id] ?? [])
           _entryEntityIdForDelete(
             group: groupRowsById[id],
             entry: entry,
             member: membersById[entry.memberId],
           ),
-        );
-      }
+      ];
+      await syncRecordDeleteMulti(_entryTable, entryEntityIds);
       await syncRecordDelete(
         _groupTable,
         _groupEntityId(groupRowsById[id], fallbackId: id),

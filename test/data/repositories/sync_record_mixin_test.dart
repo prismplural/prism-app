@@ -183,6 +183,16 @@ void main() {
         hasLength(1),
       );
     });
+
+    test('syncRecordDeleteMulti swallows FFI failure and reports once', () async {
+      final repo = _ThrowingHandleRepository();
+      await repo.syncRecordDeleteMulti('members', const ['m1', 'm2', 'm3']);
+      // One coalesced FFI call for the whole list — one report, not one per id.
+      expect(
+        reported.where((e) => e.message.contains('recordDeleteMulti')),
+        hasLength(1),
+      );
+    });
   });
 
   group('SyncRecordMixin startup deferred ops', () {
@@ -223,6 +233,21 @@ void main() {
       expect(repo.handleAccessCount, 1);
       expect(SyncRecordMixin.debugStartupDeferredOpCount, 0);
     });
+
+    test(
+      'syncRecordDeleteMulti defers every entity (not just the first) '
+      'when startup is configuring',
+      () async {
+        final repo = _ProbeRepository();
+        syncAutoConfigureInProgress.value = true;
+
+        await repo.syncRecordDeleteMulti('members', const ['m1', 'm2', 'm3']);
+
+        // Regression guard: the bulk path must defer ALL ids on the startup
+        // window, or N-1 deletes are silently dropped.
+        expect(SyncRecordMixin.debugStartupDeferredOpCount, 3);
+      },
+    );
   });
 
   group('SyncRecordMixin.suppressAndCapture', () {

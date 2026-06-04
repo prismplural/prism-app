@@ -163,6 +163,13 @@ class _RecordingMemberGroupsRepository extends DriftMemberGroupsRepository {
   Future<void> syncRecordDelete(String table, String entityId) async {
     deletes.add({'table': table, 'entityId': entityId});
   }
+
+  @override
+  Future<void> syncRecordDeleteMulti(String table, List<String> entityIds) async {
+    for (final entityId in entityIds) {
+      deletes.add({'table': table, 'entityId': entityId});
+    }
+  }
 }
 
 String _canonicalPkGroupEntityId(String pkGroupUuid) => 'pk-group:$pkGroupUuid';

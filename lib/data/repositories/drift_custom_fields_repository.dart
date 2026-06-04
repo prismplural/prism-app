@@ -318,13 +318,10 @@ class DriftCustomFieldsRepository
   Future<void> deleteAllFields() async {
     final captured = await _dao.softDeleteAllCustomFieldData();
     // FFI emissions live outside the transaction (can't be rolled back).
-    // Value tombstones first so peers see child deletes before parents.
-    for (final id in captured.valueIds) {
-      await syncRecordDelete(_valuesTable, id);
-    }
-    for (final id in captured.fieldIds) {
-      await syncRecordDelete(_fieldsTable, id);
-    }
+    // Value tombstones first so peers see child deletes before parents — the
+    // two calls stay ordered (values get earlier HLCs than fields).
+    await syncRecordDeleteMulti(_valuesTable, captured.valueIds.toList());
+    await syncRecordDeleteMulti(_fieldsTable, captured.fieldIds.toList());
   }
 
   // ── Values ─────────────────────────────────────────────────────────
