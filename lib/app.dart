@@ -204,6 +204,10 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     }
     _repairPrimaryDatabaseKeySlotOnce();
 
+    // Start sheet preferences before the first user-opened sheet.
+    ref.watch(dimBackgroundBehindSheetsProvider);
+    ref.watch(forceCenteredSheetsProvider);
+
     // Run the orphan-media reconcile pass once `prismSyncHandleProvider`
     // has finished its first resolve. Picks up `.enc` files stranded by a
     // crash mid-_resetChat / _resetAll (DB rows deleted, OS killed the
@@ -438,10 +442,6 @@ class _DatabaseStartupApp extends ConsumerWidget {
     final schemaVersionBeforeOpen = ref.watch(
       databaseSchemaVersionBeforeOpenProvider,
     );
-    if (databaseReady.hasValue) {
-      ref.watch(dimBackgroundBehindSheetsProvider);
-      ref.watch(forceCenteredSheetsProvider);
-    }
 
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
