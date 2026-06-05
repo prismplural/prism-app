@@ -458,6 +458,13 @@ Future<SecureWriteResult> safeSecureWriteVerified(
 
   final verify = await safeSecureRead(key, storage: storage);
   if (!verify.ok) {
+    if (_shouldRetryVerifiedWriteFailureInMacLegacyKeychain(storage, verify)) {
+      return safeSecureWriteVerified(
+        key,
+        value,
+        storage: _macLegacySecureStorage,
+      );
+    }
     return SecureWriteResult(
       failure: verify.failure,
       code: verify.code,
@@ -465,6 +472,14 @@ Future<SecureWriteResult> safeSecureWriteVerified(
     );
   }
   if (verify.value != value) {
+    if (verify.value == null &&
+        _shouldRetryVerifiedWriteInMacLegacyKeychain(storage)) {
+      return safeSecureWriteVerified(
+        key,
+        value,
+        storage: _macLegacySecureStorage,
+      );
+    }
     return const SecureWriteResult(
       failure: SecureStorageFailure.unknown,
       code: 'PrismSecureStorageVerifyMismatch',
@@ -583,11 +598,38 @@ bool _shouldTryMacLegacyKeychain(
   return _isMissingEntitlement(e) || _isMacDataProtectionKeychainParamError(e);
 }
 
+bool _shouldRetryVerifiedWriteInMacLegacyKeychain(
+  FlutterSecureStorage storage,
+) {
+  if (identical(storage, _macLegacySecureStorage)) return false;
+  if (kIsWeb) return false;
+  return Platform.isMacOS || debugForceMacSecureStorageEntitlementFallback;
+}
+
+bool _shouldRetryVerifiedWriteFailureInMacLegacyKeychain(
+  FlutterSecureStorage storage,
+  SecureReadResult verify,
+) {
+  if (!_shouldRetryVerifiedWriteInMacLegacyKeychain(storage)) return false;
+  return _isMissingEntitlementText(verify.code, verify.message) ||
+      _isMacDataProtectionKeychainParamText(verify.code, verify.message);
+}
+
 bool _isMissingEntitlement(PlatformException e) {
   final details = e.details;
   if (details is int && details == -34018) return true;
-  final message = e.message?.toLowerCase() ?? '';
-  final code = e.code.toLowerCase();
+  return _isMissingEntitlementText(e.code, e.message);
+}
+
+bool _isMacDataProtectionKeychainParamError(PlatformException e) {
+  final details = e.details;
+  if (details is int && details == -50) return true;
+  return _isMacDataProtectionKeychainParamText(e.code, e.message);
+}
+
+bool _isMissingEntitlementText(String? rawCode, String? rawMessage) {
+  final message = rawMessage?.toLowerCase() ?? '';
+  final code = rawCode?.toLowerCase() ?? '';
   return code.contains('-34018') ||
       message.contains('-34018') ||
       message.contains('missingentitlement') ||
@@ -595,11 +637,12 @@ bool _isMissingEntitlement(PlatformException e) {
       message.contains('required entitlement');
 }
 
-bool _isMacDataProtectionKeychainParamError(PlatformException e) {
-  final details = e.details;
-  if (details is int && details == -50) return true;
-  final message = e.message?.toLowerCase() ?? '';
-  final code = e.code.toLowerCase();
+bool _isMacDataProtectionKeychainParamText(
+  String? rawCode,
+  String? rawMessage,
+) {
+  final message = rawMessage?.toLowerCase() ?? '';
+  final code = rawCode?.toLowerCase() ?? '';
   return code.contains('-50') ||
       message.contains('-50') ||
       code.contains('errsecparam') ||

@@ -10,6 +10,7 @@ import 'package:sqlite3/sqlite3.dart' as raw;
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/keychain_degraded_state.dart';
+import 'package:prism_plurality/core/services/secure_storage.dart';
 
 // ---------------------------------------------------------------------------
 // In-memory FlutterSecureStorage stub
@@ -21,9 +22,13 @@ import 'package:prism_plurality/core/services/keychain_degraded_state.dart';
 
 class _SecureStorageStub {
   final Map<String, String?> store = <String, String?>{};
+  final Map<String, String?> legacyStore = <String, String?>{};
   final Map<String, int> readCalls = <String, int>{};
   final Map<String, List<PlatformException>> throwOnReadKeyQueue =
       <String, List<PlatformException>>{};
+
+  bool isolateLegacyStore = false;
+  PlatformException? throwOnPrimaryRead;
 
   void setup() {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -31,27 +36,36 @@ class _SecureStorageStub {
         .setMockMethodCallHandler(
           const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
           (MethodCall call) async {
+            final usesPrimarySecureStorage = _usesPrimarySecureStorageOptions(
+              call,
+            );
+            final backingStore = isolateLegacyStore && !usesPrimarySecureStorage
+                ? legacyStore
+                : store;
             switch (call.method) {
               case 'write':
                 final key = call.arguments['key'] as String;
                 final value = call.arguments['value'] as String?;
-                store[key] = value;
+                backingStore[key] = value;
                 return null;
               case 'read':
+                if (usesPrimarySecureStorage && throwOnPrimaryRead != null) {
+                  throw throwOnPrimaryRead!;
+                }
                 final key = call.arguments['key'] as String;
                 readCalls[key] = (readCalls[key] ?? 0) + 1;
                 final queue = throwOnReadKeyQueue[key];
                 if (queue != null && queue.isNotEmpty) {
                   throw queue.removeAt(0);
                 }
-                return store[key];
+                return backingStore[key];
               case 'delete':
                 final key = call.arguments['key'] as String;
-                store.remove(key);
+                backingStore.remove(key);
                 return null;
               case 'containsKey':
                 final key = call.arguments['key'] as String;
-                return store.containsKey(key);
+                return backingStore.containsKey(key);
               default:
                 return null;
             }
@@ -66,8 +80,27 @@ class _SecureStorageStub {
           null,
         );
     store.clear();
+    legacyStore.clear();
     readCalls.clear();
     throwOnReadKeyQueue.clear();
+  }
+
+  bool _usesPrimarySecureStorageOptions(MethodCall call) {
+    final arguments = call.arguments;
+    if (arguments is! Map) return false;
+    final options = arguments['options'];
+    if (options is! Map) return false;
+
+    final usesDataProtectionKeychain =
+        options['usesDataProtectionKeychain'] ??
+        options['useDataProtectionKeychain'];
+    if (usesDataProtectionKeychain != null) {
+      return usesDataProtectionKeychain != false &&
+          usesDataProtectionKeychain != 'false';
+    }
+
+    return options['resetOnError'] == false ||
+        options['resetOnError'] == 'false';
   }
 }
 
@@ -78,6 +111,15 @@ PlatformException _cipherException() => PlatformException(
       'javax.crypto.AEADBadTagException: Error while decrypting\n\tat '
       'com.it_nomads.fluttersecurestorage.FlutterSecureStorage.read(FlutterSecureStorage.java:200)',
 );
+
+PlatformException _macInvalidParameterException() {
+  return PlatformException(
+    code: 'Unexpected security result code',
+    message:
+        'Code: -50, Message: One or more parameters passed to a function were not valid.',
+    details: -50,
+  );
+}
 
 /// Generate a deterministic 64-char lowercase hex key for tests.
 String _hexKeyForByte(int fill) => fill.toRadixString(16).padLeft(2, '0') * 32;
@@ -121,9 +163,11 @@ void main() {
       storageStub = _SecureStorageStub()..setup();
       SharedPreferences.setMockInitialValues(<String, Object>{});
       degradedStateService = KeychainDegradedStateService();
+      debugForceMacSecureStorageEntitlementFallback = false;
     });
 
     tearDown(() {
+      debugForceMacSecureStorageEntitlementFallback = false;
       if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
       storageStub.teardown();
     });
@@ -156,6 +200,36 @@ void main() {
         expect(await isKeychainRepairPending(), isFalse);
 
         // Degraded state reflects healthy app DB key slot.
+        final state = await degradedStateService.read();
+        expect(state.appDbKey, SlotState.ok);
+      },
+    );
+
+    test(
+      'fresh install retries legacy keychain when primary write verifies empty',
+      () async {
+        debugForceMacSecureStorageEntitlementFallback = true;
+        storageStub
+          ..isolateLegacyStore = true
+          ..throwOnPrimaryRead = _macInvalidParameterException();
+
+        final report = await probeAppDatabaseStartup(
+          directory: tempDir,
+          degradedStateService: degradedStateService,
+          random: _SequentialRandom(),
+        );
+
+        expect(report.state, DbStartupState.ready);
+        expect(report.usedRecoverySlot, 'fresh');
+        expect(
+          report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbFresh],
+          'ok',
+        );
+        expect(storageStub.store[kDatabaseKeyStorageKey], report.keyInMemory);
+        expect(
+          storageStub.legacyStore[kDatabaseKeyStorageKey],
+          report.keyInMemory,
+        );
         final state = await degradedStateService.read();
         expect(state.appDbKey, SlotState.ok);
       },

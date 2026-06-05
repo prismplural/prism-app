@@ -18,6 +18,9 @@ class _FakeSecureStorage {
   _FakeSecureStorage();
 
   final Map<String, String> store = <String, String>{};
+  final Map<String, String> legacyStore = <String, String>{};
+
+  bool isolateLegacyStore = false;
 
   /// Optional override: when set, every operation throws this exception.
   PlatformException? throwOnEvery;
@@ -49,6 +52,9 @@ class _FakeSecureStorage {
   /// Throws for calls using Prism's primary secure-storage options.
   PlatformException? throwOnPrimarySecureStorage;
 
+  /// Throws for reads using Prism's primary secure-storage options.
+  PlatformException? throwOnPrimarySecureStorageRead;
+
   /// Per-key throw override for single reads. Useful for slot-probe tests.
   final Map<String, PlatformException> throwOnReadKey =
       <String, PlatformException>{};
@@ -60,22 +66,32 @@ class _FakeSecureStorage {
           const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
           (MethodCall call) async {
             if (throwOnEvery != null) throw throwOnEvery!;
+            final usesPrimarySecureStorage = _usesPrimarySecureStorageOptions(
+              call,
+            );
             if (throwOnPrimarySecureStorage != null &&
-                _usesPrimarySecureStorageOptions(call)) {
+                usesPrimarySecureStorage) {
               throw throwOnPrimarySecureStorage!;
             }
+            final backingStore = isolateLegacyStore && !usesPrimarySecureStorage
+                ? legacyStore
+                : store;
             switch (call.method) {
               case 'write':
                 if (throwOnWrite != null) throw throwOnWrite!;
                 final key = call.arguments['key'] as String;
                 final value = call.arguments['value'] as String?;
                 if (value == null) {
-                  store.remove(key);
+                  backingStore.remove(key);
                 } else {
-                  store[key] = value;
+                  backingStore[key] = value;
                 }
                 return null;
               case 'read':
+                if (usesPrimarySecureStorage &&
+                    throwOnPrimarySecureStorageRead != null) {
+                  throw throwOnPrimarySecureStorageRead!;
+                }
                 final key = call.arguments['key'] as String;
                 final perKey = throwOnReadKey[key];
                 if (perKey != null) throw perKey;
@@ -83,22 +99,22 @@ class _FakeSecureStorage {
                 if (readOverrideKey.containsKey(key)) {
                   return readOverrideKey[key];
                 }
-                return store[key];
+                return backingStore[key];
               case 'readAll':
                 if (throwOnReadAll != null) throw throwOnReadAll!;
-                return Map<String, String>.from(store);
+                return Map<String, String>.from(backingStore);
               case 'delete':
                 if (throwOnDelete != null) throw throwOnDelete!;
                 final key = call.arguments['key'] as String;
-                store.remove(key);
+                backingStore.remove(key);
                 return null;
               case 'deleteAll':
                 if (throwOnDeleteAll != null) throw throwOnDeleteAll!;
-                store.clear();
+                backingStore.clear();
                 return null;
               case 'containsKey':
                 final key = call.arguments['key'] as String;
-                return store.containsKey(key);
+                return backingStore.containsKey(key);
               default:
                 return null;
             }
@@ -113,6 +129,7 @@ class _FakeSecureStorage {
           null,
         );
     store.clear();
+    legacyStore.clear();
     readOverrideKey.clear();
   }
 
@@ -665,6 +682,31 @@ void main() {
               'message=${result.message}',
         );
         expect(fake.store['db_key'], 'abc123');
+      },
+    );
+
+    test(
+      'rewrites legacy keychain when primary write verifies against empty fallback',
+      () async {
+        debugForceMacSecureStorageEntitlementFallback = true;
+        fake.isolateLegacyStore = true;
+        fake.throwOnPrimarySecureStorageRead = _macInvalidParameterException();
+
+        final result = await safeSecureWriteVerified(
+          'db_key',
+          'abc123',
+          storage: secureStorage,
+        );
+
+        expect(
+          result.ok,
+          isTrue,
+          reason:
+              'failure=${result.failure} code=${result.code} '
+              'message=${result.message}',
+        );
+        expect(fake.store['db_key'], 'abc123');
+        expect(fake.legacyStore['db_key'], 'abc123');
       },
     );
   });
