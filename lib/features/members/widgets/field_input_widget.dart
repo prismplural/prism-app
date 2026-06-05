@@ -391,7 +391,6 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
 
     switch (precision) {
       case DatePrecision.full:
-      case DatePrecision.monthYear:
       case DatePrecision.year:
         final picked = await showPrismDatePicker(
           context: context,
@@ -399,9 +398,7 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
           initialDate: initial,
           firstDate: DateTime(1),
           lastDate: DateTime(9999, 12, 31),
-          initialDatePickerMode:
-              precision == DatePrecision.year ||
-                  precision == DatePrecision.monthYear
+          initialDatePickerMode: precision == DatePrecision.year
               ? DatePickerMode.year
               : DatePickerMode.day,
         );
@@ -410,7 +407,21 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
           setState(() {});
         }
 
+      case DatePrecision.monthYear:
+        final picked = await showPrismMonthYearPicker(
+          context: context,
+          anchorContext: anchorContext,
+          initialDate: initial,
+          firstDate: DateTime(1),
+          lastDate: DateTime(9999, 12, 31),
+        );
+        if (picked != null && mounted) {
+          _textController.text = picked.toIso8601String();
+          setState(() {});
+        }
+
       case DatePrecision.monthDay:
+        initial = _withYear(initial, 2000);
         final picked = await showPrismDatePicker(
           context: context,
           anchorContext: anchorContext,
@@ -424,13 +435,14 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
         }
 
       case DatePrecision.month:
-        final picked = await showPrismDatePicker(
+        initial = _withYear(initial, 2000);
+        final picked = await showPrismMonthYearPicker(
           context: context,
           anchorContext: anchorContext,
           initialDate: initial,
           firstDate: DateTime(2000, 1, 1),
           lastDate: DateTime(2000, 12, 31),
-          initialDatePickerMode: DatePickerMode.year,
+          includeYear: false,
         );
         if (picked != null && mounted) {
           _textController.text = picked.toIso8601String();
@@ -463,6 +475,11 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
         _textController.text = combined.toIso8601String();
         setState(() {});
     }
+  }
+
+  DateTime _withYear(DateTime date, int year) {
+    final day = date.day.clamp(1, DateUtils.getDaysInMonth(year, date.month));
+    return DateTime(year, date.month, day, date.hour, date.minute);
   }
 
   String _formatForPrecision(
