@@ -91,6 +91,8 @@ Widget _buildBoardsScreen({
   List<Member>? currentFronters,
   bool hasUnreadPublic = false,
   int inboxBadge = 0,
+  VoidCallback? onPublicFeedBuilt,
+  VoidCallback? onInboxFeedBuilt,
 }) {
   final fronters = currentFronters ?? activeMembers;
   return ProviderScope(
@@ -111,12 +113,14 @@ Widget _buildBoardsScreen({
           ].cast<Member?>().firstWhere((m) => m?.id == id, orElse: () => null),
         ),
       ),
-      publicBoardFeedProvider.overrideWith(
-        (ref) => Stream.value(publicPosts),
-      ),
-      inboxBoardFeedProvider.overrideWith(
-        (ref) => Stream.value(inboxPosts),
-      ),
+      publicBoardFeedProvider.overrideWith((ref) {
+        onPublicFeedBuilt?.call();
+        return Stream.value(publicPosts);
+      }),
+      inboxBoardFeedProvider.overrideWith((ref) {
+        onInboxFeedBuilt?.call();
+        return Stream.value(inboxPosts);
+      }),
       publicBoardUnreadDotProvider.overrideWithValue(hasUnreadPublic),
       boardsTabBadgeProvider.overrideWithValue(inboxBadge),
       boardsEnabledProvider.overrideWithValue(true),
@@ -174,6 +178,53 @@ void main() {
 
       expect(find.textContaining('post p1'), findsOneWidget);
       expect(find.textContaining('post p2'), findsOneWidget);
+    });
+
+    testWidgets('does not subscribe to inactive tab feed', (tester) async {
+      var publicBuilds = 0;
+      var inboxBuilds = 0;
+
+      await tester.pumpWidget(
+        _buildBoardsScreen(
+          activeMembers: [_alice],
+          publicPosts: [_publicPost('p1')],
+          inboxPosts: [_privatePost('i1', 'alice')],
+          onPublicFeedBuilt: () => publicBuilds++,
+          onInboxFeedBuilt: () => inboxBuilds++,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(publicBuilds, greaterThan(0));
+      expect(inboxBuilds, 0);
+
+      await tester.tap(find.text('Inbox'));
+      await tester.pumpAndSettle();
+
+      expect(inboxBuilds, greaterThan(0));
+    });
+
+    testWidgets('restored Inbox tab does not subscribe to public feed', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({'boards.last_sub_tab': 1});
+      var publicBuilds = 0;
+      var inboxBuilds = 0;
+
+      await tester.pumpWidget(
+        _buildBoardsScreen(
+          activeMembers: [_alice],
+          publicPosts: [_publicPost('p1')],
+          inboxPosts: [_privatePost('i1', 'alice')],
+          onPublicFeedBuilt: () => publicBuilds++,
+          onInboxFeedBuilt: () => inboxBuilds++,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel(RegExp(_allMembersLabel)), findsWidgets);
+      expect(publicBuilds, 0);
+      expect(inboxBuilds, greaterThan(0));
     });
 
     testWidgets('tapping Inbox segment switches to inbox page', (tester) async {

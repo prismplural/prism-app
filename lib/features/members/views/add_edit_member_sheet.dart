@@ -151,6 +151,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
   bool _showBioPreview = false;
   bool _bioEditorOpened = false;
   bool _showCustomFieldLongTextPreview = false;
+  bool _proxyTagsOpened = false;
+  bool _customFieldsOpened = false;
   _MemberEditTab _tab = _MemberEditTab.edit;
   _MemberEditView _view = _MemberEditView.main;
   late final ScrollController _proxyTagsScrollController;
@@ -447,8 +449,16 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     _viewAnimationController.forward(from: 0);
   }
 
-  void _openProxyTags() => _swapView(_MemberEditView.proxyTags);
-  void _openCustomFields() => _swapView(_MemberEditView.customFields);
+  void _openProxyTags() {
+    _proxyTagsOpened = true;
+    _swapView(_MemberEditView.proxyTags);
+  }
+
+  void _openCustomFields() {
+    _customFieldsOpened = true;
+    _swapView(_MemberEditView.customFields);
+  }
+
   void _openCustomFieldLongTextEditor(
     CustomField field,
     TextEditingController controller,
@@ -1370,9 +1380,15 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
                                 activeView: _view,
                                 sourceView: _viewFrom,
                                 main: _buildMainView(),
-                                bio: _buildBioDetailView(),
-                                proxyTags: _buildProxyTagsDetailView(),
-                                customFields: _buildCustomFieldsDetailView(),
+                                bio: _bioEditorOpened
+                                    ? _buildBioDetailView()
+                                    : const SizedBox.shrink(),
+                                proxyTags: _proxyTagsOpened
+                                    ? _buildProxyTagsDetailView()
+                                    : const SizedBox.shrink(),
+                                customFields: _customFieldsOpened
+                                    ? _buildCustomFieldsDetailView()
+                                    : const SizedBox.shrink(),
                                 customFieldLongText:
                                     _buildCustomFieldLongTextDetailView(),
                               ),

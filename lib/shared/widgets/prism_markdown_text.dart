@@ -55,21 +55,32 @@ class PrismMarkdownText extends ConsumerWidget {
   /// there is nothing staged to resolve.
   final String? editSessionId;
 
+  bool get _shouldResolveImageReferences {
+    if (!enabled) return false;
+    return data.contains('![') || data.contains('prism-media://');
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final shouldResolveImageReferences = _shouldResolveImageReferences;
+
     // Shared image library (all images with non-empty tags).
-    final library = ref.watch(imageLibraryProvider).value ?? [];
+    final library = shouldResolveImageReferences
+        ? ref.watch(imageLibraryProvider).value ?? const <MediaAttachment>[]
+        : const <MediaAttachment>[];
 
     // Member-specific bio media for legacy prism-media:// UUID refs.
-    List<MediaAttachment> bioMedia = [];
-    if (memberId != null && memberId!.isNotEmpty) {
+    List<MediaAttachment> bioMedia = const [];
+    if (shouldResolveImageReferences &&
+        memberId != null &&
+        memberId!.isNotEmpty) {
       bioMedia = ref.watch(bioMediaForMemberProvider(memberId!)).value ?? [];
     }
 
     // Processor for staged (uncommitted) image bytes — only when previewing
     // inside an editor session. Guarded for test contexts without media infra.
     BioImageProcessor? processor;
-    if (editSessionId != null) {
+    if (shouldResolveImageReferences && editSessionId != null) {
       try {
         processor = ref.watch(bioImageProcessorProvider(editSessionId!));
       } catch (_) {}
@@ -79,7 +90,9 @@ class PrismMarkdownText extends ConsumerWidget {
     // library version covers add/remove/retag/replace; bioMedia + staged
     // cover the legacy + uncommitted paths. (Watched here, at build scope —
     // not inside the LayoutBuilder below, which runs at layout time.)
-    final libraryVersion = ref.watch(imageLibraryVersionProvider);
+    final libraryVersion = shouldResolveImageReferences
+        ? ref.watch(imageLibraryVersionProvider)
+        : 0;
     final stagedCount = processor?.staged.length ?? 0;
 
     // Measure the available width so percent (`#50%`) image sizing has a real

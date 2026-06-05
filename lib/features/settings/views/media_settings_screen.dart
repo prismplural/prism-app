@@ -334,155 +334,199 @@ class MediaSettingsScreen extends ConsumerWidget {
                 libraryImages.length + chatAttachments.length;
 
             return ClampedBody(
-              child: ListView(
-                padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
-                children: [
-                // ── Storage overview ──────────────────────────────────────
-                PrismSection(
-                  title: l10n.mediaSectionStorage,
-                  child: PrismSectionCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _StorageRow(
-                          icon: AppIcons.photoLibrary,
-                          label: l10n.mediaStorageEncryptedMedia,
-                          summary:
-                              '${l10n.mediaSummaryItems(totalEncryptedCount)}'
-                              ' · ${_formatBytes(totalEncryptedBytes)}',
-                        ),
-                        if (hasAvatars) ...[
-                          const SizedBox(height: 10),
-                          _StorageRow(
-                            icon: AppIcons.personOutline,
-                            label: l10n.mediaStorageMemberData,
-                            summary: _buildAvatarSummary(
-                              l10n,
-                              avatarMembers.length,
-                              avatarBytes,
-                              bannerMembers.length,
-                              bannerBytes,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
+              child: CustomScrollView(
+                slivers: [
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-                // ── Image library ────────────────────────────────────────
-                if (hasLibrary)
-                  PrismSection(
-                    title: l10n.mediaSectionImageLibrary,
-                    // Size cards from the section's real content width
-                    // (LayoutBuilder), not the MediaQuery window: in a narrow
-                    // pane the window overshoots and the old fixed window/3 width
-                    // wrapped the row down to 2. Aim for ~180px tiles, min 2.
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        const spacing = 10.0;
-                        const minTileWidth = 180.0;
-                        final width = constraints.maxWidth;
-                        final columns = math.max(
-                          2,
-                          (width + spacing) ~/ (minTileWidth + spacing),
-                        );
-                        // Floor so the row can't overflow by a sub-pixel and
-                        // wrap a column; clamp >0 so a ~0-width measure pass
-                        // can't give a SizedBox/cacheWidth a negative size.
-                        final cardWidth = math.max(
-                          1.0,
-                          ((width - spacing * (columns - 1)) / columns)
-                              .floorToDouble(),
-                        );
-                        return Wrap(
-                          spacing: spacing,
-                          runSpacing: spacing,
+                  // ── Storage overview ────────────────────────────────────
+                  SliverToBoxAdapter(
+                    child: PrismSection(
+                      title: l10n.mediaSectionStorage,
+                      child: PrismSectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            for (final img in libraryImages)
-                              _LibraryImageCard(
-                                attachment: img,
-                                width: cardWidth,
-                                branch: branch,
-                                usedBy: tagUsage[img.tag] ?? [],
-                                onEditTag: () => _editTag(
-                                  context,
-                                  ref,
-                                  img,
-                                  tagUsage[img.tag] ?? const [],
+                            _StorageRow(
+                              icon: AppIcons.photoLibrary,
+                              label: l10n.mediaStorageEncryptedMedia,
+                              summary:
+                                  '${l10n.mediaSummaryItems(totalEncryptedCount)}'
+                                  ' · ${_formatBytes(totalEncryptedBytes)}',
+                            ),
+                            if (hasAvatars) ...[
+                              const SizedBox(height: 10),
+                              _StorageRow(
+                                icon: AppIcons.personOutline,
+                                label: l10n.mediaStorageMemberData,
+                                summary: _buildAvatarSummary(
+                                  l10n,
+                                  avatarMembers.length,
+                                  avatarBytes,
+                                  bannerMembers.length,
+                                  bannerBytes,
                                 ),
-                                onReplace: () =>
-                                    _replaceImage(context, ref, img),
-                                onDelete: () =>
-                                    _deleteLibraryImage(context, ref, img.id),
                               ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-
-                // ── Chat images ──────────────────────────────────────────
-                if (hasChat)
-                  PrismSection(
-                    title: l10n.mediaSectionChatImages,
-                    child: PrismSectionCard(
-                      padding: const EdgeInsets.all(12),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final attachment in chatAttachments)
-                              _MediaThumbnail(
-                                attachment: attachment,
-                                onDelete: () =>
-                                    _deleteChat(context, ref, attachment.id),
-                              ),
+                            ],
                           ],
                         ),
                       ),
                     ),
                   ),
 
-                // ── Avatars & banners (summary) ──────────────────────────
-                if (hasAvatars)
-                  PrismSection(
-                    title: l10n.mediaSectionAvatarsBanners,
-                    footer: Text(l10n.mediaAvatarsBannersFooter),
-                    child: PrismSectionCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (avatarMembers.isNotEmpty)
-                            _StorageRow(
-                              icon: AppIcons.personOutline,
-                              label: l10n.mediaLabelAvatars,
-                              summary:
-                                  '${l10n.mediaSummaryAvatars(avatarMembers.length)}'
-                                  ' · ${_formatBytes(avatarBytes)}',
-                            ),
-                          if (avatarMembers.isNotEmpty &&
-                              bannerMembers.isNotEmpty)
-                            const SizedBox(height: 10),
-                          if (bannerMembers.isNotEmpty)
-                            _StorageRow(
-                              icon: AppIcons.imageOutlined,
-                              label: l10n.mediaLabelBanners,
-                              summary:
-                                  '${l10n.mediaSummaryBanners(bannerMembers.length)}'
-                                  ' · ${_formatBytes(bannerBytes)}',
-                            ),
-                        ],
+                  // ── Image library ──────────────────────────────────────
+                  if (hasLibrary) ...[
+                    SliverToBoxAdapter(
+                      child: _MediaSectionHeader(
+                        title: l10n.mediaSectionImageLibrary,
                       ),
                     ),
+                    _buildLibraryGridSliver(
+                      context,
+                      ref,
+                      libraryImages,
+                      tagUsage,
+                    ),
+                  ],
+
+                  // ── Chat images ────────────────────────────────────────
+                  if (hasChat) ...[
+                    SliverToBoxAdapter(
+                      child: _MediaSectionHeader(
+                        title: l10n.mediaSectionChatImages,
+                      ),
+                    ),
+                    _buildChatGridSliver(context, ref, chatAttachments),
+                  ],
+
+                  // ── Avatars & banners (summary) ────────────────────────
+                  if (hasAvatars)
+                    SliverToBoxAdapter(
+                      child: PrismSection(
+                        title: l10n.mediaSectionAvatarsBanners,
+                        footer: Text(l10n.mediaAvatarsBannersFooter),
+                        child: PrismSectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (avatarMembers.isNotEmpty)
+                                _StorageRow(
+                                  icon: AppIcons.personOutline,
+                                  label: l10n.mediaLabelAvatars,
+                                  summary:
+                                      '${l10n.mediaSummaryAvatars(avatarMembers.length)}'
+                                      ' · ${_formatBytes(avatarBytes)}',
+                                ),
+                              if (avatarMembers.isNotEmpty &&
+                                  bannerMembers.isNotEmpty)
+                                const SizedBox(height: 10),
+                              if (bannerMembers.isNotEmpty)
+                                _StorageRow(
+                                  icon: AppIcons.imageOutlined,
+                                  label: l10n.mediaLabelBanners,
+                                  summary:
+                                      '${l10n.mediaSummaryBanners(bannerMembers.length)}'
+                                      ' · ${_formatBytes(bannerBytes)}',
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  SliverToBoxAdapter(
+                    child: SizedBox(height: NavBarInset.of(context)),
                   ),
-              ],
+                ],
               ),
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildLibraryGridSliver(
+    BuildContext context,
+    WidgetRef ref,
+    List<MediaAttachment> libraryImages,
+    Map<String, List<TagUsageRef>> tagUsage,
+  ) {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(
+        PrismTokens.pageHorizontalPadding,
+        0,
+        PrismTokens.pageHorizontalPadding,
+        PrismTokens.sectionSpacingCompact,
+      ),
+      sliver: SliverLayoutBuilder(
+        builder: (context, constraints) {
+          const spacing = 10.0;
+          const minTileWidth = 180.0;
+          final width = math.max(1.0, constraints.crossAxisExtent);
+          final columns = math.max(
+            2,
+            (width + spacing) ~/ (minTileWidth + spacing),
+          );
+          // Avoid sub-pixel overflow wrapping a column.
+          final cardWidth = math.max(
+            1.0,
+            ((width - spacing * (columns - 1)) / columns).floorToDouble(),
+          );
+
+          return SliverGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: spacing,
+              mainAxisSpacing: spacing,
+              mainAxisExtent: cardWidth * 0.65 + 52,
+            ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final img = libraryImages[index];
+              final usedBy = tagUsage[img.tag] ?? const <TagUsageRef>[];
+              return _LibraryImageCard(
+                attachment: img,
+                width: cardWidth,
+                branch: branch,
+                usedBy: usedBy,
+                onEditTag: () => _editTag(context, ref, img, usedBy),
+                onReplace: () => _replaceImage(context, ref, img),
+                onDelete: () => _deleteLibraryImage(context, ref, img.id),
+              );
+            }, childCount: libraryImages.length),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildChatGridSliver(
+    BuildContext context,
+    WidgetRef ref,
+    List<MediaAttachment> chatAttachments,
+  ) {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(
+        PrismTokens.pageHorizontalPadding,
+        0,
+        PrismTokens.pageHorizontalPadding,
+        PrismTokens.sectionSpacingCompact,
+      ),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: _MediaThumbnail._size + 8,
+          mainAxisExtent: _MediaThumbnail._size,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final attachment = chatAttachments[index];
+          return Center(
+            child: _MediaThumbnail(
+              attachment: attachment,
+              onDelete: () => _deleteChat(context, ref, attachment.id),
+            ),
+          );
+        }, childCount: chatAttachments.length),
       ),
     );
   }
@@ -931,6 +975,35 @@ class MediaSettingsScreen extends ConsumerWidget {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+}
+
+class _MediaSectionHeader extends StatelessWidget {
+  const _MediaSectionHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        PrismTokens.pageHorizontalPadding,
+        PrismTokens.sectionSpacing,
+        PrismTokens.pageHorizontalPadding,
+        PrismTokens.sectionSpacingCompact,
+      ),
+      child: Text(
+        title,
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          fontFamily: theme.textTheme.headlineLarge?.fontFamily,
+          fontWeight: FontWeight.w700,
+          letterSpacing: theme.textTheme.headlineLarge?.letterSpacing ?? 0,
+        ),
+      ),
+    );
   }
 }
 

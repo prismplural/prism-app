@@ -89,87 +89,95 @@ class _AnalyticsBody extends ConsumerWidget {
         ref.watch(analyticsInsightsProvider).whenOrNull(data: (list) => list) ??
         const [];
 
-    return ListView(
-      padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
-      children: [
-        // Hero ranking chart — vertical bars per member, sorted desc by total
-        // time, horizontally scrollable.
-        MemberRankingChart(memberStats: analytics.memberStats),
-        const SizedBox(height: 16),
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              MemberRankingChart(memberStats: analytics.memberStats),
+              const SizedBox(height: 16),
 
-        // System overview with optional prior-period comparison
-        PrismSectionCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                context.l10n.statisticsOverview,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+              PrismSectionCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.statisticsOverview,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _OverviewStat(
+                          label: context.l10n.statisticsMedianSessionLabel,
+                          value: _fmt(analytics.medianSession),
+                          priorLabel: previousPeriod != null
+                              ? '${_fmt(previousPeriod.medianSession)} last period'
+                              : null,
+                          theme: theme,
+                        ),
+                        _OverviewStat(
+                          label: context.l10n.statisticsGapTimeLabel,
+                          value: _fmt(analytics.totalGapTime),
+                          priorLabel: previousPeriod != null
+                              ? '${_fmt(previousPeriod.totalGapTime)} last period'
+                              : null,
+                          theme: theme,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _OverviewStat(
+                          label: context.l10n.statisticsSwitchesPerDayLabel,
+                          value: analytics.switchesPerDay.toStringAsFixed(1),
+                          priorLabel: previousPeriod != null
+                              ? '${previousPeriod.switchesPerDay.toStringAsFixed(1)} last period'
+                              : null,
+                          theme: theme,
+                        ),
+                        _OverviewStat(
+                          label: context.l10n.statisticsUniqueFrontersLabel(
+                            terms.plural,
+                          ),
+                          value: '${analytics.uniqueFronters}',
+                          priorLabel: previousPeriod != null
+                              ? '${previousPeriod.uniqueFronters} last period'
+                              : null,
+                          theme: theme,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _OverviewStat(
-                    label: context.l10n.statisticsMedianSessionLabel,
-                    value: _fmt(analytics.medianSession),
-                    priorLabel: previousPeriod != null
-                        ? '${_fmt(previousPeriod.medianSession)} last period'
-                        : null,
-                    theme: theme,
-                  ),
-                  _OverviewStat(
-                    label: context.l10n.statisticsGapTimeLabel,
-                    value: _fmt(analytics.totalGapTime),
-                    priorLabel: previousPeriod != null
-                        ? '${_fmt(previousPeriod.totalGapTime)} last period'
-                        : null,
-                    theme: theme,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _OverviewStat(
-                    label: context.l10n.statisticsSwitchesPerDayLabel,
-                    value: analytics.switchesPerDay.toStringAsFixed(1),
-                    priorLabel: previousPeriod != null
-                        ? '${previousPeriod.switchesPerDay.toStringAsFixed(1)} last period'
-                        : null,
-                    theme: theme,
-                  ),
-                  _OverviewStat(
-                    label: context.l10n.statisticsUniqueFrontersLabel(
-                      terms.plural,
-                    ),
-                    value: '${analytics.uniqueFronters}',
-                    priorLabel: previousPeriod != null
-                        ? '${previousPeriod.uniqueFronters} last period'
-                        : null,
-                    theme: theme,
-                  ),
-                ],
-              ),
-            ],
+              const SizedBox(height: 16),
+
+              for (final insight in insights) ...[
+                AnalyticsInsightCard(insight: insight),
+                const SizedBox(height: 8),
+              ],
+              if (insights.isNotEmpty) const SizedBox(height: 8),
+            ]),
           ),
         ),
-        const SizedBox(height: 16),
-
-        // Insight cards
-        for (final insight in insights) ...[
-          AnalyticsInsightCard(insight: insight),
-          const SizedBox(height: 8),
-        ],
-        if (insights.isNotEmpty) const SizedBox(height: 8),
-
-        // Per-member expandable detail
-        for (final stat in analytics.memberStats) ...[
-          _ExpandableMemberDetail(stat: stat),
-          const SizedBox(height: 8),
-        ],
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final stat = analytics.memberStats[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _ExpandableMemberDetail(stat: stat),
+              );
+            }, childCount: analytics.memberStats.length),
+          ),
+        ),
       ],
     );
   }

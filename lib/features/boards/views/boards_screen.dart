@@ -99,8 +99,10 @@ class _BoardsScreenState extends ConsumerState<BoardsScreen> {
         _activeTab = tab;
         _prefsLoaded = true;
       });
-      // Jump (no animation on initial load) to the correct page.
-      _pageController.jumpToPage(tab.index);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_pageController.hasClients) return;
+        _pageController.jumpToPage(tab.index);
+      });
     }
   }
 
@@ -163,20 +165,16 @@ class _BoardsScreenState extends ConsumerState<BoardsScreen> {
             ),
           ),
           Expanded(
-            child: Visibility(
-              // Keep both pages alive so they don't lose scroll position.
-              maintainState: true,
-              visible: _prefsLoaded,
-              replacement: const SizedBox.shrink(),
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: _onPageChanged,
-                children: [
-                  _PublicPage(activeTab: _activeTab),
-                  _InboxPage(activeTab: _activeTab),
-                ],
-              ),
-            ),
+            child: !_prefsLoaded
+                ? const SizedBox.shrink()
+                : PageView(
+                    controller: _pageController,
+                    onPageChanged: _onPageChanged,
+                    children: [
+                      _PublicPage(activeTab: _activeTab),
+                      _InboxPage(activeTab: _activeTab),
+                    ],
+                  ),
           ),
         ],
       ),
@@ -432,18 +430,27 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
   final _scrollController = ScrollController();
   bool _markedViewed = false;
 
+  bool get _isActive => widget.activeTab == _BoardsSubTab.public;
+
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    // Mark public viewed on first frame — clears the unread dot.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (!_markedViewed) {
-        _markedViewed = true;
-        ref.read(memberBoardPostNotifierProvider.notifier).markPublicViewed();
-      }
+      _markPublicViewedIfNeeded();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant _PublicPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.activeTab != widget.activeTab && _isActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _markPublicViewedIfNeeded();
+      });
+    }
   }
 
   @override
@@ -452,7 +459,14 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
     super.dispose();
   }
 
+  void _markPublicViewedIfNeeded() {
+    if (!_isActive || _markedViewed) return;
+    _markedViewed = true;
+    ref.read(memberBoardPostNotifierProvider.notifier).markPublicViewed();
+  }
+
   void _onScroll() {
+    if (!_isActive) return;
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     if (pos.pixels < pos.maxScrollExtent - 300) return;
@@ -468,6 +482,8 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isActive) return const SizedBox.shrink();
+
     final l10n = context.l10n;
     final speakingAsId = ref.watch(speakingAsProvider);
     final filterId = ref.watch(inboxViewFilterProvider);
@@ -593,6 +609,7 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
   }
 
   void _onScroll() {
+    if (widget.activeTab != _BoardsSubTab.inbox) return;
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     if (pos.pixels < pos.maxScrollExtent - 300) return;
@@ -608,6 +625,10 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.activeTab != _BoardsSubTab.inbox) {
+      return const SizedBox.shrink();
+    }
+
     final l10n = context.l10n;
     final fronterMembers = ref.watch(currentFronterMembersProvider);
     final filterId = ref.watch(inboxViewFilterProvider);

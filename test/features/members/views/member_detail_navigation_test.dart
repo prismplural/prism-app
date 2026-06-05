@@ -200,6 +200,10 @@ Widget _buildApp({
     notesEnabled: false,
     boardsEnabled: false,
   ),
+  VoidCallback? onStatsProviderBuilt,
+  VoidCallback? onRecentSessionsProviderBuilt,
+  VoidCallback? onConversationsProviderBuilt,
+  VoidCallback? onBoardSectionProviderBuilt,
 }) {
   final bob = _member('bob', 'Bob');
   final stats = recentSessions.isEmpty
@@ -223,22 +227,28 @@ Widget _buildApp({
       allMembersProvider.overrideWith((ref) => Stream.value([member, bob])),
       activeMembersProvider.overrideWith((ref) => Stream.value([member, bob])),
       activeSessionsProvider.overrideWith((ref) => Stream.value(const [])),
-      memberFrontingStatsProvider(member.id).overrideWith((ref) async => stats),
-      memberRecentSessionsProvider(
-        member.id,
-      ).overrideWith((ref) async => recentSessions),
-      memberConversationsProvider(
-        member.id,
-      ).overrideWith((ref) async => conversations),
+      memberFrontingStatsProvider(member.id).overrideWith((ref) async {
+        onStatsProviderBuilt?.call();
+        return stats;
+      }),
+      memberRecentSessionsProvider(member.id).overrideWith((ref) async {
+        onRecentSessionsProviderBuilt?.call();
+        return recentSessions;
+      }),
+      memberConversationsProvider(member.id).overrideWith((ref) async {
+        onConversationsProviderBuilt?.call();
+        return conversations;
+      }),
       recentMemberNotesProvider(
         member.id,
       ).overrideWith((ref) => Stream.value(notes)),
-      memberBoardSectionProvider(member.id).overrideWith(
-        (ref) => Stream.value(
+      memberBoardSectionProvider(member.id).overrideWith((ref) {
+        onBoardSectionProviderBuilt?.call();
+        return Stream.value(
           boardSection ??
               const MemberBoardSection(publicPosts: [], totalPublic: 0),
-        ),
-      ),
+        );
+      }),
       memberGroupsProvider(
         member.id,
       ).overrideWith((ref) => Stream.value(memberGroups)),
@@ -360,7 +370,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      final profileContext = tester.element(find.byType(SingleChildScrollView));
+      final profileContext = tester.element(find.byType(CustomScrollView));
       final profileTheme = Theme.of(profileContext);
       final expectedTheme = AppTheme.localPaletteTheme(
         ThemeData.light(),
@@ -418,7 +428,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final profileContext = tester.element(find.byType(SingleChildScrollView));
+    final profileContext = tester.element(find.byType(CustomScrollView));
     final profileTheme = Theme.of(profileContext);
     final baseTheme = ThemeData.light();
     final seededTheme = AppTheme.localPaletteTheme(
@@ -461,6 +471,58 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
+  testWidgets('member detail defers lower section providers until scrolled', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(600, 320);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final member = _member('alice', 'Alice').copyWith(
+      bio: List.filled(
+        16,
+        'A long profile paragraph that keeps lower sections below the fold.',
+      ).join('\n\n'),
+    );
+    final session = _session(
+      id: 's1',
+      memberId: member.id,
+      start: DateTime(2020, 1, 1, 10),
+      end: DateTime(2020, 1, 1, 11),
+    );
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+
+    var statsBuilds = 0;
+    var recentBuilds = 0;
+
+    await tester.pumpWidget(
+      _buildApp(
+        router: router,
+        member: member,
+        recentSessions: [session],
+        onStatsProviderBuilt: () => statsBuilds++,
+        onRecentSessionsProviderBuilt: () => recentBuilds++,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(statsBuilds, isZero);
+    expect(recentBuilds, isZero);
+
+    for (var i = 0; i < 20 && (statsBuilds == 0 || recentBuilds == 0); i++) {
+      await tester.drag(find.byType(Scrollable).last, const Offset(0, -600));
+      await tester.pumpAndSettle();
+    }
+
+    expect(statsBuilds, greaterThan(0));
+    expect(recentBuilds, greaterThan(0));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
   testWidgets('member detail pushes recent session so back returns', (
     tester,
   ) async {
@@ -480,7 +542,13 @@ void main() {
     await tester.pumpAndSettle();
 
     final sessionDate = find.text('1/1/2020').last;
-    await tester.ensureVisible(sessionDate);
+    await tester.scrollUntilVisible(
+      sessionDate,
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -120));
+    await tester.pumpAndSettle();
     await tester.tap(sessionDate);
     await tester.pumpAndSettle();
 
@@ -611,6 +679,12 @@ void main() {
 
     expect(find.text('Project chat'), findsOneWidget);
     expect(find.text('Profile note'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.textContaining('Board post body'),
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.textContaining('Board post body'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());

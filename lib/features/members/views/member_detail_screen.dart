@@ -147,14 +147,22 @@ class _MemberDetailBody extends ConsumerWidget {
       perMemberAccentColors: perMemberAccentColors,
     );
 
-    final body = SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
-      child: Builder(
-        builder: (context) => _buildBodyColumn(
-          context,
-          isFronting,
-          bioMarkdownEnabled: bioMarkdownEnabled,
-        ),
+    final body = Builder(
+      builder: (context) => CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate(
+                _buildBodyChildren(
+                  context,
+                  isFronting,
+                  bioMarkdownEnabled: bioMarkdownEnabled,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
 
@@ -188,52 +196,49 @@ class _MemberDetailBody extends ConsumerWidget {
     );
   }
 
-  Widget _buildBodyColumn(
+  List<Widget> _buildBodyChildren(
     BuildContext context,
     bool isFronting, {
     required bool bioMarkdownEnabled,
   }) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 16),
-        MemberProfileHeader(member: member, isFronting: isFronting),
-        if (member.bio != null && member.bio!.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          PrismMarkdownText(
-            data: member.bio!,
-            // Global switch is the master off; per-member flag is the override.
-            enabled: bioMarkdownEnabled && member.markdownEnabled,
-            baseStyle: theme.textTheme.bodyLarge,
-            memberId: member.id,
-            memberName: member.name,
-          ),
-        ],
-        const SizedBox(height: 24),
-        CustomFieldsDisplay(memberId: member.id),
-        NotesSection(memberId: member.id),
-        MemberGroupsSection(
+    return [
+      const SizedBox(height: 16),
+      MemberProfileHeader(member: member, isFronting: isFronting),
+      if (member.bio != null && member.bio!.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        PrismMarkdownText(
+          data: member.bio!,
+          // Global switch is the master off; per-member flag is the override.
+          enabled: bioMarkdownEnabled && member.markdownEnabled,
+          baseStyle: theme.textTheme.bodyLarge,
           memberId: member.id,
           memberName: member.name,
-          branch: branch,
         ),
-        ProxyTagsSection(member: member),
-        _FrontingStatsSection(memberId: member.id),
-        const SizedBox(height: 8),
-        _RecentSessionsSection(
-          memberId: member.id,
-          branch: branch,
-          groupId: groupId,
-        ),
-        const SizedBox(height: 8),
-        _ConversationsSection(memberId: member.id),
-        BoardMessageSection(memberId: member.id),
-        const SizedBox(height: 24),
-        _MemberCreatedAtFooter(member: member),
-        const SizedBox(height: 32),
       ],
-    );
+      const SizedBox(height: 24),
+      CustomFieldsDisplay(memberId: member.id),
+      NotesSection(memberId: member.id),
+      MemberGroupsSection(
+        memberId: member.id,
+        memberName: member.name,
+        branch: branch,
+      ),
+      ProxyTagsSection(member: member),
+      _FrontingStatsSection(memberId: member.id),
+      const SizedBox(height: 8),
+      _RecentSessionsSection(
+        memberId: member.id,
+        branch: branch,
+        groupId: groupId,
+      ),
+      const SizedBox(height: 8),
+      _ConversationsSection(memberId: member.id),
+      BoardMessageSection(memberId: member.id),
+      const SizedBox(height: 24),
+      _MemberCreatedAtFooter(member: member),
+      const SizedBox(height: 32),
+    ];
   }
 
   void _openEditSheet(BuildContext context) {
