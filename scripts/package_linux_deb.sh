@@ -34,6 +34,8 @@ tar -C "$bundle" \
 cat > "$pkgroot/usr/bin/prism" <<'WRAPPER'
 #!/bin/sh
 export GDK_BACKEND=x11
+# soloud's FFI plugin is dlopened and finds its bundled audio codecs only here.
+export LD_LIBRARY_PATH="/usr/lib/prism/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 exec /usr/lib/prism/prism_plurality "$@"
 WRAPPER
 chmod 0755 "$pkgroot/usr/bin/prism"
@@ -51,45 +53,10 @@ find "$pkgroot/usr/lib/prism/lib" -type f -name '*.so*' -exec chmod 0755 {} + 2>
 
 installed_size=$(du -sk "$pkgroot/usr" | awk '{print $1}')
 
-# Derive deps from the shipped ELFs instead of hardcoding them. The old list
-# hardcoded libjsoncpp25, which nothing links (flutter_secure_storage_linux has
-# been header-only JSON since 1.2.0) and which is absent on distros newer than
-# the build runner (Ubuntu 25.x / Debian trixie ship libjsoncpp26), so apt
-# refused the package there.
-shlibdeps_dir=$(mktemp -d)
-mkdir -p "$shlibdeps_dir/debian"
-# dpkg-shlibdeps insists on a debian/control even with -O; give it a stub.
-cat > "$shlibdeps_dir/debian/control" <<'CTRL'
-Source: prism
-Package: prism
-Architecture: amd64
-CTRL
-
-# Scan the plugins too, not just the runner — they're what link
-# libsecret/libsqlite3/libasound2.
-mapfile -t shipped_elfs < <(
-  find "$pkgroot/usr/lib/prism" -type f \
-    \( -name '*.so' -o -name '*.so.*' -o -name 'prism_plurality' \) | sort
-)
-if [[ ${#shipped_elfs[@]} -eq 0 ]]; then
-  echo "No ELF binaries found under $pkgroot/usr/lib/prism" >&2
-  exit 1
-fi
-
-# -l resolves our bundled libs against each other; --ignore-missing-info skips
-# them (no packaged shlibs) so only system libs land in Depends.
-( cd "$shlibdeps_dir" \
-  && dpkg-shlibdeps -l"$pkgroot/usr/lib/prism/lib" --ignore-missing-info -O \
-       "${shipped_elfs[@]}" ) > "$shlibdeps_dir/out.txt"
-
-depends=$(sed -n 's/^shlibs:Depends=//p' "$shlibdeps_dir/out.txt")
-rm -rf "$shlibdeps_dir"
-if [[ -z "$depends" ]]; then
-  echo "dpkg-shlibdeps produced an empty Depends — refusing to build" >&2
-  exit 1
-fi
-echo "Derived Depends: $depends"
-
+# No libjsoncpp here: flutter_secure_storage_linux (its only past user) went
+# header-only nlohmann/json in 1.2.0, so nothing in the bundle links it. A
+# versioned libjsoncppNN dep only breaks apt on distros whose jsoncpp soname
+# differs from the build runner's (e.g. Ubuntu 25.x / Debian trixie ship 26).
 cat > "$pkgroot/DEBIAN/control" <<CONTROL
 Package: prism
 Version: $version
@@ -99,7 +66,7 @@ Architecture: amd64
 Maintainer: Prism Contributors <maintainers@prismplural.com>
 Homepage: https://prismplural.com
 Installed-Size: $installed_size
-Depends: $depends
+Depends: libc6, libstdc++6, libgtk-3-0, libglib2.0-0, libsecret-1-0, libsqlite3-0, libasound2
 Description: Plural system management with end-to-end encrypted sync
  Prism helps plural systems track fronting, chat internally, build habits,
  run polls, keep shared notes and member profiles, and sync across devices
@@ -109,23 +76,6 @@ CONTROL
 mkdir -p "$dist"
 deb="$dist/Prism-${version}-linux-amd64.deb"
 dpkg-deb --build --root-owner-group "$pkgroot" "$deb"
-
-# Fail closed: jsoncpp must never come back, and a dep we know is linked (GTK)
-# must be present — its absence means the derivation broke.
-packaged_depends=$(dpkg-deb --field "$deb" Depends)
-echo "Packaged Depends: $packaged_depends"
-case "$packaged_depends" in
-  *jsoncpp*)
-    echo "ERROR: jsoncpp is back in Depends, but nothing in the bundle links it." >&2
-    exit 1 ;;
-esac
-case "$packaged_depends" in
-  *libgtk-3-0*) : ;;
-  *)
-    echo "ERROR: Depends is missing libgtk-3-0 — shlibdeps derivation looks broken." >&2
-    exit 1 ;;
-esac
-
 (cd "$dist" && sha256sum "$(basename "$deb")" > "$(basename "$deb").sha256")
 dpkg-deb --info "$deb"
 dpkg-deb --contents "$deb" | sed -n '1,80p'

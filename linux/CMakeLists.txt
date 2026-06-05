@@ -106,6 +106,16 @@ foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
     COMPONENT Runtime)
 endforeach(bundled_library)
 
+# flutter_soloud links its own bundled audio codecs (FLAC/Ogg/Opus/Vorbis) via
+# RPATH but only lists its plugin .so in flutter_soloud_bundled_libraries, so
+# the codecs never reach the bundle and the plugin fails to dlopen without
+# matching system codecs. Ship them too (the launcher adds lib/ to LD_LIBRARY_PATH).
+install(DIRECTORY
+  "${CMAKE_CURRENT_SOURCE_DIR}/flutter/ephemeral/.plugin_symlinks/flutter_soloud/linux/libs/"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime
+  FILES_MATCHING PATTERN "*.so*")
+
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"

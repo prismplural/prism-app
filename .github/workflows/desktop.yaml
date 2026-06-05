@@ -65,6 +65,7 @@ jobs:
           #!/bin/sh
           DIR="$(dirname "$(readlink -f "$0")")"
           export GDK_BACKEND=x11
+          export LD_LIBRARY_PATH="$DIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           if [ -n "${XDG_DATA_DIRS:-}" ]; then
             export XDG_DATA_DIRS="$DIR/share:$XDG_DATA_DIRS"
           else
