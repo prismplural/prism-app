@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,6 +22,9 @@ const kFullResetCompletedAtKey = 'prism.reset.completed_at';
 const kFreshInstallAnomalyKey = 'prism.reset.fresh_install_anomaly';
 const kNativeResetKeyClearPendingKey = 'prism.reset.native_key_clear_pending';
 const kMediaCacheClearPendingKey = 'prism.reset.media_cache_clear_pending';
+
+@visibleForTesting
+bool debugTreatFreshInstallSecureClearAsMacOS = false;
 
 /// SharedPreferences flag set to `true` on the first successful sync pairing.
 ///
@@ -355,8 +359,25 @@ class FullResetService {
       return true;
     } catch (e) {
       _log('Fresh-install secure-store cleanup failed: $e');
+      if (_isNonBlockingFreshInstallSecureClearFailure(e)) {
+        return true;
+      }
       return false;
     }
+  }
+
+  bool _isNonBlockingFreshInstallSecureClearFailure(Object error) {
+    if (!Platform.isMacOS && !debugTreatFreshInstallSecureClearAsMacOS) {
+      return false;
+    }
+    final text = error.toString().toLowerCase();
+    return text.contains('-50') ||
+        text.contains('errsecparam') ||
+        text.contains('parameters passed to a function were not valid') ||
+        text.contains('-34018') ||
+        text.contains('missingentitlement') ||
+        text.contains('missing entitlement') ||
+        text.contains('required entitlement');
   }
 
   Future<void> restoreInstallSentinelAfterAnomaly() async {

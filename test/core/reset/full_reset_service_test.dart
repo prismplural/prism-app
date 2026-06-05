@@ -18,6 +18,7 @@ void main() {
 
   setUp(() {
     debugForceMacSecureStorageEntitlementFallback = false;
+    debugTreatFreshInstallSecureClearAsMacOS = false;
     SharedPreferences.setMockInitialValues({});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
@@ -28,6 +29,7 @@ void main() {
 
   tearDown(() {
     debugForceMacSecureStorageEntitlementFallback = false;
+    debugTreatFreshInstallSecureClearAsMacOS = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
@@ -128,6 +130,48 @@ void main() {
       expect(decision.mode, ResetStartupMode.normal);
       expect(secureStore.deleteAllCalls, 1);
       expect(secureStore.values, isEmpty);
+      expect(nativeKeys.deleteKnownKeysCalls, 1);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
+      expect(prefs.getBool(kFreshInstallAnomalyKey), isNull);
+    },
+  );
+
+  test(
+    'fresh install guard tolerates macOS errSecParam cleanup on empty install',
+    () async {
+      debugTreatFreshInstallSecureClearAsMacOS = true;
+      final tempDir = await Directory.systemTemp.createTemp(
+        'prism-fresh-mac-deleteall-test-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final secureStore = _FakeFullResetSecureStore()
+        ..deleteAllError = StateError(
+          'secure store deleteAll failed '
+          '(failure=SecureStorageFailure.unknown, '
+          'code=Unexpected security result code, message=Code: -50, '
+          'Message: One or more parameters passed to a function were not valid.)',
+        );
+      final nativeKeys = _FakeNativeResetKeys();
+      final service = FullResetService(
+        secureStore: secureStore,
+        nativeResetKeys: nativeKeys,
+        appDataDirectory: () async => tempDir,
+        temporaryDirectory: () async => tempDir,
+        mediaCacheDirectory: () async =>
+            Directory(p.join(tempDir.path, 'none')),
+      );
+
+      final decision = await service.runFreshInstallResidueGuard();
+
+      expect(decision.mode, ResetStartupMode.normal);
+      expect(secureStore.deleteAllCalls, 1);
       expect(nativeKeys.deleteKnownKeysCalls, 1);
 
       final prefs = await SharedPreferences.getInstance();
@@ -1208,6 +1252,7 @@ void main() {
 class _FakeFullResetSecureStore implements FullResetSecureStore {
   final values = <String, String>{};
   bool throwOnDeleteAll = false;
+  Object? deleteAllError;
   int deleteAllCalls = 0;
   void Function()? onDeleteAll;
 
@@ -1220,6 +1265,10 @@ class _FakeFullResetSecureStore implements FullResetSecureStore {
   Future<void> deleteAll() async {
     deleteAllCalls += 1;
     onDeleteAll?.call();
+    final deleteAllError = this.deleteAllError;
+    if (deleteAllError != null) {
+      throw deleteAllError;
+    }
     if (throwOnDeleteAll) {
       throw StateError('deleteAll failed');
     }
