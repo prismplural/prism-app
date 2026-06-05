@@ -26,6 +26,7 @@ import 'package:prism_plurality/features/members/views/group_detail_screen.dart'
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/widgets/member_card.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
@@ -1785,6 +1786,139 @@ void main() {
       // Let the implicit-unlock toast auto-dismiss before the test ends.
       await tester.pump(const Duration(seconds: 4));
     });
+  });
+
+  testWidgets('route back button remains visible outside pane layout', (
+    tester,
+  ) async {
+    final parent = _group(id: 'parent', name: 'Parent');
+
+    await tester.pumpWidget(
+      _buildSubject(
+        group: parent,
+        allGroups: [parent],
+        allEntries: const [],
+        activeMembers: const [],
+        notifier: _FakeGroupNotifier(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Back'), findsOneWidget);
+  });
+
+  testWidgets('pane back button pops the group pane after data loads', (
+    tester,
+  ) async {
+    final parent = _group(id: 'parent', name: 'Parent');
+    var popCount = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+          allGroupsProvider.overrideWith((ref) => Stream.value([parent])),
+          allGroupEntriesProvider.overrideWith((ref) => const Stream.empty()),
+          groupByIdProvider.overrideWith(
+            (ref, groupId) =>
+                Stream.value(groupId == parent.id ? parent : null),
+          ),
+          groupEntriesProvider.overrideWith(
+            (ref, groupId) => const Stream.empty(),
+          ),
+          groupTreeProvider.overrideWith(
+            (ref) => GroupTreeUtils.buildGroupTree([parent]),
+          ),
+          groupNotifierProvider.overrideWith(_FakeGroupNotifier.new),
+          memberGroupsRepositoryProvider.overrideWithValue(
+            _FakeMemberGroupsRepository(allGroups: [parent]),
+          ),
+          allMemberFrontingStatsProvider.overrideWith((ref) async => const {}),
+          memberFrontingStatsProvider.overrideWith(
+            (ref, memberId) async => const MemberFrontingStats(
+              totalSessions: 0,
+              totalDuration: Duration.zero,
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: ListDetailPaneScope(
+            selectDetail: (_) {},
+            openInPane: (_) {},
+            popPane: () => popCount++,
+            canPopPane: true,
+            selectedDetailId: null,
+            child: GroupDetailScreen(groupId: parent.id),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pump();
+
+    expect(popCount, 1);
+  });
+
+  testWidgets('pane back button is hidden when the pane cannot pop', (
+    tester,
+  ) async {
+    final parent = _group(id: 'parent', name: 'Parent');
+    var popCount = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+          allGroupsProvider.overrideWith((ref) => Stream.value([parent])),
+          allGroupEntriesProvider.overrideWith((ref) => const Stream.empty()),
+          groupByIdProvider.overrideWith(
+            (ref, groupId) =>
+                Stream.value(groupId == parent.id ? parent : null),
+          ),
+          groupEntriesProvider.overrideWith(
+            (ref, groupId) => const Stream.empty(),
+          ),
+          groupTreeProvider.overrideWith(
+            (ref) => GroupTreeUtils.buildGroupTree([parent]),
+          ),
+          groupNotifierProvider.overrideWith(_FakeGroupNotifier.new),
+          memberGroupsRepositoryProvider.overrideWithValue(
+            _FakeMemberGroupsRepository(allGroups: [parent]),
+          ),
+          allMemberFrontingStatsProvider.overrideWith((ref) async => const {}),
+          memberFrontingStatsProvider.overrideWith(
+            (ref, memberId) async => const MemberFrontingStats(
+              totalSessions: 0,
+              totalDuration: Duration.zero,
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: ListDetailPaneScope(
+            selectDetail: (_) {},
+            openInPane: (_) {},
+            popPane: () => popCount++,
+            canPopPane: false,
+            selectedDetailId: null,
+            child: GroupDetailScreen(groupId: parent.id),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Back'), findsNothing);
+    expect(popCount, 0);
   });
 
   // ── Task 5.2 sub-group reorder ───────────────────────────────────────────

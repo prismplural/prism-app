@@ -221,6 +221,7 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
           keyboardType: TextInputType.multiline,
           minLines: 5,
           maxLines: null,
+          scrollPhysics: const NeverScrollableScrollPhysics(),
           textCapitalization: TextCapitalization.sentences,
         ),
       ],

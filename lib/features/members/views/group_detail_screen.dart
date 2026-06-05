@@ -182,6 +182,8 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    final paneScope = ListDetailPaneScope.maybeOf(context);
+    final canPopPane = paneScope?.canPopPane ?? false;
     final terms = watchTerminology(context, ref);
     final entriesAsync = ref.watch(groupEntriesProvider(group.id));
     final allGroupsAsync = ref.watch(allGroupsProvider);
@@ -233,7 +235,14 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     return PrismPageScaffold(
       topBar: PrismTopBar(
         title: '',
-        showBackButton: true,
+        showBackButton: paneScope == null,
+        leading: canPopPane
+            ? PrismTopBarAction(
+                icon: AppIcons.arrowBack,
+                tooltip: l10n.back,
+                onPressed: paneScope!.popPane,
+              )
+            : null,
         actions: [
           PrismTopBarAction(
             icon: AppIcons.editOutlined,

@@ -53,6 +53,7 @@ class PrismTextField extends StatelessWidget {
     this.prefixText,
     this.isDense,
     this.autocorrect,
+    this.scrollPhysics,
     this.contextMenuBuilder,
   }) : assert(
          controller == null || initialValue == null,
@@ -91,6 +92,7 @@ class PrismTextField extends StatelessWidget {
   final String? prefixText;
   final bool? isDense;
   final bool? autocorrect;
+  final ScrollPhysics? scrollPhysics;
 
   /// Optional override for the selection toolbar. Used by surfaces that
   /// intercept the "Paste" action (e.g. image-first paste). Forwarded verbatim
@@ -113,7 +115,9 @@ class PrismTextField extends StatelessWidget {
         return null;
       }
       final radius = BorderRadius.all(
-        Radius.circular(PrismShapes.of(context).radius(PrismTokens.radiusMedium)),
+        Radius.circular(
+          PrismShapes.of(context).radius(PrismTokens.radiusMedium),
+        ),
       );
       if (themeBorder is OutlineInputBorder) {
         return themeBorder.copyWith(borderRadius: radius);
@@ -182,9 +186,7 @@ class PrismTextField extends StatelessWidget {
       helperText: hasExternalLabel ? null : helperText,
       // Suppress below-field error text — errors show as an inline chip.
       errorText: hasError ? '' : null,
-      errorStyle: hasError
-          ? const TextStyle(fontSize: 0, height: 0)
-          : null,
+      errorStyle: hasError ? const TextStyle(fontSize: 0, height: 0) : null,
       prefixIcon: prefixIcon,
       suffixIcon: effectiveSuffix != null
           ? Padding(
@@ -204,9 +206,11 @@ class PrismTextField extends StatelessWidget {
       fillColor: isBorderless
           ? null
           : hasError
-              ? errorColor.withValues(alpha: 0.06)
-              : null,
-      border: isBorderless ? InputBorder.none : multiLineBorder(inputTheme.border),
+          ? errorColor.withValues(alpha: 0.06)
+          : null,
+      border: isBorderless
+          ? InputBorder.none
+          : multiLineBorder(inputTheme.border),
       enabledBorder: isBorderless
           ? InputBorder.none
           : multiLineBorder(inputTheme.enabledBorder),
@@ -243,6 +247,7 @@ class PrismTextField extends StatelessWidget {
       inputFormatters: inputFormatters,
       maxLength: maxLength,
       textAlign: textAlign,
+      scrollPhysics: scrollPhysics,
       // Preserve Flutter's default toolbar when no override is given; passing a
       // bare null here would suppress the selection menu entirely.
       contextMenuBuilder: contextMenuBuilder ?? _defaultContextMenuBuilder,
@@ -258,10 +263,7 @@ class PrismTextField extends StatelessWidget {
           const SizedBox(height: 6),
           // Semantics label so screen readers still announce the field name
           // even though the visual label lives outside the InputDecoration.
-          Semantics(
-            label: labelText,
-            child: textFormField,
-          ),
+          Semantics(label: labelText, child: textFormField),
           if (hasHelper) ...[
             const SizedBox(height: 4),
             Text(
@@ -288,13 +290,15 @@ class PrismTextField extends StatelessWidget {
     if (requiredPattern.hasMatch(labelText!)) {
       final base = labelText!.replaceAll(requiredPattern, '');
       return Text.rich(
-        TextSpan(children: [
-          TextSpan(text: base, style: style),
-          TextSpan(
-            text: ' *',
-            style: style.copyWith(color: theme.colorScheme.primary),
-          ),
-        ]),
+        TextSpan(
+          children: [
+            TextSpan(text: base, style: style),
+            TextSpan(
+              text: ' *',
+              style: style.copyWith(color: theme.colorScheme.primary),
+            ),
+          ],
+        ),
       );
     }
     return Text(labelText!, style: style);

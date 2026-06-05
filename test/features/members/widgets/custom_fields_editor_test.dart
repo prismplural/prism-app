@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -551,6 +552,76 @@ void main() {
     },
   );
 
+  testWidgets('trackpad scroll over grouped long text scrolls the editor', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repo = _FakeCustomFieldsRepository();
+    final controller = CustomFieldsEditorController();
+    final scrollController = ScrollController();
+    addTearDown(scrollController.dispose);
+    final showEditor = ValueNotifier(true);
+    final group = CustomField(
+      id: 'basics',
+      name: 'Basics',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      displayOrder: 0,
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const GroupConfig(),
+    );
+    final child = CustomField(
+      id: 'likes',
+      name: 'Likes',
+      fieldType: CustomFieldType.longText,
+      fieldTypeId: 'long_text',
+      parentFieldId: 'basics',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final fields = [
+      group,
+      child,
+      ..._textFields(count: 40, displayOrderOffset: 1),
+    ];
+
+    await tester.pumpWidget(
+      _subject(
+        repo: repo,
+        controller: controller,
+        scrollController: scrollController,
+        showEditor: showEditor,
+        memberId: memberId,
+        fields: fields,
+        values: const [],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(EditableText).first);
+    await tester.pumpAndSettle();
+
+    final editableText = tester.widget<EditableText>(
+      find.byType(EditableText).first,
+    );
+    expect(editableText.scrollPhysics, isA<NeverScrollableScrollPhysics>());
+
+    expect(scrollController.offset, 0);
+    tester.binding.handlePointerEvent(
+      PointerScrollEvent(
+        position: tester.getCenter(find.byType(EditableText).first),
+        scrollDelta: const Offset(0, 260),
+        kind: PointerDeviceKind.trackpad,
+      ),
+    );
+    await tester.pump();
+
+    expect(scrollController.offset, greaterThan(0));
+  });
+
   test('unregister() does not call notifyListeners — runs from dispose chains '
       'where the framework is locked and setState would assert', () {
     final controller = CustomFieldsEditorController();
@@ -605,6 +676,7 @@ Widget _subject({
   required String memberId,
   required List<CustomField> fields,
   required List<CustomFieldValue> values,
+  ScrollController? scrollController,
 }) {
   return ProviderScope(
     overrides: [
@@ -625,6 +697,7 @@ Widget _subject({
             return CustomFieldsEditor(
               memberId: memberId,
               controller: controller,
+              scrollController: scrollController,
             );
           },
         ),
