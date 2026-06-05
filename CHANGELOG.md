@@ -4,6 +4,30 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-06-05
+
+Patch release: optional centered sheets, wide-screen improvements, and a few more performance fixes. The 0.12.0 sync pin (`v0.12.0`, `417d4ac6`) is unchanged.
+
+### Added
+- Two opt-in accessibility preferences under settings: *force centered sheets* (center modal side-sheets on wide windows instead of pinning them to an edge) and *dim background behind sheets* (dim the app while a modal sheet is open). Applied across boards, member detail, fronting session/period, sleep, habits, polls, notes, groups, and several settings sub-screens.
+- Editing a member profile now happens inline in the same detail pane on wide layouts instead of pushing a new screen.
+
+### Changed
+- Boards, member detail, analytics, media settings, and the markdown text widget now defer offscreen subview construction until the content scrolls into view, so opening these screens on large systems is materially snappier.
+
+### Fixed
+- Partially-entered dates (e.g. year-only) in member custom fields no longer get silently cleared when moving between fields.
+- Long custom-field forms scroll responsively in the wide edit pane; the group-detail screen's reorderable list keeps its sliver structure under the new pane.
+- The Other-input on choice fields no longer auto-focuses a saved selection, so the keyboard doesn't pop up on every visit.
+- Back navigation from a group / folder back to its parent works again on wide layouts after editing.
+- Desktop sidebar hover fill snaps to its end state instead of crossfading, eliminating the dark flash when moving between items.
+- The new accessibility sheet preferences are warmed at startup, so the very first sheet opened already honors the setting.
+- The Linux .deb's hardcoded `libjsoncpp25` runtime dependency is dropped (nothing in the bundle links jsoncpp; the phantom dep caused `apt install` to reject the package on Ubuntu 25.x and Debian trixie, which ship `libjsoncpp26`). Flutter Soloud's FLAC / Ogg / Opus / Vorbis codec libraries are now bundled into `lib/` and the launchers prepend `lib/` to `LD_LIBRARY_PATH`, so audio playback works on systems whose codec sonames differ from the build runner's. Verified end-to-end by repackaging the 0.12.0 binaries against `ubuntu:25.10`.
+
+### Internal
+- New CI workflow + script to build the Linux .deb on `ubuntu-22.04` (`.github/workflows/desktop.yaml`, `scripts/package_linux_deb.sh`). Supersedes an intermediate `dpkg-shlibdeps`-based approach that proved brittle against flutter_soloud's RPATH-bundled codec libraries.
+- prism-sync pin is unchanged from v0.12.0 (`417d4ac6`). No new sync tag; no `prism-sync/CHANGELOG.md` change.
+
 ## [0.12.0] - 2026-06-04
 
 This release introduces an adaptive desktop shell with multi-pane navigation, content panes for detail views, polished sheet workflows, and a new opt-in Media tab; a performance pass for large systems that lands on every platform (including bulk-delete coalescing and sync push pacing); a cross-device end-to-end sync test harness; sync hardening and recovery improvements; image paste into markdown editors; and a long tail of markdown, media, member, and settings fixes. Sync pin moves from v0.11.0 to v0.12.0.
