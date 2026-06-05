@@ -12,16 +12,23 @@ import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
+import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
+import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/providers/notes_providers.dart';
+import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
+import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/features/members/views/members_screen.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
@@ -29,6 +36,7 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_servi
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/providers/member_avatar_image_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 
@@ -117,6 +125,26 @@ Widget _buildSubject({
       memberAvatarImageDataProvider.overrideWith(
         (ref, memberId) => Stream.value(null),
       ),
+      recentMemberNotesProvider.overrideWith((ref, memberId) {
+        return Stream.value(const []);
+      }),
+      memberFrontingStatsProvider.overrideWith((ref, memberId) async {
+        return const MemberFrontingStats(
+          totalSessions: 0,
+          totalDuration: Duration.zero,
+        );
+      }),
+      memberRecentSessionsProvider.overrideWith((ref, memberId) async {
+        return const <FrontingSession>[];
+      }),
+      memberConversationsProvider.overrideWith((ref, memberId) async {
+        return const <Conversation>[];
+      }),
+      memberBoardSectionProvider.overrideWith((ref, memberId) {
+        return Stream.value(
+          const MemberBoardSection(publicPosts: [], totalPublic: 0),
+        );
+      }),
       customFieldsProvider.overrideWithValue(AsyncValue.data(customFields)),
       memberCustomFieldValuesProvider.overrideWith(
         (ref, memberId) => Stream.value(
@@ -142,6 +170,18 @@ Widget _buildSubject({
         membersNotifierProvider.overrideWith(() => membersNotifier),
       allGroupsProvider.overrideWith((ref) => Stream.value(groups)),
       allGroupEntriesProvider.overrideWith((ref) => Stream.value(entries)),
+      groupByIdProvider.overrideWith((ref, groupId) {
+        final matching = groups.where((group) => group.id == groupId);
+        return Stream.value(matching.isEmpty ? null : matching.first);
+      }),
+      groupEntriesProvider.overrideWith(
+        (ref, groupId) => Stream.value(
+          entries.where((entry) => entry.groupId == groupId).toList(),
+        ),
+      ),
+      groupTreeProvider.overrideWith(
+        (ref) => GroupTreeUtils.buildGroupTree(groups),
+      ),
       memberGroupsProvider.overrideWith((ref, memberId) {
         final groupIds = entries
             .where((entry) => entry.memberId == memberId)
@@ -151,10 +191,26 @@ Widget _buildSubject({
           groups.where((group) => groupIds.contains(group.id)).toList(),
         );
       }),
+      membersByIdsListProvider.overrideWith((ref, idsKey) {
+        final ids = idsKey.isEmpty
+            ? const <String>{}
+            : idsKey.split(',').toSet();
+        return Stream.value({
+          for (final member in members)
+            if (ids.contains(member.id)) member.id: member,
+        });
+      }),
     ],
     child: child,
   );
 }
+
+Finder _memberDetailEditButton() => find
+    .descendant(
+      of: find.byType(MemberDetailScreen),
+      matching: find.byIcon(AppIcons.editOutlined),
+    )
+    .hitTestable();
 
 class _FakeFrontingNotifier extends FrontingNotifier {
   final startFrontingCalls = <List<String>>[];
@@ -229,6 +285,10 @@ void main() {
 
     await tester.pumpWidget(
       _buildSubject(
+        settings: const SystemSettings(
+          notesEnabled: false,
+          boardsEnabled: false,
+        ),
         members: [_member('alice')],
         groups: const [],
         entries: const [],
@@ -261,7 +321,7 @@ void main() {
     await tester.tap(find.text('Member alice'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.byIcon(AppIcons.editOutlined));
+    await tester.tap(_memberDetailEditButton().first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -276,6 +336,37 @@ void main() {
 
     expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
     expect(find.text('Custom Fields'), findsNWidgets(2));
+  });
+
+  testWidgets('wide layout system back clears selected member detail', (
+    tester,
+  ) async {
+    _setWideWindow(tester);
+
+    await tester.pumpWidget(
+      _buildSubject(
+        members: [_member('alice')],
+        groups: const [],
+        entries: const [],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select a headmate'), findsOneWidget);
+
+    await tester.tap(find.text('Member alice'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Select a headmate'), findsNothing);
+
+    final handled = await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(handled, isTrue);
+    expect(find.text('Select a headmate'), findsOneWidget);
+    expect(find.text('Member alice'), findsOneWidget);
   });
 
   testWidgets(
@@ -325,7 +416,7 @@ void main() {
       await tester.tap(find.text('Member alice'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      await tester.tap(find.byIcon(AppIcons.editOutlined));
+      await tester.tap(_memberDetailEditButton().first);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       await tester.tap(find.text('Custom Fields'));
@@ -548,6 +639,7 @@ void main() {
             memberId: 'alice',
           ),
         ],
+        withRouter: true,
       ),
     );
     await tester.pumpAndSettle();
@@ -576,6 +668,7 @@ void main() {
             memberId: 'alice',
           ),
         ],
+        withRouter: true,
       ),
     );
     await tester.pumpAndSettle();
@@ -756,6 +849,8 @@ void main() {
       _buildSubject(
         settings: const SystemSettings(
           membersListViewMode: MembersListViewMode.folders,
+          notesEnabled: false,
+          boardsEnabled: false,
         ),
         members: members,
         groups: [group],
@@ -779,6 +874,265 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Group detail crew'), findsOneWidget);
+  });
+
+  testWidgets('wide folder view back returns from group detail to folders', (
+    tester,
+  ) async {
+    _setWideWindow(tester);
+
+    final group = _group('crew', 'Crew');
+    final members = [_member('alice'), _member('bob', displayOrder: 1)];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.folders,
+          notesEnabled: false,
+          boardsEnabled: false,
+        ),
+        members: members,
+        groups: [group],
+        entries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'crew',
+            memberId: 'alice',
+          ),
+        ],
+        withRouter: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Crew'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsNothing);
+
+    await tester.tap(find.text('Crew'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Back'), findsOneWidget);
+    expect(find.text('Member alice'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Back'), findsNothing);
+    expect(find.text('Crew'), findsOneWidget);
+    expect(find.text('Member bob'), findsOneWidget);
+  });
+
+  testWidgets('wide folder view handles system back from group detail', (
+    tester,
+  ) async {
+    _setWideWindow(tester);
+
+    final group = _group('crew', 'Crew');
+    final members = [_member('alice'), _member('bob', displayOrder: 1)];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.folders,
+        ),
+        members: members,
+        groups: [group],
+        entries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'crew',
+            memberId: 'alice',
+          ),
+        ],
+        withRouter: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Crew'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Back'), findsOneWidget);
+
+    final handled = await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(handled, isTrue);
+    expect(find.byTooltip('Back'), findsNothing);
+    expect(find.text('Crew'), findsOneWidget);
+    expect(find.text('Member bob'), findsOneWidget);
+  });
+
+  testWidgets('wide folder view resets when the members tab is selected', (
+    tester,
+  ) async {
+    _setWideWindow(tester);
+
+    final group = _group('crew', 'Crew');
+    final members = [_member('alice'), _member('bob', displayOrder: 1)];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.folders,
+        ),
+        members: members,
+        groups: [group],
+        entries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'crew',
+            memberId: 'alice',
+          ),
+        ],
+        withRouter: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Crew'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Back'), findsOneWidget);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MembersScreen)),
+    );
+    container
+        .read(tabSelectionProvider.notifier)
+        .fire(
+          branchIndex: appShellBranchIndex(AppShellTabId.members),
+          isRetap: false,
+        );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Back'), findsNothing);
+    expect(find.text('Crew'), findsOneWidget);
+    expect(find.text('Member bob'), findsOneWidget);
+
+    await tester.tap(find.text('Crew'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Back'), findsOneWidget);
+
+    container
+        .read(tabSelectionProvider.notifier)
+        .fire(
+          branchIndex: appShellBranchIndex(AppShellTabId.members),
+          isRetap: true,
+        );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Back'), findsNothing);
+    expect(find.text('Crew'), findsOneWidget);
+    expect(find.text('Member bob'), findsOneWidget);
+  });
+
+  testWidgets('wide folder view system back closes edit before group pane', (
+    tester,
+  ) async {
+    _setWideWindow(tester);
+
+    final group = _group('crew', 'Crew');
+    final members = [_member('alice'), _member('bob', displayOrder: 1)];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.folders,
+        ),
+        members: members,
+        groups: [group],
+        entries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'crew',
+            memberId: 'alice',
+          ),
+        ],
+        withRouter: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Crew'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Member alice').hitTestable().first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(_memberDetailEditButton().first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Name *'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
+    expect(find.text('Member bob'), findsNothing);
+
+    final handled = await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(handled, isTrue);
+    expect(find.text('Name *'), findsNothing);
+    expect(find.byTooltip('Back'), findsOneWidget);
+    expect(find.text('Member bob'), findsNothing);
+  });
+
+  testWidgets('wide folder view tab selection preserves active edit context', (
+    tester,
+  ) async {
+    _setWideWindow(tester);
+
+    final group = _group('crew', 'Crew');
+    final members = [_member('alice'), _member('bob', displayOrder: 1)];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.folders,
+        ),
+        members: members,
+        groups: [group],
+        entries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'crew',
+            memberId: 'alice',
+          ),
+        ],
+        withRouter: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Crew'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Member alice').hitTestable().first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(_memberDetailEditButton().first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Name *'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
+    expect(find.text('Member bob'), findsNothing);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MembersScreen)),
+    );
+    container
+        .read(tabSelectionProvider.notifier)
+        .fire(
+          branchIndex: appShellBranchIndex(AppShellTabId.members),
+          isRetap: true,
+        );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Name *'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
+    expect(find.text('Member bob'), findsNothing);
   });
 
   testWidgets('folder view can show only ungrouped members below groups', (

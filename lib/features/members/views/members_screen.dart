@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
@@ -136,6 +137,16 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
   String _memberPath(String id) => widget.branch.memberPath(id);
 
   String _groupPath(String id) => widget.branch.groupPath(id);
+
+  int get _shellBranchIndex => switch (widget.branch) {
+    MemberNavigationBranch.settings => appShellBranchIndex(
+      AppShellTabId.settings,
+    ),
+    MemberNavigationBranch.members => appShellBranchIndex(
+      AppShellTabId.members,
+    ),
+    MemberNavigationBranch.groups => appShellBranchIndex(AppShellTabId.groups),
+  };
 
   Widget _buildOptionsMenuAction(List<Member>? members, Terminology terms) {
     final l10n = context.l10n;
@@ -561,6 +572,11 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<TabSelectionEvent?>(tabSelectionProvider, (_, next) {
+      if (next?.branchIndex != _shellBranchIndex) return;
+      _resetPaneForTabSelection();
+    });
+
     // Member-list screen is user-facing — hide the Unknown sentinel from both
     // the active and "show inactive" views. Sentinel still resolves for any
     // session that points at it via the unfiltered providers used elsewhere.
@@ -747,13 +763,24 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
 
   Widget _wrapListPane(Widget child) {
     if (!isDetailPaneVisible) return child;
-    return ListDetailPaneScope(
-      selectDetail: (id) => _selectMember(id, navigate: () {}),
-      openInPane: _openGroupInPane,
-      popPane: _popGroupPane,
-      canPopPane: _paneGroupStack.isNotEmpty,
-      selectedDetailId: selectedDetailId,
-      child: child,
+    final hasPaneBackAction =
+        _detailPaneMode == _MemberDetailPaneMode.edit ||
+        _paneGroupStack.isNotEmpty ||
+        selectedDetailId != null;
+    return PopScope<void>(
+      canPop: !hasPaneBackAction,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handlePaneBack();
+      },
+      child: ListDetailPaneScope(
+        selectDetail: (id) => _selectMember(id, navigate: () {}),
+        openInPane: _openGroupInPane,
+        popPane: _popGroupPane,
+        canPopPane: _paneGroupStack.isNotEmpty,
+        selectedDetailId: selectedDetailId,
+        child: child,
+      ),
     );
   }
 
@@ -763,6 +790,32 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     if (_paneGroupStack.isEmpty) return;
     _paneGroupStack.removeLast();
     setState(() {});
+  }
+
+  void _handlePaneBack() {
+    if (_detailPaneMode == _MemberDetailPaneMode.edit) {
+      _closeEditPane();
+      return;
+    }
+    if (_paneGroupStack.isNotEmpty) {
+      _popGroupPane();
+      return;
+    }
+    if (selectedDetailId != null) {
+      _clearDetailPane();
+    }
+  }
+
+  void _resetPaneForTabSelection() {
+    if (_detailPaneMode == _MemberDetailPaneMode.edit) return;
+    if (_paneGroupStack.isEmpty && selectedDetailId == null) {
+      return;
+    }
+    setState(() {
+      _paneGroupStack.clear();
+      selectedDetailId = null;
+      _detailPaneMode = _MemberDetailPaneMode.detail;
+    });
   }
 
   void _selectMember(String id, {required VoidCallback navigate}) {

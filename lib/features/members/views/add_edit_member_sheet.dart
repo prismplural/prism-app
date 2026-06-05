@@ -1286,9 +1286,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         ],
       ]),
       builder: (context, _) {
-        // System back in a detail view pops to main; the guard is set
-        // inactive in that state so it doesn't double-fire its discard
-        // dialog on what's really an in-sheet nav.
+        // Embedded panes delegate route-level back to their parent.
         return PopScope<Object?>(
           canPop: _view == _MemberEditView.main,
           onPopInvokedWithResult: (didPop, _) {
@@ -1299,7 +1297,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
           },
           child: UnsavedChangesGuard<bool>(
             hasUnsavedChanges: _isDirty,
-            isActive: _view == _MemberEditView.main,
+            isActive: !widget.embedded && _view == _MemberEditView.main,
             onDiscard: _customFieldsEditorController.discard,
             child: SafeArea(
               child: Form(

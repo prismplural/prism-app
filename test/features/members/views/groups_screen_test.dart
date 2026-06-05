@@ -16,6 +16,7 @@ import 'package:prism_plurality/features/members/views/group_detail_screen.dart'
 import 'package:prism_plurality/features/members/views/groups_screen.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 class _RecordingGroupNotifier extends GroupNotifier {
@@ -124,6 +125,115 @@ void main() {
 
     expect(find.byType(GroupDetailScreen), findsOneWidget);
     expect(find.byTooltip('Back'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(GroupDetailScreen), findsNothing);
+    expect(find.text('Crew'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsNothing);
+  });
+
+  testWidgets('wide layouts handle system back from group detail', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1200, 800);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final group = _group(id: 'crew', name: 'Crew');
+    final notifier = _RecordingGroupNotifier();
+
+    await tester.pumpWidget(_buildSubject(groups: [group], notifier: notifier));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Crew'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(GroupDetailScreen), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
+
+    final handled = await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(handled, isTrue);
+    expect(find.byType(GroupDetailScreen), findsNothing);
+    expect(find.text('Crew'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsNothing);
+  });
+
+  testWidgets('wide layouts reset when the groups tab is selected', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1200, 800);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final group = _group(id: 'crew', name: 'Crew');
+    final notifier = _RecordingGroupNotifier();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+          allGroupsProvider.overrideWith((ref) => Stream.value([group])),
+          allGroupEntriesProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroupEntry>[]),
+          ),
+          groupByIdProvider.overrideWith(
+            (ref, groupId) => Stream.value(groupId == group.id ? group : null),
+          ),
+          groupEntriesProvider.overrideWith(
+            (ref, groupId) => Stream.value(const <MemberGroupEntry>[]),
+          ),
+          activeMembersProvider.overrideWith(
+            (ref) => Stream.value(const <Member>[]),
+          ),
+          allMembersProvider.overrideWith(
+            (ref) => Stream.value(const <Member>[]),
+          ),
+          groupNotifierProvider.overrideWith(() => notifier),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en')],
+          home: GroupsScreen(
+            showBackButton: false,
+            branch: MemberNavigationBranch.groups,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Crew'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(GroupDetailScreen), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(GroupsScreen)),
+    );
+    container
+        .read(tabSelectionProvider.notifier)
+        .fire(
+          branchIndex: appShellBranchIndex(AppShellTabId.groups),
+          isRetap: true,
+        );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(GroupDetailScreen), findsNothing);
+    expect(find.text('Crew'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsNothing);
   });
 
   testWidgets('offers one-shot sorting for root groups and sub-groups', (

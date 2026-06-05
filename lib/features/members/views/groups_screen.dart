@@ -5,6 +5,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
@@ -72,6 +73,16 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
   String _groupPathFor(String id) => widget.branch.groupPath(id);
 
+  int get _shellBranchIndex => switch (widget.branch) {
+    MemberNavigationBranch.settings => appShellBranchIndex(
+      AppShellTabId.settings,
+    ),
+    MemberNavigationBranch.members => appShellBranchIndex(
+      AppShellTabId.members,
+    ),
+    MemberNavigationBranch.groups => appShellBranchIndex(AppShellTabId.groups),
+  };
+
   void _openCreateSheet() {
     PrismSheet.showFullScreen(
       context: context,
@@ -116,6 +127,11 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<TabSelectionEvent?>(tabSelectionProvider, (_, next) {
+      if (next?.branchIndex != _shellBranchIndex) return;
+      _resetPaneForTabSelection();
+    });
+
     final l10n = context.l10n;
     final counts = ref.watch(groupMemberCountsProvider);
     final hideMemberCount =
@@ -227,13 +243,20 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       child: KeyedSubtree(key: ValueKey(levelKey), child: child),
     );
     if (!enablePaneScope) return content;
-    return ListDetailPaneScope(
-      selectDetail: _openMemberDetailSheet,
-      openInPane: _openGroupInPane,
-      popPane: _popGroupPane,
-      canPopPane: _paneGroupStack.isNotEmpty,
-      selectedDetailId: null,
-      child: content,
+    return PopScope<void>(
+      canPop: _paneGroupStack.isEmpty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || _paneGroupStack.isEmpty) return;
+        _popGroupPane();
+      },
+      child: ListDetailPaneScope(
+        selectDetail: _openMemberDetailSheet,
+        openInPane: _openGroupInPane,
+        popPane: _popGroupPane,
+        canPopPane: _paneGroupStack.isNotEmpty,
+        selectedDetailId: null,
+        child: content,
+      ),
     );
   }
 
@@ -257,6 +280,11 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     if (_paneGroupStack.isEmpty) return;
     _paneGroupStack.removeLast();
     setState(() {});
+  }
+
+  void _resetPaneForTabSelection() {
+    if (_paneGroupStack.isEmpty) return;
+    setState(_paneGroupStack.clear);
   }
 
   void _openGroup(String id) {

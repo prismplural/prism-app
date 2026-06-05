@@ -427,6 +427,43 @@ class TabRetapNotifier extends Notifier<int> {
   void fire() => state++;
 }
 
+int appShellBranchIndex(AppShellTabId id) =>
+    appShellTabs.firstWhere((tab) => tab.id == id).branchIndex;
+
+@immutable
+class TabSelectionEvent {
+  const TabSelectionEvent({
+    required this.branchIndex,
+    required this.sequence,
+    required this.isRetap,
+  });
+
+  final int branchIndex;
+  final int sequence;
+  final bool isRetap;
+}
+
+/// Emits the shell branch selected by the user.
+final tabSelectionProvider =
+    NotifierProvider<TabSelectionNotifier, TabSelectionEvent?>(
+      TabSelectionNotifier.new,
+    );
+
+class TabSelectionNotifier extends Notifier<TabSelectionEvent?> {
+  var _sequence = 0;
+
+  @override
+  TabSelectionEvent? build() => null;
+
+  void fire({required int branchIndex, required bool isRetap}) {
+    state = TabSelectionEvent(
+      branchIndex: branchIndex,
+      sequence: ++_sequence,
+      isRetap: isRetap,
+    );
+  }
+}
+
 /// Provides the actual floating nav bar inset to descendant widgets.
 /// Use `NavBarInset.of(context)` to get the total bottom space to pad content.
 class NavBarInset extends InheritedWidget {
@@ -873,6 +910,9 @@ class _AppShellState extends ConsumerState<AppShell>
         );
         widget.navigationShell.goBranch(tab.branchIndex, initialLocation: true);
       }
+      ref
+          .read(tabSelectionProvider.notifier)
+          .fire(branchIndex: tab.branchIndex, isRetap: isRetap);
       if (isRetap) {
         ref.read(tabRetapProvider.notifier).fire();
       }

@@ -21,6 +21,7 @@ import 'package:prism_plurality/features/fronting/migration/providers/fronting_m
 import 'package:prism_plurality/features/fronting/providers/fronting_session_repair_provider.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/providers/accessibility_preferences_provider.dart';
 
 void main() {
   testWidgets('blocks routes and shows migration status for old schemas', (
@@ -292,9 +293,25 @@ class _StartupGateHarness {
       spBoardsBackfillProvider.overrideWith((ref) async => null),
       spReplyQuoteBackfillProvider.overrideWith((ref) async => null),
       screenPrivacyControllerProvider.overrideWithValue(null),
+      dimBackgroundBehindSheetsProvider.overrideWith(
+        _StaticDimBackgroundNotifier.new,
+      ),
+      forceCenteredSheetsProvider.overrideWith(
+        _StaticForceCenteredNotifier.new,
+      ),
     ],
     child: const PrismApp(),
   );
+}
+
+class _StaticDimBackgroundNotifier extends DimBackgroundBehindSheetsNotifier {
+  @override
+  Future<bool> build() async => false;
+}
+
+class _StaticForceCenteredNotifier extends ForceCenteredSheetsNotifier {
+  @override
+  Future<bool> build() async => false;
 }
 
 class _HealthySyncHealthNotifier extends SyncHealthNotifier {
