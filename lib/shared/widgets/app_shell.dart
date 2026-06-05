@@ -31,7 +31,6 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
-import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/desktop_breakpoint.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/utils/nav_bar_layout.dart';
@@ -2100,8 +2099,10 @@ class _SidebarItemState extends State<_SidebarItem> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: Anim.sm,
+          // Plain Container, not AnimatedContainer: tweening the fill from
+          // Colors.transparent (a transparent black) flashed a dark tint
+          // mid-fade and lagged the highlight onto adjacent rows on hover.
+          child: Container(
             height: _kSidebarItemHeight,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -671,6 +672,143 @@ void main() {
     expect(gradient.colors[0], backdropColor.withValues(alpha: 0));
     expect(gradient.colors[1], backdropColor.withValues(alpha: 0.60));
     expect(gradient.colors[2], backdropColor.withValues(alpha: 0.86));
+  });
+
+  testWidgets('desktop sidebar hover fill snaps without a dark mid-tween', (
+    tester,
+  ) async {
+    // Wide enough to cross the desktop breakpoint and render the sidebar.
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final semantics = tester.ensureSemantics();
+    try {
+      const settings = SystemSettings();
+      final configuredPrimaryTabs = appShellTabs.take(5).toList();
+
+      final router = GoRouter(
+        initialLocation: AppRoutePaths.home,
+        routes: [
+          StatefulShellRoute.indexedStack(
+            builder: (context, state, navigationShell) {
+              return AppShell(navigationShell: navigationShell);
+            },
+            branches: [
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: AppRoutePaths.home,
+                    builder: (context, state) =>
+                        const Scaffold(body: SizedBox.expand()),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            activeNavBarTabsProvider.overrideWithValue(configuredPrimaryTabs),
+            navBarOverflowTabsProvider.overrideWithValue(const <AppShellTab>[]),
+            systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
+            isPinSetProvider.overrideWith((ref) async => false),
+            syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
+            pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
+            pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
+            habitsBadgeEnabledProvider.overrideWith((ref) => false),
+            activeSessionsProvider.overrideWith(
+              (ref) => Stream.value(const []),
+            ),
+            allMembersProvider.overrideWith((ref) => Stream.value(const [])),
+            unreadConversationCountProvider.overrideWith((ref) => 0),
+            frontingMigrationGateProvider.overrideWith(
+              (ref) => FrontingMigrationGateStatus.complete,
+            ),
+          ],
+          child: MaterialApp.router(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            theme: ThemeData(fontFamily: 'OpenDyslexic'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Home (index 0) is selected at the initial route, so Settings is a
+      // guaranteed non-selected sidebar item to hover.
+      final appShellContext = tester.element(find.byType(AppShell));
+      final terminology = resolveTerminology(
+        AppLocalizations.of(appShellContext),
+        settings.terminology,
+        customSingular: settings.customTerminology,
+        customPlural: settings.customPluralTerminology,
+        useEnglish: settings.terminologyUseEnglish,
+      );
+      final settingsLabel = appShellTabs
+          .firstWhere((tab) => tab.id == AppShellTabId.settings)
+          .localizedLabel(appShellContext, terminologyPlural: terminology.plural);
+
+      final labelFinder = find.text(settingsLabel);
+      expect(labelFinder, findsOneWidget);
+
+      final itemRegion = find
+          .ancestor(of: labelFinder, matching: find.byType(MouseRegion))
+          .first;
+
+      // An implicit fill animation tweens from Colors.transparent (transparent
+      // black), so mid-fade frames render the dark flash this fix removed.
+      expect(
+        find.descendant(
+          of: itemRegion,
+          matching: find.byType(AnimatedContainer),
+        ),
+        findsNothing,
+        reason: 'Sidebar fill must snap, not implicitly animate.',
+      );
+
+      // Behavioral check: one frame after the pointer enters, the painted fill
+      // is already the full hover color — not a faint dark mid-tween value.
+      final theme = Theme.of(appShellContext);
+      final expectedHoverColor = theme.colorScheme.surfaceContainerHigh
+          .withValues(alpha: theme.brightness == Brightness.dark ? 0.62 : 0.72);
+
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+      await gesture.moveTo(tester.getCenter(labelFinder));
+      await tester.pump(const Duration(milliseconds: 1));
+
+      final paintedFill = tester
+          .widgetList<DecoratedBox>(
+            find.descendant(of: itemRegion, matching: find.byType(DecoratedBox)),
+          )
+          .map((box) => box.decoration)
+          .whereType<BoxDecoration>()
+          .firstWhere(
+            (decoration) =>
+                decoration.borderRadius != null && decoration.color != null,
+          );
+
+      expect(
+        paintedFill.color,
+        expectedHoverColor,
+        reason:
+            'Hover fill should be applied in a single frame, with no dark '
+            'transparent-black intermediate.',
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    } finally {
+      semantics.dispose();
+    }
   });
 }
 
