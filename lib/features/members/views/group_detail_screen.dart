@@ -1014,6 +1014,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final routeBacked = ListDetailPaneScope.maybeOf(context) == null;
     final hasChildren = ref.read(childGroupsProvider(group.id)).isNotEmpty;
 
     if (hasChildren) {
@@ -1043,7 +1044,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
           context,
           message: context.l10n.memberGroupDeleted(group.name),
         );
-        Navigator.of(context).pop();
+        closeDetailSurface(context, routeBacked: routeBacked);
       }
     }
   }

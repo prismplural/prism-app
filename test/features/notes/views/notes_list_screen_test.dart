@@ -279,6 +279,31 @@ void main() {
       expect(find.byType(NoteSheet), findsNothing);
       expect(find.text('Test Note'), findsWidgets);
     });
+
+    testWidgets('wide detail delete clears pane without popping app route', (
+      tester,
+    ) async {
+      _setWideWindow(tester);
+      final notes = _FakeNotesRepository([sampleNote]);
+
+      await tester.pumpWidget(
+        buildSubject(notes: [sampleNote], notesRepository: notes),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Test Note'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.deleteOutline));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(notes.deletedIds, ['note-1']);
+      expect(find.byType(NotesListScreen), findsOneWidget);
+      expect(find.text('Select a note'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 }
 
@@ -299,6 +324,7 @@ class _FakeNotesRepository implements NotesRepository {
   final Map<String, Note> _notes = {};
   final created = <Note>[];
   final updated = <Note>[];
+  final deletedIds = <String>[];
 
   @override
   Future<void> createNote(Note note) async {
@@ -308,6 +334,7 @@ class _FakeNotesRepository implements NotesRepository {
 
   @override
   Future<void> deleteNote(String id) async {
+    deletedIds.add(id);
     _notes.remove(id);
   }
 

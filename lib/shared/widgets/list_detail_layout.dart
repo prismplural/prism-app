@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -204,6 +206,29 @@ class ListDetailPaneControls extends InheritedWidget {
   @override
   bool updateShouldNotify(ListDetailPaneControls oldWidget) =>
       oldWidget.clearSelection != clearSelection;
+}
+
+/// Closes a detail surface without popping the app shell from embedded panes.
+bool closeDetailSurface(BuildContext context, {bool routeBacked = true}) {
+  if (!context.mounted) return false;
+
+  final clearSelection = ListDetailPaneControls.maybeOf(
+    context,
+  )?.clearSelection;
+  if (clearSelection != null) {
+    clearSelection();
+    return true;
+  }
+
+  final paneScope = ListDetailPaneScope.maybeOf(context);
+  if (paneScope?.canPopPane ?? false) {
+    paneScope!.popPane();
+    return true;
+  }
+
+  if (!routeBacked) return false;
+  unawaited(Navigator.of(context).maybePop());
+  return true;
 }
 
 /// Controls exposed to embedded list-pane content.

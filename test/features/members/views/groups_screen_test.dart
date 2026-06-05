@@ -24,6 +24,7 @@ class _RecordingGroupNotifier extends GroupNotifier {
 
   final Completer<void>? reorderCompleter;
   final reorderedSequences = <List<MemberGroup>>[];
+  final deletedIds = <String>[];
 
   @override
   Future<void> build() async {}
@@ -32,6 +33,11 @@ class _RecordingGroupNotifier extends GroupNotifier {
   Future<void> reorderGroups(List<MemberGroup> groups) async {
     reorderedSequences.add(List.of(groups));
     await (reorderCompleter?.future ?? Future<void>.value());
+  }
+
+  @override
+  Future<void> deleteGroup(String groupId) async {
+    deletedIds.add(groupId);
   }
 }
 
@@ -163,6 +169,40 @@ void main() {
     expect(find.byType(GroupDetailScreen), findsNothing);
     expect(find.text('Crew'), findsOneWidget);
     expect(find.byTooltip('Back'), findsNothing);
+  });
+
+  testWidgets('wide layouts delete group without popping app route', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1200, 800);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final group = _group(id: 'crew', name: 'Crew');
+    final notifier = _RecordingGroupNotifier();
+
+    await tester.pumpWidget(_buildSubject(groups: [group], notifier: notifier));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Crew'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+
+    expect(notifier.deletedIds, ['crew']);
+    expect(find.byType(GroupsScreen), findsOneWidget);
+    expect(find.byType(GroupDetailScreen), findsNothing);
+    expect(find.text('Crew'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 4));
   });
 
   testWidgets('wide layouts reset when the groups tab is selected', (

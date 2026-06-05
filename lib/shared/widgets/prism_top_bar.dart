@@ -70,7 +70,8 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
             ? PrismTopBarAction(
                 icon: AppIcons.close,
                 tooltip: context.l10n.close,
-                onPressed: clearPaneSelection,
+                onPressed: () =>
+                    closeDetailSurface(context, routeBacked: false),
               )
             : showAutoBack
             ? PrismTopBarAction(
@@ -78,7 +79,7 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
                 tooltip: inModalSideSheet
                     ? context.l10n.close
                     : context.l10n.back,
-                onPressed: () => Navigator.of(context).maybePop(),
+                onPressed: () => closeDetailSurface(context),
               )
             : null);
 

@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -214,11 +215,8 @@ class _NoteDetailBody extends ConsumerWidget {
     );
     if (confirmed) {
       unawaited(ref.read(noteNotifierProvider.notifier).deleteNote(note.id));
-      // When embedded in the detail pane there is no detail route to pop; the
-      // list-detail layout swaps back to its placeholder as the note stream
-      // emits null. Only pop when we own a back button (a full-screen route).
-      if (showBackButton && context.mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+      if (context.mounted) {
+        closeDetailSurface(context, routeBacked: showBackButton);
       }
     }
   }

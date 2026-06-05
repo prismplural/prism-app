@@ -244,6 +244,7 @@ class _FakeMembersNotifier extends MembersNotifier {
 
   final Completer<void>? reorderCompleter;
   final reorderedSequences = <List<Member>>[];
+  final deletedIds = <String>[];
 
   @override
   Future<void> build() async {}
@@ -252,6 +253,11 @@ class _FakeMembersNotifier extends MembersNotifier {
   Future<void> reorderMembers(List<Member> members) async {
     reorderedSequences.add(List.of(members));
     await (reorderCompleter?.future ?? Future<void>.value());
+  }
+
+  @override
+  Future<void> deleteMember(String id) async {
+    deletedIds.add(id);
   }
 }
 
@@ -367,6 +373,40 @@ void main() {
     expect(handled, isTrue);
     expect(find.text('Select a headmate'), findsOneWidget);
     expect(find.text('Member alice'), findsOneWidget);
+  });
+
+  testWidgets('wide layout delete clears detail without popping app route', (
+    tester,
+  ) async {
+    _setWideWindow(tester);
+
+    final membersNotifier = _FakeMembersNotifier();
+
+    await tester.pumpWidget(
+      _buildSubject(
+        members: [_member('alice')],
+        groups: const [],
+        entries: const [],
+        membersNotifier: membersNotifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Member alice'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.tap(find.byIcon(AppIcons.moreVert).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+
+    expect(membersNotifier.deletedIds, ['alice']);
+    expect(find.byType(MembersScreen), findsOneWidget);
+    expect(find.text('Select a headmate'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

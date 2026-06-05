@@ -36,6 +36,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
+import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/features/members/widgets/member_groups_section.dart';
 import 'package:prism_plurality/features/members/widgets/proxy_tags_section.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
@@ -306,7 +307,9 @@ class _MemberDetailBody extends ConsumerWidget {
       unawaited(
         ref.read(membersNotifierProvider.notifier).deleteMember(member.id),
       );
-      if (context.mounted) Navigator.of(context).pop();
+      if (context.mounted) {
+        closeDetailSurface(context, routeBacked: showBackButton);
+      }
     }
   }
 }
