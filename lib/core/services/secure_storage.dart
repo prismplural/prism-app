@@ -580,7 +580,7 @@ bool _shouldTryMacLegacyKeychain(
   if (!Platform.isMacOS && !debugForceMacSecureStorageEntitlementFallback) {
     return false;
   }
-  return _isMissingEntitlement(e);
+  return _isMissingEntitlement(e) || _isMacDataProtectionKeychainParamError(e);
 }
 
 bool _isMissingEntitlement(PlatformException e) {
@@ -593,6 +593,18 @@ bool _isMissingEntitlement(PlatformException e) {
       message.contains('missingentitlement') ||
       message.contains('missing entitlement') ||
       message.contains('required entitlement');
+}
+
+bool _isMacDataProtectionKeychainParamError(PlatformException e) {
+  final details = e.details;
+  if (details is int && details == -50) return true;
+  final message = e.message?.toLowerCase() ?? '';
+  final code = e.code.toLowerCase();
+  return code.contains('-50') ||
+      message.contains('-50') ||
+      code.contains('errsecparam') ||
+      message.contains('errsecparam') ||
+      message.contains('parameters passed to a function were not valid');
 }
 
 Future<SecureDeleteResult> _deleteMacLegacyKeyIfPresent(String key) async {

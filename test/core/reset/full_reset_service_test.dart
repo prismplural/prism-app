@@ -646,6 +646,73 @@ void main() {
   );
 
   test(
+    'wipeLocalData completes when macOS primary keychain delete returns errSecParam',
+    () async {
+      debugForceMacSecureStorageEntitlementFallback = true;
+      final platformSecureStore = _FakePlatformSecureStorage()
+        ..store.addAll({
+          kDatabaseKeyStorageKey: 'database-key',
+          '${kDatabaseKeyStorageKey}_staging': 'database-staging-key',
+          kSyncDatabaseKeyStorageKey: 'sync-key',
+          '${kSyncDatabaseKeyStorageKey}_staging': 'sync-staging-key',
+          'unrelated_secure_key': 'also-cleared',
+        })
+        ..throwOnPrimarySecureStorage = _macInvalidParameterException();
+      platformSecureStore.install();
+      addTearDown(platformSecureStore.uninstall);
+
+      final tempDir = await Directory.systemTemp.createTemp(
+        'prism-reset-mac-errsecparam-test-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      await File(p.join(tempDir.path, 'prism.db')).writeAsString('db');
+      await File(
+        p.join(tempDir.path, AppConstants.syncDatabaseName),
+      ).writeAsString('sync-db');
+
+      final nativeKeys = _FakeNativeResetKeys()..hasKeys = true;
+      final service = FullResetService(
+        secureStore: const PlatformFullResetSecureStore(),
+        nativeResetKeys: nativeKeys,
+        appDataDirectory: () async => tempDir,
+        temporaryDirectory: () async => tempDir,
+        mediaCacheDirectory: () async =>
+            Directory(p.join(tempDir.path, 'none')),
+        clearMediaCache: () async {},
+      );
+
+      await service.wipeLocalData();
+
+      expect(platformSecureStore.primaryFailureCalls, greaterThan(0));
+      expect(
+        platformSecureStore.legacyReadAllCalls,
+        greaterThan(0),
+        reason: 'deleteAll should sweep legacy keychain entries after -50',
+      );
+      expect(platformSecureStore.store, isEmpty);
+      expect(nativeKeys.deleteKnownKeysCalls, 1);
+      expect(nativeKeys.hasKeys, isFalse);
+      expect(await File(p.join(tempDir.path, 'prism.db')).exists(), isFalse);
+      expect(
+        await File(
+          p.join(tempDir.path, AppConstants.syncDatabaseName),
+        ).exists(),
+        isFalse,
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
+      expect(prefs.getBool(kFullResetRestartRequiredKey), isTrue);
+      expect(prefs.getString(kFullResetCompletedAtKey), isNotNull);
+    },
+  );
+
+  test(
     'wipeLocalData preserves sync disconnect marker for pairing handoff',
     () async {
       final tempDir = await Directory.systemTemp.createTemp(
@@ -1245,6 +1312,15 @@ PlatformException _macMissingEntitlementException() {
     code: 'Unexpected security result code',
     message: "Code: -34018, Message: A required entitlement isn't present.",
     details: -34018,
+  );
+}
+
+PlatformException _macInvalidParameterException() {
+  return PlatformException(
+    code: 'Unexpected security result code',
+    message:
+        'Code: -50, Message: One or more parameters passed to a function were not valid.',
+    details: -50,
   );
 }
 

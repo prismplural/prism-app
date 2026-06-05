@@ -171,6 +171,15 @@ PlatformException _macMissingEntitlementException() {
   );
 }
 
+PlatformException _macInvalidParameterException() {
+  return PlatformException(
+    code: 'Unexpected security result code',
+    message:
+        'Code: -50, Message: One or more parameters passed to a function were not valid.',
+    details: -50,
+  );
+}
+
 void main() {
   test('Android secure-storage options fail closed on migration errors', () {
     final options = secureStorage.aOptions.toMap();
@@ -635,6 +644,29 @@ void main() {
         expect(fake.store['db_key'], 'abc123');
       },
     );
+
+    test(
+      'falls back to the macOS legacy keychain when DP keychain returns errSecParam',
+      () async {
+        debugForceMacSecureStorageEntitlementFallback = true;
+        fake.throwOnPrimarySecureStorage = _macInvalidParameterException();
+
+        final result = await safeSecureWriteVerified(
+          'db_key',
+          'abc123',
+          storage: secureStorage,
+        );
+
+        expect(
+          result.ok,
+          isTrue,
+          reason:
+              'failure=${result.failure} code=${result.code} '
+              'message=${result.message}',
+        );
+        expect(fake.store['db_key'], 'abc123');
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -750,6 +782,27 @@ void main() {
         fake.store['a'] = '1';
         fake.store['b'] = '2';
         fake.throwOnPrimarySecureStorage = _macMissingEntitlementException();
+
+        final result = await safeSecureDeleteAll(storage: secureStorage);
+
+        expect(
+          result.ok,
+          isTrue,
+          reason:
+              'failure=${result.failure} code=${result.code} '
+              'message=${result.message}',
+        );
+        expect(fake.store, isEmpty);
+      },
+    );
+
+    test(
+      'safeSecureDeleteAll sweeps legacy macOS entries after DP keychain errSecParam',
+      () async {
+        debugForceMacSecureStorageEntitlementFallback = true;
+        fake.store['a'] = '1';
+        fake.store['b'] = '2';
+        fake.throwOnPrimarySecureStorage = _macInvalidParameterException();
 
         final result = await safeSecureDeleteAll(storage: secureStorage);
 

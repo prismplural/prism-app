@@ -280,11 +280,16 @@ def developer_id_sign_macos_dmg(dmg_path)
   )
 end
 
-def verify_macos_release_entitlements(app_path)
+def verify_macos_release_app(app_path, label: "exported macOS app")
+  sh("codesign --verify --deep --strict --verbose=2 #{Shellwords.escape(app_path)}")
+  verify_macos_release_entitlements(app_path, label: label)
+end
+
+def verify_macos_release_entitlements(app_path, label: "exported macOS app")
   profile_path = File.join(app_path, "Contents", "embedded.provisionprofile")
   if File.exist?(profile_path)
     UI.user_error!(
-      "Developer ID app still contains embedded.provisionprofile; " \
+      "#{label} still contains embedded.provisionprofile; " \
       "this can make AMFI kill the app at launch."
     )
   end
@@ -293,11 +298,11 @@ def verify_macos_release_entitlements(app_path)
     "codesign -d --entitlements :- #{Shellwords.escape(app_path)}"
   )
   unless status.success?
-    UI.user_error!("Could not read exported macOS app entitlements:\n#{stderr}")
+    UI.user_error!("Could not read #{label} entitlements:\n#{stderr}")
   end
   if stdout.strip.empty?
     UI.user_error!(
-      "Exported macOS app has no entitlements. Refusing to package a " \
+      "#{label} has no entitlements. Refusing to package a " \
       "Developer ID build that would fail sandbox/keychain operations."
     )
   end
@@ -309,7 +314,7 @@ def verify_macos_release_entitlements(app_path)
       "plutil -convert json -o - #{Shellwords.escape(entitlements_path)}"
     )
     unless json_status.success?
-      UI.user_error!("Could not parse exported macOS app entitlements:\n#{json_err}")
+      UI.user_error!("Could not parse #{label} entitlements:\n#{json_err}")
     end
 
     entitlements = JSON.parse(json)
@@ -338,13 +343,48 @@ def verify_macos_release_entitlements(app_path)
 
     unless mismatches.empty?
       UI.user_error!(
-        "Exported macOS app entitlements are not release-safe:\n" \
+        "#{label} entitlements are not release-safe:\n" \
         "#{mismatches.map { |m| "  - #{m}" }.join("\n")}"
       )
     end
   end
 
-  UI.success("Verified exported macOS app entitlements")
+  UI.success("Verified #{label} signing and entitlements")
+end
+
+def verify_macos_release_dmg(dmg_path)
+  sh("hdiutil verify #{Shellwords.escape(dmg_path)}")
+  sh("codesign --verify --strict --verbose=2 #{Shellwords.escape(dmg_path)}")
+
+  Dir.mktmpdir("prism-macos-dmg-mount") do |mount_point|
+    attached = false
+    begin
+      _stdout, stderr, status = Open3.capture3(
+        "hdiutil attach -nobrowse -readonly " \
+        "-mountpoint #{Shellwords.escape(mount_point)} " \
+        "#{Shellwords.escape(dmg_path)}"
+      )
+      unless status.success?
+        UI.user_error!("Could not mount macOS DMG for verification:\n#{stderr}")
+      end
+      attached = true
+
+      app_path = File.join(mount_point, "Prism.app")
+      unless Dir.exist?(app_path)
+        app_path = Dir[File.join(mount_point, "*.app")].first
+        app_path ||= Dir[File.join(mount_point, "**", "*.app")].first
+      end
+      UI.user_error!("Mounted macOS DMG does not contain Prism.app") unless app_path
+
+      verify_macos_release_app(app_path, label: "macOS DMG app")
+    ensure
+      if attached
+        sh("hdiutil detach #{Shellwords.escape(mount_point)} -quiet")
+      end
+    end
+  end
+
+  UI.success("Verified macOS DMG payload")
 end
 
 def create_macos_dmg(app_path, dmg_path, volume_name)
@@ -497,13 +537,13 @@ platform :mac do
 
     app_path = exported_mac_app_path(export_dir)
     developer_id_sign_macos_app(app_path)
-    sh("codesign --verify --deep --strict --verbose=2 #{Shellwords.escape(app_path)}")
-    verify_macos_release_entitlements(app_path)
+    verify_macos_release_app(app_path)
 
     create_macos_dmg(app_path, dmg_path, "Prism #{version.split("+").first}")
     developer_id_sign_macos_dmg(dmg_path)
     notarize_and_staple(dmg_path)
     sh("spctl --assess --type open --context context:primary-signature --verbose=4 #{Shellwords.escape(dmg_path)}")
+    verify_macos_release_dmg(dmg_path)
 
     checksum_path = write_sha256_file(dmg_path)
     tag = github_release_upload([dmg_path, checksum_path])

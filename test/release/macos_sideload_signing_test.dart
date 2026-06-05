@@ -37,7 +37,9 @@ void main() {
     expect(fastfile, contains('FileUtils.rm_f(profile_path)'));
     expect(fastfile, contains('developer_id_sign_macos_app(app_path)'));
 
-    final verifyStart = fastfile.indexOf('def verify_macos_release_entitlements');
+    final verifyStart = fastfile.indexOf(
+      'def verify_macos_release_entitlements',
+    );
     expect(verifyStart, isNonNegative);
     final verifyEnd = fastfile.indexOf('def create_macos_dmg', verifyStart);
     expect(verifyEnd, isNonNegative);
@@ -54,14 +56,20 @@ void main() {
       reason: 'Developer ID DMGs must not ship provisioning entitlements.',
     );
     expect(
-      verifyBody,
-      contains('"keychain-access-groups"'),
-      reason: 'Prism does not use a Keychain access group on macOS.',
+      fastfile,
+      isNot(contains('"keychain-access-groups" => []')),
+      reason:
+          'Developer ID apps without embedded profiles cannot launch with '
+          'Keychain Sharing; secure storage must use its legacy fallback.',
     );
     expect(
       verifyBody,
-      contains('must be absent in Developer ID DMG'),
+      contains('"keychain-access-groups"'),
+      reason:
+          'Keychain Sharing is a restricted entitlement and AMFI rejects the '
+          'Developer ID app at launch when no matching profile is embedded.',
     );
+    expect(verifyBody, contains('must be absent in Developer ID DMG'));
   });
 
   test('mac sideload signs the DMG container before notarizing', () {
@@ -77,5 +85,43 @@ void main() {
       lessThan(laneNotarize),
       reason: 'The notarized DMG must already have a Developer ID signature.',
     );
+  });
+
+  test('mac sideload verifies exported app and DMG payload before upload', () {
+    final fastfile = File('fastlane/Fastfile').readAsStringSync();
+
+    expect(fastfile, contains('def verify_macos_release_app'));
+    expect(fastfile, contains('def verify_macos_release_dmg'));
+    expect(fastfile, contains('hdiutil verify'));
+    expect(fastfile, contains('hdiutil attach -nobrowse -readonly'));
+    expect(fastfile, contains('verify_macos_release_app(app_path'));
+
+    final laneStart = fastfile.indexOf(
+      'lane :sideload do',
+      fastfile.indexOf('platform :mac do'),
+    );
+    expect(laneStart, isNonNegative);
+    final laneEnd = fastfile.indexOf('\n  end\nend', laneStart);
+    expect(laneEnd, isNonNegative);
+    final lane = fastfile.substring(laneStart, laneEnd);
+
+    final verifyApp = lane.indexOf('verify_macos_release_app(app_path)');
+    final createDmg = lane.indexOf('create_macos_dmg(app_path');
+    final verifyDmg = lane.indexOf('verify_macos_release_dmg(dmg_path)');
+    final checksum = lane.indexOf(
+      'checksum_path = write_sha256_file(dmg_path)',
+    );
+    final upload = lane.indexOf(
+      'github_release_upload([dmg_path, checksum_path])',
+    );
+
+    expect(verifyApp, isNonNegative);
+    expect(createDmg, isNonNegative);
+    expect(verifyDmg, isNonNegative);
+    expect(checksum, isNonNegative);
+    expect(upload, isNonNegative);
+    expect(verifyApp, lessThan(createDmg));
+    expect(verifyDmg, lessThan(checksum));
+    expect(checksum, lessThan(upload));
   });
 }
