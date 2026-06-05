@@ -86,6 +86,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
   late ChoiceFieldValue _initialValue;
   late ChoiceFieldValue _currentValue;
   late TextEditingController _otherController;
+  late FocusNode _otherFocusNode;
   // Buffered "Other" text; flushed into _currentValue on focus loss or commit.
   String? _pendingOtherText;
   final Map<String, GlobalKey<BlurPopupAnchorState>> _popupKeys = {};
@@ -98,6 +99,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
     _initialValue = _parseValue(widget.existingValue?.value);
     _currentValue = _initialValue;
     _otherController = TextEditingController(text: _currentValue.other ?? '');
+    _otherFocusNode = FocusNode();
   }
 
   @override
@@ -128,6 +130,9 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
     if (_otherController.text != newOther) {
       _otherController.text = newOther;
     }
+    if (next.other == null && _otherFocusNode.hasFocus) {
+      _otherFocusNode.unfocus();
+    }
     _syncDirtyState();
   }
 
@@ -135,6 +140,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
   void dispose() {
     _controller?.unregister(this);
     _otherController.dispose();
+    _otherFocusNode.dispose();
     super.dispose();
   }
 
@@ -366,6 +372,13 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
     _stage(_currentValue.copyWith(other: pending.trim()));
   }
 
+  void _focusOtherTextFieldAfterBuild() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _currentValue.other == null) return;
+      _otherFocusNode.requestFocus();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -419,9 +432,9 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
                 if (!hasFocus) _flushOtherText();
               },
               child: PrismTextField(
+                focusNode: _otherFocusNode,
                 controller: _otherController,
                 hintText: l10n.customFieldChoiceOtherTextHint,
-                autofocus: true,
                 minLines: 1,
                 maxLines: 2,
                 onChanged: (text) {
@@ -566,13 +579,13 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
         selected: isSelected,
         onTap: () {
           if (isSelected) {
-            // Deselect: clear other text.
             _pendingOtherText = null;
+            _otherFocusNode.unfocus();
             _otherController.clear();
             _stage(_currentValue.copyWith(other: null));
           } else {
-            // Select: mark as other-selected with empty text for now.
             _stage(_currentValue.copyWith(other: ''));
+            _focusOtherTextFieldAfterBuild();
           }
         },
       ),

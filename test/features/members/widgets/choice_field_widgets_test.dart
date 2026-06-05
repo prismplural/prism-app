@@ -368,6 +368,8 @@ void main() {
 
         // After tap: TextField expands.
         expect(find.byType(TextField), findsOneWidget);
+        final editable = tester.widget<EditableText>(find.byType(EditableText));
+        expect(editable.focusNode.hasFocus, isTrue);
 
         await tester.enterText(find.byType(TextField), 'Dragonfruit');
         await tester.pump();
@@ -401,6 +403,27 @@ void main() {
       expect(input.minLines, 1);
       expect(input.maxLines, 2);
     });
+
+    testWidgets(
+      'existing Other text does not autofocus when the editor mounts',
+      (tester) async {
+        final field = _choiceField(
+          options: [_option('a', 'Apples')],
+          allowsOther: true,
+        );
+        final value = _value('{"other":"Dragonfruit"}');
+
+        await tester.pumpWidget(_editorSubject(field: field, value: value));
+        await tester.pump();
+
+        final input = tester.widget<PrismTextField>(
+          find.byType(PrismTextField),
+        );
+        expect(input.autofocus, isFalse);
+        final editable = tester.widget<EditableText>(find.byType(EditableText));
+        expect(editable.focusNode.hasFocus, isFalse);
+      },
+    );
   });
 
   group('ChoiceEditor — deleted option handling', () {
